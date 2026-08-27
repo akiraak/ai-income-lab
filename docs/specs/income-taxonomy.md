@@ -18,6 +18,7 @@ AI に限らず、**そもそも金銭がどう発生するか**の全体地図�
 | 3 | [catalog.md](income-taxonomy/catalog.md) | 手法カタログ 61 件。属性と典型的な失敗理由 |
 | 4 | [ai-delta.md](income-taxonomy/ai-delta.md) | AI 差分。全 61 件に 消滅 / 残存 / 強化 / 新規 を判定 |
 | 5 | [shortlist.md](income-taxonomy/shortlist.md) | 候補抽出。資金額別・時間別・期間別に分類 |
+| 補 | [related-fields.md](income-taxonomy/related-fields.md) | 接続する学問。各層の対応文献と、学問側からの異議 7 件 |
 
 ## 背骨に置いた 2 つの仮説
 

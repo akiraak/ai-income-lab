@@ -23,5 +23,23 @@
 
 ### 体系の保守
 
+- [ ] 作成された人類と収入の体系をブラッシュアップする。分かりやすく。間違っているものは訂正。足りない視点は追加。
+  - 材料: [related-fields.md](docs/specs/income-taxonomy/related-fields.md) の対応文献（§1〜6）と異議 7 件（§7）
+  - **分かりやすく**
+    - [ ] 入口 [income-taxonomy.md](docs/specs/income-taxonomy.md) だけで結論と使い方が分かるようにする（各層の要約を 3 行以内で置く）
+    - [ ] 記法（L1〜L3 / P1〜P6 / 手法 ID）を初見で追えるよう、各ファイル冒頭に凡例を揃える
+    - [ ] 図と本文の食い違い・重複を洗い、1 図 1 主張に揃える
+  - **訂正**（学問側から否定されている点）
+    - [ ] 異議 A: [history.md](docs/specs/income-taxonomy/history.md) の一本線の起点を「物々交換」から「贈与・信用」に変える（Humphrey 1985、Graeber 2011）
+    - [ ] 異議 B: [ai-delta.md](docs/specs/income-taxonomy/ai-delta.md) の判定に「置換の実証: 有／無／未」列を足す。消滅 7 件のうち実証があるのは文章系のみと明記する
+    - [ ] 異議 C: 残存を「価値として残る（Baumol 型: 単価上昇）」と「責任の吸収体として残る（Elish 型: 単価は下がりうる）」に分ける
+    - [ ] 異議 D: [catalog.md](docs/specs/income-taxonomy/catalog.md) の E1 を「配当＋値上がり益」に広げるか、譲渡益を L3 の別エントリとして立てる
+  - **足りない視点の追加**
+    - [ ] 仮説 2 に「二重運動」（Polanyi）を明記し、人が抜ける流れは一方向でないことを本文で示す（異議 E）
+    - [ ] 源泉 7 仲介を「情報の非対称を埋める（L1）」と「場を占有する（L3・レント）」に分ける（異議 F）
+    - [ ] 源泉 9 資源に SNA との定義差（建物賃貸はサービス産出）を注記する（異議 G）
+    - [ ] 各層に「この層を支える学問」の 1 行と代表文献へのリンクを置き、体系を先行研究に接続する
+    - [ ] 「曝露 → 採用 → 置換」の 3 段を [ai-delta.md](docs/specs/income-taxonomy/ai-delta.md) の判定フローに組み込む
+
 - [ ] 実験結果が出るたびに [catalog.md](docs/specs/income-taxonomy/catalog.md) の該当エントリへ【実測】を追記する
 - [ ] AI 差分の判定（消滅/残存/強化/新規）が実測と食い違ったら [ai-delta.md](docs/specs/income-taxonomy/ai-delta.md) を書き換える

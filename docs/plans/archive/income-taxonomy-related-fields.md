@@ -2,7 +2,7 @@
 
 ## 目的・背景
 
-[docs/specs/income-taxonomy.md](../specs/income-taxonomy.md) は既存の学問を参照せずに一から組んだ。
+[docs/specs/income-taxonomy.md](../../specs/income-taxonomy.md) は既存の学問を参照せずに一から組んだ。
 このままでは「思いつきの体系」であり、どこが既存の知と一致し、どこが学問的に否定されているかが分からない。
 
 体系の各層（仮説・分類軸・歴史軸・AI 差分・絞り込み）について、接続する学問分野と代表的な文献を対応付け、

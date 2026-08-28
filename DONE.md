@@ -27,6 +27,18 @@
   - Phase 2: 通過（条件付き）— 合法に作れるのは自作・合成（Apache 2.0 / MIT 自前）・PD・公共データ。主要 SNS / EC の Web 収集は規約で不可。Claude / OpenAI / Gemini の出力は販売不可
   - Phase 3: 案 A（自分の声を ElevenLabs に登録）・案 B（日本語評価セットを AWS Data Exchange に出品）を設計。B は qwen3:8b でパイロット 10 件を生成（295 秒/件、validate 問題 0）。**検証（録音・出品）はユーザー判断で実施せず打ち切り**。収入 0・費用 0【実測】
   - 体系へのフィードバック: I7 の個人の入口は L2 でなく L1 受託か権利許諾。分割は体系の保守で判断（TODO に注記）
+- 2026-08-27 D7 既存コンテンツの AI 学習許諾 を分析する（**条件付き成立** — 打ち切り 3 件の後で初めて残った候補）
+  - 成果物: [docs/specs/experiments/d7-content-licensing.md](docs/specs/experiments/d7-content-licensing.md)
+  - プラン: [docs/plans/archive/d7-content-licensing.md](docs/plans/archive/d7-content-licensing.md) / 試算スクリプト: `experiments/d7-content-licensing/calc.py`
+  - 新しく作らず既存の在庫を使うため、判定式を**回収期間ではなく時間あたり収入**にし、B14（受託 $31〜65/時）と比較した
+  - **声**（ElevenLabs）: 月 $80〜320、登録は一度きり → 時間あたり $96〜1,280。2 年目以降は追加作業ゼロで継続。**成立**
+  - **動画**（Troveo）: 個人例 1,400 時間で $33,000/年 = $23.6/時間・年 → 時間あたり $236。収入も作業も在庫に比例するため**在庫量に依存しない**。**成立**
+  - **写真**: 中央値 $0.0069/枚。1 万枚で $69 と、Wirestock の最低支払額 $30〜50 にすら届かないものが多い。**不成立**
+  - 単価の乖離を検証: 第三者情報 $1〜4/分 と個人例 $23.6/時間・年 のずれは、採用率 10〜39% で説明がつく（在庫の 1〜4 割しか売れない）
+  - ⚠ 権利条件を規約の一次情報で確認: ElevenLabs は撤回可だが **Notice Period を長くするほど報酬が上がる**（撤回しにくさと報酬のトレードオフ）、レートは事業者裁量、学習利用の可否は規約に記載なし。Troveo は **95% が独占契約**で撤回の定めなし
+  - ⚠ **日本からの受取可否が一次情報で確認できず、採否は保留**。着手前に問い合わせで潰せる論点として TODO へ
+  - 体系へのフィードバック: D7 に**継続分配型（ElevenLabs、L2）と独占売却型（Troveo、実態は E8/D6）が混在**していることが判明。I7 → B14/D7 と同じ構造の見落としのため、分割を保守タスクに起票
+  - **打ち切り 3 件との対比**: 3 件はいずれも「AI で作れるようになった＝供給が増えた」側だったが、D7 は**既に在庫を持つ側**に立つため供給過剰の影響を受けない。この軸を体系に入れる課題を起票
 - 2026-08-27 C4/C5 買い切りアプリ・SaaS を分析する（**打ち切り**）
   - 成果物: [docs/specs/experiments/c4c5-app-saas.md](docs/specs/experiments/c4c5-app-saas.md)
   - プラン: [docs/plans/archive/c4c5-app-saas.md](docs/plans/archive/c4c5-app-saas.md) / 試算スクリプト: `experiments/c4c5-app-saas/calc.py`

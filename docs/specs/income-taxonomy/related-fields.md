@@ -3,7 +3,7 @@
 [体系](../income-taxonomy.md) の各層が、どの学問のどの概念の上に載っているかを対応付ける。
 目的は 2 つ。**体系を補強する材料**を確保することと、**学問側から見て体系が食い違っている点**を洗い出すこと。
 
-入口: [../income-taxonomy.md](../income-taxonomy.md) ／ 関連: [axes.md](axes.md) [history.md](history.md) [ai-delta.md](ai-delta.md) [shortlist.md](shortlist.md)
+読み方: [../overview.md](../overview.md) ／ 入口: [../income-taxonomy.md](../income-taxonomy.md) ／ 関連: [axes.md](axes.md) [history.md](history.md) [ai-delta.md](ai-delta.md) [shortlist.md](shortlist.md)
 
 **記法**: L1〜L3（人の関与度）／ P1〜P6（当事者構成）／ 1〜9（価値の源泉）／ A1〜J4（手法 ID）／ ⚠（法規制・利用規約に触れる）／【推測】【実測】（数値の根拠）。定義は [axes.md の記法](axes.md#記法)。
 

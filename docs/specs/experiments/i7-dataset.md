@@ -3,6 +3,7 @@
 [catalog.md](../income-taxonomy/catalog.md) の I7、[ai-delta.md](../income-taxonomy/ai-delta.md) で「新規」判定。
 [shortlist.md](../income-taxonomy/shortlist.md) の全セグメント推奨 1 位。
 プラン: `docs/plans/i7-dataset-validation.md`
+読み方: [../overview.md](../overview.md) ／ 体系: [../income-taxonomy.md](../income-taxonomy.md)
 
 セグメント: 資金 大 × 週 5〜15 時間 × 回収 6 ヶ月〜1 年（2026-08-26 確定）
 

@@ -2,6 +2,7 @@
 
 調査日: 2026-08-27 / プラン: [docs/plans/archive/i8-gpu-rental.md](../../plans/archive/i8-gpu-rental.md)
 方針: 机上調査のみ。機材購入・契約・出品は行っていない。
+読み方: [../overview.md](../overview.md) ／ 体系: [../income-taxonomy.md](../income-taxonomy.md)
 
 ## 結論: **打ち切り**
 

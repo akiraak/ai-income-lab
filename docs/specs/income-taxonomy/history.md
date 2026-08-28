@@ -3,7 +3,7 @@
 追うのは 2 本だけ。**何が希少だったか**と、**取引から誰が抜けたか**。
 通史の網羅はしない（歴史記述に踏み込むと体系が使えなくなる）。
 
-入口: [../income-taxonomy.md](../income-taxonomy.md) ／ 前: [axes.md](axes.md) ／ 次: [catalog.md](catalog.md)
+読み方: [../overview.md](../overview.md) ／ 入口: [../income-taxonomy.md](../income-taxonomy.md) ／ 前: [axes.md](axes.md) ／ 次: [catalog.md](catalog.md)
 
 **記法**: L1〜L3（人の関与度）／ P1〜P6（当事者構成）／ 1〜9（価値の源泉）／ A1〜J4（手法 ID）／ ⚠（法規制・利用規約に触れる）／【推測】【実測】（数値の根拠）。定義は [axes.md の記法](axes.md#記法)。
 

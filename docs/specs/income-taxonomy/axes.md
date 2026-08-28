@@ -3,7 +3,7 @@
 収入手法を並べるための座標系を定義する。以降の [history.md](history.md) / [catalog.md](catalog.md) /
 [ai-delta.md](ai-delta.md) / [shortlist.md](shortlist.md) は、すべてこの軸の上に載る。
 
-入口: [../income-taxonomy.md](../income-taxonomy.md)
+読み方: [../overview.md](../overview.md) ／ 入口: [../income-taxonomy.md](../income-taxonomy.md)
 
 **記法**は下の [記法](#記法) 節で定義する。
 

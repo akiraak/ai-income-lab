@@ -4,7 +4,7 @@
 
 現代で実際に取れる収入手法を **64 件** 列挙し、[axes.md](axes.md) の軸で属性を埋める。
 
-入口: [../income-taxonomy.md](../income-taxonomy.md) ／ 前: [history.md](history.md) ／ 次: [ai-delta.md](ai-delta.md)
+読み方: [../overview.md](../overview.md) ／ 入口: [../income-taxonomy.md](../income-taxonomy.md) ／ 前: [history.md](history.md) ／ 次: [ai-delta.md](ai-delta.md)
 
 **記法**: L1〜L3（人の関与度）／ P1〜P6（当事者構成）／ 1〜9（価値の源泉）／ A1〜J4（手法 ID）／ ⚠（法規制・利用規約に触れる）／【推測】【実測】（数値の根拠）。定義は [axes.md の記法](axes.md#記法)。
 

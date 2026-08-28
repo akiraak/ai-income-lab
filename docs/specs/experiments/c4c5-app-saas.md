@@ -2,6 +2,7 @@
 
 調査日: 2026-08-27 / プラン: [docs/plans/archive/c4c5-app-saas.md](../../plans/archive/c4c5-app-saas.md)
 方針: 机上調査のみ。開発・リリース・課金設定は行っていない。
+読み方: [../overview.md](../overview.md) ／ 体系: [../income-taxonomy.md](../income-taxonomy.md)
 
 ## 結論: **打ち切り**（I8 とは理由の質が違う）
 

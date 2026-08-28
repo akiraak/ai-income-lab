@@ -1,7 +1,7 @@
 # I7 案 B: ソフトウェア開発の日本語評価セット — 生成パイプライン
 
 実験ドキュメント: [docs/specs/experiments/i7-dataset.md](../../docs/specs/experiments/i7-dataset.md)
-プラン: [docs/plans/i7-dataset-validation.md](../../docs/plans/i7-dataset-validation.md)
+プラン: [docs/plans/archive/i7-dataset-validation.md](../../docs/plans/archive/i7-dataset-validation.md)
 
 ## 権利処理の原則（Phase 2 の結論をコードに落としたもの）
 

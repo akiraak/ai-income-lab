@@ -2,6 +2,7 @@
 
 調査日: 2026-08-27 / プラン: [docs/plans/archive/d7-content-licensing.md](../../plans/archive/d7-content-licensing.md)
 方針: 机上調査のみ。登録・アップロード・許諾は行っていない。
+読み方: [../overview.md](../overview.md) ／ 体系: [../income-taxonomy.md](../income-taxonomy.md)
 
 ## 結論: **声（ElevenLabs）は成立。動画（Troveo）は保留。写真は不成立**
 

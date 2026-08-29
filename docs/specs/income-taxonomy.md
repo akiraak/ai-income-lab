@@ -73,7 +73,7 @@ flowchart TB
 | 3 | **人対人は残るが、スケールしない。** 残存 27 件の大半が L1（毎回関与）で、単価は守れても件数は増やせない。ただし残存の 4 件（B2, B3, B9, B12）は「責任の吸収体」として残る型で、単価が守られる保証はない（Elish 2019） | [ai-delta.md](income-taxonomy/ai-delta.md) 両端への影響 |
 | 4 | **「人であること自体が価値」より「責任を引き受ける主体が要る」ほうが強い。** 前者は相手の気持ちで崩れるが、後者は法が支えている | [ai-delta.md](income-taxonomy/ai-delta.md) 人対人の側 |
 | 5 | **元手ゼロと「人が関与しない収入」はほぼ両立しない。** 資本ゼロ起点 31 件のうち L3 は 2 件だけで、どちらもリード 1〜3 年 | [catalog.md](income-taxonomy/catalog.md) 集計 |
-| 6 | **AI は L3 に入る技術と手間を大きく下げるが、元手は 1 円も下げない。** 元手のない個人の経路は「仕組みを作る」か「AI に売る」の 2 本 | [ai-delta.md](income-taxonomy/ai-delta.md) 人が居ない側 |
+| 6 | **AI は L3 に入る技術と手間を大きく下げるが、元手は 1 ドルも下げない。** 元手のない個人の経路は「仕組みを作る」か「AI に売る」の 2 本 | [ai-delta.md](income-taxonomy/ai-delta.md) 人が居ない側 |
 | 7 | **時間の投下は収入を増やすが、関与度は下げない。** 関与度を下げるのは資金か仕組みであって、時間ではない | [shortlist.md](income-taxonomy/shortlist.md) 時間軸 |
 
 ## 受け入れ条件の検証結果
@@ -143,6 +143,7 @@ flowchart TB
 | 2026-08-26 | 同 異議 D（Haig–Simons） | 譲渡益を **E8** として新設（61 → 62 件） |
 | 2026-08-26 | 同 異議 F・G（Spulber 1999、Christophers 2020、SNA 2008） | 源泉 7 を非対称型／占有型に分け、源泉 9 に SNA との定義差を注記 |
 | 2026-08-26 | [i7-dataset.md](experiments/i7-dataset.md) Phase 1・2 の調査 | I7 の個人の入口を **B14**（AI 開発者向け受託）と **D7**（既存コンテンツの学習許諾）に分割（62 → 64 件） |
+| **2026-08-28** | ⚠ **前提条件に税務上の居住地が無かった**（[online-tradable-assets.md](experiments/online-tradable-assets.md) を米国基準で作り直し、experiments 5 件を再判定） | 前提条件に **居住地 = 米国（WA 州シアトル）** を追加。必要資本の区分を **USD** で定義し直し、catalog の ⚠ を**日本法から米国連邦法・WA 州法へ**置換。**手法の件数（64）と軸の定義は変えていない** |
 
 ## この体系の使い方
 
@@ -151,7 +152,7 @@ flowchart TB
 2. [ai-delta.md](income-taxonomy/ai-delta.md) で同じ源泉・同じ関与度の手法がどう判定されているかを見る。
    消滅判定の隣にいるなら、着手前に「なぜ自分だけ崩れないのか」を説明できる必要がある
 3. [shortlist.md](income-taxonomy/shortlist.md) の 3 軸交差表で、自分の制約に合うセルを見る
-   （2026-08-26 に資金 大 × 週 5〜15 時間 × 回収 6 ヶ月〜1 年で確定。候補 8 件は shortlist.md「確定セグメントの候補」）
+   （居住地 米国 WA 州 × 資金 大 $100,000〜 × 週 5〜15 時間 × 回収 6 ヶ月〜1 年で確定。候補 8 件は shortlist.md「確定セグメントの候補」）
 4. 一次情報で判定したら、その記録を [experiments/](experiments/) に 1 手法 1 ファイルで残し、
    結果を [catalog.md](income-taxonomy/catalog.md) の該当エントリに追記する。
    判定（消滅／残存／強化／新規）が調査結果と食い違ったら [ai-delta.md](income-taxonomy/ai-delta.md) を書き換える

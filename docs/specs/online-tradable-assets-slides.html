@@ -1,0 +1,888 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>オンラインで売買できるもの — 11 分類・96 件</title>
+<style>
+/* ===== design tokens ===== */
+:root{
+  --bg:#fbfaf7; --panel:#ffffff; --ink:#171a21; --muted:#5f6775; --line:#dcd8d0;
+  --accent:#1f3a5f; --accent-soft:#eef2f7;
+  --warn:#a2371a; --warn-bg:#fdf3ef; --warn-line:#e0b6a6;
+  --t1:#166b4a; --t1bg:#e9f4ef;      /* (1) 維持型 */
+  --t2:#a2371a; --t2bg:#fbeee9;      /* (2) 元本毀損型 */
+  --t3:#8a5a12; --t3bg:#fbf2e2;      /* (3) 枯渇型 */
+  --t0:#5f6775; --t0bg:#eeeeef;      /* 判定不能・未確定 */
+  --zebra:#f6f4f0;
+  --font:system-ui,-apple-system,"Hiragino Kaku Gothic ProN","Noto Sans JP","Yu Gothic",Meiryo,"BIZ UDPGothic",sans-serif;
+  --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0;background:#e9e6e0;font-family:var(--font);color:var(--ink);overflow:hidden}
+a{color:var(--accent)}
+
+/* ===== fit-to-container ===== */
+#viewport{position:absolute;inset:0;overflow:hidden}
+/* ⚠ グリッドの place-items:center は、はみ出すと start 寄せに落ちて切れる。
+   実寸 1280x720 の箱を絶対配置で中央に置き、その中心を軸に scale する。 */
+#stage{position:absolute;left:50%;top:50%;margin-left:-640px;margin-top:-360px;
+  width:1280px;height:720px;transform-origin:center center;
+  background:var(--bg);box-shadow:0 2px 18px rgba(0,0,0,.18);overflow:hidden}
+
+/* ===== slide frame ===== */
+.slide{position:absolute;inset:0;display:none;flex-direction:column;padding:34px 46px 26px}
+.slide.active{display:flex}
+.shead{display:flex;align-items:flex-start;gap:16px;flex:0 0 auto}
+.shead .src{font:600 15px/1 var(--mono);color:#fff;background:var(--accent);
+  padding:6px 9px;border-radius:4px;letter-spacing:.02em;white-space:nowrap;margin-top:4px}
+.shead h2{margin:0;font-size:31px;line-height:1.22;letter-spacing:.01em;font-weight:700}
+.shead .cnt{font-size:19px;color:var(--muted);font-weight:600;margin-left:6px;white-space:nowrap}
+.shead .part{margin:5px 0 0;font-size:16px;color:var(--muted)}
+.sbody{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;gap:12px;padding-top:12px}
+.sfoot{flex:0 0 auto;display:flex;align-items:center;gap:14px;
+  border-top:1px solid var(--line);margin-top:10px;padding-top:8px;
+  font-size:13px;color:var(--muted)}
+.sfoot .grow{flex:1}
+.pno{font:600 14px/1 var(--mono);color:var(--muted)}
+
+/* claim line — 1 図 1 主張 / 1 スライド 1 主張 */
+.claim{font-size:23px;line-height:1.5;font-weight:700;color:var(--accent);
+  border-left:5px solid var(--accent);padding:2px 0 2px 14px;margin:0}
+.lead{font-size:21px;line-height:1.62;margin:0;color:var(--ink)}
+.lead + .lead{margin-top:2px}
+.note{font-size:17px;line-height:1.55;color:var(--muted);margin:0}
+
+/* warn block */
+.warn{background:var(--warn-bg);border:1px solid var(--warn-line);border-left:5px solid var(--warn);
+  border-radius:5px;padding:11px 15px;font-size:19px;line-height:1.55}
+.warn b{color:var(--warn)}
+.w::before{content:"⚠ ";color:var(--warn);font-weight:700}
+em.k{font-style:normal;font-weight:700;background:linear-gradient(transparent 62%,#ffe9a8 62%)}
+
+/* ===== table ===== */
+.tw{flex:1 1 auto;min-height:0;display:flex}
+table.grid{width:100%;border-collapse:collapse;table-layout:fixed;align-self:stretch;height:100%;font-size:17px}
+table.grid th{background:var(--accent);color:#fff;font-size:.86em;font-weight:700;
+  text-align:left;padding:7px 9px;letter-spacing:.02em;border-right:1px solid rgba(255,255,255,.25)}
+table.grid th:last-child{border-right:0}
+table.grid td{border-bottom:1px solid var(--line);padding:9px;vertical-align:top;
+  font-size:1em;line-height:1.44}
+table.grid tbody tr:nth-child(even){background:var(--zebra)}
+table.grid td.c1{font-weight:700}
+table.grid td.c4{font-variant-numeric:tabular-nums;text-align:right;white-space:normal}
+table.grid td.c5{font-size:.87em;line-height:1.42;color:#2c313b;
+  border-left:1px solid var(--line);background:rgba(0,0,0,.012)}
+table.grid tbody tr:nth-child(even) td.c5{background:rgba(0,0,0,.028)}
+table.grid td.c5 .w::before{content:"⚠ "}
+/* 行数が少ないほど級数を上げる。⚠ 実際の値は読み込み時の autofit が 1 枚ずつ詰める */
+table.grid.rows4{font-size:19px}
+table.grid.rows5{font-size:18.5px}
+table.grid.rows6{font-size:17.5px}
+table.grid.rows7{font-size:16.5px}
+table.grid.rows8{font-size:15.5px}
+table.grid.rows7 td,table.grid.rows8 td{padding:7px 9px}
+/* 行数が少ない手書きの表は、行が高くなるので上下中央に置く */
+table.grid.vmid td{vertical-align:middle}
+table.plain.fill{height:100%}
+table.plain.fill td,table.plain.fill th{vertical-align:middle}
+col.k1{width:20%}col.k2{width:15%}col.k3{width:17%}col.k4{width:17%}col.k5{width:31%}
+
+/* type badge */
+.tb{display:inline-block;font-size:13px;font-weight:700;border-radius:3px;
+  padding:1px 6px;margin-right:6px;white-space:nowrap;vertical-align:1px}
+.tb1{color:var(--t1);background:var(--t1bg);border:1px solid #b6ddca}
+.tb2{color:var(--t2);background:var(--t2bg);border:1px solid #e6bfae}
+.tb3{color:var(--t3);background:var(--t3bg);border:1px solid #e3cd9b}
+.tb0{color:var(--t0);background:var(--t0bg);border:1px solid #d3d3d6}
+
+/* ===== minimap ===== */
+.mm{margin-left:auto;display:flex;gap:3px;align-items:flex-end;flex:0 0 auto;padding-top:6px}
+.mm i{display:block;width:13px;background:#d8d4cc;border-radius:2px 2px 0 0}
+.mm i.on{background:var(--accent)}
+.mm .lb{font:600 11px/1 var(--mono);color:var(--muted);margin-left:7px;align-self:center}
+
+/* ===== cover ===== */
+.cover{justify-content:center;background:
+  radial-gradient(1100px 520px at 78% -8%, #e9eff6 0%, transparent 62%), var(--bg)}
+.cover h1{margin:0;font-size:56px;line-height:1.2;letter-spacing:.01em}
+.cover .sub{font-size:25px;color:var(--accent);font-weight:700;margin:16px 0 0}
+.cover .meta{margin-top:34px;font-size:16px;color:var(--muted);line-height:1.9}
+.cover .rule{width:96px;height:6px;background:var(--accent);margin:26px 0 0;border-radius:3px}
+
+/* ===== generic layout helpers ===== */
+.cols{display:flex;gap:18px;flex:1 1 auto;min-height:0}
+.cols > *{flex:1 1 0;min-width:0}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:7px;padding:14px 16px}
+.card h3{margin:0 0 8px;font-size:20px;color:var(--accent)}
+.card p{margin:0 0 7px;font-size:16.5px;line-height:1.55}
+.card p:last-child{margin-bottom:0}
+table.plain{width:100%;border-collapse:collapse;font-size:17px}
+table.plain th{text-align:left;font-size:14px;color:var(--muted);border-bottom:2px solid var(--line);padding:5px 8px}
+table.plain td{border-bottom:1px solid var(--line);padding:7px 8px;vertical-align:top;line-height:1.45}
+table.plain td.r{text-align:right;font-variant-numeric:tabular-nums;font-weight:700;white-space:nowrap}
+ul.tight{margin:0;padding-left:1.25em;font-size:17.5px;line-height:1.6}
+ul.tight li{margin-bottom:5px}
+.svgwrap{flex:1 1 auto;min-height:0;display:flex;align-items:center;justify-content:center}
+.svgwrap svg{width:100%;height:100%;display:block}
+.tag{display:inline-block;font:600 12px/1 var(--mono);color:var(--muted);
+  border:1px solid var(--line);border-radius:3px;padding:3px 6px;background:#fff}
+
+/* ===== chrome (not scaled) ===== */
+#bar{position:absolute;left:0;right:0;bottom:0;height:3px;background:rgba(0,0,0,.10);z-index:40}
+#bar > i{display:block;height:100%;background:var(--accent);width:0;transition:width .18s ease}
+#ctl{position:absolute;right:10px;bottom:12px;display:flex;gap:6px;z-index:41;
+  opacity:.32;transition:opacity .15s}
+#ctl:hover{opacity:1}
+#ctl button{font:600 13px/1 var(--font);color:#fff;background:rgba(31,58,95,.92);
+  border:0;border-radius:5px;padding:8px 11px;cursor:pointer}
+#ctl button:hover{background:#16293f}
+#toc{position:absolute;inset:0;z-index:50;display:none;background:rgba(23,26,33,.985);
+  color:#fff;padding:26px 32px;overflow:auto}
+#toc.open{display:block}
+#toc h3{margin:0 0 4px;font-size:22px}
+#toc .hint{font-size:13px;color:#b9bfc9;margin:0 0 16px}
+#toc .grid2{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:8px}
+#toc a{display:flex;gap:10px;align-items:baseline;color:#fff;text-decoration:none;
+  border:1px solid rgba(255,255,255,.18);border-radius:6px;padding:9px 12px;font-size:15px}
+#toc a:hover{background:rgba(255,255,255,.12)}
+#toc a .n{font:600 12px/1 var(--mono);color:#9fc0e6;min-width:42px}
+#toc a .c{margin-left:auto;font:600 12px/1 var(--mono);color:#b9bfc9}
+#toc .sect{margin:18px 0 8px;font-size:13px;letter-spacing:.08em;color:#9fc0e6;text-transform:uppercase}
+#msg{position:absolute;left:50%;bottom:56px;transform:translateX(-50%);z-index:60;
+  background:rgba(23,26,33,.92);color:#fff;font-size:13px;padding:8px 14px;border-radius:6px;
+  display:none;max-width:80%}
+@media print{#ctl,#toc,#bar{display:none}}
+</style>
+</head>
+<body>
+<div id="viewport"><div id="stage">
+
+<!-- ============ 1. 表紙 ============ -->
+<section class="slide cover" data-nav="front" data-title="表紙">
+  <div class="rule"></div>
+  <h1>オンラインで<br>売買できるもの</h1>
+  <p class="sub">11 分類・96 件の一覧</p>
+  <div class="meta">
+    出典: <code>docs/specs/online-tradable-assets.md</code> §14（2026-08-29 時点）<br>
+    ⚠ この資料は <b>§14 の一覧だけ</b>を扱う。調査の経緯（§0〜§13）と結論の順位（§15）は含まない。<br>
+    ⚠ 実行していない。銘柄・商品の推奨ではなく、投資・税務助言でもない。
+  </div>
+  <div class="sfoot"><span class="grow"></span><span class="tag">→ / Space で次へ　　o で目次</span><span class="pno"></span></div>
+</section>
+
+<!-- ============ 2. 前提と免責 ============ -->
+<section class="slide" data-nav="front" data-title="前提と免責">
+  <div class="shead"><span class="src">前提</span><h2>この一覧を読む前に</h2></div>
+  <div class="sbody">
+    <p class="claim">一覧は「オンラインで売買する市場が存在するか」だけで作った。買えるか・儲かるかは条件にしていない。</p>
+    <div class="cols">
+      <div class="card">
+        <h3>⚠ していないこと</h3>
+        <p class="w"><b>実行していない。</b>口座開設・入金・売買・登録は行わず、一次情報と試算だけで判定した。</p>
+        <p class="w"><b>投資・税務助言ではない。</b>個別の銘柄・商品の推奨も行わない。</p>
+        <p class="w"><b>網羅の保証はない。</b>4 巡の洗い直しで終了条件を満たした時点の一覧である。</p>
+      </div>
+      <div class="card">
+        <h3>前提</h3>
+        <p><b>居住地</b>: 米国ワシントン州の個人が、その経路で買えるかを見ている。</p>
+        <p><b>入口</b>: 米国の証券口座・オンラインの板・運営のサイト。⚠ 日本の証券口座は使えない（非居住者は新規買付停止、日本籍ファンドは PFIC）。</p>
+        <p><b>時点</b>: 利回り・価格・規制は 2026-08 時点。⚠ 変わる。</p>
+      </div>
+      <div class="card">
+        <h3>数値の表記区分</h3>
+        <p><b>【実測】</b> 自分で測った値。<br><b>【公表値】</b> 発行体・当局の公表ページ。出典 URL つき。<br><b>【推測】</b> 試算・見積り。<br><b>【Web 確認済（二次）】</b> 集計サイト・解説記事。一次で裏が取れていない。</p>
+        <p class="w"><b>この一覧の特記なき利回り・価格は 2026-08 時点の【Web 確認済（二次）】</b>として扱う。</p>
+      </div>
+    </div>
+  </div>
+  <div class="sfoot"><span>元文書 §14 冒頭・§8</span><span class="grow"></span><span class="pno"></span></div>
+</section>
+
+<!-- ============ 3. 表の読み方 ============ -->
+<section class="slide" data-nav="front" data-title="表の読み方">
+  <div class="shead"><span class="src">読み方</span><h2>表は 5 列で読む</h2></div>
+  <div class="sbody">
+    <p class="claim">4 つのゲート（入口・出口・維持・受取）は「落とす条件」をやめて「列」になった。だから 1 件も落ちていない。</p>
+    <table class="grid vmid">
+      <colgroup><col class="k1"><col class="k2"><col class="k3"><col class="k4"><col class="k5"></colgroup>
+      <thead><tr><th>候補</th><th>買う場所（入口）</th><th>売る場所（出口）</th><th>利回り／値動き</th><th>⚠ 属性</th></tr></thead>
+      <tbody>
+        <tr>
+          <td class="c1">何を買うのか。<br>銘柄・ティッカー・経路</td>
+          <td>どこで買えるか。⚠ <b>対面・実地が要るもの</b>もここに書く（落とさない）</td>
+          <td>どこで売れるか。⚠ <b>板が無いもの</b>もここに書く（落とさない）</td>
+          <td class="c4">分配利回り・値動き。<br>⚠ <b>「—」は未取得</b></td>
+          <td class="c5">⚠ その 1 件で<b>いちばん効く注意点を 1 つ</b>。型（<span class="tb tb1">①</span><span class="tb tb2">②</span><span class="tb tb3">③</span>）が判定済みならバッジを付す</td>
+        </tr>
+        <tr>
+          <td class="c1">例: <b>I Bonds</b></td><td>TreasuryDirect</td><td>財務省が償還<br>（買取保証型）</td>
+          <td class="c4">合成 4.26%</td>
+          <td class="c5"><span class="tb tb1">① 定義</span><span class="w"><b>年 $10,000 上限</b>、12 ヶ月拘束、5 年未満は直近 3 ヶ月分の利子を失う</span></td>
+        </tr>
+      </tbody>
+    </table>
+    <div class="warn"><b>⚠ 属性の列は元文書の全文ではない。</b>各行 1 点に絞ってある。全文は元文書 <code>online-tradable-assets.md</code> の該当 §（各表の左上に <span class="tag">§14-3</span> の形で出所を書いてある）で読むこと。</div>
+  </div>
+  <div class="sfoot"><span>元文書 §14 冒頭の対応表（ゲート → 属性）</span><span class="grow"></span><span class="pno"></span></div>
+</section>
+
+<!-- ============ 4. 11 分類の全体像 ============ -->
+<section class="slide" data-nav="front" data-title="11 分類の全体像">
+  <div class="shead"><span class="src">全体像</span><h2>11 分類は「買う“もの”の正体」で分かれている<span class="cnt">96 件</span></h2></div>
+  <div class="sbody">
+    <p class="claim">96 件のうち 68 件は同じ証券口座の板で完結し、残り 28 件は専門の板か相対取引になる。</p>
+    <div class="svgwrap" style="flex:1 1 62%">
+<svg viewBox="0 0 1180 330" role="img" aria-label="11 分類のマップ">
+  <text x="0" y="14" font-size="14" font-weight="700" fill="#1f3a5f" font-family="inherit">A. 証券口座の板で完結する<tspan fill="#5f6775" font-weight="400">　—　7 分類・68 件</tspan></text>
+  <g font-family="inherit">
+    <g><rect x="0" y="26" width="160" height="112" rx="7" fill="#fff" stroke="#1f3a5f" stroke-width="1.5"/><text x="10" y="45" font-size="11" font-family="ui-monospace,monospace" fill="#5f6775">14-1</text><text x="10" y="66" font-size="13.5" font-weight="700" fill="#171a21">株式・株式ファンド</text><text x="10" y="88" font-size="12" fill="#5f6775">会社の持分</text><text x="150" y="128" font-size="24" font-weight="700" fill="#1f3a5f" text-anchor="end">18</text></g>
+    <g><rect x="170" y="26" width="160" height="112" rx="7" fill="#fff" stroke="#1f3a5f" stroke-width="1.5"/><text x="180" y="45" font-size="11" font-family="ui-monospace,monospace" fill="#5f6775">14-2</text><text x="180" y="66" font-size="13.5" font-weight="700" fill="#171a21">上場の代替アクセス</text><text x="180" y="88" font-size="12" fill="#5f6775">資産を扱う</text><text x="180" y="104" font-size="12" fill="#5f6775">会社の株</text><text x="320" y="128" font-size="24" font-weight="700" fill="#1f3a5f" text-anchor="end">10</text></g>
+    <g><rect x="340" y="26" width="160" height="112" rx="7" fill="#fff" stroke="#1f3a5f" stroke-width="1.5"/><text x="350" y="45" font-size="11" font-family="ui-monospace,monospace" fill="#5f6775">14-3</text><text x="350" y="66" font-size="13.5" font-weight="700" fill="#171a21">債券・金利</text><text x="350" y="88" font-size="12" fill="#5f6775">貸したお金</text><text x="490" y="128" font-size="24" font-weight="700" fill="#1f3a5f" text-anchor="end">17</text></g>
+    <g><rect x="510" y="26" width="160" height="112" rx="7" fill="#fff" stroke="#1f3a5f" stroke-width="1.5"/><text x="520" y="45" font-size="11" font-family="ui-monospace,monospace" fill="#5f6775">14-4</text><text x="520" y="66" font-size="13.5" font-weight="700" fill="#171a21">保険・年金</text><text x="520" y="88" font-size="12" fill="#5f6775">保険契約</text><text x="660" y="128" font-size="24" font-weight="700" fill="#1f3a5f" text-anchor="end">4</text></g>
+    <g><rect x="680" y="26" width="160" height="112" rx="7" fill="#fff" stroke="#1f3a5f" stroke-width="1.5"/><text x="690" y="45" font-size="11" font-family="ui-monospace,monospace" fill="#5f6775">14-5</text><text x="690" y="66" font-size="13.5" font-weight="700" fill="#171a21">商品・実物</text><text x="690" y="88" font-size="12" fill="#5f6775">実物</text><text x="830" y="128" font-size="24" font-weight="700" fill="#1f3a5f" text-anchor="end">8</text></g>
+    <g><rect x="850" y="26" width="160" height="112" rx="7" fill="#fff" stroke="#1f3a5f" stroke-width="1.5"/><text x="860" y="45" font-size="11" font-family="ui-monospace,monospace" fill="#5f6775">14-6</text><text x="860" y="66" font-size="13.5" font-weight="700" fill="#171a21">デリバティブ</text><text x="860" y="83" font-size="13.5" font-weight="700" fill="#171a21">・仕組み</text><text x="860" y="104" font-size="12" fill="#5f6775">約束事</text><text x="1000" y="128" font-size="24" font-weight="700" fill="#1f3a5f" text-anchor="end">7</text></g>
+    <g><rect x="1020" y="26" width="160" height="112" rx="7" fill="#fff" stroke="#1f3a5f" stroke-width="1.5"/><text x="1030" y="45" font-size="11" font-family="ui-monospace,monospace" fill="#5f6775">14-7</text><text x="1030" y="66" font-size="13.5" font-weight="700" fill="#171a21">暗号資産</text><text x="1030" y="88" font-size="12" fill="#5f6775">トークン</text><text x="1170" y="128" font-size="24" font-weight="700" fill="#1f3a5f" text-anchor="end">4</text></g>
+  </g>
+  <text x="0" y="176" font-size="14" font-weight="700" fill="#8a5a12" font-family="inherit">B. 専門の板・相対取引<tspan fill="#5f6775" font-weight="400">　—　4 分類・28 件。⚠ 板が無いもの・作業が要るものが集まる</tspan></text>
+  <g font-family="inherit">
+    <g><rect x="0" y="188" width="286" height="112" rx="7" fill="#fdfaf3" stroke="#8a5a12" stroke-width="1.5"/><text x="12" y="207" font-size="11" font-family="ui-monospace,monospace" fill="#5f6775">14-8</text><text x="12" y="228" font-size="13.5" font-weight="700" fill="#171a21">権利・ロイヤリティ</text><text x="12" y="250" font-size="12" fill="#5f6775">使用料を生む権利</text><text x="274" y="290" font-size="24" font-weight="700" fill="#8a5a12" text-anchor="end">6</text></g>
+    <g><rect x="298" y="188" width="286" height="112" rx="7" fill="#fdfaf3" stroke="#8a5a12" stroke-width="1.5"/><text x="310" y="207" font-size="11" font-family="ui-monospace,monospace" fill="#5f6775">14-9</text><text x="310" y="228" font-size="13.5" font-weight="700" fill="#171a21">収集品・実物の板</text><text x="310" y="250" font-size="12" fill="#5f6775">現物の板</text><text x="572" y="290" font-size="24" font-weight="700" fill="#8a5a12" text-anchor="end">5</text></g>
+    <g><rect x="596" y="188" width="286" height="112" rx="7" fill="#fdfaf3" stroke="#8a5a12" stroke-width="1.5"/><text x="608" y="207" font-size="11" font-family="ui-monospace,monospace" fill="#5f6775">14-10</text><text x="608" y="228" font-size="13.5" font-weight="700" fill="#171a21">債権・不動産・未公開</text><text x="608" y="250" font-size="12" fill="#5f6775">個別の債権・持分</text><text x="870" y="290" font-size="24" font-weight="700" fill="#8a5a12" text-anchor="end">7</text></g>
+    <g><rect x="894" y="188" width="286" height="112" rx="7" fill="#fdfaf3" stroke="#8a5a12" stroke-width="1.5"/><text x="906" y="207" font-size="11" font-family="ui-monospace,monospace" fill="#5f6775">14-11</text><text x="906" y="228" font-size="13.5" font-weight="700" fill="#171a21">事業・在庫・その他</text><text x="906" y="250" font-size="12" fill="#5f6775">事業そのもの</text><text x="1168" y="290" font-size="24" font-weight="700" fill="#8a5a12" text-anchor="end">10</text></g>
+  </g>
+  <text x="0" y="322" font-size="12" fill="#5f6775" font-family="inherit">分類の境目は「買う“もの”の正体」。⚠ 利回りの高さでも、買いやすさでも分けていない。</text>
+</svg>
+    </div>
+    <div class="svgwrap" style="flex:0 0 96px">
+<svg viewBox="0 0 1180 90" role="img" aria-label="分類ごとの件数（合計 96 件）">
+  <text x="0" y="12" font-size="12" fill="#5f6775" font-family="inherit">分類ごとの件数（合計 96 件）</text>
+  <g font-family="inherit">
+    <rect x="0" y="20" width="221" height="46" fill="#1f3a5f"/><text x="10" y="38" font-size="11" fill="#c9d8ea" font-family="ui-monospace,monospace">14-1</text><text x="10" y="58" font-size="17" font-weight="700" fill="#fff">18</text>
+    <rect x="222" y="20" width="122" height="46" fill="#2c4f7c"/><text x="232" y="38" font-size="11" fill="#c9d8ea" font-family="ui-monospace,monospace">14-2</text><text x="232" y="58" font-size="17" font-weight="700" fill="#fff">10</text>
+    <rect x="345" y="20" width="209" height="46" fill="#1f3a5f"/><text x="355" y="38" font-size="11" fill="#c9d8ea" font-family="ui-monospace,monospace">14-3</text><text x="355" y="58" font-size="17" font-weight="700" fill="#fff">17</text>
+    <rect x="555" y="20" width="49" height="46" fill="#2c4f7c"/><text x="561" y="38" font-size="11" fill="#c9d8ea" font-family="ui-monospace,monospace">14-4</text><text x="561" y="58" font-size="17" font-weight="700" fill="#fff">4</text>
+    <rect x="605" y="20" width="98" height="46" fill="#1f3a5f"/><text x="613" y="38" font-size="11" fill="#c9d8ea" font-family="ui-monospace,monospace">14-5</text><text x="613" y="58" font-size="17" font-weight="700" fill="#fff">8</text>
+    <rect x="704" y="20" width="86" height="46" fill="#2c4f7c"/><text x="712" y="38" font-size="11" fill="#c9d8ea" font-family="ui-monospace,monospace">14-6</text><text x="712" y="58" font-size="17" font-weight="700" fill="#fff">7</text>
+    <rect x="791" y="20" width="49" height="46" fill="#1f3a5f"/><text x="797" y="38" font-size="11" fill="#c9d8ea" font-family="ui-monospace,monospace">14-7</text><text x="797" y="58" font-size="17" font-weight="700" fill="#fff">4</text>
+    <rect x="841" y="20" width="74" height="46" fill="#8a5a12"/><text x="849" y="38" font-size="11" fill="#f2e0c0" font-family="ui-monospace,monospace">14-8</text><text x="849" y="58" font-size="17" font-weight="700" fill="#fff">6</text>
+    <rect x="916" y="20" width="61" height="46" fill="#a06c1c"/><text x="922" y="38" font-size="11" fill="#f2e0c0" font-family="ui-monospace,monospace">14-9</text><text x="922" y="58" font-size="17" font-weight="700" fill="#fff">5</text>
+    <rect x="978" y="20" width="86" height="46" fill="#8a5a12"/><text x="984" y="38" font-size="11" fill="#f2e0c0" font-family="ui-monospace,monospace">14-10</text><text x="984" y="58" font-size="17" font-weight="700" fill="#fff">7</text>
+    <rect x="1065" y="20" width="115" height="46" fill="#a06c1c"/><text x="1071" y="38" font-size="11" fill="#f2e0c0" font-family="ui-monospace,monospace">14-11</text><text x="1071" y="58" font-size="17" font-weight="700" fill="#fff">10</text>
+  </g>
+  <line x1="0" y1="72" x2="554" y2="72" stroke="#1f3a5f" stroke-width="2"/><text x="0" y="87" font-size="11.5" fill="#1f3a5f" font-family="inherit">14-1〜14-3 の 3 分類だけで 45 件（全体の 47%）</text>
+  <line x1="841" y1="72" x2="1180" y2="72" stroke="#8a5a12" stroke-width="2"/><text x="1180" y="87" font-size="11.5" fill="#8a5a12" text-anchor="end" font-family="inherit">B 帯 28 件</text>
+</svg>
+    </div>
+  </div>
+  <div class="sfoot"><span>元文書 §14-1〜§14-11</span><span class="grow"></span><span class="pno"></span></div>
+</section>
+
+<!-- ============ 5. 凡例① 出口は 2 種類 ============ -->
+<section class="slide" data-nav="front" data-title="凡例① 出口の 2 型">
+  <div class="shead"><span class="src">凡例 ①</span><h2>「売る場所」の列は 2 種類ある</h2></div>
+  <div class="sbody">
+    <p class="claim">板が無くても出口はありうる。出口の定義は「板があるか」ではなく「常設の買い手がいるか」。</p>
+    <div class="svgwrap">
+<svg viewBox="0 0 1180 290" role="img" aria-label="出口の 2 種類">
+  <g font-family="inherit">
+    <rect x="0" y="0" width="574" height="212" rx="8" fill="#fff" stroke="#1f3a5f" stroke-width="1.5"/>
+    <text x="20" y="32" font-size="20" font-weight="700" fill="#1f3a5f">板型</text>
+    <text x="20" y="56" font-size="14" fill="#5f6775">市場で他の参加者と付け合わせる</text>
+    <g>
+      <rect x="24" y="76" width="120" height="13" fill="#c3d3e5"/><rect x="24" y="93" width="86" height="13" fill="#c3d3e5"/><rect x="24" y="110" width="54" height="13" fill="#c3d3e5"/>
+      <text x="152" y="88" font-size="11" fill="#5f6775" font-family="ui-monospace,monospace">bid</text>
+      <rect x="24" y="134" width="70" height="13" fill="#e6c4b4"/><rect x="24" y="151" width="104" height="13" fill="#e6c4b4"/><rect x="24" y="168" width="132" height="13" fill="#e6c4b4"/>
+      <text x="164" y="163" font-size="11" fill="#5f6775" font-family="ui-monospace,monospace">ask</text>
+      <line x1="24" y1="128" x2="230" y2="128" stroke="#171a21" stroke-width="1.5" stroke-dasharray="4 3"/>
+      <text x="236" y="132" font-size="11.5" fill="#171a21">時価</text>
+    </g>
+    <text x="300" y="90" font-size="13.5" font-weight="700" fill="#171a21">売却価格</text>
+    <text x="300" y="112" font-size="13" fill="#171a21">時価。⚠ 自分の注文量が</text>
+    <text x="300" y="130" font-size="13" fill="#171a21">価格を動かす</text>
+    <text x="300" y="158" font-size="13.5" font-weight="700" fill="#171a21">例</text>
+    <text x="300" y="180" font-size="13" fill="#5f6775">上場株・ETF・REIT・国債の</text>
+    <text x="300" y="197" font-size="13" fill="#5f6775">流通市場・暗号資産</text>
+
+    <rect x="606" y="0" width="574" height="212" rx="8" fill="#fff" stroke="#166b4a" stroke-width="1.5"/>
+    <text x="626" y="32" font-size="20" font-weight="700" fill="#166b4a">買取保証型</text>
+    <text x="626" y="56" font-size="14" fill="#5f6775">発行体・運営が定めた条件で買い取る</text>
+    <rect x="630" y="80" width="110" height="46" rx="6" fill="#e9f4ef" stroke="#166b4a"/><text x="685" y="108" font-size="13" fill="#166b4a" text-anchor="middle">自分</text>
+    <line x1="742" y1="103" x2="812" y2="103" stroke="#166b4a" stroke-width="2" marker-end="url(#ah)"/>
+    <text x="777" y="94" font-size="11" fill="#166b4a" text-anchor="middle">既定の式</text>
+    <rect x="818" y="80" width="130" height="46" rx="6" fill="#166b4a"/><text x="883" y="108" font-size="13" fill="#fff" text-anchor="middle">発行体・運営</text>
+    <text x="630" y="152" font-size="13.5" font-weight="700" fill="#171a21">売却価格</text>
+    <text x="630" y="174" font-size="13" fill="#171a21">額面など既定の式。<tspan font-weight="700">量に依存しない</tspan></text>
+    <text x="630" y="192" font-size="13" fill="#5f6775">例: I Bonds・EE Bonds（財務省が償還）、MYGA、ブローカード CD、</text>
+    <text x="630" y="208" font-size="13" fill="#5f6775">非上場 REIT の償還プログラム</text>
+  </g>
+  <rect x="1" y="228" width="1178" height="57" rx="6" fill="#fdf3ef" stroke="#e0b6a6"/>
+  <rect x="1" y="228" width="5" height="57" fill="#a2371a"/>
+  <text x="18" y="252" font-size="14.5" font-weight="700" fill="#a2371a" font-family="inherit">⚠ 「板が無い＝出口が無い」ではない。ただし米国では別の落ち方が付く。</text>
+  <text x="18" y="274" font-size="13.5" fill="#171a21" font-family="inherit">買取保証型には購入上限（I Bonds は SSN あたり年 $10,000【公表値】）・拘束期間（12 ヶ月）・停止しうる償還枠がある。⚠ 「出口はあるが、置ける金額が足りない」。</text>
+  <defs><marker id="ah" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#166b4a"/></marker></defs>
+</svg>
+    </div>
+  </div>
+  <div class="sfoot"><span>元文書 §1「出口は 1 種類ではない」</span><span class="grow"></span><span class="pno"></span></div>
+</section>
+
+<!-- ============ 6. 凡例② ①②③ の型 ============ -->
+<section class="slide" data-nav="front" data-title="凡例② ①②③ の型">
+  <div class="shead"><span class="src">凡例 ②</span><h2>⚠ 属性の列に出てくる <span class="tb tb1">①</span><span class="tb tb2">②</span><span class="tb tb3">③</span> は「分配の原資は何か」</h2></div>
+  <div class="sbody">
+    <p class="claim">同じ「高利回り」でも、分配が何から出ているかで扱いがまったく違う。</p>
+    <div class="svgwrap" style="flex:1 1 58%">
+<svg viewBox="0 0 1180 250" role="img" aria-label="①②③ の分岐">
+  <defs><marker id="a2" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#5f6775"/></marker></defs>
+  <g font-family="inherit">
+    <rect x="0" y="98" width="150" height="54" rx="7" fill="#eef2f7" stroke="#1f3a5f"/>
+    <text x="75" y="122" font-size="14" font-weight="700" fill="#1f3a5f" text-anchor="middle">高い</text>
+    <text x="75" y="141" font-size="14" font-weight="700" fill="#1f3a5f" text-anchor="middle">分配利回り</text>
+    <line x1="150" y1="125" x2="196" y2="125" stroke="#5f6775" stroke-width="1.6" marker-end="url(#a2)"/>
+
+    <rect x="200" y="90" width="190" height="70" rx="7" fill="#fff" stroke="#5f6775" stroke-dasharray="5 3"/>
+    <text x="295" y="118" font-size="14" fill="#171a21" text-anchor="middle">分配の原資は</text>
+    <text x="295" y="138" font-size="14" font-weight="700" fill="#171a21" text-anchor="middle">稼いだ収益か</text>
+
+    <path d="M390,110 L440,54 L486,54" fill="none" stroke="#166b4a" stroke-width="1.8" marker-end="url(#a2)"/>
+    <text x="404" y="74" font-size="12" font-weight="700" fill="#166b4a">Yes</text>
+    <path d="M390,140 L440,186 L486,186" fill="none" stroke="#a2371a" stroke-width="1.8" marker-end="url(#a2)"/>
+    <text x="404" y="180" font-size="12" font-weight="700" fill="#a2371a">No</text>
+
+    <rect x="490" y="20" width="290" height="70" rx="7" fill="#e9f4ef" stroke="#166b4a" stroke-width="1.5"/>
+    <text x="506" y="46" font-size="16" font-weight="700" fill="#166b4a">① 維持型</text>
+    <text x="506" y="67" font-size="13" fill="#171a21">分配 ≒ 総リターン。NAV が減らない</text>
+    <text x="506" y="83" font-size="12" fill="#5f6775">JAAA・DMLP・ARCC・MAIN・JEPI・CCLFX</text>
+
+    <rect x="490" y="152" width="190" height="70" rx="7" fill="#fff" stroke="#5f6775" stroke-dasharray="5 3"/>
+    <text x="585" y="180" font-size="14" fill="#171a21" text-anchor="middle">原資産は</text>
+    <text x="585" y="200" font-size="14" font-weight="700" fill="#171a21" text-anchor="middle">買い増せるか</text>
+    <path d="M680,172 L720,128 L766,128" fill="none" stroke="#a2371a" stroke-width="1.8" marker-end="url(#a2)"/>
+    <text x="690" y="142" font-size="12" font-weight="700" fill="#a2371a">Yes</text>
+    <path d="M680,200 L720,214 L766,214" fill="none" stroke="#8a5a12" stroke-width="1.8" marker-end="url(#a2)"/>
+    <text x="690" y="230" font-size="12" font-weight="700" fill="#8a5a12">No</text>
+
+    <rect x="770" y="94" width="410" height="70" rx="7" fill="#fbeee9" stroke="#a2371a" stroke-width="1.5"/>
+    <text x="786" y="120" font-size="16" font-weight="700" fill="#a2371a">⚠ ② 元本毀損型</text>
+    <text x="786" y="141" font-size="13" fill="#171a21">分配の一部が元本の払い戻し。NAV が下がり続ける</text>
+    <text x="786" y="157" font-size="12" fill="#5f6775">AGNC・NLY・QYLD・PFF・BKLN・SRLN・JBBB・AMLP・BSM</text>
+
+    <rect x="770" y="180" width="410" height="62" rx="7" fill="#fbf2e2" stroke="#8a5a12" stroke-width="1.5"/>
+    <text x="786" y="206" font-size="16" font-weight="700" fill="#8a5a12">⚠ ③ 枯渇型</text>
+    <text x="786" y="227" font-size="13" fill="#171a21">原資産そのものが尽きる。買い増しできない　<tspan fill="#5f6775" font-size="12">PBT・SBR</tspan></text>
+  </g>
+</svg>
+    </div>
+    <div class="cols" style="flex:0 0 auto">
+      <div class="card"><h3>見分け方は 1 つだけ</h3><p><b>「長期の総リターン年率 − 分配利回り」の符号</b>で判定する。プラスなら ①、マイナスなら ②。原資産が尽きるものは ③。</p></div>
+      <div class="card"><h3 class="w">分配利回りの水準では型を予測できない</h3><p>① 6 件は <b>4.74〜10%</b>、② 9 件は <b>5.7〜12.97%</b> で<b>重なっている</b>。PFF は 5.7% でも ②、DMLP は 10% でも ①。</p></div>
+      <div class="card"><h3>この一覧での使い方</h3><p>型が付いているのは <b>「分配を出し、かつ元本が動くもの」だけ</b>。<span class="tb tb0">定義</span>は測定ではなく定義から ①（国債・CD 等）、<span class="tb tb0">判定不能</span>は履歴不足か括りが粗いもの。</p></div>
+    </div>
+  </div>
+  <div class="sfoot"><span>元文書 §12-3・§14-14・§14-16</span><span class="grow"></span><span class="pno"></span></div>
+</section>
+
+<!-- ======== 本体（21 枚）はここに JS が差し込む ======== -->
+<span id="tail-anchor" hidden></span>
+
+<!-- ============ 29. 一覧から外したもの ============ -->
+<section class="slide" data-nav="back" data-title="一覧から外したもの">
+  <div class="shead"><span class="src">§14-12</span><h2>一覧から外したのは 3 種類だけ</h2></div>
+  <div class="sbody">
+    <p class="claim">唯一の除外条件は「オンラインで売買する市場が存在しないこと」。それ以外は全部残した。</p>
+    <table class="grid vmid">
+      <colgroup><col style="width:34%"><col style="width:66%"></colgroup>
+      <thead><tr><th>候補</th><th>外す理由</th></tr></thead>
+      <tbody>
+        <tr><td class="c1">事業買収<br><span style="font-weight:400;color:var(--muted)">（デューデリジェンスが実地のもの）</span></td><td class="c5"><span class="w"><b>実地確認が構造的に必須</b>で、オンラインで完結しない</span></td></tr>
+        <tr><td class="c1">物理設置・納品を伴うもの<br><span style="font-weight:400;color:var(--muted)">（GPU 貸出・太陽光・在庫の自社保管）</span></td><td class="c5"><span class="w">売買ではなく<b>設備の運用</b>。資産の売買市場ではない</span></td></tr>
+        <tr><td class="c1">裁定取引の自動運用</td><td class="c5"><span class="w">売買される「もの」ではなく<b>手法</b>。対象資産は既にこの一覧にある</span></td></tr>
+      </tbody>
+    </table>
+    <div class="warn"><b>⚠ 外す理由にしないもの 4 つ。</b>「時間がかかる」「州で買えない」「資格が要る」「利回りが低い」は<b>属性として書く</b>。<br>
+    元文書 §1〜§13 は 4 ゲートで 26 件を落としていたが、<b>落選 26 件はすべて時間・出口の厚み・州規制・資格といった前提側の条件</b>で落ちており、⚠ <b>儲けを理由に落としたものは 1 件も無かった</b>。だから §14 では前提を全部外した。</div>
+  </div>
+  <div class="sfoot"><span>元文書 §14-12・§14 冒頭</span><span class="grow"></span><span class="pno"></span></div>
+</section>
+
+<!-- ============ 30. 一覧の使い方 ============ -->
+<section class="slide" data-nav="back" data-title="一覧の使い方">
+  <div class="shead"><span class="src">§14-13</span><h2>絞り込みは一覧の外でやる</h2></div>
+  <div class="sbody">
+    <p class="claim">条件が変われば見え方だけが変わり、一覧は作り直さなくてよい。だから条件は列で持つ。</p>
+    <div class="cols">
+      <div style="flex:1 1 54%;display:flex;flex-direction:column;gap:8px">
+        <table class="plain fill">
+          <thead><tr><th>用途</th><th>使う属性の列</th></tr></thead>
+          <tbody>
+            <tr><td><b>受動的に持ちたい</b></td><td>「保有中の作業」— 建玉管理・入札・仕入れが要るものを外す</td></tr>
+            <tr><td><b>すぐ換金したい</b></td><td>「売る場所」— 板があるものだけに絞る</td></tr>
+            <tr><td><b>WA 州で買いたい</b></td><td>「受取の制約」— 予測市場・USDY・適格投資家限定を外す</td></tr>
+            <tr><td><b>収入が欲しい</b></td><td>「利回り」— ⚠ <b>分配ゼロが 96 件中 11 件ある</b>（右）</td></tr>
+            <tr><td><b>元本を減らしたくない</b></td><td>⚠ <b>①②③ の型判定</b>（凡例 ②）。ただし型が付くのは分配を出し元本が動くものだけ</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div style="flex:1 1 46%;display:flex;flex-direction:column;gap:6px">
+        <p class="note" style="font-size:15px">⚠ 「収入が欲しい」で最初に外れる 11 件（分配なし）</p>
+        <div class="svgwrap" style="flex:0 0 auto;height:210px">
+<svg viewBox="0 0 343 257" role="img" aria-label="96 件のうち分配ゼロは 11 件">
+  <g><rect x="0" y="0" width="24" height="24" rx="3" fill="#d9d5cd"/><rect x="29" y="0" width="24" height="24" rx="3" fill="#d9d5cd"/><rect x="58" y="0" width="24" height="24" rx="3" fill="#d9d5cd"/><rect x="87" y="0" width="24" height="24" rx="3" fill="#d9d5cd"/><rect x="116" y="0" width="24" height="24" rx="3" fill="#d9d5cd"/><rect x="145" y="0" width="24" height="24" rx="3" fill="#d9d5cd"/><rect x="174" y="0" width="24" height="24" rx="3" fill="#d9d5cd"/><rect x="203" y="0" width="24" height="24" rx="3" fill="#d9d5cd"/><rect x="232" y="0" width="24" height="24" rx="3" fill="#d9d5cd"/><rect x="261" y="0" width="24" height="24" rx="3" fill="#d9d5cd"/><rect x="290" y="0" width="24" height="24" rx="3" fill="#d9d5cd"/><rect x="319" y="0" width="24" height="24" rx="3" fill="#d9d5cd"/><rect x="0" y="29" width="24" height="24" rx="3" fill="#d9d5cd"/><rect x="29" y="29" width="24" height="24" rx="3" fill="#d9d5cd"/><rect x="58" y="29" width="24" height="24" rx="3" fill="#d9d5cd"/><rect x="87" y="29" width="24" height="24" rx="3" fill="#d9d5cd"/><rect x="116" y="29" width="24" height="24" rx="3" fill="#d9d5cd"/><rect x="145" y="29" width="24" height="24" rx="3" fill="#d9d5cd"/><rect x="174" y="29" width="24" height="24" rx="3" fill="#d9d5cd"/><rect x="203" y="29" width="24" height="24" rx="3" fill="#d9d5cd"/><rect x="232" y="29" width="24" height="24" rx="3" fill="#d9d5cd"/><rect x="261" y="29" width="24" height="24" rx="3" fill="#d9d5cd"/><rect x="290" y="29" width="24" height="24" rx="3" fill="#d9d5cd"/><rect x="319" y="29" width="24" height="24" rx="3" fill="#d9d5cd"/><rect x="0" y="58" width="24" height="24" rx="3" fill="#d9d5cd"/><rect x="29" y="58" width="24" height="24" rx="3" fill="#d9d5cd"/><rect x="58" y="58" width="24" height="24" rx="3" fill="#d9d5cd"/><rect x="87" y="58" width="24" height="24" rx="3" fill="#d9d5cd"/><rect x="116" y="58" width="24" height="24" rx="3" fill="#d9d5cd"/><rect x="145" y="58" width="24" height="24" rx="3" fill="#d9d5cd"/><rect x="174" y="58" width="24" height="24" rx="3" fill="#d9d5cd"/><rect x="203" y="58" width="24" height="24" rx="3" fill="#d9d5cd"/><rect x="232" y="58" width="24" height="24" rx="3" fill="#d9d5cd"/><rect x="261" y="58" width="24" height="24" rx="3" fill="#d9d5cd"/><rect x="290" y="58" width="24" height="24" rx="3" fill="#d9d5cd"/><rect x="319" y="58" width="24" height="24" rx="3" fill="#d9d5cd"/><rect x="0" y="87" width="24" height="24" rx="3" fill="#d9d5cd"/><rect x="29" y="87" width="24" height="24" rx="3" fill="#d9d5cd"/><rect x="58" y="87" width="24" height="24" rx="3" fill="#d9d5cd"/><rect x="87" y="87" width="24" height="24" rx="3" fill="#d9d5cd"/><rect x="116" y="87" width="24" height="24" rx="3" fill="#d9d5cd"/><rect x="145" y="87" width="24" height="24" rx="3" fill="#d9d5cd"/><rect x="174" y="87" width="24" height="24" rx="3" fill="#d9d5cd"/><rect x="203" y="87" width="24" height="24" rx="3" fill="#d9d5cd"/><rect x="232" y="87" width="24" height="24" rx="3" fill="#d9d5cd"/><rect x="261" y="87" width="24" height="24" rx="3" fill="#d9d5cd"/><rect x="290" y="87" width="24" height="24" rx="3" fill="#d9d5cd"/><rect x="319" y="87" width="24" height="24" rx="3" fill="#d9d5cd"/><rect x="0" y="116" width="24" height="24" rx="3" fill="#d9d5cd"/><rect x="29" y="116" width="24" height="24" rx="3" fill="#d9d5cd"/><rect x="58" y="116" width="24" height="24" rx="3" fill="#d9d5cd"/><rect x="87" y="116" width="24" height="24" rx="3" fill="#d9d5cd"/><rect x="116" y="116" width="24" height="24" rx="3" fill="#d9d5cd"/><rect x="145" y="116" width="24" height="24" rx="3" fill="#d9d5cd"/><rect x="174" y="116" width="24" height="24" rx="3" fill="#d9d5cd"/><rect x="203" y="116" width="24" height="24" rx="3" fill="#d9d5cd"/><rect x="232" y="116" width="24" height="24" rx="3" fill="#d9d5cd"/><rect x="261" y="116" width="24" height="24" rx="3" fill="#d9d5cd"/><rect x="290" y="116" width="24" height="24" rx="3" fill="#d9d5cd"/><rect x="319" y="116" width="24" height="24" rx="3" fill="#d9d5cd"/><rect x="0" y="145" width="24" height="24" rx="3" fill="#d9d5cd"/><rect x="29" y="145" width="24" height="24" rx="3" fill="#d9d5cd"/><rect x="58" y="145" width="24" height="24" rx="3" fill="#d9d5cd"/><rect x="87" y="145" width="24" height="24" rx="3" fill="#d9d5cd"/><rect x="116" y="145" width="24" height="24" rx="3" fill="#d9d5cd"/><rect x="145" y="145" width="24" height="24" rx="3" fill="#d9d5cd"/><rect x="174" y="145" width="24" height="24" rx="3" fill="#d9d5cd"/><rect x="203" y="145" width="24" height="24" rx="3" fill="#d9d5cd"/><rect x="232" y="145" width="24" height="24" rx="3" fill="#d9d5cd"/><rect x="261" y="145" width="24" height="24" rx="3" fill="#d9d5cd"/><rect x="290" y="145" width="24" height="24" rx="3" fill="#d9d5cd"/><rect x="319" y="145" width="24" height="24" rx="3" fill="#d9d5cd"/><rect x="0" y="174" width="24" height="24" rx="3" fill="#d9d5cd"/><rect x="29" y="174" width="24" height="24" rx="3" fill="#d9d5cd"/><rect x="58" y="174" width="24" height="24" rx="3" fill="#d9d5cd"/><rect x="87" y="174" width="24" height="24" rx="3" fill="#d9d5cd"/><rect x="116" y="174" width="24" height="24" rx="3" fill="#d9d5cd"/><rect x="145" y="174" width="24" height="24" rx="3" fill="#d9d5cd"/><rect x="174" y="174" width="24" height="24" rx="3" fill="#d9d5cd"/><rect x="203" y="174" width="24" height="24" rx="3" fill="#d9d5cd"/><rect x="232" y="174" width="24" height="24" rx="3" fill="#d9d5cd"/><rect x="261" y="174" width="24" height="24" rx="3" fill="#d9d5cd"/><rect x="290" y="174" width="24" height="24" rx="3" fill="#d9d5cd"/><rect x="319" y="174" width="24" height="24" rx="3" fill="#d9d5cd"/><rect x="0" y="203" width="24" height="24" rx="3" fill="#d9d5cd"/><rect x="29" y="203" width="24" height="24" rx="3" fill="#a2371a"/><rect x="58" y="203" width="24" height="24" rx="3" fill="#a2371a"/><rect x="87" y="203" width="24" height="24" rx="3" fill="#a2371a"/><rect x="116" y="203" width="24" height="24" rx="3" fill="#a2371a"/><rect x="145" y="203" width="24" height="24" rx="3" fill="#a2371a"/><rect x="174" y="203" width="24" height="24" rx="3" fill="#a2371a"/><rect x="203" y="203" width="24" height="24" rx="3" fill="#a2371a"/><rect x="232" y="203" width="24" height="24" rx="3" fill="#a2371a"/><rect x="261" y="203" width="24" height="24" rx="3" fill="#a2371a"/><rect x="290" y="203" width="24" height="24" rx="3" fill="#a2371a"/><rect x="319" y="203" width="24" height="24" rx="3" fill="#a2371a"/></g>
+  <text x="0" y="249" font-size="13" fill="#5f6775" font-family="inherit">□ 85 件　<tspan fill="#a2371a" font-weight="700">■ 分配ゼロ 11 件</tspan></text>
+</svg>
+        </div>
+        <div class="card" style="padding:10px 13px">
+          <p style="font-size:15px;line-height:1.6">金 ETF・商品 ETF・KRBN（炭素）・物理ウラン・水先物・バッファー ETF・ATEX・RSVR・LQDT・DXYZ・FRGE</p>
+          <p class="w" style="font-size:14.5px;color:var(--warn)"><b>うち 5 件は 14-2「上場の代替アクセス」に集中している</b>（ATEX・RSVR・LQDT・DXYZ・FRGE）。事業会社の株を買うので、分配は会社の方針次第になる。</p>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="sfoot"><span>元文書 §14-13・§14-14</span><span class="grow"></span><span class="pno"></span></div>
+</section>
+
+<!-- ============ 31. 出典と表記ルール ============ -->
+<section class="slide" data-nav="back" data-title="出典と表記ルール">
+  <div class="shead"><span class="src">出典</span><h2>出典と表記ルール</h2></div>
+  <div class="sbody">
+    <p class="claim">この資料は元文書 §14 の写しである。数値の正は常に元文書側にある。</p>
+    <div class="cols">
+      <div class="card">
+        <h3>元文書</h3>
+        <p><code>docs/specs/online-tradable-assets.md</code></p>
+        <p>§14-1〜§14-11 が本資料の本体（11 分類・96 件）。<br>出典は 4 節に分かれている — <b>§9（27 件）・§12-10（29 件）・§13-9（18 件）・§15-4（11 件）</b>。</p>
+        <p class="w">通し番号 <b>#20〜#27 が §9 と §12-10 で重複</b>している。番号だけでは一意に参照できないので、節名とあわせて引くこと。</p>
+        <p class="w">本資料は <b>§14 の一覧のみ</b>を扱う。調査の経緯（§0〜§13）と ① 維持型 6 件の税引後順位（§15）は含まない。</p>
+      </div>
+      <div class="card">
+        <h3>主な一次情報</h3>
+        <p style="font-size:14.5px;line-height:1.75">
+          I Bonds の利率・上限・拘束 — <a href="https://www.treasurydirect.gov/savings-bonds/i-bonds/" target="_blank" rel="noopener">treasurydirect.gov</a><br>
+          WA 州キャピタルゲイン税 — <a href="https://dor.wa.gov/taxes-rates/other-taxes/capital-gains-tax" target="_blank" rel="noopener">dor.wa.gov</a><br>
+          2026 年の税率・拠出上限 — <a href="https://www.irs.gov/newsroom/irs-releases-tax-inflation-adjustments-for-tax-year-2026-including-amendments-from-the-one-big-beautiful-bill" target="_blank" rel="noopener">irs.gov</a><br>
+          米国の主要金利（H.15） — <a href="https://www.federalreserve.gov/releases/h15/" target="_blank" rel="noopener">federalreserve.gov</a><br>
+          貸株が SIPC 対象外・1099-MISC — <a href="https://www.fidelity.com/webxpress/help/topics/learn_loaned_securities.shtml" target="_blank" rel="noopener">fidelity.com</a>
+        </p>
+        <p class="note" style="font-size:13.5px">全 77 件は元文書側に一覧がある。取得日は 2026-08-28〜29。</p>
+      </div>
+      <div class="card">
+        <h3>表記ルール</h3>
+        <p><b>【実測】</b>自分で測った値／<b>【公表値】</b>発行体・当局の公表ページ（URL つき）／<b>【推測】</b>試算・見積り／<b>【Web 確認済（二次）】</b>集計サイト・解説記事</p>
+        <p class="w"><b>本資料の特記なき利回り・価格は 2026-08 時点の【Web 確認済（二次）】。</b></p>
+        <p class="w"><b>実行していない。</b>口座開設・入金・売買・登録を行わず、一次情報と試算だけで判定した。<b>投資・税務助言ではない。</b></p>
+      </div>
+    </div>
+  </div>
+  <div class="sfoot"><span>元文書 §9・§12-10・§13-9・§15-4</span><span class="grow"></span><span class="pno"></span></div>
+</section>
+
+
+</div><!-- /#stage -->
+<div id="bar"><i></i></div>
+<div id="ctl">
+  <button id="b-prev" title="前へ（←）">◀</button>
+  <button id="b-next" title="次へ（→ / Space）">▶</button>
+  <button id="b-toc" title="目次（o）">目次</button>
+  <button id="b-full" title="全画面（f）">⛶</button>
+</div>
+<div id="toc"></div>
+<div id="msg"></div>
+</div><!-- /#viewport -->
+
+<script>
+/* =====================================================================
+   データ — 元文書 docs/specs/online-tradable-assets.md §14-1〜§14-11
+   1 行 = [候補, 買う場所, 売る場所, 利回り／値動き, ⚠ 属性(HTML)]
+   ===================================================================== */
+var B1='<span class="tb tb1">①</span>', B1D='<span class="tb tb1">① 定義</span>',
+    B2='<span class="tb tb2">②</span>', B2S='<span class="tb tb2">② 疑い</span>',
+    B3='<span class="tb tb3">③</span>', B0='<span class="tb tb0">判定不能</span>',
+    B0U='<span class="tb tb0">未確定</span>';
+function w(t){return '<span class="w">'+t+'</span>';}
+
+var CATS=[
+{id:'14-1',title:'株式・株式ファンド',essence:'会社の持分',n:18,chunk:6,
+ claim:'同じ「証券口座で買える板」の中に、分配 2.19% から 13.56% までが同居している。',
+ lead:'<div class="cols">'
+  +'<div class="card"><h3>何を買うのか</h3><p>会社の<b>持分</b>と、その持分を束ねたファンド。</p><p>REIT・BDC・MLP・ロイヤリティ LP は法形式が違うが、<b>買う場所も売る場所も同じ証券口座の板</b>。⚠ 括りの 1 行（BDC「平均 12.6%」）を除き、<b>出口はすべて板で常設の買い手がいる</b>。</p></div>'
+  +'<div class="card"><h3 class="w">利回りの幅がいちばん広い</h3><p>SCHD の <b>2.19%</b> から AGNC の <b>13.56%</b> まで、同じ画面に並ぶ。</p><p class="w"><b>幅の広さは型の違いから来る。</b>①②③ が全部そろっているのはこの分類だけ。<b>分配 8% 超で ② 元本毀損型と確定しているのが 4 銘柄</b>（AGNC・NLY・QYLD・BSM）、<b>① 維持型が 3 銘柄</b>（ARCC・JEPI・DMLP）。⚠ <b>同じ利回り帯に両方いる。</b></p></div>'
+  +'<div class="card"><h3 class="w">同じ板で買えても手取りは同じではない</h3><p>適格配当（低率）・通常所得・§199A 20% 控除・K-1 が混在する。</p><p class="w">DMLP・BSM は <b>K-1</b> が出る（申告が増える）。AMLP は同じ MLP でも <b>1099-DIV で K-1 なし</b>。VNQ の分配は非適格・通常所得。</p></div></div>',
+ rows:[
+ ['上場株・高配当 ETF（SCHD・VYM）','証券口座','同左・板','2.19〜3.06%','適格配当（税率が低い）'],
+ ['REIT ETF（VNQ）','証券口座','板','—',w('<b>非適格・通常所得。</b>§199A 20% 控除あり')],
+ ['mREIT（AGNC・NLY）','証券口座','板','<b>13.56% / 13.30%</b>',B2+w('<b>両方 ② 元本毀損型。</b>AGNC は 10 年年率 4.42%・株価 −52%')],
+ ['mREIT ETF（MORT）','証券口座','板','12.98〜13.4%',B2S+w('<b>運用側が ROC による NAV 減を認めている。</b>ER 0.42%')],
+ ['BDC（ARCC）','証券口座','板','<b>9.61%</b><br>（$1.92/年）',B1+'10 年 254% ≒ 年率 13.5%。'+w('payout は利益の <b>138.4%</b>。通常所得・§199A なし')],
+ ['BDC（MAIN）','証券口座','板','5.46%',B1+'10 年 <b>312%</b> ≒ 年率 15.2%。'+w('通常所得')],
+ ['BDC「平均 12.6%」','—','—','平均 12.6%',B0+w('<b>括りとして判定不能。</b>銘柄ごとに型が違う')],
+ ['カバードコール ETF（QYLD）','証券口座','板','11.47%',B2+w('10 年 147% ≒ 9.5%。<b>株価 $25 → $18</b>、分配は 2021 年比 −24%')],
+ ['カバードコール ETF（JEPI）','証券口座','板','8.38%',B1+'設定来 11.45%。'+w('ELN 収入は通常所得')],
+ ['CEF（クローズドエンド）','証券口座','板','平均 <b>8.7%</b>、NAV 比 −4.6%',B0+w('<b>括りとして判定不能。</b>分配が総リターンを超えた差額が NAV を減らす。銘柄ごとに見るしかない')],
+ ['優先株 ETF（PFF）','証券口座','板','30 日 SEC <b>6.22%</b>（分配 5.7%）',B2+w('<b>10 年 NAV 2.9%。</b>ER 0.45%。一部が適格配当')],
+ ['鉱区ロイヤリティ LP（DMLP）','証券口座','板','<b>10% 超</b>',B1+'5 年 ＋146.69%。'+w('<b>K-1</b> が出る')],
+ ['鉱区ロイヤリティ LP（BSM）','証券口座','板','8.19〜8.60%',B2+w('<b>10 年 −8.8%。K-1</b> が出る')],
+ ['MLP ETF（AMLP）','証券口座','板','7.4%',B2+w('10 年 6.39% で<b>僅差</b>。ROC 混在。<b>1099-DIV で K-1 なし</b>')],
+ ['石油ガスロイヤリティトラスト（PBT・SBR）','証券口座','板','PBT 1.85%',B3+w('SBR は油 −34%・ガス −27% Y/Y、<b>残存 8〜10 年</b>')],
+ ['農地 REIT（FPI・LAND）','証券口座','板','FPI 3.64%',w('<b>上場は 2 社のみで板が薄い。</b>LAND は水利権 55,532 AF も保有')],
+ ['林地 REIT（WY）','証券口座','板','—','1,000 万エーカーを保有'],
+ ['転換社債 ETF（CWB・ICVT）','証券口座','板','1.42% / 1.39%','値上がり型。ER 0.40% / 0.20%']]},
+
+{id:'14-2',title:'上場の代替アクセス',essence:'資産を扱う会社の株',n:10,chunk:5,
+ claim:'買うのは資産ではなく、その資産を扱う事業会社の株。出口は板で確実だが、10 件中 5 件が分配ゼロ。',
+ lead:'<div class="cols">'
+  +'<div class="card"><h3>なぜこの分類があるか</h3><p>生命保険買取・訴訟ファイナンス・未公開株・周波数・音楽印税・IPv4・ドメイン・収集品の板は、<b>直接は買えないか、買えても板が無い</b>（→ 14-8・14-10）。</p><p>⚠ しかし、<b>それを本業にしている会社が上場している</b>。同じ資産に、板のある入口から触れる。</p></div>'
+  +'<div class="card"><h3>得るもの</h3><p><b>出口が板になる。</b>いつでも売れて、価格が公開されている。</p><p><b>最低額・資格要件が消える。</b>未公開株の二次市場は最低 $10,000〜100,000 で適格投資家要件が付くが、DXYZ は 1 株から買える。</p></div>'
+  +'<div class="card"><h3 class="w">失うもの</h3><p class="w"><b>資産そのものへの連動ではない。</b>会社の業績・経営判断・資本政策が間に挟まる。</p><p class="w"><b>分配は会社の方針次第。10 件中 5 件がゼロ</b>（DXYZ・FRGE・ATEX・RSVR・LQDT）。LQDT は自社株買いを優先している。</p><p class="w"><b>会社ごと消えることがある。</b>FRGE は 2025-10 に Schwab が買収合意。</p></div></div>',
+ rows:[
+ ['生命保険買取 → <b>NYSE:ABX</b>（Abacus。旧 ABL）','証券口座','板','初の年次配当 $0.20/株','Q3\'25 売上 $63.0M（＋124% Y/Y）'],
+ ['訴訟ファイナンス → <b>NYSE:BUR</b>（Burford）','証券口座','板','<b>2.91%</b>（年 12.50 米セント）',w('<b>ガーンジー籍。</b>適格配当か未確認')],
+ ['未公開株 → <b>NYSE:DXYZ</b>（Destiny Tech100）','証券口座','板',w('分配なし'),w('<b>NAV $24.56 にプレミアムが乗る</b>（2026-03-31）。32 銘柄・SpaceX 16.2%。ATM 枠 $10 億')],
+ ['未公開株の板 → NYSE:FRGE（Forge Global）','証券口座','板',w('分配なし'),w('<b>2025-10 に Schwab が約 $6.6 億で買収合意。消滅する</b>')],
+ ['周波数 → <b>NASDAQ:ATEX</b>（Anterix）','証券口座','板',w('分配なし'),w('<b>時価総額 $758M 対 経営陣評価 $25〜70 億。</b>900MHz 全米最大。FY2026 契約受領 $127.0M')],
+ ['音楽印税 → <b>NASDAQ:RSVR</b>（Reservoir Media）','証券口座','板',w('0.00%'),'時価総額 $496M'],
+ ['官公庁払い下げ・返品在庫 → <b>NASDAQ:LQDT</b>','証券口座','板',w('分配なし'),w('<b>自社株買い優先。</b>GovDeals・Bid4Assets 保有。現金 $204M・無借金')],
+ ['IPv4 アドレス → <b>NASDAQ:CCOI</b>（Cogent）','証券口座','板','あり',w('<b>IPv4 リースは通信事業の一部</b>（Q1\'26 $18.0M・＋24.8% Y/Y）')],
+ ['ドメイン → <b>NASDAQ:VRSN</b>・GDDY・TCX','証券口座','板','四半期 <b>$0.81</b>（VRSN）',w('<b>買うのはレジストリ事業。</b>時価総額 $25.0B。Q2\'26 新規登録 1,270 万件で過去最大')],
+ ['収集品の板 → <b>NASDAQ:EBAY</b>','証券口座','板','あり','2022 に TCGplayer を $295M で買収']]},
+
+{id:'14-3',title:'債券・金利',essence:'貸したお金',n:17,chunk:6,
+ claim:'同じ「貸したお金」でも、出口は板・発行体の買い取り・板が無い、の 3 通りに分かれる。',
+ lead:'<div class="cols">'
+  +'<div class="card"><h3>何を買うのか</h3><p>政府・自治体・企業・銀行に<b>お金を貸し、利子を受け取る</b>。</p><p>元本が<b>額面で戻る</b>もの（国債・I Bonds・CD）と、<b>市場価格で動く</b>もの（債券 ETF・CLO・シニアローン）が同居している。</p></div>'
+  +'<div class="card"><h3>出口が 3 通りある</h3><p><b>板</b> — 国債の流通市場・ETF・地方債 CEF。</p><p><b>発行体が既定の式で買い取る</b> — I Bonds・EE Bonds（財務省が償還）、新発ブローカード CD は par。⚠ 量に依存しないかわりに上限と拘束が付く。</p><p class="w"><b>板が無い</b> — 仕組債。買い手が発行体の系列 BD だけのことがある。</p></div>'
+  +'<div class="card"><h3 class="w">型がいちばん割れる分類</h3><p>額面で償還されるので<b>定義から ①</b> のものが 7 件（米国債・TIPS・I Bonds・EE Bonds・地方債現物・MMF・ブローカード CD）。</p><p class="w"><b>一方 CLO の 3 件は ①・②・判定不能に割れる</b>（JAAA ① / JBBB ② / CLOZ 履歴不足）。同じ資産クラスでも階層で違う。</p></div></div>',
+ rows:[
+ ['米国債 2〜30 年','TreasuryDirect・証券口座','板','<b>4.19〜5.20%</b>',B1D+'州税非課税（WA は元々ゼロ）'],
+ ['TIPS','同上','板','—',B1D+'物価連動'],
+ ['<b>I Bonds</b>','TreasuryDirect','財務省が償還<br>（買取保証型）','合成 <b>4.26%</b>',B1D+w('<b>年 $10,000 上限</b>、12 ヶ月拘束、5 年未満は直近 3 ヶ月分の利子を失う。$25 から')],
+ ['EE Bonds','TreasuryDirect','同上<br>（買取保証型）','—',B1D+'20 年で額面 2 倍保証'],
+ ['<b>地方債 AAA 10 年</b>','証券口座・VTEB・MUB','板','<b>3.30%</b>',B1D+w('<b>連邦所得税が非課税。</b>中位・上位とも税引後 $3,300')],
+ ['地方債 CEF（レバレッジ型）','証券口座','板','30 日 SEC 5.81%',w('割引は 2025 年末の −5% から縮小')],
+ ['債券 ETF（BND・AGG・SGOV）','証券口座','板','—','板型'],
+ ['ハイイールド債 ETF（HYG・JNK）','証券口座','板',w('未取得'),w('利回りを取得していない')],
+ ['新興国現地通貨建て国債 ETF（EMLC・LEMB）','証券口座','板',w('未取得'),w('<b>ドル高で現地通貨クーポンのドル価値が削られる</b>')],
+ ['<b>CLO ETF（JAAA）</b>','証券口座','板','30 日 SEC <b>4.74%</b>',B1+'5 年 4.9%・設定来 4.5%。ER 0.20%、AUM $29.2B'],
+ ['CLO ETF（JBBB）','証券口座','板','30 日 SEC 8.5%',B2+w('設定来 6% &lt; 分配 7%。<b>2022 年に NAV −14%。</b>ER 0.48%')],
+ ['CLO ETF（CLOZ）','証券口座','板','7.35%',B0+w('<b>2023-01 設定で履歴不足。</b>ER 0.50%、NAV $26.14')],
+ ['シニアローン ETF（BKLN・SRLN）','証券口座','板','6.43% / 7.13%',B2+w('<b>両方 ②。</b>分配は 2024 $1.82 → 2025 $1.41')],
+ ['MMF（SPRXX・SWVXX・SPAXX）','証券口座','随時','3.32〜4.01%',B1D+'—'],
+ ['<b>ブローカード CD</b>','Fidelity・Schwab','新発は par、<br>二次流通 約 2,000 本','Fidelity <b>4.30〜4.75%</b><br>Schwab 4.00〜4.50%',B1D+'<b>FDIC が発行体ごとに $250,000</b>。10 行で $2.5M 超。額面 $1,000'],
+ ['<b>カタストロフィボンド ETF（ILS）</b>','証券口座（NYSE Arca）','板','分配 <b>8.1%</b>（市場利回り 6.3%）',B0U+w('<b>② の疑い</b>（2026 YTD 1.19%、NAV $19.83、設定 2025-04）。<b>ER 1.58%</b>。断定していない')],
+ ['<b>仕組債</b>','発行体・ブローカー',w('板が無い。買い手が発行体の系列 BD だけのことがある'),'商品ごと',w('<b>手数料が設計に埋め込まれ見えない。</b>二次価格は公正価値を大きく下回りうる')]]},
+
+{id:'14-4',title:'保険・年金',essence:'保険契約',n:4,chunk:4,lead:null,
+ claim:'買うのは保険会社との契約。⚠ 解約控除と拘束期間が価格の一部になっている。',
+ rows:[
+ ['<b>MYGA（多年保証年金）</b>','保険会社・仲介','発行体が買い取る<br>（買取保証型）','3 年 最大 <b>5.65%</b><br>5 年 最大 <b>6.30%</b><br>A 格で 5.30〜6.00%',B1D+w('<b>解約控除あり（年 10% 程度は無 penalty）。5 年拘束</b>')],
+ ['変額・インデックス年金','保険会社','同上',w('未取得'),'1099-R'],
+ ['<b>生命保険買取（直接）</b>','ブローカー経由',w('長期投資で容易に換金できない'),'—','2023 年の取得 3,400 件・額面 $45 億（対象 $2,000 億超のごく一部）。1099-LS / 1099-SB。'+w('上場代替は ABX（→ 14-2）')],
+ ['トークン化国債（BUIDL・OUSG・USDY）','オンチェーン','オンチェーン','—',w('<b>BUIDL/OUSG は適格購入者（$5M 以上）、USDY は非米国リテール専用。</b>AUM $70 億超')]]},
+
+{id:'14-5',title:'商品・実物',essence:'実物',n:8,chunk:8,lead:null,
+ claim:'物そのものを買う分類。⚠ 8 件中 5 件が分配ゼロで、売買差益しか収益源が無い。',
+ rows:[
+ ['金 ETF（IAU・GLDM・GLD）','証券口座','板',w('分配なし'),w('<b>collectibles 扱いで最大 28%</b>')],
+ ['現物金・銀','IBKR（USGOLD）・地金ディーラー','ディーラーが常時買い取る','—',w('<b>スプレッドあり。</b>現物受渡も可能')],
+ ['商品 ETF（USO・UNG・CPER）','証券口座','板',w('分配なし'),w('<b>K-1 が出る</b>（1940 年法のファンドではない）。コンタンゴでロールコスト')],
+ ['農産物 ETF（DBA）','証券口座','板','—',w('<b>米を含まない</b>')],
+ ['<b>米（rough rice）</b>','CBOT 先物 / ETN の RJA','板','—',w('<b>単独の ETF は存在しない。</b>先物 1 枚 2,000 cwt ≒ 91 トン')],
+ ['物理ウラン（SRUUF / U.UN）','OTC（米）・TSX','板',w('分配なし'),w('<b>PFIC。</b>現物 U3O8 のみ保有')],
+ ['炭素クレジット ETF（KRBN）','証券口座','板',w('分配なし'),'EU ETS・カリフォルニア CCA・RGGI の先物'],
+ ['<b>水（NQH2O 先物）</b>','CME Globex・ClearPort','板',w('分配なし'),w('<b>限月と建玉の管理が要る。</b>1 枚 10 acre-feet（指数 $500 なら想定元本 $5,000）。1 ティック $10')]]},
+
+{id:'14-6',title:'デリバティブ・仕組み',essence:'約束事',n:7,chunk:7,lead:null,
+ claim:'値動きの約束事を買う分類。⚠ 建玉・限月の管理が要るものと、ETF に包まれて要らないものが混在する。',
+ rows:[
+ ['§1256 契約（規制先物・SPX 指数オプション）','先物口座','板','—',w('<b>60/40 課税</b>（保有期間に関係なく）。年末に時価評価。<b>限月・建玉の管理</b>')],
+ ['オプション売り（プレミアム収入）','証券口座','板','プレミアム',w('<b>継続的な建玉管理</b>が要る')],
+ ['<b>バッファー ETF</b>（Innovator ZALT・IBUF・EBUF）','証券口座','板',w('分配なし'),w('<b>仕組債の上場版。</b>9% バッファー（ER 0.89% 込みで実質 9.77%）。FLEX オプションを OCC が清算')],
+ ['SPAC（信託）','証券口座','板・<b>償還権</b>','信託は 185 日以内の<br>米国債／国債 MMF',w('<b>期限管理と償還請求の判断が要る。</b>$10.00〜10.05/口。2026 年に 98 IPO・$190 億')],
+ ['SPAC ワラント','証券口座','板','—',w('<b>5 年で失効。</b>行使は合併完了 30 日後か IPO から 12 ヶ月後の遅い方')],
+ ['通貨 ETF（FXE・FXY・UUP）','証券口座','板','FXE 0.74〜1.11%',w('<b>UUP は K-1。</b>FXE は現物通貨を保有するトラスト。ER 0.40%')],
+ ['小売 FX・CFD','FX 業者','板','—',w('<b>継続的な判断が要る</b>')]]},
+
+{id:'14-7',title:'暗号資産',essence:'トークン',n:4,chunk:4,lead:null,
+ claim:'財産扱いで、長期譲渡益は株と同率。⚠ ①②③ の型は付かない — 収益源が分配ではなく売買差益とステーキング報酬だから。',
+ rows:[
+ ['暗号資産（現物）','取引所','板','—','<b>財産扱い。長期譲渡益は株と同率</b>'],
+ ['ステーキング','取引所・自前','板','銘柄ごと',w('<b>米国では総合課税の障壁が無い</b>')],
+ ['NFT','マーケットプレイス',w('板の厚みは未取得'),'—','<b>2025 課税年度から 1099-DA で報告対象</b>'],
+ ['トークン化不動産（Lofty・RealT）','オンチェーン','二次流通は実在','—',w('<b>往復コスト 約 8%</b>')]]},
+
+{id:'14-8',title:'権利・ロイヤリティ',essence:'使用料を生む権利',n:6,chunk:6,lead:null,
+ claim:'使用料を生む権利。⚠ 入口はあるのに、6 件中 5 件は出口が無いか相対取引で、常設の買い手がいない。',
+ rows:[
+ ['<b>音楽印税</b>','<b>Royalty Exchange</b><br>（公開の競り上げ式オークション）',w('<b>「二次市場は無いに等しい」と運営自身が明記</b>'),'中央値 <b>16.6%</b><br>（2,460 件の実績）',w('<b>ロイヤリティ期間が尽きるまで持つことになる。</b>上場代替は RSVR（配当 0.00%）')],
+ ['<b>IPv4 アドレス</b>','ブローカー（IPv4.Global ほか）',w('相対取引で板が無い'),'リース <b>$0.35/IP/月</b>','売買 $18〜45/IP。市場規模 年 <b>$25 億超</b>。'+w('上場代替は CCOI')],
+ ['<b>ドメイン</b>','レジストラ・オークション',w('出品はできるが常設の買い手がいない'),'—','上場代替は VRSN・GDDY・TCX'],
+ ['<b>周波数（FCC）</b>',w('FCC Form 608 の個別認可')+'<br>（Spectrum Manager / De Facto Transfer リース）',w('板が無い'),'—',w('<b>ライセンス条件で転売禁止が付くことがある。</b>2003 年からリース制度あり')],
+ ['<b>REC / SREC</b>','Flett Exchange ほか','同左','NJ 2026 年物 <b>$180.00</b><br>DC の SREC-I は<br>2025 年物で約 <b>$383</b>',w('<b>GATS の参加資格が「登録した太陽光所有者」。発電しない投資家の可否が公開情報で確認できない</b>')],
+ ['特許','特許の市場',w('個別交渉'),'—',w('未取得')]]},
+
+{id:'14-9',title:'収集品・実物の板',essence:'現物の板',n:5,chunk:5,lead:null,
+ claim:'現物の板がある分類。⚠ そのかわりコストが二桁になる — StockX は売り手数料 9%＋決済 3%、Masterworks は購入時に約 11% の上乗せ。',
+ rows:[
+ ['<b>スニーカー</b>','<b>StockX</b>','同左','—',w('<b>売り手数料 9%（数量で 7% まで）＋ 決済 3%。</b>本物の bid/ask を持つ')],
+ ['トレーディングカード','<b>TCGplayer</b>（eBay 傘下）・StockX','同左','—','上場代替は EBAY'],
+ ['時計','Chrono24','同左','—',w('板の厚みは未取得')],
+ ['<b>美術品の分割所有</b>','Masterworks',w('<b>2026-12-14 に ATS を終了予定。</b>以後は掲示板方式で「取引量は極めて少ない見込み」と自ら開示'),'—',w('<b>購入時に約 11% の上乗せ、年 1.5%</b>')],
+ ['ワイン・クラシックカー・楽器','専門オークション','同左','—',w('板の厚みは未取得')]]},
+
+{id:'14-10',title:'債権・不動産・未公開',essence:'個別の債権・持分',n:7,chunk:7,lead:null,
+ claim:'個別の債権・持分を買う分類。⚠ 資格要件・最低額・償還枠という「買えても売れない」制約がここに集まる。',
+ rows:[
+ ['<b>タックスリーエン（滞納税の公売）</b>','<b>オンライン公売</b>（GovEase ほか）<br>⚠ 郡ごとの登録と入札',w('<b>二次市場なし。</b>償還を待つ'),'州の法定利率 <b>8〜36%</b>',w('<b>98% が償還される。</b>償還待ち 1〜3 年。市場規模 2024 年 $50.2 億（2021 比 ＋32%）')],
+ ['<b>未公開株の二次市場</b>','Forge・EquityZen','同左','—',w('<b>適格投資家要件。最低 $10,000〜100,000。</b>手数料 3〜5%。上場代替は DXYZ・FRGE')],
+ ['住宅ローン債権','Paperstac ほか',w('個別マッチングで板ではない'),'—','—'],
+ ['非上場 REIT・不動産クラウドファンディング（Fundrise）','運営',w('償還が四半期の窓'),'—',w('<b>実際に停止した例がある</b>')],
+ ['<b>インターバルファンド（CCLFX）</b>','証券口座（日々購入可）<br>⚠ 適格投資家要件なし・最低額なし',w('四半期に最低 5% の買取。2026 Q1 に 13.9%・Q2 に 17% の請求で按分'),'<b>9.12%</b>',B1+'設定来 9.34%、標準偏差 2.25%、S&amp;P \'A\'。'+w('<b>型は通るが出口が詰まる。</b>経費率 1.79%')],
+ ['オルタナ総合（YieldStreet）','運営',w('満期保有前提で流動性なし'),'—',w('<b>多くが適格投資家限定</b>')],
+ ['不動産（現物）',w('実地が要ることが多い'),'個別交渉','—','1099-S']]},
+
+{id:'14-11',title:'事業・在庫・その他',essence:'事業そのもの',n:10,chunk:5,
+ claim:'ここだけ「仕入れて売る作業」が要る。⚠ 規約・州法で止まるものが集まる分類でもある。',
+ lead:'<div class="cols">'
+  +'<div class="card"><h3>何を買うのか</h3><p>事業そのもの、在庫、予約枠、権利の使用。</p><p class="w"><b>保有しているだけでは収入にならない。</b>仕入れて売る作業がセットになっており、他の 10 分類と性格が違う。</p></div>'
+  +'<div class="card"><h3 class="w">規約・州法で止まる 4 件</h3><p class="w"><b>予測市場</b> — WA 州で取引できない。2026-08-28 に第 9 巡回区が「州は賭博として規制できる」と判断（WA は第 9 巡回区）。第 3 巡回区と割れ最高裁行きが確実視。</p><p class="w"><b>ゲーム内アイテム</b>（ほぼ必ず ToS 違反）・<b>航空マイル</b>（規約で禁止・口座凍結）・<b>AWS RI</b>（2024-01-15 以降 再販禁止）。</p></div>'
+  +'<div class="card"><h3 class="w">手数料が二桁に届く</h3><p>GovDeals の<b>買手数料 12.5%</b>（GSA Auctions は無料）。サイト・事業売買の<b>売主手数料 5〜15%</b>。</p><p class="w">出口も 3 件は常設の買い手がいない — サイト・事業売買（個別交渉）、貸付（運用期間中に買い手がいない）、協同組合の持分（そもそも売買できる持分ではない）。</p></div></div>',
+ rows:[
+ ['サイト・事業売買','Flippa・Empire Flippers・Acquire.com',w('個別交渉'),'—',w('<b>売主手数料 5〜15%</b>')],
+ ['<b>官公庁の払い下げ</b>','<b>GovDeals</b>（年 $903M・登録買手 630 万人）・GSA Auctions','同左','—',w('<b>買手数料 12.5%</b>（GSA は無料）。仕入れて売る作業が要る')],
+ ['<b>返品在庫のロット・倉庫競売</b>','<b>B-Stock</b>・Liquidation.com','同左','—',w('<b>Amazon のロットは事業者登録と再販証明書が必須。</b>全米の返品率 19.3%（2025 年）')],
+ ['<b>クラウドの予約枠（AWS RI）</b>','AWS RI Marketplace','同左','—',w('<b>2024-01-15 以降、マーケットプレイスで買った RI の再販は禁止。</b>売却は事業者登録＋米国銀行口座、上限 $50,000／5,000 枚')],
+ ['<b>予測市場（イベント契約）</b>','Kalshi・Polymarket(QCEX)・Novig ほか<br>（CFTC の DCM 指定）','板','—',w('<b>WA 州で取引できない。</b>2026-08-28 に第 9 巡回区が「州は賭博として規制できる」と判断。最高裁行きが確実視')],
+ ['ゲーム内アイテム・アカウント','各種マーケット','同左','—',w('<b>ほぼ必ず ToS 違反</b>')],
+ ['航空マイル','非公式市場','同左','—',w('<b>ユタ州を除く 49 州で売買自体は合法</b>だが、<b>ほぼ全プログラムの規約で禁止。口座凍結・マイル没収のリスク</b>')],
+ ['貸株（FPSL）','Fidelity・Vanguard・Schwab','随時解除','銘柄ごと',w('<b>配当が「配当金相当額」になり適格配当を失う</b>（1099-MISC）。<b>SIPC 保護外</b>')],
+ ['貸付・ソーシャルレンディング','各プラットフォーム',w('運用期間中に常設の買い手がいない'),'—','—'],
+ ['協同組合の持分',w('組合員（利用者）であることが前提'),w('売買できる持分ではない'),'patronage 配当','1099-PATR']]}
+];
+
+/* =====================================================================
+   エンジン — スライド生成・fit-to-container・送り・目次・直リンク
+   ===================================================================== */
+(function(){
+  var stage=document.getElementById('stage'),
+      anchor=document.getElementById('tail-anchor'),
+      viewport=document.getElementById('viewport'),
+      bar=document.querySelector('#bar > i'),
+      tocEl=document.getElementById('toc'),
+      msgEl=document.getElementById('msg');
+
+  function el(html){var d=document.createElement('div');d.innerHTML=html.trim();return d.firstElementChild;}
+  function esc(s){return String(s);}
+
+  /* --- ミニマップ（現在地表示。C1 のミニ版） --- */
+  function minimap(cur){
+    var h='<div class="mm">';
+    for(var i=0;i<CATS.length;i++){
+      var px=Math.round(CATS[i].n/18*20)+7;
+      h+='<i class="'+(i===cur?'on':'')+'" style="height:'+px+'px" title="'+CATS[i].id+' '+CATS[i].title+'（'+CATS[i].n+' 件）"></i>';
+    }
+    return h+'<span class="lb">'+CATS[cur].id+'</span></div>';
+  }
+
+  function head(cat,idx,part){
+    return '<div class="shead"><span class="src">§'+cat.id+'</span>'
+      +'<div style="flex:1 1 auto;min-width:0"><h2>'+cat.title+'<span class="cnt">'+cat.n+' 件</span></h2>'
+      +(part?'<p class="part">'+part+'</p>':'')+'</div>'
+      +minimap(idx)+'</div>';
+  }
+  var FOOT='<div class="sfoot"><span>元文書 §{ID}　／　特記なき数値は 2026-08 時点【Web 確認済（二次）】</span><span class="grow"></span><span class="pno"></span></div>';
+
+  function table(cat,rows,start){
+    var cls=rows.length>=4&&rows.length<=8?' rows'+rows.length:'';
+    var h='<div class="tw"><table class="grid'+cls+'">'
+      +'<colgroup><col class="k1"><col class="k2"><col class="k3"><col class="k4"><col class="k5"></colgroup>'
+      +'<thead><tr><th>候補</th><th>買う場所（入口）</th><th>売る場所（出口）</th><th>利回り／値動き</th><th>⚠ 属性</th></tr></thead><tbody>';
+    for(var i=0;i<rows.length;i++){
+      var r=rows[i];
+      h+='<tr data-src="§'+cat.id+'" data-no="'+(start+i+1)+'">'
+        +'<td class="c1">'+r[0]+'</td><td>'+r[1]+'</td><td>'+r[2]+'</td>'
+        +'<td class="c4">'+r[3]+'</td><td class="c5">'+r[4]+'</td></tr>';
+    }
+    return h+'</tbody></table></div>';
+  }
+
+  /* --- 本体 21 枚を組み立てる --- */
+  var built=[];
+  CATS.forEach(function(cat,idx){
+    var chunks=[],i;
+    for(i=0;i<cat.rows.length;i+=cat.chunk) chunks.push(cat.rows.slice(i,i+cat.chunk));
+    if(cat.lead){
+      built.push(el('<section class="slide" data-nav="cat" data-cat="'+idx+'" data-id="'+cat.id+'" data-title="'+cat.title+'">'
+        +head(cat,idx,'この分類は何で分かれているか')
+        +'<div class="sbody"><p class="claim">'+cat.claim+'</p>'+cat.lead+'</div>'
+        +FOOT.replace('{ID}',cat.id)+'</section>'));
+    }
+    chunks.forEach(function(rows,k){
+      var part=(chunks.length>1?'一覧 '+(k+1)+' / '+chunks.length:'')
+        +(cat.lead?'':'');
+      var id=cat.lead?cat.id+'-'+(k+1):(k===0?cat.id:cat.id+'-'+(k+1));
+      var sec=el('<section class="slide" data-nav="cat" data-cat="'+idx+'" data-id="'+id+'" data-title="'+cat.title+(chunks.length>1?' '+(k+1):'')+'">'
+        +head(cat,idx,part)
+        +'<div class="sbody">'+(cat.lead?'':'<p class="claim">'+cat.claim+'</p>')
+        +table(cat,rows,k*cat.chunk)+'</div>'
+        +FOOT.replace('{ID}',cat.id)+'</section>');
+      if(!cat.lead&&k===0) sec.setAttribute('data-alias',cat.id+'-1');
+      built.push(sec);
+    });
+  });
+  built.forEach(function(s){stage.insertBefore(s,anchor);});
+
+  /* --- 通し番号・進捗 --- */
+  var slides=[].slice.call(stage.querySelectorAll('.slide'));
+  slides.forEach(function(s,i){
+    var p=s.querySelector('.pno'); if(p) p.textContent=(i+1)+' / '+slides.length;
+  });
+
+  /* --- 目次 --- */
+  (function(){
+    function link(s,i){
+      return '<a href="#'+(s.getAttribute('data-id')||('p'+(i+1)))+'" data-i="'+i+'">'
+        +'<span class="n">'+(i+1)+'</span><span>'+s.getAttribute('data-title')+'</span>'
+        +(s.getAttribute('data-cat')!==null&&s.getAttribute('data-cat')!==undefined&&s.hasAttribute('data-cat')
+           ?'<span class="c">'+CATS[+s.getAttribute('data-cat')].n+' 件</span>':'')+'</a>';
+    }
+    var h='<h3>目次</h3><p class="hint">クリックで移動。o または Esc で閉じる。全 '+slides.length+' 枚 ／ 11 分類・96 件</p>';
+    ['front','cat','back'].forEach(function(g){
+      var label={front:'前段 — 読み方と凡例',cat:'本体 — 11 分類・96 件',back:'後段 — 境界・使い方・出典'}[g];
+      h+='<div class="sect">'+label+'</div><div class="grid2">';
+      slides.forEach(function(s,i){
+        if(s.getAttribute('data-nav')!==g) return;
+        if(g==='cat'&&s.getAttribute('data-id').indexOf('-',3)>0&&CATS[+s.getAttribute('data-cat')].lead) return;
+        h+=link(s,i);
+      });
+      h+='</div>';
+    });
+    tocEl.innerHTML=h;
+    tocEl.addEventListener('click',function(e){
+      var a=e.target.closest('a'); if(!a) return;
+      e.preventDefault(); go(+a.getAttribute('data-i')); closeToc();
+    });
+  })();
+
+  /* --- 表示・移動 --- */
+  var cur=-1;
+  function go(i,quiet){
+    i=Math.max(0,Math.min(slides.length-1,i));
+    if(i===cur) return;
+    if(cur>=0) slides[cur].classList.remove('active');
+    cur=i; slides[cur].classList.add('active');
+    bar.style.width=((cur+1)/slides.length*100)+'%';
+    var id=slides[cur].getAttribute('data-id');
+    if(!quiet&&history.replaceState) history.replaceState(null,'',id?('#'+id):location.pathname+location.search);
+  }
+  function next(){go(cur+1);} function prev(){go(cur-1);}
+  function openToc(){tocEl.classList.add('open');} function closeToc(){tocEl.classList.remove('open');}
+  function toggleToc(){tocEl.classList.toggle('open');}
+  function msg(t){msgEl.textContent=t;msgEl.style.display='block';setTimeout(function(){msgEl.style.display='none';},4200);}
+
+  function findByHash(){
+    var h=decodeURIComponent((location.hash||'').replace(/^#/,''));
+    if(!h) return 0;
+    for(var i=0;i<slides.length;i++){
+      if(slides[i].getAttribute('data-id')===h||slides[i].getAttribute('data-alias')===h) return i;
+    }
+    var m=h.match(/^p(\d+)$/); if(m) return (+m[1])-1;
+    return 0;
+  }
+
+  /* --- fit-to-container（1280×720 の舞台を容器に合わせる） --- */
+  function fit(){
+    var w=viewport.clientWidth,h=viewport.clientHeight;
+    if(!w||!h) return;
+    var k=Math.min(w/1280,h/720);
+    stage.style.transform='scale('+k+')';
+  }
+  if(window.ResizeObserver) new ResizeObserver(fit).observe(viewport);
+  window.addEventListener('resize',fit);
+  window.addEventListener('orientationchange',fit);
+
+  /* --- キーボード --- */
+  document.addEventListener('keydown',function(e){
+    if(e.metaKey||e.ctrlKey||e.altKey) return;
+    var k=e.key;
+    if(k==='ArrowRight'||k==='PageDown'||k===' '||k==='Spacebar'||k==='Enter'){e.preventDefault();next();}
+    else if(k==='ArrowLeft'||k==='PageUp'||k==='Backspace'){e.preventDefault();prev();}
+    else if(k==='Home'){e.preventDefault();go(0);}
+    else if(k==='End'){e.preventDefault();go(slides.length-1);}
+    else if(k==='o'||k==='O'){e.preventDefault();toggleToc();}
+    else if(k==='Escape'){closeToc();}
+    else if(k==='f'||k==='F'){e.preventDefault();fullscreen();}
+  });
+
+  /* --- クリックで送り（リンク・ボタン・選択中のテキストは除く） --- */
+  viewport.addEventListener('click',function(e){
+    if(tocEl.classList.contains('open')) return;
+    if(e.target.closest('a,button,#ctl,#toc')) return;
+    var sel=window.getSelection&&window.getSelection().toString();
+    if(sel&&sel.length>0) return;
+    next();
+  });
+
+  /* --- 画面上のボタン --- */
+  document.getElementById('b-next').addEventListener('click',function(e){e.stopPropagation();next();});
+  document.getElementById('b-prev').addEventListener('click',function(e){e.stopPropagation();prev();});
+  document.getElementById('b-toc').addEventListener('click',function(e){e.stopPropagation();toggleToc();});
+  document.getElementById('b-full').addEventListener('click',function(e){e.stopPropagation();fullscreen();});
+
+  function fullscreen(){
+    var d=document.documentElement;
+    if(document.fullscreenElement){document.exitFullscreen();return;}
+    if(!document.fullscreenEnabled||!d.requestFullscreen){
+      msg('⚠ この枠では全画面にできない（iframe に allow="fullscreen" が無い）。ツールバーの「別タブで開く ↗」を使うこと。');
+      return;
+    }
+    var p=d.requestFullscreen();
+    if(p&&p.catch) p.catch(function(){
+      msg('⚠ この枠では全画面にできない。ツールバーの「別タブで開く ↗」を使うこと。');
+    });
+  }
+
+  /* --- autofit: 表が 1 枚に収まるまで級数を詰める（1280x720 の舞台の中で） --- */
+  function autofit(){
+    var hidden=[];
+    slides.forEach(function(sl){
+      if(!sl.classList.contains('active')){sl.style.display='flex';sl.style.visibility='hidden';hidden.push(sl);}
+    });
+    slides.forEach(function(sl){
+      var t=sl.querySelector('table.grid'), body=sl.querySelector('.sbody');
+      if(!t||!body) return;
+      t.style.fontSize='';
+      var f=parseFloat(getComputedStyle(t).fontSize);
+      for(var i=0;i<40;i++){
+        if(body.scrollHeight<=body.clientHeight+1) break;
+        f-=0.5; if(f<11.5) break;
+        t.style.fontSize=f+'px';
+      }
+      t.setAttribute('data-fit',f);
+    });
+    hidden.forEach(function(sl){sl.style.display='';sl.style.visibility='';});
+  }
+
+  /* --- 起動 --- */
+  window.addEventListener('hashchange',function(){go(findByHash(),true);});
+  fit(); autofit(); go(findByHash(),true);
+  try{window.focus();}catch(e){}
+  document.addEventListener('mousedown',function(){try{window.focus();}catch(e){}});
+
+  /* --- 自己点検（Step 4-2: 件数を機械的に数える） --- */
+  (function(){
+    var exp=[18,10,17,4,8,7,4,6,5,7,10],total=0,bad=[];
+    CATS.forEach(function(c,i){
+      total+=c.rows.length;
+      if(c.rows.length!==c.n) bad.push(c.id+': rows '+c.rows.length+' ≠ n '+c.n);
+      if(c.rows.length!==exp[i]) bad.push(c.id+': rows '+c.rows.length+' ≠ 元文書 '+exp[i]);
+      c.rows.forEach(function(r,j){ if(r.length!==5) bad.push(c.id+' 行'+(j+1)+': 列数 '+r.length); });
+    });
+    var dom=stage.querySelectorAll('table.grid tbody tr[data-src]').length;
+    var ok=(total===96&&dom===96&&!bad.length);
+    window.__deckCheck={categories:CATS.length,rows:total,domRows:dom,slides:slides.length,errors:bad,ok:ok};
+    (ok?console.log:console.error)('[deck] 分類 '+CATS.length+' / データ行 '+total+' / DOM 行 '+dom+' / スライド '+slides.length+' → '+(ok?'OK（96 件一致）':'NG'),bad);
+  })();
+})();
+</script>
+</body>
+</html>

@@ -1,5 +1,13 @@
 # DONE
 
+- 2026-08-29 online-tradable-assets.md の商品リストをスライドショーにした
+  - プラン: [docs/plans/archive/online-tradable-assets-slides.md](docs/plans/archive/online-tradable-assets-slides.md)
+  - 成果物: [docs/specs/online-tradable-assets-slides.html](docs/specs/online-tradable-assets-slides.html) — **全 30 枚・単一 HTML・外部依存なし**。vibeboard の `Specs` タブで開く
+  - **スコープ**: §14 の一覧（11 分類・96 件）のみ。調査の経緯（§0〜§13）と ① 6 件の順位（§15）は載せていない
+  - **構成**: 前段 6 枚（表紙・免責・表の読み方・11 分類の全体像・凡例 2 枚）／ 本体 21 枚（11 分類 × 説明 + 一覧表）／ 後段 3 枚（外したもの・使い方・出典）
+  - **検証**: 96 行を機械的に数えて元文書と一致（18/10/17/4/8/7/4/6/5/7/10）。⚠ **数値トークン 294 個を 1 個ずつ §14-x に突き当てて不一致 0**。Playwright で 30 枚のはみ出しを 0 px まで詰めた
+  - **⚠ 突合で分かったこと**: 元文書の食い違いが **9 件**（うち 5 件は新規）。⚠ **行単位で確かめたら成立しない主張が 5 つ**あり、書き換えた（例: 14-8「6 件すべて出口が無い」→ REC/SREC には板があるので **6 件中 5 件**）
+  - **⚠ 元文書の訂正は TODO に起票**。デッキ側で黙って直していない。§14 の冒頭にスライドへのリンクを 1 行足しただけ
 - 2026-08-29 オンラインで売買できるものを、抜けが出ない手順で洗い直す（4 巡）
   - プラン: [docs/plans/archive/online-tradable-assets-v2.md](docs/plans/archive/online-tradable-assets-v2.md)
   - 結果: [§10 1 巡目](docs/specs/online-tradable-assets.md) ／ §11 2 巡目 ／ §12 3 巡目 ／ §13 4 巡目

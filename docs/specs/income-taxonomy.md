@@ -143,7 +143,7 @@ flowchart TB
 | 2026-08-26 | 同 異議 D（Haig–Simons） | 譲渡益を **E8** として新設（61 → 62 件） |
 | 2026-08-26 | 同 異議 F・G（Spulber 1999、Christophers 2020、SNA 2008） | 源泉 7 を非対称型／占有型に分け、源泉 9 に SNA との定義差を注記 |
 | 2026-08-26 | [i7-dataset.md](experiments/i7-dataset.md) Phase 1・2 の調査 | I7 の個人の入口を **B14**（AI 開発者向け受託）と **D7**（既存コンテンツの学習許諾）に分割（62 → 64 件） |
-| **2026-08-28** | ⚠ **前提条件に税務上の居住地が無かった**（[online-tradable-assets.md](experiments/online-tradable-assets.md) を米国基準で作り直し、experiments 5 件を再判定） | 前提条件に **居住地 = 米国（WA 州シアトル）** を追加。必要資本の区分を **USD** で定義し直し、catalog の ⚠ を**日本法から米国連邦法・WA 州法へ**置換。**手法の件数（64）と軸の定義は変えていない** |
+| **2026-08-28** | ⚠ **前提条件に税務上の居住地が無かった**（[online-tradable-assets.md](online-tradable-assets.md) を米国基準で作り直し、experiments 5 件を再判定） | 前提条件に **居住地 = 米国（WA 州シアトル）** を追加。必要資本の区分を **USD** で定義し直し、catalog の ⚠ を**日本法から米国連邦法・WA 州法へ**置換。**手法の件数（64）と軸の定義は変えていない** |
 
 ## この体系の使い方
 

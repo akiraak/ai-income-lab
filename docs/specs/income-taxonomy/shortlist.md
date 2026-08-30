@@ -46,7 +46,7 @@ C3 素材・テンプレート販売 / G1 アフィリエイト / H1 広告収�
 > ⚠ **2026-08-29: この第 0 段の除外が 1 件崩れた。** F4「保険の引受・債務保証」を
 > 「個人は引受主体になれない」として外したが、**引受主体にならずに同じリスクを取る経路**が実在する。
 > カタストロフィボンド ETF（ILS）が NYSE Arca に上場しており、4 ゲートをすべて通る
-> （[online-tradable-assets.md §11](../experiments/online-tradable-assets.md)）。
+> （[online-tradable-assets.md §11](../online-tradable-assets.md)）。
 > **除外を維持するか、F4 の定義を書き換えるかの判断が要る。母集団 51 件の前提が動く。**
 
 > 2026-08-26 の修正で B14（AI 開発者向け受託）・D7（既存コンテンツの学習許諾）・E8（譲渡益）が加わった。
@@ -348,7 +348,7 @@ Phase 5 は本来「自分の資本・スキル・投下可能時間を明文化
 正しい前提は**米国居住者（WA 州シアトル）が扱えるか**であるため、前提条件に追加した（プラン: `docs/plans/us-residency-premise.md`）。
 
 **居住地は「換算すれば済む項目」ではなく、結論の向きを変える項目だった。**
-[online-tradable-assets.md](../experiments/online-tradable-assets.md) の再判定で、次の 4 つが反転または消滅した。
+[online-tradable-assets.md](../online-tradable-assets.md) の再判定で、次の 4 つが反転または消滅した。
 
 | 旧（日本居住） | 新（米国・WA 州） |
 | --- | --- |
@@ -432,7 +432,7 @@ flowchart LR
 ### 時間を使わない枠は、母集団のほぼ全部だった（2026-08-28）
 
 E1・E2・E8 が「枠の代表」なのか「たまたま残った 3 件」なのかを確かめるため、
-**売買がオンラインで完結する**という性質で横断的に洗い直した（[online-tradable-assets.md](../experiments/online-tradable-assets.md)）。
+**売買がオンラインで完結する**という性質で横断的に洗い直した（[online-tradable-assets.md](../online-tradable-assets.md)）。
 
 > ⚠ **2026-08-28 に米国基準へ改訂した。** 以下は改訂後の内容で、日本基準の初版の結論
 > （J-REIT が 1.9 倍有利・個人向け国債が E2 の本命）は**もう当てはまらない**。

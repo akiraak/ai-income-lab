@@ -60,7 +60,7 @@ flowchart TB
 
 ### Phase 2: 横断調査を米国基準で作り直す
 
-`docs/specs/experiments/online-tradable-assets.md` を**米国基準で全面改訂する**（ファイル名・リンク先は維持）。
+`docs/specs/online-tradable-assets.md` を**米国基準で全面改訂する**（ファイル名・リンク先は維持）。
 旧版（日本居住前提）の結論との差分を節として残し、**どの結論が反転したか**を追える形にする。
 
 | Step | 内容 |
@@ -73,7 +73,7 @@ flowchart TB
 | 2-6 | 税優遇枠を NISA から **IRA / 401(k) / HSA** へ置換して手取りを見る |
 | 2-7 | Phase 4 の順位を組み直す。**REIT が 1 位から落ちるかを確認する** |
 
-**影響範囲**: `experiments/online-tradable-assets.md`
+**影響範囲**: `docs/specs/online-tradable-assets.md`
 
 ### Phase 3: 既存 experiments の日本依存の洗い出しと再判定
 

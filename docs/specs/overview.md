@@ -78,7 +78,7 @@ flowchart LR
 | [experiments/i8-gpu-rental.md](experiments/i8-gpu-rental.md) | I8 GPU 貸出。単価・電気代・機材価格と回収試算 | 設備を持つ手法の回収計算を見るとき | 283 |
 | [experiments/c4c5-app-saas.md](experiments/c4c5-app-saas.md) | C4/C5 アプリ・SaaS。収益中央値、CAC と LTV、機会費用での回収 | 時間を投下する手法の期待値を見るとき | 228 |
 | [experiments/d7-content-licensing.md](experiments/d7-content-licensing.md) | D7 既存コンテンツの AI 学習許諾。声・動画・写真の時間あたり収入と権利条件 | **唯一成立している候補**を見るとき | 358 |
-| [experiments/online-tradable-assets.md](experiments/online-tradable-assets.md) | オンラインで売買が完結する資産の横断調査（**米国基準**）。4 ゲートによる定義、出口の確実性、E1・E2・E8 の順位 | 時間を使わない枠に**他に何があるか**を見るとき |
+| [online-tradable-assets.md](online-tradable-assets.md) | オンラインで売買が完結する資産の横断調査（**米国基準**）。4 ゲートによる定義、出口の確実性、E1・E2・E8 の順位 | 時間を使わない枠に**他に何があるか**を見るとき |
 | [experiments/archive/online-tradable-assets-jp.md](experiments/archive/online-tradable-assets-jp.md) | ⚠ **上の旧版（日本居住前提）**。判定の枠組みはここで作られた。日本の出典 21 件つき | 居住地でどの結論が反転したかを追うとき | 534 |
 
 タスク管理は [TODO.md](../../TODO.md) と [DONE.md](../../DONE.md)、作業プランは [docs/plans/](../plans/)（完了分は `archive/`）にある。
@@ -163,7 +163,7 @@ flowchart LR
 | I8 GPU 貸出 | **打ち切り**（08-27） | 稼働率 100%・電気代ゼロの上限テストでも回収 12 ヶ月に届かない | **維持。距離は縮んだ**（最良 30.5 → 22.8 ヶ月）。⚠ 主因は電気代でなく機材価格だった | [i8-gpu-rental.md](experiments/i8-gpu-rental.md) |
 | C4/C5 アプリ・SaaS | **打ち切り**（08-27） | 収益中央値は 1 年後で月 $72。機会費用が回収できず、かつ CAC > LTV | **根拠が強くなった**。⚠ 機会費用の時給が $31 → $61 になり、唯一通っていたマスも落ちる | [c4c5-app-saas.md](experiments/c4c5-app-saas.md) |
 | D7 AI 学習許諾 | **条件付き成立**（08-27） | 声は時間あたり $96〜1,280 で受託を上回る。動画は保留、写真は不成立 | **成立側に動いた**。最大リスクだった「日本語話者の実例ゼロ」と「Troveo の対応国が非公表」が消滅 | [d7-content-licensing.md](experiments/d7-content-licensing.md) |
-| オンライン完結の資産（横断） | **母集団を確定**（08-28） | 4 ゲートを通るのは上場商品と国債だけ。新手法はゼロ | **順位が入れ替わった**。E2 債券が E1 株式配当を上回り、⚠ REIT の 1.9 倍優位は消えた | [online-tradable-assets.md](experiments/online-tradable-assets.md) |
+| オンライン完結の資産（横断） | **母集団を確定**（08-28） | 4 ゲートを通るのは上場商品と国債だけ。新手法はゼロ | **順位が入れ替わった**。E2 債券が E1 株式配当を上回り、⚠ REIT の 1.9 倍優位は消えた | [online-tradable-assets.md](online-tradable-assets.md) |
 
 **打ち切り 3 件に共通するのは「AI で作れるようになった＝供給が増えた」側に立っていたこと**で、
 残った D7 だけが**既に在庫を持つ側**に立つ。この対比は候補の並べ方を見直す軸になる（[shortlist.md](income-taxonomy/shortlist.md#候補-8-件着手順)）。

@@ -189,7 +189,7 @@ flowchart LR
 
 | ファイル | 変更内容 |
 | --- | --- |
-| `docs/specs/experiments/online-tradable-assets.md` | **新規**。調査結果・試算・判定の記録。横断調査のため手法 ID を接頭辞に付けない |
+| `docs/specs/online-tradable-assets.md` | **新規**。調査結果・試算・判定の記録。横断調査のため手法 ID を接頭辞に付けない |
 | `docs/specs/income-taxonomy/catalog.md` | 該当エントリへの追記、必要なら新規エントリ（貸株・ST 等）の追加 |
 | `docs/specs/income-taxonomy/shortlist.md` | 時間を使わない枠の並べ直し |
 | `docs/specs/income-taxonomy/axes.md` | 「出口の流動性」を軸・属性として足す場合のみ |

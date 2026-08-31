@@ -523,6 +523,11 @@ flowchart LR
 
 すべて 2026-08-28 取得。
 
+⚠ **2026-08-31: 通し番号を振り直した。**出典は §9・§12-10・§13-9・§15-4 の 4 節に分かれており、
+**§9 が #1〜27、§12-10 が #28〜56、§13-9 が #57〜74、§15-4 が #75〜85 の通し番号（全 85 件）**になる。
+⚠ **以前は §9 と §12-10 で #20〜#27 が重複しており、番号だけでは一意に引けなかった。**
+節を追加するときは**最後の番号の続きから振ること**。
+
 **一次情報（公表ページ）**
 
 | # | 内容 | URL |
@@ -1057,35 +1062,35 @@ flowchart LR
 
 | # | 内容 | URL |
 | --- | --- | --- |
-| 20 | 1099 の全様式の列挙 | https://www.irs.gov/publications/p1099 |
-| 21 | 1099-SB の説明・提出要件 | https://www.irs.gov/instructions/i1099sb |
-| 22 | JAAA の SEC 利回り・経費率・設定来リターン | https://www.janushenderson.com/en-us/advisor/product/jaaa-aaa-clo-etf/ ／ https://www.morningstar.com/etfs/arcx/jaaa/performance |
-| 23 | JBBB の 30 日 SEC 利回り・経費率 | https://cdn.janushenderson.com/webdocs/FactSheet_JBBB_ETF_2026_06_exp_2026_10.pdf |
-| 24 | CLO ETF の一覧比較（CLOZ 含む） | https://collateralizedloanobligations.com/investing/clo-etfs |
-| 25 | BKLN・SRLN の利回りと経費率 | https://etfdb.com/etf/BKLN/ ／ https://etfdb.com/etf/SRLN/ |
-| 26 | BSM の Q2'26 分配・カバレッジ | https://investor.blackstoneminerals.com/news-events/press-releases/news-details/2026/Black-Stone-Minerals-L-P--Reports-Second-Quarter-Results/default.aspx |
-| 27 | DMLP の利回り | https://seekingalpha.com/article/4902539-dorchester-minerals-the-distribution-looks-worse-than-it-is |
-| 28 | SBR の生産減・残存年数 | https://seekingalpha.com/article/4817632-sabine-royalty-trust-high-yield-but-the-clock-is-ticking |
-| 29 | PBT の利回りと 5 年平均 | https://www.suredividend.com/monthly-dividend-stock-pbt/ |
-| 30 | AMLP の 1099 報告と利回り | https://www.alpsfunds.com/exchange-traded-funds/amlp |
-| 31 | 仕組債の流動性・手数料（SEC 投資家速報） | https://www.investor.gov/introduction-investing/general-resources/news-alerts/alerts-bulletins/investor-bulletins-76 |
-| 32 | CCLFX の買取条件と 2026 の請求超過 | https://www.cliffwaterfunds.com/data/pdfs/literature/CCLFX-Prospectus.pdf ／ https://angelinvestorsnetwork.com/alternative-investments/cliffwater-cclfx-redemption-requests-private-credit-liquidity-2026 |
-| 33 | NQH2O 先物の契約仕様 | https://www.cmegroup.com/markets/equities/nasdaq/nasdaq-veles-california-water-index.contractSpecs.html |
-| 34 | 米に単独 ETF が無いこと | https://commodity.com/soft-agricultural/rough-rice/trading/ |
-| 35 | AWS RI Marketplace の再販禁止（2024-01-15 以降） | https://cast.ai/blog/how-to-deal-with-aws-ban-on-reserved-instances-resale/ ／ https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ri-market-general.html |
-| 36 | B-Stock の事業者登録・再販証明書 | https://bstock.com/ |
-| 37 | SREC の価格と GATS の参加資格 | https://www.flettexchange.com/markets/new-jersey/market-prices ／ https://www.flettexchange.com/services/how-flett-exchange-works |
-| 38 | FCC のスペクトラム・リース制度 | https://www.fcc.gov/wireless/bureau-divisions/technologies-systems-and-innovation-division/spectrum-leasing |
-| 39 | 生命保険買取の市場規模と流動性 | https://elsa-sls.org/wp-content/uploads/2023/03/ELSA-FAQ-Sheet-Asset.pdf |
-| 40 | Abacus（ABL → NYSE:ABX）の初配当 | https://www.stocktitan.net/overview/ABL/ |
-| 41 | Burford（NYSE:BUR）の配当 | https://www.dividendmax.com/united-states/nyse/equity-investments/burford-capital-limited/dividends |
-| 42 | ブローカード CD の利率・本数・FDIC | https://www.fidelity.com/fixed-income-bonds/cds ／ https://wealthvieu.com/banking/schwab/cd-rates/ |
-| 43 | Sprott 物理ウラン・トラストと PFIC | https://sprott.com/investment-strategies/exchange-listed-products/physical-commodity-funds/uranium/ |
-| 44 | SPAC の信託構成と 2026 の IPO 実績 | https://www.freewritings.law/2026/06/the-resurgence-of-spacs-key-trends-market-data-and-whats-ahead/ |
-| 45 | 農地 REIT が 2 社のみであること | https://www.fool.com/investing/stock-market/market-sectors/real-estate-investing/reit/farmland-reits/ |
-| 46 | 転換社債 ETF の低利回り | https://www.dividend.com/etfs/icvt-ishares-convertible-bond-etf/ |
-| 47 | EMLC のドル感応度 | https://www.vaneck.com/us/en/investments/jp-morgan-em-local-currency-bond-etf-emlc/ |
-| 48 | 通貨 ETF の利回りと UUP の K-1 | https://money.usnews.com/investing/articles/best-currency-etfs-to-buy-now |
+| 28 | 1099 の全様式の列挙 | https://www.irs.gov/publications/p1099 |
+| 29 | 1099-SB の説明・提出要件 | https://www.irs.gov/instructions/i1099sb |
+| 30 | JAAA の SEC 利回り・経費率・設定来リターン | https://www.janushenderson.com/en-us/advisor/product/jaaa-aaa-clo-etf/ ／ https://www.morningstar.com/etfs/arcx/jaaa/performance |
+| 31 | JBBB の 30 日 SEC 利回り・経費率 | https://cdn.janushenderson.com/webdocs/FactSheet_JBBB_ETF_2026_06_exp_2026_10.pdf |
+| 32 | CLO ETF の一覧比較（CLOZ 含む） | https://collateralizedloanobligations.com/investing/clo-etfs |
+| 33 | BKLN・SRLN の利回りと経費率 | https://etfdb.com/etf/BKLN/ ／ https://etfdb.com/etf/SRLN/ |
+| 34 | BSM の Q2'26 分配・カバレッジ | https://investor.blackstoneminerals.com/news-events/press-releases/news-details/2026/Black-Stone-Minerals-L-P--Reports-Second-Quarter-Results/default.aspx |
+| 35 | DMLP の利回り | https://seekingalpha.com/article/4902539-dorchester-minerals-the-distribution-looks-worse-than-it-is |
+| 36 | SBR の生産減・残存年数 | https://seekingalpha.com/article/4817632-sabine-royalty-trust-high-yield-but-the-clock-is-ticking |
+| 37 | PBT の利回りと 5 年平均 | https://www.suredividend.com/monthly-dividend-stock-pbt/ |
+| 38 | AMLP の 1099 報告と利回り | https://www.alpsfunds.com/exchange-traded-funds/amlp |
+| 39 | 仕組債の流動性・手数料（SEC 投資家速報） | https://www.investor.gov/introduction-investing/general-resources/news-alerts/alerts-bulletins/investor-bulletins-76 |
+| 40 | CCLFX の買取条件と 2026 の請求超過 | https://www.cliffwaterfunds.com/data/pdfs/literature/CCLFX-Prospectus.pdf ／ https://angelinvestorsnetwork.com/alternative-investments/cliffwater-cclfx-redemption-requests-private-credit-liquidity-2026 |
+| 41 | NQH2O 先物の契約仕様 | https://www.cmegroup.com/markets/equities/nasdaq/nasdaq-veles-california-water-index.contractSpecs.html |
+| 42 | 米に単独 ETF が無いこと | https://commodity.com/soft-agricultural/rough-rice/trading/ |
+| 43 | AWS RI Marketplace の再販禁止（2024-01-15 以降） | https://cast.ai/blog/how-to-deal-with-aws-ban-on-reserved-instances-resale/ ／ https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ri-market-general.html |
+| 44 | B-Stock の事業者登録・再販証明書 | https://bstock.com/ |
+| 45 | SREC の価格と GATS の参加資格 | https://www.flettexchange.com/markets/new-jersey/market-prices ／ https://www.flettexchange.com/services/how-flett-exchange-works |
+| 46 | FCC のスペクトラム・リース制度 | https://www.fcc.gov/wireless/bureau-divisions/technologies-systems-and-innovation-division/spectrum-leasing |
+| 47 | 生命保険買取の市場規模と流動性 | https://elsa-sls.org/wp-content/uploads/2023/03/ELSA-FAQ-Sheet-Asset.pdf |
+| 48 | Abacus（ABL → NYSE:ABX）の初配当 | https://www.stocktitan.net/overview/ABL/ |
+| 49 | Burford（NYSE:BUR）の配当 | https://www.dividendmax.com/united-states/nyse/equity-investments/burford-capital-limited/dividends |
+| 50 | ブローカード CD の利率・本数・FDIC | https://www.fidelity.com/fixed-income-bonds/cds ／ https://wealthvieu.com/banking/schwab/cd-rates/ |
+| 51 | Sprott 物理ウラン・トラストと PFIC | https://sprott.com/investment-strategies/exchange-listed-products/physical-commodity-funds/uranium/ |
+| 52 | SPAC の信託構成と 2026 の IPO 実績 | https://www.freewritings.law/2026/06/the-resurgence-of-spacs-key-trends-market-data-and-whats-ahead/ |
+| 53 | 農地 REIT が 2 社のみであること | https://www.fool.com/investing/stock-market/market-sectors/real-estate-investing/reit/farmland-reits/ |
+| 54 | 転換社債 ETF の低利回り | https://www.dividend.com/etfs/icvt-ishares-convertible-bond-etf/ |
+| 55 | EMLC のドル感応度 | https://www.vaneck.com/us/en/investments/jp-morgan-em-local-currency-bond-etf-emlc/ |
+| 56 | 通貨 ETF の利回りと UUP の K-1 | https://money.usnews.com/investing/articles/best-currency-etfs-to-buy-now |
 
 ---
 
@@ -1263,24 +1268,24 @@ flowchart TB
 
 | # | 内容 | URL |
 | --- | --- | --- |
-| 49 | DXYZ の上場・保有銘柄・NAV | https://www.sec.gov/Archives/edgar/data/0001843974/000157587226000354/dxyz101_n2.htm ／ https://www.cefconnect.com/fund/DXYZ |
-| 50 | FRGE の売上と Schwab による買収合意 | https://stockanalysis.com/stocks/frge/ |
-| 51 | ATEX の 900MHz 保有と FY2026 契約受領 | https://www.sec.gov/Archives/edgar/data/0001304492/000130449226000027/atex-20260331.htm |
-| 52 | RSVR の時価総額と配当 0.00% | https://stockanalysis.com/stocks/rsvr/ ／ https://www.morningstar.com/stocks/xnas/rsvr/quote |
-| 53 | バッファー ETF の仕組みと経費率 | https://www.sec.gov/Archives/edgar/data/1415726/000121390026000209/ea0270882-08_497k.htm |
-| 54 | LQDT の事業構成と配当方針 | https://finance.yahoo.com/markets/stocks/articles/liquidity-services-targets-2b-gmv-170216236.html |
-| 55 | CCOI の IPv4 リース売上 | https://www.sec.gov/Archives/edgar/data/0001158324/000110465926054436/tm2613224d3_ex99-1.htm |
-| 56 | VRSN の配当と Q2'26 登録数 | https://www.stocktitan.net/sec-filings/VRSN/10-q-verisign-inc-ca-quarterly-earnings-report-b58839f2f353.html |
-| 57 | eBay による TCGplayer 買収 | https://www.engadget.com/ebay-acquire-tcgplayer-295-million-193137961.html |
-| 58 | タックスリーエン市場の規模 | https://www.amerisave.com/learn/critical-facts-about-tax-lien-investing-in-what-real-estate-investors-actually-need-to-know |
-| 59 | Vidler Water の D.R. Horton による買収 | https://www.housingwire.com/articles/why-hortons-291-mil-buy-of-vidler-makes-such-a-big-splash/ |
-| 60 | ⚠ **第 9 巡回区の判決（2026-08-28）と WA 州の訴訟** | https://www.cnbc.com/2026/08/28/appeals-court-rules-against-prediction-markets-tees-up-scotus-fight.html ／ https://www.coindesk.com/policy/2026/03/28/washington-sues-kalshi-as-states-ramp-up-legal-pressure-against-prediction-markets |
-| 61 | CME の予測市場上場と FanDuel Predicts | https://www.cmegroup.com/markets/prediction-markets.html |
-| 62 | BKLN の設定来リターンと分配の減少 | https://stockanalysis.com/etf/bkln/ ／ https://www.dividend.com/etfs/bkln-invesco-senior-loan-etf/ |
-| 63 | BSM の 10 年トータルリターン | https://www.stocktitan.net/tools/stock-return-calculator/BSM ／ https://www.financecharts.com/stocks/BSM/summary/price |
-| 64 | JBBB の設定来リターンと 2022 年の NAV 下落 | https://seekingalpha.com/article/4854146-jbbb-understanding-janus-hendersons-b-bbb-clo-etf ／ https://stockanalysis.com/etf/jbbb/ |
-| 65 | CLOZ の NAV・利回り・設定日 | https://stockanalysis.com/etf/cloz/ ／ https://clozfund.com/ |
-| 66 | DMLP の 5 年の株価推移 | https://www.macrotrends.net/stocks/charts/DMLP/dorchester-minerals/stock-price-history ／ https://stockanalysis.com/stocks/dmlp/ |
+| 57 | DXYZ の上場・保有銘柄・NAV | https://www.sec.gov/Archives/edgar/data/0001843974/000157587226000354/dxyz101_n2.htm ／ https://www.cefconnect.com/fund/DXYZ |
+| 58 | FRGE の売上と Schwab による買収合意 | https://stockanalysis.com/stocks/frge/ |
+| 59 | ATEX の 900MHz 保有と FY2026 契約受領 | https://www.sec.gov/Archives/edgar/data/0001304492/000130449226000027/atex-20260331.htm |
+| 60 | RSVR の時価総額と配当 0.00% | https://stockanalysis.com/stocks/rsvr/ ／ https://www.morningstar.com/stocks/xnas/rsvr/quote |
+| 61 | バッファー ETF の仕組みと経費率 | https://www.sec.gov/Archives/edgar/data/1415726/000121390026000209/ea0270882-08_497k.htm |
+| 62 | LQDT の事業構成と配当方針 | https://finance.yahoo.com/markets/stocks/articles/liquidity-services-targets-2b-gmv-170216236.html |
+| 63 | CCOI の IPv4 リース売上 | https://www.sec.gov/Archives/edgar/data/0001158324/000110465926054436/tm2613224d3_ex99-1.htm |
+| 64 | VRSN の配当と Q2'26 登録数 | https://www.stocktitan.net/sec-filings/VRSN/10-q-verisign-inc-ca-quarterly-earnings-report-b58839f2f353.html |
+| 65 | eBay による TCGplayer 買収 | https://www.engadget.com/ebay-acquire-tcgplayer-295-million-193137961.html |
+| 66 | タックスリーエン市場の規模 | https://www.amerisave.com/learn/critical-facts-about-tax-lien-investing-in-what-real-estate-investors-actually-need-to-know |
+| 67 | Vidler Water の D.R. Horton による買収 | https://www.housingwire.com/articles/why-hortons-291-mil-buy-of-vidler-makes-such-a-big-splash/ |
+| 68 | ⚠ **第 9 巡回区の判決（2026-08-28）と WA 州の訴訟** | https://www.cnbc.com/2026/08/28/appeals-court-rules-against-prediction-markets-tees-up-scotus-fight.html ／ https://www.coindesk.com/policy/2026/03/28/washington-sues-kalshi-as-states-ramp-up-legal-pressure-against-prediction-markets |
+| 69 | CME の予測市場上場と FanDuel Predicts | https://www.cmegroup.com/markets/prediction-markets.html |
+| 70 | BKLN の設定来リターンと分配の減少 | https://stockanalysis.com/etf/bkln/ ／ https://www.dividend.com/etfs/bkln-invesco-senior-loan-etf/ |
+| 71 | BSM の 10 年トータルリターン | https://www.stocktitan.net/tools/stock-return-calculator/BSM ／ https://www.financecharts.com/stocks/BSM/summary/price |
+| 72 | JBBB の設定来リターンと 2022 年の NAV 下落 | https://seekingalpha.com/article/4854146-jbbb-understanding-janus-hendersons-b-bbb-clo-etf ／ https://stockanalysis.com/etf/jbbb/ |
+| 73 | CLOZ の NAV・利回り・設定日 | https://stockanalysis.com/etf/cloz/ ／ https://clozfund.com/ |
+| 74 | DMLP の 5 年の株価推移 | https://www.macrotrends.net/stocks/charts/DMLP/dorchester-minerals/stock-price-history ／ https://stockanalysis.com/stocks/dmlp/ |
 
 ---
 
@@ -1355,9 +1360,13 @@ flowchart LR
 | 林地 REIT（WY） | 証券口座 | 板 | — | 1,000 万エーカー |
 | 転換社債 ETF（CWB・ICVT） | 証券口座 | 板 | 1.42% / 1.39% | 値上がり型。ER 0.40% / 0.20% |
 
+⚠ **AGNC・NLY の分配は §14-15 で取り直している**（AGNC 約 12%、NLY 12.97% = $3.00/年）。
+この表の値は一覧を作った時点のもので、**§14-15 のほうが新しい**（4 巡目・2026-08-29 の再取得）。
+⚠ **どちらの値でも判定は ② のまま変わらない**（差は −7.2〜−9.1pt でいずれも負）ので、両方残してある。
+
 ### 14-2. 上場の代替アクセス（10 件）— ⚠ 「直接は買えない資産」を扱う上場会社
 
-⚠ **出口は板で確実だが、分配は 9 件中 5 件がゼロ。**買うのは資産ではなく**事業会社の株**である。
+⚠ **出口は板で確実だが、分配は 10 件中 5 件がゼロ**（DXYZ・FRGE・ATEX・RSVR・LQDT）。買うのは資産ではなく**事業会社の株**である。
 
 | 元の資産 | 上場の代替 | 分配 | ⚠ 属性 |
 | --- | --- | --- | --- |
@@ -1510,21 +1519,36 @@ flowchart LR
 | 収入が欲しい | 「利回り」— ⚠ **分配ゼロが 96 件中 11 件ある**（金 ETF・商品 ETF・KRBN・ウラン・ATEX・RSVR・LQDT・DXYZ・バッファー ETF ほか） |
 | 元本を減らしたくない | ⚠ **①②③ の型判定**（[§12-3](#12-3-3-巡目で最も重要なこと--高利回りは-3-つの型に分かれる)）。→ §14-14 |
 
-### 14-14. ⚠ 型判定の適用範囲 — 93 件全部が対象ではない
+### 14-14. ⚠ 型判定の適用範囲 — 96 件全部が対象ではない
 
 **①②③ は「分配の原資が何か」を見る枠組みなので、成立するのは
 「分配を出し、かつ元本（NAV・株価）が動くもの」だけである。**
 
-| 区分 | 件数 | 内訳 |
-| --- | ---: | --- |
-| **実測して判定済み** | **8 銘柄** | ① DMLP・JAAA ／ ⚠ ② AGNC・BSM・BKLN・JBBB ／ ⚠ ③ PBT・SBR |
-| ⚠ **判定が要る（未了）** | **約 22** | §14-14 の表（下） |
-| ① が定義から自明 | 8 | 米国債・TIPS・I Bonds・EE Bonds・地方債現物・MMF・ブローカード CD・MYGA。⚠ **額面で償還されるので元本が動かない。測定ではなく定義** |
-| 分配が無い | 11 | 金 ETF・商品 ETF・KRBN・ウラン・バッファー ETF・ATEX・RSVR・LQDT・DXYZ・FRGE・水先物。⚠ **判定する対象が無い**（E8 のみ） |
-| 枠組みが違う | 約 30 | 収集品・暗号資産・権利のリース・在庫の転売・事業売買。⚠ **分配ではなく売買差益** |
+⚠ **行数と銘柄数はずれる。**1 行に 2 銘柄を載せた行が 3 つある
+（mREIT の AGNC・NLY、シニアローン ETF の BKLN・SRLN、ロイヤリティトラストの PBT・SBR）。
+下の表は**一覧の行数**で数え、判定済みだけ銘柄数も併記する。
 
-⚠ **「判定済み 9 件」と書いていたのは不正確だった。実測は 8 銘柄**である。
-国債・地方債は測定ではなく定義から ① なので、同列に数えない。
+| 区分 | 行数 | 内訳 |
+| --- | ---: | --- |
+| **実測して判定済み** | **14 行**（= 17 銘柄） | → **§14-15**。① 6: ARCC・MAIN・JEPI・DMLP・JAAA・CCLFX ／ ⚠ ② 9: AGNC・NLY・QYLD・PFF・BSM・AMLP・JBBB・BKLN・SRLN ／ ⚠ ③ 2: PBT・SBR |
+| ⚠ **疑い・判定不能** | **5** | ⚠ ② の疑い: MORT・ILS ／ 判定不能: CLOZ（2023-01 設定で履歴不足）・BDC「平均 12.6%」・CEF「平均 8.7%」。⚠ **括りは判定できない**（§14-16 の 1） |
+| ① が定義から自明 | 8 | 米国債・TIPS・I Bonds・EE Bonds・地方債現物・MMF・ブローカード CD（§14-3）／ MYGA（§14-4）。⚠ **額面で償還されるので元本が動かない。測定ではなく定義** |
+| 分配が無い | 11 | 金 ETF・商品 ETF・KRBN・物理ウラン・水先物（§14-5）／ バッファー ETF（§14-6）／ ATEX・RSVR・LQDT・DXYZ・FRGE（§14-2）。⚠ **判定する対象が無い**（E8 のみ） |
+| ⚠ **分配はあるが未判定** | **25** | 測れば型が付く。SCHD/VYM・VNQ・農地 REIT・林地 REIT・転換社債 ETF ／ 上場の代替 5 件（ABX・BUR・CCOI・VRSN・EBAY）／ 債券 ETF・ハイイールド債・新興国国債・地方債 CEF・仕組債 ／ 変額年金・トークン化国債 ／ 通貨 ETF ／ タックスリーエンほか §14-10 の 5 件 ／ 貸付・協同組合の持分 |
+| 枠組みが違う | 33 | 商品・実物 3 件 ／ デリバティブ 5 件 ／ 暗号資産 4 件 ／ 権利・ロイヤリティ 6 件 ／ 収集品 5 件 ／ 未公開株の二次市場 ／ 事業・在庫 8 件 ／ 生命保険買取（直接）。⚠ **分配ではなく売買差益・使用料・転売益** |
+| **合計** | **96** | 一覧の全行 |
+
+⚠ **最後の 2 区分の境目には判断が入る。**「保有しているだけで受け取る分配があるか」で分け、
+売買差益・使用料・転売益しか無いものを「枠組みが違う」に置いた。
+⚠ **貸株・SPAC 信託・タックスリーエンはどちらに置くかで割れる。**
+貸株（配当金相当額は貸出の対価）と SPAC 信託（償還差益）は「枠組みが違う」、
+タックスリーエンは州の法定利率で受け取るので「分配はあるが未判定」に置いた。
+
+> ⚠ **2026-08-31 訂正。この節は §14-15 が書かれる前の状態のまま残っていた。**
+> 見出しが「93 件」（一覧は 96 件）、「実測して判定済み **8 銘柄**」（⚠ 直後の §14-15 が **17 銘柄**を確定させている）、
+> 「判定が要る（未了）」の参照先が「§14-14 の表（下）」で**自己参照**、
+> 内訳の合計が **79** で 96 に合わない、の 4 点を直した。
+> ⚠ **数字を 1 つ間違えていたのではなく、節が後続の節に追い越されたまま残っていた。**
 
 ### 14-15. 型判定の一斉適用（2026-08-29）— ⚠ 17 銘柄が確定した
 
@@ -1557,6 +1581,10 @@ flowchart LR
 
 **確定 17 銘柄（① 6 件・② 9 件・③ 2 件）、疑い 2 件、判定不能 2 件。**
 
+⚠ **分配利回りが §14-1 の一覧と違う銘柄が 2 つある。**AGNC は §14-1 で **13.56%**、NLY は **13.30%**。
+この表の値（AGNC 約 12%・NLY 12.97% = $3.00/年）は**この一斉適用のときに取り直したもの**で、こちらが新しい。
+⚠ **どちらの値でも判定は ② のまま変わらない。**一覧側の値は取得時点の記録として残してある。
+
 ### 14-16. ⚠ 一斉適用で分かったこと 3 つ
 
 **1. ⚠ 「BDC 平均 12.6%」「CEF 平均 8.7%」は判定を誤らせる括りだった**
@@ -1582,7 +1610,7 @@ CEF も同じで、⚠ **「分配が総リターンを超えた差額が NAV �
 **3. ⚠ カタストロフィボンド ETF（ILS）に負の疑いが出た — 体系反映の前提に効く**
 
 ILS は 2 巡目に「体系の第 0 段の除外（F4）を崩した 1 件」として拾い、
-[TODO](../../TODO.md) 群 1 Phase 1 で「F4 の除外を外す」判断の根拠になっている。
+体系側で「F4 の除外を外す」判断の根拠になっていた。
 
 | 項目 | 値 |
 | --- | ---: |
@@ -1594,8 +1622,28 @@ ILS は 2 巡目に「体系の第 0 段の除外（F4）を崩した 1 件」�
 | ⚠ 経費率 | **1.58%** |
 
 ⚠ **分配 8.1% を出しながら 2026 年の総リターンが 1.19% で、NAV は $20 前後から $19.83 に下がっている。**
-履歴 1.4 年で確定はできないが、**② の疑いがある状態で「F4 の除外を外す」判断はできない。**
-→ ⚠ **TODO 群 1 Phase 1 の前に、ILS をもう 1 年分見るか、判断に「型が未確定」の但し書きを付けるか**を決める必要がある。
+履歴 1.4 年で確定はできない。
+
+> ## ⚠ 2026-08-31: 型を待たずに体系の判断だけ先に決めた
+>
+> **「ILS の型が決まらないから F4 の判断ができない」としていたのは、2 つの別の問いを 1 つにしていた。**
+>
+> | 問い | 決まるか | 答え |
+> | --- | --- | --- |
+> | A. 個人は F4（保険の引受）のリスクに到達できるか | ⚠ **型と無関係に決まる** | 到達できる。ILS は NYSE Arca に上場し、証券口座で買える |
+> | B. ILS は買う価値があるか | ⚠ **履歴 1.4 年で決まらない** | ⚠ ② の疑いのまま。経費率 1.58% が効く |
+>
+> ⚠ **A に答えても F4 の除外は外れない。**除外の理由は「個人は**引受主体**になれない」であり、これは今も正しい。
+> ILS が示したのは「**引受主体にならずに同じリスクを取れる**」ことで、⚠ **それは F4 を取れるという意味ではなく、
+> 引受リスクが証券化されて E1（上場商品）の板に載っているという意味**である。
+>
+> → **F4 の除外は維持し、外す理由の書き方だけを直す。**母集団 51 件は変えない。
+> ILS はこの一覧に **§14-3 の 1 銘柄**として載っており、⚠ **型は未確定**の但し書きを付けたまま扱う。
+> 反映先: [income-taxonomy/shortlist.md](income-taxonomy/shortlist.md) の第 0 段。
+>
+> ⚠ **B は保留のまま。**1 年分の履歴が増えたときに測り直す。判断を止める理由にはしない。
+→ ⚠ **2026-08-31 に決着した（上の囲み）。**F4 の除外は維持し、ILS は E1 の一銘柄として
+「型が未確定」の但し書きを付けたまま扱う。⚠ **型の確定を待つ必要は無かった。**
 
 ---
 
@@ -1672,14 +1720,14 @@ flowchart TB
 
 | # | 内容 | URL |
 | --- | --- | --- |
-| 67 | NLY の 10 年年率 5.77% | https://www.averageannualreturn.com/nly/ |
-| 68 | ARCC の 10 年 254%・MAIN の 312%・payout 138.4% | https://seekingalpha.com/article/4913009-ares-capital-sustainable-10-percent-plus-yielding-best-of-breed-bdc-finally-on-sale ／ https://www.merrydiv.com/stocks/ARCC |
-| 69 | QYLD の 10 年 147%・株価 $25 → $18・分配 −24% | https://247wallst.com/investing/2026/05/22/qylds-12-yield-looks-generous-but-its-10-year-total-return-tells-a-harder-story/ |
-| 70 | JEPI の設定来 11.45% | https://totalrealreturns.com/n/JEPI ／ https://stockanalysis.com/etf/jepi/ |
-| 71 | AMLP の 10 年 6.39%（NAV） | https://www.alpsfunds.com/exchange-traded-funds/amlp |
-| 72 | PFF の 10 年 NAV 2.9% | https://www.ishares.com/us/literature/fact-sheet/pff-ishares-preferred-and-income-securities-etf-fund-fact-sheet-en-us.pdf |
-| 73 | SRLN の 5 年 4.4%・3 年 7.2% | https://www.ssga.com/us/en/intermediary/etfs/state-street-blackstone-senior-loan-etf-srln |
-| 74 | CCLFX の設定来 9.34%・標準偏差 2.25%・S&P 'A' | https://www.cliffwaterfunds.com/data/pdfs/literature/CCLFX-Fact-Page.pdf |
-| 75 | ILS の NAV・設定来・分配 8.1% | https://www.sec.gov/Archives/edgar/data/1771146/000199937126005358/ils-ncsr_123125.htm ／ https://etfdb.com/etf/ILS/ |
-| 76 | MORT の分配と NAV 減の開示 | https://www.vaneck.com/us/en/investments/mortgage-reit-income-mort/ |
-| 77 | CEF の「分配が総リターンを超えた差額が NAV を減らす」 | https://www.fidelity.com/learning-center/investment-products/closed-end-funds/total-return-distribution-rate ／ https://www.eatonvance.com/services/im/external/media?fn=6348.pdf |
+| 75 | NLY の 10 年年率 5.77% | https://www.averageannualreturn.com/nly/ |
+| 76 | ARCC の 10 年 254%・MAIN の 312%・payout 138.4% | https://seekingalpha.com/article/4913009-ares-capital-sustainable-10-percent-plus-yielding-best-of-breed-bdc-finally-on-sale ／ https://www.merrydiv.com/stocks/ARCC |
+| 77 | QYLD の 10 年 147%・株価 $25 → $18・分配 −24% | https://247wallst.com/investing/2026/05/22/qylds-12-yield-looks-generous-but-its-10-year-total-return-tells-a-harder-story/ |
+| 78 | JEPI の設定来 11.45% | https://totalrealreturns.com/n/JEPI ／ https://stockanalysis.com/etf/jepi/ |
+| 79 | AMLP の 10 年 6.39%（NAV） | https://www.alpsfunds.com/exchange-traded-funds/amlp |
+| 80 | PFF の 10 年 NAV 2.9% | https://www.ishares.com/us/literature/fact-sheet/pff-ishares-preferred-and-income-securities-etf-fund-fact-sheet-en-us.pdf |
+| 81 | SRLN の 5 年 4.4%・3 年 7.2% | https://www.ssga.com/us/en/intermediary/etfs/state-street-blackstone-senior-loan-etf-srln |
+| 82 | CCLFX の設定来 9.34%・標準偏差 2.25%・S&P 'A' | https://www.cliffwaterfunds.com/data/pdfs/literature/CCLFX-Fact-Page.pdf |
+| 83 | ILS の NAV・設定来・分配 8.1% | https://www.sec.gov/Archives/edgar/data/1771146/000199937126005358/ils-ncsr_123125.htm ／ https://etfdb.com/etf/ILS/ |
+| 84 | MORT の分配と NAV 減の開示 | https://www.vaneck.com/us/en/investments/mortgage-reit-income-mort/ |
+| 85 | CEF の「分配が総リターンを超えた差額が NAV を減らす」 | https://www.fidelity.com/learning-center/investment-products/closed-end-funds/total-return-distribution-rate ／ https://www.eatonvance.com/services/im/external/media?fn=6348.pdf |

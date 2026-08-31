@@ -1,5 +1,14 @@
 # DONE
 
+- 2026-08-31 online-tradable-assets.md の食い違いを直した
+  - プラン: [docs/plans/archive/online-tradable-assets-corrections.md](docs/plans/archive/online-tradable-assets-corrections.md)
+  - **⚠ 起票した 9 件のうち 3 件は誤検出だった**（BSM の 10 年 −8.8%／−0.9% は**累計と年率**、BSM の分配 8.24% は**範囲の中**、JBBB の 8.5%／7% は **30 日 SEC 利回りと分配率**）。突合が単位・定義の違いを食い違いとして拾っていた
+  - **§14-14 を作り直した**。⚠ **数字違いではなく、節が §14-15 に追い越されたまま残っていた** — 見出し 93 件（一覧は 96）、実測 8 銘柄（§14-15 は 17 銘柄）、参照先が自己参照、内訳合計 79 ≠ 96。96 行すべてを 6 区分に割り当て、合計 96 で一致させた
+  - **§14-2 の「9 件中 5 件がゼロ」→ 10 件中**（表は 10 行）
+  - **AGNC・NLY の分配が §14-1 と §14-15 で割れている件**は、⚠ **どちらでも判定は ② のまま変わらない**ので両方残し、§14-15 が新しいと注記した。⚠ 一覧の値を書き換えるとスライドの突合が崩れる
+  - **⚠ ILS の型と体系の F4 を切り離した。**「型が決まらないから F4 の判断ができない」は 2 つの別の問いを 1 つにしていた。⚠ **F4 の除外理由「個人は引受主体になれない」は今も正しく、ILS が示したのは「引受リスクが証券化されて E1 の板に載っている」こと**。→ **F4 の除外は維持、母集団 51 件も変えず**、ILS は E1 の一銘柄として扱う（[shortlist.md](docs/specs/income-taxonomy/shortlist.md) に反映）
+  - **出典の通し番号を #1〜85 に振り直した**（§9 #1〜27・§12-10 #28〜56・§13-9 #57〜74・§15-4 #75〜85）。⚠ 以前は #20〜#27 が重複していた
+  - **検証**: §14-14 の内訳合計 96 ＝ 一覧の行数 96。出典番号は 1〜85 で重複 0。⚠ **スライド側の突合（96 行・数値トークン 294 個）と 30 枚のはみ出し 0px を再実行して無傷を確認**
 - 2026-08-29 online-tradable-assets.md の商品リストをスライドショーにした
   - プラン: [docs/plans/archive/online-tradable-assets-slides.md](docs/plans/archive/online-tradable-assets-slides.md)
   - 成果物: [docs/specs/online-tradable-assets-slides.html](docs/specs/online-tradable-assets-slides.html) — **全 30 枚・単一 HTML・外部依存なし**。vibeboard の `Specs` タブで開く

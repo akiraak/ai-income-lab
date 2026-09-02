@@ -1,5 +1,16 @@
 # DONE
 
+- 2026-09-01 小売 FX・CFD（§14-6）の出口表記を「板」から相対に直した
+  - プラン: [docs/plans/archive/fx-cfd-exit-notation.md](docs/plans/archive/fx-cfd-exit-notation.md) / 成果物: [online-tradable-assets.md](docs/specs/online-tradable-assets.md) §14-6 ／ [slides.html](docs/specs/online-tradable-assets-slides.html) ／ [market-data-availability.md](docs/specs/market-data-availability.md) §0
+  - **⚠ 同じ 1 件を 2 つの成果物が逆に書いていた。**`online-tradable-assets.md:1439` が出口 `板`、`market-data-availability.md:279` が ⚠ **「中央の板が無い。取れるのは 1 業者の建値であって市場価格ではない」**。⚠ **後から書いた市場データ調査（2026-09-01）のほうが実態を当てており、§14-6 が更新されずに残っていた**
+  - **⚠ 判定ではなく表記の問題だった。**小売 FX・CFD は業者自身が相手方になる相対取引で、決済は同じ業者との反対売買。⚠ **常設の買い手（建てた業者）はいるので出口ゲートの通過・落選は変わらない**。§1 の出口 2 型（板型・買取保証型）のどちらでもない第 3 の型として書き分けた
+  - **文言は `⚠ 業者との相対で板が無い。常時反対売買には応じるが、値段は業者の建値`。**⚠ **`板が無い` という語をわざと含めた** — 2026-09-01 に確定した数え方の除外リスト（`板が無い` / `板ではない` / `板の厚みは未取得` / `掲示板方式`）に既にある語を使えば、**数え方の定義に手を入れずに** 1 件減る
+  - **⚠ 元文書の 1 セルを直すと 5 箇所が動く**（出口=板 を数えている箇所）。スライドの `CATS` 1 行・14-6 の箱 `7 → 6`・帯 A `55 → 54`・主張文 `56 件 → 55 件` と ⚠ **`板の無い 13 件 → 14 件`（増える向き）**、`market-data-availability.md:29` の `板ありとした 56 件 → 55 件`
+  - **⚠ `market-data-availability.md:15` の L0 49 件（小売 FX 1 を含む）は動かしていない。**これは Dukascopy（D42）から tick の bid/ask が取れるという**データ粒度**の話で、出口が板かどうかとは別軸。⚠ **同ファイルの 279 行が今回の「正」であり、そこは元から正しい**
+  - **⚠ `DONE.md` の 2026-09-01 の記録（`合計 56`・分類別 `…/7/…`）は書き換えていない。**完了日付きの作業ログなので、その時点で正しかった記録として残した
+  - **⚠ CFD の米国での提供可否は決めていない。**この 1 行は「小売 FX」と「CFD」をまとめているが、米国居住者から見た可否が違いうる。⚠ **CFTC / NFA の一次情報を当てていないので断定せず、TODO に別項目として起票した**
+  - **検証**: `CATS` から出口列を機械抽出し除外リストで数えて **17/10/12/0/7/6/2/0/0/0/1 = 55**、帯 A **54** / 帯 B **1**（変更前は `…/7/…` = 56・帯 A 55 で、**変更前後とも DONE の記録と一致することを確認**）。行数 96・分類別 18/10/17/4/8/7/4/6/5/7/10 は不変。元文書とスライドの §14-6 が **7/7 商品名一致**。SVG 5 枚のパース失敗 0。Playwright で `__deckCheck` が `{rows:96, domRows:96, descs:96, slides:36, errors:[], ok:true}`、**36 枚のはみ出し 0 枚**、pageerror 0。`git diff --stat` の `docs/specs` 変更行は**想定どおり 6 行**
+
 - 2026-09-01 Stooq の判断を確定させた — ⚠ **「採らない」**
   - プラン: [docs/plans/archive/stooq-terms.md](docs/plans/archive/stooq-terms.md) / 成果物: [docs/specs/market-data-availability.md](docs/specs/market-data-availability.md)（D6 / 3-2 / A-1 / §0 / §5）
   - ⚠ **決め手は `robots.txt` だった。**stooq.com・stooq.pl とも `User-agent: Bingbot → Allow: /` ／ `Googlebot → Allow: /` ／ ⚠ **`User-agent: * → Disallow: /`**。**Bingbot・Googlebot 以外の自動アクセスをサイト全体で拒否**しており、CSV エンドポイントも含む【実測・2026-09-01】

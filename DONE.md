@@ -1,5 +1,11 @@
 # DONE
 
+- 2026-09-01 Masterworks（§14-9）の PPEX ATS 終了について、過去データを確保するかを決めた
+  - 成果物: [docs/specs/market-data-availability.md](docs/specs/market-data-availability.md)（3-3 / §14-9 の表 / 付録 B-4）
+  - **結論は「確保しない」。**⚠ **2026-12-14 以降はこの行を L5（データなし）として扱う**（L4 が 8 → 7 件、L5 が 14 → 15 件）
+  - 理由は 3 つ — ⚠ **§14 で既に落選（出口）済み**で後続タスクの前提を左右しない／**粒度が L4（不定期）**で時系列として使えない／⚠ **取得にログインが要る可能性が高く、口座開設を伴う実行は方針外**
+  - ⚠ **L5 確定（付録 B-3）とは区別して記録した。**運営が「無い」と言っているのではなく、**参照経路が時間で失われる**ケース。SEC EDGAR の Reg A+ 書類（1-K / 1-SA）から拾える可能性は【推測・未確認】として残した
+
 - 2026-09-01 §14 の 96 件について、過去の取引データが取れるサービスと粒度を調べた
   - プラン: [docs/plans/archive/market-data-availability.md](docs/plans/archive/market-data-availability.md) / 成果物: [docs/specs/market-data-availability.md](docs/specs/market-data-availability.md)
   - **着地は L0 tick が 49 件・L1 が 2・L2 が 9・L3 が 11・L4 が 8・L5 が 14・未確認 3。**⚠ **L0 の 49 件のうち 42 件は「米国上場ティッカー」という同じ 1 経路で片付く**ので、個別に効くのは残り 54 件のほう

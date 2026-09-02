@@ -1,5 +1,14 @@
 # DONE
 
+- 2026-09-01 小売 CFD の米国リテール向け提供可否を ⚠ **未確認のまま打ち切った**
+  - プラン: [docs/plans/archive/cfd-us-availability-unverified.md](docs/plans/archive/cfd-us-availability-unverified.md) / 成果物: [online-tradable-assets.md](docs/specs/online-tradable-assets.md) §14-6 ／ [slides.html](docs/specs/online-tradable-assets-slides.html)
+  - **⚠ 一次情報の調査は行わないと決めた。**`51f3896` が積み残した「§14-6 の 1 行が『小売 FX』と『CFD』をまとめている」件について、⚠ **CFTC / NFA を当てずに「未確認である」と本文に書いて閉じた**。理由は 2 つ — ⚠ **結論に効かない**（§15 の ① 維持型 6 件に入っておらず、§14-14 では「枠組みが違う」33 件で型判定の対象外。§1 のゲート 3 では `FX・CFD` が落選例として名指し）／ **打ち切りの先例がある**（`3396bc1` の 7 件、および §14 に既にある `⚠ 未取得` のセル）
+  - **文言は `⚠ 継続的な判断が要る。⚠ CFD の米国リテール向け提供可否は未確認（CFTC / NFA の一次情報を当てていない）`。**元文書とスライドの**属性列に同じ 1 文**を足しただけ
+  - **⚠ 行は分割しなかった。**分割を正当化する根拠（＝提供されないという一次情報）が無い。⚠ **分割すると 96 → 97 で件数が 5 箇所以上動く**（`51f3896` で 1 セルの修正が 5 箇所に波及した経験による）
+  - **⚠ 出口列・`板` の語には触っていない。**`51f3896` で確定した数え方（除外リスト `板が無い` / `板ではない` / `板の厚みは未取得` / `掲示板方式`）に影響させないため。⚠ **`market-data-availability.md:279` も触っていない**（あちらはデータ粒度 L0・D42 の話で入口の可否とは別軸）
+  - **再開条件**: CFD が米国リテールに提供されないと**一次情報で確認できたとき**。そのときは行を分割するか、⚠ **「受取の制約」として属性に書く**（先例はトークン化国債 USDY の「非米国リテール専用」）。当てる先は CEA の retail commodity transactions 条項・ECP 定義、SEC の security-based swap、NFA の Forex Dealer Member 一覧
+  - **検証**: 元文書から機械抽出して 行数 **96**・分類別 **18/10/17/4/8/7/4/6/5/7/10**、出口=板 **17/10/12/0/7/6/2/0/0/0/1 = 55**。⚠ **`git stash` で変更前も同じ数字になることを確認**（＝件数は動いていない）。元文書とスライドの §14-6 が **7/7 商品名一致**。Playwright で `__deckCheck` が `{rows:96, domRows:96, descs:96, slides:36, errors:[], ok:true}`、⚠ **36 枚のはみ出し 0 枚**（最小 `data-fit` 15.0px、下限 11.5px に余裕）、pageerror 0。`git diff --numstat` の `docs/specs` 変更が**想定どおり 2 行**
+
 - 2026-09-01 小売 FX・CFD（§14-6）の出口表記を「板」から相対に直した
   - プラン: [docs/plans/archive/fx-cfd-exit-notation.md](docs/plans/archive/fx-cfd-exit-notation.md) / 成果物: [online-tradable-assets.md](docs/specs/online-tradable-assets.md) §14-6 ／ [slides.html](docs/specs/online-tradable-assets-slides.html) ／ [market-data-availability.md](docs/specs/market-data-availability.md) §0
   - **⚠ 同じ 1 件を 2 つの成果物が逆に書いていた。**`online-tradable-assets.md:1439` が出口 `板`、`market-data-availability.md:279` が ⚠ **「中央の板が無い。取れるのは 1 業者の建値であって市場価格ではない」**。⚠ **後から書いた市場データ調査（2026-09-01）のほうが実態を当てており、§14-6 が更新されずに残っていた**

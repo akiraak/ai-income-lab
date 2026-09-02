@@ -1,5 +1,15 @@
 # DONE
 
+- 2026-09-01 Stooq の判断を確定させた — ⚠ **「採らない」**
+  - プラン: [docs/plans/archive/stooq-terms.md](docs/plans/archive/stooq-terms.md) / 成果物: [docs/specs/market-data-availability.md](docs/specs/market-data-availability.md)（D6 / 3-2 / A-1 / §0 / §5）
+  - ⚠ **決め手は `robots.txt` だった。**stooq.com・stooq.pl とも `User-agent: Bingbot → Allow: /` ／ `Googlebot → Allow: /` ／ ⚠ **`User-agent: * → Disallow: /`**。**Bingbot・Googlebot 以外の自動アクセスをサイト全体で拒否**しており、CSV エンドポイントも含む【実測・2026-09-01】
+  - **トップページの proof-of-work は迂回しなかった。**規約の写しを Wayback（2011-11-11 の「Bazy danych」規約）から読み、`robots.txt` は PoW の裏ではなく 200 で取れた。⚠ **規約パスへの直接アクセスは PoW 無しで 404 を返したので、PoW は全 HTML に掛かっているわけではない**が、判断は `robots.txt` で決まった
+  - **2011 年の規約はデータ提供が有料サブスク**（MetaStock 形式）で、⚠ **「平均を超えるファイル・ページのダウンロードは即時遮断」**と明記。⚠ ただし無償 CSV を直接カバーする規約ではなく 15 年前の版なので、補強材料として扱った
+  - ⚠ **解釈の限界も残した。**`robots.txt`（RFC 9309）はクローラ向けの指示で、人手の 1 回の取得までを禁じる契約文書ではないという読み方はある。**PoW・`Disallow: /`・有料版の遮断条項という 3 つの独立した意思表示が同じ方向を向いている**ことと、§3 で自分が引いた「規約を確認したうえで実測する」線をもって「採らない」とした
+  - **⚠ 結論は「データが無い」ではない。**Stooq にデータはある。**方針の内側では取りに行けない**という判定。⚠ **S1（米国上場ティッカー 45 件）に無登録で使える経路は無いことが確定**し、この束は【公表値】止まりで固まった
+  - **⚠ 96 行の判定は 1 行も動かない。**S1 は既に L0（D1・D2 の tick）で、Stooq は 5 分足＝ L1。⚠ **動いたのは §0 の看板・A-1 の締め・D6・§5 検証 #3 の 4 箇所だけ**
+  - **副産物 — 株価指数なら無登録・無認証で取れた**（D10 FRED）。`NASDAQCOM` **14,498 行 1971-02-05〜**、`SP500`・`DJIA` 各 **2,609 行**、`VIXCLS` **9,566 行 1990-01-02〜**【実測】。⚠ **指数であって個別銘柄ではない**ので §0 の tick の記述は揺らがないが、「米国株はどの経路でも認証の壁の向こう」という言い方は広すぎたため書き分けた
+
 - 2026-09-01 「探した範囲では見つからず」の 7 件を、未確認のまま打ち切ると決めた
   - プラン: [docs/plans/archive/close-unverified-7.md](docs/plans/archive/close-unverified-7.md) / 成果物: [docs/specs/market-data-availability.md](docs/specs/market-data-availability.md)（§0 / §2 / 付録 B-3 / §5）
   - **対象 7 件** — ブローカード CD（14-3-15）・変額年金（14-4-2）・住宅ローン債権（14-10-3）・YieldStreet（14-10-6）・返品在庫（14-11-3）・貸株（14-11-8）・貸付（14-11-9）

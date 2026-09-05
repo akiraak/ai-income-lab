@@ -80,6 +80,8 @@ flowchart LR
 | [experiments/d7-content-licensing.md](experiments/d7-content-licensing.md) | D7 既存コンテンツの AI 学習許諾。声・動画・写真の時間あたり収入と権利条件 | **唯一成立している候補**を見るとき | 358 |
 | [online-tradable-assets.md](online-tradable-assets.md) | オンラインで売買が完結する資産の横断調査（**米国基準**）。4 ゲートによる定義、出口の確実性、E1・E2・E8 の順位 | 時間を使わない枠に**他に何があるか**を見るとき |
 | [experiments/archive/online-tradable-assets-jp.md](experiments/archive/online-tradable-assets-jp.md) | ⚠ **上の旧版（日本居住前提）**。判定の枠組みはここで作られた。日本の出典 21 件つき | 居住地でどの結論が反転したかを追うとき | 534 |
+| [market-data-availability.md](market-data-availability.md) | §14 の 96 件について、**過去の取引データ**が取れるサービスと粒度（L0〜L5）。無登録で取れるのは暗号資産・予測市場だけ | 「板がある」と「過去データがある」のずれを見るとき | 551 |
+| [trading-api-availability.md](trading-api-availability.md) | 上の 56 件について、**リアルタイム価格の配信（RT0〜RT3）と発注 API（A0〜A4）**、無ければブラウザ自動操作の規約上の可否。成立 51 / 切れる 4 / 未確認 1 | 「過去データ → 予測 → 現在値 → 売買」の流れがどこで切れるかを見るとき | 637 |
 
 タスク管理は [TODO.md](../../TODO.md) と [DONE.md](../../DONE.md)、作業プランは [docs/plans/](../plans/)（完了分は `archive/`）にある。
 

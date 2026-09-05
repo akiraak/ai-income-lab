@@ -1,5 +1,22 @@
 # DONE
 
+- 2026-09-02 「過去の取引データ → 予測モデル → リアルタイム価格 → 売買判断」の流れが成り立つ 56 件について、API（無ければブラウザ自動操作）で売買できるかを調べた
+  - プラン: [docs/plans/archive/trading-api-availability.md](docs/plans/archive/trading-api-availability.md) / 成果物: [docs/specs/trading-api-availability.md](docs/specs/trading-api-availability.md)（637 行。TODO の 2 件「API で売買可能な商品」「API なしでもブラウザ自動操作」を 1 プラン・1 成果物で扱った）
+  - **母集団**: 前タスクの 96 行から「種類 T・Q かつ粒度 L0〜L2」で機械抽出して **56 件**（分類別 16/10/11/0/6/7/1/1/1/0/3、除外 40 は理由 A〜E で 7/10/9/4/10）。入口で 6 束に割った（V1 証券口座 47 / V2 先物 2 / V3 暗号資産 1 / V4 予測市場 1 / V5 専門マーケット 4 / V6 小売 FX 1）
+  - **判定**: 成立 **51** / ③ で切れる 2（REC・SREC は板がログイン画面のみ、Steam に公式 API 無し）/ ④ で切れる 2（予測市場は WA 州の裁判所命令で居住地、トレーディングカードは eBay の購入 API が Limited Release ＋ 規約が buy-for-me agent を名指し禁止）/ 未確認 1（TIPS）。⚠ **ブラウザ自動操作が「規約上 可」で成立に寄与した行は 0**
+  - **V1 はブローカー 10 社 × 商品クラス P1〜P5 の行列で片付けた**。P1・P2 は 8 社で A0（自己発行）、現在値は 4 社で口座無償（Tradier・tastytrade・E*TRADE・Public）。⚠ **成立 51 件のうち 48 件は IBKR 1 社で ③ ④ とも通る**（ただし取引所ごとの有償購読＋ TWS / Client Portal Gateway の常駐・毎日の手動ログイン）。P4 債券は IBKR・Public の 2 社だけで TIPS・地方債個別は未確認
+  - ⚠ **発見 1: PDT（$25,000）規制は 2026-06-04 に FINRA 規則から廃止**（SR-FINRA-2025-017、intraday margin 基準へ。段階導入 2027-10-20 まで）。プランが前提にしていた壁は消えた
+  - ⚠ **発見 2: 「現在値が無償」と「学習データと同じ板」はずれる**。Alpaca の無償は IEX 単独で市場シェア**約 4%**（IEX の SEC 提出書類「約 3.78%」）。前タスク D5 の「約 2.5%」は更新が要る。IEX のリアルタイム TOPS は 2022 年から有償（$500 → 2026-10 に $1,000/月）
+  - ⚠ **発見 3: 10 社中 7 社が AI エージェント接続（MCP）を公式提供**。AI を名指しで禁じるブローカーは無く、Robinhood は顧客契約 §29.8 で AI エージェント経由の注文を「受領時点で最終・拘束的」と規定。一方 **API を出す社でも API 以外の自動化を顧客契約で禁止**（Schwab・Webull・Public）。専門マーケットは robot 禁止が標準で、eBay は 2026-06 改定で「buy-for-me agents・LLM-driven bots」を名指し
+  - ⚠ **発見 4: 予測市場の WA 州は「切れ方」が細かくなった**。King County 上位裁判所 2026-08-12 命令で Kalshi は sports・elections・politics 等を 2026-09-02 までにジオフェンス。Commodities・Climate・Economics・Finance は命令の対象外だが WSGC は全般を not authorized → 判定は「④ 居住地」のまま、注記を付けた
+  - ⚠ **発見 5: §14 の前提が 1 つ食い違った**。「2024-01-15 以降 AWS RI Marketplace 購入 RI の再販禁止」は現行 Service Terms 5.6.1 と逆（Marketplace 購入分は再販可、禁止はディスカウント購入分）。訂正候補として §6-3 に置き、元文書は書き換えていない
+  - **【実測】は方針の線の内側だけ**: Kraken WS v2・Kalshi REST・Polymarket CLOB WS の無認証配信（RT0）、robots.txt 40 ドメイン、公開ログインページ 9 件。⚠ `cmegroup.com` は IP 単位で 403 を返し「scripts, robots, agents … strictly prohibited」と規約を引用（CME の一次資料は読めず二次で補った）。`ebay.com` は ClaudeBot・GPTBot 等を `Disallow: /`。`kalshi.com` は Vercel のチャレンジで robots.txt すら返さない。認証付き API・模擬口座・自動操作は一切実行していない
+  - **付録**: A カタログ（ブローカー × P1〜P5 の行列、先物・暗号資産・予測市場・専門マーケット・FX・市場データ規約 T1〜T7）/ B 規約の引用（robot・AI エージェント条項をサイトごとに逐語）/ C 切れる行 5 件と再開条件 / D 法的枠組み（CFAA・Van Buren・hiQ・Bright Data・Ryanair・**Amazon v. Perplexity（9th Cir. 2026-08-04、AI エージェント経由でも CFAA の「アクセス」主体はユーザー）**・RCW 9A.90（利用規約違反は without authorization に含まれないと明文）・Reg 1033 の差止。⚠ 助言ではなく引用のみ）
+  - **環 ③ の費用【推測】**: Tradier Lite / tastytrade / Alpaca IEX なら $0、Alpaca SIP $99/月、IBKR で取引所別に揃えて $7.55/月（＋口座残高 $500）。非表示利用（Non-Display）の申告が別枠（OPRA は 1 日 390 注文以下の自然人を免除）
+  - **検証**: 56 行が台帳と 1:1（行数・分類 ID・束 47/2/1/1/4/1・P 42/1/2/3/1）、表の判定列を機械集計して 51/2/2/1、Markdown 表のセル数不整合 0、Mermaid 7 枚とも 12 ノード以内。S1〜S7 → V1〜V6 の対応表を §7 に残した
+  - ⚠ **作業中に使用上限で調査エージェント 9 本が 2 回止まった**。同じエージェントに SendMessage で続行を指示し、収集済みの内容を引き継いだ（再取得なし）
+  - **再開条件**: StockX が T・Q かつ L0〜L2 で確定したら 57 件目。TIPS は IBKR の債券検索 API で名指しが取れたら判定。予測市場は州法と CEA の関係が最高裁で決まったとき
+
 - 2026-09-01 スニーカー / StockX（§14-9）の出口表記と分類名を直した
   - プラン: [docs/plans/archive/stockx-exit-notation.md](docs/plans/archive/stockx-exit-notation.md) / 成果物: [online-tradable-assets.md](docs/specs/online-tradable-assets.md) §14-9 ／ [slides.html](docs/specs/online-tradable-assets-slides.html) ／ [market-data-availability.md](docs/specs/market-data-availability.md) §0・§14-9
   - **⚠ 1 行の中で逆のことを書いていた。**買う場所が `StockX（⚠ 本物の bid/ask を持つ）`＝**板だと明言**しているのに、売る場所は `同左` で「板」の字が無く、`51f3896` で確定した数え方（『売る場所』列に「板」を含むか）から落ちていた

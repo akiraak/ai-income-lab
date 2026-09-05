@@ -1,5 +1,17 @@
 # DONE
 
+- 2026-09-03 API で売買可能なサービスの手数料と、Web の多くのサービスの手数料を比較した
+  - プラン: [docs/plans/archive/trading-fee-comparison.md](docs/plans/archive/trading-fee-comparison.md) / 成果物: [docs/specs/trading-fee-comparison.md](docs/specs/trading-fee-comparison.md)（481 行）
+  - **問いを 2 つに分けた**: Q1 会場の差（API がある会場は Web 専用より高いか）／Q2 経路の差（同じ会場で API 経路は余計にかかるか）。手数料を 4 層（売買・API・データ・維持費）に分け、規制費（SEC 31・TAF・CAT・OCC・ORF・NFA）は会場によらないので別表に 1 回だけ置いた。PFOF は金額が取れないので属性として記録し比較に入れない
+  - **母集団**: API 側は前タスク付録 A の A0〜A1 をそのまま 21 提供元。Web 側は「発注 API が無い or A2〜A4」「手数料表がログイン無しで読める」で商品クラスごとに 3〜8 社（Fidelity・Schwab・Vanguard・Merrill・Robinhood・SoFi・Plus500・TreasuryDirect・Cash App・PayPal・StockX・TCGplayer・Steam ほか）。⚠ 基準 3 の規模の公表値は 6 社とも IR が 403/404 で取れず「規模未確認」
+  - **物差し**: 代表取引（$50 株 100 株往復、1 契約 open+close、ES 1 枚往復、米国債 $10,000、BTC $5,000 往復、$0.50 契約 100 枚、EUR/USD 1 万通貨往復）× 月額シナリオ 低 4 / 中 40 / 高 400 回
+  - **Q1 の答え**: 米国株・オプションでは API 会場は Web 専用より高くない（両側 $0 が標準。株式オプションは API 側 $0〜1 が伝統 3 社の $0.65/契約より安い）。**逆転は債券・OTC**（Web $0 に対し API 側 IBKR $5・Public $25／OTC $5.98〜13.90）。先物は Robinhood $2.15・IBKR $2.24・Plus500 $2.28/片道で同水準。暗号資産は **API のある板（Alpaca 0.25%・Kraken Pro 0.80%）のほうが Web の simple 経路（Public app 1.25%・PayPal 1.5%＋spread）より安い**
+  - **Q2 の答え**: 売買手数料は経路で変わらず、**API プレミアムは層 3（相場データ）にだけ現れ、会場で二極化**。IBKR は「data on the API is considered off-platform」で月 $4.50〜16 ＋ 口座残高 $500（Lite は API 用 NBBO 購読自体が無い）、Alpaca は IEX 無償 / SIP $99、Optimus・AMP は Rithmic 経由 $28〜130。tastytrade・E*TRADE・Public・moomoo・Tradier・Kraken・Kalshi・Polymarket US・OANDA は **$0**
+  - ⚠ **発見**: (1) Web の「$0」は PFOF で賄われ、**Fidelity も 2026 Q2 の 606 で「受けない」→「受ける（≤$0.0008/株）」に転じた**（受けないと明言するのは Vanguard・Merrill・moomoo だけ）／(2) 規制費が 2026 年に動いた: SEC 31 は 04-04 から $20.60/百万（03 まで $0）、TAF $0.000195・$0.00329、NFA 07-01 に $0.02→$0.01、ORF は on-exchange 方式で Cboe $0.01248／(3) 同じ会場でも Web にしか無い商品がある（E*TRADE の先物・債券は API 非対応、IBKR Lite の Value Bundle は「not available for IBKR Lite」）／(4) Kraken は 2026-07-09 に cross-platform tiers へ（Tier 1 taker 0.80%）、Polymarket US は 07-01 に taker 0.06 式へ、Robinhood 予測市場は 06-01 に確率加重へ／(5) TCGplayer は新規セラー登録を一時停止中
+  - **取れなかった値は付録 C に隔離**: Coinbase Advanced のティア表（403/429）、Tradovate API Access 料、Webull OpenAPI 購読料、AMP のコミッション（計算機サイト 403）、tastyfx・FOREX.com・Schwab の平均スプレッド、StockX 買い手手数料。第三者の値（Coinbase Intro 1 など）は本体に入れていない
+  - **検証**: API 側 21 が前タスク付録 A と 1:1、規制費は付録 B にだけ、代表取引・シナリオは全会場同一、CME 費は 4 出典一致（cmegroup.com は IP 遮断）、表のセル数不整合 0、Mermaid 2 枚とも 12 ノード以内。P3 の取引所費を自社ページに載せない 4 社には【流用】と明記
+  - ⚠ **今回も使用上限で調査エージェント 5 本が止まり、同じエージェントに SendMessage で再開**した（前回と同じ手順）
+
 - 2026-09-02 「過去の取引データ → 予測モデル → リアルタイム価格 → 売買判断」の流れが成り立つ 56 件について、API（無ければブラウザ自動操作）で売買できるかを調べた
   - プラン: [docs/plans/archive/trading-api-availability.md](docs/plans/archive/trading-api-availability.md) / 成果物: [docs/specs/trading-api-availability.md](docs/specs/trading-api-availability.md)（637 行。TODO の 2 件「API で売買可能な商品」「API なしでもブラウザ自動操作」を 1 プラン・1 成果物で扱った）
   - **母集団**: 前タスクの 96 行から「種類 T・Q かつ粒度 L0〜L2」で機械抽出して **56 件**（分類別 16/10/11/0/6/7/1/1/1/0/3、除外 40 は理由 A〜E で 7/10/9/4/10）。入口で 6 束に割った（V1 証券口座 47 / V2 先物 2 / V3 暗号資産 1 / V4 予測市場 1 / V5 専門マーケット 4 / V6 小売 FX 1）

@@ -82,6 +82,7 @@ flowchart LR
 | [experiments/archive/online-tradable-assets-jp.md](experiments/archive/online-tradable-assets-jp.md) | ⚠ **上の旧版（日本居住前提）**。判定の枠組みはここで作られた。日本の出典 21 件つき | 居住地でどの結論が反転したかを追うとき | 534 |
 | [market-data-availability.md](market-data-availability.md) | §14 の 96 件について、**過去の取引データ**が取れるサービスと粒度（L0〜L5）。無登録で取れるのは暗号資産・予測市場だけ | 「板がある」と「過去データがある」のずれを見るとき | 551 |
 | [trading-api-availability.md](trading-api-availability.md) | 上の 56 件について、**リアルタイム価格の配信（RT0〜RT3）と発注 API（A0〜A4）**、無ければブラウザ自動操作の規約上の可否。成立 51 / 切れる 4 / 未確認 1 | 「過去データ → 予測 → 現在値 → 売買」の流れがどこで切れるかを見るとき | 637 |
+| [trading-fee-comparison.md](trading-fee-comparison.md) | 上の API 側 21 提供元と Web 専用サービスの**手数料を 4 層（売買・API・データ・維持費）で比較**。API プレミアムは層 3（相場データ）に集中し、$0 の会場と月 $5〜130 の会場に二極化 | 「API 経路はいくら余計にかかるか」を見るとき | 481 |
 
 タスク管理は [TODO.md](../../TODO.md) と [DONE.md](../../DONE.md)、作業プランは [docs/plans/](../plans/)（完了分は `archive/`）にある。
 

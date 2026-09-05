@@ -1,5 +1,17 @@
 # DONE
 
+- 2026-09-04 API が使用できるサービスの信用度を、監督当局の一次情報で 23 行に判定した
+  - プラン: [docs/plans/archive/service-trust-assessment.md](docs/plans/archive/service-trust-assessment.md) / 成果物: [docs/specs/service-trust-assessment.md](docs/specs/service-trust-assessment.md)（723 行）
+  - **母集団**: 前タスク §2-1 の A0〜A1 提供元を **23 行**に立て直した（見出しの「21」は Ironbeam・Robinhood Crypto を数から落としていた）。6 種類（BD 9 / FCM 3 / 暗号資産 3 / 予測市場 2 / 小売 FX 3 / 非金融 3）。⚠ **規制上の法人が 2 行で想定と違った**: E*TRADE Securities LLC は 2024-06-03 に登録終了で証券口座は Morgan Stanley Smith Barney LLC、Tradovate は NinjaTrader Clearing, LLC の商号（Kraken の 100% 子会社、Tradovate 買収は 2022-01 $115M）
+  - **尺度と規則を先に固定**: A 資産の保護（登録・処分・保護・自己資本）／B 継続性（年数・規模・資本）／C 履歴（障害・API 廃止・規約変更）／D 利用者評価（⚠ 二次・判定に使わない）。判定は順次規則: (1) 登録なし or 制度的保護なし → 低、(2) 直近 5 年に「重大な処分」（顧客資産・執行・システム・無登録営業で $1M 以上 or 業務制限）or 10 年未満かつ非上場 or 規模未確認 → 中、(3) それ以外 → 高。点数の足し算なし。記録保存（off-channel）・広告・却下訴訟は「重大」に数えない
+  - **一次情報**: FINRA BrokerCheck（概要 JSON ＋ Detailed Report PDF を 10 法人、pdftotext で処分歴を全件）、NFA BASIC（画面が使う JSON-RPC を 11 法人）、CFTC 月次 FCM データ（2026-06-30、16 法人の調整純資本・分別金・RFO）、SEC EDGAR（X-17A-5 5 法人、10-K/10-Q/20-F 11 社）、WA DFI 仮想通貨ライセンシー PDF、CFTC DCM/DCO 一覧、各社規約・1.55 開示・status API・changelog。robots.txt と利用条件を先に読み、1 社 1 回相当の取得に限った
+  - **判定**: **高 5**（tastytrade・moomoo・Tradovate・AMP・Ironbeam）／**中 12**（重大処分: IBKR・E*TRADE・Webull・Schwab・Kraken・Coinbase・Robinhood Crypto・Kalshi ／ 年数・規模: Alpaca・Tradier・Public・Polymarket US）／**低 6**（種類として FX 3・非金融 3）。⚠ 規則は「大手ほど処分の母数が多い」性質を含むので、A4 の絶対額（IBKR 超過純資本 $8.4B vs Ironbeam $17.9M）と付録 B と併読する旨を明記。感度: 閾値 $5M で Webull が高、$500K で tastytrade（$850K）・Tradovate（$983K）が中
+  - **成立 51 件との対応**: 「高」の会場 1 社で ③ ④ とも通るのは 45 件（tastytrade 43 ＋ FCM の ES・ZR）、「中」のみ 4（P4 債券・P5 外国上場・V3 暗号資産）、「低」のみ 2（AWS RI・小売 FX）
+  - ⚠ **発見**: (1) MSSB に SEC $15M（2024-12、顧客口座からの資金流用を防ぐ体制の不備）／(2) OANDA の超過純資本は要件の 24%（$6.4M）、2023-01〜07 はマイナス、親会社は 2025-12 に CVC → FTMO／(3) 暗号資産 3 社とも規約・10-K に「破産時の扱いは裁判所が判断していない」旨／(4) 予測市場は州との管轄争いで州単位に止まる（WA 命令 2026-08-12、CFTC 緊急命令 2026-08-11）、Polymarket US は 90 日で critical 9 件・約定履歴を保守ごとにリセット／(5) Ironbeam は 2026-05 に分別資金の 1.25 集中限度超過で CME $50K（1.55 開示は「material なし」）／(6) D は A〜C と相関しない（Kalshi App 4.82 vs BBB F、高判定 5 行のうち 3 行が BBB D-/F）
+  - **付録**: A 処分歴の逐語引用（BrokerCheck・NFA・SEC・CFTC・NYDFS・州 AG。重大は太字）／B 壊れる形（SIPA・CEA 4d・Part 39・17 CFR 5.5・規約の逐語で 6 種類）／C 取れなかった尺度 15 項目と D の 23 行表（【二次】）
+  - **検証**: 23 行 1:1、判定 5/12/6 を §4 と §5-1 で二重集計、表のセル数不整合 0、Mermaid 7 枚とも 12 ノード以内
+  - ⚠ **調査エージェント 6 本が使用上限で 2 回止まり、同じエージェントに SendMessage で再開**（前 2 回と同じ手順。E*TRADE・Schwab・AMP/Ironbeam が 2 回目の再開分）
+
 - 2026-09-03 API で売買可能なサービスの手数料と、Web の多くのサービスの手数料を比較した
   - プラン: [docs/plans/archive/trading-fee-comparison.md](docs/plans/archive/trading-fee-comparison.md) / 成果物: [docs/specs/trading-fee-comparison.md](docs/specs/trading-fee-comparison.md)（481 行）
   - **問いを 2 つに分けた**: Q1 会場の差（API がある会場は Web 専用より高いか）／Q2 経路の差（同じ会場で API 経路は余計にかかるか）。手数料を 4 層（売買・API・データ・維持費）に分け、規制費（SEC 31・TAF・CAT・OCC・ORF・NFA）は会場によらないので別表に 1 回だけ置いた。PFOF は金額が取れないので属性として記録し比較に入れない

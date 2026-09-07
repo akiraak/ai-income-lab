@@ -1,5 +1,17 @@
 # DONE
 
+- 2026-09-07 vibeboard の Tasks タブに「プラン作成」ボタンを足した（実行 / プラン作成 / 説明 / 削除）
+  - プラン: [docs/plans/archive/vibeboard-tasks-plan-button.md](docs/plans/archive/vibeboard-tasks-plan-button.md) / 実装先: upstream akiraak/vibeboard `049483f`（同日 push）。このリポジトリは再 degit → `npm install` → `vibeboard init` で取り込んだ（CLAUDE.md の vibeboard 節が 4 ボタンと pid 経路の説明に置き換わった）
+  - 文面は `todo.ts` の `buildPlanPrompt`: 作業着手ルール 1〜3（`docs/plans/<task-name>.md` を作る → `TODO.md` のこのタスクにリンク → Phase / Step を子タスクに）＋「実装には着手しない。TODO.md の変更はリンクと子タスクの追加だけ。DONE.md にも移さない」。経路は 実行 / 説明 と同じ `POST /api/tasks/run`（`kind: plan`）で、キューは種別を残す
+  - 検証: `npm test` 41 件 pass（新規 3 件）。3010 の vibeboard を 16:44 に起動し直したあと、このタスク自身に「プラン作成」を押すと 16:45 にプランの文面がこのセッションへ届いた（実行の文面ではなくプランの文面。＝ 新サーバと投函経路が動いている）。利用者が「実装が問題ない」として閉じた
+  - daily-note への取り込み（再 degit → `vibeboard init` → 3011 の起動し直し）は未実施。daily-note 側の vendor は 1 つ前の upstream のまま
+
+- 2026-09-07 vibeboard の Tasks からの投函が「待ち」のまま進まない原因を突き止め、upstream で直した（pid から受信口を引く）
+  - 原因: 登録（socket / token）は vibeboard のメモリだけで、hook は SessionStart にしか無い。**vibeboard より先に起動したセッション**（この日は 16:17 起動のセッションに対し、ai-income-lab の vibeboard が 16:31 起動）と、**vibeboard を起動し直した後**のセッションは未登録のままになり、投函が「待ち」→ 5 分で「失敗」になる。`GET /api/tasks/windows` の `registered: false` が印
+  - その場しのぎ: そのセッションの Bash から hook を手で流して登録した（`printf '{"session_id":...,"cwd":...}' | node vibeboard/scripts/session-hook.mjs SessionStart`。socket / token は Bash 子プロセスの env に出ている）。登録直後に待ちが届き、busy 中でも tool 呼び出しの合間に読まれた
+  - 直し: upstream `049483f`。登録の無いセッションは `claude agents --json` の pid から `$XDG_RUNTIME_DIR/cc-socks/<pid>.sock`（ほか候補）を引いて token なしで登録・投函する（Linux 限定。auth 行は省略可）。`drain` も登録が無ければ一覧を 1 回取り直す。検証用に 3019 で起動した直後の vibeboard が、hook なしにこのセッションを `registered: true` にした。**3010 の vibeboard を起動し直すまで、動いている方は古いコードのまま**
+  - 同じコミットで Tasks タブに「プラン作成」ボタンを足した（そちらは TODO の Step 3 が残っている）
+
 - 2026-09-07 vibeboard の Tasks を listener なしで届けるようにした（セッションの発見と投函を Claude Code に任せる）
   - プラン: [docs/plans/archive/vibeboard-tasks-without-listener.md](docs/plans/archive/vibeboard-tasks-without-listener.md) / 実装先: upstream akiraak/vibeboard `e5b24d2`（同日 push）。このリポジトリと daily-note は再 degit で取り込み、`vibeboard init` が `.claude/settings.json` に SessionStart / SessionEnd の hook を書いた
   - 置き換え: 送り先の発見は `claude agents --json --cwd <root>`（対話セッションも返る）、所在は SessionStart hook の登録（`CLAUDE_CODE_MESSAGING_SOCKET`。token はメモリだけ）、配送は受信口ソケットへ auth 行 ＋ user 行の投函、溜め置きは tmp の JSON キュー（待ち / 投函済み / 失敗、再送・消す）。文面はサーバが TODO.md から組む方針は維持。`vibeboard listen` は届かない環境の逃げ道として残した。Phase 4（端末が無いときの `claude --bg`）は見送り

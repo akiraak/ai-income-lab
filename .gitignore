@@ -1,2 +1,19 @@
 vibeboard/dist/
 vibeboard/node_modules/
+
+# tastytrade API サンプル: 資格情報と実行記録は管理外
+experiments/tastytrade-api-sample/.env
+experiments/tastytrade-api-sample/out/
+experiments/tastytrade-api-sample/.venv/
+*.token
+
+__pycache__/
+
+# 資格情報はどの階層でも管理外にする
+.env
+.env.*
+!.env.example
+
+# 管理画面（dashboard/）: 依存・記録・監視ログは管理外
+dashboard/.venv/
+dashboard/data/

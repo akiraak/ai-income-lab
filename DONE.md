@@ -1,5 +1,21 @@
 # DONE
 
+- 2026-09-07 vibeboard の Tasks を listener なしで届けるようにした（セッションの発見と投函を Claude Code に任せる）
+  - プラン: [docs/plans/archive/vibeboard-tasks-without-listener.md](docs/plans/archive/vibeboard-tasks-without-listener.md) / 実装先: upstream akiraak/vibeboard `e5b24d2`（同日 push）。このリポジトリと daily-note は再 degit で取り込み、`vibeboard init` が `.claude/settings.json` に SessionStart / SessionEnd の hook を書いた
+  - 置き換え: 送り先の発見は `claude agents --json --cwd <root>`（対話セッションも返る）、所在は SessionStart hook の登録（`CLAUDE_CODE_MESSAGING_SOCKET`。token はメモリだけ）、配送は受信口ソケットへ auth 行 ＋ user 行の投函、溜め置きは tmp の JSON キュー（待ち / 投函済み / 失敗、再送・消す）。文面はサーバが TODO.md から組む方針は維持。`vibeboard listen` は届かない環境の逃げ道として残した。Phase 4（端末が無いときの `claude --bg`）は見送り
+  - 検証: 単体 38 件（既存 24 ＋ 新規 14）と、偽ソケット ＋ 実サーバの端から端までのスモーク。**Phase 0（実物）は利用者が Tasks タブから押した**: idle のセッションに届いて新しいターンが始まる（15:37 PT）、busy 中（60 秒のコマンド実行中）は tool 呼び出しの合間に読まれる（15:50）、bypassPermissions のセッションは承認ダイアログで保留（利用者の報告）。いずれも `listen` なし
+  - ⚠ 投函の書式は公式ドキュメントではなく Claude Code 2.1.263 のバイナリの案内文に依る。版が変わって届かなくなったらキューに「失敗」と出るので `listen` に切り替える。Claude 自身は受信口への投函を実証できない（auto mode の分類器が 3 回止めた）ので、この種の検証は最初から利用者に渡す
+  - daily-note: 再 degit → `init` → 3011 番の vibeboard の起動し直しまで利用者が行い、届くことを確認した（2026-09-07）
+
+- 2026-09-07 vibeboard を upstream の最新（d5c34b7、2026-09-07。同日 2 回目）に更新し、`vibeboard init` と `vibeboard.config.json` で初期化し直した
+  - 取り込み: 2026-08-26 に vendor した版から 10 コミット分。`node_modules` と `dist` を除いて上書きし、`npm install`（prepare でビルド、postinstall でルートの `run-vibeboard.sh` を配置）。`npm test` 18 件 pass
+  - 新機能: TODO.md の**ツリー表示**（字下げが親子。`[~]` 進行中・`[-]` 中止、`依存:` / `派生元:` / `関連:` の関係行）、**Files タブ**（プロジェクト内の全ファイルを編集。`.env` も出る）、同じ root の vibeboard が残っていれば止めて起動し直す**ポートガード**、customTab のプロセス同時起動（`command`）
+  - `vibeboard init` で CLAUDE.md のマーカー間を最新スニペットに置換した（タスク管理ルールに「TODO.md はタスクだけ」「関係行」が加わった）。マーカーの中に手で足してあった「Git 運用ルール」は、置換で消えないようマーカーの外（直前）へ出した
+  - `vibeboard.config.json` を新設し、Files タブから `.venv` / `__pycache__` / `.pytest_cache` / `dist` を外した（管理外を除く 4,929 ファイルのうち 4,754 が `.venv`）
+  - ⚠ ルートの `run-vibeboard.sh`（2026-08-26 に手書きしたもの。ポート占有プロセスを無差別に kill、`./run-vibeboard.sh 3020` の位置引数）は postinstall が upstream 版で**上書き**した。以後はポート指定が `--port 3020`、kill は同じ root の vibeboard だけ
+  - 2 回目（accc845 → d5c34b7 の 4 コミット）: **Tasks タブ**（TODO.md のタスクを選び、`vibeboard listen --name <画面の名前>` で待ち受けている Claude Code の画面へ「実行 / 説明 / 削除」で渡す。文面はサーバが TODO.md から組む）と、**Root タブの廃止**（Files タブで代替。設定の `editable` は無視される）。`init` でマーカー間を再置換し、`npm test` 24 件 pass。`vibeboard.config.json` は `files` だけなので影響なし
+  - 検証: 起動して `/api/todo/TODO.md` が 35 タスク（未着手 24・完了 8・進行中 3）を 4 本の木として返し、`[plan](...)` の相対リンクが全部実在判定。Files タブの一覧に `.venv` が出ないこと
+
 - 2026-09-04 API が使用できるサービスの信用度を、監督当局の一次情報で 23 行に判定した
   - プラン: [docs/plans/archive/service-trust-assessment.md](docs/plans/archive/service-trust-assessment.md) / 成果物: [docs/specs/service-trust-assessment.md](docs/specs/service-trust-assessment.md)（723 行）
   - **母集団**: 前タスク §2-1 の A0〜A1 提供元を **23 行**に立て直した（見出しの「21」は Ironbeam・Robinhood Crypto を数から落としていた）。6 種類（BD 9 / FCM 3 / 暗号資産 3 / 予測市場 2 / 小売 FX 3 / 非金融 3）。⚠ **規制上の法人が 2 行で想定と違った**: E*TRADE Securities LLC は 2024-06-03 に登録終了で証券口座は Morgan Stanley Smith Barney LLC、Tradovate は NinjaTrader Clearing, LLC の商号（Kraken の 100% 子会社、Tradovate 買収は 2022-01 $115M）

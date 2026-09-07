@@ -1,1 +1,120 @@
 # TODO
+
+- [ ] tastytrade で、実際の API 取引のサンプルプログラムを動かす [plan](docs/plans/tastytrade-api-sample.md)
+  - 対象は [docs/specs/service-trust-assessment.md](docs/specs/service-trust-assessment.md) の判定「高」で、[docs/specs/trading-fee-comparison.md](docs/specs/trading-fee-comparison.md) §4 で株 $0・API プレミアム $0、常駐プロセス不要の tastytrade 1 社。moomoo・IBKR は 2026-09-04 に対象から外した（再開条件はプラン §1-2）
+  - 動かす範囲: 認証 → 口座照会 → 現在値 → 指値・取消 → 約定・反対売買 → ストリーミング、の 6 手順を cert（sandbox）環境で
+  - **2026-09-05: 方針は (c)（sandbox ＋ 本口座 ＋ 入金 ＋ 本番で 1 株）に決定**。CLAUDE.md にこの 1 手法だけの例外として追記済み。⚠ 口座開設・入金・本番発注を実行するのは利用者（Claude は手順とコードまで）
+  - ✅ 2026-09-05: sandbox（$100,000）と本口座の資格情報が揃い、`.env` に設定済み。**待ちは市場時間だけ**
+  - [x] Phase 0: 方針の決定と cert 環境の入口の確認（OAuth パネルは実装済みと確認。公式 SDK は archived で OpenAPI 直叩きに決定。入金なしの quote token と米国内承認日数は未解決のまま残す）
+  - [x] Phase 1: 環境と記録形式（venv・JSONL・`.env` と `.gitignore`・cert / prod の取り違え防止・モックによる自己検査）
+  - [x] Phase 2: 認証（OAuth2。cert・prod とも交換できた。`expires_in` 900 / JWT 954 秒）
+  - [~] Phase 3: REST の 4 手順（口座・現在値・dry-run → 指値 → 取消は済み。**手順 5 の約定だけ市場時間待ち**）
+  - [~] Phase 4: ストリーミングとレート制限（口座ストリーマ・DXLink・429 の確認は済み。認証寿命の放置が残る）
+  - [ ] **9/8（火）の市場時間（PT 6:30〜13:00）にまとめて回す** — 時間がないと測れないものだけ
+    - [ ] `--step cleanup` で前日の残り注文を消してから `--step 5`（成行の約定 → 建玉 → 反対売買）
+    - [ ] `--step 3` で気配の遅延（土曜は 8.3 時間前の値しか返らず測れなかった）
+    - [ ] `--step 6 --seconds 60` で `Live` を経由する状態遷移と通知の時刻差
+    - [ ] `--step 1 --verify-expiry` で access token が 900 秒と 954 秒のどちらで 401 になるか
+    - [ ] 9/5 に取った refresh token がそのまま使えるか（＝観点 A の本体）／ cert の 24 時間リセットで grant と口座が残るか
+  - [ ] Phase 5: 記録と判定（`docs/specs/experiments/tastytrade-api-sample.md`、6 観点、overview §7 と CLAUDE.md の更新）
+  - [ ] **着金の確認（$1,000 / SoFi → tastytrade、2026-09-05 送金指示）**
+    - 着いたら `sample.py --step probe` をもう 1 回回し、着金前（[記録 §0](docs/specs/experiments/tastytrade-api-sample.md)）との差分を取る
+    - 見るもの: `cash-balance` が 0.0 → 1000.0 になるか、`pending-cash` が消えるか、`cash-available-to-withdraw` がいつ立つか（＝ ACH の保留期間の実測）、`available-trading-funds` が 0.0 のままか
+    - ⚠ 着金前の状態はもう測れない。⚠ 9/7 は Labor Day のため、着金は 9/8（火）以降の見込み
+  - [ ] Phase 6（方針 (c)）: 本番口座で 1 株（入金と発注は利用者が行う）
+    - ⚠ 2026-09-05 の dry-run で **着金前でも 1 株は通る**ことが分かっている（買付余力 1000.0 が効き、`available-trading-funds` 0.0 は効かない）。着金を待つ必要は無い
+
+- [ ] オンラインで売買したときの納税を調べる（米国連邦 ＋ WA 州）
+  - 背景: [trading-fee-comparison.md](docs/specs/trading-fee-comparison.md) は手数料を 4 層で比べたが、**税は 1 層も入っていない**。手数料 $0 の会場でも税引後は変わるので、[online-tradable-assets.md](docs/specs/online-tradable-assets.md) の出口比較と回収期間の試算に効く
+  - 前提: 税務上の居住地は**米国・ワシントン州シアトル**（[overview.md](docs/specs/overview.md) §6 で 2026-08-28 に確定）。**日本は非居住**（2026-09-05 本人申告。住民票は除票済み）
+    - ⚠ ただし日本の居住者/非居住者は「住所（生活の本拠）・居所」で判定される建前で、**住民票の除票は有力な事実の一つであって判定基準そのものではない**【推測。Phase 0 で条文に当てる】。判定が固まれば Phase 4 は「非居住者に課税される国内源泉所得が無いことの確認」だけで閉じられる
+  - ⚠ 一次情報（IRS の Publication・Form の説明、WA DOR、条文）に当たる。金額・税率は【公表値】に出典（URL・取得日）を付け、当てはめの結果は【推測】と明示する。**税務助言ではなく調査資料として書く**
+  - [ ] Phase 0: 前提の確定
+    - 米国側の税務上の居住区分（citizen / resident alien / substantial presence）、対象年度、口座種別
+    - 日本側: 非居住者の判定根拠を条文で確認（所得税法の「住所」「居所」、国外居住の推定規定）。⚠ **住民票だけを根拠にしない**
+    - ⚠ **国外転出時課税（いわゆる出国税）の要否** — 一定額以上の有価証券を持つ者が国外転出する場合の制度。出国時点の話なので、該当したかどうかを先に潰しておく
+  - [ ] Phase 1: 連邦所得税の骨格
+    - short-term（保有 1 年以下 → 通常所得税率）と long-term（0/15/20%）の分岐、Form 8949 / Schedule D
+    - **wash sale ルール（前後 30 日）** — ⚠ 自動売買・高頻度だと多発する。同一口座内外・IRA を跨いだ扱い
+    - NIIT 3.8%（MAGI 一定額超）、estimated tax（四半期納付）と過少納付ペナルティ
+    - **trader tax status と §475(f) mark-to-market 選択** — ⚠ 頻繁に売買する場合の分岐点。選択期限と不可逆性
+    - ブローカーの報告（1099-B、cost basis reporting）と、報告されない種類の資産との差
+  - [ ] Phase 2: WA 州
+    - 州の個人所得税は無い一方、**long-term capital gains への課税（2022 施行）**の有無・税率・控除額・対象資産を一次情報で確認する
+    - 売買を事業として行う場合の B&O 税の当たり方
+  - [ ] Phase 3: 資産の種類ごとの差（[online-tradable-assets.md](docs/specs/online-tradable-assets.md) の出口と対応させる）
+    - 株・ETF / オプション・先物（**§1256 契約の 60:40 と mark-to-market**）/ 暗号資産（broker reporting の変更）/ 予測市場 / 現物の転売（スニーカー・カード等の collectibles 28% 上限）
+  - [ ] Phase 4: 日米の重なり（**非居住が確定すれば小さくなる**）
+    - 非居住者でも日本で課税される国内源泉所得の範囲（日本の不動産、日本法人株式の一定の譲渡など）に、実際に持っている資産が当たらないかの確認
+    - 当たるものがあれば日米租税条約と外国税額控除。無ければ「日本側の申告は不要」と結論して閉じる
+  - [ ] Phase 5: 試算への反映
+    - 手数料 4 層に「税」を足した**税引後**の比較を 1 表にし、回収期間の試算がどれだけ動くかを示す
+
+- [ ] moomoo・IBKR の実検証（tastytrade と同じ 6 手順・6 観点で横並びにする）
+  - 背景: 2026-09-04 に 3 社 → tastytrade 1 社へ絞ったときの**再開条件**（[plan §1-2](docs/plans/tastytrade-api-sample.md)）に当たる。債券・外国株・FX まで同じ口座で試したいなら IBKR、PFOF なしの執行を試したいなら moomoo
+  - 使い回せるもの: `experiments/tastytrade-api-sample/` の記録形式は `venue` 列を持ち、`ttclient.py` の関数名は会場に依存しない（`authenticate` / `list_accounts` / `get_quote` / `dry_run_order` / `submit_order` / `cancel_order`）。**同じ名前で別モジュールを書けば `sample.py` の 6 手順はそのまま動く**
+  - ⚠ **方針の例外は tastytrade 1 社にしか掛かっていない**（[CLAUDE.md](CLAUDE.md) の 2026-09-05 追記）。口座開設・入金を伴うなら Phase 0 で改めて決める
+  - ⚠ **moomoo は Web 規約が robot 禁止（R1）**（[trading-api-availability.md](docs/specs/trading-api-availability.md) 付録）。API 経由の自動売買が許されるかを、着手前に規約の一次情報で確認する。ここが黒なら moomoo は打ち切り
+  - ⚠ **費用が同じでない**: IBKR は株 40 往復/月 ＋ API プレミアムで **$84.50 ＋ 残高 $500**【推測】、moomoo は $0（プロモ中）、tastytrade は $0（[trading-fee-comparison.md](docs/specs/trading-fee-comparison.md) §4）。IBKR は「払ってでも広い品揃えを取るか」の判断になる
+  - [ ] Phase 0: 方針と入口の確認
+    - 口座開設・入金をどこまで許すか（tastytrade と同じ (a)/(b)/(c) の選択）。⚠ IBKR は最低残高の条件があるので、開設だけで済むかを先に確認
+    - 各社の一次情報: 発注 API の版と仕様書の所在、公式 SDK の保守状況（最終リリース日）、sandbox / paper 口座の作り方、認証方式と資格情報の作り方
+  - [ ] Phase 1: IBKR — **最大の不確実性は「常駐プロセスが WSL2 で動くか」**
+    - Gateway / TWS が **Linux ヘッドレスで起動するか**（GUI ログインを迂回できるか）。⚠ ここが動かなければ観点 B は ❌ で、無人運転の前提が崩れる
+    - REST（Client Portal 系）と TWS API のどちらを使うか、認証の更新に人手が要るか（tastytrade は refresh token で無人だった）
+    - paper 口座は本口座から作る必要があるか
+  - [ ] Phase 2: moomoo — **OpenD 常駐と 2 要素**
+    - OpenD が Linux ヘッドレスで動くか、SMS ＋ デバイスロックが無人運転を止めないか
+    - 模擬取引が OpenD 経由でどこまで再現できるか（tastytrade の cert 相当）
+  - [ ] Phase 3: 6 手順を同じ記録形式で回す（認証 → 口座照会 → 現在値 → 指値・取消 → 約定・反対売買 → ストリーミング）
+    - ⚠ tastytrade で分かった落とし穴を各社でも確かめる: 認証トークンの実寿命、websocket の認証ヘッダの形、**時間外に発注・約定できるか**、レート制限、エラー本体の残し方
+  - [ ] Phase 4: 3 社の横並び判定
+    - 観点 A〜F（認証の寿命・常駐・現在値・往復・レート制限・SDK）を 1 表にし、**費用込みで「無人で 1 営業日回る」会場**を選ぶ
+    - 品揃え（債券・外国株・FX・先物）と信用判定（IBKR は「中」）を並べ、tastytrade を置き換える理由があるかを判断する
+
+- [ ] 管理画面を作る（実運用の監視と、開発時の検証の両方） [plan](docs/plans/dashboard.md)
+  - 位置づけ: **これがこのプロジェクト最初のアプリ実装**になる（今までドキュメントと実験コードだけ）。⚠ [vibeboard](vibeboard/) とは別物 — あちらは `docs/` と `TODO.md` を見るローカル開発用で、本件は**売買システムの管理画面**
+  - 材料はもうある: `experiments/tastytrade-api-sample/out/*.jsonl`（1 手順 1 行・`venue` 列つき）と `ttclient.py`（会場に依存しない関数名）。**画面はこの 2 つの上に載せる**
+  - 公開先: **g3plus 自宅サーバ**（[/home/ubuntu/g3plus-ops](../g3plus-ops/CLAUDE.md)。Docker ＋ Cloudflare Tunnel、`*.chobi.me`）。ポートは**次の空き 3012**（3011 は 2026-08-21 に trip-note が取った）、TZ は `America/Los_Angeles`
+  - ⚠ **金銭が動く操作を、インターネットから届く場所に置くことになる**。この構成に載っている既存サービスに、資金を動かせるものは無い。既存コードの二重ロック（本発注は `TT_ALLOW_PROD_ORDERS=1` ＋ 明示フラグ、dry-run は別鍵）を画面側でも崩さないことに加えて、**何を公開面に出すかを Phase 0 で決める**
+    - **推奨: 公開するのは「監視（読み取り）＋ 停止ボタン」まで。発注は LAN / ループバックからのみ**。外から欲しいのは「今どうなっているか」と「止める」であって、発注ではない。停止を外から押せるのはむしろ安全側
+  - ⚠ **本番の資格情報をサーバに置くかどうかが本質的な分かれ目**。今は開発機の `.env` だけにある。サーバに置けば「g3plus の侵害 ＝ 入金済み証券口座の侵害」になる。監視だけなら `read` スコープの grant を別に切って渡す手がある（tastytrade は scope を選んで grant を作れる）
+  - ⚠ **ai-income-lab は public リポジトリ**（g3plus-ops は private）。公開ホスト名・Access のポリシー・AUD などの運用情報は **g3plus-ops 側に置き、こちらには書かない**。`.env` と `out/` が管理外であることは確認済みだが、画面のコードを足すときに再確認する
+  - 秘密（client secret・refresh token・access token・口座番号）は**ブラウザに送らない**。表示は必ずマスク
+  - [x] Phase 0: 要件と範囲の確定（2026-09-05。決定は [plan §0](docs/plans/dashboard.md)）
+    - **公開面に何を出すか**（上の推奨: 監視 ＋ 停止まで。発注は LAN のみ）と、**サーバに置く資格情報の範囲**（`read` だけの grant を切るか）
+    - 実運用側で見たいもの / 検証側で見たいものを列挙し、1 画面に混ぜるか分けるかを決める
+    - 技術選定（Docker で動く構成、`ttclient.py` の再利用方法、JSONL をそのまま読むか蓄積先を別に持つか）
+    - vibeboard との棲み分けを CLAUDE.md に書く
+  - ✅ 2026-09-05: Phase 1〜4 と Phase 5 の設定・手順書まで実装した（`dashboard/`。仕様 [docs/specs/dashboard.md](docs/specs/dashboard.md)）。**残りは Phase 5-4（サーバへの転送・起動・Cloudflare。利用者の判断）だけ**
+    - 検証: pytest 18 件（面の判定・JWT・記録と判定・秘密が応答に出ない・停止）、モックに対する実機で 2 環境の監視 → dry-run → 発注 → 停止（取消 1 件）→ 解除 → 後片付け → selftest ジョブ、`docker build` → ループバック 200 / 外から 403 / 中途半端な CF 設定は起動拒否 / healthcheck healthy
+    - ⚠ `experiments/tastytrade-api-sample/out/` が 2026-09-05 12:10 PT 時点で**空**だった（同日の実測記録は specs 側の本文にしか残っていない）。判定画面は 9/8 の実行で記録が溜まれば埋まる。それまでは「実測 0 実行」と出る
+    - 既存コードへの追加: `ttclient.py` に取消だけの鍵 `allow_prod_cancel`、`record.py` に `mock` フラグ、`sample.py` に `TT_OUT_DIR` と `HALT` の尊重、`test_guard.py`（selftest に組み込み）
+  - [x] Phase 1: 読み取りだけの土台（**ここまでは危険が無い**）
+    - 実行記録（JSONL）の一覧・1 実行の詳細・**実行間の差分**（所要 ms や状態遷移が回ごとにどう揺れたか）
+    - 6 観点（認証・常駐・現在値・往復・レート制限・SDK）の判定表を**記録から自動で組み立てる** — 今は手で書いている
+    - **会場を跨いで並べる**（`venue` 列。moomoo・IBKR を足したときにそのまま比較できる）
+  - [x] Phase 2: 実運用の監視
+    - 口座・残高・買付余力・建玉・働いている注文・約定履歴
+    - **認証の残り時間**（access token の失効まで何秒か）と refresh の成否
+    - websocket 2 本（口座ストリーマ・DXLink）の接続状態と最終受信時刻、切断・再接続の回数
+    - 429 の発生回数、エラーログ（API のエラー封筒 `error.errors[]` まで残す）
+    - ⚠ **どの環境に繋がっているか（cert / prod）を、見間違えようのない形で常時表示する**
+  - [x] Phase 3: 操作（⚠ ここから危険。既定は無効）
+    - cert: 発注・取消・後片付け（働いている注文の一括取消）
+    - prod: 二重ロックを画面でも要求し、実行前に注文内容を確認させる。**dry-run は別扱い**
+    - **停止ボタン**（働いている注文の全取消と、自動売買の停止）を最優先で置く
+  - [x] Phase 4: 開発時の検証
+    - モックサーバの起動・停止、`selftest.sh` の実行と結果表示
+    - 手順を選んで実行し、結果をその場で記録に落とす
+  - [~] Phase 5: g3plus に載せる（[g3plus-ops の新規サービス チェックリスト](../g3plus-ops/CLAUDE.md)に従う）— **契約・Dockerfile・compose・`.env.example`・手順書・CLAUDE.md 4 箇所・`.gitignore` は済み（g3plus-ops は未コミット）。転送・起動・Cloudflare は未実施**
+    - **デプロイ契約**（Docker のベース・起動コマンド・必須 env・永続化先）を ai-income-lab 側の `docs/specs/` に書く ← 規約上、契約の正本はアプリ側
+    - `g3plus-ops/<service>/` に `docker-compose.yml` / `Dockerfile` / `.env` / `.env.example`。**`networks: [n8n_default]`（external）に参加**、`restart: unless-stopped`、ログ上限、secret は `env_file`
+    - ⚠ **`ports:` でホスト公開しない**（到達できるのは同じ network の cloudflared だけ。discord-manager と同じ形）
+    - アプリコードの転送は **public リポジトリなのでサーバ上で `git clone` → `git pull` で更新**
+    - ⚠ **認証は Cloudflare Access（Google）＋ アプリ側での `Cf-Access-Jwt-Assertion` 検証**を GET 含む全リクエストに。**JWT 免除はループバックのみ**。無認証の `/health` を作らない（discord-manager の形が最も近い先例）
+    - ⚠ **エッジキャッシュはホスト全体 Bypass の Cache Rule を必ず入れる**（キャッシュ HIT は認証評価前に配信される。daily-ai-music で踏んだ問題）
+    - ⚠ **順序は「Access → .env → Tunnel hostname」**。逆にすると認証の無い状態で一時的に公開される。⚠ Cloudflare 側は akiraak の手作業（API トークンが無い）
+    - ⚠ **公開前に新しいホスト名を DNS で引かない**（NXDOMAIN を最大 30 分キャッシュする）
+    - `docs/workflows/<service>.md` を書き、g3plus-ops の CLAUDE.md 4 箇所に追記
+    - 秘密が画面・ログ・記録に出ていないことの確認

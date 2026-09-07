@@ -1,0 +1,112 @@
+{% if not monitors %}
+<p class="muted">監視する環境が無い。<code>TT_CLIENT_SECRET</code> / <code>TT_REFRESH_TOKEN</code>（cert）か <code>TT_PROD_*</code>（prod、read スコープで可）を設定する。</p>
+{% endif %}
+{% for env, m in monitors.items() %}
+<section class="env env-{{ env }}">
+  <div class="envhead">
+    <span class="badge badge-{{ env }} big">{{ env|upper }}</span>
+    <span class="label">{{ m.label }}</span>{% if m.mock %}<span class="badge badge-mock">MOCK</span>{% endif %}
+    <code class="muted small">{{ m.rest_base }}</code>
+    <span class="grow"></span>
+    {% set a = m.auth %}
+    {% if a.ok %}
+      <span class="kv"><span class="k">token 残り</span><b class="{{ 'warn' if a.remaining_s is not none and a.remaining_s < 120 else '' }}">{{ a.remaining_s|secs }}</b> <span class="muted small">失効 {{ a.expires_at|pt }}</span></span>
+      <span class="kv"><span class="k">scope</span><b>{{ a.scope }}</b></span>
+      <span class="kv"><span class="k">refresh</span>ok {{ a.refresh_ok }} / ng {{ a.refresh_fail }}</span>
+    {% elif a.suspended %}
+      <span class="ng">認証を止めている（{{ a.refresh_fail }} 回連続失敗。IP ブロック回避）</span>
+      {% if face == 'local' %}<form method="post" action="/ops/retry-auth" class="inline"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="env" value="{{ env }}"><button class="btn btn-small">再試行</button></form>{% endif %}
+    {% else %}
+      <span class="warn">未認証{% if a.last_error %}: {{ a.last_error }}{% endif %}{% if a.next_attempt_at %}（次は {{ a.next_attempt_at|pt }}）{% endif %}</span>
+    {% endif %}
+  </div>
+
+  <div class="grid">
+    <div class="card">
+      <h3>口座 <span class="muted small">{{ m.account.label or '—' }} · {{ m.account.type or '' }} {{ m.account.margin_or_cash or '' }}{% if m.account.count > 1 %} · 他 {{ m.account.count - 1 }} 口座{% endif %}</span></h3>
+      {% if m.balances %}
+      <table class="kvt">
+        {% for k in ['cash-balance','net-liquidating-value','equity-buying-power','derivative-buying-power','available-trading-funds','pending-cash','cash-available-to-withdraw','maintenance-requirement'] %}
+        <tr><th>{{ k }}</th><td class="num">{{ m.balances[k]|num }}{% if k == 'pending-cash' and m.balances['pending-cash-effect'] %} <span class="muted small">{{ m.balances['pending-cash-effect'] }}</span>{% endif %}</td></tr>
+        {% endfor %}
+      </table>
+      <div class="muted small">照会 {{ m.poll.count }} 回 · 最終 {{ m.poll.last_ok_at|ago }}{% if m.poll.errors %} · <span class="warn">エラー {{ m.poll.errors }}</span>{% endif %}{% if m.poll.count_429 %} · <span class="ng">429 × {{ m.poll.count_429 }}</span>{% endif %}</div>
+      {% else %}<p class="muted">まだ照会していない</p>{% endif %}
+    </div>
+
+    <div class="card">
+      <h3>建玉 <span class="muted small">{{ m.positions|length }}</span></h3>
+      {% if m.positions %}
+      <table><tr><th>銘柄</th><th>数量</th><th>方向</th><th>平均</th><th>更新</th></tr>
+      {% for p in m.positions %}<tr><td>{{ p.symbol }}</td><td class="num">{{ p.quantity }}</td><td>{{ p.direction }}</td><td class="num">{{ p.average_open_price|num }}</td><td class="small">{{ p.updated_at|pt }}</td></tr>{% endfor %}
+      </table>
+      {% else %}<p class="muted">なし</p>{% endif %}
+    </div>
+
+    <div class="card">
+      <h3>働いている注文 <span class="muted small">{{ m.live_orders|length }}</span></h3>
+      {% if m.live_orders %}
+      <table><tr><th>id</th><th>状態</th><th>銘柄</th><th>売買</th><th>数量</th><th>種別</th><th>価格</th><th>受付</th>{% if face == 'local' %}<th></th>{% endif %}</tr>
+      {% for o in m.live_orders %}
+      <tr><td>{{ o.id }}</td><td><span class="st st-{{ (o.status or '')|replace(' ', '') }}">{{ o.status }}</span></td><td>{{ o.legs[0].symbol if o.legs else '' }}</td><td>{{ o.legs[0].action if o.legs else '' }}</td><td class="num">{{ o.legs[0].quantity if o.legs else '' }}</td><td>{{ o.order_type }}</td><td class="num">{{ o.price|num }} {{ o.price_effect or '' }}</td><td class="small">{{ o.received_at|pt }}</td>
+      {% if face == 'local' %}<td><form method="post" action="/ops/cancel" class="inline"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="env" value="{{ env }}"><input type="hidden" name="order_id" value="{{ o.id }}"><input type="hidden" name="back" value="/"><button class="btn btn-small">取消</button></form></td>{% endif %}</tr>
+      {% endfor %}
+      </table>
+      {% else %}<p class="muted">なし</p>{% endif %}
+    </div>
+
+    <div class="card">
+      <h3>現在値 <span class="muted small">{{ m.quote.symbol }}</span></h3>
+      {% set q = m.quote %}
+      {% if q.state == 'ok' %}
+      <table class="kvt">
+        <tr><th>bid / ask</th><td class="num">{{ q.bid|num }} / {{ q.ask|num }}</td></tr>
+        <tr><th>last</th><td class="num">{{ q.last|num }}</td></tr>
+        <tr><th>updated-at</th><td class="small">{{ q.updated_at|et }} <span class="muted">（遅延 <b class="{{ 'ok' if q.delay_s is not none and q.delay_s < 1 else 'warn' }}">{{ q.delay_s }} 秒</b>）</span></td></tr>
+        {% if q.halted %}<tr><th></th><td class="ng">取引停止中</td></tr>{% endif %}
+      </table>
+      {% elif q.state == 'n/a' %}<p class="muted">{{ q.reason }}</p>
+      {% elif q.state == 'error' %}<p class="warn">取れない: {{ q.reason }}</p>
+      {% else %}<p class="muted">まだ照会していない</p>{% endif %}
+      {% set d = m.dxlink %}
+      {% if d.state != 'n/a' %}
+      <div class="sub"><b>DXLink</b> <span class="st st-{{ d.state }}">{{ d.state }}</span>
+        {% if d.quote %}<span class="num">{{ d.quote.bid|num }} × {{ d.quote.bid_size }} / {{ d.quote.ask|num }} × {{ d.quote.ask_size }}</span>{% endif %}
+        {% if d.trade %}<span class="muted small">last {{ d.trade.price|num }} ({{ d.trade.size }})</span>{% endif %}
+        <div class="muted small">受信 {{ d.event_count }} 件 · 最終 {{ d.last_event_at|ago }} · 切断 {{ d.disconnects }} / 再接続 {{ d.reconnects }}{% if d.token_level %} · level {{ d.token_level }}{% endif %}{% if d.last_error %} · <span class="warn">{{ d.last_error }}</span>{% endif %}</div>
+      </div>
+      {% endif %}
+    </div>
+
+    <div class="card">
+      <h3>口座ストリーマ <span class="st st-{{ m.account_stream.state }}">{{ m.account_stream.state }}</span></h3>
+      {% set s = m.account_stream %}
+      <div class="muted small">接続 {{ s.connected_at|pt }} · 最終受信 {{ s.last_message_at|ago }} · 受信 {{ s.message_count }}（Order 通知 {{ s.order_notifications }}）· 切断 {{ s.disconnects }} / 再接続 {{ s.reconnects }}</div>
+      {% if s.last_error %}<div class="warn small">{{ s.last_error }}</div>{% endif %}
+      {% if s.recent %}
+      <table class="small"><tr><th>時刻</th><th>種類</th><th>内容</th></tr>
+      {% for n in s.recent[:12] %}<tr><td>{{ n.at|pt }}</td><td>{{ n.type }}</td><td>{% if n.type == 'Order' %}#{{ n.id }} {{ n.symbol }} {{ n.action }} → <span class="st st-{{ (n.status or '')|replace(' ', '') }}">{{ n.status }}</span>{% elif n.type == 'AccountBalance' %}cash {{ n.cash_balance|num }} / NLV {{ n.net_liq|num }}{% elif n.type == 'CurrentPosition' %}{{ n.symbol }} × {{ n.quantity }}{% else %}{{ n.status or '' }}{% endif %}</td></tr>{% endfor %}
+      </table>
+      {% else %}<p class="muted">通知はまだ無い</p>{% endif %}
+    </div>
+
+    <div class="card">
+      <h3>エラー <span class="muted small">{{ m.errors|length }}{% if m.poll.count_429 %} · <span class="ng">429 × {{ m.poll.count_429 }}</span>{% endif %}</span></h3>
+      {% if m.errors %}
+      <table class="small"><tr><th>時刻</th><th>場所</th><th>status / code</th><th>内容</th></tr>
+      {% for e in m.errors[:10] %}<tr><td>{{ e.at|pt }}</td><td>{{ e.where }}</td><td>{{ e.status or e.type }} {{ e.code or '' }}</td><td>{{ e.message }}{% if e.errors %}<details><summary>errors[]</summary><pre>{{ e.errors|tojson_pretty }}</pre></details>{% endif %}</td></tr>{% endfor %}
+      </table>
+      {% else %}<p class="muted">なし</p>{% endif %}
+    </div>
+  </div>
+</section>
+{% endfor %}
+
+<section class="card wide">
+  <h3>監視のイベント <span class="muted small">refresh の成否・接続・切断・429（monitor/*.jsonl。観点 A の材料）</span></h3>
+  {% if events %}
+  <table class="small"><tr><th>時刻</th><th>env</th><th>種類</th><th>内容</th></tr>
+  {% for e in events %}<tr><td>{{ e.at|pt }}</td><td>{{ e.env }}</td><td><span class="ev ev-{{ e.kind }}">{{ e.kind }}</span></td><td><code>{{ e.detail|tojson_pretty|truncate(200) }}</code></td></tr>{% endfor %}
+  </table>
+  {% else %}<p class="muted">まだ無い</p>{% endif %}
+</section>

@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>開発時の検証 <span class="muted small">ローカル面だけ。モック・selftest・手順の実行</span></h2>
+<div class="two">
+<section class="card">
+  <h3>モックサーバ <span class="st st-{{ 'connected' if dev.mock.running else 'off' }}">{{ 'running' if dev.mock.running else 'stopped' }}</span></h3>
+  <p class="small muted">REST {{ dev.mock.ports.rest }} / 口座ストリーマ {{ dev.mock.ports.account_streamer }} / DXLink {{ dev.mock.ports.dxlink }}{% if dev.mock.pid %} · pid {{ dev.mock.pid }} · {{ dev.mock.started_at|pt }}{% endif %}</p>
+  {% if dev.mock.running %}
+  <form method="post" action="/dev/mock/stop" class="inline"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn">停止</button></form>
+  {% else %}
+  <form method="post" action="/dev/mock/start" class="inline"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn btn-primary">起動（--market-data）</button></form>
+  {% endif %}
+  {% if dev.mock.log_tail %}<details><summary>ログ</summary><pre>{{ dev.mock.log_tail|join('\n') }}</pre></details>{% endif %}
+  <p class="muted small">⚠ モックは自作の模型。tastytrade の挙動の【実測】には使えない。モックに対する記録には mock: true が付き、判定から外れる。</p>
+</section>
+<section class="card">
+  <h3>selftest.sh</h3>
+  <p class="small muted">記録とマスクのテスト → 本番ガードの鍵 → モック（ポート {{ 8775 }}〜）に 6 手順 → 秘密の grep → HALT。</p>
+  <form method="post" action="/dev/selftest" class="inline"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn btn-primary" {% if dev.current %}disabled{% endif %}>実行</button></form>
+  {% if dev.current %}<span class="warn">実行中: <a href="/dev/jobs/{{ dev.current.id }}">{{ dev.current.kind }} {{ dev.current.note }}</a></span>{% endif %}
+</section>
+</div>
+
+<section class="card" style="margin-top:12px">
+  <h3>手順を実行する（sample.py）</h3>
+  <form method="post" action="/dev/run" class="stack">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <label>環境 <select name="env"><option value="cert">cert（sandbox）</option>{% if prod_available %}<option value="prod">prod（probe / dryrun だけ。発注は CLI で利用者が行う）</option>{% endif %}</select></label>
+    <label>手順 <select name="step">{% for k, d in dev.steps %}<option value="{{ k }}">{{ k }} — {{ d }}</option>{% endfor %}</select></label>
+    <label>秒数（手順 6 の受信時間） <input type="number" name="seconds" value="15" min="1" max="600"></label>
+    <label><input type="checkbox" name="use_mock" value="1"> モックに対して実行する（本物の資格情報は読まない）</label>
+    <label><input type="checkbox" name="verify_expiry" value="1"> --verify-expiry（手順 1 のあと 15 分待って 401 を確認）</label>
+    <button class="btn btn-primary" {% if dev.current %}disabled{% endif %}>実行</button>
+  </form>
+  <p class="muted small">記録は {{ records_dir }} に落ちる（TT_OUT_DIR）。停止中（HALT）は発注系の手順が拒否される。⚠ 本物の cert に対する認証失敗を繰り返すと IP が約 8 時間ブロックされる。</p>
+</section>
+
+<section class="card" style="margin-top:12px">
+  <h3>ジョブ</h3>
+  {% if dev.jobs %}
+  <table class="small"><tr><th>id</th><th>種類</th><th>内容</th><th>状態</th><th>開始</th><th>終了</th></tr>
+  {% for j in dev.jobs %}<tr><td><a href="/dev/jobs/{{ j.id }}">{{ j.id }}</a></td><td>{{ j.kind }}</td><td>{{ j.note }}</td><td><span class="st st-{{ j.status }}">{{ j.status }}</span>{% if j.returncode is not none %} <span class="muted">exit {{ j.returncode }}</span>{% endif %}</td><td>{{ j.started_at|pt }}</td><td>{{ j.ended_at|pt }}</td></tr>{% endfor %}
+  </table>
+  {% else %}<p class="muted">まだ無い</p>{% endif %}
+</section>
+{% endblock %}

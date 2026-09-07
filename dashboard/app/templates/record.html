@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block content %}
+<h2><a href="/records">記録</a> › {{ run.run_id }} <span class="badge badge-{{ run.env }}">{{ run.env }}</span>{% if run.mock %} <span class="badge badge-mock">MOCK</span>{% endif %}</h2>
+<p class="muted small">{{ run.venue }} · {{ run.started_at.utc|pt }} / {{ run.started_at.utc|et }} · {{ run.ok_count }}/{{ run.step_count }} ok · {{ (run.elapsed_ms/1000)|round(1) }} 秒 · <code>{{ run.file }}</code>
+{% if siblings %} · 差分: {% for s in siblings %}<a href="/records/diff?a={{ s.run_id }}&b={{ run.run_id }}">{{ s.run_id }}</a> {% endfor %}{% endif %}</p>
+{% for row in rows %}
+<section class="card" style="margin-bottom:10px">
+  <h3><span class="st {{ 'st-ok' if row.ok else 'st-failed' }}">{{ '✓' if row.ok else '✗' }}</span> 手順 {{ row.step }} · {{ row.name }} <span class="badge badge-{{ row.env }}">{{ row.env }}</span> <span class="muted small">{{ row.result }} · {{ row.elapsed_ms|num }} ms · {{ (row.started_at or {}).utc|pt }}</span></h3>
+  {% if row.error %}<div class="danger"><b>{{ row.error.type }}</b> {{ row.error.message }}{% if row.error.body %}<pre>{{ row.error.body|tojson_pretty }}</pre>{% endif %}</div>{% endif %}
+  <details {% if not row.ok %}open{% endif %}><summary>detail</summary><pre>{{ row.detail|tojson_pretty }}</pre></details>
+</section>
+{% endfor %}
+{% if rows %}<p class="muted small">sdk: <code>{{ rows[0].sdk|tojson_pretty }}</code></p>{% endif %}
+{% endblock %}

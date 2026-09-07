@@ -1,0 +1,6 @@
+<p><b>{{ job.kind }}</b> {{ job.note }} · <span class="st st-{{ job.status }}">{{ job.status }}</span>{% if job.returncode is not none %} <span class="muted">exit {{ job.returncode }}</span>{% endif %} · {{ job.started_at|pt }} → {{ job.ended_at|pt }}
+{% if job.status == 'running' %}<form method="post" action="/dev/jobs/{{ job.id }}/stop" class="inline"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn btn-small">止める</button></form>{% else %}<span class="job-finished"></span> · <a href="/records">記録を見る</a>{% endif %}</p>
+<p class="muted small"><code>{{ job.argv }}</code></p>
+{% if job.error %}<div class="danger">{{ job.error }}</div>{% endif %}
+<div class="log">{% for l in lines %}{{ l }}
+{% endfor %}</div>

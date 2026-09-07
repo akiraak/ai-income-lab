@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>実行記録 <span class="muted small">{{ runs|length }} 件 · {{ records_dir }}</span></h2>
+{% if runs|length >= 2 %}
+<form method="get" action="/records/diff" class="inline">
+  差分: <select name="a">{% for r in runs %}<option value="{{ r.run_id }}" {% if loop.index == 2 %}selected{% endif %}>{{ r.run_id }} ({{ r.env }}{% if r.mock %}, mock{% endif %})</option>{% endfor %}</select>
+  → <select name="b">{% for r in runs %}<option value="{{ r.run_id }}" {% if loop.index == 1 %}selected{% endif %}>{{ r.run_id }} ({{ r.env }}{% if r.mock %}, mock{% endif %})</option>{% endfor %}</select>
+  <button class="btn btn-small">比べる</button>
+</form>
+{% endif %}
+<table>
+<tr><th>開始</th><th>run_id</th><th>会場</th><th>環境</th><th>手順</th><th>結果</th><th class="num">所要</th></tr>
+{% for r in runs %}
+<tr>
+  <td class="small">{{ r.started_at.utc|pt }}<br><span class="muted">{{ r.started_at.utc|et }}</span></td>
+  <td><a href="/records/{{ r.run_id }}">{{ r.run_id }}</a></td>
+  <td>{{ r.venue }}</td>
+  <td><span class="badge badge-{{ r.env }}">{{ r.env }}</span>{% if r.mock %} <span class="badge badge-mock">MOCK</span>{% endif %}{% if r.envs|length > 1 %} <span class="muted small">+{{ r.envs[1:]|join(',') }}</span>{% endif %}</td>
+  <td class="small">{% for s in r.steps %}<span class="st {{ 'st-ok' if s.ok else 'st-failed' }}" title="{{ s.name }}: {{ s.result }}">{{ s.step }}</span> {% endfor %}</td>
+  <td class="{{ 'ok' if r.ok_count == r.step_count else 'warn' }}">{{ r.ok_count }} / {{ r.step_count }}</td>
+  <td class="num">{{ (r.elapsed_ms / 1000)|round(1) }} s</td>
+</tr>
+{% else %}
+<tr><td colspan="7" class="muted">記録が無い。<code>sample.py</code> を実行するか、開発画面で selftest を回すとここに出る</td></tr>
+{% endfor %}
+</table>
+{% endblock %}

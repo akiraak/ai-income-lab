@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>操作 <span class="muted small">ローカル面だけ。公開面ではこのページは存在しない</span></h2>
+
+<section class="card">
+  <h3>停止 / 解除</h3>
+  {% if halt.halted %}
+  <div class="danger">⛔ 停止中（HALT）{{ halt.since|pt }} · {{ halt.actor }} {{ halt.reason or '' }}。<code>sample.py</code> の発注系の手順もこのフラグで止まる。</div>
+  <form method="post" action="/ops/resume" class="inline" onsubmit="return confirm('停止を解除する。発注系が再び通るようになる。よいか？')"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn btn-primary">解除（再開）</button></form>
+  {% else %}
+  <form method="post" action="/ops/halt" class="inline" onsubmit="return confirm('停止する: HALT を書き、働いている注文を全部取り消す。よいか？')">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <input type="text" name="reason" placeholder="理由（任意）"> <button class="btn btn-danger">■ 停止</button>
+  </form>
+  <p class="muted small">HALT フラグ（{{ halt.path }}）を書き、働いている注文を全部取り消す。prod の取消は資格情報の scope に trade があるときだけ。</p>
+  {% endif %}
+</section>
+
+{% if result %}
+<section class="card" style="margin-top:12px">
+  <h3>{{ result.kind }} の結果</h3>
+  {% if result.error %}<div class="danger">{{ result.error }}</div>{% else %}
+  <div class="two">
+    <div><b>注文</b><pre>{{ result.data.order|tojson_pretty }}</pre></div>
+    <div><b>dry-run</b><pre>{{ result.data.dry_run|tojson_pretty }}</pre></div>
+  </div>
+  {% if result.kind == 'dry-run' %}
+  <form method="post" action="/ops/submit" class="stack" onsubmit="return confirm('この注文をルーティングする（{{ result.data.env }}）。よいか？')">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    {% for k in ['env','symbol','quantity','action','order_type','price'] %}<input type="hidden" name="{{ k }}" value="{{ result.form[k] or '' }}">{% endfor %}
+    {% if result.data.env == 'prod' %}
+    <div class="danger">⚠ <b>本番（実弾）</b>。TT_ALLOW_PROD_ORDERS=1 {{ '✓' if allow_prod_orders else '✗（無いので通らない）' }}。確認文 <code>{{ confirm_phrase }}</code> を入力する:
+      <input type="text" name="confirm" placeholder="{{ confirm_phrase }}" autocomplete="off"></div>
+    {% endif %}
+    <button class="btn btn-danger" {% if halt.halted %}disabled{% endif %}>この内容で発注する</button> {% if halt.halted %}<span class="ng">停止中は発注できない</span>{% endif %}
+  </form>
+  {% endif %}
+  {% endif %}
+</section>
+{% endif %}
+
+<div class="two" style="margin-top:12px">
+{% for env, m in monitors.items() %}
+<section class="card env-{{ env }}" style="border-width:2px">
+  <h3><span class="badge badge-{{ env }}">{{ env|upper }}</span> {{ m.label }}{% if m.mock %} <span class="badge badge-mock">MOCK</span>{% endif %} <span class="muted small">scope {{ m.auth.scope or '未認証' }}</span></h3>
+  {% if env == 'prod' %}
+  <div class="note">本番。dry-run は TT_ALLOW_PROD_DRY_RUN=1 {{ '✓' if allow_prod_dry_run else '✗' }}、発注は TT_ALLOW_PROD_ORDERS=1 {{ '✓' if allow_prod_orders else '✗' }} ＋ 確認文。取消は scope に trade が要る。</div>
+  {% endif %}
+  <form method="post" action="/ops/dry-run" class="stack">
+    <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="env" value="{{ env }}">
+    <label>銘柄 <input type="text" name="symbol" value="{{ symbol }}"></label>
+    <label>数量 <input type="number" name="quantity" value="1" min="1" max="10"></label>
+    <label>売買 <select name="action">{% for a in actions %}<option>{{ a }}</option>{% endfor %}</select></label>
+    <label>種別 <select name="order_type">{% for t in order_types %}<option>{{ t }}</option>{% endfor %}</select></label>
+    <label>指値 <input type="text" name="price" value="{{ '10.00' if env == 'cert' else '' }}" placeholder="Limit のとき"></label>
+    <button class="btn btn-primary">dry-run（何もルーティングしない）</button>
+  </form>
+  <p class="muted small">cert の疑似約定: 成行は $1、指値 $3 未満は即約定、$3 以上は Live のまま（市場時間内のみ）。</p>
+  <div class="sub">
+    <b>働いている注文 {{ m.live_orders|length }}</b>
+    <form method="post" action="/ops/cleanup" class="inline" onsubmit="return confirm('{{ env }} の働いている注文を全部取り消す。よいか？')"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="env" value="{{ env }}"><button class="btn btn-small">後片付け（全取消）</button></form>
+    {% if m.live_orders %}
+    <table class="small"><tr><th>id</th><th>状態</th><th>内容</th><th></th></tr>
+    {% for o in m.live_orders %}<tr><td>{{ o.id }}</td><td>{{ o.status }}</td><td>{{ o.legs[0].symbol if o.legs }} {{ o.legs[0].action if o.legs }} × {{ o.legs[0].quantity if o.legs }} {{ o.order_type }} {{ o.price|num }}</td><td><form method="post" action="/ops/cancel" class="inline"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="env" value="{{ env }}"><input type="hidden" name="order_id" value="{{ o.id }}"><button class="btn btn-small">取消</button></form></td></tr>{% endfor %}
+    </table>
+    {% endif %}
+  </div>
+</section>
+{% else %}
+<p class="muted">資格情報が無い。</p>
+{% endfor %}
+</div>
+
+<section class="card" style="margin-top:12px">
+  <h3>操作の履歴 <span class="muted small">ops/history.jsonl</span></h3>
+  {% if history %}
+  <table class="small"><tr><th>時刻</th><th>種類</th><th>env</th><th>誰が</th><th>内容</th></tr>
+  {% for h in history %}<tr><td>{{ h.at|pt }}</td><td>{{ h.kind }}</td><td>{{ h.env }}</td><td>{{ h.actor }}</td><td><details><summary>detail</summary><pre>{{ h.detail|tojson_pretty }}</pre></details></td></tr>{% endfor %}
+  </table>
+  {% else %}<p class="muted">まだ無い</p>{% endif %}
+</section>
+{% endblock %}

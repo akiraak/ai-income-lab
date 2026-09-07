@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>6 観点の判定 <span class="muted small">記録から自動生成 · 実測 {{ judge.real_runs }} 実行（モック {{ judge.excluded_mock_runs }} 実行は除外）· 監視イベント {{ judge.monitor_events }} 件</span></h2>
+<p class="muted small">成立条件は「無人で 1 営業日回る」。✅ / ⚠ / ❌ に加えて ⏳ は未実測。各セルに根拠の run と手順を付ける。</p>
+{% if not judge.venues %}
+<p class="muted">実測の記録が無い（モックの記録は判定に使わない）。</p>
+{% else %}
+<table class="judge">
+<tr><th>観点</th><th>✅ の条件</th>{% for v in judge.venues %}<th>{{ v }}</th>{% endfor %}</tr>
+{% for a in judge.aspects %}
+<tr>
+  <td><b>{{ a.key }} {{ a.title }}</b></td>
+  <td class="small muted">{{ a.ok }}<br>⚠ {{ a.warn }}<br>❌ {{ a.ng }}</td>
+  {% for v in judge.venues %}{% set c = judge.cells[v][a.key] %}
+  <td class="cell-{{ c.mark }}"><span class="mark">{{ c.symbol }}</span>
+    <div class="reason">{{ c.reason }}</div>
+    <div class="ev">{% for e in c.evidence %}<a href="/records/{{ e.run_id }}">{{ e.run_id }} · {{ e.label }}</a>{% endfor %}</div>
+  </td>
+  {% endfor %}
+</tr>
+{% endfor %}
+<tr><td><b>判定</b></td><td></td>{% for v in judge.venues %}<td><b>{{ judge.cells[v]._verdict }}</b></td>{% endfor %}</tr>
+</table>
+{% endif %}
+{% endblock %}

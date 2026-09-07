@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block title %}ai-income-lab 管理画面{% endblock %}</title>
+<link rel="stylesheet" href="/static/app.css">
+</head>
+<body class="face-{{ face }}">
+<header class="top">
+  <div class="brand">ai-income-lab <span class="muted">管理画面</span> <span class="ver">v{{ version }}</span></div>
+  <nav>
+    <a href="/" class="{{ 'on' if page == 'monitor' else '' }}">監視</a>
+    <a href="/records" class="{{ 'on' if page == 'records' else '' }}">記録</a>
+    <a href="/judge" class="{{ 'on' if page == 'judge' else '' }}">判定</a>
+    {% if face == 'local' %}
+    <a href="/ops" class="{{ 'on' if page == 'ops' else '' }}">操作</a>
+    <a href="/dev" class="{{ 'on' if page == 'dev' else '' }}">開発</a>
+    {% endif %}
+  </nav>
+  <div class="who">
+    {% if face == 'public' %}<span class="pill pill-public">公開面 · Access</span>{% elif auth_mode == 'local' %}<span class="pill pill-local">ローカル面 · 認証なし（LAN）</span>{% else %}<span class="pill pill-local">ローカル面 · ループバックのみ</span>{% endif %}
+    {% if user %}<span class="muted">{{ user }}</span>{% endif %}
+  </div>
+</header>
+<div class="envbar">
+  {% for e in envs %}
+    <span class="badge badge-{{ e.env }}">{{ e.env|upper }} · {{ e.label }}</span>{% if e.mock %}<span class="badge badge-mock">MOCK</span>{% endif %}
+    <span class="muted small">scope: {{ e.scope or '未認証' }}{% if e.suspended %} · <b class="ng">認証停止中</b>{% endif %}</span>
+  {% else %}
+    <span class="muted">資格情報が無いので監視する環境が無い（TT_* / TT_PROD_* を設定する）</span>
+  {% endfor %}
+  <span class="grow"></span>
+  <form method="post" action="/ops/halt" class="inline" onsubmit="return confirm('停止する: HALT を書き、働いている注文を全部取り消す。よいか？')">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <button class="btn btn-danger" {% if halt.halted %}disabled{% endif %}>■ 停止</button>
+  </form>
+</div>
+{% if halt.halted %}
+<div class="haltbar">⛔ <b>停止中（HALT）</b> {{ halt.since|pt }} · {{ halt.actor }} {% if halt.reason %}· {{ halt.reason }}{% endif %} — 発注系はすべて拒否される{% if face == 'local' %}。解除は <a href="/ops">操作</a> から{% endif %}</div>
+{% endif %}
+{% if flash %}<div class="flash">{{ flash }}</div>{% endif %}
+<main>
+{% block content %}{% endblock %}
+</main>
+<footer class="foot"><span>{{ now|pt }} / {{ now|et }}</span><span class="muted">記録: {{ records_dir }}</span></footer>
+<script src="/static/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,7 @@
+{% extends "base.html" %}
+{% block content %}
+<h2><a href="/dev">開発</a> › ジョブ {{ job.id }}</h2>
+<div id="job" data-poll="/dev/jobs/{{ job.id }}?partial=1" data-interval="2000" data-stop-when=".job-finished">
+{% include "job_panel.html" %}
+</div>
+{% endblock %}

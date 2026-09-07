@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block content %}
+<h2><a href="/records">記録</a> › 差分</h2>
+<table>
+<tr><th></th><th>A</th><th>B</th></tr>
+<tr><th>run</th><td><a href="/records/{{ a.run_id }}">{{ a.run_id }}</a> <span class="badge badge-{{ a.env }}">{{ a.env }}</span>{% if a.mock %} <span class="badge badge-mock">MOCK</span>{% endif %}</td><td><a href="/records/{{ b.run_id }}">{{ b.run_id }}</a> <span class="badge badge-{{ b.env }}">{{ b.env }}</span>{% if b.mock %} <span class="badge badge-mock">MOCK</span>{% endif %}</td></tr>
+<tr><th>開始</th><td>{{ a.started_at.utc|pt }}</td><td>{{ b.started_at.utc|pt }}</td></tr>
+</table>
+<p class="muted small">delta ＝ B − A。所要（ms）や状態遷移の時刻（at_ms）が回ごとにどれだけ揺れたかを見る。赤は増、緑は減。</p>
+{% for r in rows %}
+<section class="card" style="margin-bottom:10px">
+  <h3>手順 {{ r.step }} <span class="badge badge-{{ r.env }}">{{ r.env }}</span> <span class="muted small">{{ r.name }}</span></h3>
+  <table>
+    <tr><th style="width:40%">項目</th><th class="num">A</th><th class="num">B</th><th class="num">delta</th></tr>
+    <tr><td>result</td><td class="num">{{ r.a.result if r.a else '—' }}</td><td class="num">{{ r.b.result if r.b else '—' }}</td><td></td></tr>
+    {% for m in r.metrics %}
+    <tr><td><code>{{ m.key }}</code></td><td class="num">{{ m.a|num }}</td><td class="num">{{ m.b|num }}</td><td class="num {{ 'delta-pos' if m.delta and m.delta > 0 else 'delta-neg' if m.delta and m.delta < 0 else '' }}">{{ ('%+g' % m.delta) if m.delta is not none else '' }}</td></tr>
+    {% endfor %}
+  </table>
+</section>
+{% endfor %}
+{% endblock %}

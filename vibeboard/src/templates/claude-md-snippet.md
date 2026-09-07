@@ -10,15 +10,26 @@ node vibeboard/dist/cli.js --root .
 
 `http://localhost:3010` でプロジェクト直下の `docs/plans/`・`docs/specs/`・`TODO.md`・`DONE.md`・`CLAUDE.md`・`README.md` を閲覧・編集できる。
 
-- `Root` タブで `TODO.md` / `DONE.md` / `CLAUDE.md` / `README.md` をプレビュー表示・編集できる
+- `Files` タブでプロジェクト内のファイル（`TODO.md` / `DONE.md` / `CLAUDE.md` / `README.md` を含む）をプレビュー表示・編集できる。`TODO.md` はツリー表示つき
   - 編集は楽観ロック（mtime チェック）付き。外部で先に更新されていた場合は保存時に 409 を返し、リロード / 手元維持 / 強制上書き を選べる
   - `fs.watch` + 2 秒ポーリングで外部変更を検知し、SSE でクライアントへ即時反映する
+- `Tasks` タブで `TODO.md` のタスクを、このプロジェクトで動いている Claude Code のセッションへ渡して実行できる（実行 / 説明 / 削除）。
+  送り先は `claude agents` の一覧から選ぶ。セッションは起動時の hook（`vibeboard init` が `.claude/settings.json` に書く）で
+  自分の受信口を vibeboard に登録し、vibeboard がそこへ文面を投函する。hook が使えない環境では
+  `node vibeboard/dist/cli.js listen --name <画面の名前>` を回す
 - ローカル開発専用（本番管理画面とは独立）
 - ポート変更は `--port` または `VIBEBOARD_PORT` 環境変数で指定可能
 
 ## タスク管理ルール
 
 - タスクは `TODO.md` で管理する
+- **`TODO.md` に書くのはタスク（`- [ ]`）だけ。** メモや決定事項を残すときは、関係するタスクの
+  下に字下げして付ける（タスクに関連付ける）。タスクに属さないメモの節（「決まったこと」「備考」など）は
+  作らない。プロジェクトとしての決定は `CLAUDE.md` へ、済んだ経緯は `DONE.md` へ書く
+- 字下げが親子。vibeboard はこれをツリーとして表示する。進行中は `[~]`、中止は `[-]` で表せる
+- タスク同士の関係は、そのタスクの下に字下げした **`依存:` / `派生元:` / `関連:`** の行で書く。
+  相手のタスクは `「文面」` で（例: `依存: 「スキーマに tags 列を追加」`）、プランや仕様は
+  Markdown リンクで（例: `関連: [spec](docs/specs/api.md)`）示す。vibeboard のツリーで両方向に辿れる
 - タスクが完了したら `TODO.md` から該当項目を削除し、`DONE.md` に移動する
 - `DONE.md` には完了日を `YYYY-MM-DD` 形式で付けて記録する
 - 新しいタスクが発生したら `TODO.md` の適切なセクションに追加する

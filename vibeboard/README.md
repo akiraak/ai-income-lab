@@ -8,26 +8,63 @@
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
-│ <project>             Root  Plans  Specs                     │
+│ <project>       Tasks  Plans  Specs  Files                   │
 ├──────────────┬───────────────────────────────────────────────┤
-│ docs/plans/  │ # TODO                                        │
-│  ├ foo.md    │                                               │
-│  └ bar.md    │ ## 機能開発                                    │
-│ TODO.md      │ - [ ] xxx                                     │
-│ DONE.md      │ - [x] yyy → DONE                              │
+│ 更新日 名前   + 新規 │ # TODO                                 │
+│ docs/plans/  │                                               │
+│  ├ foo.md    │ ## 機能開発                                    │
+│  └ bar.md    │ - [ ] xxx                                     │
+│ TODO.md      │ - [x] yyy → DONE                              │
+│ DONE.md      │                                               │
 └──────────────┴───────────────────────────────────────────────┘
 ```
 
 ## できること
 
-- `docs/plans/` ・ `docs/specs/` 配下の Markdown / HTML をツリーで一覧・閲覧
-- ルート直下の `TODO.md` ・ `DONE.md` ・ `CLAUDE.md` ・ `README.md` をプレビュー表示しつつ編集
-  - mtime ベースの楽観ロック付き。外部で先に更新されていた場合は 409 を返し、
-    リロード / 手元維持 / 強制上書き を選べる
-  - `fs.watch` + 2 秒ポーリングで外部変更を検知し、SSE でクライアントへ即時反映
+- `docs/plans/` ・ `docs/specs/` 配下の Markdown / HTML をツリーで一覧・閲覧・編集
+- ルート直下の `TODO.md` ・ `DONE.md` ・ `CLAUDE.md` ・ `README.md` も Files タブで開いて編集（専用の Root タブは廃止。Files と機能が重なるため）
+- **タスク（`- [ ]`）を含む Markdown は「ツリー」で表示**（`ツリー` / `プレビュー` / `編集` の 3 サブタブ）
+  - 字下げを親子として描き、子を持つタスクは畳める。見出しと親には `完了 / 全体` の数
+  - 状態は `[ ]` 未着手 / `[x]` 完了 / `[~]` 進行中 / `[-]` 中止。他の 1 文字は未着手扱いで記号を残す
+  - タスクの下に字下げした `依存:` / `派生元:` / `関連:` の行を**関係**として読み、チップで両方向に辿れる
+    （相手のタスクは `「文面」`、プラン / 仕様は Markdown リンク）。引けない相手は「見つかりません」と出すだけで本文は消えない
+  - 本文の `[plan](docs/plans/x.md)` のような相対リンクは、Files タブからでも vibeboard の中で開く
+  - `TODO.md` の書式は変えない（id を書かせない）。解釈はサーバの純関数 `src/todo.ts`（`GET /api/todo/<path>`）
+- **Tasks タブで `TODO.md` のタスクを選び、このプロジェクトで動いている Claude Code のセッションへ渡して実行**
+  - ボタンは 3 つ。`実行`（こなして DONE.md へ移す）/ `説明`（変更させず意図・進め方・影響を説明させる）/
+    `削除`（TODO.md からその部分木の行だけを消す。DONE.md には移さない。確認を挟む）
+  - 送り先は **`claude agents --json` の一覧から選ぶ**（名前・実行中 / 待機中・登録済みかどうか）。人が待ち受けを起動しなくてよい
+  - 届け方は **セッションの受信口（Unix ソケット）への投函**。セッションは起動時の SessionStart hook
+    （`vibeboard init` が `.claude/settings.json` に書く）で自分の受信口を vibeboard に登録し、vibeboard がそこへ文面を書く。
+    受け取った側では、待機中なら新しいターンが始まり、実行中なら tool 呼び出しの合間に読まれる（承認もその画面で答える）
+  - 送り先が未登録でも受け付けて **待ち** に積み、登録が来た時点で投函する。状態（待ち / 投函済み / 失敗）は画面に出て、
+    失敗は再送できる。キューは tmp の JSON なので vibeboard を再起動しても消えない
+  - hook が使えない環境（古い Claude Code、hooks を書きたくない）では **`vibeboard listen --name <画面の名前>`** を回す。
+    その名前が送り先に `listen` として出て、届いた文面（1 タスク = 1 行の JSON）をその画面の Claude Code が実行する
+  - 文面はサーバが TODO.md から組む（ブラウザからは id と決め打ちの値しか受けない）。
+    バックグラウンドで別セッションは起こさない。仕組みの詳細は [Tasks タブの仕組み](#tasks-タブの仕組み)
+- **Files タブでプロジェクト内のファイルをすべて編集**（テキストエディタと同じ扱い）
+  - 拡張子もディレクトリも問わない。`src/` のコードも `package.json` も同じ画面で開ける
+  - **dotfile も出す**（`.env` を含む）。除外は既定で `.git/` と `node_modules/` だけ
+    （`files.exclude` で足せる）
+  - バイナリ / サイズ上限（1MB）超え / シンボリックリンクは**開けるが読み取り専用**
+  - **改行コードを変えない**。`textarea` は値を LF に潰すので、読み取り時に判定して
+    書き戻しで CRLF へ復元する（変えると差分が全行になるため）
+- 新規作成 / リネーム・移動 / 削除（サイドバーの `+ 新規`、ツールバーの `リネーム` `削除`）
+  - 対象はファイル 1 個だけ。ディレクトリは作成時に親を掘るだけで、移動・削除はしない
+  - 移動先が既にある場合は**上書きせず 409**。作成も同名があれば 409
+- 編集はすべて mtime ベースの楽観ロック付き。外部で先に更新されていた場合は 409 を返し、
+  リロード / 手元維持 / 強制上書き を選べる
+  - 保存は tmp へ書いてから rename（アトミック書き込み）
+  - `fs.watch` + 2 秒ポーリングで**今開いているファイル**の外部変更を検知し、SSE で即時反映
     （プレビュー自動更新／clean 編集は差し替え＋情報バー／dirty 編集は競合警告バー＋差分モーダル）
 - `docs/plans/<file>` ・ `docs/plans/<dir>/` を `docs/plans/archive/` に移動
 - ツールバーの `↻ 再取得` ボタン、または `R` キー単独で手動再取得
+- 起動時、同じ `--root` の vibeboard が既にポートを使っていれば自動で停止して起動し直す
+  （別プロジェクトの vibeboard や無関係なプロセスには触れない）
+
+> **注意**: Files タブは `--root` 配下のファイルを **`.env` まで含めて読み書きできる**。
+> vibeboard が `127.0.0.1` バインド固定なのはこのためで、外から届く場所には置かないこと。
 
 ## 必要な前提構造
 
@@ -35,6 +72,8 @@ vibeboard は親プロジェクトに以下があることを前提に動く。
 
 ```
 <project-root>/
+├── run-vibeboard.sh           # 起動スクリプト (npm install が vibeboard/ から自動配置)
+├── vibeboard/                 # degit で vendor した vibeboard 本体
 ├── TODO.md                    # 必須: 現在のタスク
 ├── DONE.md                    # 必須: 完了したタスク
 ├── CLAUDE.md                  # 任意: AI エージェント向け規約 (vibeboard init で生成・更新)
@@ -47,7 +86,10 @@ vibeboard は親プロジェクトに以下があることを前提に動く。
 ```
 
 足りないファイル / ディレクトリは、必要になった時点で自動的に作成される
-（例: アーカイブ操作時の `docs/plans/archive/`）。`docs/specs/` は無くても起動できる。
+（例: アーカイブ操作時の `docs/plans/archive/`、新規作成時の親ディレクトリ）。
+`docs/specs/` は無くても起動できる。
+
+Files タブはこの構造に依存せず、`--root` 配下を（除外を除いて）そのまま並べる。
 
 ## Quick start
 
@@ -59,11 +101,44 @@ vibeboard は **degit でプロジェクト直下に vendor して使う**（npm
 # プロジェクト直下で実行
 npx -y degit akiraak/vibeboard vibeboard   # 既存 vibeboard/ がある場合は事前に削除
 cd vibeboard
-npm install                                # prepare で dist/ も生成される
+npm install                                # prepare で dist/ を生成し、
+                                           # postinstall で run-vibeboard.sh を親へ配置
 
-# 起動 (例: 親プロジェクト直下を root にして見る)
-node dist/cli.js --root ..
+# 起動 (プロジェクトルートから)
+cd ..
+./run-vibeboard.sh
 # → http://localhost:3010 を開く
+```
+
+`npm install` の postinstall が `vibeboard/run-vibeboard.sh` を**プロジェクトルート直下へ
+インストールする**ので、以降は日常的に使うルートから `./run-vibeboard.sh` で起動できる。
+`vibeboard/` 内から `./run-vibeboard.sh` を叩いても同じように動く（どちらの配置でも
+既定の管理対象は親プロジェクト）。
+
+`run-vibeboard.sh` は初回起動時に `npm install` を実行し、`dist/cli.js` が無い場合や
+TypeScript ソースが更新されている場合は自動的にビルドする。任意の CLI 引数もそのまま渡せる。
+
+```bash
+./run-vibeboard.sh --port 3011
+```
+
+`--root` 引数または `VIBEBOARD_ROOT` 環境変数を指定した場合は、そちらを優先する。
+
+### 起動スクリプトの自動配置について
+
+postinstall は以下の場合はスキップする（無関係なディレクトリを散らかさないため）。
+
+- `VIBEBOARD_SKIP_LAUNCHER` が設定されている
+- `vibeboard/.git` がある（vibeboard 本体の開発クローン。degit 経由なら `.git` は剥がれている）
+- 親に `.git` / `package.json` / `CLAUDE.md` / `TODO.md` / `DONE.md` / `docs` のいずれも無い
+
+既にルートへ配置済みで内容が同じなら何もしない。異なる場合は上書きするので、
+ローカル改変していたなら親リポジトリの `git diff` で確認すること。
+
+ガードを無視して手動で配置し直したいときは次を実行する。
+
+```bash
+cd vibeboard && npm run install-launcher
 ```
 
 親プロジェクト側の `.gitignore` には `vibeboard/dist/` と `vibeboard/node_modules/` を追加し、
@@ -86,7 +161,7 @@ vibeboard 本体に改善が入ったら、再 degit で上書き取り込みし
 ```bash
 rm -rf vibeboard
 npx -y degit akiraak/vibeboard vibeboard
-cd vibeboard && npm install
+cd vibeboard && npm install   # ルートの run-vibeboard.sh も postinstall で更新される
 # 親リポジトリの git diff で残っていたローカル改変を確認しつつ、必要分を再適用
 ```
 
@@ -112,18 +187,39 @@ npm run sample
 `npm run sample:dev` だと ts-node で起動するのでビルド不要。
 任意の別プロジェクトを開きたい場合は `node dist/cli.js --root /path/to/project` で `--root` を直接渡す。
 
-## CLAUDE.md にスニペットを書く
+## CLAUDE.md にスニペットを書く（`init`）
 
 `CLAUDE.md` に AI エージェント向けの規約を入れたいときは、初回だけ `init` を流す。
 vendor 済みの `vibeboard/` から、親プロジェクトを `--root` に指定して実行する。
 
 ```bash
-node vibeboard/dist/cli.js init --root .            # 親プロジェクトの CLAUDE.md にスニペットを追記
+node vibeboard/dist/cli.js init --root .            # CLAUDE.md にスニペット ＋ .claude/settings.json に hooks
 node vibeboard/dist/cli.js init --root . --dry-run  # 書き込まずに変更後の内容をプレビュー
+node vibeboard/dist/cli.js init --root . --no-hooks # CLAUDE.md だけ（.claude/settings.json には触れない）
 ```
 
-`init` は `<!-- vibeboard:begin -->` ～ `<!-- vibeboard:end -->` のマーカーで囲って
-書き込むので、何度流しても多重追記にはならない（マーカー内が最新スニペットに置換される）。
+`init` は 2 つのファイルに書く。どちらも何度流しても増えない。
+
+- `CLAUDE.md`: `<!-- vibeboard:begin -->` ～ `<!-- vibeboard:end -->` のマーカーで囲って書き込む（マーカー内が最新スニペットに置換される）
+- `.claude/settings.json`: Tasks タブの送り先の登録に使う **SessionStart / SessionEnd の hook** を併合する。
+  他の hooks は残し、コマンドが `scripts/session-hook.mjs` を指す項目だけを自分のものとして置き換える。
+  JSON が壊れているときは上書きせずに止まる。**既に開いている Claude Code のセッションには効かない**（起動し直すと登録される）
+
+`init` に `.claude/settings.json` を触らせたくないときは `--no-hooks` を付け、必要なら次を手で貼る
+（vibeboard を `vibeboard/` 以外に置いたときはパスを合わせる）:
+
+```json
+{
+  "hooks": {
+    "SessionStart": [
+      { "hooks": [{ "type": "command", "command": "node \"${CLAUDE_PROJECT_DIR:-.}/vibeboard/scripts/session-hook.mjs\" SessionStart", "async": true }] }
+    ],
+    "SessionEnd": [
+      { "hooks": [{ "type": "command", "command": "node \"${CLAUDE_PROJECT_DIR:-.}/vibeboard/scripts/session-hook.mjs\" SessionEnd", "timeout": 3 }] }
+    ]
+  }
+}
+```
 
 ## CLI 引数
 
@@ -132,7 +228,8 @@ vendor 済みの `vibeboard/` 内で `node dist/cli.js ...` として呼び出�
 
 ```
 vibeboard [options]              管理画面サーバを起動
-vibeboard init [options]         親プロジェクトの CLAUDE.md にスニペットを追記
+vibeboard init [options]         親プロジェクトに規約スニペット（CLAUDE.md）と hooks（.claude/settings.json）を書く
+vibeboard listen [options]       Tasks タブの待ち受け（hook が使えない環境の逃げ道）
 ```
 
 サーバ起動オプション:
@@ -152,7 +249,17 @@ vibeboard init [options]         親プロジェクトの CLAUDE.md にスニペ
 | ------------------ | -------------------------------------------------------------------- |
 | `--root <path>`    | 親プロジェクトのルート (デフォルト: `cwd` / `VIBEBOARD_ROOT`)        |
 | `--dry-run`        | 書き込まずに、書き込まれる内容をプレビュー表示                       |
+| `--no-hooks`       | `.claude/settings.json` には触れない（`CLAUDE.md` だけ）              |
 | `--help`, `-h`     | `init` のヘルプを表示                                                |
+
+`listen` オプション（Tasks タブの待ち受け。既定の経路は hook。hook が使えないとき、受け取る側の Claude Code の画面で回す）:
+
+| オプション         | 説明                                                                 |
+| ------------------ | -------------------------------------------------------------------- |
+| `--name <s>`       | 画面の名前 (デフォルト: `--root` のディレクトリ名)。同じプロジェクトで複数の画面を待ち受けるときは窓ごとに変える |
+| `--port <n>`       | vibeboard のポート (デフォルト: 設定 / `VIBEBOARD_PORT` / `3010`)      |
+| `--root <path>`    | 対象プロジェクトのルート (デフォルト: `cwd` / `VIBEBOARD_ROOT`)        |
+| `--help`, `-h`     | `listen` のヘルプを表示                                              |
 
 ## 環境変数
 
@@ -161,6 +268,7 @@ vibeboard init [options]         親プロジェクトの CLAUDE.md にスニペ
 | `VIBEBOARD_ROOT`   | `--root` と同等                                                      |
 | `VIBEBOARD_PORT`   | `--port` と同等（後方互換で `DEV_ADMIN_PORT` も読む）                |
 | `VIBEBOARD_TITLE`  | `--title` と同等                                                     |
+| `VIBEBOARD_SKIP_LAUNCHER` | 設定すると `npm install` 時に `run-vibeboard.sh` をプロジェクトルートへ配置しない |
 
 優先順位は `CLI 引数 > 環境変数 > デフォルト`。
 
@@ -184,7 +292,7 @@ vibeboard init [options]         親プロジェクトの CLAUDE.md にスニペ
   // 省略時は [plans (archive: true), specs (archive: false)]
   "categories": [
     {
-      "name": "plans",       // 必須。URL/ハッシュに使うスラッグ。'todo' は予約語、ユニーク
+      "name": "plans",       // 必須。URL/ハッシュに使うスラッグ。'todo'・'files'・'tasks' は予約語、ユニーク
       "label": "Plans",      // タブの表示名。省略時は name
       "path": "docs/plans",  // root からの相対パス（または絶対パス）。省略時は `docs/<name>`
       "archive": true        // true で archive ボタンと /archive エンドポイントが有効化される
@@ -192,17 +300,15 @@ vibeboard init [options]         親プロジェクトの CLAUDE.md にスニペ
     { "name": "specs", "label": "Specs", "path": "docs/specs" }
   ],
 
-  // 編集対象（Root）タブ。タブのスラッグは固定で 'todo'
-  // 省略時は { label: 'Root', files: [TODO.md, DONE.md, CLAUDE.md, README.md] }
-  "editable": {
-    "label": "Root",
-    "files": [
-      // 文字列だけならファイル名そのまま。オブジェクトで label / path をカスタムできる
-      "TODO.md",
-      { "name": "DONE.md", "label": "DONE", "path": "DONE.md" },
-      "CLAUDE.md",
-      "README.md"
-    ]
+  // editable（旧 Root タブの設定）は廃止した。書いてあっても弾かず無視する
+  // （ルート直下のファイルは Files タブで開ける。起動時に一言出る）
+
+  // Files タブ（プロジェクト内の全ファイル）。省略時は { label: 'Files', exclude: ['.git', 'node_modules'] }
+  "files": {
+    "label": "Files",                      // タブの表示名
+    // ツリーから外す**ディレクトリ / ファイル名**。パス区切りやグロブは受けない
+    // （パスのどこかのセグメントが一致したら除外）。指定すると既定を置き換える
+    "exclude": [".git", "node_modules", "dist"]
   },
 
   // 外部 HTTP プラグインを iframe タブとして差し込む（省略時は無し）。
@@ -213,7 +319,11 @@ vibeboard init [options]         親プロジェクトの CLAUDE.md にスニペ
     {
       "name": "sample",                   // 必須。URL/ハッシュのスラッグ。英数と '-'。他タブと衝突不可
       "label": "Sample",                  // タブ表示名。省略時は name
-      "baseUrl": "http://127.0.0.1:8181"  // 必須。プラグインの http/https ベース URL（末尾 / は正規化で除去）
+      "baseUrl": "http://127.0.0.1:8181", // 必須。プラグインの http/https ベース URL（末尾 / は正規化で除去）
+      // 任意。タブの中身を出すプロセスの起動コマンド。vibeboard が一緒に起こして一緒に止める。
+      // **配列でだけ受ける**（shell を通さない）。cwd は --root。
+      // 既に baseUrl が応えるなら起動しない
+      "command": ["node", "tools/sample/server.js"]
     }
   ]
 }
@@ -228,14 +338,7 @@ vibeboard init [options]         親プロジェクトの CLAUDE.md にスニペ
     { "name": "notes",   "label": "Notes",   "path": "notes",          "archive": true },
     { "name": "papers",  "label": "Papers",  "path": "references"      },
     { "name": "designs", "label": "Designs", "path": "docs/designs"    }
-  ],
-  "editable": {
-    "label": "Inbox",
-    "files": [
-      { "name": "INBOX.md",   "label": "Inbox" },
-      { "name": "ARCHIVE.md", "label": "Archive" }
-    ]
-  }
+  ]
 }
 ```
 
@@ -243,13 +346,14 @@ vibeboard init [options]         親プロジェクトの CLAUDE.md にスニペ
 
 設定ファイル読み込み時に以下を弾く（起動失敗）。
 
-- `categories[].name` が空 / 重複 / `todo`（予約語） / パス区切り文字を含む
+- `categories[].name` が空 / 重複 / `todo`・`files`・`tasks`（予約語） / パス区切り文字を含む
 - `categories[].path` が root の外を指している
-- `editable.files[].name` が `.md` で終わらない / 重複 / パス区切り文字を含む
-- `editable.files[].path` が root の外を指している
-- `categories` または `editable.files` を空配列にしている（省略してデフォルトに戻す）
-- `customTabs[].name` が空 / 英数と `-` 以外を含む / 他タブ（`todo`・categories）と衝突 / 重複
+- `categories` を空配列にしている（省略してデフォルトに戻す）
+- （`editable` は旧 Root タブの設定。弾かずに無視し、起動時に一言出す）
+- `files.exclude` が配列でない / 要素が空文字 / パス区切り文字（`/` `\\`）や `.` `..` を含む
+- `customTabs[].name` が空 / 英数と `-` 以外を含む / 他タブ（`todo`・`files`・`tasks`・categories）と衝突 / 重複
 - `customTabs[].baseUrl` が空 / URL として不正 / `http`・`https` 以外 / `?` や `#` を含む
+- `customTabs[].command` が文字列 / 配列でない / 空配列 / 要素が空文字
 
 優先順位は `CLI 引数 > 環境変数 > vibeboard.config.json > デフォルト`。
 
@@ -266,6 +370,9 @@ fetch / SSE する（loopback + CORS 前提）。サンプル実装は [`sample-
 | `GET /api/sidebar` | `{ "items": [...] }` を返す。左サイドバーの項目一覧 |
 | `GET /view?item=<id>` | item に対応する HTML を返す。右ペインの iframe に表示される |
 | `GET /api/watch` | SSE。`item-changed` / `sidebar` イベントで iframe・サイドバーを自動更新 |
+
+プラグインのプロセスは `customTabs[].command` を書いておけば vibeboard が一緒に起こす
+（下記「プラグインを一緒に起動する」）。
 
 すべて CORS を許可すること（`Access-Control-Allow-Origin`）。`/view` の HTML は iframe 埋め込みのため
 `Content-Security-Policy: frame-ancestors http://127.0.0.1:*`（または vibeboard のオリジン）を返す。
@@ -290,12 +397,69 @@ fetch / SSE する（loopback + CORS 前提）。サンプル実装は [`sample-
   `reload` 省略時は `true` 扱い。
 - `event: sidebar` — サイドバーを再フェッチして描き直す。
 
+### プラグインを一緒に起動する（`command`）
+
+customTab の中身はブラウザが `baseUrl` へ直接つなぐ別プロセスなので、それが起動して
+いないとタブは「接続できません: Failed to fetch」で終わる。起動を人の手に任せると
+**本体は動いているのにタブだけ死んでいる**が普通に起きるので、タブの宣言と同じ場所に
+起動コマンドを書ける。
+
+```jsonc
+{ "name": "tasks", "baseUrl": "http://127.0.0.1:3012",
+  "command": ["node", "tools/vibeboard-tasks/server.js", "--root", "."] }
+```
+
+```
+$ ./run-vibeboard.sh
+[vibeboard] running at http://127.0.0.1:3010
+[vibeboard] customTab tasks: node tools/vibeboard-tasks/server.js --root . (pid: 12345)
+[tasks] listening on http://127.0.0.1:3012
+```
+
+- **shell を通さない**。文字列 1 本ではなく配列で書く（設定ファイルがそのままシェルの文になるのを避ける）
+- cwd は `--root`。標準出力は `[<name>] ` を付けて本体のログに混ぜる
+- 起動前に `baseUrl` を叩き、**応えるものが居れば起動しない**（自分で立ち上げてある場合や、
+  前回の残りを二重に起こさないため）。この判定のぶん、起動が最大 1 秒ほど遅くなることがある
+- vibeboard を止めると一緒に止まる。**自分で起こしていないプロセスは道連れにしない**
+- コマンドが落ちても本体は動き続ける（ログに終了コードを出す）
+
 ### 挙動
 
-- **並び順**: customTabs は topbar で他タブ（Root / categories）の**左側**に、配列順で並ぶ。
+- **並び順**: customTabs は topbar で他タブ（Tasks / categories / Files）の**左側**に、配列順で並ぶ。
 - **自動選択**: item を指定せずタブを開くと、サイドバー先頭の項目へ自動遷移する（空ペインを避ける）。
 - **iframe からの遷移**: iframe 内から親の別 item へ移りたいときは
   `parent.postMessage({ type: 'vb-nav', hash: '<tab>/<id>' }, '*')` を送ると vibeboard がハッシュを書き換える。
+
+## Tasks タブの仕組み
+
+Tasks タブは、`TODO.md` のタスクから組んだ文面を **Claude Code のセッションの受信口へ vibeboard が直接投函する**。
+人が待ち受けを起動する必要は無い。使っている Claude Code 側の機能は次の 3 つ
+（[cross-session messaging](https://code.claude.com/docs/en/cross-session-messaging) /
+[hooks](https://code.claude.com/docs/en/hooks) / `claude agents --json`。v2.1.224 以降）。
+
+| 段階 | 使うもの | vibeboard 側 |
+| --- | --- | --- |
+| 送り先の発見 | `claude agents --json --cwd <root>`（対話セッションも background も返る） | `GET /api/tasks/windows`。5 秒は使い回す。`claude` が PATH に無ければ登録だけで一覧を作る |
+| 所在の登録 | SessionStart hook に渡る `CLAUDE_CODE_MESSAGING_SOCKET` / `CLAUDE_CODE_MESSAGING_TOKEN` | `scripts/session-hook.mjs` が `POST /api/tasks/register`。SessionEnd で `unregister`。token はメモリにだけ持つ |
+| 配送 | 受信口（Unix ソケット）に `{"type":"auth",...}` と `{"type":"user","message":{"role":"user","content":...}}` を 1 行ずつ | `src/tasks.ts` の `postToInbox`。1 セッションへは 1 秒に 1 件 |
+
+流れ:
+
+1. `vibeboard init` が `.claude/settings.json` に hook を書く（1 回だけ。コミットしてよい）
+2. そのプロジェクトで Claude Code を起動すると、hook がセッションの受信口を vibeboard に登録する（vibeboard が落ちていれば 1 秒で諦めて何もしない）
+3. Tasks タブで送り先を選んで `実行` / `説明` を押すと、文面がキュー（`$TMPDIR/vibeboard-tasks-<root の hash>.json`）に積まれ、
+   登録済みならその場で投函される。未登録なら「待ち」のまま、登録が来た時点で投函する（5 分で「失敗」）
+4. 受け取ったセッションでは、待機中なら新しいターンが始まり、実行中なら tool 呼び出しの合間に読まれる。
+   届いた文面は他セッションからのものとして扱われ、承認の代わりにはならず、`/` コマンドも実行されない。承認はその画面で答える
+
+制約と注意:
+
+- **受信側が `bypassPermissions` だと、届いた文面は承認ダイアログで保留される**（Claude Code の既定の受け入れ規則。`crossSessionInbound` を `accept` にすれば通る）
+- 同じ OS ユーザーなら誰でもその受信口に書ける。vibeboard は `127.0.0.1` 固定で、`register` はループバックからしか受けず、
+  文面はサーバが TODO.md から組む（ブラウザから任意の文面は送れない）
+- 投函の書式は Claude Code 本体の案内に依る（公式ドキュメントは auth 行だけを載せている）。版が変わって届かなくなったら、
+  キューに「失敗」として出るので `vibeboard listen` に切り替える
+- 実行の成否は追わない（完了は TODO.md から消えたかで分かる）
 
 ## 親プロジェクトの `CLAUDE.md` に追記すべきスニペット
 
@@ -316,15 +480,26 @@ node vibeboard/dist/cli.js --root .
 
 `http://localhost:3010` でプロジェクト直下の `docs/plans/`・`docs/specs/`・`TODO.md`・`DONE.md`・`CLAUDE.md`・`README.md` を閲覧・編集できる。
 
-- `Root` タブで `TODO.md` / `DONE.md` / `CLAUDE.md` / `README.md` をプレビュー表示・編集できる
+- `Files` タブでプロジェクト内のファイル（`TODO.md` / `DONE.md` / `CLAUDE.md` / `README.md` を含む）をプレビュー表示・編集できる。`TODO.md` はツリー表示つき
   - 編集は楽観ロック（mtime チェック）付き。外部で先に更新されていた場合は保存時に 409 を返し、リロード / 手元維持 / 強制上書き を選べる
   - `fs.watch` + 2 秒ポーリングで外部変更を検知し、SSE でクライアントへ即時反映する
+- `Tasks` タブで `TODO.md` のタスクを、このプロジェクトで動いている Claude Code のセッションへ渡して実行できる（実行 / 説明 / 削除）。
+  送り先は `claude agents` の一覧から選ぶ。セッションは起動時の hook（`vibeboard init` が `.claude/settings.json` に書く）で
+  自分の受信口を vibeboard に登録し、vibeboard がそこへ文面を投函する。hook が使えない環境では
+  `node vibeboard/dist/cli.js listen --name <画面の名前>` を回す
 - ローカル開発専用（本番管理画面とは独立）
 - ポート変更は `--port` または `VIBEBOARD_PORT` 環境変数で指定可能
 
 ## タスク管理ルール
 
 - タスクは `TODO.md` で管理する
+- **`TODO.md` に書くのはタスク（`- [ ]`）だけ。** メモや決定事項を残すときは、関係するタスクの
+  下に字下げして付ける（タスクに関連付ける）。タスクに属さないメモの節（「決まったこと」「備考」など）は
+  作らない。プロジェクトとしての決定は `CLAUDE.md` へ、済んだ経緯は `DONE.md` へ書く
+- 字下げが親子。vibeboard はこれをツリーとして表示する。進行中は `[~]`、中止は `[-]` で表せる
+- タスク同士の関係は、そのタスクの下に字下げした **`依存:` / `派生元:` / `関連:`** の行で書く。
+  相手のタスクは `「文面」` で（例: `依存: 「スキーマに tags 列を追加」`）、プランや仕様は
+  Markdown リンクで（例: `関連: [spec](docs/specs/api.md)`）示す。vibeboard のツリーで両方向に辿れる
 - タスクが完了したら `TODO.md` から該当項目を削除し、`DONE.md` に移動する
 - `DONE.md` には完了日を `YYYY-MM-DD` 形式で付けて記録する
 - 新しいタスクが発生したら `TODO.md` の適切なセクションに追加する
@@ -364,11 +539,19 @@ node vibeboard/dist/cli.js --root .
 
 ### `EADDRINUSE: address already in use 127.0.0.1:3010`
 
-別のプロセスが `3010` を使っている。`--port` か `VIBEBOARD_PORT` で別ポートを指定する。
+ポートが埋まっていた場合、**同じ `--root` を管理している vibeboard** であれば自動的に停止して
+起動し直すので、前回の起動が残っていただけならこのエラーにはならない。
+
+それ以外（別プロジェクトの vibeboard、vibeboard 以外のプロセス）は**停止せずに終了する**。
+複数プロジェクトで vibeboard を並走させる運用を壊さないための仕様。`--port` か
+`VIBEBOARD_PORT` で別ポートを指定する。
 
 ```bash
 node vibeboard/dist/cli.js --port 3020
 ```
+
+判定は `$TMPDIR/vibeboard-<port>.json` に記録した pid と root で行う。pid ファイルが
+無い / 古い場合や、記録された pid のプロセス実体が vibeboard でない場合は停止しない。
 
 ### WSL2 で外部から TODO.md を編集しても画面が更新されない
 
@@ -381,6 +564,23 @@ WSL2 では `fs.watch` がホスト側のファイル変更を拾わないこと
 絶対パスで指定するか、目的のプロジェクトに `cd` してから引数なしで起動する。
 シンボリックリンクは `fs.realpath` で解決した実体が `--root` 配下に収まるかを
 チェックしているので、ルート外を指すリンクはたどれない（仕様）。
+
+### Tasks タブの送り先にセッションが出ない / 「未登録」のまま
+
+- 一覧の元は `claude agents --json`。vibeboard を起動したシェルの PATH に `claude` が無いと一覧が作れない
+  （画面に「claude agents が読めません」と出る）。その場合でも hook が登録したセッションは出る
+- 「未登録」は hook が入る前に起動したセッション。`node vibeboard/dist/cli.js init --root .` を流してから
+  Claude Code を起動し直す。`.claude/settings.json` を確認して、`SessionStart` に `session-hook.mjs` があるかを見る
+- hook は vibeboard の port を `VIBEBOARD_PORT` → `vibeboard.config.json` の `port` → 3010 の順で決める。
+  `--port` だけで別ポートにしていると届かないので、設定ファイルか環境変数に書く
+- どうしても出なければ、その画面で `node vibeboard/dist/cli.js listen --name <名前>` を回す（`listen` として出る）
+
+### 投函済みなのに届かない
+
+- 受信側が `bypassPermissions`（`--dangerously-skip-permissions`）だと承認ダイアログで保留になる。その画面で承認する
+- Claude Code が v2.1.224 より古いと受信口が無い。`claude --version` で確認する
+- Claude Code の版が上がって書式が変わった可能性。`/status` の `Peer address` にあるソケットへ手で 1 行送って確かめられる:
+  `echo '{"type":"user","message":{"role":"user","content":"届いた？"}}' | nc -U <ソケットのパス>`
 
 ### `init` を流したくない / `CLAUDE.md` に手を入れたくない
 

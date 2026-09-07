@@ -1,9 +1,14 @@
 'use strict';
 
-// 編集対象タブ（TODO 系）の URL スラッグ。表示ラベルは設定可能だがスラッグは固定。
-const EDITABLE_TAB = 'todo';
+// 旧 Root タブ（スラッグ 'todo'）は廃止した。#todo/<name> は #files/<name> へ読み替える（handleRoute）。
+const LEGACY_ROOT_TAB = 'todo';
+// プロジェクト内の全ファイルを開くタブ。こちらもスラッグは固定。
+const FILES_TAB = 'files';
+// TODO.md のタスクを、待ち受けている Claude Code へ渡すタブ。スラッグは固定。
+const TASKS_TAB = 'tasks';
+const TASKS_LABEL = 'Tasks';
 
-// サーバから注入された設定。`__VIBEBOARD__` には categories / editable も含まれる。
+// サーバから注入された設定。`__VIBEBOARD__` には categories / files / customTabs も含まれる。
 const VB_CONFIG = (typeof window !== 'undefined' && window.__VIBEBOARD__) || {};
 const CATEGORY_DEFS = Array.isArray(VB_CONFIG.categories) && VB_CONFIG.categories.length > 0
   ? VB_CONFIG.categories
@@ -12,21 +17,23 @@ const CATEGORY_DEFS = Array.isArray(VB_CONFIG.categories) && VB_CONFIG.categorie
       { name: 'specs', label: 'Specs', archive: false },
     ];
 const CATEGORY_BY_NAME = new Map(CATEGORY_DEFS.map(c => [c.name, c]));
-const EDITABLE_LABEL = (VB_CONFIG.editable && VB_CONFIG.editable.label) || 'Root';
-const EDITABLE_FILES = (VB_CONFIG.editable && Array.isArray(VB_CONFIG.editable.files) && VB_CONFIG.editable.files.length > 0)
-  ? VB_CONFIG.editable.files
-  : [{ name: 'TODO.md', label: 'TODO' }, { name: 'DONE.md', label: 'DONE' }, { name: 'CLAUDE.md', label: 'CLAUDE' }, { name: 'README.md', label: 'README' }];
-const EDITABLE_NAMES = EDITABLE_FILES.map(f => f.name);
-const EDITABLE_BY_NAME = new Map(EDITABLE_FILES.map(f => [f.name, f]));
 // customTabs はサーバ側で正規化済み（name/label/baseUrl）。未指定なら空配列。
 const CUSTOM_TABS = Array.isArray(VB_CONFIG.customTabs) ? VB_CONFIG.customTabs : [];
 const CUSTOM_TAB_BY_NAME = new Map(CUSTOM_TABS.map(t => [t.name, t]));
-const CATEGORIES = [EDITABLE_TAB, ...CATEGORY_DEFS.map(c => c.name), ...CUSTOM_TABS.map(t => t.name)];
+const FILES_LABEL = (VB_CONFIG.files && VB_CONFIG.files.label) || 'Files';
+const CATEGORIES = [
+  FILES_TAB,
+  TASKS_TAB,
+  ...CATEGORY_DEFS.map(c => c.name),
+  ...CUSTOM_TABS.map(t => t.name),
+];
 
 const STORAGE_CATEGORY = 'vibeboard.activeCategory';
 const STORAGE_EXPANDED = 'vibeboard.expanded';
 const STORAGE_SIDEBAR_COLLAPSED = 'vibeboard.sidebarCollapsed';
 const STORAGE_SORT = 'vibeboard.sort';
+// タスクを含む Markdown を開いたとき、ツリーとプレビューのどちらを出すか（前回の選択）
+const STORAGE_TODO_MODE = 'vibeboard.todoMode';
 
 // ソート状態: { key: 'mtime'|'name', mtimeDir: 'asc'|'desc', nameDir: 'asc'|'desc' }
 // 各キーの方向は独立に記憶する（キー切替時に直前の向きを復元）
@@ -41,27 +48,39 @@ const pageTitle = document.getElementById('page-title');
 const topbarSub = document.getElementById('topbar-sub');
 const topbarTabs = document.getElementById('topbar-tabs');
 
-let docsTree = Object.fromEntries(CATEGORY_DEFS.map(c => [c.name, { files: [], dirs: [] }]));
-// デフォルトは最初のドキュメントカテゴリ（無ければ編集タブ）
-let activeCategory = CATEGORY_DEFS.length > 0 ? CATEGORY_DEFS[0].name : EDITABLE_TAB;
+let docsTree = Object.fromEntries([
+  ...CATEGORY_DEFS.map(c => [c.name, { files: [], dirs: [] }]),
+  [FILES_TAB, { files: [], dirs: [] }],
+]);
+// デフォルトは最初のドキュメントカテゴリ（無ければ Files タブ）
+let activeCategory = CATEGORY_DEFS.length > 0 ? CATEGORY_DEFS[0].name : FILES_TAB;
 let expanded = {};
 // カテゴリごとのソート設定（'mtime-desc' | 'name-asc'）。loadPersisted で復元する
 let sortByCategory = {};
 
-// TODO ビューの状態（renderTodoView で更新）
-const todoState = {
-  name: null,          // 'TODO.md' | 'DONE.md'
+// 現在開いている編集対象（openDoc で更新）。
+// カテゴリ / Files タブを 1 つの状態で扱う。
+// **API を引くのは path（root 相対）1 本**で、key は hash とサイドバー上の識別子。
+const docState = {
+  tab: null,           // FILES_TAB | カテゴリ名
+  key: null,           // hash 上の識別子（Files: root 相対パス / カテゴリ: 'sub/foo.md'）
+  path: null,          // root 相対パス（例 'docs/plans/foo.md'）
   mode: 'preview',     // 'preview' | 'edit'
   content: '',         // textarea 上の現在値
   savedContent: '',    // 直近に取得/保存した内容（isDirty 判定用）
   mtime: 0,            // 楽観ロック用 baseMtime
+  eol: 'lf',           // 保存時に復元する改行コード（textarea は LF に潰すため必須）
+  readOnly: false,     // バイナリ / サイズ超過 / シンボリックリンク
+  readOnlyReason: null,
   conflict: null,      // { mtime: number, barVisible: boolean } | null
 };
 
-// SSE 接続状態
+// SSE 接続状態。監視対象は「今開いているファイル」1 本で、開くたびに張り替える。
 const sseState = {
   source: null,
   connected: false,
+  watchPath: null,     // 現在サーバへ伝えている root 相対パス（null = 監視なし）
+  reconnecting: false, // 意図的な張り替え中。「切断中」を出さないための印
 };
 
 // customTabs 用の状態。サイドバー結果をキャッシュ / SSE を 1 タブだけアクティブに保つ。
@@ -78,7 +97,7 @@ const customTabState = {
 };
 
 // 現在表示中ドキュメントの TOC アクティブ追従用 IntersectionObserver。
-// renderMarkdown / 他カテゴリ表示への切替前に必ず disconnect する。
+// openDoc / 他カテゴリ表示への切替前に必ず disconnect する。
 let activeTocObserver = null;
 
 // 自分の保存による mtime を一時記録（SSE で戻ってきたとき外部変更として扱わないため）
@@ -87,8 +106,90 @@ let saveInFlight = false;
 
 const TITLE_BASE = (typeof VB_CONFIG.title === 'string' && VB_CONFIG.title) || 'vibeboard';
 
-function isTodoDirty() {
-  return todoState.content !== todoState.savedContent;
+function isDocDirty() {
+  if (docState.readOnly) return false;
+  return docState.content !== docState.savedContent;
+}
+
+// tab + key から root 相対パスを組む。API はこれで引く。
+function docPathFor(tab, key) {
+  if (!key) return null;
+  // Files タブの key は既に root 相対パスそのもの
+  if (tab === FILES_TAB) return key;
+  const base = categoryBasePath(tab);
+  if (base === null) return null;
+  return base ? `${base}/${key}` : key;
+}
+
+// カテゴリのディレクトリ（root 相対）。カテゴリでなければ null。
+function categoryBasePath(name) {
+  const cat = CATEGORY_BY_NAME.get(name);
+  if (!cat) return null;
+  return typeof cat.path === 'string' ? cat.path : `docs/${name}`;
+}
+
+// root 相対パスをどのタブで開くか決める。
+// preferTab に収まるならそのまま。そうでなければ他のカテゴリ → Files タブ の順で探す
+// （カテゴリのツリーは .md / .html しか並べないので、他の場所・拡張子は Files へ）。
+function docHashForPath(path, preferTab) {
+  const names = [
+    ...(preferTab && CATEGORY_BY_NAME.has(preferTab) ? [preferTab] : []),
+    ...CATEGORY_DEFS.map(c => c.name).filter(n => n !== preferTab),
+  ];
+  if (/\.(md|html)$/i.test(path)) {
+    for (const name of names) {
+      const base = categoryBasePath(name);
+      if (base && path.startsWith(`${base}/`)) {
+        return `${name}/${encodePath(path.slice(base.length + 1))}`;
+      }
+    }
+  }
+  return `${FILES_TAB}/${encodePath(path)}`;
+}
+
+function sourceUrl(path) {
+  return `/api/source/${encodePath(path)}`;
+}
+
+function renderUrl(path) {
+  return `/api/render/${encodePath(path)}`;
+}
+
+function todoUrl(path) {
+  return `/api/todo/${encodePath(path)}`;
+}
+
+// `- [ ]` の行が 1 つでもあれば「ツリー」サブタブを出す（判定はサーバの todo.ts と同じ）
+function hasTaskLines(content) {
+  return typeof content === 'string' && /^\s*(?:[-*+]|\d+[.)])\s+\[.\]/m.test(content);
+}
+
+function loadTodoModePref() {
+  try {
+    return localStorage.getItem(STORAGE_TODO_MODE) === 'preview' ? 'preview' : 'tree';
+  } catch (e) {
+    return 'tree';
+  }
+}
+
+function saveTodoModePref(mode) {
+  try {
+    localStorage.setItem(STORAGE_TODO_MODE, mode);
+  } catch (e) {}
+}
+
+// 開くファイルに合わせて表示モードを決める。
+// タスクを含む Markdown は「ツリー」を出せる。前回ツリーとプレビューのどちらを選んだかを覚えていて、
+// 編集中でなければそれに合わせる。タスクの無いファイルではツリーは出せないのでプレビューへ落とす
+function resolveDocMode(mode, hasTasks) {
+  if (mode === 'edit') return 'edit';
+  if (!hasTasks) return 'preview';
+  return loadTodoModePref();
+}
+
+// 拡張子が .md のときだけプレビューを出せる
+function isMarkdownPath(path) {
+  return typeof path === 'string' && /\.md$/i.test(path);
 }
 
 function formatMtime(mtime) {
@@ -152,7 +253,10 @@ function saveSortByCategory() {
 }
 
 function getSortState(category) {
-  return sortByCategory[category] || { ...DEFAULT_SORT_STATE };
+  if (sortByCategory[category]) return sortByCategory[category];
+  // Files タブはファイルブラウザなので名前昇順を既定にする
+  if (category === FILES_TAB) return { key: 'name', mtimeDir: 'desc', nameDir: 'asc' };
+  return { ...DEFAULT_SORT_STATE };
 }
 
 function getDirForKey(state, key) {
@@ -174,11 +278,13 @@ function decodePath(p) {
   return p.split('/').map(decodeURIComponent).join('/');
 }
 
-// 本文 (.md-content) 内の相対 .md / .html リンクのクリックを SPA の hash 遷移へ変換する。
+// 本文 (.md-content / TODO ツリー) 内の相対リンクのクリックを SPA の hash 遷移へ変換する。
 // 元の Markdown は無編集のまま（GitHub / VSCode プレビューの相対リンクを壊さない）。
-// 画像・音声等のメディアはサーバ側で /files に書き換え済みなのでここでは扱わない。
-// カテゴリのルートは docs/<category> を前提（vibeboard 既定構成）。クロスカテゴリの
-// 相対リンク（例 plans → ../../specs/...）も docs ルートからの正規化で解決する。
+// 画像・音声等のメディアはサーバ側で /files に書き換え済み（先頭 /）なのでここでは扱わない。
+// **今開いているファイルの場所からの相対**で解決する（Files タブの TODO.md なら root から。
+// 以前は docs/<category>/ の中でしか解決せず、TODO.md の `[plan](docs/plans/x.md)` は
+// ブラウザがそのまま開こうとして 404 になっていた）。
+// 開く先のタブは docHashForPath が決める（カテゴリ → Files）。
 // .md#section の section アンカーは SPA 未対応のため落として doc 先頭へ遷移する。
 function resolveDocLinkHash(href) {
   if (!href) return null;
@@ -192,26 +298,26 @@ function resolveDocLinkHash(href) {
   if (hashIdx !== -1) cut = hashIdx;
   if (qIdx !== -1 && (cut === -1 || qIdx < cut)) cut = qIdx;
   if (cut !== -1) pathPart = href.slice(0, cut);
-  if (!pathPart || !/\.(md|html)$/i.test(pathPart)) return null;
+  if (!pathPart || !docState.path) return null;
+  try { pathPart = decodeURIComponent(pathPart); } catch (e) {}
+  const resolved = resolveRelativeToDoc(pathPart);
+  if (!resolved) return null;
+  return `#${docHashForPath(resolved, docState.tab)}`;
+}
 
-  const cur = parseHash();
-  if (!cur || cur.category === EDITABLE_TAB) return null;
-
-  // 現在ドキュメントの docs ルート相対パスから dirname を取り、相対解決する
-  const curFull = `docs/${cur.category}/${cur.filePath}`;
-  const segs = curFull.split('/').slice(0, -1); // dirname
-  for (const part of pathPart.split('/')) {
+// 今開いているファイルのディレクトリからの相対パスを root 相対にする。root の外なら null。
+function resolveRelativeToDoc(rel) {
+  const segs = docState.path.split('/').slice(0, -1);
+  for (const part of rel.split('/')) {
     if (part === '' || part === '.') continue;
-    if (part === '..') { if (segs.length) segs.pop(); continue; }
+    if (part === '..') {
+      if (segs.length === 0) return null;
+      segs.pop();
+      continue;
+    }
     segs.push(part);
   }
-  const resolved = segs.join('/');
-  const m = resolved.match(/^docs\/([^/]+)\/(.+)$/);
-  if (!m) return null;
-  const newCat = m[1];
-  const newPath = m[2];
-  if (!CATEGORIES.includes(newCat) || newCat === EDITABLE_TAB) return null;
-  return `#${newCat}/${encodePath(newPath)}`;
+  return segs.length > 0 ? segs.join('/') : null;
 }
 
 // contentArea（安定コンテナ。子は描画ごとに差し替え）に委譲クリックを 1 度だけ張る。
@@ -265,10 +371,13 @@ function renderFileItem(category, file, depth) {
   title.textContent = file.title;
   a.appendChild(title);
 
-  const fileName = document.createElement('div');
-  fileName.className = 'nav-item-file';
-  fileName.textContent = file.name;
-  a.appendChild(fileName);
+  // タイトルがファイル名そのものなら 2 行目は出さない（Files タブは常にこちら）
+  if (file.title !== file.name) {
+    const fileName = document.createElement('div');
+    fileName.className = 'nav-item-file';
+    fileName.textContent = file.name;
+    a.appendChild(fileName);
+  }
 
   return a;
 }
@@ -351,39 +460,14 @@ function renderDir(category, dir, parentPath, depth) {
   return block;
 }
 
-function renderTodoSidebar() {
-  sidebarNav.innerHTML = '';
-  const frag = document.createDocumentFragment();
-  for (const f of EDITABLE_FILES) {
-    const a = document.createElement('a');
-    a.className = 'nav-item';
-    a.href = `#${EDITABLE_TAB}/${encodeURIComponent(f.name)}`;
-    a.dataset.category = EDITABLE_TAB;
-    a.dataset.path = f.name;
-
-    const title = document.createElement('div');
-    title.textContent = f.label;
-    a.appendChild(title);
-
-    const fileName = document.createElement('div');
-    fileName.className = 'nav-item-file';
-    fileName.textContent = f.name;
-    a.appendChild(fileName);
-
-    frag.appendChild(a);
-  }
-  sidebarNav.appendChild(frag);
-  refreshActiveHighlight();
-  refreshSidebarConflictBadge();
-}
-
-// サイドバー上端のソート切替トグル。
-// 通常カテゴリのときのみ表示し、TODO タブでは hidden にする。
-// アクティブキーには ↑/↓ を併記。アクティブを再クリックすると方向を反転、
+// サイドバー上端の行。左にソート切替トグル、右に「+ 新規」。
+// 通常カテゴリと Files のときだけ表示し、Tasks では hidden にする。
+// ソートはアクティブキーに ↑/↓ を併記。アクティブを再クリックすると方向を反転、
 // 非アクティブをクリックするとそのキーの記憶済み方向で切替。
-function renderSortControl() {
+function renderSidebarHeader() {
   if (!sidebarSort) return;
-  if (activeCategory === EDITABLE_TAB) {
+  // Tasks（タスク一覧）には並び替え・新規は要らない
+  if (activeCategory === TASKS_TAB) {
     sidebarSort.hidden = true;
     sidebarSort.innerHTML = '';
     return;
@@ -431,13 +515,25 @@ function renderSortControl() {
     group.appendChild(btn);
   }
   sidebarSort.appendChild(group);
+
+  // Files タブとカテゴリでは新規作成できる。
+  // customTab（中身はプラグイン側）と Tasks には出さない。
+  if (activeCategory === FILES_TAB || CATEGORY_BY_NAME.has(activeCategory)) {
+    const newBtn = document.createElement('button');
+    newBtn.type = 'button';
+    newBtn.className = 'sidebar-new-btn';
+    newBtn.textContent = '+ 新規';
+    newBtn.title = 'ファイルを新規作成';
+    newBtn.addEventListener('click', createFile);
+    sidebarSort.appendChild(newBtn);
+  }
 }
 
 function renderSidebar() {
-  renderSortControl();
+  renderSidebarHeader();
 
-  if (activeCategory === EDITABLE_TAB) {
-    renderTodoSidebar();
+  if (activeCategory === TASKS_TAB) {
+    renderTasksSidebar();
     return;
   }
 
@@ -452,14 +548,16 @@ function renderSidebar() {
   if (tree.files.length === 0 && tree.dirs.length === 0) {
     const empty = document.createElement('div');
     empty.className = 'loading-text';
-    empty.textContent = 'ドキュメントがありません';
+    empty.textContent = activeCategory === FILES_TAB ? 'ファイルがありません' : 'ドキュメントがありません';
     sidebarNav.appendChild(empty);
     return;
   }
 
-  // archive ディレクトリはツリーの一番下に出す（それ以外は選択ソートで混ぜて並べる）
-  const regularDirs = tree.dirs.filter(d => d.name !== 'archive');
-  const archiveDirs = tree.dirs.filter(d => d.name === 'archive');
+  // archive ディレクトリはツリーの一番下に出す（それ以外は選択ソートで混ぜて並べる）。
+  // Files タブはただのファイル一覧なので archive を特別扱いしない。
+  const isCategory = activeCategory !== FILES_TAB;
+  const regularDirs = isCategory ? tree.dirs.filter(d => d.name !== 'archive') : tree.dirs;
+  const archiveDirs = isCategory ? tree.dirs.filter(d => d.name === 'archive') : [];
 
   const sortState = getSortState(activeCategory);
   const frag = document.createDocumentFragment();
@@ -509,55 +607,6 @@ function clearTocObserver() {
   }
 }
 
-async function renderMarkdown(category, filePath) {
-  clearTocObserver();
-  contentArea.innerHTML = '<div class="loading-text">読み込み中...</div>';
-  const filename = filePath.split('/').pop();
-  try {
-    const data = await fetchJson(`/api/docs/${encodeURIComponent(category)}/${encodePath(filePath)}`);
-    pageTitle.textContent = data.title;
-    topbarSub.textContent = `${category}/${filePath}`;
-    contentArea.innerHTML = '';
-
-    // archive=true のカテゴリ直下にある md のみアーカイブ可能
-    const catDef = CATEGORY_BY_NAME.get(category);
-    if (catDef && catDef.archive && !filePath.includes('/')) {
-      const toolbar = document.createElement('div');
-      toolbar.className = 'doc-toolbar';
-      const btn = document.createElement('button');
-      btn.type = 'button';
-      btn.className = 'doc-action';
-      btn.textContent = 'アーカイブする';
-      btn.addEventListener('click', () => archiveFile(category, filename));
-      toolbar.appendChild(btn);
-      contentArea.appendChild(toolbar);
-    }
-
-    const div = document.createElement('div');
-    div.className = 'md-content';
-    div.innerHTML = data.html;
-
-    const layout = document.createElement('div');
-    layout.className = 'doc-pane-layout';
-
-    const toc = document.createElement('nav');
-    toc.className = 'doc-toc';
-    toc.setAttribute('aria-label', 'ページ内目次');
-    layout.appendChild(toc);
-
-    const body = document.createElement('div');
-    body.className = 'doc-body';
-    body.appendChild(div);
-    layout.appendChild(body);
-
-    contentArea.appendChild(layout);
-    buildDocToc(div, toc);
-    renderMermaidIn(div);
-    injectCopyButtons(div);
-  } catch (err) {
-    showError(err.message);
-  }
-}
 
 // 見出しテキストから id 用 slug を生成する。日本語は \p{L} で残し、空白等はハイフンへ。
 // used Set で重複時は -2, -3… を suffix にする
@@ -679,7 +728,7 @@ async function archiveDirectory(category, dirName) {
     const res = await fetch(`/api/docs/${encodeURIComponent(category)}/${encodeURIComponent(dirName)}/archive-dir`, { method: 'POST' });
     const json = await res.json();
     if (!json.success) throw new Error(json.error || 'アーカイブに失敗しました');
-    docsTree = await fetchJson('/api/docs');
+    docsTree = await fetchAllTrees();
 
     const parsed = parseHash();
     const inArchivedDir = parsed
@@ -707,7 +756,7 @@ async function archiveFile(category, filename) {
     const res = await fetch(`/api/docs/${encodeURIComponent(category)}/${encodeURIComponent(filename)}/archive`, { method: 'POST' });
     const json = await res.json();
     if (!json.success) throw new Error(json.error || 'アーカイブに失敗しました');
-    docsTree = await fetchJson('/api/docs');
+    docsTree = await fetchAllTrees();
     const newHash = `${category}/archive/${encodeURIComponent(filename)}`;
     if (location.hash === `#${newHash}`) {
       renderSidebar();
@@ -720,60 +769,211 @@ async function archiveFile(category, filename) {
   }
 }
 
-async function renderTodoView(name) {
+// === 新規作成 / リネーム / 削除 ===
+//
+// 対象はファイル 1 個だけ（ディレクトリは作らないし消さない）。パスの妥当性は
+// サーバの resolveSource が最終判定なので、ここでは体裁だけ整えて投げる。
+
+// 「+ 新規」の初期値。今いる場所に寄せる（Files タブは開いているファイルの
+// ディレクトリ、カテゴリはそのカテゴリ直下）。
+function newFileBasePath() {
+  if (activeCategory === FILES_TAB) {
+    const cur = docState.tab === FILES_TAB && docState.path ? docState.path : '';
+    const slash = cur.lastIndexOf('/');
+    return slash > 0 ? `${cur.slice(0, slash)}/` : '';
+  }
+  const base = categoryBasePath(activeCategory);
+  return base ? `${base}/` : '';
+}
+
+// 入力されたパスを整える（前後の空白と先頭の / を落とすだけ。判定はサーバ側）
+function normalizeInputPath(input) {
+  return input.trim().replace(/^\/+/, '');
+}
+
+// .md だけ H1 を入れておく。カテゴリのツリーは H1 をタイトルとして並べるので、
+// 空のままだと一覧で見分けがつかない。それ以外の拡張子は空で作る。
+function initialContentFor(path) {
+  if (!isMarkdownPath(path)) return '';
+  const name = path.split('/').pop().replace(/\.md$/i, '');
+  return `# ${name}\n\n`;
+}
+
+// 作成 / 移動のあと、そのファイルを開き直す。
+// hash が変わらない場合は hashchange が飛ばないので自分で handleRoute を呼ぶ。
+function goToPath(path, preferTab) {
+  const hash = docHashForPath(path, preferTab);
+  if (location.hash === `#${hash}`) {
+    renderSidebar();
+    handleRoute();
+  } else {
+    location.hash = hash;
+  }
+}
+
+async function createFile() {
+  const input = prompt('新しいファイルのパス（プロジェクトルートからの相対パス）', newFileBasePath());
+  if (input === null) return;
+  const target = normalizeInputPath(input);
+  if (!target) return;
+  // 作成後にどのタブで開くかは、押した時点のタブを基準にする
+  const preferTab = activeCategory;
+  try {
+    const res = await fetch(sourceUrl(target), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ content: initialContentFor(target) }),
+    });
+    const json = await res.json();
+    if (!json.success) throw new Error(json.error || '作成に失敗しました');
+    docsTree = await fetchAllTrees();
+    // 作ったばかりのファイルはプレビューしても空なので、編集で開く
+    docState.mode = 'edit';
+    goToPath(json.data.path, preferTab);
+    showToast('作成しました');
+  } catch (err) {
+    alert(`作成に失敗しました: ${err.message}`);
+  }
+}
+
+async function renameDoc() {
+  if (!docState.path) return;
+  // 移動すると開き直しになるので、未保存のまま走らせない
+  if (isDocDirty()) {
+    alert('未保存の変更があります。保存するか破棄してから実行してください');
+    return;
+  }
+  const input = prompt('新しいパス（プロジェクトルートからの相対パス）', docState.path);
+  if (input === null) return;
+  const target = normalizeInputPath(input);
+  if (!target || target === docState.path) return;
+  const preferTab = docState.tab;
+  try {
+    const res = await fetch(`/api/move/${encodePath(docState.path)}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ to: target }),
+    });
+    const json = await res.json();
+    if (!json.success) throw new Error(json.error || 'リネームに失敗しました');
+    docsTree = await fetchAllTrees();
+    // 移動先が元のタブに収まらなければ Files タブで開き直す。
+    // 開き直しの中で監視対象（SSE）と親ディレクトリの展開も張り替わる
+    goToPath(json.data.path, preferTab);
+    showToast('移動しました');
+  } catch (err) {
+    alert(`リネームに失敗しました: ${err.message}`);
+  }
+}
+
+async function deleteDoc() {
+  if (!docState.path) return;
+  if (!confirm(`${docState.path} を削除します。取り消せません。よろしいですか？`)) return;
+  try {
+    const res = await fetch(sourceUrl(docState.path), { method: 'DELETE' });
+    const json = await res.json();
+    if (!json.success) throw new Error(json.error || '削除に失敗しました');
+    resetDocState();
+    docsTree = await fetchAllTrees();
+    renderSidebar();
+    // 消したファイルの hash を残さない。履歴を増やさず、hashchange も起こさないので
+    // handleRoute は自分で呼ぶ（未保存確認に引っかからないよう state は先に空にしてある）
+    history.replaceState(null, '', location.pathname + location.search);
+    handleRoute();
+    updateConflictIndicators();
+    showToast('削除しました');
+  } catch (err) {
+    alert(`削除に失敗しました: ${err.message}`);
+  }
+}
+
+function resetDocState() {
+  docState.tab = null;
+  docState.key = null;
+  docState.path = null;
+  docState.content = '';
+  docState.savedContent = '';
+  docState.mtime = 0;
+  docState.eol = 'lf';
+  docState.readOnly = false;
+  docState.readOnlyReason = null;
+  docState.conflict = null;
+}
+
+// 文書を開く。Files もカテゴリも同じ経路を通る。
+// 読み書きは /api/source/<root 相対パス>、プレビューは /api/render/<同> の 2 本だけ。
+async function openDoc(tab, key) {
   clearTocObserver();
   contentArea.innerHTML = '<div class="loading-text">読み込み中...</div>';
+  const path = docPathFor(tab, key);
+  if (!path) {
+    showError('対応していないファイルです');
+    return;
+  }
   try {
-    // 生 Markdown + mtime を先に取得（編集モードで必要）
-    const data = await fetchJson(`/api/files/${encodeURIComponent(name)}`);
-    todoState.name = name;
-    todoState.content = data.content;
-    todoState.savedContent = data.content;
-    todoState.mtime = data.mtime;
-    todoState.conflict = null;
-    // 前回の mode を維持（初回は preview）
-    if (todoState.mode !== 'preview' && todoState.mode !== 'edit') {
-      todoState.mode = 'preview';
+    const data = await fetchJson(sourceUrl(path));
+    docState.tab = tab;
+    docState.key = key;
+    docState.path = path;
+    docState.content = data.content || '';
+    docState.savedContent = data.content || '';
+    docState.mtime = data.mtime;
+    docState.eol = data.eol || 'lf';
+    docState.readOnly = !!data.readOnly;
+    docState.readOnlyReason = data.readOnlyReason || null;
+    docState.conflict = null;
+    // プレビューできないものは編集モード固定（読み取り専用の理由をそこに出す）
+    if (!isMarkdownPath(path)) docState.mode = 'edit';
+    else docState.mode = resolveDocMode(docState.mode, hasTaskLines(docState.content));
+    // 畳んだ状態は同じファイルの描き直しでは保ち、別のファイルを開いたら捨てる
+    if (todoTreeState.path !== path) {
+      todoTreeState.path = path;
+      todoTreeState.collapsed = new Set();
     }
 
-    pageTitle.textContent = name.replace(/\.md$/, '');
-    topbarSub.textContent = name;
+    pageTitle.textContent = key.split('/').pop();
+    topbarSub.textContent = path;
     contentArea.innerHTML = '';
-    contentArea.appendChild(buildTodoLayout());
+    contentArea.appendChild(buildDocLayout());
 
-    if (todoState.mode === 'preview') {
-      await renderTodoPreviewBody();
-    } else {
-      renderTodoEditBody();
-    }
+    await renderDocBody();
     updateConflictIndicators();
   } catch (err) {
     showError(err.message);
   }
 }
 
-function buildTodoLayout() {
+function buildDocLayout() {
   const wrap = document.createElement('div');
   wrap.className = 'todo-view';
 
   const toolbar = document.createElement('div');
   toolbar.className = 'todo-toolbar';
 
-  const subtabs = document.createElement('div');
-  subtabs.className = 'todo-subtabs';
-  subtabs.setAttribute('role', 'tablist');
-  for (const m of ['preview', 'edit']) {
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = 'todo-subtab' + (todoState.mode === m ? ' active' : '');
-    btn.dataset.mode = m;
-    btn.setAttribute('role', 'tab');
-    btn.setAttribute('aria-selected', todoState.mode === m ? 'true' : 'false');
-    btn.textContent = m === 'preview' ? 'プレビュー' : '編集';
-    btn.addEventListener('click', () => switchTodoMode(m));
-    subtabs.appendChild(btn);
+  // .md 以外はプレビューできないのでサブタブ自体を出さない
+  if (isMarkdownPath(docState.path)) {
+    const subtabs = document.createElement('div');
+    subtabs.className = 'todo-subtabs';
+    subtabs.setAttribute('role', 'tablist');
+    // タスク（- [ ]）を含むファイルだけ「ツリー」を出す
+    const modes = hasTaskLines(docState.content) ? ['tree', 'preview', 'edit'] : ['preview', 'edit'];
+    for (const m of modes) {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'todo-subtab' + (docState.mode === m ? ' active' : '');
+      btn.dataset.mode = m;
+      btn.setAttribute('role', 'tab');
+      btn.setAttribute('aria-selected', docState.mode === m ? 'true' : 'false');
+      btn.textContent = DOC_MODE_LABELS[m];
+      btn.addEventListener('click', () => switchDocMode(m));
+      subtabs.appendChild(btn);
+    }
+    toolbar.appendChild(subtabs);
+  } else {
+    const label = document.createElement('div');
+    label.className = 'todo-subtabs';
+    toolbar.appendChild(label);
   }
-  toolbar.appendChild(subtabs);
 
   const actions = document.createElement('div');
   actions.className = 'todo-actions';
@@ -783,15 +983,43 @@ function buildTodoLayout() {
   refreshBtn.className = 'doc-action doc-action-refresh';
   refreshBtn.dataset.role = 'refresh';
   refreshBtn.textContent = '↻ 再取得';
-  refreshBtn.addEventListener('click', () => refetchTodoFile());
+  refreshBtn.addEventListener('click', () => refetchDoc());
   actions.appendChild(refreshBtn);
 
-  if (todoState.mode === 'edit') {
+  // カテゴリ直下の md はこれまでどおりアーカイブできる
+  const catDef = CATEGORY_BY_NAME.get(docState.tab);
+  if (catDef && catDef.archive && docState.key && !docState.key.includes('/')) {
+    const archiveBtn = document.createElement('button');
+    archiveBtn.type = 'button';
+    archiveBtn.className = 'doc-action';
+    archiveBtn.textContent = 'アーカイブする';
+    archiveBtn.addEventListener('click', () => archiveFile(docState.tab, docState.key));
+    actions.appendChild(archiveBtn);
+  }
+
+  // 読み取り専用（バイナリ等）でも移動と削除はできる（中身に触らないため）
+  if (docState.path) {
+    const renameBtn = document.createElement('button');
+    renameBtn.type = 'button';
+    renameBtn.className = 'doc-action';
+    renameBtn.textContent = 'リネーム';
+    renameBtn.addEventListener('click', renameDoc);
+    actions.appendChild(renameBtn);
+
+    const deleteBtn = document.createElement('button');
+    deleteBtn.type = 'button';
+    deleteBtn.className = 'doc-action doc-action-danger';
+    deleteBtn.textContent = '削除';
+    deleteBtn.addEventListener('click', deleteDoc);
+    actions.appendChild(deleteBtn);
+  }
+
+  if (docState.mode === 'edit' && !docState.readOnly) {
     const discardBtn = document.createElement('button');
     discardBtn.type = 'button';
     discardBtn.className = 'doc-action';
     discardBtn.textContent = '変更を破棄';
-    discardBtn.addEventListener('click', discardTodoChanges);
+    discardBtn.addEventListener('click', discardDocChanges);
     actions.appendChild(discardBtn);
 
     const saveBtn = document.createElement('button');
@@ -799,7 +1027,7 @@ function buildTodoLayout() {
     saveBtn.className = 'doc-action doc-action-primary';
     saveBtn.textContent = '保存';
     saveBtn.dataset.role = 'save';
-    saveBtn.addEventListener('click', () => saveTodoFile());
+    saveBtn.addEventListener('click', () => saveDoc());
     actions.appendChild(saveBtn);
   }
   toolbar.appendChild(actions);
@@ -814,37 +1042,62 @@ function buildTodoLayout() {
   return wrap;
 }
 
-async function switchTodoMode(mode) {
-  if (todoState.mode === mode) return;
-  if (todoState.mode === 'edit' && isTodoDirty()) {
+async function switchDocMode(mode) {
+  if (docState.mode === mode) return;
+  if (docState.mode === 'edit' && isDocDirty()) {
     if (!confirm('未保存の変更があります。破棄してプレビューに切り替えますか？')) return;
-    // 破棄してから切り替え
-    todoState.content = todoState.savedContent;
-    todoState.conflict = null;
+    docState.content = docState.savedContent;
+    docState.conflict = null;
   }
-  todoState.mode = mode;
-  // レイアウト全体を描き直してサブタブと保存ボタンの表示を切り替える
+  docState.mode = mode;
+  // ツリー / プレビューの選択は次にタスクを含むファイルを開いたときにも効かせる
+  if (mode !== 'edit' && hasTaskLines(docState.content)) saveTodoModePref(mode);
+  clearTocObserver();
   contentArea.innerHTML = '';
-  contentArea.appendChild(buildTodoLayout());
-  if (mode === 'preview') {
-    await renderTodoPreviewBody();
-  } else {
-    renderTodoEditBody();
-  }
+  contentArea.appendChild(buildDocLayout());
+  await renderDocBody();
   updateConflictIndicators();
 }
 
-async function renderTodoPreviewBody() {
+const DOC_MODE_LABELS = { tree: 'ツリー', preview: 'プレビュー', edit: '編集' };
+
+// 現在のモードに合わせて本文を描く
+async function renderDocBody() {
+  if (docState.mode === 'tree') await renderDocTreeBody();
+  else if (docState.mode === 'preview') await renderDocPreviewBody();
+  else renderDocEditBody();
+}
+
+// プレビュー本文を描く。カテゴリでは従来どおり目次ペインを併せて出す。
+async function renderDocPreviewBody() {
   const body = document.getElementById('todo-body');
   if (!body) return;
   body.innerHTML = '<div class="loading-text">読み込み中...</div>';
   try {
-    const data = await fetchJson(`/api/files/${encodeURIComponent(todoState.name)}/render`);
+    const data = await fetchJson(renderUrl(docState.path));
+    if (typeof data.mtime === 'number') docState.mtime = data.mtime;
     body.innerHTML = '';
     const div = document.createElement('div');
     div.className = 'md-content';
     div.innerHTML = data.html;
-    body.appendChild(div);
+
+    const withToc = true;
+    if (withToc) {
+      const layout = document.createElement('div');
+      layout.className = 'doc-pane-layout';
+      const toc = document.createElement('nav');
+      toc.className = 'doc-toc';
+      toc.setAttribute('aria-label', 'ページ内目次');
+      layout.appendChild(toc);
+      const inner = document.createElement('div');
+      inner.className = 'doc-body';
+      inner.appendChild(div);
+      layout.appendChild(inner);
+      body.appendChild(layout);
+      buildDocToc(div, toc);
+    } else {
+      body.appendChild(div);
+    }
     renderMermaidIn(div);
     injectCopyButtons(div);
   } catch (err) {
@@ -856,65 +1109,346 @@ async function renderTodoPreviewBody() {
   }
 }
 
-function renderTodoEditBody() {
+
+// === TODO ツリー ===
+//
+// GET /api/todo/<path> が返す木（字下げの親子・状態・メモ・関係）を描く。
+// 解釈はすべてサーバ（todo.ts）で済んでいて、ここは DOM を組むだけ。
+
+// 畳んだノードの id。同じファイルを描き直しても保ち、別のファイルを開いたら捨てる（openDoc）
+const todoTreeState = { path: null, collapsed: new Set() };
+
+const RELATION_LABELS = {
+  depends: { out: '依存', in: '被依存' },
+  derived: { out: '派生元', in: '派生先' },
+  related: { out: '関連', in: '関連' },
+};
+
+const TODO_STATE_LABELS = { open: '未着手', done: '完了', active: '進行中', cancelled: '中止' };
+
+// チップに載せる短い文面（リンクは文字列に、コードの記号は落とす）
+function shortText(text, max = 28) {
+  const t = String(text)
+    .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')
+    .replace(/`/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+  return t.length > max ? `${t.slice(0, max - 1)}…` : t;
+}
+
+async function renderDocTreeBody() {
+  const body = document.getElementById('todo-body');
+  if (!body) return;
+  body.innerHTML = '<div class="loading-text">読み込み中...</div>';
+  try {
+    const data = await fetchJson(todoUrl(docState.path));
+    if (typeof data.mtime === 'number') docState.mtime = data.mtime;
+    body.innerHTML = '';
+    body.appendChild(buildTodoTree(data));
+  } catch (err) {
+    body.innerHTML = '';
+    const div = document.createElement('div');
+    div.className = 'error-text';
+    div.textContent = err.message;
+    body.appendChild(div);
+  }
+}
+
+function buildTodoTree(data) {
+  const byId = new Map();
+  const index = (nodes) => {
+    for (const n of nodes) {
+      byId.set(n.id, n);
+      index(n.children);
+    }
+  };
+  for (const sec of data.sections) index(sec.tasks);
+
+  const wrap = document.createElement('div');
+  wrap.className = 'todo-tree';
+
+  const summary = document.createElement('div');
+  summary.className = 'todo-tree-summary';
+  const states = data.states || {};
+  const counts = [`タスク ${data.count}`];
+  if (states.done) counts.push(`完了 ${states.done}`);
+  if (states.active) counts.push(`進行中 ${states.active}`);
+  if (states.cancelled) counts.push(`中止 ${states.cancelled}`);
+  const countEl = document.createElement('span');
+  countEl.textContent = counts.join(' / ');
+  summary.appendChild(countEl);
+
+  const expandAll = document.createElement('button');
+  expandAll.type = 'button';
+  expandAll.textContent = 'すべて開く';
+  expandAll.addEventListener('click', () => {
+    todoTreeState.collapsed.clear();
+    wrap.querySelectorAll('.todo-node.collapsed').forEach(el => el.classList.remove('collapsed'));
+  });
+  summary.appendChild(expandAll);
+
+  const collapseAll = document.createElement('button');
+  collapseAll.type = 'button';
+  collapseAll.textContent = 'すべて閉じる';
+  collapseAll.addEventListener('click', () => {
+    wrap.querySelectorAll('.todo-node[data-has-children="1"]').forEach(el => {
+      el.classList.add('collapsed');
+      todoTreeState.collapsed.add(el.dataset.taskId);
+    });
+  });
+  summary.appendChild(collapseAll);
+  wrap.appendChild(summary);
+
+  if (!data.count) {
+    const empty = document.createElement('div');
+    empty.className = 'todo-tree-empty';
+    empty.textContent = 'タスク（- [ ] の行）がありません';
+    wrap.appendChild(empty);
+    return wrap;
+  }
+
+  for (const sec of data.sections) {
+    if (sec.heading) {
+      const h = document.createElement('div');
+      h.className = `todo-tree-heading level-${Math.min(sec.level || 2, 3)}`;
+      const title = document.createElement('span');
+      title.textContent = sec.heading;
+      h.appendChild(title);
+      let total = 0;
+      let done = 0;
+      for (const t of sec.tasks) {
+        total += 1 + t.total;
+        done += (t.state === 'done' ? 1 : 0) + t.done;
+      }
+      const c = document.createElement('span');
+      c.className = 'todo-tree-count';
+      c.textContent = `${done} / ${total}`;
+      c.title = '完了 / 全体';
+      h.appendChild(c);
+      wrap.appendChild(h);
+    }
+    for (const t of sec.tasks) wrap.appendChild(buildTodoNode(t, byId));
+  }
+  return wrap;
+}
+
+function buildTodoNode(node, byId) {
+  const el = document.createElement('div');
+  el.className = `todo-node ${node.state}`;
+  el.dataset.taskId = node.id;
+  el.dataset.hasChildren = node.children.length > 0 ? '1' : '0';
+  if (node.children.length > 0 && todoTreeState.collapsed.has(node.id)) el.classList.add('collapsed');
+
+  const row = document.createElement('div');
+  row.className = 'todo-node-row';
+
+  const toggle = document.createElement('button');
+  toggle.type = 'button';
+  toggle.className = 'todo-toggle' + (node.children.length > 0 ? '' : ' leaf');
+  toggle.title = '子を畳む / 開く';
+  toggle.setAttribute('aria-label', '子を畳む / 開く');
+  toggle.addEventListener('click', () => {
+    const collapsed = el.classList.toggle('collapsed');
+    if (collapsed) todoTreeState.collapsed.add(node.id);
+    else todoTreeState.collapsed.delete(node.id);
+  });
+  row.appendChild(toggle);
+
+  const mark = document.createElement('span');
+  mark.className = `todo-mark ${node.state}`;
+  mark.title = TODO_STATE_LABELS[node.state] || node.state;
+  // 知らない記号（`[?]` など）は未着手扱いだが、記号は見せる
+  if (node.state === 'open' && node.mark !== ' ') mark.textContent = node.mark;
+  row.appendChild(mark);
+
+  const text = document.createElement('div');
+  text.className = 'todo-text';
+  const html = document.createElement('span');
+  html.innerHTML = node.html;
+  text.appendChild(html);
+  if (node.children.length > 0) {
+    const progress = document.createElement('span');
+    progress.className = 'todo-progress';
+    progress.textContent = `${node.done}/${node.total}`;
+    progress.title = '子孫の 完了 / 全体';
+    text.appendChild(progress);
+  }
+  const chips = buildTodoChips(node, byId);
+  if (chips) text.appendChild(chips);
+  row.appendChild(text);
+  el.appendChild(row);
+
+  if (node.notes.length > 0) {
+    const details = document.createElement('details');
+    details.className = 'todo-node-notes';
+    const sum = document.createElement('summary');
+    sum.textContent = `メモ ${node.notes.length} 件`;
+    details.appendChild(sum);
+    node.notesHtml.forEach((h) => {
+      const line = document.createElement('div');
+      line.className = 'todo-note';
+      line.innerHTML = h;
+      details.appendChild(line);
+    });
+    el.appendChild(details);
+  }
+
+  if (node.children.length > 0) {
+    const kids = document.createElement('div');
+    kids.className = 'todo-node-children';
+    for (const c of node.children) kids.appendChild(buildTodoNode(c, byId));
+    el.appendChild(kids);
+  }
+  return el;
+}
+
+// タスクの右に出す関係のチップ。
+//   - 関係行（依存: / 派生元: / 関連:）に書かれた相手のタスク → クリックでそこへ
+//   - 相手側に書かれている関係（逆方向）→ 点線のチップ
+//   - 関係行やメモに書かれたドキュメント → そのドキュメントのタブへ
+// タスクの行そのものにあるリンク（`[plan](…)`）は本文の中でリンクのまま出るので、二重には出さない
+function buildTodoChips(node, byId) {
+  const chips = document.createElement('span');
+  chips.className = 'todo-chips';
+
+  for (const ref of node.refs) {
+    const label = RELATION_LABELS[ref.kind] ? RELATION_LABELS[ref.kind].out : ref.kind;
+    const target = ref.taskId ? byId.get(ref.taskId) : null;
+    chips.appendChild(taskChip(`${label}: ${shortText(target ? target.text : ref.text)}`, ref.kind, false, target, ref));
+  }
+  for (const inb of node.inbound) {
+    const source = byId.get(inb.taskId);
+    if (!source) continue;
+    const label = RELATION_LABELS[inb.kind] ? RELATION_LABELS[inb.kind].in : inb.kind;
+    chips.appendChild(taskChip(`${label}: ${shortText(source.text)}`, inb.kind, true, source, null));
+  }
+  for (const doc of node.docs) {
+    if (doc.source === 'text') continue;
+    const kindLabel = doc.kind && RELATION_LABELS[doc.kind] ? `${RELATION_LABELS[doc.kind].out}: ` : '';
+    const chip = document.createElement('a');
+    chip.className = 'todo-chip todo-chip-doc';
+    chip.textContent = `${kindLabel}${doc.label}`;
+    if (doc.path && doc.exists) {
+      chip.href = `#${docHashForPath(doc.path, docState.tab)}`;
+      chip.title = doc.path;
+    } else {
+      chip.classList.add('missing');
+      chip.title = doc.path ? `見つかりません: ${doc.path}` : `root の外を指しています: ${doc.href}`;
+    }
+    chips.appendChild(chip);
+  }
+  return chips.childNodes.length > 0 ? chips : null;
+}
+
+function taskChip(text, kind, inbound, target, ref) {
+  const chip = document.createElement('button');
+  chip.type = 'button';
+  chip.className = `todo-chip todo-chip-${kind}` + (inbound ? ' todo-chip-in' : '');
+  chip.textContent = text;
+  if (target) {
+    chip.title = target.text;
+    chip.addEventListener('click', () => focusTodoTask(target.id));
+  } else {
+    chip.classList.add('unresolved');
+    chip.setAttribute('aria-disabled', 'true');
+    chip.title = ref && ref.ambiguous
+      ? `候補が複数あって決められません: ${ref.text}`
+      : `このファイルの中に見つかりません: ${ref ? ref.text : ''}`;
+  }
+  return chip;
+}
+
+// 相手のタスクへスクロールして光らせる。畳まれた親は開く
+function focusTodoTask(id) {
+  const el = document.querySelector(`.todo-node[data-task-id="${CSS.escape(id)}"]`);
+  if (!el) return;
+  let p = el.parentElement;
+  while (p) {
+    if (p.classList && p.classList.contains('todo-node') && p.classList.contains('collapsed')) {
+      p.classList.remove('collapsed');
+      todoTreeState.collapsed.delete(p.dataset.taskId);
+    }
+    p = p.parentElement;
+  }
+  el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  // 続けて同じ相手を押しても光るよう、一度外してから付け直す
+  el.classList.remove('flash');
+  void el.offsetWidth;
+  el.classList.add('flash');
+  clearTimeout(el._flashTimer);
+  el._flashTimer = setTimeout(() => el.classList.remove('flash'), 1500);
+}
+
+const READ_ONLY_REASONS = {
+  binary: 'バイナリのため編集できません（テキストとして読めない内容です）',
+  'too-large': 'サイズが上限を超えているため編集できません',
+  symlink: 'シンボリックリンクのため編集できません',
+};
+
+function renderDocEditBody() {
   const body = document.getElementById('todo-body');
   if (!body) return;
   body.innerHTML = '';
+
+  if (docState.readOnly) {
+    const note = document.createElement('div');
+    note.className = 'empty-state';
+    note.textContent = READ_ONLY_REASONS[docState.readOnlyReason] || '編集できないファイルです';
+    body.appendChild(note);
+    return;
+  }
+
+  // 改行コードが混在しているファイルは復元しようがないので、保存で LF に寄ることを先に伝える
+  if (docState.eol === 'mixed') {
+    const warn = document.createElement('div');
+    warn.className = 'todo-info-bar';
+    warn.textContent = '改行コードが CRLF と LF で混在しています。保存すると LF に統一されます';
+    body.appendChild(warn);
+  }
+
   const textarea = document.createElement('textarea');
   textarea.className = 'todo-editor';
-  textarea.value = todoState.content;
+  textarea.value = docState.content;
   textarea.setAttribute('spellcheck', 'false');
   textarea.addEventListener('input', () => {
-    todoState.content = textarea.value;
+    docState.content = textarea.value;
   });
   // Cmd/Ctrl+S で保存
   textarea.addEventListener('keydown', (e) => {
     if ((e.metaKey || e.ctrlKey) && e.key === 's') {
       e.preventDefault();
-      saveTodoFile();
+      saveDoc();
     }
   });
   body.appendChild(textarea);
-  // フォーカスはユーザーの操作後にのみ当てる（タブ切替時に textarea にスクロールしないため）
   textarea.focus();
 }
 
-function discardTodoChanges() {
-  if (!isTodoDirty()) return;
+function discardDocChanges() {
+  if (!isDocDirty()) return;
   if (!confirm('未保存の変更を破棄します。よろしいですか？')) return;
-  todoState.content = todoState.savedContent;
-  todoState.conflict = null;
-  renderTodoEditBody();
+  docState.content = docState.savedContent;
+  docState.conflict = null;
+  renderDocEditBody();
   updateConflictIndicators();
 }
 
-async function refetchTodoFile() {
-  if (!todoState.name) return;
-  if (todoState.mode === 'edit' && isTodoDirty()) {
+async function refetchDoc() {
+  if (!docState.path) return;
+  if (docState.mode === 'edit' && isDocDirty()) {
     if (!confirm('未保存の変更があります。再取得すると失われます。続行しますか？')) return;
   }
   try {
-    if (todoState.mode === 'preview') {
-      const data = await fetchJson(`/api/files/${encodeURIComponent(todoState.name)}/render`);
-      const body = document.getElementById('todo-body');
-      if (body) {
-        body.innerHTML = '';
-        const div = document.createElement('div');
-        div.className = 'md-content';
-        div.innerHTML = data.html;
-        body.appendChild(div);
-        renderMermaidIn(div);
-        injectCopyButtons(div);
-      }
-      if (typeof data.mtime === 'number') todoState.mtime = data.mtime;
-    } else {
-      const data = await fetchJson(`/api/files/${encodeURIComponent(todoState.name)}`);
-      todoState.content = data.content;
-      todoState.savedContent = data.content;
-      todoState.mtime = data.mtime;
-      renderTodoEditBody();
-    }
-    todoState.conflict = null;
+    // モードによらず生を取り直す（mtime / 改行コード / 読み取り専用の判定を更新するため）
+    const data = await fetchJson(sourceUrl(docState.path));
+    docState.content = data.content || '';
+    docState.savedContent = data.content || '';
+    docState.mtime = data.mtime;
+    docState.eol = data.eol || 'lf';
+    docState.readOnly = !!data.readOnly;
+    docState.readOnlyReason = data.readOnlyReason || null;
+    await renderDocBody();
+    docState.conflict = null;
     updateConflictIndicators();
     showToast('最新を読み込みました', 1500);
   } catch (err) {
@@ -925,24 +1459,29 @@ async function refetchTodoFile() {
 function updateRefreshButton() {
   const btn = document.querySelector('.todo-toolbar [data-role="refresh"]');
   if (!btn) return;
-  const label = formatMtime(todoState.mtime);
+  const label = formatMtime(docState.mtime);
   btn.title = label ? `最終取得: ${label}\nショートカット: R` : 'ショートカット: R';
-  btn.classList.toggle('emphasized', !!todoState.conflict);
+  btn.classList.toggle('emphasized', !!docState.conflict);
 }
 
-async function saveTodoFile(options = {}) {
+async function saveDoc(options = {}) {
   const { force = false } = options;
-  if (!todoState.name) return;
-  if (!force && !isTodoDirty()) {
+  if (!docState.path || docState.readOnly) return;
+  if (!force && !isDocDirty()) {
     showToast('変更はありません');
     return;
   }
   saveInFlight = true;
   try {
-    const res = await fetch(`/api/files/${encodeURIComponent(todoState.name)}`, {
+    const res = await fetch(sourceUrl(docState.path), {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ content: todoState.content, baseMtime: todoState.mtime }),
+      body: JSON.stringify({
+        content: docState.content,
+        baseMtime: docState.mtime,
+        // textarea が LF に潰した本文を、取得時の改行コードへ戻してもらう
+        eol: docState.eol,
+      }),
     });
     if (res.status === 409) {
       const json = await res.json().catch(() => ({}));
@@ -954,14 +1493,16 @@ async function saveTodoFile(options = {}) {
     }
     const json = await res.json();
     if (!json.success) throw new Error(json.error || '保存に失敗しました');
-    todoState.mtime = json.data.mtime;
-    todoState.savedContent = todoState.content;
-    todoState.conflict = null;
+    docState.mtime = json.data.mtime;
+    docState.savedContent = docState.content;
+    docState.conflict = null;
     // 自分の書き込みによる SSE 通知を外部変更として扱わないための記録
     const savedMtime = json.data.mtime;
     selfWrittenMtimes.add(savedMtime);
     setTimeout(() => selfWrittenMtimes.delete(savedMtime), 5000);
     updateConflictIndicators();
+    // 見出しを直すとサイドバーの表示名も変わるので取り直す
+    refreshDocsTree();
     showToast('保存しました');
   } catch (err) {
     alert(`保存に失敗しました: ${err.message}`);
@@ -970,20 +1511,31 @@ async function saveTodoFile(options = {}) {
   }
 }
 
+// サイドバーのツリーを取り直して描き直す（タイトルは本文の H1 から抜いているため）
+// カテゴリのツリーと Files タブのツリーをまとめて取り直す
+async function fetchAllTrees() {
+  const [docs, all] = await Promise.all([
+    fetchJson('/api/docs'),
+    fetchJson('/api/tree'),
+  ]);
+  return { ...docs, [FILES_TAB]: all };
+}
+
+async function refreshDocsTree() {
+  try {
+    docsTree = await fetchAllTrees();
+    renderSidebar();
+  } catch {
+    // 一覧の更新に失敗しても編集自体は成立しているので黙って諦める
+  }
+}
+
 function handleSaveConflict(currentMtime) {
   return new Promise((resolve) => {
     showConflictDialog({
       onReload: async () => {
-        // 外部の最新を取得して textarea を差し替え（編集内容は破棄）
         try {
-          const data = await fetchJson(`/api/files/${encodeURIComponent(todoState.name)}`);
-          todoState.content = data.content;
-          todoState.savedContent = data.content;
-          todoState.mtime = data.mtime;
-          todoState.conflict = null;
-          if (todoState.mode === 'edit') renderTodoEditBody();
-          else await renderTodoPreviewBody();
-          updateConflictIndicators();
+          await reloadEditFromExternal({ notify: false });
           showToast('最新内容を読み込みました');
         } catch (err) {
           alert(`再取得に失敗しました: ${err.message}`);
@@ -997,19 +1549,18 @@ function handleSaveConflict(currentMtime) {
       onForce: async () => {
         // baseMtime を現在値に差し替えて再 PUT
         if (typeof currentMtime === 'number') {
-          todoState.mtime = currentMtime;
+          docState.mtime = currentMtime;
         } else {
-          // currentMtime が無ければ GET で取り直す
           try {
-            const data = await fetchJson(`/api/files/${encodeURIComponent(todoState.name)}`);
-            todoState.mtime = data.mtime;
+            const data = await fetchJson(sourceUrl(docState.path));
+            docState.mtime = data.mtime;
           } catch (err) {
             alert(`mtime 取得に失敗しました: ${err.message}`);
             resolve();
             return;
           }
         }
-        await saveTodoFile({ force: true });
+        await saveDoc({ force: true });
         resolve();
       },
     });
@@ -1205,12 +1756,42 @@ function expandAncestors(category, filePath) {
   return changed;
 }
 
+// 別のファイルへ移る前に未保存を確認する。false なら遷移を中止させる。
+// 以前は Root タブだけの処理だったが、カテゴリも編集できるようになったので共通化した。
+function confirmLeaveDoc(nextTab, nextKey) {
+  if (!docState.key) return true;
+  if (docState.tab === nextTab && docState.key === nextKey) return true;
+  if (!isDocDirty()) return true;
+  if (!confirm('未保存の変更があります。破棄して別のファイルに移動しますか？')) return false;
+  docState.content = docState.savedContent;
+  docState.conflict = null;
+  return true;
+}
+
+// 現在開いているドキュメントの hash（未保存確認で引き返すときに使う）
+function currentDocHash() {
+  if (!docState.tab || !docState.key) return null;
+  return `#${docState.tab}/${encodePath(docState.key)}`;
+}
+
 function handleRoute() {
   const rawHash = location.hash.replace(/^#/, '');
 
   // 旧 #design/xxx.html → #specs/design/xxx.html （specs カテゴリがある場合のみ）
-  if (rawHash.startsWith('design/') && CATEGORY_BY_NAME.has('specs')) {
+  // 'design' という名前の**実在するカテゴリ**がある場合はそちらが優先。
+  // 互換処理が本物のカテゴリを横取りして specs へ飛ばしてしまうため。
+  if (
+    rawHash.startsWith('design/') &&
+    !CATEGORY_BY_NAME.has('design') &&
+    CATEGORY_BY_NAME.has('specs')
+  ) {
     location.replace(`#specs/${rawHash}`);
+    return;
+  }
+
+  // 旧 Root タブ（#todo/<name>）は Files タブへ読み替える（Root は廃止。Files が同じ文書ビューアで開く）
+  if (rawHash.startsWith(`${LEGACY_ROOT_TAB}/`)) {
+    location.replace(`#${FILES_TAB}/${rawHash.slice(LEGACY_ROOT_TAB.length + 1)}`);
     return;
   }
 
@@ -1218,6 +1799,7 @@ function handleRoute() {
   if (!parsed) {
     refreshActiveHighlight();
     showEmpty();
+    setWatchTarget(null);
     // hash が無くても customTab がアクティブなら SSE は繋いでおく（サイドバー更新のため）
     if (CUSTOM_TAB_BY_NAME.has(activeCategory)) {
       ensureCustomTabSource(activeCategory);
@@ -1230,6 +1812,7 @@ function handleRoute() {
 
   const { category, filePath } = parsed;
   if (!CATEGORIES.includes(category)) {
+    setWatchTarget(null);
     showError('不正なカテゴリです');
     return;
   }
@@ -1248,6 +1831,7 @@ function handleRoute() {
   }
 
   if (CUSTOM_TAB_BY_NAME.has(category)) {
+    setWatchTarget(null);
     // customTab: filePath は item id。空文字なら未選択扱い。
     if (needSidebarRerender) {
       renderSidebar();
@@ -1263,27 +1847,33 @@ function handleRoute() {
     return;
   }
 
-  if (category === EDITABLE_TAB) {
-    if (!EDITABLE_NAMES.includes(filePath)) {
-      if (needSidebarRerender) renderSidebar();
-      else refreshActiveHighlight();
-      showError('対応していないファイルです');
+  if (category === TASKS_TAB) {
+    // Tasks: filePath はタスク id。空なら一覧だけ描き、先頭のタスクへ自動遷移する
+    setWatchTarget(TASKS_TODO_PATH);
+    if (!filePath) {
+      renderSidebar();
+      showEmpty();
       return;
-    }
-    // ファイル切替時、未保存の変更があれば確認
-    if (todoState.name && todoState.name !== filePath && isTodoDirty()) {
-      if (!confirm('未保存の変更があります。破棄して別のファイルに移動しますか？')) {
-        // 元のファイルに戻す（履歴を増やさないよう replace）
-        location.replace(`#${EDITABLE_TAB}/${encodeURIComponent(todoState.name)}`);
-        return;
-      }
-      // 破棄する（savedContent に戻すことで以降の isDirty を false にする）
-      todoState.content = todoState.savedContent;
-      todoState.conflict = null;
     }
     if (needSidebarRerender) renderSidebar();
     else refreshActiveHighlight();
-    renderTodoView(filePath);
+    renderTaskView(filePath);
+    return;
+  }
+
+  if (!confirmLeaveDoc(category, filePath)) {
+    const back = currentDocHash();
+    if (back) location.replace(back);
+    return;
+  }
+
+  if (category === FILES_TAB) {
+    // Files タブは拡張子で分けない（.html もソースとして開く）
+    if (expandAncestors(category, filePath)) needSidebarRerender = true;
+    if (needSidebarRerender) renderSidebar();
+    else refreshActiveHighlight();
+    setWatchTarget(filePath);
+    openDoc(FILES_TAB, filePath);
     return;
   }
 
@@ -1296,21 +1886,26 @@ function handleRoute() {
   const lastDot = filePath.lastIndexOf('.');
   const ext = lastDot >= 0 ? filePath.slice(lastDot).toLowerCase() : '';
   if (ext === '.html') {
+    // .html はカテゴリではレンダリング結果を iframe で見る（ソースは編集対象外）
+    setWatchTarget(null);
     renderDesign(category, filePath);
   } else if (ext === '.md') {
-    renderMarkdown(category, filePath);
+    setWatchTarget(docPathFor(category, filePath));
+    openDoc(category, filePath);
   } else {
+    setWatchTarget(null);
     showError('対応していないファイル形式です');
   }
 }
 
-// 設定された editable / categories / customTabs から topbar の tab ボタンを動的に組み立てる
+// 固定タブ（Tasks / Files）と設定された categories / customTabs から topbar の tab ボタンを動的に組み立てる
 function buildTabs() {
   topbarTabs.innerHTML = '';
   const tabs = [
     ...CUSTOM_TABS.map(t => ({ name: t.name, label: t.label })),
-    { name: EDITABLE_TAB, label: EDITABLE_LABEL },
+    { name: TASKS_TAB, label: TASKS_LABEL },
     ...CATEGORY_DEFS.map(c => ({ name: c.name, label: c.label })),
+    { name: FILES_TAB, label: FILES_LABEL },
   ];
   for (const t of tabs) {
     const btn = document.createElement('button');
@@ -1330,10 +1925,10 @@ function setupTabs() {
       const cat = tab.dataset.category;
       if (!CATEGORIES.includes(cat) || activeCategory === cat) return;
       // 編集タブから離れるときは未保存確認
-      if (activeCategory === EDITABLE_TAB && isTodoDirty()) {
+      if (isDocDirty()) {
         if (!confirm('未保存の変更があります。破棄して他のタブに移動しますか？')) return;
-        todoState.content = todoState.savedContent;
-        todoState.conflict = null;
+        docState.content = docState.savedContent;
+        docState.conflict = null;
         updateConflictIndicators();
       }
       // customTab から離れる場合は SSE / iframe を破棄
@@ -1351,6 +1946,7 @@ function setupTabs() {
       }
       refreshActiveHighlight();
       showEmpty();
+      setWatchTarget(null);
 
       // customTab に入ったら SSE を確立（サイドバーは renderSidebar 内でフェッチ済み）
       if (CUSTOM_TAB_BY_NAME.has(cat)) {
@@ -1362,7 +1958,7 @@ function setupTabs() {
 
 function setupBeforeUnload() {
   window.addEventListener('beforeunload', (e) => {
-    if (isTodoDirty()) {
+    if (isDocDirty()) {
       e.preventDefault();
       // 一部ブラウザ（古い Chrome 等）は returnValue 設定を要求する
       e.returnValue = '';
@@ -1376,7 +1972,7 @@ function setupRefreshShortcut() {
   document.addEventListener('keydown', (e) => {
     if (e.key !== 'r' && e.key !== 'R') return;
     if (e.ctrlKey || e.metaKey || e.altKey) return;
-    if (activeCategory !== EDITABLE_TAB || !todoState.name) return;
+    if (!docState.path || activeCategory !== docState.tab) return;
     const target = e.target;
     if (target) {
       const tag = target.tagName;
@@ -1384,102 +1980,116 @@ function setupRefreshShortcut() {
       if (target.isContentEditable) return;
     }
     e.preventDefault();
-    refetchTodoFile();
+    refetchDoc();
   });
 }
 
 // === SSE: 外部変更のリアルタイム反映 ===
 
-function connectEventSource() {
+// 監視対象を設定して SSE を張り直す。同じ対象なら何もしない。
+// EventSource は URL を後から変えられないので、開くファイルが変わるたびに繋ぎ直す。
+function setWatchTarget(path) {
   if (typeof EventSource === 'undefined') return;
+  const next = path || null;
+  if (sseState.source && sseState.watchPath === next) return;
+
+  if (sseState.source) {
+    // 自分で閉じるぶんには「切断中」を出さない
+    sseState.reconnecting = true;
+    try { sseState.source.close(); } catch { /* ignore */ }
+    sseState.source = null;
+    sseState.connected = false;
+  }
+  sseState.watchPath = next;
+  updateSseIndicator();
+
   try {
-    const es = new EventSource('/api/files/watch');
+    const url = next ? `/api/files/watch?watch=${encodePath(next)}` : '/api/files/watch';
+    const es = new EventSource(url);
     sseState.source = es;
     es.addEventListener('open', () => {
       sseState.connected = true;
+      sseState.reconnecting = false;
       updateSseIndicator();
     });
     es.addEventListener('error', () => {
       // EventSource は自動で再接続を試みる
       sseState.connected = false;
+      sseState.reconnecting = false;
       updateSseIndicator();
     });
     es.addEventListener('change', (e) => {
       try {
         const payload = JSON.parse(e.data);
-        if (typeof payload.name !== 'string' || typeof payload.mtime !== 'number') return;
-        handleExternalChange(payload.name, payload.mtime);
+        if (typeof payload.path !== 'string' || typeof payload.mtime !== 'number') return;
+        // Tasks タブを開いているときの TODO.md の変更は、一覧と詳細の描き直しに使う
+        if (activeCategory === TASKS_TAB && payload.path === TASKS_TODO_PATH) {
+          refreshTasksTab();
+          return;
+        }
+        handleExternalChange(payload.path, payload.mtime);
       } catch {
         // ignore malformed
       }
     });
   } catch {
-    // ignore
+    sseState.reconnecting = false;
+    updateSseIndicator();
   }
 }
 
 function updateSseIndicator() {
   const el = document.getElementById('sse-indicator');
   if (!el) return;
-  el.hidden = sseState.connected;
+  el.hidden = sseState.connected || sseState.reconnecting;
 }
 
-async function handleExternalChange(name, mtime) {
+async function handleExternalChange(path, mtime) {
   // 自分の保存中の書き込みは無視
   if (saveInFlight) return;
   // 自分が書いた mtime は無視（SSE が PUT 応答より先に届いたケースも含む）
   if (selfWrittenMtimes.has(mtime)) return;
   // 現在開いていないファイルは何もしない（次に開くときに最新を取りに行く）
-  if (activeCategory !== EDITABLE_TAB || todoState.name !== name) return;
+  // 通知は今開いているファイルについてのみ来る想定だが、張り替えの行き違いに備えて照合する
+  if (!docState.path || docState.path !== path) return;
   // 既知の mtime と一致するなら無視（自分の保存直後に想定）
-  if (todoState.mtime === mtime) return;
+  if (docState.mtime === mtime) return;
   // 同じ競合 mtime を再通知された場合は UI 再構築を避ける
-  if (todoState.conflict && todoState.conflict.mtime === mtime) return;
+  if (docState.conflict && docState.conflict.mtime === mtime) return;
 
-  if (todoState.mode === 'preview') {
-    await refetchPreviewForExternalChange();
+  if (docState.mode === 'preview' || docState.mode === 'tree') {
+    // 描き直すだけでなく生も取り直す。描き直しだけだと mtime だけ新しくなり、
+    // 編集へ切り替えたとき古い本文に新しい mtime が付いて外部の変更を黙って上書きしてしまう
+    await reloadEditFromExternal({ notify: false });
+    flashExternalUpdateBadge();
     return;
   }
 
-  if (!isTodoDirty()) {
+  if (!isDocDirty()) {
     // clean 編集: 内容と mtime を差し替え + 情報バー
     await reloadEditFromExternal({ notify: true });
     return;
   }
 
   // dirty 編集: 競合状態に遷移
-  todoState.conflict = { mtime, barVisible: true };
+  docState.conflict = { mtime, barVisible: true };
   updateConflictIndicators();
-}
-
-async function refetchPreviewForExternalChange() {
-  try {
-    const data = await fetchJson(`/api/files/${encodeURIComponent(todoState.name)}/render`);
-    const body = document.getElementById('todo-body');
-    if (!body) return;
-    if (typeof data.mtime === 'number') todoState.mtime = data.mtime;
-    body.innerHTML = '';
-    const div = document.createElement('div');
-    div.className = 'md-content';
-    div.innerHTML = data.html;
-    body.appendChild(div);
-    renderMermaidIn(div);
-    injectCopyButtons(div);
-    flashExternalUpdateBadge();
-  } catch {
-    // ignore
-  }
 }
 
 async function reloadEditFromExternal({ notify }) {
   try {
-    const data = await fetchJson(`/api/files/${encodeURIComponent(todoState.name)}`);
-    todoState.content = data.content;
-    todoState.savedContent = data.content;
-    todoState.mtime = data.mtime;
-    todoState.conflict = null;
-    if (todoState.mode === 'edit') renderTodoEditBody();
-    else await renderTodoPreviewBody();
+    const data = await fetchJson(sourceUrl(docState.path));
+    docState.content = data.content || '';
+    docState.savedContent = data.content || '';
+    docState.mtime = data.mtime;
+    docState.eol = data.eol || 'lf';
+    docState.readOnly = !!data.readOnly;
+    docState.readOnlyReason = data.readOnlyReason || null;
+    docState.conflict = null;
+    // 外部の変更でタスクの有無が変わることもあるので、サブタブごと組み直す
+    contentArea.innerHTML = '';
+    contentArea.appendChild(buildDocLayout());
+    await renderDocBody();
     updateConflictIndicators();
     if (notify) showCleanUpdateInfoBar();
   } catch {
@@ -1533,7 +2143,7 @@ function showCleanUpdateInfoBar() {
 }
 
 function updateConflictIndicators() {
-  const active = !!todoState.conflict;
+  const active = !!docState.conflict;
   // タブタイトルの prepend
   document.title = active ? `(!) ${TITLE_BASE}` : TITLE_BASE;
   // 警告バー
@@ -1548,7 +2158,7 @@ function renderConflictBar() {
   const view = document.querySelector('.todo-view');
   if (!view) return;
   const existing = view.querySelector('.todo-conflict-bar');
-  if (!todoState.conflict || !todoState.conflict.barVisible) {
+  if (!docState.conflict || !docState.conflict.barVisible) {
     if (existing) existing.remove();
     return;
   }
@@ -1559,8 +2169,8 @@ function renderConflictBar() {
 
   const msg = document.createElement('div');
   msg.className = 'todo-conflict-message';
-  const fmt = formatMtime(todoState.conflict.mtime);
-  msg.textContent = `⚠ 競合: 外部で ${todoState.name} が更新されています（${fmt}）。保存すると外部の変更を上書きします`;
+  const fmt = formatMtime(docState.conflict.mtime);
+  msg.textContent = `⚠ 競合: 外部で ${docState.path} が更新されています（${fmt}）。保存すると外部の変更を上書きします`;
   bar.appendChild(msg);
 
   const actions = document.createElement('div');
@@ -1580,7 +2190,7 @@ function renderConflictBar() {
     showToast('外部版を読み込みました');
   }));
   actions.appendChild(makeBtn('このまま編集を続ける', () => {
-    if (todoState.conflict) todoState.conflict.barVisible = false;
+    if (docState.conflict) docState.conflict.barVisible = false;
     updateConflictIndicators();
   }));
   bar.appendChild(actions);
@@ -1598,8 +2208,8 @@ function renderConflictBar() {
 
 async function showDiffModal() {
   try {
-    const data = await fetchJson(`/api/files/${encodeURIComponent(todoState.name)}`);
-    openDiffModal(todoState.content, data.content);
+    const data = await fetchJson(sourceUrl(docState.path));
+    openDiffModal(docState.content, data.content || '');
   } catch (err) {
     alert(`外部内容の取得に失敗しました: ${err.message}`);
   }
@@ -1614,7 +2224,7 @@ function openDiffModal(local, remote) {
 
   const title = document.createElement('div');
   title.className = 'modal-title';
-  title.textContent = `差分: ${todoState.name}（手元 vs 外部）`;
+  title.textContent = `差分: ${docState.path}（手元 vs 外部）`;
   modal.appendChild(title);
 
   const grid = document.createElement('div');
@@ -1653,12 +2263,12 @@ function openDiffModal(local, remote) {
 
 function refreshSidebarConflictBadge() {
   if (!sidebarNav) return;
-  const conflictName = (activeCategory === EDITABLE_TAB && todoState.conflict) ? todoState.name : null;
+  const conflictKey = (docState.conflict && docState.tab === activeCategory) ? docState.key : null;
   sidebarNav.querySelectorAll('.nav-item').forEach(el => {
-    // TODO カテゴリ以外のアイテムは触らない
-    if (el.dataset.category !== EDITABLE_TAB) return;
+    // 表示中のタブのアイテムだけを対象にする
+    if (el.dataset.category !== activeCategory) return;
     let badge = el.querySelector('.nav-item-badge');
-    if (el.dataset.path === conflictName) {
+    if (el.dataset.path === conflictKey) {
       if (!badge) {
         badge = document.createElement('span');
         badge.className = 'nav-item-badge';
@@ -1668,6 +2278,401 @@ function refreshSidebarConflictBadge() {
       }
     } else if (badge) {
       badge.remove();
+    }
+  });
+}
+
+// === Tasks タブ（TODO.md のタスクを、このプロジェクトで動いている Claude Code のセッションへ渡す） ===
+//
+// サイドバー = TODO.md のタスク一覧（GET /api/todo/TODO.md。ツリーと同じ解釈）。
+// 詳細 = 部分木・送り先（セッション / listen）・実行 / 説明 / 削除・投函の状態。
+// 実行・説明は POST /api/tasks/run。送り先がセッションならサーバがその受信口へ投函し（キューに積む）、
+// listen なら待ち受け（inbox）へ渡す。削除は POST /api/tasks/delete で、サーバが TODO.md から部分木の行だけを外す。
+// **文面はサーバが組む**。ここから送るのは id と決め打ちの値だけ。
+
+const TASKS_TODO_PATH = 'TODO.md';
+const tasksState = { tree: null, error: null };
+
+async function fetchTasksTree() {
+  try {
+    tasksState.tree = await fetchJson(`/api/todo/${encodePath(TASKS_TODO_PATH)}`);
+    tasksState.error = null;
+  } catch (err) {
+    tasksState.tree = null;
+    tasksState.error = err && err.message ? err.message : String(err);
+  }
+  return tasksState;
+}
+
+// 木を上から順に平らに（親の文面の列つき）
+function flattenTasks(tree) {
+  const out = [];
+  const walk = (nodes, parents) => {
+    for (const n of nodes) {
+      out.push({ node: n, parents });
+      walk(n.children, [...parents, n.text]);
+    }
+  };
+  for (const s of (tree && tree.sections) || []) walk(s.tasks, []);
+  return out;
+}
+
+function findTaskEntry(tree, id) {
+  return flattenTasks(tree).find(e => e.node.id === id) || null;
+}
+
+function renderTaskSubtree(node) {
+  const base = node.depth;
+  const lines = [];
+  const walk = n => {
+    const pad = '  '.repeat(n.depth - base);
+    lines.push(`${pad}- [${n.mark}] ${n.text}`);
+    for (const note of n.notes) lines.push(`${pad}  ${note}`);
+    for (const c of n.children) walk(c);
+  };
+  walk(node);
+  return lines.join('\n');
+}
+
+async function renderTasksSidebar() {
+  sidebarNav.innerHTML = '<div class="loading-text">読み込み中...</div>';
+  const state = await fetchTasksTree();
+  if (activeCategory !== TASKS_TAB) return;
+  sidebarNav.innerHTML = '';
+  if (state.error) {
+    const el = document.createElement('div');
+    el.className = 'error-text';
+    el.textContent = state.error;
+    sidebarNav.appendChild(el);
+    return;
+  }
+  // 済んだタスクは並べない（実行するものではない）
+  const entries = flattenTasks(state.tree).filter(e => e.node.state !== 'done');
+  if (entries.length === 0) {
+    const el = document.createElement('div');
+    el.className = 'loading-text';
+    el.textContent = 'タスク（- [ ] の行）がありません';
+    sidebarNav.appendChild(el);
+    return;
+  }
+  const frag = document.createDocumentFragment();
+  let lastGroup = null;
+  for (const { node } of entries) {
+    const group = node.heading || null;
+    if (group && group !== lastGroup) {
+      const h = document.createElement('div');
+      h.className = 'nav-group-header';
+      h.textContent = group;
+      frag.appendChild(h);
+      lastGroup = group;
+    }
+    const a = document.createElement('a');
+    a.className = 'nav-item';
+    a.href = `#${TASKS_TAB}/${encodeURIComponent(node.id)}`;
+    a.dataset.category = TASKS_TAB;
+    a.dataset.path = node.id;
+    const title = document.createElement('div');
+    title.textContent = `${'　'.repeat(node.depth)}${node.depth > 0 ? '↳ ' : ''}${node.text}`;
+    a.appendChild(title);
+    if (node.state === 'active') {
+      const b = document.createElement('span');
+      b.className = 'nav-item-badge';
+      b.textContent = '●';
+      b.title = '進行中';
+      a.appendChild(b);
+    }
+    frag.appendChild(a);
+  }
+  sidebarNav.appendChild(frag);
+  refreshActiveHighlight();
+
+  // 未選択なら先頭のタスクへ（customTab と同じ振る舞い。空ペインを見せない）
+  const parsed = parseHash();
+  const selected = !!(parsed && parsed.category === TASKS_TAB && parsed.filePath);
+  if (!selected) location.replace(`#${TASKS_TAB}/${encodeURIComponent(entries[0].node.id)}`);
+}
+
+// TODO.md が外で変わったら一覧と詳細を描き直す（SSE の change から呼ばれる）
+function refreshTasksTab() {
+  tasksState.tree = null;
+  renderTasksSidebar();
+  const parsed = parseHash();
+  if (parsed && parsed.category === TASKS_TAB && parsed.filePath) renderTaskView(parsed.filePath);
+}
+
+async function postTasks(url, body) {
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  const json = await res.json();
+  if (!json.success) throw new Error(json.error || '失敗しました');
+  return json.data;
+}
+
+function mkEl(tag, cls, text) {
+  const e = document.createElement(tag);
+  if (cls) e.className = cls;
+  if (text !== undefined) e.textContent = text;
+  return e;
+}
+
+const TASK_STATUS_LABEL = {
+  busy: '実行中', working: '実行中', idle: '待機中', blocked: '承認待ち', listening: 'listen', unknown: '状態不明',
+};
+function describeTarget(t) {
+  if (t.kind === 'listen') return `${t.name}（listen）`;
+  const parts = [TASK_STATUS_LABEL[t.status] || t.status];
+  if (t.sessionKind === 'background') parts.push('background');
+  parts.push(t.registered ? '登録済み' : '未登録');
+  if (t.cwd && t.cwd !== '.') parts.push(t.cwd);
+  return `${t.name}（${parts.join('・')}）`;
+}
+function targetValue(t) { return `${t.kind}:${t.id}`; }
+function parseTargetValue(v) {
+  const m = /^(session|listen):(.+)$/.exec(v || '');
+  return m ? { kind: m[1], id: m[2] } : null;
+}
+
+// 送り先の一覧（GET /api/tasks/windows = claude agents ＋ hook の登録 ＋ listen）。呼び出し側が 5 秒おきに取り直す
+async function loadTaskTargets(sel, note) {
+  const prev = sel.value;
+  let data;
+  try {
+    data = await fetchJson('/api/tasks/windows');
+  } catch {
+    return null; // 取れなければ前の選択のまま
+  }
+  const targets = Array.isArray(data.targets) ? data.targets : [];
+  sel.innerHTML = '';
+  if (targets.length === 0) {
+    const o = document.createElement('option');
+    o.value = '';
+    o.textContent = '(このプロジェクトで動いている Claude Code のセッションがありません)';
+    sel.appendChild(o);
+  }
+  for (const t of targets) {
+    const o = document.createElement('option');
+    o.value = targetValue(t);
+    o.textContent = describeTarget(t);
+    if (t.kind === 'session' && !t.registered) o.title = 'hook を入れる前に起動したセッション。起動し直すと登録されます';
+    sel.appendChild(o);
+  }
+  const values = targets.map(targetValue);
+  if (values.includes(prev)) {
+    sel.value = prev;
+  } else {
+    // 既定は「登録済みで待機中のセッション」→ 登録済み → listen → 先頭
+    const pick = targets.find(t => t.kind === 'session' && t.registered && t.status === 'idle')
+      || targets.find(t => t.kind === 'session' && t.registered)
+      || targets.find(t => t.kind === 'listen')
+      || targets[0];
+    if (pick) sel.value = targetValue(pick);
+  }
+  const msgs = [];
+  if (data.hooksInstalled === false) {
+    msgs.push('このプロジェクトに vibeboard の hook が入っていません。node vibeboard/dist/cli.js init --root . を流すと、以後に起動したセッションが自動で登録されます。');
+  }
+  if (targets.some(t => t.kind === 'session' && !t.registered)) {
+    msgs.push('「未登録」は hook を入れる前に起動したセッションです。起動し直すか、その画面で vibeboard listen を回してください。');
+  }
+  if (data.agents && data.agents.ok === false && data.agents.error) {
+    msgs.push(`claude agents が読めません（${data.agents.error}）。hook が登録したセッションだけを出しています。`);
+  }
+  note.textContent = msgs.join(' ');
+  note.hidden = msgs.length === 0;
+  return targets;
+}
+
+const QUEUE_STATE_LABEL = { waiting: '待ち', posted: '投函済み', failed: '失敗' };
+function fmtClock(ms) {
+  const d = new Date(ms);
+  const p = n => String(n).padStart(2, '0');
+  return `${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+}
+
+// 投函の状態（GET /api/tasks/queue）。待ち / 投函済み / 失敗。失敗には再送、済んだものには消す
+async function renderTaskQueue(box, targetsById, onChange) {
+  let items;
+  try {
+    items = (await fetchJson('/api/tasks/queue')).items || [];
+  } catch {
+    return;
+  }
+  box.innerHTML = '';
+  if (items.length === 0) {
+    box.hidden = true;
+    return;
+  }
+  box.hidden = false;
+  box.appendChild(mkEl('h2', null, '投函の状態'));
+  for (const it of [...items].sort((a, b) => b.at - a.at)) {
+    const row = mkEl('div', 'task-queue-item');
+    row.appendChild(mkEl('span', `task-queue-state ${it.state}`, QUEUE_STATE_LABEL[it.state] || it.state));
+    const t = targetsById.get(it.sessionId);
+    const who = t ? t.name : String(it.sessionId || '').slice(0, 8);
+    row.appendChild(mkEl('span', 'task-queue-text', `${it.kind === 'explain' ? '説明' : '実行'}: ${it.text} → ${who}`));
+    row.appendChild(mkEl('span', 'task-queue-time', fmtClock(it.updatedAt)));
+    if (it.state === 'failed') {
+      const b = mkEl('button', null, '再送');
+      b.type = 'button';
+      b.addEventListener('click', async () => {
+        b.disabled = true;
+        try {
+          await postTasks('/api/tasks/retry', { queueId: it.id });
+        } catch (err) {
+          showToast(`再送に失敗しました: ${err.message}`);
+        }
+        onChange();
+      });
+      row.appendChild(b);
+    }
+    if (it.state !== 'waiting') {
+      const b = mkEl('button', null, '消す');
+      b.type = 'button';
+      b.addEventListener('click', async () => {
+        b.disabled = true;
+        try {
+          await postTasks('/api/tasks/dismiss', { queueId: it.id });
+        } catch {
+          // 既に無ければそれでよい
+        }
+        onChange();
+      });
+      row.appendChild(b);
+    }
+    if (it.error) row.appendChild(mkEl('div', 'task-queue-err', it.error));
+    box.appendChild(row);
+  }
+}
+
+async function renderTaskView(id) {
+  clearTocObserver();
+  const state = tasksState.tree ? tasksState : await fetchTasksTree();
+  if (activeCategory !== TASKS_TAB) return;
+  const entry = state.tree ? findTaskEntry(state.tree, id) : null;
+  if (!entry) {
+    showError(state.error || 'そのタスクは TODO.md にありません');
+    return;
+  }
+  const { node, parents } = entry;
+  pageTitle.textContent = TASKS_LABEL;
+  topbarSub.textContent = node.text;
+
+  const el = mkEl;
+  const pane = el('div', 'task-pane');
+  pane.appendChild(el('h1', 'task-title', node.text));
+  pane.appendChild(el('div', 'task-meta', [
+    node.heading || '',
+    parents.length > 0 ? `親: ${parents.join(' › ')}` : '',
+    node.id,
+  ].filter(Boolean).join(' ／ ')));
+  pane.appendChild(el('pre', 'task-subtree', renderTaskSubtree(node)));
+
+  const rowWin = el('div', 'task-row');
+  const lbl = el('label', null, '送り先');
+  lbl.htmlFor = 'task-window';
+  const sel = el('select');
+  sel.id = 'task-window';
+  const refresh = el('button', null, '更新');
+  refresh.type = 'button';
+  rowWin.append(lbl, sel, refresh);
+  pane.appendChild(rowWin);
+  const note = el('div', 'task-note task-targets-note', '');
+  note.hidden = true;
+  pane.appendChild(note);
+
+  const rowBtn = el('div', 'task-row');
+  const btnRun = el('button', 'primary', '実行');
+  const btnExplain = el('button', null, '説明');
+  const btnDelete = el('button', 'danger', '削除');
+  for (const b of [btnRun, btnExplain, btnDelete]) b.type = 'button';
+  rowBtn.append(btnRun, btnExplain, btnDelete);
+  pane.appendChild(rowBtn);
+
+  const status = el('div', 'task-note', '');
+  const hint = el('div', 'task-note',
+    '実行・説明は送り先のセッションへ投函します（会話も承認もそのセッションの画面で進む。待機中なら新しいターンが始まり、実行中なら合間に読まれる）。'
+    + '説明は変更せず内容を説明するだけ。削除は TODO.md からこのタスクを消します（DONE.md には移しません）。'
+    + '送り先は claude agents の一覧と、起動時の hook（vibeboard init が書く）で登録されたセッション。hook が使えないときは、その画面で vibeboard listen --name <名前> を回すと listen として出ます。');
+  const queueBox = el('div', 'task-queue');
+  queueBox.hidden = true;
+  pane.append(status, hint, queueBox);
+
+  contentArea.innerHTML = '';
+  contentArea.appendChild(pane);
+
+  let targetsById = new Map();
+  const refreshAll = async () => {
+    const targets = await loadTaskTargets(sel, note);
+    if (targets) targetsById = new Map(targets.filter(t => t.kind === 'session').map(t => [t.id, t]));
+    renderTaskQueue(queueBox, targetsById, refreshAll);
+  };
+  refreshAll();
+  // この画面を出している間だけ 5 秒おきに取り直す（別のタブへ移ったら止める）
+  const timer = setInterval(() => {
+    if (!document.body.contains(pane)) {
+      clearInterval(timer);
+      return;
+    }
+    if (document.hidden) return;
+    refreshAll();
+  }, 5000);
+
+  const setBusy = on => { for (const b of [btnRun, btnExplain, btnDelete]) b.disabled = on; };
+  const nameOf = sessionId => (targetsById.get(sessionId) || {}).name || String(sessionId || '').slice(0, 8);
+  const send = async kind => {
+    const verb = kind === 'explain' ? '説明を頼み' : '渡し';
+    const target = parseTargetValue(sel.value);
+    setBusy(true);
+    status.textContent = '送っています...';
+    try {
+      const body = { id, kind };
+      if (target && target.kind === 'listen') body.windowId = target.id;
+      else if (target && target.kind === 'session') body.sessionId = target.id;
+      const data = await postTasks('/api/tasks/run', body);
+      if (data.item) {
+        const name = nameOf(data.item.sessionId);
+        if (data.item.state === 'posted') {
+          status.textContent = `「${name}」へ${verb}ました。そのセッションの画面を見てください。`;
+        } else if (data.item.state === 'waiting') {
+          status.textContent = `「${name}」は未登録なので待ちに積みました。そのセッションを起動し直す（hook が登録する）と届きます。5 分で失敗にします。`;
+        } else {
+          status.textContent = `「${name}」への投函に失敗しました: ${data.item.error || ''}`;
+        }
+      } else if (data.routedTo) {
+        status.textContent = data.connected
+          ? `「${data.routedTo}」へ${verb}ました。その画面を見てください。`
+          : `「${data.routedTo}」あてに送りました。今つながっていないので、その画面がつながったら届きます。`;
+      } else if (Array.isArray(data.targets) && data.targets.length > 1) {
+        status.textContent = '送り先を選んでからにしてください。';
+      } else {
+        status.textContent = '送り先がありません。このプロジェクトで Claude Code を起動してください（hook が無ければ vibeboard init を流すか、その画面で vibeboard listen を回す）。';
+      }
+    } catch (err) {
+      status.textContent = `受け渡しに失敗しました: ${err.message}`;
+    } finally {
+      setBusy(false);
+      refreshAll();
+    }
+  };
+  refresh.addEventListener('click', refreshAll);
+  btnRun.addEventListener('click', () => send('run'));
+  btnExplain.addEventListener('click', () => send('explain'));
+  btnDelete.addEventListener('click', async () => {
+    if (!confirm('このタスクを TODO.md から削除します（DONE.md には移しません）。よろしいですか？')) return;
+    setBusy(true);
+    status.textContent = '削除しています...';
+    try {
+      await postTasks('/api/tasks/delete', { id });
+      showToast('削除しました');
+      tasksState.tree = null;
+      // 一覧へ戻る（hashchange で一覧を描き直し、先頭のタスクへ自動遷移する）
+      location.replace(`#${TASKS_TAB}/`);
+    } catch (err) {
+      setBusy(false);
+      status.textContent = `削除に失敗しました: ${err.message}`;
     }
   });
 }
@@ -1904,10 +2909,10 @@ async function init() {
   setupDocLinkInterception();
   renderTabs();
   updateSseIndicator();
-  connectEventSource();
+  setWatchTarget(null);
 
   try {
-    docsTree = await fetchJson('/api/docs');
+    docsTree = await fetchAllTrees();
     renderSidebar();
     handleRoute();
   } catch (err) {

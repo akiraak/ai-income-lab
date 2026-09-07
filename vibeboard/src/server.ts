@@ -2,7 +2,32 @@ import express, { Request, Response } from 'express';
 import fs from 'fs';
 import path from 'path';
 import { marked } from 'marked';
-import type { CategoryConfig, CustomTabConfig, EditableFileConfig, VibeboardConfig } from './config';
+import type { CategoryConfig, CustomTabConfig, VibeboardConfig } from './config';
+import { reclaimPort, removePidFile, writePidFile } from './portGuard';
+import { startSidecars, stopSidecars } from './sidecar';
+import { isOurHook } from './init';
+import {
+  ListSessionsResult,
+  QueueItem,
+  Registration,
+  Registry,
+  TaskQueue,
+  isUnder,
+  listClaudeSessions,
+  postToInbox,
+} from './tasks';
+import { buildExplainPrompt, buildPrompt, findTaskById, parseTodo, removeTask } from './todo';
+import {
+  MAX_SOURCE_BYTES,
+  applyEol,
+  createSourceExclusive,
+  isEol,
+  isSymlink,
+  moveSourceExclusive,
+  readSource,
+  resolveSource,
+  writeSourceAtomic,
+} from './source';
 
 interface TreeFile {
   name: string;
@@ -42,10 +67,15 @@ function extractHtmlTitle(raw: string, fallback: string): string {
   return fallback;
 }
 
+// タイトルを抜けるのは .md / .html だけ。**拡張子を見てから読む**こと。
+// 以前は読んでから判定していたため、対象外の拡張子でも中身を読んで捨てていた。
 function extractTitle(absPath: string, fallback: string): string {
-  const raw = fs.readFileSync(absPath, 'utf-8');
-  if (absPath.endsWith('.md')) return extractMdTitle(raw, fallback);
-  if (absPath.endsWith('.html')) return extractHtmlTitle(raw, fallback);
+  if (absPath.endsWith('.md')) {
+    return extractMdTitle(fs.readFileSync(absPath, 'utf-8'), fallback);
+  }
+  if (absPath.endsWith('.html')) {
+    return extractHtmlTitle(fs.readFileSync(absPath, 'utf-8'), fallback);
+  }
   return fallback;
 }
 
@@ -152,6 +182,57 @@ function listTree(absDir: string, exts: string[], relPrefix: string = ''): Tree 
   return { files, dirs };
 }
 
+// 絶対パスを root からの相対パスへ直す。クライアントへ渡す識別子はこの形に揃える
+// （絶対パスは出さない。Windows の区切りも '/' に寄せる）。
+function toRootRel(absPath: string, root: string): string {
+  return path.relative(root, absPath).split(path.sep).join('/');
+}
+
+// Files タブ用のツリー。カテゴリ用の listTree とは前提が違う:
+//   - 拡張子で絞らない
+//   - **dotfile を飛ばさない**（`.env` も出す。除外は名前の明示リストだけ）
+//   - タイトルを抽出しない（全ファイルを開くことになるため。表示はファイル名）
+// シンボリックリンクは辿らずファイルとして並べる（実体は開いたとき読み取り専用になる）。
+function listAllTree(absDir: string, excludes: string[], relPrefix: string = ''): Tree {
+  let entries: fs.Dirent[];
+  try {
+    entries = fs.readdirSync(absDir, { withFileTypes: true });
+  } catch {
+    return { files: [], dirs: [] };
+  }
+
+  const files: TreeFile[] = [];
+  const dirs: TreeDir[] = [];
+
+  for (const entry of entries) {
+    if (excludes.includes(entry.name)) continue;
+    const abs = path.join(absDir, entry.name);
+    const rel = relPrefix ? `${relPrefix}/${entry.name}` : entry.name;
+
+    if (entry.isDirectory()) {
+      const sub = listAllTree(abs, excludes, rel);
+      if (sub.files.length === 0 && sub.dirs.length === 0) continue;
+      let selfMtime = 0;
+      try { selfMtime = fs.statSync(abs).mtimeMs; } catch { /* ignore */ }
+      const mtime = Math.max(
+        selfMtime,
+        ...sub.files.map(f => f.mtime),
+        ...sub.dirs.map(d => d.mtime),
+      );
+      dirs.push({ name: entry.name, title: null, files: sub.files, dirs: sub.dirs, mtime });
+    } else {
+      let mtime = 0;
+      try { mtime = fs.lstatSync(abs).mtimeMs; } catch { continue; }
+      // title はファイル名そのもの。クライアントは同じなら 2 行目を出さない
+      files.push({ name: entry.name, path: rel, title: entry.name, mtime });
+    }
+  }
+
+  files.sort((a, b) => b.mtime - a.mtime);
+  dirs.sort((a, b) => b.mtime - a.mtime);
+  return { files, dirs };
+}
+
 function isSafeName(file: string, ext: string): boolean {
   return !file.includes('..') && !file.includes('/') && !file.includes('\\') && file.endsWith(ext);
 }
@@ -182,18 +263,16 @@ function isInsideRoot(child: string, root: string): boolean {
   }
 }
 
-export function startServer(config: VibeboardConfig): void {
+export async function startServer(config: VibeboardConfig): Promise<void> {
   const app = express();
-  app.use(express.json({ limit: '1mb' }));
+  // ファイル本文をまるごと JSON で往復させるため、MAX_SOURCE_BYTES (1MB) の中身が
+  // エスケープで膨らんでも収まるだけの余裕を取る。実際の上限は source.ts 側で掛ける。
+  app.use(express.json({ limit: '8mb' }));
 
   // カテゴリと編集対象を name→config の Map に持っておく（O(1) 参照）
   const categoryByName = new Map<string, CategoryConfig>(
     config.categories.map(c => [c.name, c])
   );
-  const editableByName = new Map<string, EditableFileConfig>(
-    config.editable.files.map(f => [f.name, f])
-  );
-
   // ドキュメント一覧（ツリー構造）
   app.get('/api/docs', (_req: Request, res: Response) => {
     const data: Record<string, Tree> = {};
@@ -332,8 +411,15 @@ export function startServer(config: VibeboardConfig): void {
     res.json({ success: true, data: { path: `archive/${file}` }, error: null });
   });
 
-  // SSE: 編集可能ファイルの外部変更を通知
-  // 注: `/api/files/:name` より先にマウントすること（:name にマッチしてしまうため）
+  // SSE: **クライアントが今開いている 1 ファイル**の外部変更を通知する。
+  // （以前はこの下に Root タブ用の /api/files/:name があった。Root 廃止で無くなった）
+  //
+  // 以前は editable の 4 件を固定で監視していたが、クライアントは開いていない
+  // ファイルの通知を捨てていたので実質は無駄だった。対象がプロジェクト全体に
+  // 広がった今、ツリー全体を張るわけにもいかない（`fs.watch` の recursive は
+  // WSL2 で不安定で、ポーリング保険の母数も跳ね上がる）。
+  // クライアントが `?watch=<root 相対パス>` で対象を伝え、開くファイルが変わったら
+  // 繋ぎ直す方式にする。
   app.get('/api/files/watch', (req: Request, res: Response) => {
     res.status(200);
     res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
@@ -342,41 +428,45 @@ export function startServer(config: VibeboardConfig): void {
     res.setHeader('X-Accel-Buffering', 'no');
     res.flushHeaders?.();
 
-    const lastMtime: Record<string, number> = {};
-    for (const [name, ec] of editableByName) {
-      if (fs.existsSync(ec.path)) lastMtime[name] = fs.statSync(ec.path).mtimeMs;
+    // 対象が無い / 境界を通らないパスなら、何も監視せず接続だけ保つ
+    // （エラーで切ると画面が「切断中」を出してしまうため）
+    const requested = typeof req.query.watch === 'string' ? req.query.watch : '';
+    const resolved = requested ? resolveSource(config.root, requested, config.files.exclude) : null;
+    const target = resolved && resolved.ok
+      ? { relPath: resolved.relPath, absPath: resolved.absPath }
+      : null;
+
+    let lastMtime: number | null = null;
+    if (target && fs.existsSync(target.absPath)) {
+      lastMtime = fs.statSync(target.absPath).mtimeMs;
     }
 
-    const sendChange = (name: string) => {
-      const ec = editableByName.get(name);
-      if (!ec || !fs.existsSync(ec.path)) return;
+    const sendChange = () => {
+      if (!target) return;
       let mtime: number;
       try {
-        mtime = fs.statSync(ec.path).mtimeMs;
+        mtime = fs.statSync(target.absPath).mtimeMs;
       } catch {
         return;
       }
-      if (lastMtime[name] === mtime) return;
-      lastMtime[name] = mtime;
-      res.write(`event: change\ndata: ${JSON.stringify({ name, mtime })}\n\n`);
+      if (lastMtime === mtime) return;
+      lastMtime = mtime;
+      res.write(`event: change\ndata: ${JSON.stringify({ path: target.relPath, mtime })}\n\n`);
     };
 
-    // fs.watch はエディタの atomic rename で発火しないことがあるため、個別監視 + 下のポーリングで保険
-    const watchers: fs.FSWatcher[] = [];
-    for (const [name, ec] of editableByName) {
+    // fs.watch はエディタの atomic rename で発火しないことがあるため、下のポーリングで保険
+    let watcher: fs.FSWatcher | null = null;
+    if (target) {
       try {
-        const watcher = fs.watch(ec.path, () => sendChange(name));
+        watcher = fs.watch(target.absPath, () => sendChange());
         watcher.on('error', () => { /* ignore: poll で拾う */ });
-        watchers.push(watcher);
       } catch {
         // ファイルが無い場合などは黙って無視（ポーリングで拾う）
       }
     }
 
     // ポーリング保険（WSL2 で fs.watch が不安定な事例があるため）
-    const pollInterval = setInterval(() => {
-      for (const name of editableByName.keys()) sendChange(name);
-    }, 2000);
+    const pollInterval = target ? setInterval(sendChange, 2000) : null;
 
     // keep-alive ping
     const pingInterval = setInterval(() => {
@@ -384,89 +474,698 @@ export function startServer(config: VibeboardConfig): void {
     }, 30000);
 
     const cleanup = () => {
-      clearInterval(pollInterval);
+      if (pollInterval) clearInterval(pollInterval);
       clearInterval(pingInterval);
-      for (const w of watchers) {
-        try { w.close(); } catch { /* ignore */ }
+      if (watcher) {
+        try { watcher.close(); } catch { /* ignore */ }
       }
     };
     req.on('close', cleanup);
   });
 
-  // 編集可能ファイル: 生 Markdown + mtime
-  app.get('/api/files/:name', (req: Request, res: Response) => {
-    const ec = editableByName.get(req.params.name as string);
-    if (!ec) {
-      res.status(400).json({ success: false, data: null, error: '編集対象外のファイルです' });
+  // === プロジェクト内の任意ファイル（root 相対パス 1 本で指す） ===
+  //
+  // カテゴリや editable の一覧とは独立していて、**root 配下かどうかだけ**が境界。
+  // 判定は source.ts の resolveSource に集約する。
+
+  const sourceParam = (req: Request): string => (req.params[0] as string) || '';
+
+  // 生テキスト + mtime + 改行コード。編集できないものは content: null と理由を返す
+  app.get('/api/source/*', (req: Request, res: Response) => {
+    const resolved = resolveSource(config.root, sourceParam(req), config.files.exclude);
+    if (!resolved.ok) {
+      res.status(resolved.status).json({ success: false, data: null, error: resolved.error });
       return;
     }
-    if (!fs.existsSync(ec.path)) {
+    let st: fs.Stats;
+    try {
+      st = fs.lstatSync(resolved.absPath);
+    } catch {
       res.status(404).json({ success: false, data: null, error: 'ファイルが見つかりません' });
       return;
     }
-    const content = fs.readFileSync(ec.path, 'utf-8');
-    const mtime = fs.statSync(ec.path).mtimeMs;
-    res.json({ success: true, data: { content, mtime }, error: null });
+    if (st.isDirectory()) {
+      res.status(400).json({ success: false, data: null, error: 'ディレクトリは開けません' });
+      return;
+    }
+    try {
+      const data = readSource(resolved.absPath);
+      res.json({ success: true, data: { path: resolved.relPath, ...data }, error: null });
+    } catch {
+      res.status(500).json({ success: false, data: null, error: '読み込みに失敗しました' });
+    }
   });
 
-  // 編集可能ファイル: marked で HTML 化
-  app.get('/api/files/:name/render', (req: Request, res: Response) => {
-    const name = req.params.name as string;
-    const ec = editableByName.get(name);
-    if (!ec) {
-      res.status(400).json({ success: false, data: null, error: '編集対象外のファイルです' });
+  // 保存（mtime 楽観ロック + tmp → rename）。改行コードは eol で復元する
+  app.put('/api/source/*', (req: Request, res: Response) => {
+    const resolved = resolveSource(config.root, sourceParam(req), config.files.exclude);
+    if (!resolved.ok) {
+      res.status(resolved.status).json({ success: false, data: null, error: resolved.error });
       return;
     }
-    if (!fs.existsSync(ec.path)) {
-      res.status(404).json({ success: false, data: null, error: 'ファイルが見つかりません' });
-      return;
-    }
-    const raw = fs.readFileSync(ec.path, 'utf-8');
-    const mtime = fs.statSync(ec.path).mtimeMs;
-    const title = extractMdTitle(raw, name.replace(/\.md$/, ''));
-    const md = raw.replace(/^---[\s\S]*?---\n*/, '');
-    const html = rewriteRelativeAssetUrls(marked(md) as string, ec.path, config.root);
-    res.json({ success: true, data: { title, html, mtime }, error: null });
-  });
-
-  // 編集可能ファイル: 保存（mtime 楽観ロック + tmp → rename のアトミック書き込み）
-  app.put('/api/files/:name', (req: Request, res: Response) => {
-    const ec = editableByName.get(req.params.name as string);
-    if (!ec) {
-      res.status(400).json({ success: false, data: null, error: '編集対象外のファイルです' });
-      return;
-    }
-    const body = req.body as { content?: unknown; baseMtime?: unknown } | undefined;
+    const body = req.body as { content?: unknown; baseMtime?: unknown; eol?: unknown } | undefined;
     if (!body || typeof body.content !== 'string' || typeof body.baseMtime !== 'number') {
       res.status(400).json({ success: false, data: null, error: 'content / baseMtime が不正です' });
       return;
     }
-    if (!fs.existsSync(ec.path)) {
+    if (body.eol !== undefined && !isEol(body.eol)) {
+      res.status(400).json({ success: false, data: null, error: 'eol が不正です' });
+      return;
+    }
+    if (!fs.existsSync(resolved.absPath) || !fs.statSync(resolved.absPath).isFile()) {
       res.status(404).json({ success: false, data: null, error: 'ファイルが見つかりません' });
       return;
     }
-    const currentMtime = fs.statSync(ec.path).mtimeMs;
+    // tmp → rename はシンボリックリンク自体を置き換えてしまうため、書き込みは拒否する
+    if (isSymlink(resolved.absPath)) {
+      res.status(403).json({ success: false, data: null, error: 'シンボリックリンクは編集できません' });
+      return;
+    }
+    const currentMtime = fs.statSync(resolved.absPath).mtimeMs;
     if (currentMtime !== body.baseMtime) {
-      res.status(409).json({
-        success: false,
-        data: { currentMtime },
-        error: '外部で更新されています',
+      res.status(409).json({ success: false, data: { currentMtime }, error: '外部で更新されています' });
+      return;
+    }
+    const out = applyEol(body.content, isEol(body.eol) ? body.eol : 'lf');
+    if (Buffer.byteLength(out, 'utf-8') > MAX_SOURCE_BYTES) {
+      res.status(413).json({ success: false, data: null, error: 'ファイルが大きすぎます' });
+      return;
+    }
+    try {
+      writeSourceAtomic(resolved.absPath, out);
+    } catch {
+      res.status(500).json({ success: false, data: null, error: '書き込みに失敗しました' });
+      return;
+    }
+    res.json({ success: true, data: { mtime: fs.statSync(resolved.absPath).mtimeMs }, error: null });
+  });
+
+  // 新規作成。親ディレクトリは作る（ディレクトリ単体の作成は用意しない）
+  app.post('/api/source/*', (req: Request, res: Response) => {
+    const resolved = resolveSource(config.root, sourceParam(req), config.files.exclude);
+    if (!resolved.ok) {
+      res.status(resolved.status).json({ success: false, data: null, error: resolved.error });
+      return;
+    }
+    const body = req.body as { content?: unknown } | undefined;
+    const content = body && body.content !== undefined ? body.content : '';
+    if (typeof content !== 'string') {
+      res.status(400).json({ success: false, data: null, error: 'content が不正です' });
+      return;
+    }
+    if (Buffer.byteLength(content, 'utf-8') > MAX_SOURCE_BYTES) {
+      res.status(413).json({ success: false, data: null, error: 'ファイルが大きすぎます' });
+      return;
+    }
+    try {
+      createSourceExclusive(resolved.absPath, content);
+    } catch (e) {
+      const code = (e as NodeJS.ErrnoException).code;
+      if (code === 'EEXIST') {
+        res.status(409).json({ success: false, data: null, error: '同じ名前のファイルが既にあります' });
+        return;
+      }
+      // 途中のセグメントが既にファイルとして存在する場合など
+      if (code === 'ENOTDIR' || code === 'EISDIR') {
+        res.status(400).json({ success: false, data: null, error: 'その場所には作成できません' });
+        return;
+      }
+      res.status(500).json({ success: false, data: null, error: '作成に失敗しました' });
+      return;
+    }
+    res.json({
+      success: true,
+      data: { path: resolved.relPath, mtime: fs.statSync(resolved.absPath).mtimeMs },
+      error: null,
+    });
+  });
+
+  // 削除。取り消せないので、対象はファイル 1 個だけに絞る
+  // （ディレクトリは中身ごと消えてしまうため受けない）
+  app.delete('/api/source/*', (req: Request, res: Response) => {
+    const resolved = resolveSource(config.root, sourceParam(req), config.files.exclude);
+    if (!resolved.ok) {
+      res.status(resolved.status).json({ success: false, data: null, error: resolved.error });
+      return;
+    }
+    let st: fs.Stats;
+    try {
+      st = fs.lstatSync(resolved.absPath);
+    } catch {
+      res.status(404).json({ success: false, data: null, error: 'ファイルが見つかりません' });
+      return;
+    }
+    if (st.isDirectory()) {
+      res.status(400).json({ success: false, data: null, error: 'ディレクトリは削除できません' });
+      return;
+    }
+    // シンボリックリンクは読み書きと同じく触らない（消せてもここからは作り直せない）
+    if (st.isSymbolicLink()) {
+      res.status(403).json({ success: false, data: null, error: 'シンボリックリンクは削除できません' });
+      return;
+    }
+    try {
+      fs.unlinkSync(resolved.absPath);
+    } catch {
+      res.status(500).json({ success: false, data: null, error: '削除に失敗しました' });
+      return;
+    }
+    res.json({ success: true, data: { path: resolved.relPath }, error: null });
+  });
+
+  // リネーム / 移動。**移動先もクライアント入力なので同じ境界を通す**
+  app.post('/api/move/*', (req: Request, res: Response) => {
+    const from = resolveSource(config.root, (req.params[0] as string) || '', config.files.exclude);
+    if (!from.ok) {
+      res.status(from.status).json({ success: false, data: null, error: from.error });
+      return;
+    }
+    const body = req.body as { to?: unknown } | undefined;
+    if (!body || typeof body.to !== 'string') {
+      res.status(400).json({ success: false, data: null, error: 'to が不正です' });
+      return;
+    }
+    const to = resolveSource(config.root, body.to, config.files.exclude);
+    if (!to.ok) {
+      res.status(to.status).json({ success: false, data: null, error: `移動先: ${to.error}` });
+      return;
+    }
+    if (to.relPath === from.relPath) {
+      res.status(400).json({ success: false, data: null, error: '移動元と移動先が同じです' });
+      return;
+    }
+    let st: fs.Stats;
+    try {
+      st = fs.lstatSync(from.absPath);
+    } catch {
+      res.status(404).json({ success: false, data: null, error: 'ファイルが見つかりません' });
+      return;
+    }
+    if (st.isDirectory()) {
+      res.status(400).json({ success: false, data: null, error: 'ディレクトリは移動できません' });
+      return;
+    }
+    if (st.isSymbolicLink()) {
+      res.status(403).json({ success: false, data: null, error: 'シンボリックリンクは移動できません' });
+      return;
+    }
+    try {
+      moveSourceExclusive(from.absPath, to.absPath);
+    } catch (e) {
+      const code = (e as NodeJS.ErrnoException).code;
+      if (code === 'EEXIST') {
+        res.status(409).json({ success: false, data: null, error: '移動先に同じ名前のファイルがあります' });
+        return;
+      }
+      if (code === 'ENOTDIR' || code === 'EISDIR') {
+        res.status(400).json({ success: false, data: null, error: 'その場所へは移動できません' });
+        return;
+      }
+      res.status(500).json({ success: false, data: null, error: '移動に失敗しました' });
+      return;
+    }
+    res.json({
+      success: true,
+      data: { path: to.relPath, mtime: fs.statSync(to.absPath).mtimeMs },
+      error: null,
+    });
+  });
+
+  // プロジェクト全体のファイルツリー（Files タブ）
+  app.get('/api/tree', (_req: Request, res: Response) => {
+    const tree = listAllTree(config.root, config.files.exclude);
+    res.json({ success: true, data: tree, error: null });
+  });
+
+  // Markdown を HTML 化して返す（root 相対パス）。編集タブとカテゴリのプレビューを
+  // 1 本にまとめるためのもので、素材の相対パス書き換えも従来と同じ処理を通す。
+  app.get('/api/render/*', (req: Request, res: Response) => {
+    const relPath = (req.params[0] as string) || '';
+    const resolved = resolveSource(config.root, relPath, config.files.exclude);
+    if (!resolved.ok) {
+      res.status(resolved.status).json({ success: false, data: null, error: resolved.error });
+      return;
+    }
+    if (!relPath.toLowerCase().endsWith('.md')) {
+      res.status(400).json({ success: false, data: null, error: 'Markdown ではありません' });
+      return;
+    }
+    if (!fs.existsSync(resolved.absPath) || !fs.statSync(resolved.absPath).isFile()) {
+      res.status(404).json({ success: false, data: null, error: 'ファイルが見つかりません' });
+      return;
+    }
+    const raw = fs.readFileSync(resolved.absPath, 'utf-8');
+    const mtime = fs.statSync(resolved.absPath).mtimeMs;
+    const title = extractMdTitle(raw, path.basename(relPath, '.md'));
+    const md = raw.replace(/^---[\s\S]*?---\n*/, '');
+    const html = rewriteRelativeAssetUrls(marked(md) as string, resolved.absPath, config.root);
+    res.json({ success: true, data: { title, html, mtime }, error: null });
+  });
+
+  // TODO.md を「タスクの木」にして返す（root 相対パス）。境界は /api/render/* と同じ。
+  // 字下げを親子にし、`依存:` / `派生元:` / `関連:` の行と Markdown リンクを関係として取り出す。
+  // リンク先の実在はここで確かめる（root の外は todo.ts 側で null になるので触らない）。
+  app.get('/api/todo/*', (req: Request, res: Response) => {
+    const relPath = (req.params[0] as string) || '';
+    const resolved = resolveSource(config.root, relPath, config.files.exclude);
+    if (!resolved.ok) {
+      res.status(resolved.status).json({ success: false, data: null, error: resolved.error });
+      return;
+    }
+    if (!relPath.toLowerCase().endsWith('.md')) {
+      res.status(400).json({ success: false, data: null, error: 'Markdown ではありません' });
+      return;
+    }
+    if (!fs.existsSync(resolved.absPath) || !fs.statSync(resolved.absPath).isFile()) {
+      res.status(404).json({ success: false, data: null, error: 'ファイルが見つかりません' });
+      return;
+    }
+    const raw = fs.readFileSync(resolved.absPath, 'utf-8');
+    const mtime = fs.statSync(resolved.absPath).mtimeMs;
+    const tree = parseTodo(raw, {
+      mdPath: resolved.relPath,
+      exists: (p) => fs.existsSync(path.join(config.root, p)),
+      inline: (s) => marked.parseInline(s) as string,
+    });
+    res.json({ success: true, data: { ...tree, mtime }, error: null });
+  });
+
+  // === Tasks タブ（TODO.md のタスクを、このプロジェクトで動いている Claude Code のセッションへ渡す） ===
+  //
+  // 送り先は 2 系統:
+  //   1. **セッション**（既定）: `claude agents --json` で見つけ、SessionStart hook（scripts/session-hook.mjs）が
+  //      登録してきた受信口ソケットへ vibeboard が直接投函する（src/tasks.ts）。人が待ち受けを起動する必要は無い
+  //   2. **listen**（互換・逃げ道）: `vibeboard listen --name <名前>` が `/api/tasks/inbox` を購読し、
+  //      届いた文面をその画面の Claude Code が実行する
+  // **文面はここで TODO.md から組む**（クライアントからは id と決め打ちの値しか受けない）。
+  // セッションあての文面はキュー（tmp の JSON）に積み、送り先が登録済みなら即投函、未登録なら登録が来た時点で投函する。
+  // listen あては名前で配り、不在なら名前あてに溜めて、同じ名前で繋ぎ直したときに渡す。
+  type TaskItem = { id: string; text: string; kind: 'run' | 'explain'; prompt: string; at: number };
+  const taskWindows = new Map<string, Response>();
+  const taskPending = new Map<string, TaskItem[]>();
+
+  // クエリ由来の名前を丸める（制御文字を落とし、長さを絞る）
+  const sanitizeWindowName = (raw: unknown): string => {
+    const s = Array.from(String(raw ?? ''))
+      .filter(c => {
+        const k = c.charCodeAt(0);
+        return k >= 0x20 && k !== 0x7f;
+      })
+      .join('')
+      .trim()
+      .slice(0, 80);
+    return s || 'window';
+  };
+  const readTodoSource = ():
+    | { ok: true; absPath: string; raw: string }
+    | { ok: false; status: number; error: string } => {
+    const resolved = resolveSource(config.root, 'TODO.md', config.files.exclude);
+    if (!resolved.ok) return { ok: false, status: resolved.status, error: resolved.error };
+    if (!fs.existsSync(resolved.absPath) || !fs.statSync(resolved.absPath).isFile()) {
+      return { ok: false, status: 404, error: 'TODO.md が見つかりません' };
+    }
+    return { ok: true, absPath: resolved.absPath, raw: fs.readFileSync(resolved.absPath, 'utf-8') };
+  };
+  const writeTaskItem = (res: Response, item: TaskItem): void => {
+    res.write(`event: task\ndata: ${JSON.stringify(item)}\n\n`);
+  };
+  const deliverToWindow = (name: string, item: TaskItem): boolean => {
+    const w = taskWindows.get(name);
+    if (w) {
+      writeTaskItem(w, item);
+      return true;
+    }
+    const q = taskPending.get(name) ?? [];
+    q.push(item);
+    taskPending.set(name, q);
+    return false;
+  };
+
+  // --- セッション: 発見（claude agents）・登録（hook）・投函（ソケット）・キュー（tmp） ---
+  const registry = new Registry();
+  const queue = new TaskQueue(config.root);
+  const SESSION_ID_RE = /^[A-Za-z0-9._-]{1,80}$/;
+  const SESSIONS_TTL_MS = 5000;
+  const emptySessions: ListSessionsResult = { ok: false, sessions: [], error: null };
+  const sessionsCache: { at: number; result: ListSessionsResult } = { at: 0, result: emptySessions };
+  let sessionsInflight: Promise<ListSessionsResult> | null = null;
+  // `claude agents --json` は起動に時間が掛かるので 5 秒は使い回す。同時に来た要求は 1 回にまとめる
+  const getSessions = (): Promise<ListSessionsResult> => {
+    if (Date.now() - sessionsCache.at < SESSIONS_TTL_MS) return Promise.resolve(sessionsCache.result);
+    if (sessionsInflight) return sessionsInflight;
+    sessionsInflight = listClaudeSessions(config.root).then(result => {
+      sessionsCache.at = Date.now();
+      sessionsCache.result = result;
+      sessionsInflight = null;
+      // claude agents が読めたのに載っていない登録は、SessionEnd を出せずに終わったセッション。
+      // 登録直後は一覧に載る前かもしれないので、少し待ってから外す
+      if (result.ok) {
+        const live = new Set(result.sessions.map(s => s.sessionId));
+        for (const r of registry.list()) {
+          if (!live.has(r.sessionId) && Date.now() - r.at > 15000) registry.unregister(r.sessionId);
+        }
+      }
+      return result;
+    });
+    return sessionsInflight;
+  };
+  const isLoopback = (req: Request): boolean => {
+    const a = req.socket.remoteAddress ?? '';
+    return a === '127.0.0.1' || a === '::1' || a === '::ffff:127.0.0.1';
+  };
+  // この root の .claude/settings.json に vibeboard の hook が入っているか（画面の案内に使うだけ）
+  const hooksInstalled = (): boolean => {
+    try {
+      const raw = fs.readFileSync(path.join(config.root, '.claude', 'settings.json'), 'utf-8');
+      const parsed = JSON.parse(raw) as { hooks?: { SessionStart?: unknown } };
+      const arr = parsed?.hooks?.SessionStart;
+      return Array.isArray(arr) && arr.some(g => {
+        const hooks = (g as { hooks?: unknown })?.hooks;
+        return Array.isArray(hooks) && hooks.some(isOurHook);
+      });
+    } catch {
+      return false;
+    }
+  };
+
+  type Target = {
+    id: string;
+    name: string;
+    kind: 'session' | 'listen';
+    status: string;
+    registered: boolean;
+    sessionKind: 'interactive' | 'background' | null;
+    shortId: string | null;
+    waitingFor: string | null;
+    cwd: string;
+  };
+  const buildTargets = async (): Promise<{ targets: Target[]; agents: { ok: boolean; error: string | null } }> => {
+    const result = await getSessions();
+    const seen = new Set<string>();
+    const targets: Target[] = [];
+    for (const s of result.sessions) {
+      seen.add(s.sessionId);
+      targets.push({
+        id: s.sessionId,
+        name: s.name,
+        kind: 'session',
+        status: s.status,
+        registered: registry.has(s.sessionId),
+        sessionKind: s.kind,
+        shortId: s.shortId,
+        waitingFor: s.waitingFor,
+        cwd: toRootRel(s.cwd, config.root) || '.',
+      });
+    }
+    // claude が読めない環境でも、hook が登録してきたセッションは出す
+    for (const r of registry.list()) {
+      if (seen.has(r.sessionId)) continue;
+      targets.push({
+        id: r.sessionId,
+        name: r.sessionId.slice(0, 8),
+        kind: 'session',
+        status: 'unknown',
+        registered: true,
+        sessionKind: null,
+        shortId: null,
+        waitingFor: null,
+        cwd: toRootRel(r.cwd, config.root) || '.',
+      });
+    }
+    for (const name of taskWindows.keys()) {
+      targets.push({
+        id: name, name, kind: 'listen', status: 'listening', registered: true,
+        sessionKind: null, shortId: null, waitingFor: null, cwd: '.',
+      });
+    }
+    return { targets, agents: { ok: result.ok, error: result.error } };
+  };
+
+  const sleep = (ms: number): Promise<void> => new Promise(r => setTimeout(r, ms));
+  const describePostError = (err: unknown): string => {
+    const e = err as NodeJS.ErrnoException | undefined;
+    switch (e?.code) {
+      case 'ENOENT': return '受信口のソケットがありません（セッションが終わっています）';
+      case 'ECONNREFUSED': return '受信口に接続を拒否されました（セッションが終わっています）';
+      case 'EACCES': return '受信口に接続する権限がありません';
+      case 'ETIMEDOUT': return '受信口への書き込みが時間切れになりました';
+      default: return e?.message ?? String(err);
+    }
+  };
+  const lastPostAt = new Map<string, number>();
+  const postItem = async (item: QueueItem, reg: Registration): Promise<void> => {
+    // 1 セッションへの連投は 1 秒に 1 件（受信側の burst 制限に当たらないため）
+    const wait = (lastPostAt.get(reg.sessionId) ?? 0) + 1000 - Date.now();
+    if (wait > 0) await sleep(wait);
+    lastPostAt.set(reg.sessionId, Date.now());
+    try {
+      await postToInbox(reg.socket, item.prompt, { token: reg.token });
+      queue.update(item.id, 'posted');
+    } catch (err) {
+      queue.update(item.id, 'failed', describePostError(err));
+      const code = (err as NodeJS.ErrnoException).code;
+      if (code === 'ENOENT' || code === 'ECONNREFUSED') registry.unregister(reg.sessionId);
+    }
+  };
+  // そのセッションあての「待ち」を順に投函する。登録が無ければ何もしない（登録が来たときにまた呼ばれる）
+  const draining = new Set<string>();
+  const drain = async (sessionId: string): Promise<void> => {
+    if (draining.has(sessionId)) return;
+    draining.add(sessionId);
+    try {
+      for (;;) {
+        const reg = registry.get(sessionId);
+        if (!reg) return;
+        const next = queue.list().find(i => i.state === 'waiting' && i.sessionId === sessionId);
+        if (!next) return;
+        await postItem(next, reg);
+      }
+    } finally {
+      draining.delete(sessionId);
+    }
+  };
+  const sendToSession = async (sessionId: string, item: TaskItem): Promise<QueueItem> => {
+    const queued = queue.add({ taskId: item.id, text: item.text, kind: item.kind, prompt: item.prompt, sessionId });
+    // 登録済みならその場で投函して結果を返す（応答は長くても 4 秒。続きは裏で進む）
+    await Promise.race([drain(sessionId), sleep(4000)]);
+    return queue.get(queued.id) ?? queued;
+  };
+  // prompt は返さない（ブラウザで使わず、大きいだけ）
+  const publicItem = (i: QueueItem) => ({
+    id: i.id, taskId: i.taskId, text: i.text, kind: i.kind, sessionId: i.sessionId,
+    state: i.state, at: i.at, updatedAt: i.updatedAt, error: i.error,
+  });
+  // async ハンドラの取りこぼしを 500 にする（express 4 は Promise を見ない）
+  const wrap = (fn: (req: Request, res: Response) => Promise<void>) => (req: Request, res: Response): void => {
+    fn(req, res).catch(err => {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (!res.headersSent) res.status(500).json({ success: false, data: null, error: msg });
+    });
+  };
+
+  app.get('/api/tasks/windows', wrap(async (_req, res) => {
+    const { targets, agents } = await buildTargets();
+    res.json({
+      success: true,
+      data: {
+        targets,
+        agents,
+        hooksInstalled: hooksInstalled(),
+        windows: targets.filter(t => t.kind === 'listen').map(t => t.name),
+      },
+      error: null,
+    });
+  }));
+
+  // hook（scripts/session-hook.mjs）からの登録。同じ機械の同じユーザーからしか来ない前提だが、
+  // ループバック以外と root の外のセッションは断る。token はメモリにだけ持つ
+  app.post('/api/tasks/register', (req: Request, res: Response) => {
+    if (!isLoopback(req)) {
+      res.status(403).json({ success: false, data: null, error: 'ループバックからだけ受け付けます' });
+      return;
+    }
+    const body = req.body as Record<string, unknown> | undefined;
+    const sessionId = typeof body?.sessionId === 'string' ? body.sessionId.trim() : '';
+    if (!SESSION_ID_RE.test(sessionId)) {
+      res.status(400).json({ success: false, data: null, error: 'sessionId が不正です' });
+      return;
+    }
+    const cwd = typeof body?.cwd === 'string' && body.cwd ? path.resolve(body.cwd) : '';
+    if (!cwd || !isUnder(config.root, cwd)) {
+      res.status(403).json({ success: false, data: null, error: 'このプロジェクトの外のセッションは登録できません' });
+      return;
+    }
+    const socket = typeof body?.socket === 'string' ? body.socket : '';
+    if (!socket || !path.isAbsolute(socket) || socket.length > 512) {
+      res.status(400).json({ success: false, data: null, error: 'socket が不正です' });
+      return;
+    }
+    const token = typeof body?.token === 'string' && body.token && body.token.length <= 256 ? body.token : null;
+    const pid = typeof body?.pid === 'number' && Number.isFinite(body.pid) ? body.pid : null;
+    registry.register({ sessionId, cwd, socket, token, pid, at: Date.now() });
+    sessionsCache.at = 0; // 次の一覧で拾い直す
+    const waiting = queue.list().filter(i => i.state === 'waiting' && i.sessionId === sessionId).length;
+    void drain(sessionId); // 待っていたぶんを届ける
+    res.json({ success: true, data: { registered: true, waiting }, error: null });
+  });
+
+  app.post('/api/tasks/unregister', (req: Request, res: Response) => {
+    if (!isLoopback(req)) {
+      res.status(403).json({ success: false, data: null, error: 'ループバックからだけ受け付けます' });
+      return;
+    }
+    const body = req.body as Record<string, unknown> | undefined;
+    const sessionId = typeof body?.sessionId === 'string' ? body.sessionId.trim() : '';
+    if (!SESSION_ID_RE.test(sessionId)) {
+      res.status(400).json({ success: false, data: null, error: 'sessionId が不正です' });
+      return;
+    }
+    const removed = registry.unregister(sessionId);
+    sessionsCache.at = 0;
+    res.json({ success: true, data: { registered: false, removed }, error: null });
+  });
+
+  app.get('/api/tasks/inbox', (req: Request, res: Response) => {
+    const name = sanitizeWindowName(typeof req.query.name === 'string' ? req.query.name : '');
+    res.status(200);
+    res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
+    res.setHeader('Cache-Control', 'no-cache, no-transform');
+    res.setHeader('Connection', 'keep-alive');
+    res.setHeader('X-Accel-Buffering', 'no');
+    res.flushHeaders?.();
+    res.write(': ok\n\n');
+    taskWindows.set(name, res);
+    const q = taskPending.get(name);
+    if (q && q.length > 0) {
+      for (const item of q) writeTaskItem(res, item);
+      taskPending.delete(name);
+    }
+    const ping = setInterval(() => res.write(': ping\n\n'), 30000);
+    req.on('close', () => {
+      clearInterval(ping);
+      // 同じ名前で貼り直された新しい接続を消さないよう、自分が現役のときだけ外す
+      if (taskWindows.get(name) === res) taskWindows.delete(name);
+    });
+  });
+
+  app.post('/api/tasks/run', wrap(async (req, res) => {
+    const body = req.body as { id?: unknown; windowId?: unknown; sessionId?: unknown; kind?: unknown } | undefined;
+    const id = typeof body?.id === 'string' ? body.id : '';
+    if (!id) {
+      res.status(400).json({ success: false, data: null, error: 'id が不正です' });
+      return;
+    }
+    const kind: TaskItem['kind'] = body?.kind === 'explain' ? 'explain' : 'run';
+    const src = readTodoSource();
+    if (!src.ok) {
+      res.status(src.status).json({ success: false, data: null, error: src.error });
+      return;
+    }
+    const tree = parseTodo(src.raw, { mdPath: 'TODO.md' });
+    const ctx = findTaskById(tree, id);
+    const prompt = kind === 'explain' ? buildExplainPrompt(tree, id) : buildPrompt(tree, id);
+    if (!ctx || prompt === null) {
+      res.status(404).json({ success: false, data: null, error: 'そのタスクは TODO.md にありません' });
+      return;
+    }
+    const item: TaskItem = { id, text: ctx.node.text, kind, prompt, at: Date.now() };
+    const windowId =
+      typeof body?.windowId === 'string' && body.windowId ? sanitizeWindowName(body.windowId) : '';
+    if (windowId) {
+      const connected = deliverToWindow(windowId, item);
+      res.json({ success: true, data: { kind, routedTo: windowId, connected }, error: null });
+      return;
+    }
+    const sessionId = typeof body?.sessionId === 'string' ? body.sessionId.trim() : '';
+    if (sessionId) {
+      if (!SESSION_ID_RE.test(sessionId)) {
+        res.status(400).json({ success: false, data: null, error: 'sessionId が不正です' });
+        return;
+      }
+      const queued = await sendToSession(sessionId, item);
+      res.json({
+        success: true,
+        data: { kind, routedTo: sessionId, item: publicItem(queued), registered: registry.has(sessionId) },
+        error: null,
       });
       return;
     }
-    const tmp = `${ec.path}.tmp.${process.pid}.${Date.now()}`;
+    // 送り先が未指定: 今すぐ送れる先が 1 つならそこへ。0 個・複数個は選ばせる
+    const { targets } = await buildTargets();
+    const candidates = targets.filter(t => t.kind === 'listen' || t.registered);
+    if (candidates.length === 1) {
+      const t = candidates[0];
+      if (t.kind === 'listen') {
+        deliverToWindow(t.name, item);
+        res.json({ success: true, data: { kind, routedTo: t.name, connected: true }, error: null });
+        return;
+      }
+      const queued = await sendToSession(t.id, item);
+      res.json({ success: true, data: { kind, routedTo: t.id, item: publicItem(queued), registered: true }, error: null });
+      return;
+    }
+    res.json({
+      success: true,
+      data: { kind, routedTo: null, connected: false, targets, windows: [...taskWindows.keys()] },
+      error: null,
+    });
+  }));
+
+  app.get('/api/tasks/queue', (_req: Request, res: Response) => {
+    res.json({ success: true, data: { items: queue.list().map(publicItem) }, error: null });
+  });
+
+  app.post('/api/tasks/retry', wrap(async (req, res) => {
+    const body = req.body as { queueId?: unknown } | undefined;
+    const queueId = typeof body?.queueId === 'string' ? body.queueId : '';
+    const item = queueId ? queue.retry(queueId) : undefined;
+    if (!item) {
+      res.status(404).json({ success: false, data: null, error: 'その項目はキューにありません' });
+      return;
+    }
+    await Promise.race([drain(item.sessionId), sleep(4000)]);
+    res.json({ success: true, data: { item: publicItem(queue.get(queueId) ?? item) }, error: null });
+  }));
+
+  app.post('/api/tasks/dismiss', (req: Request, res: Response) => {
+    const body = req.body as { queueId?: unknown } | undefined;
+    const queueId = typeof body?.queueId === 'string' ? body.queueId : '';
+    if (!queueId || !queue.dismiss(queueId)) {
+      res.status(404).json({ success: false, data: null, error: 'その項目はキューにありません' });
+      return;
+    }
+    res.json({ success: true, data: {}, error: null });
+  });
+
+  app.post('/api/tasks/delete', (req: Request, res: Response) => {
+    const body = req.body as { id?: unknown } | undefined;
+    const id = typeof body?.id === 'string' ? body.id : '';
+    if (!id) {
+      res.status(400).json({ success: false, data: null, error: 'id が不正です' });
+      return;
+    }
+    const src = readTodoSource();
+    if (!src.ok) {
+      res.status(src.status).json({ success: false, data: null, error: src.error });
+      return;
+    }
+    const next = removeTask(src.raw, id);
+    if (next === null) {
+      res.status(404).json({ success: false, data: null, error: 'そのタスクは TODO.md にありません' });
+      return;
+    }
+    const tmp = `${src.absPath}.tmp.${process.pid}.${Date.now()}`;
     try {
-      fs.writeFileSync(tmp, body.content, 'utf-8');
-      fs.renameSync(tmp, ec.path);
-    } catch (e) {
+      fs.writeFileSync(tmp, next, 'utf-8');
+      fs.renameSync(tmp, src.absPath); // tmp → 本体の原子的置換
+    } catch {
       if (fs.existsSync(tmp)) {
         try { fs.unlinkSync(tmp); } catch { /* ignore */ }
       }
       res.status(500).json({ success: false, data: null, error: '書き込みに失敗しました' });
       return;
     }
-    const newMtime = fs.statSync(ec.path).mtimeMs;
-    res.json({ success: true, data: { mtime: newMtime }, error: null });
+    res.json({ success: true, data: {}, error: null });
   });
 
   // index.html はテンプレ置換しつつ返す（タイトル / クライアント設定の inject）
@@ -474,27 +1173,29 @@ export function startServer(config: VibeboardConfig): void {
   const webDir = path.join(__dirname, '..', 'src', 'web');
   const indexHtmlRaw = fs.readFileSync(path.join(webDir, 'index.html'), 'utf-8');
   // クライアント側に出すカテゴリ情報（絶対パスは漏らさない）
+  // path は **root 相対**。クライアントはこれを繋いで /api/source/* を引くので必要になる
+  // （絶対パスは従来どおり出さない）。
   const clientCategories = config.categories.map(c => ({
     name: c.name,
     label: c.label,
     archive: c.archive,
+    path: toRootRel(c.path, config.root),
   }));
-  const clientEditable = {
-    label: config.editable.label,
-    files: config.editable.files.map(f => ({ name: f.name, label: f.label })),
-  };
+  const clientFiles = { label: config.files.label };
   // customTabs は baseUrl ごとクライアントへ流す（クライアントが直接 fetch するため）。
   // baseUrl はループバック前提なので秘匿対象ではない。
-  const clientCustomTabs: CustomTabConfig[] = config.customTabs.map(t => ({
-    name: t.name,
-    label: t.label,
-    baseUrl: t.baseUrl,
-  }));
+  // **command は渡さない**（起動はサーバ側の話で、ブラウザに配る理由が無い）。
+  const clientCustomTabs: Pick<CustomTabConfig, 'name' | 'label' | 'baseUrl'>[] =
+    config.customTabs.map(t => ({
+      name: t.name,
+      label: t.label,
+      baseUrl: t.baseUrl,
+    }));
   const renderIndexHtml = (): string => {
     const clientConfig = JSON.stringify({
       title: config.title,
       categories: clientCategories,
-      editable: clientEditable,
+      files: clientFiles,
       customTabs: clientCustomTabs,
     });
     return indexHtmlRaw
@@ -525,15 +1226,63 @@ export function startServer(config: VibeboardConfig): void {
   // 静的配信
   app.use(express.static(webDir));
 
-  app.listen(config.port, config.host, () => {
-    console.log(`[vibeboard] running at http://${config.host}:${config.port}`);
-    console.log(`[vibeboard] root: ${config.root}`);
-    console.log(`[vibeboard] title: ${config.title}`);
-    console.log(`[vibeboard] categories: ${config.categories.map(c => c.name).join(', ')}`);
-    console.log(`[vibeboard] editable: ${config.editable.files.map(f => f.name).join(', ')}`);
-    if (config.customTabs.length > 0) {
-      const cts = config.customTabs.map(t => `${t.name}→${t.baseUrl}`).join(', ');
-      console.log(`[vibeboard] customTabs: ${cts}`);
+  // ポートが埋まっていた場合、同じ root の vibeboard なら停止して 1 度だけ再試行する。
+  try {
+    await listenOnce(app, config);
+  } catch (err) {
+    if (!isAddrInUse(err)) throw err;
+    const result = await reclaimPort(config);
+    if (!result.ok) {
+      console.error(`[vibeboard] 起動に失敗しました: ${result.message}`);
+      process.exit(1);
     }
+    console.log(`[vibeboard] ${result.message}。再試行します`);
+    await listenOnce(app, config);
+  }
+
+  writePidFile(config);
+  // customTab のプロセスも一緒に落とす（本体だけ死んで中身が残るのを避ける）
+  const cleanup = () => {
+    stopSidecars();
+    removePidFile(config.port);
+  };
+  process.on('exit', cleanup);
+  for (const sig of ['SIGINT', 'SIGTERM', 'SIGHUP'] as const) {
+    process.on(sig, () => {
+      cleanup();
+      process.exit(0);
+    });
+  }
+
+  console.log(`[vibeboard] running at http://${config.host}:${config.port}`);
+  console.log(`[vibeboard] root: ${config.root}`);
+  console.log(`[vibeboard] title: ${config.title}`);
+  console.log(`[vibeboard] categories: ${config.categories.map(c => c.name).join(', ')}`);
+  console.log(`[vibeboard] files: 除外 ${config.files.exclude.join(', ')}`);
+  if (config.customTabs.length > 0) {
+    const cts = config.customTabs.map(t => `${t.name}→${t.baseUrl}`).join(', ');
+    console.log(`[vibeboard] customTabs: ${cts}`);
+    // listen できてから起こす（ポートを譲って終了する場合に置き去りにしないため）
+    await startSidecars(config);
+  }
+}
+
+function isAddrInUse(err: unknown): boolean {
+  return typeof err === 'object' && err !== null && (err as NodeJS.ErrnoException).code === 'EADDRINUSE';
+}
+
+function listenOnce(app: express.Express, config: VibeboardConfig): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const server = app.listen(config.port, config.host);
+    const onError = (err: Error) => {
+      server.removeListener('listening', onListening);
+      reject(err);
+    };
+    const onListening = () => {
+      server.removeListener('error', onError);
+      resolve();
+    };
+    server.once('error', onError);
+    server.once('listening', onListening);
   });
 }

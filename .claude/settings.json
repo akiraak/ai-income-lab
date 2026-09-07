@@ -1,0 +1,26 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PROJECT_DIR:-.}/vibeboard/scripts/session-hook.mjs\" SessionStart",
+            "async": true
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PROJECT_DIR:-.}/vibeboard/scripts/session-hook.mjs\" SessionEnd",
+            "timeout": 3
+          }
+        ]
+      }
+    ]
+  }
+}

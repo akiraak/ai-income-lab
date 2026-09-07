@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import { DEFAULT_EXCLUDES } from './source';
 
 export interface CategoryConfig {
   name: string;     // URL セグメント / ハッシュキー (例: 'plans')
@@ -8,21 +9,21 @@ export interface CategoryConfig {
   archive: boolean; // true のとき、ファイル/ディレクトリの archive 操作を許可
 }
 
-export interface EditableFileConfig {
-  name: string;  // URL トークン兼サイドバー識別子 (例: 'TODO.md')
-  label: string; // サイドバー表示。省略時は basename without ext
-  path: string;  // root からの相対 or 絶対パス。省略時は name
-}
-
-export interface EditableConfig {
-  label: string;             // 「TODO」タブの表示名
-  files: EditableFileConfig[];
+// Files タブ（プロジェクト内の全ファイルを開く）
+export interface FilesConfig {
+  label: string;
+  // ツリーからも読み書きからも外す名前。パスのどのセグメントに現れても対象。
+  exclude: string[];
 }
 
 export interface CustomTabConfig {
   name: string;    // URL セグメント / ハッシュキー (例: 'sample')
   label: string;   // タブ表示名 (例: 'Sample')
   baseUrl: string; // プラグインの HTTP ベース URL (末尾スラッシュなしに正規化)
+  // タブの中身を出すプロセスの起動コマンド (省略時は自分で起動する)。
+  // **配列でだけ受ける**。1 本の文字列にすると shell を通すことになり、
+  // 設定ファイルの中身がそのままシェルの文になる。
+  command: string[] | null;
 }
 
 export interface VibeboardConfig {
@@ -31,7 +32,7 @@ export interface VibeboardConfig {
   host: string;
   title: string;
   categories: CategoryConfig[];
-  editable: EditableConfig;
+  files: FilesConfig;
   customTabs: CustomTabConfig[];
 }
 
@@ -48,17 +49,8 @@ const DEFAULT_CATEGORIES: CategoryConfig[] = [
   { name: 'specs', label: 'Specs', path: 'docs/specs', archive: false },
 ];
 
-const DEFAULT_EDITABLE: EditableConfig = {
-  label: 'Root',
-  files: [
-    { name: 'TODO.md', label: 'TODO', path: 'TODO.md' },
-    { name: 'DONE.md', label: 'DONE', path: 'DONE.md' },
-    { name: 'CLAUDE.md', label: 'CLAUDE', path: 'CLAUDE.md' },
-    { name: 'README.md', label: 'README', path: 'README.md' },
-  ],
-};
-
-const RESERVED_CATEGORY_NAMES = new Set(['todo']);
+// UI 側で固定のスラッグを持つタブ。カテゴリ名にも customTab 名にも使えない
+const RESERVED_CATEGORY_NAMES = new Set(['todo', 'files', 'tasks']);
 const FORBIDDEN_PATH_CHARS = /[\/\\]/;
 const CUSTOM_TAB_NAME_RE = /^[a-z0-9][a-z0-9-]*$/i;
 
@@ -114,6 +106,7 @@ interface RawConfigFile {
   port?: unknown;
   categories?: unknown;
   editable?: unknown;
+  files?: unknown;
   customTabs?: unknown;
 }
 
@@ -197,70 +190,59 @@ function normalizeCategories(raw: unknown, root: string): CategoryConfig[] {
   }
   return out;
 }
-
-function normalizeEditable(raw: unknown, root: string): EditableConfig {
+function normalizeFiles(raw: unknown): FilesConfig {
   if (raw === undefined) {
-    // デフォルトは name と同じ相対パス。root に紐づけて絶対化する。
-    return {
-      label: DEFAULT_EDITABLE.label,
-      files: DEFAULT_EDITABLE.files.map(f => ({ ...f, path: path.resolve(root, f.path) })),
-    };
+    return { label: 'Files', exclude: [...DEFAULT_EXCLUDES] };
   }
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
-    throw new Error('editable はオブジェクトである必要があります');
+    throw new Error('files はオブジェクトである必要があります');
   }
   const e = raw as Record<string, unknown>;
-  const label = typeof e.label === 'string' && e.label.trim()
-    ? e.label.trim()
-    : DEFAULT_EDITABLE.label;
-  const filesRaw = e.files;
-  if (filesRaw === undefined) {
-    return {
-      label,
-      files: DEFAULT_EDITABLE.files.map(f => ({ ...f, path: path.resolve(root, f.path) })),
-    };
+  const label = typeof e.label === 'string' && e.label.trim() ? e.label.trim() : 'Files';
+
+  if (e.exclude === undefined) {
+    return { label, exclude: [...DEFAULT_EXCLUDES] };
   }
-  if (!Array.isArray(filesRaw)) {
-    throw new Error('editable.files は配列である必要があります');
+  if (!Array.isArray(e.exclude)) {
+    throw new Error('files.exclude は配列である必要があります');
   }
-  if (filesRaw.length === 0) {
-    throw new Error('editable.files を空にはできません (省略すればデフォルトが使われます)');
+  const exclude: string[] = [];
+  for (let i = 0; i < e.exclude.length; i++) {
+    const v = e.exclude[i];
+    if (typeof v !== 'string' || !v.trim()) {
+      throw new Error(`files.exclude[${i}] は空でない文字列である必要があります`);
+    }
+    const name = v.trim();
+    // 除外はパスの 1 セグメント名で指定する（グロブやパスは受けない）
+    if (FORBIDDEN_PATH_CHARS.test(name) || name === '.' || name === '..') {
+      throw new Error(`files.exclude[${i}] にはパス区切りを含められません: ${name}`);
+    }
+    exclude.push(name);
   }
-  const seen = new Set<string>();
-  const files: EditableFileConfig[] = [];
-  for (let i = 0; i < filesRaw.length; i++) {
-    const entry = filesRaw[i];
-    let name: string;
-    let labelStr: string | undefined;
-    let pathStr: string | undefined;
-    if (typeof entry === 'string') {
-      name = entry.trim();
-    } else if (entry && typeof entry === 'object' && !Array.isArray(entry)) {
-      const ee = entry as Record<string, unknown>;
-      name = typeof ee.name === 'string' ? ee.name.trim() : '';
-      if (typeof ee.label === 'string' && ee.label.trim()) labelStr = ee.label.trim();
-      if (typeof ee.path === 'string' && ee.path.trim()) pathStr = ee.path.trim();
-    } else {
-      throw new Error(`editable.files[${i}] は文字列かオブジェクトである必要があります`);
-    }
-    if (!name) throw new Error(`editable.files[${i}].name は必須です`);
-    if (FORBIDDEN_PATH_CHARS.test(name) || name.startsWith('.')) {
-      throw new Error(`editable.files[${i}].name に使えない文字が含まれます: ${name}`);
-    }
-    if (!name.toLowerCase().endsWith('.md')) {
-      throw new Error(`editable.files[${i}].name は .md で終わる必要があります: ${name}`);
-    }
-    if (seen.has(name)) {
-      throw new Error(`editable.files[${i}].name が重複しています: ${name}`);
-    }
-    seen.add(name);
-    const finalLabel = labelStr ?? name.replace(/\.md$/i, '');
-    const rawPath = pathStr ?? name;
-    const absPath = path.isAbsolute(rawPath) ? rawPath : path.resolve(root, rawPath);
-    ensureUnderRoot(absPath, root, `editable.files[${i}].path`);
-    files.push({ name, label: finalLabel, path: absPath });
+  return { label, exclude };
+}
+
+// 起動コマンド。shell を通さないため配列だけを受ける (文字列は明示的に弾く)。
+function normalizeCommand(raw: unknown, label: string): string[] | null {
+  if (raw === undefined || raw === null) return null;
+  if (typeof raw === 'string') {
+    throw new Error(`${label} は配列で指定してください (例: ["node", "server.js"])`);
   }
-  return { label, files };
+  if (!Array.isArray(raw)) {
+    throw new Error(`${label} は配列である必要があります`);
+  }
+  if (raw.length === 0) {
+    throw new Error(`${label} を空配列にはできません`);
+  }
+  const out: string[] = [];
+  for (let i = 0; i < raw.length; i++) {
+    const v = raw[i];
+    if (typeof v !== 'string' || !v.trim()) {
+      throw new Error(`${label}[${i}] は空でない文字列である必要があります`);
+    }
+    out.push(v);
+  }
+  return out;
 }
 
 function normalizeBaseUrl(raw: string, label: string): string {
@@ -314,7 +296,8 @@ function normalizeCustomTabs(
     const rawBaseUrl = typeof e.baseUrl === 'string' ? e.baseUrl.trim() : '';
     if (!rawBaseUrl) throw new Error(`customTabs[${i}].baseUrl は必須です`);
     const baseUrl = normalizeBaseUrl(rawBaseUrl, `customTabs[${i}].baseUrl`);
-    out.push({ name, label, baseUrl });
+    const command = normalizeCommand(e.command, `customTabs[${i}].command`);
+    out.push({ name, label, baseUrl, command });
   }
   return out;
 }
@@ -354,9 +337,16 @@ export function resolveConfig(argv: string[]): { config: VibeboardConfig; rest: 
     || deriveTitleFromRoot(root);
 
   const categories = normalizeCategories(raw.categories, root);
-  const editable = normalizeEditable(raw.editable, root);
-  // categories の name と 'todo' を予約名としてまとめて customTabs に渡す
-  const reservedForCustomTabs = new Set<string>(['todo', ...categories.map(c => c.name)]);
+  // editable（旧 Root タブの設定）は廃止した。残っていても起動は止めず、一言だけ知らせて無視する
+  if (raw.editable !== undefined) {
+    console.log('[vibeboard] 設定の editable は Root タブの廃止に伴い無視されます（ルート直下のファイルは Files タブで開けます）');
+  }
+  const files = normalizeFiles(raw.files);
+  // categories の name と固定スラッグを予約名としてまとめて customTabs に渡す
+  const reservedForCustomTabs = new Set<string>([
+    ...RESERVED_CATEGORY_NAMES,
+    ...categories.map(c => c.name),
+  ]);
   const customTabs = normalizeCustomTabs(raw.customTabs, reservedForCustomTabs);
 
   return {
@@ -366,7 +356,7 @@ export function resolveConfig(argv: string[]): { config: VibeboardConfig; rest: 
       host: '127.0.0.1',
       title,
       categories,
-      editable,
+      files,
       customTabs,
     },
     rest: parsed.rest,

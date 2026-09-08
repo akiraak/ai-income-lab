@@ -171,6 +171,8 @@ class EnvMonitor:
             "balances": {},
             "positions": [],
             "live_orders": [],
+            # /orders/live は「本日の注文」で終わったものも含む。働いている注文とは別に数える
+            "orders_today": {"total": 0, "by_status": {}},
             "quote": {"state": "off", "symbol": settings.symbol},
             "poll": {"count": 0, "errors": 0, "count_429": 0, "last_ok_at": None, "last_error": None},
             "account_stream": {"state": "off", "url": self.client.conf["account_streamer"], "connected_at": None, "last_message_at": None, "message_count": 0, "order_notifications": 0, "disconnects": 0, "reconnects": 0, "last_error": None, "recent": []},
@@ -301,10 +303,18 @@ class EnvMonitor:
             balances = c.get_balances(acct)
             positions = c.list_positions(acct)
             orders = c.list_live_orders(acct)
+            # ⚠ /orders/live は「本日の注文」を返し、Filled / Cancelled / Rejected も混ざる（2026-09-08 に実測）。
+            # 「働いている注文」は停止ボタンと同じ WORKING_STATUSES で絞る。残りは件数だけ持つ
+            working = [o for o in orders if field(o, "status") in WORKING_STATUSES]
+            by_status: dict[str, int] = {}
+            for o in orders:
+                st = str(field(o, "status") or "?")
+                by_status[st] = by_status.get(st, 0) + 1
             with self._lock:
                 self.state["balances"] = {k: field(balances, k) for k in BALANCE_FIELDS}
                 self.state["positions"] = [position_brief(p) for p in positions]
-                self.state["live_orders"] = [order_brief(o) for o in orders]
+                self.state["live_orders"] = [order_brief(o) for o in working]
+                self.state["orders_today"] = {"total": len(orders), "by_status": by_status}
                 self.state["poll"]["count"] += 1
                 self.state["poll"]["last_ok_at"] = utcnow_iso()
         except ApiError as exc:

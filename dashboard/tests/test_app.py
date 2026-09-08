@@ -125,3 +125,31 @@ def test_public_face_hides_ops_and_dev(settings):
         assert c.post("/ops/resume", data={"csrf": csrf}).status_code == 404
         assert c.post("/ops/halt", data={"csrf": csrf, "reason": "remote"}, follow_redirects=False).status_code == 303
         assert settings.halt_file.exists()
+
+
+def test_working_orders_exclude_finished(settings, monkeypatch):
+    """/orders/live は本日の注文を返し終わったものも混ざる。「働いている注文」はそれを含めない。"""
+    from app.main import create_app
+    from app.monitor import WORKING_STATUSES
+
+    app = create_app(settings, start_monitors=False)
+    mon = app.state.monitors.get("cert")
+    mon.account_number = FAKE_ACCOUNT
+    orders = [
+        {"id": 1, "status": "Live", "order-type": "Limit", "price": "10.0", "legs": []},
+        {"id": 2, "status": "Filled", "order-type": "Market", "legs": []},
+        {"id": 3, "status": "Rejected", "order-type": "Market", "legs": []},
+        {"id": 4, "status": "Cancelled", "order-type": "Limit", "price": "10.0", "legs": []},
+    ]
+    monkeypatch.setattr(mon, "ensure_token", lambda force=False: True)  # 認証はこのテストの対象外
+    monkeypatch.setattr(mon.client, "list_accounts", lambda: [{"account-number": FAKE_ACCOUNT}])
+    monkeypatch.setattr(mon.client, "get_balances", lambda a: {})
+    monkeypatch.setattr(mon.client, "list_positions", lambda a: [])
+    monkeypatch.setattr(mon.client, "list_live_orders", lambda a: orders)
+    mon.poll_once()
+
+    snap = mon.snapshot()
+    assert [o["id"] for o in snap["live_orders"]] == [1], snap["live_orders"]
+    assert all(o["status"] in WORKING_STATUSES for o in snap["live_orders"])
+    assert snap["orders_today"]["total"] == 4
+    assert snap["orders_today"]["by_status"] == {"Live": 1, "Filled": 1, "Rejected": 1, "Cancelled": 1}

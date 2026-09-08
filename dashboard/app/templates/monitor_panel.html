@@ -44,7 +44,7 @@
     </div>
 
     <div class="card">
-      <h3>働いている注文 <span class="muted small">{{ m.live_orders|length }}</span></h3>
+      <h3>働いている注文 <span class="muted small">{{ m.live_orders|length }}{% if m.orders_today and m.orders_today.total %} · 本日の注文 {{ m.orders_today.total }}（{% for st, n in m.orders_today.by_status.items() %}{{ st }} {{ n }}{% if not loop.last %} / {% endif %}{% endfor %}）{% endif %}</span></h3>
       {% if m.live_orders %}
       <div class="scroll-x"><table class="orders small"><tr><th>id</th><th>状態</th><th>銘柄</th><th>売買</th><th class="num">数量</th><th>種別</th><th class="num">価格</th><th>受付</th>{% if face == 'local' %}<th></th>{% endif %}</tr>
       {% for o in m.live_orders %}

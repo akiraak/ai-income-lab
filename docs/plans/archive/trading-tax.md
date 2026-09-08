@@ -4,8 +4,8 @@
 
 ## 目的・背景
 
-[trading-fee-comparison.md](../specs/trading-fee-comparison.md) は手数料を 4 層で比べたが、税は 1 層も入っていない。
-手数料 $0 の会場でも税引後の手取りは変わるので、[online-tradable-assets.md](../specs/online-tradable-assets.md) の出口比較と
+[trading-fee-comparison.md](../../specs/trading-fee-comparison.md) は手数料を 4 層で比べたが、税は 1 層も入っていない。
+手数料 $0 の会場でも税引後の手取りは変わるので、[online-tradable-assets.md](../../specs/online-tradable-assets.md) の出口比較と
 回収期間の試算に「税」の層を足す。**税務助言ではなく調査資料**として書き、金額・税率は【公表値】に出典（URL・取得日）、
 当てはめは【推測】と明示する。
 
@@ -33,8 +33,8 @@ flowchart LR
 
 ## 影響範囲
 
-新規 `docs/specs/trading-tax.md`。既存の [trading-fee-comparison.md](../specs/trading-fee-comparison.md) と
-[online-tradable-assets.md](../specs/online-tradable-assets.md) には、税の層への参照を 1 行ずつ足すだけ。overview §7 に成果物を 1 行。
+新規 `docs/specs/trading-tax.md`。既存の [trading-fee-comparison.md](../../specs/trading-fee-comparison.md) と
+[online-tradable-assets.md](../../specs/online-tradable-assets.md) には、税の層への参照を 1 行ずつ足すだけ。overview §7 に成果物を 1 行。
 
 ## テスト方針
 

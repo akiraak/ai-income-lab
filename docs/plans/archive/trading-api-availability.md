@@ -1,7 +1,7 @@
 # 「過去の取引データ → 予測モデル → リアルタイム価格 → 売買判断」の流れが成り立つ商品について、API（無ければブラウザ自動操作）で売買できるかを調べる
 
 作成日: 2026-09-01（同日に対象を 96 → 79 → **56 件**へ絞った）。
-対象: [docs/specs/market-data-availability.md](../specs/market-data-availability.md) の 96 行のうち、**過去の取引データ（T・Q）が一定間隔の時系列（L0〜L2）で取れると確定した 56 件**（§1-2）。元の一覧は [docs/specs/online-tradable-assets.md](../specs/online-tradable-assets.md) §14（11 分類・96 件）。
+対象: [docs/specs/market-data-availability.md](../../specs/market-data-availability.md) の 96 行のうち、**過去の取引データ（T・Q）が一定間隔の時系列（L0〜L2）で取れると確定した 56 件**（§1-2）。元の一覧は [docs/specs/online-tradable-assets.md](../../specs/online-tradable-assets.md) §14（11 分類・96 件）。
 
 TODO の 2 件を **1 プラン・1 成果物**で扱う。
 

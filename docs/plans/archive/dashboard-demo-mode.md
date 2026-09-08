@@ -42,20 +42,20 @@ flowchart LR
 
 監視（cert / prod の 2 ブロックが縦に並ぶ。1280 幅で約 2,700px）:
 
-![監視](assets/dashboard-demo-monitor.png)
+![監視](../assets/dashboard-demo-monitor.png)
 
 記録:
 
-![記録](assets/dashboard-demo-records.png)
+![記録](../assets/dashboard-demo-records.png)
 
 判定（モックの記録から組み立て。DEMO バッジ）:
 
-![判定](assets/dashboard-demo-judge.png)
+![判定](../assets/dashboard-demo-judge.png)
 
 操作（ローカル面だけ）:
 
-![操作](assets/dashboard-demo-ops.png)
+![操作](../assets/dashboard-demo-ops.png)
 
 開発（ローカル面だけ。モックの起動状態と種まきのジョブ）:
 
-![開発](assets/dashboard-demo-dev.png)
+![開発](../assets/dashboard-demo-dev.png)

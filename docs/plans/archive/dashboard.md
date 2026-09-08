@@ -1,9 +1,9 @@
 # 管理画面を作る（実運用の監視と、開発時の検証の両方）
 
-起票: 2026-09-05（[TODO.md](../../TODO.md)「管理画面を作る」）。
+起票: 2026-09-05（[TODO.md](../../../TODO.md)「管理画面を作る」）。
 これが**このプロジェクト最初のアプリ実装**になる（今まではドキュメントと `experiments/` の調査コードだけ）。
 
-⚠ [vibeboard](../../vibeboard/) とは別物。あちらは `docs/` と `TODO.md` を見るローカル開発用。本件は**売買システムの管理画面**。
+⚠ [vibeboard](../../../vibeboard/) とは別物。あちらは `docs/` と `TODO.md` を見るローカル開発用。本件は**売買システムの管理画面**。
 
 ## 0. Phase 0 の決定（2026-09-05）
 
@@ -23,7 +23,7 @@ TODO に書かれていた論点を、着手前にここで確定する。
 
 ## 1. 目的と背景
 
-[tastytrade の API 検証](tastytrade-api-sample.md)で、6 手順の記録（`out/*.jsonl`）と会場に依存しないクライアント（`ttclient.py`）が揃った。
+[tastytrade の API 検証](../tastytrade-api-sample.md)で、6 手順の記録（`out/*.jsonl`）と会場に依存しないクライアント（`ttclient.py`）が揃った。
 今は記録を目で読み、6 観点の判定表を手で書いている。9/8（火）の市場時間の実行を控え、**「今どうなっているか」を見る場所**と、**記録から判定を自動で組み立てる仕組み**が要る。
 
 同時に、無人運転の前提を確かめるには**サーバ上で数日動かし続ける**必要がある（観点 A「refresh が無人で 1 営業日以上続く」は、放置して初めて測れる）。
@@ -94,7 +94,7 @@ flowchart TB
 
 ### 2-4. 判定の自動生成（Phase 1）
 
-[プラン §2-2](tastytrade-api-sample.md) の成立条件を、記録の値だけから ✅ / ⚠ / ❌ に落とす。
+[プラン §2-2](../tastytrade-api-sample.md) の成立条件を、記録の値だけから ✅ / ⚠ / ❌ に落とす。
 
 | 観点 | 記録のどこを見るか |
 | --- | --- |
@@ -171,17 +171,17 @@ flowchart TB
 ### Phase 6: 鍵なしで動かす（デモ） — 2026-09-07〜08、済み
 
 利用者の指示「まずはデザインの実装重視なのでキーなしで動くように」。資格情報が無いか `AIL_DEMO=1` なら、起動時にモックサーバを立てて
-監視をそこへ繋ぎ、全画面にモックのデータを出す（帯に「デモ」、データは `data/demo/` に分ける）。詳細は [dashboard-demo-mode.md](dashboard-demo-mode.md)、仕様は [dashboard.md §6-2](../specs/dashboard.md)。
+監視をそこへ繋ぎ、全画面にモックのデータを出す（帯に「デモ」、データは `data/demo/` に分ける）。詳細は [dashboard-demo-mode.md](dashboard-demo-mode.md)、仕様は [dashboard.md §6-2](../../specs/dashboard.md)。
 
 - Step 6-1: 設定（`AIL_DEMO` / 自動判定）・監視 2 本をモックへ・起動時のモック起動と記録の種まき・判定にモックを含める・帯。pytest 5 件を追加
-- Step 6-2: 開発機で起動し、5 画面のスクリーンショット（[assets/](assets/)）を利用者に見せた
+- Step 6-2: 開発機で起動し、5 画面のスクリーンショット（[assets/](../assets/)）を利用者に見せた
 
 ### Phase 7: 黒ベースでデザインを作り直す — 2026-09-08、済み
 
 利用者の指示「黒ベースでデザインを作り直して」。CSS を全面書き換え。色は**環境の色**（cert 緑 / prod 赤 / MOCK 紫。左の帯とバッジ）と
 **状態の色**（ok 緑 / warn 琥珀 / ng 赤 / 灰。チップ・判定セル・イベント）の 2 系統だけにし、地は青みの黒で明るさの段で層を作る。
 あわせて監視の 3 点（幅があれば cert と prod を横並び、注文表は折り返さず横スクロール、口座ストリーマの通知は枠の中でスクロール）。
-詳細と画面は [archive/dashboard-dark-design.md](archive/dashboard-dark-design.md)。
+詳細と画面は [archive/dashboard-dark-design.md](dashboard-dark-design.md)。
 
 - Step 7-1: `app/static/app.css` の全面書き換えと、監視テンプレートに class を 3 箇所
 - Step 7-2: 5 画面のスクリーンショットで確かめ、1 回直して（注文表のはみ出し、1280px での 2 列）利用者に見せた
@@ -211,7 +211,7 @@ flowchart TB
 | 7 黒ベースのデザイン | 1h（実績。2026-09-08 追加） |
 | **合計** | **約 13.5h**【推測】 |
 
-費用: **0 円**【推測】。g3plus は既存、tastytrade の API は無料（[trading-fee-comparison.md §4](../specs/trading-fee-comparison.md)）。
+費用: **0 円**【推測】。g3plus は既存、tastytrade の API は無料（[trading-fee-comparison.md §4](../../specs/trading-fee-comparison.md)）。
 
 ## 7. 未確定・リスク
 

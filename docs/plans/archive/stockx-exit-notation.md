@@ -1,8 +1,8 @@
 # スニーカー / StockX（§14-9）の出口表記と分類名を直す
 
-作成日: 2026-09-01。対象: [docs/specs/online-tradable-assets.md](../specs/online-tradable-assets.md) §14-9 の 3 箇所と、そこから波及する 8 箇所。
+作成日: 2026-09-01。対象: [docs/specs/online-tradable-assets.md](../../specs/online-tradable-assets.md) §14-9 の 3 箇所と、そこから波及する 8 箇所。
 
-⚠ **先行タスク [fx-cfd-exit-notation.md](archive/fx-cfd-exit-notation.md) の「§5 この作業では決めないこと」で別 TODO として起票された項目**である。同じ「出口=板」の数え方の問題だが、判断の中身（「同左」を板と読むか）が違うので分けた。
+⚠ **先行タスク [fx-cfd-exit-notation.md](fx-cfd-exit-notation.md) の「§5 この作業では決めないこと」で別 TODO として起票された項目**である。同じ「出口=板」の数え方の問題だが、判断の中身（「同左」を板と読むか）が違うので分けた。
 
 ## 1. 目的と背景
 
@@ -12,7 +12,7 @@ TODO の 1 行は、**互いに絡んだ 2 つの食い違い**を指してい�
 
 > 各分類の表の **『売る場所』列に「板」の文字を含むか**。ただし除外リスト（`板が無い` / `板ではない` / `板の厚みは未取得` / `掲示板方式`）に当たる行は数えない。
 
-grep で検算できるよう、あえて文字列マッチにしてある（[slides-overview-count-fix.md](archive/slides-overview-count-fix.md)）。⚠ **この規則が今回の問題の発生源である。**
+grep で検算できるよう、あえて文字列マッチにしてある（[slides-overview-count-fix.md](slides-overview-count-fix.md)）。⚠ **この規則が今回の問題の発生源である。**
 
 ### 問題 A — StockX の出口が「同左」
 
@@ -75,7 +75,7 @@ flowchart TB
 | 現在 | 同左 |
 | 修正後 | ⚠ **出品型。常設の買い注文があるかは未確認** |
 
-⚠ **板として数えない。**[market-data-availability.md](../specs/market-data-availability.md):306 はカードを TCGplayer の商品 ID 経由（L2 日足）で捉えており、**bid/ask があるという一次情報を当てていない**。「板」の字を含めないので、規則にも除外リストにも触れずに落ちる。
+⚠ **板として数えない。**[market-data-availability.md](../../specs/market-data-availability.md):306 はカードを TCGplayer の商品 ID 経由（L2 日足）で捉えており、**bid/ask があるという一次情報を当てていない**。「板」の字を含めないので、規則にも除外リストにも触れずに落ちる。
 
 #### 1-c. 分類名（`:1461`）
 

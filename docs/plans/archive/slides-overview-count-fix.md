@@ -1,6 +1,6 @@
 # 「11 分類の全体像」スライドの 68 件 / 28 件を、数え方を確定して直す
 
-作成日: 2026-09-01。対象: [docs/specs/online-tradable-assets-slides.html](../specs/online-tradable-assets-slides.html) の **「11 分類の全体像」1 枚のみ**（`data-title="11 分類の全体像"`、`docs/specs/online-tradable-assets-slides.html:239-289`）。
+作成日: 2026-09-01。対象: [docs/specs/online-tradable-assets-slides.html](../../specs/online-tradable-assets-slides.html) の **「11 分類の全体像」1 枚のみ**（`data-title="11 分類の全体像"`、`docs/specs/online-tradable-assets-slides.html:239-289`）。
 
 ## 1. 目的と背景
 

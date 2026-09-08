@@ -1,6 +1,6 @@
 # §14 の 96 件について、過去の取引データが取れるサービスと粒度を調べる
 
-作成日: 2026-09-01。対象: [docs/specs/online-tradable-assets-slides.html](../specs/online-tradable-assets-slides.html) に載っている **11 分類・96 件**（元文書は [docs/specs/online-tradable-assets.md](../specs/online-tradable-assets.md) §14）。
+作成日: 2026-09-01。対象: [docs/specs/online-tradable-assets-slides.html](../../specs/online-tradable-assets-slides.html) に載っている **11 分類・96 件**（元文書は [docs/specs/online-tradable-assets.md](../../specs/online-tradable-assets.md) §14）。
 
 ## 1. 目的と背景
 
@@ -292,4 +292,4 @@ flowchart LR
 | 3 | ⚠ **S6 は 11 件すべて個別調査**で、想定より伸びる可能性 | 3h を超えたら「公式 API の有無」だけで打ち切り、粒度は「未確認」で残す |
 | 4 | ⚠ **§14 側が更新されると 1:1 対応が崩れる** | 対応は「§14-x の n 行目」で持ち、検証 #1 で毎回検算する |
 | 5 | ⚠ **規約の解釈**（スクレイピング・再配布） | 判断せず、**規約の該当箇所を引用して残す**にとどめる |
-| 6 | **§14 全体像スライドの「68 件 / 28 件」が行単位の実数と合わない**件 | ✅ **2026-09-01 に解決済み**（[slides-overview-count-fix.md](archive/slides-overview-count-fix.md)）。⚠ **そこで確定した数え方をこのタスクでも引き継ぐ** — 「板があるか」は『売る場所』列が「板」を含むかだけで数え、**入口列は数え方に使わない**（表記が揺れて 49〜52 にぶれる）。板は **56 件** |
+| 6 | **§14 全体像スライドの「68 件 / 28 件」が行単位の実数と合わない**件 | ✅ **2026-09-01 に解決済み**（[slides-overview-count-fix.md](slides-overview-count-fix.md)）。⚠ **そこで確定した数え方をこのタスクでも引き継ぐ** — 「板があるか」は『売る場所』列が「板」を含むかだけで数え、**入口列は数え方に使わない**（表記が揺れて 49〜52 にぶれる）。板は **56 件** |

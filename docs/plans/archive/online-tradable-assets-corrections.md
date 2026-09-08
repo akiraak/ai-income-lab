@@ -1,7 +1,7 @@
 # online-tradable-assets.md の食い違いを直す
 
-作成日: 2026-08-31。対象: [docs/specs/online-tradable-assets.md](../specs/online-tradable-assets.md)。
-発端: スライド化（2026-08-29）の突合。突合表は [archive/online-tradable-assets-slides.md](archive/online-tradable-assets-slides.md) §9-3。
+作成日: 2026-08-31。対象: [docs/specs/online-tradable-assets.md](../../specs/online-tradable-assets.md)。
+発端: スライド化（2026-08-29）の突合。突合表は [archive/online-tradable-assets-slides.md](online-tradable-assets-slides.md) §9-3。
 
 ## 1. 目的
 

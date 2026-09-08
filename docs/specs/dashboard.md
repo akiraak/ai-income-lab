@@ -1,6 +1,6 @@
 # 管理画面（dashboard/）— 仕様とデプロイ契約
 
-作成: 2026-09-05 / プラン: [docs/plans/dashboard.md](../plans/dashboard.md) / コード: [dashboard/](../../dashboard/)
+作成: 2026-09-05 / プラン: [docs/plans/archive/dashboard.md](../plans/archive/dashboard.md) / コード: [dashboard/](../../dashboard/)
 
 売買システムの管理画面。**実運用の監視**（口座・注文・認証の残り時間・websocket の状態）と、
 **開発時の検証**（記録の閲覧・差分・6 観点の自動判定・モックと手順の実行）を 1 つのアプリで持つ。

@@ -1,7 +1,7 @@
 # API で売買可能なサービスの手数料と、Web の多くのサービスの手数料を比較する
 
 作成日: 2026-09-02。
-対象: [docs/specs/trading-api-availability.md](../specs/trading-api-availability.md) 付録 A で **発注 API が A0〜A1** になった提供元（API 側）と、**Web 画面だけで売買する主要サービス**（Web 側）。商品クラスは同文書の P1〜P5 ＋ V3〜V6 の区分を引き継ぐ。
+対象: [docs/specs/trading-api-availability.md](../../specs/trading-api-availability.md) 付録 A で **発注 API が A0〜A1** になった提供元（API 側）と、**Web 画面だけで売買する主要サービス**（Web 側）。商品クラスは同文書の P1〜P5 ＋ V3〜V6 の区分を引き継ぐ。
 
 ## 1. 目的と背景
 

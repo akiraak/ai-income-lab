@@ -1,7 +1,7 @@
 # API が使用できるサービスの信用度を調査する
 
 作成日: 2026-09-03。
-対象: [docs/specs/trading-api-availability.md](../specs/trading-api-availability.md) 付録 A で **発注 API が A0〜A1** になった提供元 **21**（[trading-fee-comparison.md](../specs/trading-fee-comparison.md) §2-1 と同じ母集団）。
+対象: [docs/specs/trading-api-availability.md](../../specs/trading-api-availability.md) 付録 A で **発注 API が A0〜A1** になった提供元 **21**（[trading-fee-comparison.md](../../specs/trading-fee-comparison.md) §2-1 と同じ母集団）。
 
 ## 1. 目的と背景
 

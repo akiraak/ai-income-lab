@@ -1,6 +1,6 @@
 # online-tradable-assets.md の商品リストをスライドショーにする
 
-作成日: 2026-08-29。対象: [docs/specs/online-tradable-assets.md](../specs/online-tradable-assets.md) の **§14 のみ**（一覧・11 分類・96 件）。
+作成日: 2026-08-29。対象: [docs/specs/online-tradable-assets.md](../../specs/online-tradable-assets.md) の **§14 のみ**（一覧・11 分類・96 件）。
 
 ## 1. 目的とスコープ
 

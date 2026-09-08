@@ -1,7 +1,7 @@
 # 管理画面（dashboard）
 
 売買システムの管理画面。**実運用の監視**と**開発時の検証**の両方。仕様と権限の設計は
-[docs/specs/dashboard.md](../docs/specs/dashboard.md)、プランは [docs/plans/dashboard.md](../docs/plans/dashboard.md)。
+[docs/specs/dashboard.md](../docs/specs/dashboard.md)、プランは [docs/plans/archive/dashboard.md](../docs/plans/archive/dashboard.md)。
 
 `experiments/tastytrade-api-sample/` の `ttclient.py` / `record.py` を import して使う（コピーしない）。
 記録（`out/*.jsonl`）をそのまま読む。

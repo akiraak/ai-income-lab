@@ -1,5 +1,13 @@
 # DONE
 
+- 2026-09-08 vibeboard の Tasks 画面に「追加の指示（任意）」のテキスト入力を足した（実行ボタンの上。空欄なら今までどおり）
+  - プラン: [docs/plans/archive/vibeboard-tasks-freetext.md](docs/plans/archive/vibeboard-tasks-freetext.md) / 実装先: upstream akiraak/vibeboard（`/home/ubuntu/vibeboard`）。利用者の指示「実行ボタンの上にテキストフィールドを配置する。空欄なら今までと同じように実行する」から
+  - 画面: 送り先の行とボタンの行のあいだに `textarea`。**空欄なら `note` を送らないので文面は今までと同じ**。Ctrl+Enter で実行、打ちかけはタスクの id ごとにメモリへ持つ（TODO.md が外で変わって描き直しても消えない）。削除には効かない
+  - 文面: `src/todo.ts` の `sanitizeNote`（改行とタブは残し、他の制御文字を落として trim）と `appendNote`（末尾に「追加の指示:」の節 ＋「食い違うときは追加の指示を優先」の 1 行）。実行 / プラン作成 / 説明のどれにも同じように付く
+  - ⚠ **「文面はサーバが組み、ブラウザからは id と決め打ちの種別しか受けない」という設計を一段ゆるめた**。bind は `127.0.0.1` 固定というローカル前提で許容し、4000 字を超える入力はサーバが 400 で断る（README の「Tasks タブの仕組み」の制約も直した）
+  - 検証: `npm test` 48 件 pass（新規 3 件）。3019 の使い捨てインスタンスで、`listen` の待ち受けに届いた文面を実際に見て「追加の指示つき / 空欄なら今までと同じ / 4000 字超は 400」を確認。playwright で画面も見て、並び（送り先 → 追加の指示 → 実行）・Ctrl+Enter・説明にも付くこと・描き直しで打ちかけが残ることを確認（console error 無し）
+  - ⚠ **サーバ側が変わるので、動いている vibeboard は起動し直すまで `note` を無視する**（今までどおりの文面が届く）。ai-income-lab の vendor へは `update --from` で取り込み済み。**3010 の起動し直しは利用者**（端末の前面で動いているため）。daily-note への配布は未実施
+
 - 2026-09-08 管理画面を鍵なしで動くようにし（デモ）、黒ベースで作り直した。g3plus でもデモで稼働し始めた
   - プラン: [docs/plans/dashboard-demo-mode.md](docs/plans/archive/dashboard-demo-mode.md)（デモ）/ [docs/plans/archive/dashboard-dark-design.md](docs/plans/archive/dashboard-dark-design.md)（黒ベース。画面つき）。本体プラン [dashboard.md](docs/plans/archive/dashboard.md) に Phase 6・7 として反映。仕様は [dashboard.md §6-2](docs/specs/dashboard.md)
   - デモ（Phase 6）: 資格情報が無いか `AIL_DEMO=1` なら、起動時にモックサーバを立てて監視を cert / prod ともそこへ繋ぎ、記録が無ければ 6 手順を 1 回流して全画面を埋める。データは `data/demo/` に分け、判定はモックの記録を含めて組み立てる（DEMO バッジ）。利用者の指示「まずはデザインの実装重視なのでキーなしで動くように」から

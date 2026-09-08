@@ -1,5 +1,10 @@
 # DONE
 
+- 2026-09-07 vibeboard の更新（再 degit → `npm install` → `vibeboard init` → 起動し直し）を `vibeboard update` の 1 コマンドにした
+  - プラン: [docs/plans/archive/vibeboard-update-command.md](docs/plans/archive/vibeboard-update-command.md) / 実装先: upstream akiraak/vibeboard `ff131d4`（同日 push）。利用者の「これは自動化できない？」（daily-note 側の取り込みと 3011 の起動し直しが手作業で残っていた）から
+  - `node vibeboard/dist/cli.js update [--restart] [--ref <tag>] [--from <dir>] [--dry-run]`。GitHub から degit（`--from` ならローカルの開発クローン）→ `<root>/vibeboard` へ同期（`node_modules` / `dist` は残し、上流に無いファイルは消す）→ `npm install` → `init` → `--restart` で同じ root の vibeboard を detached で起動し直す（ポートガードが古い方を止め、pid ファイルと HTTP 応答で新しい方を待つ）。`run-vibeboard.sh --update` は同じことをしてから前面で起動（postinstall に自分を上書きされるので本体を関数に包んだ）
+  - 検証: `npm test` 44 件 pass（新規 3 件）。daily-note を `update --from /home/ubuntu/vibeboard --restart` で更新し、3011 が新しい pid（361939、detached）で応答、CLAUDE.md のスニペットも置き換わった。ai-income-lab は `update --from` で取り込み（vendor は upstream と同一。CLAUDE.md に更新コマンドの 1 行が入った）。**3010 は利用者の端末の前面で動いているので起動し直していない**（古いままでも動作に支障は無い。`update` コマンドが無いだけ）
+
 - 2026-09-07 vibeboard の Tasks タブに「プラン作成」ボタンを足した（実行 / プラン作成 / 説明 / 削除）
   - プラン: [docs/plans/archive/vibeboard-tasks-plan-button.md](docs/plans/archive/vibeboard-tasks-plan-button.md) / 実装先: upstream akiraak/vibeboard `049483f`（同日 push）。このリポジトリは再 degit → `npm install` → `vibeboard init` で取り込んだ（CLAUDE.md の vibeboard 節が 4 ボタンと pid 経路の説明に置き換わった）
   - 文面は `todo.ts` の `buildPlanPrompt`: 作業着手ルール 1〜3（`docs/plans/<task-name>.md` を作る → `TODO.md` のこのタスクにリンク → Phase / Step を子タスクに）＋「実装には着手しない。TODO.md の変更はリンクと子タスクの追加だけ。DONE.md にも移さない」。経路は 実行 / 説明 と同じ `POST /api/tasks/run`（`kind: plan`）で、キューは種別を残す

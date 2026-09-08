@@ -166,6 +166,25 @@ flowchart TB
 - Step 5-2: `g3plus-ops/ail-dashboard/` の compose・Dockerfile・`.env.example`、`.gitignore`。開発機で `docker build` が通ることを確認
 - Step 5-3: `docs/workflows/ail-dashboard.md`、CLAUDE.md の 4 箇所
 - Step 5-4: ⚠ **サーバへの転送・起動・Cloudflare は利用者の判断で**。順序は「Access → `.env` → Tunnel hostname」。公開前に新しいホスト名を DNS で引かない
+  - 2026-09-07: clone・転送・起動まで済み（loopback 面・資格情報なし、healthy）。資格情報と Cloudflare が残り（利用者）
+
+### Phase 6: 鍵なしで動かす（デモ） — 2026-09-07〜08、済み
+
+利用者の指示「まずはデザインの実装重視なのでキーなしで動くように」。資格情報が無いか `AIL_DEMO=1` なら、起動時にモックサーバを立てて
+監視をそこへ繋ぎ、全画面にモックのデータを出す（帯に「デモ」、データは `data/demo/` に分ける）。詳細は [dashboard-demo-mode.md](dashboard-demo-mode.md)、仕様は [dashboard.md §6-2](../specs/dashboard.md)。
+
+- Step 6-1: 設定（`AIL_DEMO` / 自動判定）・監視 2 本をモックへ・起動時のモック起動と記録の種まき・判定にモックを含める・帯。pytest 5 件を追加
+- Step 6-2: 開発機で起動し、5 画面のスクリーンショット（[assets/](assets/)）を利用者に見せた
+
+### Phase 7: 黒ベースでデザインを作り直す — 2026-09-08、済み
+
+利用者の指示「黒ベースでデザインを作り直して」。CSS を全面書き換え。色は**環境の色**（cert 緑 / prod 赤 / MOCK 紫。左の帯とバッジ）と
+**状態の色**（ok 緑 / warn 琥珀 / ng 赤 / 灰。チップ・判定セル・イベント）の 2 系統だけにし、地は青みの黒で明るさの段で層を作る。
+あわせて監視の 3 点（幅があれば cert と prod を横並び、注文表は折り返さず横スクロール、口座ストリーマの通知は枠の中でスクロール）。
+詳細と画面は [archive/dashboard-dark-design.md](archive/dashboard-dark-design.md)。
+
+- Step 7-1: `app/static/app.css` の全面書き換えと、監視テンプレートに class を 3 箇所
+- Step 7-2: 5 画面のスクリーンショットで確かめ、1 回直して（注文表のはみ出し、1280px での 2 列）利用者に見せた
 
 ## 5. テスト方針
 
@@ -188,7 +207,9 @@ flowchart TB
 | 3 操作 | 2h |
 | 4 開発時の検証 | 1.5h |
 | 5 デプロイ設定と手順書 | 1.5h |
-| **合計** | **約 11h**【推測】 |
+| 6 デモ（鍵なし）| 1.5h（実績。2026-09-08 追加） |
+| 7 黒ベースのデザイン | 1h（実績。2026-09-08 追加） |
+| **合計** | **約 13.5h**【推測】 |
 
 費用: **0 円**【推測】。g3plus は既存、tastytrade の API は無料（[trading-fee-comparison.md §4](../specs/trading-fee-comparison.md)）。
 
@@ -202,3 +223,5 @@ flowchart TB
 | 4 | Cloudflare の設定と DNS は利用者の手作業 | 手順を `docs/workflows/ail-dashboard.md` に書く |
 | 5 | 監視ループが本番の API を叩き続ける | 30 秒間隔・照会のみ（1 分あたり 8 回程度）。E の実測（60 回/分で 429 なし）の範囲内 |
 | 6 | sandbox は 24 時間でリセットされる | 監視の cert 側は注文・建玉が消えることを前提に表示する |
+| 7 | ⚠ デモの「働いている注文」に Cancelled / Filled が並ぶ（モックが全注文を返す） | 本物の `live-orders` は働いている注文だけ。状態の色分けを見るには好都合なので、モック側は直さない |
+| 8 | 開発機の `.env` からサーバへ資格情報を写す操作は Claude Code の分類器が止める（2026-09-07） | 写すのは利用者。sandbox の `TT_*` は写してよい、本番は read だけの grant を別に切る |

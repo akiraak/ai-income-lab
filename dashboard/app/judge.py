@@ -202,9 +202,10 @@ def judge_sdk(runs: list[Run]) -> dict:
 # ---------------------------------------------------------------- まとめ
 
 
-def judge(runs: list[Run], monitor_events: list[dict]) -> dict:
-    real = [r for r in runs if not r.mock]
-    monitor_events = [e for e in monitor_events if not e.get("mock")]
+def judge(runs: list[Run], monitor_events: list[dict], include_mock: bool = False) -> dict:
+    """include_mock はデモ用。モックの記録・イベントも材料にする（本物の判定には使わない）。"""
+    real = list(runs) if include_mock else [r for r in runs if not r.mock]
+    monitor_events = list(monitor_events) if include_mock else [e for e in monitor_events if not e.get("mock")]
     auth_events = [e for e in monitor_events if e.get("kind") in ("refresh_ok", "refresh_fail")]
     venues = sorted({r.venue for r in real} | {e.get("venue") for e in auth_events if e.get("venue")})
     cells: dict[str, dict] = {}
@@ -229,7 +230,9 @@ def judge(runs: list[Run], monitor_events: list[dict]) -> dict:
         "venues": venues,
         "aspects": ASPECTS,
         "cells": cells,
-        "excluded_mock_runs": sum(1 for r in runs if r.mock),
+        "excluded_mock_runs": 0 if include_mock else sum(1 for r in runs if r.mock),
+        "included_mock_runs": sum(1 for r in runs if r.mock) if include_mock else 0,
+        "demo": include_mock,
         "real_runs": len(real),
         "monitor_events": len(monitor_events),
     }

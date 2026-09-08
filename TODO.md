@@ -81,7 +81,18 @@
   - [x] Phase 4: 開発時の検証
     - モックサーバの起動・停止、`selftest.sh` の実行と結果表示
     - 手順を選んで実行し、結果をその場で記録に落とす
-  - [~] Phase 5: g3plus に載せる（[g3plus-ops の新規サービス チェックリスト](../g3plus-ops/CLAUDE.md)に従う）— **契約・Dockerfile・compose・`.env.example`・手順書・CLAUDE.md 4 箇所・`.gitignore` は済み（g3plus-ops は未コミット）。転送・起動・Cloudflare は未実施**
+  - [x] Phase 7（2026-09-08）: 黒ベースでデザインを作り直す [plan](docs/plans/archive/dashboard-dark-design.md)
+    - [x] Step 1: CSS の全面書き換え（環境の色と状態の色の 2 系統、明るさの段）と監視画面の 3 点（横並び・注文表・通知の枠）（2026-09-08）
+    - [x] Step 2: 5 画面のスクリーンショットで確かめ、1 回直して利用者に見せる（2026-09-08。注文表がカードからはみ出していたのを横スクロールに、1280px でも 2 列になるよう最小幅を 600px に）
+  - [x] Phase 6（2026-09-07）: 鍵なしで動かす — デモ（モックのデータで全画面を出す） [plan](docs/plans/dashboard-demo-mode.md)
+    - 利用者の指示: 「まずはデザインの実装重視なのでキーなしで動くようにして」。資格情報が無ければ自動で、`AIL_DEMO=1` なら強制でデモ
+    - [x] Step 1: 設定・監視・起動時のモック起動と記録の種まき・判定・帯・テスト（2026-09-08。pytest 24 件 pass）
+    - [x] Step 2: 開発機で起動して 5 画面のスクリーンショットを取り、利用者に見せる（2026-09-08。`dashboard/.env` に `AIL_DEMO=1` / `AIL_AUTH_MODE=local`。http://127.0.0.1:3012 で表示中）
+  - [~] Phase 5: g3plus に載せる（[g3plus-ops の新規サービス チェックリスト](../g3plus-ops/CLAUDE.md)に従う）— **2026-09-07: サーバへの clone・転送・起動まで済み（loopback 面・資格情報なし。healthy、ホストポート非公開、外から 403）。残りは資格情報と Cloudflare で、どちらも利用者が行う**
+    - [x] サーバに `git clone` → `.env`（`AIL_AUTH_MODE=loopback`、`TT_*` 空）を scp → `docker compose up -d --build` → 確認（2026-09-07 23:13 PT。`envs=[]` で起動、監視ループは何も繋いでいない）
+    - [ ] **`.env` に資格情報を入れて `up -d`**（利用者）。sandbox の `TT_*` は開発機の `experiments/tastytrade-api-sample/.env` を写してよい（金銭は動かない）。本番は my.tastytrade.com で **read スコープだけの grant** を別に切って `TT_PROD_*` に。⚠ 開発機の `.env` からサーバへ資格情報を送る操作は Claude Code の分類器が止めるので、写すのも利用者
+    - [ ] **Cloudflare**（利用者。手順は [g3plus-ops/docs/workflows/ail-dashboard.md](../g3plus-ops/docs/workflows/ail-dashboard.md)）: ① Access アプリ（Google、Emails=akiraak@gmail.com）で AUD を控える → ② `.env` に `CF_ACCESS_TEAM` / `CF_ACCESS_AUD` / `CF_ACCESS_EMAIL` と `AIL_AUTH_MODE=cloudflare` を入れて `up -d` → ③ Tunnel hostname（案 `lab.chobi.me`。Service `http://ail-dashboard:3012`）→ ④ ホスト全体 Bypass の Cache Rule。⚠ 公開前にホスト名を DNS で引かない
+    - [ ] 公開後の確認: Google 認証を通って監視画面が出る、`/ops` `/dev` が 404、停止ボタンが `HALT` を書く、秘密が画面・ログに出ていない
     - **デプロイ契約**（Docker のベース・起動コマンド・必須 env・永続化先）を ai-income-lab 側の `docs/specs/` に書く ← 規約上、契約の正本はアプリ側
     - `g3plus-ops/<service>/` に `docker-compose.yml` / `Dockerfile` / `.env` / `.env.example`。**`networks: [n8n_default]`（external）に参加**、`restart: unless-stopped`、ログ上限、secret は `env_file`
     - ⚠ **`ports:` でホスト公開しない**（到達できるのは同じ network の cloudflared だけ。discord-manager と同じ形）

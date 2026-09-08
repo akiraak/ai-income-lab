@@ -16,6 +16,8 @@ DASHBOARD_DIR = Path(__file__).resolve().parents[1]
 REPO_ROOT = DASHBOARD_DIR.parent
 VERSION = "0.1.0"
 AUTH_MODES = ("loopback", "local", "cloudflare")
+# モックサーバ（experiments/tastytrade-api-sample/mock_server.py）のポート。開発画面とデモが共用する
+MOCK_PORTS = (8765, 8766, 8767)
 
 
 class ConfigError(RuntimeError):
@@ -53,12 +55,33 @@ class Settings:
     poll_seconds: float
     tt: dict[str, str] = field(default_factory=dict)
     version: str = VERSION
+    # デモ: 資格情報が無い（または AIL_DEMO=1）とき、本物には繋がずモックのデータで全画面を出す
+    demo: bool = False
 
     # ---- 派生 ----
     @property
     def face(self) -> str:
         """公開面（cloudflare）かローカル面か。操作・開発の経路はローカル面でしか出さない。"""
         return "public" if self.auth_mode == "cloudflare" else "local"
+
+    @property
+    def mock_rest_base(self) -> str:
+        return f"http://127.0.0.1:{MOCK_PORTS[0]}"
+
+    @property
+    def mock_account_streamer(self) -> str:
+        return f"ws://127.0.0.1:{MOCK_PORTS[1]}"
+
+    def demo_credentials(self, env: str) -> dict:
+        """デモの監視が使う資格情報。値はモック用の印で、本物の口座には一切届かない。"""
+        return {
+            "client_id": None,
+            "client_secret": f"DEMO-{env.upper()}-CLIENT-SECRET",
+            "refresh_token": f"DEMO-{env.upper()}-REFRESH-TOKEN",
+            "rest_base": self.mock_rest_base,
+            "account_streamer": self.mock_account_streamer,
+            "account_number": None,
+        }
 
     @property
     def monitor_dir(self) -> Path:
@@ -150,6 +173,20 @@ def load_settings(environ: dict | None = None) -> Settings:
 
     tt = {k: v for k, v in env.items() if k.startswith("TT_")}
 
+    # デモ: AIL_DEMO で強制（1 / 0）。未指定なら「資格情報が 1 つも無い」ときに自動でデモ
+    has_creds = bool((tt.get("TT_PROD_CLIENT_SECRET") and tt.get("TT_PROD_REFRESH_TOKEN")) or (tt.get("TT_CLIENT_SECRET") and tt.get("TT_REFRESH_TOKEN")))
+    demo_flag = (env.get("AIL_DEMO") or "").strip().lower()
+    if demo_flag in ("1", "true", "yes", "on"):
+        demo = True
+    elif demo_flag in ("0", "false", "no", "off"):
+        demo = False
+    else:
+        demo = not has_creds
+    if demo:
+        # デモのデータ（記録・監視ログ・ジョブ・操作履歴）は本物と混ぜない
+        data_dir = data_dir / "demo"
+        records_dir = Path(env.get("AIL_RECORDS_DIR") or data_dir / "records").resolve()
+
     settings = Settings(
         auth_mode=auth_mode,
         cf_team=cf["CF_ACCESS_TEAM"],
@@ -164,6 +201,7 @@ def load_settings(environ: dict | None = None) -> Settings:
         symbol=(env.get("AIL_SYMBOL") or "SPY").upper(),
         poll_seconds=float(env.get("AIL_POLL_SECONDS") or 30),
         tt=tt,
+        demo=demo,
     )
     return settings
 

@@ -1,5 +1,10 @@
 # DONE
 
+- 2026-09-08 vibeboard で画像を見られるようにした（Plans の Markdown 内画像は既に表示できることを確認、Files タブに画像プレビューを追加）
+  - プラン: [docs/plans/archive/vibeboard-image-preview.md](docs/plans/archive/vibeboard-image-preview.md) / 実装先: upstream akiraak/vibeboard（Files タブで png / jpg / gif / webp / svg / bmp / avif を `/files` 経由で表示、寸法のキャプション付き）。ai-income-lab と daily-note に `vibeboard update --from --restart`
+  - Plans 側は upstream の `rewriteRelativeAssetUrls` が `![](assets/x.png)` を `/files/docs/plans/assets/x.png` に書き換えるので変更なし。管理画面のデモ 5 画面の PNG（計 1.2 MB）を `docs/plans/assets/` に置き、[dashboard-demo-mode.md](docs/plans/dashboard-demo-mode.md) から参照した
+  - 検証: 3019 の使い捨てインスタンスに playwright で入り、プランの 5 枚が読み込まれ（naturalWidth > 0）、Files タブで PNG が 1312 × 2677 のキャプション付きで出ることを確認
+
 - 2026-09-07 オンラインで売買したときの納税を調べた（米国連邦 ＋ WA 州 ＋ 日本側の確認）
   - プラン: [docs/plans/archive/trading-tax.md](docs/plans/archive/trading-tax.md) / 成果物: [docs/specs/trading-tax.md](docs/specs/trading-tax.md)（Phase 0〜5、利用者の確認欄、出典 60 件超。取得日はすべて 2026-09-07）。一次情報は連邦 / WA 州 / 日本側 / 資産の種類 の 4 系統に分けて並行で当たった
   - 連邦【公表値】: 長期 0/15/20% の境目（2025 Single $48,350 / $533,400、2026 $49,450 / $545,500）、wash sale は IRA・別口座まで及ぶがブローカーの報告は同一口座・同一 CUSIP だけ、NIIT 3.8%（$200,000 Single、非インデックス）、予定納税の safe harbor（90% / 100%、AGI $150,000 超は 110%）、TTS と §475(f)（前年の申告期限までに声明、撤回は IRS の同意）、$3,000 制限、1099-DA（2025 年の売却から総収入、2026 年取得分から取得価額）、§1256 60/40、コレクティブル 28%、1099-K は $20,000 超かつ 200 件超（OBBBA で復元）

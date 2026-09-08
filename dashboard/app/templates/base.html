@@ -36,6 +36,9 @@
     <button class="btn btn-danger" {% if halt.halted %}disabled{% endif %}>■ 停止</button>
   </form>
 </div>
+{% if demo %}
+<div class="demobar">🧪 <b>デモ</b> — 資格情報が無い（または <code>AIL_DEMO=1</code>）ので、手元のモックサーバのデータを表示している。tastytrade には繋いでいない。記録・監視ログは <code>data/demo/</code> に分けて置く</div>
+{% endif %}
 {% if halt.halted %}
 <div class="haltbar">⛔ <b>停止中（HALT）</b> {{ halt.since|pt }} · {{ halt.actor }} {% if halt.reason %}· {{ halt.reason }}{% endif %} — 発注系はすべて拒否される{% if face == 'local' %}。解除は <a href="/ops">操作</a> から{% endif %}</div>
 {% endif %}

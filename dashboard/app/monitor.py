@@ -580,10 +580,15 @@ class Monitors:
     def __init__(self, settings: Settings, redactor: Redactor, events: EventLog) -> None:
         self.settings = settings
         self.items: dict[str, EnvMonitor] = {}
-        for env in ("cert", "prod"):
-            creds = settings.credentials(env)
-            if creds:
-                self.items[env] = EnvMonitor(env, creds, settings, redactor, events)
+        if settings.demo:
+            # デモ: 資格情報があっても本物には繋がず、cert / prod ともモックを相手にする（MOCK バッジが付く）
+            for env in ("cert", "prod"):
+                self.items[env] = EnvMonitor(env, settings.demo_credentials(env), settings, redactor, events)
+        else:
+            for env in ("cert", "prod"):
+                creds = settings.credentials(env)
+                if creds:
+                    self.items[env] = EnvMonitor(env, creds, settings, redactor, events)
         self._tasks: list[asyncio.Task] = []
 
     async def start(self) -> None:

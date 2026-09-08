@@ -163,19 +163,39 @@ def create_app(settings: Settings | None = None, start_monitors: bool = True) ->
     monitors = Monitors(settings, redactor, events)
     ops = Ops(settings, monitors, redactor, events)
     dev = DevTools(settings, redactor) if settings.face == "local" else None
+    # デモ（資格情報なし / AIL_DEMO=1）は起動時にモックを立てて監視をそこへ繋ぐ。公開面でも同じ（開発画面は出ない）
+    from .devtools import MockServer
+
+    mock = dev.mock if dev else (MockServer(settings.sample_dir, settings.sample_python, settings.jobs_dir) if settings.demo else None)
     csrf = secrets.token_urlsafe(24)
+
+    def start_demo() -> None:
+        """モックを立て、記録が無ければ 1 回だけ 6 手順を流して記録・約定・通知を作る（ローカル面だけ。ジョブとして開発画面に出る）。"""
+        try:
+            if not mock.running():
+                mock.start(True)
+        except DevError as e:
+            log.warning("デモ: モックが起動できない: %s", e)
+            return
+        if dev and not load_runs(settings.records_dir):
+            try:
+                dev.run_step("cert", "all", 8.0, use_mock=True)
+            except DevError as e:
+                log.warning("デモ: 記録の種まきに失敗: %s", e)
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
-        log.info("管理画面 起動: mode=%s face=%s records=%s envs=%s", settings.auth_mode, settings.face, settings.records_dir, list(monitors.items))
+        log.info("管理画面 起動: mode=%s face=%s records=%s envs=%s demo=%s", settings.auth_mode, settings.face, settings.records_dir, list(monitors.items), settings.demo)
+        if settings.demo and start_monitors and mock is not None:
+            await asyncio.to_thread(start_demo)
         if start_monitors:
             await monitors.start()
         try:
             yield
         finally:
             await monitors.stop()
-            if dev:
-                dev.mock.stop()
+            if mock is not None:
+                mock.stop()
 
     app = FastAPI(title="ai-income-lab 管理画面", docs_url=None, redoc_url=None, openapi_url=None, lifespan=lifespan)
     app.state.settings = settings
@@ -220,6 +240,7 @@ def create_app(settings: Settings | None = None, start_monitors: bool = True) ->
             "symbol": settings.symbol,
             "records_dir": str(settings.records_dir),
             "dev_available": dev is not None,
+            "demo": settings.demo,
         }
         base.update(ctx)
         return templates.TemplateResponse(request, name, redactor(base))
@@ -293,13 +314,13 @@ def create_app(settings: Settings | None = None, start_monitors: bool = True) ->
     @app.get("/judge", response_class=HTMLResponse)
     async def judge_page(request: Request):
         runs = load_runs(settings.records_dir)
-        result = run_judge(runs, events.load())
+        result = run_judge(runs, events.load(), include_mock=settings.demo)
         return render(request, "judge.html", page="judge", judge=result)
 
     @app.get("/api/judge")
     async def api_judge(request: Request):
         runs = load_runs(settings.records_dir)
-        return JSONResponse(redactor(run_judge(runs, events.load())))
+        return JSONResponse(redactor(run_judge(runs, events.load(), include_mock=settings.demo)))
 
     # ---------------- 停止（両面）
 

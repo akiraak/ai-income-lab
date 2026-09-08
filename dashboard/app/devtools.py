@@ -22,7 +22,7 @@ from pathlib import Path
 
 import requests
 
-from .config import Settings
+from .config import MOCK_PORTS, Settings
 from .masking import Redactor
 from .monitor import utcnow_iso
 
@@ -42,7 +42,6 @@ STEP_MENU = [
     ("probe", "本番の読み取りプローブ（TT_PROD_* のみ使用）"),
     ("dryrun", "本番の dry-run（TT_ALLOW_PROD_DRY_RUN=1 が要る）"),
 ]
-MOCK_PORTS = (8765, 8766, 8767)
 SELFTEST_PORTS = (8775, 8776, 8777)
 
 

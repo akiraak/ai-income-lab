@@ -1,9 +1,9 @@
 {% extends "base.html" %}
 {% block content %}
-<h2>6 観点の判定 <span class="muted small">記録から自動生成 · 実測 {{ judge.real_runs }} 実行（モック {{ judge.excluded_mock_runs }} 実行は除外）· 監視イベント {{ judge.monitor_events }} 件</span></h2>
+<h2>6 観点の判定 {% if judge.demo %}<span class="badge badge-mock">DEMO</span>{% endif %} <span class="muted small">記録から自動生成 · {% if judge.demo %}モックの記録 {{ judge.included_mock_runs }} 実行から組み立て（本物の判定には使わない）{% else %}実測 {{ judge.real_runs }} 実行（モック {{ judge.excluded_mock_runs }} 実行は除外）{% endif %}· 監視イベント {{ judge.monitor_events }} 件</span></h2>
 <p class="muted small">成立条件は「無人で 1 営業日回る」。✅ / ⚠ / ❌ に加えて ⏳ は未実測。各セルに根拠の run と手順を付ける。</p>
 {% if not judge.venues %}
-<p class="muted">実測の記録が無い（モックの記録は判定に使わない）。</p>
+<p class="muted">{% if judge.demo %}まだ記録が無い（デモの種まきが終わると出る。数十秒）。{% else %}実測の記録が無い（モックの記録は判定に使わない）。{% endif %}</p>
 {% else %}
 <table class="judge">
 <tr><th>観点</th><th>✅ の条件</th>{% for v in judge.venues %}<th>{{ v }}</th>{% endfor %}</tr>

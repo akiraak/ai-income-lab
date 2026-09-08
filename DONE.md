@@ -1,5 +1,18 @@
 # DONE
 
+- 2026-09-07 vibeboard の Tasks タブに「commit & push」を足した（左ペインの上の「プロジェクト全体」の帯。タスクには紐づかない）
+  - プラン: [docs/plans/archive/vibeboard-tasks-commit-button.md](docs/plans/archive/vibeboard-tasks-commit-button.md) / 実装先: upstream akiraak/vibeboard `2429536` → `866b395`（同日 push）。ai-income-lab と daily-note に `vibeboard update --from` で配布（3011 は起動し直し済み）
+  - 置き場所は 2 度直した: タスクのボタン列 → タスク画面の下の区画 → **左ペインの上の帯**（upstream `866b395` → 最終 `5caca18`）。`id` を送らず（`POST /api/tasks/run` に `kind: commit` だけ）、文面にもタスクの文脈を入れない。送り先は右の画面の選択を借り（無ければサーバが 1 つに絞れるときだけ送る）、結果はトーストで出す。実物への投函は playwright で `/api/tasks/run` を横取りして本文（`kind: commit` ＋ `sessionId`）だけを確かめた
+  - 文面は `todo.ts` の `buildCommitPrompt()`: `git status` / `diff` で確かめ（まとまりの違う変更は分けるか 1 つにするかを書き残す）、済んだタスクを DONE.md へ移してから、変更内容からメッセージを書いてコミット → push。秘密（`.env`・資格情報・トークン）は含めない。ブランチ / push 先の決まりは CLAUDE.md に従う。vibeboard 自身は git を叩かない
+  - `TaskKind` の一覧を `TASK_KINDS` にまとめ、サーバの受け付けとキューの読み直しが同じ集合を見るようにした。`npm test` 45 件 pass。3019 で起動した実物に `kind: commit`（id 無し）が通り、`run` は id 無しで 400 のままなことを確認
+  - ⚠ **サーバ側が変わったので、3010 は起動し直すまで古いまま**（古いサーバは `commit` を `run` に丸め、しかも id が無いので 400 になる）。起動し直しは利用者
+
+- 2026-09-07 vibeboard の Tasks タブの左のタスク一覧を、折り畳みツリー（親は濃い字、子は縦線）に作り直した
+  - プラン: [docs/plans/archive/vibeboard-tasks-sidebar.md](docs/plans/archive/vibeboard-tasks-sidebar.md) / モック: [docs/plans/assets/vibeboard-tasks-sidebar-mock.html](docs/plans/assets/vibeboard-tasks-sidebar-mock.html)（現状 ＋ 4 案を、この TODO.md の実データで並べたもの） / 実装先: upstream akiraak/vibeboard `4466e0d`（同日 push）
+  - 選び方: 4 案（折り畳み / ツリー線 / カード / アウトライン）を HTML のモックにして利用者が見比べ、**案 1（折り畳み）を土台に、親の行の色を変え、案 2 の縦線を足す**と決めた。モックは白背景固定（vibeboard 本体にダークテーマが無い）、`<meta charset>` 無しで文字化けした経緯あり
+  - 実装: `renderTasksSidebar` を `paintTasksSidebar`（描画）と分け、親だけ並べて `▸` で開く。開いた親 / 手で閉じた親は `localStorage`（`vibeboard.tasksTree`）に覚え、**選択が変わったときだけ**その枝を開く（同じ選択のまま手で閉じたものは閉じたまま）。閉じた枝の中のタスクへ飛んだときは描き直して開く。文面は 1 行に切って全文は title、右の数字は子孫の 済/全部、`◐` 進行中（琥珀）、`－` 中止（打ち消し線）。済んだ親でも済んでいない子孫があれば足場として残す
+  - 検証: `npm test` 44 件 pass。3019 で起動した実物に playwright で入り、39 タスクが 16 行（親 5）に畳まれ、開閉・記憶・別の枝への遷移・再読み込み後の保持が動き、console error 無し。web は `src/web` を静的配信しているので、`vibeboard update` で取り込んだ時点で **動いている 3010 も再読み込みだけで新しい一覧になる**（サーバ側は無変更）。daily-note は `--restart` で起動し直した
+
 - 2026-09-07 vibeboard の更新（再 degit → `npm install` → `vibeboard init` → 起動し直し）を `vibeboard update` の 1 コマンドにした
   - プラン: [docs/plans/archive/vibeboard-update-command.md](docs/plans/archive/vibeboard-update-command.md) / 実装先: upstream akiraak/vibeboard `ff131d4`（同日 push）。利用者の「これは自動化できない？」（daily-note 側の取り込みと 3011 の起動し直しが手作業で残っていた）から
   - `node vibeboard/dist/cli.js update [--restart] [--ref <tag>] [--from <dir>] [--dry-run]`。GitHub から degit（`--from` ならローカルの開発クローン）→ `<root>/vibeboard` へ同期（`node_modules` / `dist` は残し、上流に無いファイルは消す）→ `npm install` → `init` → `--restart` で同じ root の vibeboard を detached で起動し直す（ポートガードが古い方を止め、pid ファイルと HTTP 応答で新しい方を待つ）。`run-vibeboard.sh --update` は同じことをしてから前面で起動（postinstall に自分を上書きされるので本体を関数に包んだ）

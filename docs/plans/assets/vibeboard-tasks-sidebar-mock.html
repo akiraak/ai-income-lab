@@ -1,0 +1,392 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tasks サイドバーの 4 案</title>
+<style>
+  :root {
+    --bg: #ffffff;
+    --panel: #ffffff;
+    --side-bg: #f6f8fa;
+    --side-border: #d0d7de;
+    --border: #d0d7de;
+    --text: #1f2328;
+    --text-mute: #656d76;
+    --text-sub: #8c959f;
+    --accent: #0969da;
+    --accent-bg: #ddf4ff;
+    --hover: #eaeef2;
+    --code-bg: #eff1f3;
+    --st-active: #9a6700;
+    --st-active-bg: #fff8c5;
+    --st-done: #1a7f37;
+    --bar-bg: #e3e8ee;
+    color-scheme: light;
+  }
+  /* vibeboard 本体はライトテーマだけ（style.css に prefers-color-scheme が無い）。モックも白背景に固定する */
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Hiragino Sans', 'Noto Sans JP', sans-serif;
+    font-size: 14px;
+    line-height: 1.5;
+  }
+  code, .mono { font-family: 'SF Mono', Menlo, Monaco, Consolas, monospace; font-size: 0.92em; }
+  code { background: var(--code-bg); padding: 0 4px; border-radius: 4px; }
+
+  .page { padding: 28px 28px 48px; display: flex; flex-direction: column; gap: 24px; }
+  header { max-width: 72ch; display: flex; flex-direction: column; gap: 6px; }
+  h1 { font-size: 20px; margin: 0; font-weight: 600; text-wrap: balance; }
+  header p { margin: 0; color: var(--text-mute); }
+
+  .rail { overflow-x: auto; padding-bottom: 8px; }
+  .row5 { display: flex; gap: 20px; align-items: flex-start; width: max-content; }
+  .col { width: 260px; display: flex; flex-direction: column; gap: 10px; }
+  .eyebrow { font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-sub); }
+  .eyebrow b { color: var(--text); font-size: 13px; letter-spacing: 0; text-transform: none; margin-left: 6px; }
+  .frame {
+    height: 560px;
+    background: var(--side-bg);
+    border: 1px solid var(--side-border);
+    border-radius: 6px;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 12px 8px 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+  }
+  .frame ul { list-style: none; margin: 0; padding: 0; }
+  .note { font-size: 12px; color: var(--text-mute); display: flex; flex-direction: column; gap: 4px; }
+  .note dt { font-weight: 600; color: var(--text); display: inline; }
+  .note dd { display: inline; margin: 0; }
+  .note div { display: block; }
+
+  /* 行の共通部分。実物の .nav-item と同じ余白と色 */
+  .item {
+    display: block;
+    padding: 6px 10px;
+    color: var(--text-mute);
+    font-size: 13px;
+    border-radius: 6px;
+    margin: 1px 0;
+    cursor: pointer;
+    line-height: 1.45;
+  }
+  .item:hover { background: var(--hover); color: var(--text); }
+  .item:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+  .item.active { background: var(--accent-bg); color: var(--accent); font-weight: 600; box-shadow: inset 3px 0 0 var(--accent); }
+  .clamp1 { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+  .clamp2 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; min-width: 0; }
+  .st { flex: none; width: 12px; text-align: center; font-size: 11px; line-height: 1; }
+  .st-active .st { color: var(--st-active); }
+  .st-cancel .txt { text-decoration: line-through; color: var(--text-sub); }
+  .badge { position: absolute; top: 6px; right: 8px; color: #dc2626; font-size: 12px; line-height: 1; pointer-events: none; }
+
+  /* 現状 */
+  .cur .item { position: relative; word-break: break-all; }
+
+  /* 案 1: 折り畳み */
+  .fold .item { display: grid; grid-template-columns: 14px 1fr auto; gap: 6px; align-items: center; }
+  .fold .chev {
+    all: unset; width: 14px; height: 14px; text-align: center; font-size: 10px; color: var(--text-sub); cursor: pointer; line-height: 14px;
+  }
+  .fold .chev:focus-visible { outline: 2px solid var(--accent); border-radius: 3px; }
+  .fold .chip { font-size: 10px; color: var(--text-sub); font-variant-numeric: tabular-nums; padding: 0 4px; border: 1px solid var(--border); border-radius: 8px; line-height: 14px; }
+  .fold .item.active .chip { color: var(--accent); border-color: var(--accent); }
+  .fold .item.has-active:not(.active) { color: var(--text); }
+  .fold .txt.st-active-txt { color: var(--st-active); }
+
+  /* 案 2: ツリー線 */
+  .tl ul ul { margin-left: 15px; border-left: 1px solid var(--border); padding-left: 6px; }
+  .tl .item { display: grid; grid-template-columns: 12px 1fr; gap: 6px; align-items: start; }
+  .tl .st { margin-top: 5px; }
+  .tl li.top > .item { color: var(--text); font-weight: 500; }
+  .tl .item.active { font-weight: 600; }
+
+  /* 案 3: カード */
+  .cards { gap: 8px; }
+  .card { background: var(--panel); border: 1px solid var(--border); border-radius: 6px; padding: 8px 8px 6px; display: flex; flex-direction: column; gap: 6px; }
+  .card.sel { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+  .card .title { margin: 0; padding: 2px 4px; font-size: 13px; font-weight: 600; color: var(--text); border-radius: 4px; cursor: pointer; }
+  .card .title:hover { background: var(--hover); }
+  .card .title.active { background: var(--accent-bg); color: var(--accent); }
+  .card .title:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+  .card .prog { display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: center; padding: 0 4px; }
+  .card .bar { height: 4px; background: var(--bar-bg); border-radius: 2px; overflow: hidden; }
+  .card .bar i { display: block; height: 100%; background: var(--st-done); }
+  .card .prog span { font-size: 11px; color: var(--text-sub); font-variant-numeric: tabular-nums; }
+  .card .kids { display: flex; flex-direction: column; gap: 0; }
+  .card .kid { display: grid; grid-template-columns: 12px 1fr auto; gap: 6px; align-items: center; padding: 3px 4px; margin: 0; font-size: 12px; border-radius: 4px; }
+  .card .kid.deep { padding-left: 16px; font-size: 11.5px; }
+  .card .kid .more { all: unset; font-size: 10px; color: var(--accent); cursor: pointer; padding: 0 4px; border-radius: 8px; }
+  .card .kid .more:hover { background: var(--accent-bg); }
+  .card .kid .more:focus-visible { outline: 2px solid var(--accent); }
+
+  /* 案 4: アウトライン */
+  .ol .chips { display: flex; gap: 4px; padding: 0 4px 8px; flex-wrap: wrap; }
+  .ol .chipbtn { all: unset; font-size: 11px; padding: 2px 8px; border: 1px solid var(--border); border-radius: 10px; color: var(--text-mute); cursor: pointer; }
+  .ol .chipbtn.on { background: var(--accent-bg); color: var(--accent); border-color: var(--accent); font-weight: 600; }
+  .ol .chipbtn:focus-visible { outline: 2px solid var(--accent); }
+  .ol .item { display: grid; grid-template-columns: 34px 1fr; gap: 6px; align-items: baseline; }
+  .ol .num { font-family: 'SF Mono', Menlo, Monaco, Consolas, monospace; font-size: 11px; color: var(--text-sub); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .ol .item.active .num { color: var(--accent); }
+  .ol .item.ctx { opacity: 0.55; }
+  .ol .txt.st-active-txt { color: var(--st-active); }
+
+  /* 比較表 */
+  .cmp { max-width: 100%; overflow-x: auto; }
+  table { border-collapse: collapse; font-size: 13px; min-width: 720px; }
+  th, td { text-align: left; vertical-align: top; padding: 8px 10px; border-bottom: 1px solid var(--border); }
+  th { font-weight: 600; color: var(--text); white-space: nowrap; }
+  thead th { color: var(--text-sub); font-size: 11px; letter-spacing: 0.05em; text-transform: uppercase; }
+  td { color: var(--text-mute); }
+  .good { color: var(--st-done); font-weight: 600; }
+  .warn { color: var(--st-active); font-weight: 600; }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .item, .card { transition: background 0.12s, color 0.12s; }
+  }
+</style>
+
+<div class="page">
+  <header>
+    <h1>Tasks サイドバーの 4 案</h1>
+    <p>vibeboard の Tasks タブ、左ペイン（幅 260px・高さ 560px の枠）の見せ方を 4 つ並べた。材料は ai-income-lab の <code>TODO.md</code>（2026-09-07 時点、39 タスク・3 段・最長 197 字）をそのまま読んだもの。済んだタスクは実物と同じく並べない。どの案でも行を押すと選択でき、最初は 3 段目の「<code>--step 3</code> で気配の遅延」を選んだ状態にしてある。</p>
+  </header>
+
+  <div class="rail"><div class="row5" id="row"></div></div>
+
+  <section class="cmp">
+    <table>
+      <thead><tr><th>見るもの</th><th>現状</th><th>案 1 折り畳み</th><th>案 2 ツリー線</th><th>案 3 カード</th><th>案 4 アウトライン</th></tr></thead>
+      <tbody>
+        <tr><th>長い文面</th><td>全部折り返す。行が重なる</td><td>1 行で切る。hover で全文</td><td>2 行で切る</td><td>親 2 行・子 1 行</td><td>1 行で切る</td></tr>
+        <tr><th>深さ</th><td>全角空白 ＋ ↳</td><td>字下げ ＋ 開閉</td><td>縦の罫線</td><td>カードの中の字下げ</td><td>番号 <span class="mono">1.3.2</span></td></tr>
+        <tr><th>進行中 / 中止</th><td>● だけ。中止は区別なし</td><td>◐ と色 / 打ち消し線</td><td>◐ と色 / 打ち消し線</td><td>◐ と色 / 打ち消し線 ＋ 進捗バー</td><td>◐ と色 / 打ち消し線 ＋ 絞り込み</td></tr>
+        <tr><th>選択中の行</th><td>青地</td><td>青地。枝は自動で開く</td><td>青地</td><td>行が青地、カードに枠</td><td>青地。番号も青</td></tr>
+        <tr><th>折り畳みの記憶</th><td>—</td><td class="good">開いた親を覚える</td><td>—</td><td>孫の展開だけ（覚えない）</td><td>絞り込みを覚える</td></tr>
+        <tr><th>一画面に入る量</th><td class="warn">少ない（親 2 つ分）</td><td class="good">親を全部（閉じた状態）</td><td>中くらい</td><td>親 1〜2 つ</td><td class="good">多い</td></tr>
+        <tr><th>気になる点</th><td>親子の境目が読めない</td><td>開くまで子が見えない</td><td>3 段目で幅が詰まる</td><td>孫は押して開く手間</td><td>番号は TODO.md には無い（見え方だけ）</td></tr>
+      </tbody>
+    </table>
+  </section>
+</div>
+
+<script type="application/json" id="data">[{"heading":"TODO","tasks":[{"id":"6de7261d","text":"tastytrade で、実際の API 取引のサンプルプログラムを動かす [plan](docs/plans/tastytrade-api-sample.md)","state":"open","depth":0,"heading":"TODO","children":[{"id":"145b7ff5","text":"Phase 0: 方針の決定と cert 環境の入口の確認（OAuth パネルは実装済みと確認。公式 SDK は archived で OpenAPI 直叩きに決定。入金なしの quote token と米国内承認日数は未解決のまま残す）","state":"done","depth":1,"heading":"TODO","children":[]},{"id":"58790fe2","text":"Phase 1: 環境と記録形式（venv・JSONL・`.env` と `.gitignore`・cert / prod の取り違え防止・モックによる自己検査）","state":"done","depth":1,"heading":"TODO","children":[]},{"id":"9ec35623","text":"Phase 2: 認証（OAuth2。cert・prod とも交換できた。`expires_in` 900 / JWT 954 秒）","state":"done","depth":1,"heading":"TODO","children":[]},{"id":"3992ab52","text":"Phase 3: REST の 4 手順（口座・現在値・dry-run → 指値 → 取消は済み。**手順 5 の約定だけ市場時間待ち**）","state":"active","depth":1,"heading":"TODO","children":[]},{"id":"2723884a","text":"Phase 4: ストリーミングとレート制限（口座ストリーマ・DXLink・429 の確認は済み。認証寿命の放置が残る）","state":"active","depth":1,"heading":"TODO","children":[]},{"id":"56d07e35","text":"**9/8（火）の市場時間（PT 6:30〜13:00）にまとめて回す** — 時間がないと測れないものだけ","state":"open","depth":1,"heading":"TODO","children":[{"id":"fff2e970","text":"`--step cleanup` で前日の残り注文を消してから `--step 5`（成行の約定 → 建玉 → 反対売買）","state":"open","depth":2,"heading":"TODO","children":[]},{"id":"9a8db0c9","text":"`--step 3` で気配の遅延（土曜は 8.3 時間前の値しか返らず測れなかった）","state":"open","depth":2,"heading":"TODO","children":[]},{"id":"dc322f35","text":"`--step 6 --seconds 60` で `Live` を経由する状態遷移と通知の時刻差","state":"open","depth":2,"heading":"TODO","children":[]},{"id":"b7f060eb","text":"`--step 1 --verify-expiry` で access token が 900 秒と 954 秒のどちらで 401 になるか","state":"open","depth":2,"heading":"TODO","children":[]},{"id":"107e80f0","text":"9/5 に取った refresh token がそのまま使えるか（＝観点 A の本体）／ cert の 24 時間リセットで grant と口座が残るか","state":"open","depth":2,"heading":"TODO","children":[]}]},{"id":"61d50af9","text":"Phase 5: 記録と判定（`docs/specs/experiments/tastytrade-api-sample.md`、6 観点、overview §7 と CLAUDE.md の更新）","state":"open","depth":1,"heading":"TODO","children":[]},{"id":"6787fbe1","text":"**着金の確認（$1,000 / SoFi → tastytrade、2026-09-05 送金指示）**","state":"open","depth":1,"heading":"TODO","children":[]},{"id":"9032f86f","text":"Phase 6（方針 (c)）: 本番口座で 1 株（入金と発注は利用者が行う）","state":"open","depth":1,"heading":"TODO","children":[]}]},{"id":"1d239b78","text":"オンラインで売買したときの納税を調べる（米国連邦 ＋ WA 州）","state":"open","depth":0,"heading":"TODO","children":[{"id":"2463ea02","text":"Phase 0: 前提の確定","state":"open","depth":1,"heading":"TODO","children":[]},{"id":"1742698a","text":"Phase 1: 連邦所得税の骨格","state":"open","depth":1,"heading":"TODO","children":[]},{"id":"15e48137","text":"Phase 2: WA 州","state":"open","depth":1,"heading":"TODO","children":[]},{"id":"ef6382d7","text":"Phase 3: 資産の種類ごとの差（[online-tradable-assets.md](docs/specs/online-tradable-assets.md) の出口と対応させる）","state":"open","depth":1,"heading":"TODO","children":[]},{"id":"799b4dfd","text":"Phase 4: 日米の重なり（**非居住が確定すれば小さくなる**）","state":"open","depth":1,"heading":"TODO","children":[]},{"id":"2b8906af","text":"Phase 5: 試算への反映","state":"open","depth":1,"heading":"TODO","children":[]}]},{"id":"74a598d7","text":"moomoo・IBKR の実検証（tastytrade と同じ 6 手順・6 観点で横並びにする）","state":"open","depth":0,"heading":"TODO","children":[{"id":"7be432ee","text":"Phase 0: 方針と入口の確認","state":"open","depth":1,"heading":"TODO","children":[]},{"id":"e9e91e5c","text":"Phase 1: IBKR — **最大の不確実性は「常駐プロセスが WSL2 で動くか」**","state":"open","depth":1,"heading":"TODO","children":[]},{"id":"08fa50c0","text":"Phase 2: moomoo — **OpenD 常駐と 2 要素**","state":"open","depth":1,"heading":"TODO","children":[]},{"id":"0de424d5","text":"Phase 3: 6 手順を同じ記録形式で回す（認証 → 口座照会 → 現在値 → 指値・取消 → 約定・反対売買 → ストリーミング）","state":"open","depth":1,"heading":"TODO","children":[]},{"id":"7a992cfe","text":"Phase 4: 3 社の横並び判定","state":"open","depth":1,"heading":"TODO","children":[]}]},{"id":"c8cf4cd5","text":"管理画面を作る（実運用の監視と、開発時の検証の両方） [plan](docs/plans/dashboard.md)","state":"open","depth":0,"heading":"TODO","children":[{"id":"ab70d344","text":"Phase 0: 要件と範囲の確定（2026-09-05。決定は [plan §0](docs/plans/dashboard.md)）","state":"done","depth":1,"heading":"TODO","children":[]},{"id":"1a3bf715","text":"Phase 1: 読み取りだけの土台（**ここまでは危険が無い**）","state":"done","depth":1,"heading":"TODO","children":[]},{"id":"d5a4cc00","text":"Phase 2: 実運用の監視","state":"done","depth":1,"heading":"TODO","children":[]},{"id":"1f7bb6e1","text":"Phase 3: 操作（⚠ ここから危険。既定は無効）","state":"done","depth":1,"heading":"TODO","children":[]},{"id":"59f675e8","text":"Phase 4: 開発時の検証","state":"done","depth":1,"heading":"TODO","children":[]},{"id":"058e3582","text":"Phase 5: g3plus に載せる（[g3plus-ops の新規サービス チェックリスト](../g3plus-ops/CLAUDE.md)に従う）— **契約・Dockerfile・compose・`.env.example`・手順書・CLAUDE.md 4 箇所・`.gitignore` は済み（g3plus-ops は未コミット）。転送・起動・Cloudflare は未実施**","state":"active","depth":1,"heading":"TODO","children":[]}]},{"id":"8b61af24","text":"vibeboard の Tasks タブで、左のタスク一覧が見づらいので改善する（デザイン例を何案か作り、そこから選ぶ）","state":"open","depth":0,"heading":"TODO","children":[{"id":"841f0066","text":"Step 1: デザイン例を 3〜4 案、HTML のモックで作る（比べる材料は**この `TODO.md` の実データ**。短い TODO では差が出ない）","state":"open","depth":1,"heading":"TODO","children":[]},{"id":"e3533932","text":"Step 2: 1 案を選ぶ（利用者の判断。混ぜるなら何をどこから取るかを決める）","state":"open","depth":1,"heading":"TODO","children":[]},{"id":"90c1557e","text":"Step 3: upstream で実装 → `npm test` → push → このリポジトリと daily-note に再 degit して `vibeboard init`","state":"open","depth":1,"heading":"TODO","children":[]}]}]}]</script>
+<script>
+(() => {
+  const DATA = JSON.parse(document.getElementById('data').textContent);
+  const TOP = DATA.flatMap(s => s.tasks);
+  const byId = new Map();
+  const parentOf = new Map();
+  const walk = (nodes, fn, parents = []) => {
+    for (const n of nodes) { fn(n, parents); walk(n.children, fn, [...parents, n]); }
+  };
+  walk(TOP, (n, ps) => { byId.set(n.id, n); parentOf.set(n.id, ps.length ? ps[ps.length - 1] : null); });
+  const open = n => n.state !== 'done';
+  const stats = n => { let total = 0, done = 0; walk(n.children, c => { total++; if (c.state === 'done') done++; }); return { total, done }; };
+  const ancestors = id => { const out = []; let p = parentOf.get(id); while (p) { out.push(p.id); p = parentOf.get(p.id); } return out; };
+  const hasActiveDesc = (n, sel) => { let hit = false; walk(n.children, c => { if (c.id === sel) hit = true; }); return hit; };
+  const INITIAL = ([...byId.values()].find(n => n.text.startsWith('`--step 3`')) || TOP[0]).id;
+
+  const h = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+  const glyph = n => n.state === 'active' ? '◐' : n.state === 'cancelled' ? '－' : '○';
+  const stCls = n => n.state === 'active' ? 'st-active' : n.state === 'cancelled' ? 'st-cancel' : '';
+  const store = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} };
+  const load = (k, d) => { try { const v = JSON.parse(localStorage.getItem(k)); return v == null ? d : v; } catch { return d; } };
+  const selectable = (el, onSelect) => {
+    el.tabIndex = 0;
+    el.addEventListener('click', onSelect);
+    el.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelect(e); } });
+  };
+
+  // === 現状 ===
+  function renderCurrent(frame, ctx) {
+    frame.innerHTML = '';
+    walk(TOP, n => {
+      if (!open(n)) return;
+      const a = h('div', 'item' + (n.id === ctx.selected ? ' active' : ''));
+      a.textContent = `${'　'.repeat(n.depth)}${n.depth > 0 ? '↳ ' : ''}${n.text}`;
+      if (n.state === 'active') { const b = h('span', 'badge', '●'); b.title = '進行中'; a.appendChild(b); }
+      selectable(a, () => { ctx.selected = n.id; renderCurrent(frame, ctx); });
+      frame.appendChild(a);
+    });
+  }
+
+  // === 案 1: 折り畳み ===
+  function renderFold(frame, ctx) {
+    frame.innerHTML = '';
+    // 見えている「開いた親」＝ 覚えている親 ＋ 選択の枝（手で閉じたものは除く）
+    const expanded = new Set([...ctx.expanded, ...ancestors(ctx.selected)].filter(id => !ctx.collapsed.has(id)));
+    const list = (nodes, depth) => {
+      const ul = h('ul');
+      for (const n of nodes) {
+        if (!open(n)) continue;
+        const kids = n.children.filter(open);
+        const li = h('li');
+        const row = h('div', 'item ' + stCls(n) + (n.id === ctx.selected ? ' active' : '') + (hasActiveDesc(n, ctx.selected) ? ' has-active' : ''));
+        row.style.paddingLeft = `${10 + depth * 14}px`;
+        const chev = h('button', 'chev', kids.length ? (expanded.has(n.id) ? '▾' : '▸') : glyph(n));
+        chev.title = kids.length ? (expanded.has(n.id) ? '閉じる' : '開く') : '';
+        if (kids.length) {
+          chev.addEventListener('click', e => {
+            e.stopPropagation();
+            if (expanded.has(n.id)) { ctx.expanded.delete(n.id); ctx.collapsed.add(n.id); }
+            else { ctx.expanded.add(n.id); ctx.collapsed.delete(n.id); }
+            store('mock-fold-expanded', [...ctx.expanded]);
+            renderFold(frame, ctx);
+          });
+        } else { chev.disabled = true; chev.className = 'chev st'; }
+        const txt = h('span', 'txt clamp1' + (n.state === 'active' ? ' st-active-txt' : ''), (kids.length ? glyph(n) + ' ' : '') + n.text);
+        txt.title = n.text;
+        row.append(chev, txt);
+        if (kids.length) { const s = stats(n); row.appendChild(h('span', 'chip', `${s.done}/${s.total}`)); }
+        selectable(row, () => { ctx.selected = n.id; for (const a of ancestors(n.id)) ctx.collapsed.delete(a); renderFold(frame, ctx); });
+        li.appendChild(row);
+        if (kids.length && expanded.has(n.id)) li.appendChild(list(kids, depth + 1));
+        ul.appendChild(li);
+      }
+      return ul;
+    };
+    frame.appendChild(list(TOP, 0));
+  }
+
+  // === 案 2: ツリー線 ＋ 2 行 ===
+  function renderTree(frame, ctx) {
+    frame.innerHTML = '';
+    const list = (nodes, depth) => {
+      const ul = h('ul');
+      for (const n of nodes) {
+        if (!open(n)) continue;
+        const li = h('li', depth === 0 ? 'top' : '');
+        const row = h('div', 'item ' + stCls(n) + (n.id === ctx.selected ? ' active' : ''));
+        const txt = h('span', 'txt clamp2', n.text);
+        txt.title = n.text;
+        row.append(h('span', 'st', glyph(n)), txt);
+        selectable(row, () => { ctx.selected = n.id; renderTree(frame, ctx); });
+        li.appendChild(row);
+        const kids = n.children.filter(open);
+        if (kids.length) li.appendChild(list(kids, depth + 1));
+        ul.appendChild(li);
+      }
+      return ul;
+    };
+    frame.appendChild(list(TOP, 0));
+  }
+
+  // === 案 3: カード ===
+  function renderCards(frame, ctx) {
+    frame.innerHTML = '';
+    frame.classList.add('cards');
+    for (const n of TOP) {
+      if (!open(n)) continue;
+      const inCard = n.id === ctx.selected || hasActiveDesc(n, ctx.selected);
+      const card = h('div', 'card' + (inCard ? ' sel' : ''));
+      const title = h('p', 'title clamp2' + (n.id === ctx.selected ? ' active' : ''), n.text);
+      title.title = n.text;
+      selectable(title, () => { ctx.selected = n.id; renderCards(frame, ctx); });
+      card.appendChild(title);
+      const s = stats(n);
+      if (s.total) {
+        const prog = h('div', 'prog');
+        const bar = h('div', 'bar'); const fill = h('i'); fill.style.width = `${Math.round(100 * s.done / s.total)}%`; bar.appendChild(fill);
+        prog.append(bar, h('span', null, `${s.done}/${s.total} 済`));
+        card.appendChild(prog);
+      }
+      const kids = n.children.filter(open);
+      if (kids.length) {
+        const box = h('div', 'kids');
+        for (const k of kids) {
+          const gk = k.children.filter(open);
+          const showDeep = ctx.deep.has(k.id) || hasActiveDesc(k, ctx.selected);
+          const row = h('div', 'kid item ' + stCls(k) + (k.id === ctx.selected ? ' active' : ''));
+          const txt = h('span', 'txt clamp1', k.text); txt.title = k.text;
+          row.append(h('span', 'st', glyph(k)), txt);
+          if (gk.length) {
+            const more = h('button', 'more', showDeep ? '－' : `＋${gk.length}`);
+            more.title = showDeep ? '孫を閉じる' : '孫を開く';
+            more.addEventListener('click', e => { e.stopPropagation(); if (ctx.deep.has(k.id)) ctx.deep.delete(k.id); else ctx.deep.add(k.id); renderCards(frame, ctx); });
+            row.appendChild(more);
+          }
+          selectable(row, () => { ctx.selected = k.id; renderCards(frame, ctx); });
+          box.appendChild(row);
+          if (gk.length && showDeep) {
+            for (const g of gk) {
+              const grow = h('div', 'kid deep item ' + stCls(g) + (g.id === ctx.selected ? ' active' : ''));
+              const gt = h('span', 'txt clamp1', g.text); gt.title = g.text;
+              grow.append(h('span', 'st', glyph(g)), gt);
+              selectable(grow, () => { ctx.selected = g.id; renderCards(frame, ctx); });
+              box.appendChild(grow);
+            }
+          }
+        }
+        card.appendChild(box);
+      }
+      frame.appendChild(card);
+    }
+  }
+
+  // === 案 4: アウトライン ===
+  function renderOutline(frame, ctx) {
+    frame.innerHTML = '';
+    const counts = { all: 0, active: 0, open: 0 };
+    walk(TOP, n => { if (!open(n)) return; counts.all++; if (n.state === 'active') counts.active++; if (n.state === 'open') counts.open++; });
+    const chips = h('div', 'chips');
+    for (const [key, label] of [['all', `全部 ${counts.all}`], ['active', `進行中 ${counts.active}`], ['open', `未着手 ${counts.open}`]]) {
+      const b = h('button', 'chipbtn' + (ctx.filter === key ? ' on' : ''), label);
+      b.addEventListener('click', () => { ctx.filter = key; store('mock-ol-filter', key); renderOutline(frame, ctx); });
+      chips.appendChild(b);
+    }
+    frame.appendChild(chips);
+    const match = n => ctx.filter === 'all' || n.state === ctx.filter;
+    const keep = new Set();
+    walk(TOP, n => { if (open(n) && match(n)) { keep.add(n.id); for (const a of ancestors(n.id)) keep.add(a); } });
+    const ul = h('ul');
+    const list = (nodes, prefix) => {
+      let i = 0;
+      for (const n of nodes) {
+        if (!open(n)) continue;
+        i++;
+        const num = prefix ? `${prefix}.${i}` : String(i);
+        if (keep.has(n.id)) {
+          const row = h('div', 'item ' + stCls(n) + (n.id === ctx.selected ? ' active' : '') + (match(n) ? '' : ' ctx'));
+          const txt = h('span', 'txt clamp1' + (n.state === 'active' ? ' st-active-txt' : ''), n.text); txt.title = n.text;
+          row.append(h('span', 'num', num), txt);
+          selectable(row, () => { ctx.selected = n.id; renderOutline(frame, ctx); });
+          const li = h('li'); li.appendChild(row); ul.appendChild(li);
+        }
+        list(n.children, num);
+      }
+    };
+    list(TOP, '');
+    frame.appendChild(ul);
+  }
+
+  const VARIANTS = [
+    { key: 'cur', label: '現状', name: '平らな一覧', render: renderCurrent, ctx: { selected: INITIAL },
+      notes: [['ねらい', '比較の基準。実物の renderTasksSidebar と同じ描き方'], ['困りごと', '折り返しが重なり、どこからが次のタスクか読めない。深さは全角空白だけ']] },
+    { key: 'fold', label: '案 1', name: '折り畳み', render: renderFold, ctx: { selected: INITIAL, expanded: new Set(load('mock-fold-expanded', [])), collapsed: new Set() },
+      notes: [['ねらい', '親を一覧し、見たい枝だけ開く。閉じた状態で親が全部入る'], ['長い文面', '1 行で切る。hover で全文'], ['記憶', '開いた親を localStorage に覚える。選択した枝は自動で開く'], ['右の数字', '子孫の 済 / 全部']] },
+    { key: 'tl', label: '案 2', name: 'ツリー線', render: renderTree, ctx: { selected: INITIAL },
+      notes: [['ねらい', '全部見せたまま、罫線で親子を分ける。親は太め'], ['長い文面', '2 行で切る。hover で全文'], ['気になる点', '3 段目は幅が詰まる。件数が多いと長い']] },
+    { key: 'cards', label: '案 3', name: 'カード', render: renderCards, ctx: { selected: INITIAL, deep: new Set() },
+      notes: [['ねらい', '親を 1 枚のカードにし、進み具合を見せる。子は 1 行ずつ'], ['長い文面', '親 2 行、子 1 行'], ['孫', '＋n を押すと開く。選択した孫がある子は開いた状態で出す'], ['気になる点', '1 画面に親 1〜2 枚。数が増えると長い']] },
+    { key: 'ol', label: '案 4', name: 'アウトライン', render: renderOutline, ctx: { selected: INITIAL, filter: load('mock-ol-filter', 'all') },
+      notes: [['ねらい', '番号で深さを見せ、1 行に詰める。上の絞り込みで進行中だけを出せる'], ['長い文面', '1 行で切る。hover で全文'], ['絞り込み', '進行中 / 未着手。親は薄く残して場所が分かるようにする'], ['気になる点', '番号は TODO.md に無い見え方なので、本文側と対応が要る']] },
+  ];
+
+  const row = document.getElementById('row');
+  for (const v of VARIANTS) {
+    const col = h('div', 'col');
+    const eye = h('div', 'eyebrow', v.label); eye.appendChild(h('b', null, v.name));
+    const frame = h('div', `frame ${v.key}`);
+    v.render(frame, v.ctx);
+    const note = h('dl', 'note');
+    for (const [k, t] of v.notes) { const d = h('div'); d.append(h('dt', null, k + '：'), h('dd', null, t)); note.appendChild(d); }
+    col.append(eye, frame, note);
+    row.appendChild(col);
+  }
+})();
+</script>

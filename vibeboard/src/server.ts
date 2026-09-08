@@ -11,13 +11,15 @@ import {
   QueueItem,
   Registration,
   Registry,
+  TASK_KINDS,
+  TaskKind,
   TaskQueue,
   findInboxSocket,
   isUnder,
   listClaudeSessions,
   postToInbox,
 } from './tasks';
-import { buildExplainPrompt, buildPlanPrompt, buildPrompt, findTaskById, parseTodo, removeTask } from './todo';
+import { buildCommitPrompt, buildExplainPrompt, buildPlanPrompt, buildPrompt, findTaskById, parseTodo, removeTask } from './todo';
 import {
   MAX_SOURCE_BYTES,
   applyEol,
@@ -761,7 +763,7 @@ export async function startServer(config: VibeboardConfig): Promise<void> {
   // **文面はここで TODO.md から組む**（クライアントからは id と決め打ちの値しか受けない）。
   // セッションあての文面はキュー（tmp の JSON）に積み、送り先が登録済みなら即投函、未登録なら登録が来た時点で投函する。
   // listen あては名前で配り、不在なら名前あてに溜めて、同じ名前で繋ぎ直したときに渡す。
-  type TaskItem = { id: string; text: string; kind: 'run' | 'explain' | 'plan'; prompt: string; at: number };
+  type TaskItem = { id: string; text: string; kind: TaskKind; prompt: string; at: number };
   const taskWindows = new Map<string, Response>();
   const taskPending = new Map<string, TaskItem[]>();
 
@@ -1064,26 +1066,34 @@ export async function startServer(config: VibeboardConfig): Promise<void> {
 
   app.post('/api/tasks/run', wrap(async (req, res) => {
     const body = req.body as { id?: unknown; windowId?: unknown; sessionId?: unknown; kind?: unknown } | undefined;
+    const kind: TaskKind = (TASK_KINDS as readonly unknown[]).includes(body?.kind) ? (body?.kind as TaskKind) : 'run';
     const id = typeof body?.id === 'string' ? body.id : '';
-    if (!id) {
-      res.status(400).json({ success: false, data: null, error: 'id が不正です' });
-      return;
+    let item: TaskItem;
+    if (kind === 'commit') {
+      // プロジェクト全体の操作。タスクには紐づかない（id は見ない）
+      item = { id: '', text: 'プロジェクト全体の変更', kind, prompt: buildCommitPrompt(), at: Date.now() };
+    } else {
+      if (!id) {
+        res.status(400).json({ success: false, data: null, error: 'id が不正です' });
+        return;
+      }
+      const src = readTodoSource();
+      if (!src.ok) {
+        res.status(src.status).json({ success: false, data: null, error: src.error });
+        return;
+      }
+      const tree = parseTodo(src.raw, { mdPath: 'TODO.md' });
+      const ctx = findTaskById(tree, id);
+      const builders: Record<Exclude<TaskKind, 'commit'>, (t: typeof tree, i: string) => string | null> = {
+        run: buildPrompt, explain: buildExplainPrompt, plan: buildPlanPrompt,
+      };
+      const prompt = builders[kind](tree, id);
+      if (!ctx || prompt === null) {
+        res.status(404).json({ success: false, data: null, error: 'そのタスクは TODO.md にありません' });
+        return;
+      }
+      item = { id, text: ctx.node.text, kind, prompt, at: Date.now() };
     }
-    const kind: TaskItem['kind'] = body?.kind === 'explain' || body?.kind === 'plan' ? body.kind : 'run';
-    const src = readTodoSource();
-    if (!src.ok) {
-      res.status(src.status).json({ success: false, data: null, error: src.error });
-      return;
-    }
-    const tree = parseTodo(src.raw, { mdPath: 'TODO.md' });
-    const ctx = findTaskById(tree, id);
-    const prompt =
-      kind === 'explain' ? buildExplainPrompt(tree, id) : kind === 'plan' ? buildPlanPrompt(tree, id) : buildPrompt(tree, id);
-    if (!ctx || prompt === null) {
-      res.status(404).json({ success: false, data: null, error: 'そのタスクは TODO.md にありません' });
-      return;
-    }
-    const item: TaskItem = { id, text: ctx.node.text, kind, prompt, at: Date.now() };
     const windowId =
       typeof body?.windowId === 'string' && body.windowId ? sanitizeWindowName(body.windowId) : '';
     if (windowId) {

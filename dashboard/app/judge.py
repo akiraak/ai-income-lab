@@ -87,8 +87,8 @@ def judge_auth(runs: list[Run], events: list[dict]) -> dict:
     latest_run, latest_row = ok_auth[0] if ok_auth else (None, None)
     if latest_row:
         d = latest_row.get("detail") or {}
-        jwt_life = (d.get("jwt") or {}).get("lifetime_s")
-        notes.append(f"expires_in {d.get('expires_in_s')} 秒" + (f"（JWT は {jwt_life} 秒）" if jwt_life else ""))
+        # ⚠ JWT の exp − iat は寿命ではない（iat は grant を作った時刻で固定される。2026-09-08 に確認）。ここには出さない
+        notes.append(f"expires_in {d.get('expires_in_s')} 秒")
         notes.append("refresh token は" + ("回転する" if d.get("refresh_token_rotated") else "回転しない"))
         evidence.append(_ev(latest_run, 1))
     expiry = [(r, r.step(11)) for r in runs if r.step(11)]
@@ -136,36 +136,54 @@ def judge_quote(runs: list[Run]) -> dict:
     in_hours = [(r, row) for r, row in ok_rows if in_market_hours(row.get("started_at"))]
     ev = [_ev(r, 3, "手順 3（prod）") for r, _ in (in_hours or ok_rows)[:2]] + ([_ev(dx[0][0], 61)] if dx else [])
     if in_hours:
-        delays = [float((row.get("detail") or {}).get("delay_s")) for _, row in in_hours if (row.get("detail") or {}).get("delay_s") is not None]
+        # 遅延は**サーバの時計で測った値**（delay_corrected_s。応答の Date でこちらの時計のずれを外したもの）を優先する。
+        # 素の delay_s はこちらの時計に依存し、WSL2 では ±1 秒揺れて負にもなる（2026-09-08 の実測）。
+        corrected = [float(d["delay_corrected_s"]) for _, row in in_hours if (d := row.get("detail") or {}).get("delay_corrected_s") is not None]
+        delays = corrected or [float(d["delay_s"]) for _, row in in_hours if (d := row.get("detail") or {}).get("delay_s") is not None]
         if not delays:
             return _cell("warn", "市場時間内に取れたが delay_s が無い。" + dx_note, ev)
-        best = min(delays)
-        if best < 1.0:
-            return _cell("ok", f"市場時間内の遅延 {best:.3f} 秒（{len(delays)} 回の最小）。" + dx_note, ev)
-        return _cell("warn", f"市場時間内の遅延 {best:.1f} 秒。" + dx_note, ev)
+        src = "サーバの時計で" if corrected else "⚠ こちらの時計で（サーバ時刻の記録が無い）"
+        # 負は「気配の時刻が計測時刻より先」＝ずれなので、大小ではなく**絶対値**で見る（-30 秒を 1 秒未満と読まないため）
+        best = min(delays, key=abs)
+        if abs(best) < 1.0:
+            return _cell("ok", f"市場時間内の遅延 {best:.3f} 秒（{src}測った {len(delays)} 回の最小）。" + dx_note, ev)
+        return _cell("warn", f"市場時間内の遅延 {best:.1f} 秒（{src}）。" + dx_note, ev)
     delay = (ok_rows[0][1].get("detail") or {}).get("delay_s")
     return _cell("na", f"本番で取れたが市場時間内の記録が無い（時間外の遅延 {delay} 秒は参考値）。" + dx_note, ev)
 
 
 def judge_roundtrip(runs: list[Run]) -> dict:
-    best_mark, best = None, None
-    for run in runs:
-        s4 = run.step(4)
-        s5 = run.step(5) or run.step(51)
-        if s4 and s4.get("ok") and s5 and s5.get("ok"):
-            d4 = s4.get("detail") or {}
-            reason = (
-                f"手順 4・5 とも通った。dry-run {((d4.get('dry_run') or {}).get('elapsed_ms'))} ms / 発注 {((d4.get('submit') or {}).get('elapsed_ms'))} ms / "
-                f"取消 {((d4.get('cancel') or {}).get('elapsed_ms'))} ms、約定 {s5.get('result')}"
-            )
-            return _cell("ok", reason, [_ev(run, 4), _ev(run, s5.get("step"))])
-        if s4 and s4.get("ok") and best_mark != "ok":
-            fail = s5.get("result") if s5 else "未実行"
-            best_mark, best = "warn", _cell("warn", f"手順 4 は通った（{s4.get('result')}）が手順 5 は {fail}", [_ev(run, 4)] + ([_ev(run, s5.get("step"))] if s5 else []))
-        elif s4 and not best_mark:
-            err = (s4.get("error") or {}).get("code") or s4.get("result")
-            best_mark, best = "ng", _cell("ng", f"手順 4 が通らない: {err}", [_ev(run, 4)])
-    return best or _cell("na", "手順 4 の記録が無い")
+    """手順 4（指値と取消）と 5（約定と反対売買）。
+
+    ⚠ **同じ実行の中でそろっている必要はない。** `--step 4` と `--step 5` を別々に回しても、
+    どちらも通っていれば成立とみなす（観点 A が日付を実行を跨いで集めるのと同じ）。
+    """
+    s4s = [(r, r.step(4)) for r in runs if r.step(4)]
+    s5s = [(r, r.step(5) or r.step(51)) for r in runs if (r.step(5) or r.step(51))]
+    ok4 = [(r, row) for r, row in s4s if row.get("ok")]
+    ok5 = [(r, row) for r, row in s5s if row.get("ok")]
+
+    if ok4 and ok5:
+        r4, row4 = ok4[0]
+        r5, row5 = ok5[0]
+        d4 = row4.get("detail") or {}
+        same = "" if r4.run_id == r5.run_id else "（別々の実行）"
+        reason = (
+            f"手順 4・5 とも通った{same}。dry-run {((d4.get('dry_run') or {}).get('elapsed_ms'))} ms / "
+            f"発注 {((d4.get('submit') or {}).get('elapsed_ms'))} ms / 取消 {((d4.get('cancel') or {}).get('elapsed_ms'))} ms、"
+            f"約定 {row5.get('result')}"
+        )
+        return _cell("ok", reason, [_ev(r4, 4), _ev(r5, row5.get("step"))])
+    if ok4:
+        r4, row4 = ok4[0]
+        fail = s5s[0][1].get("result") if s5s else "未実行"
+        ev = [_ev(r4, 4)] + ([_ev(s5s[0][0], s5s[0][1].get("step"))] if s5s else [])
+        return _cell("warn", f"手順 4 は通った（{row4.get('result')}）が手順 5 は {fail}", ev)
+    if s4s:
+        r4, row4 = s4s[0]
+        err = (row4.get("error") or {}).get("code") or row4.get("result")
+        return _cell("ng", f"手順 4 が通らない: {err}", [_ev(r4, 4)])
+    return _cell("na", "手順 4 の記録が無い")
 
 
 def judge_rate(runs: list[Run]) -> dict:

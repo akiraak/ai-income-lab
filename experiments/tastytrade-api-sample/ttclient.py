@@ -113,6 +113,8 @@ class Client:
             method, url, headers=headers, params=params, json=json_body, timeout=self.timeout
         )
         self.last_status = resp.status_code
+        # 応答の Date（サーバの時計。秒精度）。気配の遅延から自分の時計のずれを外すのに使う
+        self.last_date_header = resp.headers.get("Date")
         if resp.status_code == 204 or not resp.content:
             return None
         try:

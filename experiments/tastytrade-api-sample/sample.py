@@ -23,6 +23,7 @@ import os
 import sys
 import time
 from datetime import datetime, timezone
+from email.utils import parsedate_to_datetime
 
 import record
 from ttclient import ApiError, Client, ProductionGuard, load_env
@@ -163,13 +164,28 @@ def step_quote(rec: record.Recorder, client: Client, env_label: str) -> None:
                 "expected": "sandbox は相場データを配信しない（公表値。/docs/sandbox）" if client.env == "cert" else None,
             }
             return
+        received_at = time.time()
         updated_at = field(quote, "updated-at")
         delay_s = None
+        quote_ts = None
         if updated_at:
             try:
-                ts = datetime.fromisoformat(str(updated_at).replace("Z", "+00:00"))
-                delay_s = round(requested_at - ts.timestamp(), 3)
+                quote_ts = datetime.fromisoformat(str(updated_at).replace("Z", "+00:00")).timestamp()
+                delay_s = round(requested_at - quote_ts, 3)
             except ValueError:
+                pass
+        # ⚠ delay_s は**こちらの時計**で測るので、時計がずれていると負の値にもなる（2026-09-08 に −1.2 秒を観測）。
+        # 同じ応答の Date ヘッダ（サーバの時計。秒精度）でずれを外した値も併記する。
+        server_date = getattr(client, "last_date_header", None)
+        clock_skew_s = delay_corrected_s = None
+        if server_date:
+            try:
+                server_ts = parsedate_to_datetime(server_date).timestamp()
+                # Date は往復の途中の時刻なので、要求と受信の中間と比べる
+                clock_skew_s = round(server_ts - (requested_at + received_at) / 2, 3)
+                if quote_ts is not None:
+                    delay_corrected_s = round(delay_s + clock_skew_s, 3)
+            except (TypeError, ValueError):
                 pass
         row["detail"] = {
             "symbol": field(quote, "symbol"),
@@ -180,6 +196,10 @@ def step_quote(rec: record.Recorder, client: Client, env_label: str) -> None:
             "updated-at": updated_at,
             "requested_at_utc": datetime.fromtimestamp(requested_at, timezone.utc).isoformat(timespec="milliseconds"),
             "delay_s": delay_s,
+            # サーバの時計で測り直した遅延（こちらの時計のずれを外した値。Date は秒精度なので ±0.5 秒の粗さがある）
+            "delay_corrected_s": delay_corrected_s,
+            "clock_skew_s": clock_skew_s,
+            "server_date": server_date,
             "trading-halted": field(quote, "is-trading-halted"),
         }
         row["result"] = "ok"

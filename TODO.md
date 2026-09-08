@@ -10,12 +10,14 @@
   - [x] Phase 2: 認証（OAuth2。cert・prod とも交換できた。`expires_in` 900 / JWT 954 秒）
   - [~] Phase 3: REST の 4 手順（口座・現在値・dry-run → 指値 → 取消は済み。**手順 5 の約定だけ市場時間待ち**）
   - [~] Phase 4: ストリーミングとレート制限（口座ストリーマ・DXLink・429 の確認は済み。認証寿命の放置が残る）
-  - [ ] **9/8（火）の市場時間（PT 6:30〜13:00）にまとめて回す** — 時間がないと測れないものだけ
-    - [ ] `--step cleanup` で前日の残り注文を消してから `--step 5`（成行の約定 → 建玉 → 反対売買）
-    - [ ] `--step 3` で気配の遅延（土曜は 8.3 時間前の値しか返らず測れなかった）
-    - [ ] `--step 6 --seconds 60` で `Live` を経由する状態遷移と通知の時刻差
-    - [ ] `--step 1 --verify-expiry` で access token が 900 秒と 954 秒のどちらで 401 になるか
-    - [ ] 9/5 に取った refresh token がそのまま使えるか（＝観点 A の本体）／ cert の 24 時間リセットで grant と口座が残るか
+  - [x] **9/8（火）の市場時間に回した**（[記録 §0-4](docs/specs/experiments/tastytrade-api-sample.md)）— **6 観点のうち 5 つが ✅**。残るは A（営業日を 2 日跨ぐ交換）だけ
+    - [x] `--step cleanup` → `--step 4` / `--step 5`: ✅ **通った**（14:52〜14:53 ET。`final_Cancelled` と `buy_Filled/sell_Filled`、SPY 1 株を $766.47 で建てて解消）。⚠ **その 25 分前は `Session offline` で拒否された**（同時刻の `market-time` は `Open`、余力 $200,000）。一時的な状態がある
+    - [x] `--step 3` で気配の遅延: ✅ **サーバの時計で −0.12 秒**（12 回の中央値。ばらつき 0.24 秒）。⚠ こちらの時計では −1.14〜+0.65 秒と 1.8 秒揺れる（**WSL2 の時計**）。`sample.py` が `delay_corrected_s` を記録し、判定 C はそちらを優先するようにした。DXLink 229 イベント
+    - [x] `--step 6 --seconds 60`: ✅ ack 123 ms、60 秒で 5 メッセージ（Order 通知 2）
+    - [x] `--step rate`: ✅ 60 回/分・30 連射とも 429 なし、中央値 133.9 ms
+    - [x] `--step 1 --verify-expiry`: ✅ **920 秒待って 401** → **900 秒で失効**。⚠ 「954 秒」は `exp − iat` の読み違いだった（`iat` は grant 作成時刻の固定値。2 本のトークンで同じ値）
+    - [x] 9/5 に取った refresh token がそのまま使えるか / cert の 24 時間リセット: ✅ **どちらも残った**（同じ口座・残高は $100,000 にリセット）
+    - [x] ⚠ `Session offline` は**一時的**と確認（25 分後に成功）。自動売買では「注文の中身が悪い」と読まず時間をおいて再送する設計が要る
   - [ ] Phase 5: 記録と判定（`docs/specs/experiments/tastytrade-api-sample.md`、6 観点、overview §7 と CLAUDE.md の更新）
   - [ ] **着金の確認（$1,000 / SoFi → tastytrade、2026-09-05 送金指示）**
     - 着いたら `sample.py --step probe` をもう 1 回回し、着金前（[記録 §0](docs/specs/experiments/tastytrade-api-sample.md)）との差分を取る

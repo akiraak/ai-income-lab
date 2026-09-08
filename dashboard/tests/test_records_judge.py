@@ -85,3 +85,46 @@ def test_judge_ignores_mock_events_and_pseudo_venues(tmp_path):
     ]
     result = judge(load_runs(tmp_path), events)
     assert result["venues"] == [] and result["monitor_events"] == 1
+
+
+def test_quote_delay_prefers_server_clock_and_uses_absolute_value(tmp_path, settings):
+    """遅延はサーバの時計で測った値（delay_corrected_s）を優先し、負でも絶対値で見る。"""
+    from app.judge import judge
+    from app.records import load_runs
+    from tests.conftest import good_run, make_row, write_run
+
+    def write(detail, run_id):
+        for f in settings.records_dir.glob("*.jsonl"):
+            f.unlink()
+        rows = [r for r in good_run(run_id=run_id) if not (r["step"] == 3 and r["env"] == "prod")]
+        rows.append(make_row(3, "現在値", env="prod", detail={"bid": 1.0, "ask": 1.1, **detail}, run_id=run_id))
+        write_run(settings.records_dir, rows)
+        return judge(load_runs(settings.records_dir), [])["cells"]["tastytrade"]["C"]
+
+    # こちらの時計では 1 秒超でも、サーバの時計で 1 秒未満なら ✅（WSL2 のずれを外す）
+    c = write({"delay_s": -1.218, "delay_corrected_s": -0.132}, "20260908T140000Z")
+    assert c["mark"] == "ok" and "サーバの時計" in c["reason"], c
+
+    # 補正値が無ければ素の値を使い、そのことを断る
+    c = write({"delay_s": 0.4}, "20260908T150000Z")
+    assert c["mark"] == "ok" and "こちらの時計" in c["reason"], c
+
+    # 負でも絶対値が 1 秒を超えるなら ✅ にしない
+    c = write({"delay_s": -30.0}, "20260908T160000Z")
+    assert c["mark"] == "warn", c
+
+
+def test_roundtrip_combines_separate_runs(tmp_path, settings):
+    """手順 4 と 5 を別々の実行で回しても、どちらも通っていれば D は成立する。"""
+    from app.judge import judge
+    from app.records import load_runs
+    from tests.conftest import good_run, make_row, write_run
+
+    base = [r for r in good_run() if r["step"] not in (4, 5)]
+    d4 = {"dry_run": {"elapsed_ms": 40.0}, "submit": {"elapsed_ms": 44.0}, "cancel": {"elapsed_ms": 49.0}}
+    write_run(settings.records_dir, base + [make_row(4, "指値と取消", result="final_Cancelled", detail=d4, run_id="20260908T140000Z")])
+    write_run(settings.records_dir, [make_row(1, "認証", detail={"expires_in_s": 900}, run_id="20260908T150000Z", at="2026-09-08T15:00:00.000+00:00"),
+                                     make_row(5, "約定", result="buy_Filled/sell_Filled", run_id="20260908T150000Z", at="2026-09-08T15:00:00.000+00:00")])
+    c = judge(load_runs(settings.records_dir), [])["cells"]["tastytrade"]["D"]
+    assert c["mark"] == "ok" and "別々の実行" in c["reason"], c
+    assert {e["run_id"] for e in c["evidence"]} == {"20260908T140000Z", "20260908T150000Z"}

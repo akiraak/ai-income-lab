@@ -90,6 +90,7 @@
     - [x] Step 2: 開発機で起動して 5 画面のスクリーンショットを取り、利用者に見せる（2026-09-08。`dashboard/.env` に `AIL_DEMO=1` / `AIL_AUTH_MODE=local`。http://127.0.0.1:3012 で表示中）
   - [~] Phase 5: g3plus に載せる（[g3plus-ops の新規サービス チェックリスト](../g3plus-ops/CLAUDE.md)に従う）— **2026-09-07: サーバへの clone・転送・起動まで済み（loopback 面・資格情報なし。healthy、ホストポート非公開、外から 403）。残りは資格情報と Cloudflare で、どちらも利用者が行う**
     - [x] サーバに `git clone` → `.env`（`AIL_AUTH_MODE=loopback`、`TT_*` 空）を scp → `docker compose up -d --build` → 確認（2026-09-07 23:13 PT。`envs=[]` で起動、監視ループは何も繋いでいない）
+    - [x] **デモで稼働**（2026-09-08。Phase 6 を反映して `git pull` → rebuild。資格情報が空のままモックで cert / prod とも認証・残高・注文・websocket が入り、記録 1 実行と判定表も出る。healthy・ホストポート非公開）
     - [ ] **`.env` に資格情報を入れて `up -d`**（利用者）。sandbox の `TT_*` は開発機の `experiments/tastytrade-api-sample/.env` を写してよい（金銭は動かない）。本番は my.tastytrade.com で **read スコープだけの grant** を別に切って `TT_PROD_*` に。⚠ 開発機の `.env` からサーバへ資格情報を送る操作は Claude Code の分類器が止めるので、写すのも利用者
     - [ ] **Cloudflare**（利用者。手順は [g3plus-ops/docs/workflows/ail-dashboard.md](../g3plus-ops/docs/workflows/ail-dashboard.md)）: ① Access アプリ（Google、Emails=akiraak@gmail.com）で AUD を控える → ② `.env` に `CF_ACCESS_TEAM` / `CF_ACCESS_AUD` / `CF_ACCESS_EMAIL` と `AIL_AUTH_MODE=cloudflare` を入れて `up -d` → ③ Tunnel hostname（案 `lab.chobi.me`。Service `http://ail-dashboard:3012`）→ ④ ホスト全体 Bypass の Cache Rule。⚠ 公開前にホスト名を DNS で引かない
     - [ ] 公開後の確認: Google 認証を通って監視画面が出る、`/ops` `/dev` が 404、停止ボタンが `HALT` を書く、秘密が画面・ログに出ていない

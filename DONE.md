@@ -1,5 +1,12 @@
 # DONE
 
+- 2026-09-08 管理画面を鍵なしで動くようにし（デモ）、黒ベースで作り直した。g3plus でもデモで稼働し始めた
+  - プラン: [docs/plans/dashboard-demo-mode.md](docs/plans/dashboard-demo-mode.md)（デモ）/ [docs/plans/archive/dashboard-dark-design.md](docs/plans/archive/dashboard-dark-design.md)（黒ベース。画面つき）。本体プラン [dashboard.md](docs/plans/dashboard.md) に Phase 6・7 として反映。仕様は [dashboard.md §6-2](docs/specs/dashboard.md)
+  - デモ（Phase 6）: 資格情報が無いか `AIL_DEMO=1` なら、起動時にモックサーバを立てて監視を cert / prod ともそこへ繋ぎ、記録が無ければ 6 手順を 1 回流して全画面を埋める。データは `data/demo/` に分け、判定はモックの記録を含めて組み立てる（DEMO バッジ）。利用者の指示「まずはデザインの実装重視なのでキーなしで動くように」から
+  - 黒ベース（Phase 7）: `app.css` を全面書き換え。色は**環境**（cert 緑 / prod 赤 / MOCK 紫。左の 4px の帯とバッジ）と**状態**（ok / warn / ng / 灰。チップ・判定セル・イベント）の 2 系統だけにし、地は青みの黒 `#0b0d12` で明るさの段（地 → 帯 → カード）で層を作る。数字は等幅。あわせて監視の 3 点（幅があれば cert と prod を横並びで縦 2,700 → 1,880px、注文表は折り返さず横スクロール、口座ストリーマの通知は 240px の枠でスクロール）
+  - 検証: pytest 24 件 pass（デモ 5 件を追加）。開発機で 5 画面のスクリーンショット（`docs/plans/assets/dashboard-{demo,dark}-*.png`）を取り、利用者が確認した。g3plus は `git pull` → rebuild だけでデモが動いた（記録 1 実行・判定表・監視イベント 6 件、healthy、ホストポート非公開）
+  - ⚠ サーバの残りは `.env` への資格情報（sandbox は写してよい、本番は read だけの grant を別に切る）と Cloudflare（Access → `.env` → hostname → Cache Rule）。どちらも利用者
+
 - 2026-09-08 vibeboard で画像を見られるようにした（Plans の Markdown 内画像は既に表示できることを確認、Files タブに画像プレビューを追加）
   - プラン: [docs/plans/archive/vibeboard-image-preview.md](docs/plans/archive/vibeboard-image-preview.md) / 実装先: upstream akiraak/vibeboard（Files タブで png / jpg / gif / webp / svg / bmp / avif を `/files` 経由で表示、寸法のキャプション付き）。ai-income-lab と daily-note に `vibeboard update --from --restart`
   - Plans 側は upstream の `rewriteRelativeAssetUrls` が `![](assets/x.png)` を `/files/docs/plans/assets/x.png` に書き換えるので変更なし。管理画面のデモ 5 画面の PNG（計 1.2 MB）を `docs/plans/assets/` に置き、[dashboard-demo-mode.md](docs/plans/dashboard-demo-mode.md) から参照した

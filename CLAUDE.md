@@ -101,7 +101,11 @@ python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
 - 資格情報（`.env`）と実行記録（`out/`）は git 管理外。記録はトークン・口座番号をマスクしてから書く。接続先を差し替えた実行（selftest）は `mock: true` が付く
 - `out/HALT` があると発注系の手順（4・5・5limit・6）を拒否する（管理画面の停止ボタンが置く。`TT_HALT_FILE` / `TT_OUT_DIR` で場所を変えられる）
 - sandbox は相場データを配信しない（`/market-data` が全経路 502）ので、気配は本番の資格情報で読む
-- 記録と判定は `docs/specs/experiments/tastytrade-api-sample.md`
+- 記録と判定は `docs/specs/experiments/tastytrade-api-sample.md`。**2026-09-08 の市場時間に 6 観点のうち 5 つが ✅**（残るは営業日を 2 日跨ぐ交換だけで、g3plus の管理画面が監視を回して自動で埋める）
+- ⚠ **2026-09-08 に踏んだ落とし穴 3 つ**（自動売買を書くときに効く）
+  - **cert は市場時間内でも `Session offline` で注文を拒否することがある**（同時刻の `market-time` は `Open`）。25 分後には通った。拒否を「注文の中身が悪い」と読まず、時間をおいて再送する
+  - **`/accounts/{n}/orders/live` は「その日の注文」**で、Filled / Cancelled / Rejected も混ざる。働いている注文は `Received / Routed / In Flight / Live / Contingent` で絞る
+  - **気配の遅延は開発機（WSL2）の時計では測れない**（±1 秒揺れて負にもなる）。同じ応答の `Date` で補正した `delay_corrected_s` を使う
 
 ## Git 運用ルール
 

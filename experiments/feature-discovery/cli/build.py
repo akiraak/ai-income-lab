@@ -93,6 +93,12 @@ def build(experiment: str, layer: str = "adjusted", leak: bool = False,
         raise SystemExit(f"⚠ 列の集合が銘柄で違う: {odd[:5]}（先に config か features 側を直す）")
 
     before = len(df)
+    # ⚠ **期間を揃える。** ⚠ **層ごとに始まりが違うと、比べているのが層の差か期間の差か分からなくなる**
+    # （外部系列は 2018 年から、価格は 1994 年から。§8-4）
+    start = exp.get("start_date")
+    if start:
+        df = df[df["ts"] >= pd.Timestamp(start, tz="UTC")]
+        print(f"  期間を {start} 以降に揃える → {len(df):,} 行")
     df = df.replace([np.inf, -np.inf], np.nan).dropna()
     if max_elapsed is not None:
         df = df[df["y_elapsed_min"] <= max_elapsed]

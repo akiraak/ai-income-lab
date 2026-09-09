@@ -1,47 +1,15 @@
 # TODO
 
-- [ ] 予想モデルに使うデータを広く収集する [plan](docs/plans/daily-data-sources.md)
-  利用者の指示（2026-09-08）: **予想モデルに使うデータを広く収集する**
-  利用者の指示（2026-09-08・追加）: **為替のデータを入れる。それ以外で日ごとのデータで入れられるものを調査する。⚠ 天気予報など全く関連がなさそうなものでもいい**
-  ⚠ **方向は (a) 情報の種類を増やす に決まった**（下の 2 択のうち）
-  ⚠ **無関係に見える系列は「偽薬（プラセボ）」として明示的に置く**（[plan §1-1](docs/plans/daily-data-sources.md)）。⚠ **足すだけだと多重検定の温床だが、基準線として使えば検証が強くなる**。⚠ **本命が偽薬を超えられないなら、本命も偶然の範囲**
-  ⚠ **一番危ないのは発表の遅れ**。⚠ **「その日のデータ」が「その日に手に入る」とは限らない**ので、外部系列は**既定で 1 日ずらす**（[plan §2-4](docs/plans/daily-data-sources.md)）
-  - [x] Phase 1: ⚠ **規約の確認**（2026-09-08。[記録](docs/specs/experiments/daily-data-sources.md) §2）
-    ⚠ **FRED の規約は「データマイニング・スクレイピング・抽出をするな」。正規の経路は無料 API**。⚠ **2026-09-01 に採用した `fredgraph.csv` 直叩きは正規ではない**ので実測を途中で止めた
-    ⚠ **Open-Meteo と SILSO は CC BY-NC（非商用のみ）。** ⚠ **天気は NOAA（米政府の公有）に替えれば判断が要らない**
-  - [x] Phase 2: 無登録で取れるものの実測（2026-09-08。[記録](docs/specs/experiments/daily-data-sources.md) §3）
-  - [x] Phase 3: ⚠ **取得して層に置いた**（2026-09-08。`python3 -m cli.fetch --exog exog_daily`。[記録 §3-4](docs/specs/experiments/daily-data-sources.md)）
-    ⚠ **4 経路・25 系列**: ECB 為替 7 本（7,088 行・1999〜）／米財務省イールド 7 本（2,171 行・2018〜）／⚠ **NOAA 気象 9 本（偽薬）**／⚠ **USGS 地震 2 本（偽薬）**
-    ⚠ **地震だけ「行が無い日」＝「0 件の日」**（71 日）。⚠ **特徴量にするときは 0 で埋める。前方埋めは禁止**
-    ⏳ 残り（判断待ちの外）: 連邦準備 H.10 の URL 確定 ／ 地磁気の長期 ／ 黒点の公有経路 ／ GDELT の規約
-  - [x] Phase 3-2: ⚠ **相関の低い銘柄を 23 本足した**（2026-09-09。[記録 §7](docs/specs/experiments/daily-data-sources.md)）
-    ⚠ **銘柄数を増やしても標本はほとんど増えない**: 会社株の相関 0.341 で、⚠ **実効系列数の上限は 8.35 本。48 銘柄で既に 77%**。⚠ **10 倍にしても t は 1.13 倍**
-    ⚠ **狙いが当たったのは 23 本中 12 本だけ。** 国際株・小型株・REIT は実質が株（EFA 0.843・IJR 0.839）。⚠ **HYG は債券 ETF なのに 0.776**
-    ⚠ **23 本ぜんぶより 12 本に絞るほうが実効系列数が多い**（7.81 → 9.06。t の伸び 1.17）
-    ⚠ **線引きは資産クラスで引いた**（測った相関で引くと分割の外で選ぶことになる）。⚠ **取ったものは raw から消していない**
-  - [ ] **⚠ 利用者の判断待ち 2 件**（[記録 §4](docs/specs/experiments/daily-data-sources.md)）
-    ⚠ **(1) FRED の無料 API キーを取るか**（読み取り専用。売買口座の登録とは別物）
-    ⚠ **(2) 本プロジェクトを「非商用」と言えるか**（目的が「収入を稼ぐ方法の体系化」なので言い切れない）
-    ⚠ **どちらも No でも進む**: 為替・気象・地震・イールドは判断の外側で使える
-  - [ ] Phase 4: ⚠ **`ex_` 層と偽薬の枠**（1 日ずらす ／ `n_trials` に数える）
-  - [ ] Phase 5: 検証に載せて、⚠ **本命が偽薬を超えるかを見る**
-  派生元: 「特徴量を見つけ出す手法を、1 分足の実データで検証する」（2026-09-08 に打ち切り）。
-  ⚠ **その [§9-2](docs/specs/experiments/feature-discovery.md) の結論が「次に変えるなら推定器ではなく入力」**。
-  ⚠ **価格だけからは方向が出なかった**ので、⚠ **同じ価格データで手法を替えるのをやめて、入れる情報を増やす側に回る**
-  ⚠ **着手前にプランで決めること（どちらの「広く」かで作業がまるごと変わる）**
-    - (a) ⚠ **情報の種類を増やす**（決算・イベント・マクロ・センチメント・板 など）。⚠ **E8 の失敗の型で最多は X12「方向を当てていない」29 件**で、価格だけの限界はここに出ている
-    - (b) ⚠ **銘柄と期間を増やす**（いまは 63 銘柄・1 分足 6 週間・日足 32 年）。⚠ **生存バイアスが直せる**（63 銘柄は 2026-09-08 時点の時価総額上位で、上場廃止した銘柄が 1 つも入っていない。[rules.md 12 章 限界 1](docs/specs/experiments/feature-discovery/rules.md)）
-  ⚠ **規約と法令を先に当たる**（CLAUDE.md の依頼方針）。⚠ **収集は「取れるか」より「取ってよいか」で落ちる**
-    - ⚠ **Stooq は robots.txt で全自動アクセスを拒否していて 2026-09-01 に「採らない」で確定済み**（[market-data-availability.md §3-2](docs/specs/market-data-availability.md)）。⚠ **同じ確認を新しい取得元ごとに行う**
-    - ⚠ **再配布の可否は取得の可否と別**。⚠ **`data/` は git 管理外だが、それは規約を満たす理由にならない**
-  ⚠ **やり直さなくてよい調査**（2026-09-01 に済み。[market-data-availability.md](docs/specs/market-data-availability.md) 96 件）
-    - ⚠ **無償かつ無登録で tick が取れるのは暗号資産と予測市場だけ**。⚠ **米国株は無償でも必ずアカウント登録を要求する**
-    - ⚠ **株価指数は FRED から無登録・日次で取れる**（`NASDAQCOM` 14,498 行 1971〜。⚠ **指数であって個別銘柄ではない**）
-    - ⚠ **tastytrade / dxFeed の上限は実測済み**: 1 購読 約 8,000 本・`toTime` は無視される・1 分足は約 6 週間で頭打ち（[data-routes.md](docs/specs/experiments/e8-signal-methods/data-routes.md)）
-  ⚠ **置き場と作法は [rules.md](docs/specs/experiments/feature-discovery/rules.md) が正本**。⚠ **新しい取得元も同じ層に載せる**（`raw/<取得元>/` は書き換えない ／ 加工は新しい層 ／ 取得のたびに検査して manifest を書く）
-  ⚠ **資金は動かさない**（2026-08-27 の方針）。⚠ **有償のデータは試算までで、購読しない**
-  ⚠ **数字は【実測】/【公表値】/【推測】を明示する**（【公表値】は URL と取得日を併記）
-  関連: [market-data-availability.md](docs/specs/market-data-availability.md) ／ [feature-discovery.md §9](docs/specs/experiments/feature-discovery.md) ／ [rules.md](docs/specs/experiments/feature-discovery/rules.md) ／ [e8-signal-methods.md](docs/specs/experiments/e8-signal-methods.md)
+- [ ] データの取得元を広げる（判断待ちの 2 件）
+  ⚠ **「予想モデルに使うデータを広く収集する」から切り出した**（2026-09-09 に本体は完了。[DONE](DONE.md)）
+  ⚠ **どちらも私には決められない。** ⚠ **取れないのではなく、本プロジェクトをどう位置づけるかで決まる**
+  - [ ] ⚠ **(1) FRED の無料 API キーを取るか**（読み取り専用の登録。売買口座の登録とは別物）
+    ⚠ **取らなくても金利と商品は揃っている**（イールドは米財務省から、商品は ETF で取得済み）
+    ⚠ **FRED でしか手軽に取れないのは 3 つ**: 信用スプレッド ／ 商品の現物価格（ETF とは別物）／ 1962 年からの長い履歴
+  - [ ] ⚠ **(2) 本プロジェクトを「非商用」と言えるか**（目的が「収入を稼ぐ方法の体系化」なので言い切れない）
+    ⚠ **効くのは Open-Meteo と SILSO（太陽黒点 76,214 行・1818 年〜）。** ⚠ **天気は NOAA で代替済み**
+  - [ ] 判断が付いたら: 連邦準備 H.10 の URL 確定 ／ 地磁気の長期 ／ 黒点の公有経路 ／ GDELT の規約
+  関連: [記録 §4](docs/specs/experiments/daily-data-sources.md) ／ [market-data-availability.md](docs/specs/market-data-availability.md)
 
 - [ ] tastytrade で、実際の API 取引のサンプルプログラムを動かす [plan](docs/plans/tastytrade-api-sample.md)
   - 対象は [docs/specs/service-trust-assessment.md](docs/specs/service-trust-assessment.md) の判定「高」で、[docs/specs/trading-fee-comparison.md](docs/specs/trading-fee-comparison.md) §4 で株 $0・API プレミアム $0、常駐プロセス不要の tastytrade 1 社。moomoo・IBKR は 2026-09-04 に対象から外した（再開条件はプラン §1-2）

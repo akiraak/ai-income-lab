@@ -50,7 +50,8 @@ def evaluate(panel: pd.DataFrame, feats: list[str], exp: dict, run: runs.Run) ->
     baselines = registry.resolve_all("model", exp.get("baselines", []))
     model = registry.resolve("model", exp.get("model", "Ridge"))
 
-    out = []
+    out: list[dict] = []
+    picked: list[dict] = []
     for f, tr, te in split(panel, int(v.get("folds", 5)), horizon_min,
                            int(v.get("embargo_bars", 0)), float(exp.get("bar_minutes", 0.0))):
         yte = te["y"].values
@@ -72,7 +73,10 @@ def evaluate(panel: pd.DataFrame, feats: list[str], exp: dict, run: runs.Run) ->
             p = model(Xtr[cols], ytr, Xte[cols], ctx)
             out.append({"手法": name, "fold": f, "選んだ本数": len(cols),
                         **metrics.score(p, yte, cost_bp)})
+            # ⚠ **何を選んだかを残す。** ⚠ **偽薬を選んだ割合が、そのまま偽発見率の実測になる**
+            picked.extend({"手法": name, "fold": f, "列": c} for c in cols)
         run.log(f"  fold {f}: 訓練 {len(tr):,} / 検証 {len(te):,}")
+    run.selected(pd.DataFrame(picked))
     return pd.DataFrame(out)
 
 

@@ -1,18 +1,18 @@
 # 日次データの取得元を広げる（為替 ＋ 無関係に見えるものも含めて）
 
 作成: 2026-09-08 ／ 対象: `experiments/feature-discovery/`（データ層）
-関連: [market-data-availability.md](../specs/market-data-availability.md) ／ [feature-discovery.md §9](../specs/experiments/feature-discovery.md) ／ [rules.md](../specs/experiments/feature-discovery/rules.md)
+関連: [market-data-availability.md](../../specs/market-data-availability.md) ／ [feature-discovery.md §9](../../specs/experiments/feature-discovery.md) ／ [rules.md](../../specs/experiments/feature-discovery/rules.md)
 
 ## 1. 目的と背景
 
 利用者の指示（2026-09-08）: **データを増やす。為替のデータを入れる。それ以外で日ごとのデータで入れられるものを調査する。天気予報など全く関連がなさそうなものでもいい。**
 
-⚠ **前のタスクの結論がそのまま入口になる。** [§9-2](../specs/experiments/feature-discovery.md) は
+⚠ **前のタスクの結論がそのまま入口になる。** [§9-2](../../specs/experiments/feature-discovery.md) は
 **「次に変えるなら推定器ではなく入力」**で閉じた。⚠ **価格だけからは方向が出なかった**ためである。
 
 ### 1-1. ⚠ 「無関係に見えるもの」を入れる意味を先に決める
 
-⚠ **無関係な系列をたくさん足すのは、そのままだと多重検定の温床**である（[rules.md 11 章](../specs/experiments/feature-discovery/rules.md) 規約 4）。
+⚠ **無関係な系列をたくさん足すのは、そのままだと多重検定の温床**である（[rules.md 11 章](../../specs/experiments/feature-discovery/rules.md) 規約 4）。
 ⚠ **系列を 50 本足せば、どれかは必ず「効いて見える」。**
 
 ⚠ **だから「偽薬（プラセボ）」として明示的に使う。** これは足を引っ張るのではなく、**検証を強くする**。
@@ -63,7 +63,7 @@ flowchart TB
 
 ### 2-3. 置き場
 
-⚠ **[rules.md 1 章](../specs/experiments/feature-discovery/rules.md) の層をそのまま使う。** 新しい取得元も例外にしない。
+⚠ **[rules.md 1 章](../../specs/experiments/feature-discovery/rules.md) の層をそのまま使う。** 新しい取得元も例外にしない。
 
 - `data/raw/<取得元>/d/<系列>.csv` — 取ってきたまま。⚠ **書き換えない**
 - 取得のたびに不変条件を検査して manifest を書く（5 章）

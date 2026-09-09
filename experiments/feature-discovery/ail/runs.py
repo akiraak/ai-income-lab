@@ -7,6 +7,7 @@
       result.csv     手法ごとの成績（fold ごとの生の行）
       summary.csv    手法ごとにまとめたもの
       checks.json    ⚠ fold の符号・上乗せ・実効標本数・デフレーテッド SR（管理画面が読む）
+      selected.csv   ⚠ 手法が fold ごとに選んだ列（偽薬を選んだ割合の実測に使う）
       log.txt        画面に出したものと同じ
       fitted/        ⚠ 標本から学んだ係数（再現用。⚠ **次の実行では読み込まない**）
 
@@ -78,6 +79,11 @@ class Run:
     def checks(self, doc: dict) -> None:
         """⚠ **検査の結果。** fold の符号・上乗せ・実効標本数・デフレーテッド SR を記録の一部にする。"""
         self._write("checks.json", doc)
+
+    def selected(self, picked: pd.DataFrame) -> None:
+        """⚠ **選別手法が fold ごとに選んだ列。** ⚠ **偽薬を選んだ割合の実測に使う。**"""
+        if len(picked):
+            picked.to_csv(os.path.join(self.dir, "selected.csv"), index=False)
 
     def result(self, raw: pd.DataFrame, summary: pd.DataFrame) -> None:
         raw.to_csv(os.path.join(self.dir, "result.csv"), index=False)

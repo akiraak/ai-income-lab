@@ -1,0 +1,39 @@
+# ⚠ **本命が偽薬を超えるかを見るための 3 本のうちの 1 本**: 価格 ＋ ⚠ 偽薬（気象・地震）
+#
+# ⚠ **3 本とも期間・粒度・地平・k・種を揃えてある。** 違うのは特徴量の層だけ。
+# ⚠ **揃えないと、比べているのが層の差か期間の差か分からなくなる。**
+name = "placebo_2018"
+dataset = "daily"
+horizon = 1
+cost_bp = 5.0
+start_date = "2018-01-31"      # ⚠ 外部系列が揃う最初の日（exog_h1 の表の開始）
+
+feature_layers = ["own", "ex"]
+targets = "all"
+
+horizon_min = 1440.0
+bar_minutes = 1440.0
+
+selectors = [
+  "全部使う（基準）", "乱択（基準）",
+  "F1-1 相関", "F1-2 相互情報量", "F1-3 mRMR", "F1-5 検定+FDR",
+  "F2-3 Boruta", "F3-1 Lasso", "F3-2 木の重要度", "F3-3 並べ替え(MDA)", "F3-5 クラスタ化MDA",
+]
+k = 16
+
+model = "Ridge"
+baselines = ["常に上（ドリフト）", "直前リターンの符号"]
+
+[validation]
+split = "walk_forward"
+folds = 5
+purge = true
+embargo_bars = 0
+seed = 0
+
+[features]
+ex_lag_days = 1
+ex_sources = ["noaa", "usgs"]
+ex_zero_fill = ["usgs"]
+ex_transforms = ["d1", "z20"]
+ex_max_stale_days = 7

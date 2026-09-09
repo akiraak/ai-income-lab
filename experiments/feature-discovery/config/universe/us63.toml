@@ -1,0 +1,83 @@
+# 銘柄の集合。⚠ **選び方そのものが生存バイアスになる**（下の注記）。
+name = "us63"
+description = "米国上場 63 銘柄（ETF 15 ＋ 会社 48）。2026-09-08 時点の時価総額上位と主要 ETF"
+
+# ⚠ 既知の限界（rules.md 12 章と対）
+#   - 2026-09-08 時点で選んでいる = **当時知り得た情報ではない**（生存バイアス）
+#   - **上場廃止・凋落した銘柄が 1 つも入っていない**
+#   - ⚠ **ETF は会社株を含むので 63 系列は独立ではない**（SPY は残り 48 社を丸ごと含む）
+survivorship_bias = true
+selected_on = "2026-09-08"
+
+[groups]
+# ⚠ ETF は会社ではなく詰め合わせ。断面の特徴量では「市場・セクターの代表」として使う
+etf = [
+  "SPY", "QQQ", "IWM", "DIA", "XLK", "XLF", "XLE", "XLV",
+  "XLI", "XLY", "XLP", "XLU", "XLB", "XLRE", "XLC"
+]
+company = [
+  "AAPL", "MSFT", "NVDA", "AMZN", "GOOGL", "META", "TSLA", "AVGO",
+  "BRK/B", "JPM", "V", "MA", "UNH", "XOM", "JNJ", "WMT",
+  "PG", "HD", "COST", "ORCL", "CVX", "MRK", "ABBV", "KO",
+  "PEP", "BAC", "CRM", "AMD", "NFLX", "ADBE", "LLY", "TMO",
+  "ACN", "MCD", "CSCO", "ABT", "INTC", "QCOM", "TXN", "DIS",
+  "VZ", "T", "PFE", "NKE", "BA", "GS", "CAT", "HON"
+]
+
+[market_proxy]
+market = "SPY"      # rel_ 特徴量の市場代表
+sectors = { XLK = "技術", XLF = "金融", XLE = "エネルギー", XLV = "ヘルスケア", XLI = "資本財", XLY = "一般消費財", XLP = "生活必需品", XLU = "公益", XLB = "素材", XLRE = "不動産", XLC = "通信サービス" }
+
+# ⚠ **`rel_` のセクター相対で使う「会社 → セクター ETF」の対応。**
+#    ⚠ **ここに書き足すだけでセクター相対の特徴量が増える**（コードは触らない）。
+#    ⚠ **出典を持たない割り当ては【推測】**（2026-09-08 時点の主業種で振った）。
+#    正しくは各 ETF の構成銘柄一覧（SPDR の公表値）で確かめる。
+[sector_of]
+AAPL    = "XLK"
+MSFT    = "XLK"
+NVDA    = "XLK"
+AVGO    = "XLK"
+ORCL    = "XLK"
+CRM     = "XLK"
+AMD     = "XLK"
+ADBE    = "XLK"
+ACN     = "XLK"
+CSCO    = "XLK"
+INTC    = "XLK"
+QCOM    = "XLK"
+TXN     = "XLK"
+AMZN    = "XLY"
+TSLA    = "XLY"
+HD      = "XLY"
+MCD     = "XLY"
+NKE     = "XLY"
+GOOGL   = "XLC"
+META    = "XLC"
+NFLX    = "XLC"
+DIS     = "XLC"
+VZ      = "XLC"
+T       = "XLC"
+"BRK/B" = "XLF"
+JPM     = "XLF"
+V       = "XLF"
+MA      = "XLF"
+BAC     = "XLF"
+GS      = "XLF"
+UNH     = "XLV"
+JNJ     = "XLV"
+MRK     = "XLV"
+ABBV    = "XLV"
+LLY     = "XLV"
+TMO     = "XLV"
+ABT     = "XLV"
+PFE     = "XLV"
+XOM     = "XLE"
+CVX     = "XLE"
+WMT     = "XLP"
+PG      = "XLP"
+COST    = "XLP"
+KO      = "XLP"
+PEP     = "XLP"
+BA      = "XLI"
+CAT     = "XLI"
+HON     = "XLI"

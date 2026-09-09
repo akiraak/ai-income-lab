@@ -1,0 +1,7 @@
+# 日足。1 銘柄あたり最大 8,000 本 = 約 32 年。
+name = "daily"
+source = "tastytrade"
+period = "d"
+days = 12000
+universe = "us63"
+adjust = "split"      # ⚠ 日足は分割の断層が入りうる。none にしてはいけない

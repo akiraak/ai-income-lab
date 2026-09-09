@@ -1,0 +1,7 @@
+# 特徴量の発見手法の検証（Phase 2〜4）。取得（fetch.py）は tastytrade サンプルの venv でも動く。
+numpy==2.4.2
+pandas==2.3.3
+scipy==1.17.1
+scikit-learn==1.7.2
+pyarrow==25.0.1      # data/features/*.parquet（CSV だと 1 実験 300MB になる）
+pytest==9.1.1        # tests/（不変条件・調整の検算・先読み）

@@ -1,0 +1,8 @@
+# ⚠ **先頭の `/` は必須。** `data/` と書くと `ail/data/` まで無視される（2026-09-08 に踏んだ）
+/data/
+/out/
+/runs/
+.venv/
+__pycache__/
+.pytest_cache/
+*.log

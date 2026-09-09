@@ -1,0 +1,12 @@
+# 1 分足の作り方。⚠ **8,000 本の上限と toTime 無効は提供元の制約**（rules.md 1 章）。
+name = "min1"
+source = "tastytrade"
+period = "m"          # ⚠ 値 1 は書かない（{=1m} は 0 件になる）
+days = 30             # 要求する窓。⚠ 実際は 8,000 本で頭打ち
+universe = "us63"
+adjust = "split"      # none / split / split_dividend
+
+[limits]
+max_bars_per_subscription = 8000   # 実測
+to_time_supported = false          # ⚠ 実測: toTime は無視される
+subscriptions_per_session = 100    # 公表値

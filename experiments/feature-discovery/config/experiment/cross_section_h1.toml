@@ -1,0 +1,46 @@
+# ⚠ **利用者が求めた形**: NVDA を当てるのに全銘柄のデータを使う。
+#    own だけの own_only_h1.toml と数字を並べるのが目的。
+#
+# ⚠ **TOML はテーブル見出し（[...]）より後ろの key をそのテーブルに入れる。**
+# ⚠ **平の key は必ずテーブルより上に書く**（2026-09-08 に踏んだ。`horizon_min` が `notes` の中に入っていた）
+name = "cross_section_h1"
+dataset = "daily"
+horizon = 1
+cost_bp = 5.0
+
+# ⚠ 断面を足すと列が一気に増える（63 銘柄 × 特徴量）。**選別手法の出番はここから**
+feature_layers = ["own", "cs", "rel", "ll"]
+
+# ⚠ **予測の対象は会社株 48 本だけ。** ETF 15 本は市場・セクターの代表として説明変数に使う
+# ⚠ **ETF はセクター相対（`rel_sec_*`）を持てないので、対象に混ぜると dropna で黙って全部消える**
+targets = "company"
+
+horizon_min = 1440.0
+bar_minutes = 1440.0
+
+selectors = [
+  "全部使う（基準）", "乱択（基準）",
+  "F1-1 相関", "F1-2 相互情報量", "F1-3 mRMR", "F1-5 検定+FDR",
+  "F2-3 Boruta", "F3-1 Lasso", "F3-2 木の重要度", "F3-3 並べ替え(MDA)", "F3-5 クラスタ化MDA",
+]
+k = 32
+
+model = "Ridge"
+baselines = ["常に上（ドリフト）", "直前リターンの符号"]
+
+[validation]
+split = "walk_forward"
+folds = 5
+purge = true
+embargo_bars = 1        # ⚠ 断面は同じ時刻の他銘柄を見るので、境目を 1 本空ける
+seed = 0
+
+[features]
+# ⚠ **ここを増やすと列が増える。コードは触らない**（rules.md 10 章）
+ll_leaders = "etf"          # "etf" / "all" / 銘柄の一覧
+ll_lags = [1, 2, 3, 5]
+beta_window = 60
+
+[notes]
+# ⚠ 断面は全銘柄が揃う時刻でしか作れない。日足で全 63 が揃うのは 2018-06 以降
+common_window_only = true

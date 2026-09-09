@@ -1,0 +1,33 @@
+# ⚠ いままでやっていた形（プーリング）。**各行は自分の履歴しか見ない。**
+#    ルール適用後の再現用に残す。cross_section_h1.toml と比べるのが目的。
+#
+# ⚠ **TOML はテーブル見出し（[...]）より後ろの key をそのテーブルに入れる。**
+# ⚠ **平の key は必ずテーブルより上に書く**（下に足すと `validation.horizon_min` になって黙って効かない）
+name = "own_only_h1"
+dataset = "daily"
+horizon = 1            # 何本先を当てるか
+cost_bp = 5.0
+
+feature_layers = ["own"]        # ⚠ 断面を使わない
+targets = "all"                 # 予測の対象（universe の groups の名前 / "all"）
+
+# ⚠ **ラベルが跨ぐ実時間（分）。** パージの幅に使う（日足 1 本 = 1,440 分）
+horizon_min = 1440.0
+bar_minutes = 1440.0
+
+selectors = [
+  "全部使う（基準）", "乱択（基準）",
+  "F1-1 相関", "F1-2 相互情報量", "F1-3 mRMR", "F1-5 検定+FDR",
+  "F2-3 Boruta", "F3-1 Lasso", "F3-2 木の重要度", "F3-3 並べ替え(MDA)", "F3-5 クラスタ化MDA",
+]
+k = 8
+
+model = "Ridge"
+baselines = ["常に上（ドリフト）", "直前リターンの符号"]   # ⚠ 必須
+
+[validation]
+split = "walk_forward"
+folds = 5
+purge = true
+embargo_bars = 0
+seed = 0

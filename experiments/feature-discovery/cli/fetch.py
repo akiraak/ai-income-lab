@@ -3,6 +3,7 @@
     python3 -m cli.fetch --dataset daily
     python3 -m cli.fetch --dataset min1 --symbols SPY,QQQ
     python3 -m cli.fetch --import-legacy data      # ⚠ 既にある CSV を raw/ へ移すだけ（取得しない）
+    python3 -m cli.fetch --exog exog_daily         # ⚠ 外部の日次系列（為替・イールド・気象・地震）
 
 ⚠ **`raw/` は取ってきたまま。以後どのコードも書き換えない**（rules.md 1 章）。
 ⚠ 取得は tastytrade サンプルの venv で動かす（`ttclient` と `websockets` が要る）。
@@ -36,6 +37,45 @@ def _record(directory: str, layer: str, period: str, extra: dict) -> None:
     print(f"→ {os.path.relpath(path, store.ROOT)}")
 
 
+def fetch_exog(name: str) -> None:
+    """外部の日次系列を取る。⚠ **足とは形が違うので `series/` に分けて置く**（contracts.py）。
+
+    ⚠ **枠（本命 / 偽薬）は config が宣言する。** ⚠ **結果を見てから分類しない。**
+    """
+    import pandas as pd          # ⚠ 取得用の最小 venv には無いので、ここで import する
+
+    ds = config.dataset(name)
+    for block in ds.get("series", []):
+        source = block["source"]
+        fn = registry.resolve("source", source)
+        kwargs = {k: v for k, v in block.items() if k not in ("source", "role", "ids", "note")}
+        print(f"\n取得元 {source}（枠 {block.get('role', '—')}）: {', '.join(map(str, block['ids']))}")
+        out = fn(list(block["ids"]), **kwargs)
+        if not out:
+            print("  ⚠ 何も返らなかった")
+            continue
+        directory = store.series_dir(source)
+        entries = {}
+        reports = {}
+        for sid, df in out.items():
+            store.write_series(directory, sid, df)
+            rep = check.check_series(df)
+            reports[sid] = rep
+            entries[sid] = {**store.series_fingerprint(df), "check": rep,
+                            "role": block.get("role"), "source": source}
+            first = pd.to_datetime(df["time_ms"].iloc[0], unit="ms", utc=True).date()
+            last = pd.to_datetime(df["time_ms"].iloc[-1], unit="ms", utc=True).date()
+            print(f"  {sid:<22}{len(df):>7,} 行  {first} 〜 {last}")
+        fatal = check.fatal_of(check.merge(reports))
+        if fatal:
+            raise SystemExit(f"⚠ 不変条件に違反している（{source}）: {fatal}")
+        path = store.write_manifest(f"raw_{source}", "series", entries,
+                                    {"totals": check.merge(reports), "source": source,
+                                     "role": block.get("role"), "note": block.get("note"),
+                                     "dataset": ds["name"]})
+        print(f"  → {os.path.relpath(path, store.ROOT)}")
+
+
 def import_legacy(src: str, source: str = "tastytrade") -> None:
     """⚠ **2026-09-08 以前に `data/*.csv` に置いていたものを `raw/` へ移す。** 中身は触らない。"""
     src = os.path.join(store.ROOT, src)
@@ -59,10 +99,15 @@ def main() -> None:
     ap.add_argument("--batch", type=int, default=16)
     ap.add_argument("--import-legacy", metavar="DIR",
                     help="⚠ 取得せず、既存の <DIR>/*_<period>.csv を raw/ へ移す")
+    ap.add_argument("--exog", metavar="DATASET",
+                    help="⚠ 外部の日次系列を取る（config/dataset/<名前>.toml の [[series]]）")
     args = ap.parse_args()
 
     if args.import_legacy:
         import_legacy(args.import_legacy)
+        return
+    if args.exog:
+        fetch_exog(args.exog)
         return
     if not args.dataset:
         raise SystemExit("--dataset か --import-legacy のどちらかが要る")

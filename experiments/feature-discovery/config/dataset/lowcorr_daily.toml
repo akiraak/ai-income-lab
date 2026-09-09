@@ -1,0 +1,7 @@
+# 相関の低い候補の日足。⚠ **取得元と上限は daily と同じ**（1 購読 8,000 本 = 最大 32 年）。
+name = "lowcorr_daily"
+source = "tastytrade"
+period = "d"
+days = 12000
+universe = "lowcorr"
+adjust = "split"

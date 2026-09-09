@@ -21,7 +21,7 @@ from typing import Iterable
 
 import pandas as pd
 
-from ail.contracts import BAR_COLUMNS
+from ail.contracts import BAR_COLUMNS, SERIES_COLUMNS
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 DATA = os.path.join(ROOT, "data")
@@ -43,6 +43,11 @@ def from_filename(name: str) -> str:
 
 def raw_dir(source: str, period: str) -> str:
     return os.path.join(DATA, "raw", source, period)
+
+
+def series_dir(source: str) -> str:
+    """外部系列の置き場。⚠ **足とはディレクトリを分ける**（形が違うので検査も違う）。"""
+    return os.path.join(DATA, "raw", source, "series")
 
 
 def adjusted_dir(period: str) -> str:
@@ -79,6 +84,29 @@ def write_bars(directory: str, symbol: str, df: pd.DataFrame) -> str:
     path = path_of(directory, symbol)
     df[list(BAR_COLUMNS)].to_csv(path, index=False)
     return path
+
+
+def read_series(directory: str, series_id: str) -> pd.DataFrame:
+    """外部系列を読む。⚠ **`ts` をここで足す**（足と同じ扱いにする）。"""
+    df = pd.read_csv(path_of(directory, series_id))
+    df["ts"] = pd.to_datetime(df["time_ms"], unit="ms", utc=True)
+    return df.sort_values("time_ms").reset_index(drop=True)
+
+
+def write_series(directory: str, series_id: str, df: pd.DataFrame) -> str:
+    """外部系列を書く。⚠ **`SERIES_COLUMNS` 以外は落とす。**"""
+    os.makedirs(directory, exist_ok=True)
+    path = path_of(directory, series_id)
+    df[list(SERIES_COLUMNS)].to_csv(path, index=False)
+    return path
+
+
+def series_fingerprint(df: pd.DataFrame) -> dict:
+    body = df[list(SERIES_COLUMNS)].to_csv(index=False).encode()
+    return {"rows": int(len(df)),
+            "oldest_ms": int(df["time_ms"].iloc[0]) if len(df) else None,
+            "newest_ms": int(df["time_ms"].iloc[-1]) if len(df) else None,
+            "sha256": hashlib.sha256(body).hexdigest()[:16]}
 
 
 # ---------------------------------------------------------------- 指紋と manifest

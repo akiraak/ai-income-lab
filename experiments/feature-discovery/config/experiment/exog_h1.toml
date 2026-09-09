@@ -1,0 +1,42 @@
+# ⚠ **価格の外の情報を入れた最初の実験。** own（価格）＋ ex（外部系列）で 1 日先を当てる。
+#
+# ⚠ **断面（cs / rel / ll）は入れていない。** ⚠ **`ex_` は全銘柄で同じ値になる**ので、
+#    まず「価格だけ」対「価格 ＋ 外部」を素直に比べる。
+#
+# ⚠ **TOML の平の key はテーブル見出しより上に書く**（rules.md 10 章 規約 1）
+name = "exog_h1"
+dataset = "daily"
+horizon = 1
+cost_bp = 5.0
+
+feature_layers = ["own", "ex"]
+targets = "all"
+
+horizon_min = 1440.0
+bar_minutes = 1440.0
+
+selectors = [
+  "全部使う（基準）", "乱択（基準）",
+  "F1-1 相関", "F1-2 相互情報量", "F1-3 mRMR", "F1-5 検定+FDR",
+  "F2-3 Boruta", "F3-1 Lasso", "F3-2 木の重要度", "F3-3 並べ替え(MDA)", "F3-5 クラスタ化MDA",
+]
+k = 16
+
+model = "Ridge"
+baselines = ["常に上（ドリフト）", "直前リターンの符号"]
+
+[validation]
+split = "walk_forward"
+folds = 5
+purge = true
+embargo_bars = 0
+seed = 0
+
+[features]
+# ⚠ **発表の遅れ。** ⚠ **1 未満は ValueError で落ちる**（ail/features/exog.py）
+ex_lag_days = 1
+ex_sources = ["ecb", "treasury", "noaa", "usgs"]
+ex_zero_fill = ["usgs"]        # ⚠ 地震は「行が無い日 = 0 件」
+ex_transforms = ["d1", "z20"]  # ⚠ 水準は非定常なので入れない
+# ⚠ **前の値を引き継いでよい日数の上限。** ⚠ **系列が止まったことを定数の列で隠さない**
+ex_max_stale_days = 7

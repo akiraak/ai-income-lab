@@ -13,8 +13,9 @@
 ```bash
 python3 -m venv .venv && ./.venv/bin/pip install -r requirements.txt
 
-# 1. 取得 → data/raw/（⚠ tastytrade サンプルの venv で動かす。websockets と ttclient が要る）
-../tastytrade-api-sample/.venv/bin/python -m cli.fetch --dataset daily
+# 1. 取得 → data/raw/（⚠ **この venv で通る**。requirements.txt に websockets と requests を入れてある）
+./.venv/bin/python -m cli.fetch --dataset daily          # 足（tastytrade）
+./.venv/bin/python -m cli.fetch --exog exog_daily        # ⚠ 外部の日次系列（為替・イールド・気象・地震）
 
 # 2. 調整 → data/adjusted/（⚠ まず --report で継ぎ目を見てから書く）
 ./.venv/bin/python -m cli.adjust --period d --report
@@ -58,7 +59,7 @@ python3 -m venv .venv && ./.venv/bin/pip install -r requirements.txt
 | `ail/data/sources/` | 取得元 | ファイルを 1 つ足す |
 | `ail/data/adjust.py` | ⚠ **目盛りの修復**（rules.md 2 章） | 触らない |
 | `ail/data/transforms/` | ⚠ **推定しない変換（`derived/` に置く）／ 推定する変換（置かない）** | 担当のファイルに足す |
-| `ail/features/` | `own_` `cs_` `rel_` `ll_` の 4 層 | 担当のファイルに関数を足す |
+| `ail/features/` | `own_` `cs_` `rel_` `ll_` ＋ ⚠ **`ex_`（価格の外）** の 5 層 | 担当のファイルに関数を足す |
 | `ail/selectors/` | F1〜F5 の選別手法 | ⚠ **関数に `@register` を付けるだけ** |
 | `ail/models/` | 基準線・線形・木 | 同上 |
 | `ail/validation/` | 分割・指標・統計 | 同上 |

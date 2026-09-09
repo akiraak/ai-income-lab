@@ -1,7 +1,10 @@
-# 特徴量の発見手法の検証（Phase 2〜4）。取得（fetch.py）は tastytrade サンプルの venv でも動く。
+# 特徴量の発見手法の検証。⚠ **取得もこの venv で通す**（2026-09-09）。
+# ⚠ **以前は「取得はサンプル側の venv で」と書いてあったが、そちらに pandas が無いので実際には通らなかった。**
 numpy==2.4.2
 pandas==2.3.3
 scipy==1.17.1
 scikit-learn==1.7.2
 pyarrow==25.0.1      # data/features/*.parquet（CSV だと 1 実験 300MB になる）
 pytest==9.1.1        # tests/（不変条件・調整の検算・先読み）
+requests==2.32.5     # ⚠ 取得（ttclient が使う）。サンプルと同じ版に固定する
+websockets==15.0.1   # ⚠ 取得（DXLink）。同上

@@ -4,7 +4,9 @@
 """
 
 from ail.data.sources import tastytrade      # noqa: F401
-from ail.features import own, cross, relative, leadlag   # noqa: F401
+# 外部の日次系列（rules.md 1 章の層に載せる。⚠ **足とは形が違う**）
+from ail.data.sources import ecb, noaa, treasury, usgs   # noqa: F401
+from ail.features import own, cross, relative, leadlag, exog   # noqa: F401
 from ail.selectors import filter as _filter, wrapper, embedded  # noqa: F401
 from ail.models import baselines, linear     # noqa: F401
 from ail.validation import splits            # noqa: F401

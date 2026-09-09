@@ -13,7 +13,7 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
-from ail.contracts import BAR_COLUMNS
+from ail.contracts import BAR_COLUMNS, SERIES_COLUMNS
 
 # ⚠ **止める**（先の計算が嘘になる）
 FATAL = ("time_not_monotonic", "time_duplicated", "nonpositive_price",
@@ -43,6 +43,27 @@ def check_bars(df: pd.DataFrame, break_threshold: float = 0.25) -> dict[str, int
         "zero_volume": int((v == 0).sum()),
         # ⚠ 調整の誤りが残っていないか。**調整後はここが 0 になるはず**（実際の暴落は除く）
         "scale_break": int((r.abs() > break_threshold).sum()),
+    }
+
+
+def check_series(df: pd.DataFrame) -> dict[str, int]:
+    """外部系列（1 値の日次）の検査。⚠ **足と違って価格でも出来高でもないので、条件を分ける。**
+
+    ⚠ **止めるのは「時刻が壊れている」ときだけ。** 値の中身（気温が負など）は正常なので止めない。
+    """
+    n = len(df)
+    if n == 0:
+        return {"empty": 1}
+    t, v = df["time_ms"], df["value"]
+    return {
+        "rows": n,
+        "time_not_monotonic": int((t.diff().dropna() <= 0).sum()),
+        "time_duplicated": int(t.duplicated().sum()),
+        "nan_in_bars": int(df[list(SERIES_COLUMNS)].isna().sum().sum()),
+        # ⚠ 数えるだけ。⚠ **飛びは休日なので異常ではない**が、多すぎたら経路を疑う材料になる
+        "gap_over_7d": int((t.diff().dropna() > 7 * 86_400_000).sum()),
+        "zero_volume": 0, "negative_volume": 0, "nonpositive_price": 0, "ohlc_inconsistent": 0,
+        "scale_break": int((v.astype(float).diff().abs() > 0).sum() * 0),   # 系列では判定しない
     }
 
 

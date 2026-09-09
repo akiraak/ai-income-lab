@@ -137,6 +137,20 @@ flowchart LR
 | 6 | Kalshi `markets` / `markets/trades` / `candlesticks` | キー無し。**約定（L0）と 1 分足（L1）**。1 分足に `yes_bid` / `yes_ask`・出来高・建玉が付く |
 | 7 | Polymarket `gamma` / `clob/prices-history` | キー無し。`fidelity=1` で**60 秒間隔・24 時間で 1,389 点** |
 
+#### ⚠ 2026-09-08 の追記 — FRED の CSV 直叩きは規約の側から見て正規の経路ではない
+
+⚠ **経路 1（`fredgraph.csv`）は技術的には取れるし、`robots.txt` も CSV を禁じていない**（禁止は
+`/graph/fredgraph.png` など 6 パスで、`User-agent: *` に `Crawl-delay: 1`）。⚠ **しかし規約の FAQ は別のことを言っている。**
+
+| 場所 | 文面【公表値 2026-09-08 取得】 |
+| --- | --- |
+| 「What can I do with FRED data?」 | 「Make a sweet app using our FRED through our **free API**」 |
+| 「What can't I do with FRED data?」 | ⚠ **「Don't do any data mining, scraping or extraction of FRED data.」** |
+
+⚠ **`robots.txt` が許していても、規約が別のことを言っているなら規約が上である**（Stooq と同じ立て方）。
+⚠ **正規の経路は無料の API キー**で、⚠ **本文書の「実測できた 7 経路」の 1 番目は、この点を付けて読むこと。**
+詳細と、取りうる 3 つの道は [daily-data-sources.md §2-1](experiments/daily-data-sources.md)。
+
 #### ⚠ 2026-09-08 の追記 — 「登録が要る」の先に何があるか
 
 上の判定（**米国の個別銘柄はどの経路も登録が要る**）は変わらない。ただし、**登録を済ませた口座からは何が取れるのか**を

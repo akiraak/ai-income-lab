@@ -23,7 +23,8 @@ from ail.data import store
 from ail.features import labels
 import ail.bootstrap  # noqa: F401
 
-ORDER = ("own", "cs", "rel", "ll")     # ⚠ 列の並びを実行ごとに変えない（cs は own に依存する）
+ORDER = ("own", "cs", "rel", "ll", "ex")   # ⚠ 列の並びを実行ごとに変えない（cs は own に依存する）
+# ⚠ **`ex` は価格に依存しない**（外部系列を貼るだけ）が、並びは固定する
 
 
 def build(experiment: str, layer: str = "adjusted", leak: bool = False,

@@ -7,6 +7,7 @@
 | # | 違い | ⚠ 理由 |
 | ---: | --- | --- |
 | 1 | ⚠ **必ず 1 日以上ずらす** | ⚠ **「その日のデータ」が「その日に手に入る」とは限らない**（発表の遅れ） |
+| 1-2 | ⚠ **ずらし幅は取得元ごとに変える** | ⚠ **NCEI Storm Events は 101 日遅れて出る**（実測）。一律 1 日にすると先読みになる |
 | 2 | ⚠ **欠けた日の埋め方が系列で違う** | ⚠ **地震は「行が無い日 = 0 件の日」**。為替・金利は休場なので前の値が最新のまま |
 | 2-2 | ⚠ **前の値を引き継ぐ日数に上限を置く** | ⚠ **上限が無いと、系列が止まっても古い値が永久に貼られ、定数の特徴量になる** |
 | 3 | ⚠ **全銘柄で同じ値になる** | ⚠ **断面では銘柄を区別できない**（方向には効きうるが、相対の順位には効かない） |
@@ -27,10 +28,15 @@ from ail.data import store
 from ail.registry import register
 
 PREFIX = "ex_"
-DEFAULT_SOURCES = ("ecb", "treasury", "noaa", "usgs")
+DEFAULT_SOURCES = ("ecb", "treasury", "noaa", "usgs", "ncei_storm", "epu")
 DEFAULT_LAG_DAYS = 1
+# ⚠ **取得元ごとの発表の遅れ。** ⚠ **一律 1 日にすると、遅れて出るデータで先読みになる。**
+# ⚠ **NCEI Storm Events は 2026-09-09 の時点で最新が 2026-05-31 = 101 日前**だった（実測）。
+# ⚠ **余裕を見て 120 日**。⚠ **短く見積もるより長く取るほうが安全である**（短いと先読みになる）
+DEFAULT_SOURCE_LAG_DAYS = {"ncei_storm": 120}
 # ⚠ **行が無い日を 0 とみなす取得元**（地震は「起きなかった日」で、値が不明な日ではない）
-DEFAULT_ZERO_FILL = ("usgs",)
+# ⚠ **災害も地震と同じ形**（行が無い日 = その事象が 0 件だった日）
+DEFAULT_ZERO_FILL = ("usgs", "ncei_storm")
 DEFAULT_TRANSFORMS = ("d1", "z20")
 # ⚠ **前の値を引き継いでよい日数の上限。** これを超えたら欠損にする。
 # ⚠ **上限が無いと、系列が止まっても古い値が永久に貼られ続け、定数の特徴量になる**
@@ -44,9 +50,14 @@ def _daily(sid: str, df: pd.DataFrame) -> pd.Series:
     return pd.Series(df["value"].astype(float).values, index=idx, name=sid).sort_index()
 
 
-def load_series(sources=DEFAULT_SOURCES, zero_fill=DEFAULT_ZERO_FILL) -> dict[str, pd.Series]:
-    """`raw/<取得元>/series/` を読む。⚠ **0 埋めする取得元だけ、暦の全日に広げてから埋める。**"""
+def load_series(sources=DEFAULT_SOURCES,
+                zero_fill=DEFAULT_ZERO_FILL) -> tuple[dict[str, pd.Series], dict[str, str]]:
+    """`raw/<取得元>/series/` を読む。⚠ **0 埋めする取得元だけ、暦の全日に広げてから埋める。**
+
+    返り値は (系列, 系列 → 取得元)。⚠ **取得元が要るのは、ずらし幅が取得元ごとに違うため。**
+    """
     out: dict[str, pd.Series] = {}
+    owner: dict[str, str] = {}
     for src in sources:
         d = store.series_dir(src)
         ids = store.symbols_in(d)
@@ -59,7 +70,8 @@ def load_series(sources=DEFAULT_SOURCES, zero_fill=DEFAULT_ZERO_FILL) -> dict[st
                 # ⚠ **行が無い日は 0 件。** ⚠ **前の値を引きずると、起きなかった日に前日の値が入る**
                 s = s.reindex(pd.date_range(s.index.min(), s.index.max(), freq="D")).fillna(0.0)
             out[sid] = s
-    return out
+            owner[sid] = src
+    return out, owner
 
 
 def transform(s: pd.Series, kinds=DEFAULT_TRANSFORMS) -> pd.DataFrame:
@@ -96,28 +108,33 @@ def layer(panel: dict[str, pd.DataFrame], ctx: dict) -> dict[str, pd.DataFrame]:
     kinds = tuple(ctx.get("ex_transforms", DEFAULT_TRANSFORMS))
     max_stale = int(ctx.get("ex_max_stale_days", DEFAULT_MAX_STALE_DAYS))
 
-    series = load_series(sources, zero_fill)
+    series, owner = load_series(sources, zero_fill)
     if not series:
         raise SystemExit("⚠ 外部系列が 1 本も無い。先に `python3 -m cli.fetch --exog exog_daily` を回す")
 
-    # 系列ごとに変換してから 1 枚の表に束ねる（⚠ **変換は系列自身の暦で行う**）
-    wide = pd.concat({sid: transform(s, kinds) for sid, s in series.items()}, axis=1)
-    wide.columns = [f"{PREFIX}{sid}_{k}" for sid, k in wide.columns]
-    wide = wide.sort_index()
+    # ⚠ **ずらし幅は取得元ごと。** 指定が無ければ既定表、それも無ければ全体の既定
+    src_lag = {**DEFAULT_SOURCE_LAG_DAYS, **dict(ctx.get("ex_source_lag_days", {}))}
+    lag_of = {sid: max(int(src_lag.get(owner[sid], lag)), 1) for sid in series}
 
-    out: dict[str, pd.DataFrame] = {}
-    for sym, bars in panel.items():
-        idx = pd.DatetimeIndex(bars["ts"]).tz_convert("UTC").tz_localize(None).normalize()
-        # ⚠ **as-of（backward）**: 足の日から lag 日前の時点で、⚠ **公表されている最新の値**を取る。
-        # ⚠ **未来は構造的に入らない**（`asof` は指定日以前しか見ない）
-        asof = idx - pd.Timedelta(days=lag)
-        union = wide.index.union(asof)
-        picked = wide.reindex(union).ffill().reindex(asof)
-        # ⚠ **引き継いだ値が古すぎたら欠損にする。** ⚠ **系列が止まったことを、定数の列で隠さない**
-        age = pd.Series(union, index=union).where(wide.notna().any(axis=1).reindex(union, fill_value=False))
-        last_seen = age.ffill().reindex(asof)
-        stale = (pd.Series(asof, index=asof) - last_seen).dt.days > max_stale
-        picked[stale.values] = np.nan
-        picked.index = bars.index
-        out[sym] = picked
-    return out
+    out: dict[str, pd.DataFrame] = {sym: [] for sym in panel}
+    # ⚠ **ずらし幅が同じ系列をまとめて貼る**（幅ごとに as-of の基準日が変わる）
+    for width in sorted(set(lag_of.values())):
+        ids = [sid for sid in series if lag_of[sid] == width]
+        wide = pd.concat({sid: transform(series[sid], kinds) for sid in ids}, axis=1)
+        wide.columns = [f"{PREFIX}{sid}_{k}" for sid, k in wide.columns]
+        wide = wide.sort_index()
+        for sym, bars in panel.items():
+            idx = pd.DatetimeIndex(bars["ts"]).tz_convert("UTC").tz_localize(None).normalize()
+            # ⚠ **as-of（backward）**: 足の日から lag 日前の時点で、⚠ **公表されている最新の値**を取る。
+            # ⚠ **未来は構造的に入らない**（指定日以前しか見ない）
+            asof = idx - pd.Timedelta(days=width)
+            union = wide.index.union(asof)
+            picked = wide.reindex(union).ffill().reindex(asof)
+            # ⚠ **引き継いだ値が古すぎたら欠損にする。** ⚠ **系列が止まったことを、定数の列で隠さない**
+            seen = pd.Series(union, index=union).where(
+                wide.notna().any(axis=1).reindex(union, fill_value=False))
+            stale = (pd.Series(asof, index=asof) - seen.ffill().reindex(asof)).dt.days > max_stale
+            picked[stale.values] = np.nan
+            picked.index = bars.index
+            out[sym].append(picked)
+    return {sym: pd.concat(parts, axis=1) for sym, parts in out.items()}

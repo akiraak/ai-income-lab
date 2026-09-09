@@ -27,11 +27,14 @@ def panel_of(dates):
     return {"AAA": bars(dates)}
 
 
-def layer(panel, wide, **ctx):
-    """`load_series` を差し替えて層を回す（取得済みのデータに依存させない）。"""
+def layer(panel, wide, source="ecb", **ctx):
+    """`load_series` を差し替えて層を回す（取得済みのデータに依存させない）。
+
+    ⚠ **返り値は (系列, 系列 → 取得元)。** 取得元はずらし幅を引くのに要る。
+    """
     import ail.features.exog as m
     orig = m.load_series
-    m.load_series = lambda *a, **k: wide
+    m.load_series = lambda *a, **k: (wide, {sid: source for sid in wide})
     try:
         return m.layer(panel, ctx)
     finally:
@@ -93,7 +96,7 @@ def test_zero_filled_sources_do_not_carry_the_previous_day(tmp_path, monkeypatch
     ms = [int(pd.Timestamp(x, tz="UTC").timestamp() * 1000) for x in ("2020-01-01", "2020-01-03")]
     (d / "EQ_COUNT.csv").write_text(f"time_ms,value\n{ms[0]},5\n{ms[1]},2\n", encoding="utf-8")
     monkeypatch.setattr(store, "series_dir", lambda src: str(d))
-    got = exog.load_series(sources=("usgs",), zero_fill=("usgs",))["EQ_COUNT"]
+    got = exog.load_series(sources=("usgs",), zero_fill=("usgs",))[0]["EQ_COUNT"]
     assert list(got.values) == [5.0, 0.0, 2.0]        # ⚠ 1/2 は 0（5 ではない）
 
 
@@ -105,7 +108,7 @@ def test_sources_without_zero_fill_keep_their_gaps(tmp_path, monkeypatch):
     ms = [int(pd.Timestamp(x, tz="UTC").timestamp() * 1000) for x in ("2020-01-01", "2020-01-03")]
     (d / "EURTOUSD.csv").write_text(f"time_ms,value\n{ms[0]},1.1\n{ms[1]},1.2\n", encoding="utf-8")
     monkeypatch.setattr(store, "series_dir", lambda src: str(d))
-    got = exog.load_series(sources=("ecb",), zero_fill=("usgs",))["EURTOUSD"]
+    got = exog.load_series(sources=("ecb",), zero_fill=("usgs",))[0]["EURTOUSD"]
     assert list(got.values) == [1.1, 1.2] and len(got) == 2      # 1/2 の行は作らない
 
 
@@ -163,3 +166,43 @@ def test_the_stale_limit_is_configurable():
                           ex_max_stale_days=7)["AAA"]["ex_S1_lvl"].iloc[0])
     assert layer(p, {"S1": s}, ex_transforms=("lvl",),
                  ex_max_stale_days=60)["AAA"]["ex_S1_lvl"].iloc[0] == 1.0
+
+
+# --- 取得元ごとのずらし幅 -----------------------------------------------
+
+def test_a_slow_source_is_shifted_further():
+    """⚠ **NCEI Storm Events は 101 日遅れて公表される**（2026-09-09 の実測）。
+
+    ⚠ **一律 1 日ずらしにすると、まだ公表されていない値を使うことになる。**
+    """
+    s = series(n=400, start="2020-01-01")
+    p = panel_of(["2021-01-01"])
+    fast = layer(p, {"S1": s}, source="ecb", ex_transforms=("lvl",))["AAA"]["ex_S1_lvl"].iloc[0]
+    slow = layer(p, {"S1": s}, source="ncei_storm",
+                 ex_transforms=("lvl",), ex_max_stale_days=400)["AAA"]["ex_S1_lvl"].iloc[0]
+    assert fast - slow == pytest.approx(119.0)      # 既定 1 日 対 120 日
+
+
+def test_the_source_lag_can_be_overridden():
+    s = series(n=400, start="2020-01-01")
+    p = panel_of(["2021-01-01"])
+    got = layer(p, {"S1": s}, source="ncei_storm", ex_transforms=("lvl",),
+                ex_source_lag_days={"ncei_storm": 30}, ex_max_stale_days=400)["AAA"]
+    plain = layer(p, {"S1": s}, source="ecb", ex_transforms=("lvl",))["AAA"]
+    assert plain["ex_S1_lvl"].iloc[0] - got["ex_S1_lvl"].iloc[0] == pytest.approx(29.0)
+
+
+def test_sources_with_different_lags_are_both_present():
+    """⚠ **ずらし幅が違う系列を混ぜても、列は全部そろう。**"""
+    import ail.features.exog as m
+    s = {"FAST": series(n=400, start="2020-01-01"), "SLOW": series(n=400, start="2020-01-01")}
+    owner = {"FAST": "ecb", "SLOW": "ncei_storm"}
+    orig = m.load_series
+    m.load_series = lambda *a, **k: (s, owner)
+    try:
+        out = m.layer(panel_of(["2021-01-01"]), {"ex_transforms": ("lvl",),
+                                                 "ex_max_stale_days": 400})["AAA"]
+    finally:
+        m.load_series = orig
+    assert list(out.columns) == ["ex_FAST_lvl", "ex_SLOW_lvl"]
+    assert out["ex_FAST_lvl"].iloc[0] > out["ex_SLOW_lvl"].iloc[0]     # 遅い側は古い値

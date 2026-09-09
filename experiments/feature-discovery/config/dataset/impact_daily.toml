@@ -1,0 +1,23 @@
+# ⚠ **社会にインパクトを与えそうなデータ**（2026-09-09）。
+#
+# ⚠ **枠は「本命」。** 気象（NOAA）と地震（USGS）は⚠ **偽薬のまま `exog_daily` に残す**
+# （[plan §2-1](../../../../docs/plans/impact-data.md)）。⚠ **結果を見てから枠を移さない。**
+#
+# ⚠ **仮説を取得の前に書く**（各ブロックの `hypothesis`）。書けないものは本命にしない。
+name = "impact_daily"
+period = "d"
+
+[[series]]
+source = "ncei_storm"
+role = "本命"
+hypothesis = "⚠ 災害は保険の支払いと操業停止を通じて業績に効く"
+ids = ["all", "category", "region"]
+years = [2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025, 2026]
+note = "⚠ SPC は robots.txt が Disallow: / なので使わない。NCEI が同じ事象の公式の保管庫（/pub/ は禁止外）"
+
+[[series]]
+source = "epu"
+role = "本命"
+hypothesis = "⚠ 政策の不確実性が上がると企業が投資を控えて株が下がる（Baker-Bloom-Davis 2016）"
+ids = ["daily"]
+note = "⚠ 全銘柄で同じ値になるので、§9 の限界（市場全体の方向にしか効かない）をそのまま引き継ぐ"

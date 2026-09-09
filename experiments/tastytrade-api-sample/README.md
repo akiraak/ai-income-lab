@@ -19,6 +19,7 @@ tastytrade の Open API を **6 手順**（認証 → 口座照会 → 現在値
 | `sample.py` | 6 手順の本体。`--step` で個別実行 |
 | `ttclient.py` | REST / websocket の薄いクライアント。本番ガードもここ |
 | `record.py` | JSONL の書き出しとマスク |
+| `candle_probe.py` | **過去の足（Candle）が取れるかを測る読み取り専用のプローブ**（2026-09-08 追加）。発注系には触れない |
 | `mock_server.py` | 資格情報なしで配線を確かめるためのモック。**tastytrade の【実測】には使えない** |
 | `test_record.py` | 記録とマスクのテスト（ネットワーク不要） |
 | `selftest.sh` | モックを立てて 6 手順 ＋ 本番ガードを通す自己検査 |
@@ -93,6 +94,18 @@ cp .env.example .env    # 埋める。.env と out/ は git 管理外
 .venv/bin/python sample.py --step 1 --verify-expiry # access token が 15 分で 401 になるかを実測
 .venv/bin/python sample.py --step probe            # 入金前の本番口座で気配が取れるか（読み取りのみ）
 ```
+
+### 過去の足（Candle）
+
+```bash
+.venv/bin/python candle_probe.py                             # 既定の 5 本（日足・分足・5 分足）
+.venv/bin/python candle_probe.py "SPY{=d}:12000" "SPY{=m}:730"   # シンボル{=期間}:遡る日数
+```
+
+- ⚠ **相場データは本番（prod）の資格情報でしか出ない。** `TT_PROD_CLIENT_SECRET` / `TT_PROD_REFRESH_TOKEN` が要る
+- ⚠ **期間の値 1 は書かない。** `{=m}`（1 分足）は取れるが、`{=1m}` は**エラーも出さずに 0 件**を返す
+- ⚠ **1 購読あたり約 8,000 本で頭打ち。** 日足なら 32 年分だが、**1 分足では約 6 週間**しか遡れない
+- 実測の記録は [e8-signal-methods §2-1 データ経路](../../docs/specs/experiments/e8-signal-methods/data-routes.md)（入口は [e8-signal-methods.md](../../docs/specs/experiments/e8-signal-methods.md)）
 
 ```bash
 .venv/bin/python sample.py --step dryrun --allow-prod-dry-run  # 本番で dry-run だけ（注文は出ない）

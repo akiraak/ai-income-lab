@@ -38,6 +38,11 @@ def experiment(name: str) -> dict:
     return _load("experiment", name)
 
 
+def exposure(name: str) -> dict:
+    """⚠ **災害を銘柄に割り当てる表**（`im_` 層が読む）。⚠ **重みは全部【推測】である。**"""
+    return _load("exposure", name)
+
+
 def symbols_of(universe_name: str) -> list[str]:
     """⚠ **ETF が先、会社が後**の順で返す（断面の並びを実行ごとに変えないため）。"""
     u = universe(universe_name)

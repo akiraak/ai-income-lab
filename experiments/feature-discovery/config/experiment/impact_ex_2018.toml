@@ -1,0 +1,48 @@
+# ⚠ **割り当てが効くかを見る 4 本のうちの 1 本**: 同じ災害データを ⚠ **割り当てなし**（`ex_` 層）で入れる
+#
+# ⚠ **これが「決めごと 2」の対照である。** ⚠ **同じ系列を全銘柄に同じ値で貼れば
+# [§9-4](../../../../docs/specs/experiments/daily-data-sources.md) と同じ結果になるはず**、という予想を測る。
+# ⚠ **系列は `im_` の経路が使うものだけに絞る**（絞らないと列数が違い、
+# ⚠ **比べているのが「割り当ての有無」か「列の多さ」か分からなくなる**）。
+name = "impact_ex_2018"
+dataset = "daily"
+horizon = 1
+cost_bp = 5.0
+# ⚠ **4 本とも同じ日から始める。** ⚠ **NCEI の 120 日ずらし ＋ z20 の 20 日**が埋まる最初の日
+start_date = "2018-05-21"
+
+targets = "all"
+
+horizon_min = 1440.0
+bar_minutes = 1440.0
+
+feature_layers = ["own", "ex"]
+
+selectors = [
+  "全部使う（基準）", "乱択（基準）",
+  "F1-1 相関", "F1-2 相互情報量", "F1-3 mRMR", "F1-5 検定+FDR",
+  "F2-3 Boruta", "F3-1 Lasso", "F3-2 木の重要度", "F3-3 並べ替え(MDA)", "F3-5 クラスタ化MDA",
+]
+k = 16
+
+model = "Ridge"
+baselines = ["常に上（ドリフト）", "直前リターンの符号"]
+
+[validation]
+split = "walk_forward"
+folds = 5
+purge = true
+embargo_bars = 0
+seed = 0
+
+[features]
+ex_lag_days = 1
+ex_sources = ["ncei_storm", "iem"]
+ex_zero_fill = ["ncei_storm", "iem", "usgs"]
+ex_transforms = ["d1", "z20"]
+ex_max_stale_days = 7
+ex_only = [
+  "SE_DAMAGE", "SE_DMG_湾岸", "SE_DMG_西部", "SE_DMG_中西部", "SE_DMG_北東部",
+  "WW_CNT", "WW_RGN_湾岸", "WW_RGN_西部", "WW_RGN_中西部", "WW_RGN_北東部",
+  "WW_山火事_西部", "WW_熱帯_湾岸",
+]

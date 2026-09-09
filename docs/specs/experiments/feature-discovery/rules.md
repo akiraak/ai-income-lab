@@ -237,7 +237,19 @@ flowchart TB
 | `rel_` | 市場・セクターに対する相対 | `rel_resid_5` `rel_beta_60` | β は**過去の窓だけ**で測る |
 | `ll_` | ⚠ **他銘柄の遅れた値** | `ll_XLK_ret1_lag1` | ⚠ **必ず 1 本以上ずらす。** N² で増えるので FDR と対で使う |
 | `ex_` | ⚠ **価格の外から来る系列**（為替・金利・気象・地震） | `ex_EURTOUSD_d1` `ex_UST10YR_z20` | ⚠ **必ず 1 日以上ずらす**（発表の遅れ）。⚠ **全銘柄で同じ値になるので断面では銘柄を区別できない** |
+| ⚠ **`im_`** | ⚠ **災害を地域・業種に割り当てたもの** | `im_geo_dmg_z20` `im_tropical_d1` | ⚠ **`ex_` との違いは 1 点だけ — 銘柄ごとに値が変わる。** ⚠ **重みは変換の「後」に掛ける**（`z20` は定数倍で消える） |
 | `LEAK_` | ⚠ **わざとした先読み**（対照実験専用） | `LEAK_future_ret` | ⚠ **本番の表に入れない。** 入るのは `--leak` を付けたときだけ |
+
+> この図の主張: ⚠ **`ex_` と `im_` は同じデータから作れる。** ⚠ **違うのは「割り当てを持つか」だけで、そこが断面に効くかどうかを分ける。**
+
+```mermaid
+flowchart LR
+  D["価格の外のデータ<br/>災害・警報・為替・金利"] --> Q{"地域・業種への<br/>割り当てを持つか"}
+  Q -->|"持たない"| E["ex_ 層<br/>⚠ 全銘柄で同じ値"]
+  Q -->|"持つ"| I["im_ 層<br/>⚠ 銘柄ごとに違う値"]
+  E --> M["市場全体の方向にしか効かない"]
+  I --> X["断面（どの銘柄が上がるか）が動きうる"]
+```
 
 | # | 規約 |
 | ---: | --- |
@@ -247,6 +259,9 @@ flowchart TB
 | 4 | ⚠ **特徴量ではない列は `META_COLUMNS`**（`symbol` `ts` `close` `y` `y_sign` `y_elapsed_min`）。⚠ **説明変数から必ず外す** |
 | 5 | ⚠ **`ex_` は「その時点で公表されている最新の値」を貼る**（as-of。過去側しか見ない）。⚠ **引き継いでよい日数に上限を置く**（既定 7 日） |
 | 6 | ⚠ **`ex_` の欠けた日の埋め方は系列で違う。** 地震は「行が無い日 = 0 件」なので 0 で埋め、為替・金利は休場なので前の値のまま |
+| 7 | ⚠ **ずらし幅は取得元ごとに変える。** ⚠ **NCEI Storm Events は 101 日遅れて公表される**【実測 2026-09-09】ので、一律 1 日にすると先読みになる |
+| 8 | ⚠ **`im_` の重みは変換の後に掛ける。** ⚠ **先に掛けると `z20` で消え**（`z(k·x) = z(x)`）、⚠ **全銘柄で同じ値に戻る** |
+| 9 | ⚠ **`im_` の曝露 0 は 0 を入れる**（欠損にしない）。⚠ **「反応する商売を持たない」という値であり、行を落とす理由ではない** |
 
 ---
 
@@ -406,7 +421,7 @@ def cmi(X, y, k, ctx):
 | 3 | `ail/data/transforms/` ／ `cli/run.py` の標準化 |
 | 4 | `ail/contracts.py` ／ `ail/data/store.py` の `to_filename` |
 | 5 | `ail/data/check.py` ／ `cli/check.py` |
-| 6 | `ail/features/{own,cross,relative,leadlag,exog}.py` |
+| 6 | `ail/features/{own,cross,relative,leadlag,exog,impact}.py` ／ ⚠ **`config/exposure/`（割り当ての重み）** |
 | 7 | `tests/test_no_lookahead.py` ／ `cli/build.py --leak` |
 | 8 | `ail/features/labels.py` |
 | 9 | `ail/validation/splits.py` ／ `ail/models/baselines.py` ／ `cli/run.py` |

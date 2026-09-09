@@ -1,0 +1,16 @@
+# ⚠ **警報の保管庫**（2026-09-09）。⚠ **NCEI の 101 日遅れを埋めるための経路である。**
+#
+# ⚠ **枠は「本命」。** 仮説は各ブロックの `hypothesis`（⚠ **取得の前に書く**）。
+# ⚠ **`Crawl-delay: 120`（2 分間隔）。** ⚠ **期間を年でまとめて取る**（日ごとだと 8 年で 100 時間）。
+name = "impact_warnings"
+period = "d"
+
+[[series]]
+source = "iem"
+role = "本命"
+hypothesis = "⚠ 警報は被害より先に出るので、災害の影響を早く拾える（NCEI は 101 日遅れる）"
+ids = ["national", "category", "region", "region_category"]
+start = "2018-01-01"
+end = "2026-09-09"
+crawl_delay = 120.0
+note = "⚠ 元データは NWS（米政府の公有）。IEM は保管庫。robots.txt の Crawl-delay: 120 を守る"

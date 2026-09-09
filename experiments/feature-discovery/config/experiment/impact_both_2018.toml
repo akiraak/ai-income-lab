@@ -1,0 +1,43 @@
+# ⚠ **本物の割り当てと、入れ替えた偽薬を「同じ表」に並べる 1 本。**
+#
+# ⚠ **[§9-3](../../../../docs/specs/experiments/daily-data-sources.md) と同じ読み方をするためにある。**
+# ⚠ **1 回の実行で両方を選ばせると、選別手法が偽薬を選んだ割合がそのまま偽発見率になる。**
+# ⚠ **列は 24 本**（経路 6 × 変換 2 × 本物 / 偽薬）。⚠ **本物の列は 4 本立ての実験と 1 バイトも変わらない。**
+name = "impact_both_2018"
+dataset = "daily"
+horizon = 1
+cost_bp = 5.0
+# ⚠ **4 本とも同じ日から始める。** ⚠ **NCEI の 120 日ずらし ＋ z20 の 20 日**が埋まる最初の日
+start_date = "2018-05-21"
+
+targets = "all"
+
+horizon_min = 1440.0
+bar_minutes = 1440.0
+
+feature_layers = ["own", "im"]
+
+selectors = [
+  "全部使う（基準）", "乱択（基準）",
+  "F1-1 相関", "F1-2 相互情報量", "F1-3 mRMR", "F1-5 検定+FDR",
+  "F2-3 Boruta", "F3-1 Lasso", "F3-2 木の重要度", "F3-3 並べ替え(MDA)", "F3-5 クラスタ化MDA",
+]
+k = 16
+
+model = "Ridge"
+baselines = ["常に上（ドリフト）", "直前リターンの符号"]
+
+[validation]
+split = "walk_forward"
+folds = 5
+purge = true
+embargo_bars = 0
+seed = 0
+
+[features]
+im_lag_days = 1
+im_exposure = "us63"
+im_transforms = ["d1", "z20"]
+im_max_stale_days = 7
+im_with_placebo = true       # ⚠ **偽薬（im_pb_）を同じ表に並べる**
+im_scramble_seed = 0

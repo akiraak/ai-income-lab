@@ -1,0 +1,34 @@
+# ⚠ **割り当てが効くかを見る 4 本のうちの 1 本**: 価格だけ（比べる土台）
+#
+# ⚠ **4 本とも期間・粒度・地平・k・種を揃えてある。** 違うのは特徴量の層だけ。
+# ⚠ **§9 の own_2018 と別ファイルにしたのは開始日が違うため**（NCEI の 120 日ずらしを待つ）。
+name = "own_impact_2018"
+dataset = "daily"
+horizon = 1
+cost_bp = 5.0
+# ⚠ **4 本とも同じ日から始める。** ⚠ **NCEI の 120 日ずらし ＋ z20 の 20 日**が埋まる最初の日
+start_date = "2018-05-21"
+
+targets = "all"
+
+horizon_min = 1440.0
+bar_minutes = 1440.0
+
+feature_layers = ["own"]
+
+selectors = [
+  "全部使う（基準）", "乱択（基準）",
+  "F1-1 相関", "F1-2 相互情報量", "F1-3 mRMR", "F1-5 検定+FDR",
+  "F2-3 Boruta", "F3-1 Lasso", "F3-2 木の重要度", "F3-3 並べ替え(MDA)", "F3-5 クラスタ化MDA",
+]
+k = 16
+
+model = "Ridge"
+baselines = ["常に上（ドリフト）", "直前リターンの符号"]
+
+[validation]
+split = "walk_forward"
+folds = 5
+purge = true
+embargo_bars = 0
+seed = 0

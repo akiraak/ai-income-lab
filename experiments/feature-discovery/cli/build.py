@@ -23,8 +23,8 @@ from ail.data import store
 from ail.features import labels
 import ail.bootstrap  # noqa: F401
 
-ORDER = ("own", "cs", "rel", "ll", "ex")   # ⚠ 列の並びを実行ごとに変えない（cs は own に依存する）
-# ⚠ **`ex` は価格に依存しない**（外部系列を貼るだけ）が、並びは固定する
+ORDER = ("own", "cs", "rel", "ll", "ex", "im")   # ⚠ 列の並びを実行ごとに変えない（cs は own に依存する）
+# ⚠ **`ex` と `im` は価格に依存しない**（外部系列を貼るだけ）が、並びは固定する
 
 
 def build(experiment: str, layer: str = "adjusted", leak: bool = False,
@@ -43,7 +43,8 @@ def build(experiment: str, layer: str = "adjusted", leak: bool = False,
 
     u = config.universe(ds["universe"])
     market, _sectors = config.market_proxy(ds["universe"])
-    ctx = {"market": market, "sector_of": u.get("sector_of", {}),
+    # ⚠ **`universe` を渡すのは `im_` 層のため**（config/exposure/<universe>.toml を引く）
+    ctx = {"market": market, "sector_of": u.get("sector_of", {}), "universe": ds["universe"],
            "etf": u.get("groups", {}).get("etf", []), **exp.get("features", {})}
 
     wanted = [l for l in ORDER if l in exp.get("feature_layers", ["own"])]

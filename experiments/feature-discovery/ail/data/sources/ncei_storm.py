@@ -21,6 +21,7 @@ import urllib.request
 
 import pandas as pd
 
+from ail.data import regions
 from ail.registry import register
 
 BASE = "https://www.ncei.noaa.gov/pub/data/swdi/stormevents/csvfiles/"
@@ -39,12 +40,8 @@ CATEGORIES = {
     "熱": ("Heat", "Excessive Heat"),
 }
 # ⚠ **業種に効きそうな地域でまとめる**（割り当ての土台。次の層で銘柄に結び付ける）
-REGIONS = {
-    "湾岸": ("TEXAS", "LOUISIANA", "MISSISSIPPI", "ALABAMA", "FLORIDA"),      # 保険・製油
-    "西部": ("CALIFORNIA", "OREGON", "WASHINGTON", "NEVADA", "ARIZONA"),      # 公益・山火事
-    "中西部": ("ILLINOIS", "IOWA", "KANSAS", "MISSOURI", "NEBRASKA", "OKLAHOMA"),
-    "北東部": ("NEW YORK", "NEW JERSEY", "PENNSYLVANIA", "MASSACHUSETTS", "CONNECTICUT"),
-}
+# ⚠ **地域の定義は `ail/data/regions.py` が正本。** ⚠ **IEM の警報と同じ州でなければ割り当てが噛み合わない**
+REGIONS = {name: regions.full_names(name) for name in regions.REGIONS}
 
 
 def _damage(v: str) -> float:

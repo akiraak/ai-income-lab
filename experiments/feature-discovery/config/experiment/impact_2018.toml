@@ -1,0 +1,41 @@
+# ⚠ **割り当てが効くかを見る 4 本のうちの 1 本**: ⚠ **本命 — 地域・業種へ割り当てた `im_` 層**
+#
+# ⚠ **仮説は config/exposure/us63.toml の各経路に 1 行ずつ書いてある**（取得の前に書いた）。
+# ⚠ **重みは全部【推測】。** ⚠ **割り当てそのものが仮説であり、外れれば効かない。**
+name = "impact_2018"
+dataset = "daily"
+horizon = 1
+cost_bp = 5.0
+# ⚠ **4 本とも同じ日から始める。** ⚠ **NCEI の 120 日ずらし ＋ z20 の 20 日**が埋まる最初の日
+start_date = "2018-05-21"
+
+targets = "all"
+
+horizon_min = 1440.0
+bar_minutes = 1440.0
+
+feature_layers = ["own", "im"]
+
+selectors = [
+  "全部使う（基準）", "乱択（基準）",
+  "F1-1 相関", "F1-2 相互情報量", "F1-3 mRMR", "F1-5 検定+FDR",
+  "F2-3 Boruta", "F3-1 Lasso", "F3-2 木の重要度", "F3-3 並べ替え(MDA)", "F3-5 クラスタ化MDA",
+]
+k = 16
+
+model = "Ridge"
+baselines = ["常に上（ドリフト）", "直前リターンの符号"]
+
+[validation]
+split = "walk_forward"
+folds = 5
+purge = true
+embargo_bars = 0
+seed = 0
+
+[features]
+im_lag_days = 1
+im_exposure = "us63"
+im_transforms = ["d1", "z20"]
+im_max_stale_days = 7
+im_scramble = false          # ⚠ 本物の割り当て

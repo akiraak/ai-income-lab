@@ -16,6 +16,8 @@ python3 -m venv .venv && ./.venv/bin/pip install -r requirements.txt
 # 1. 取得 → data/raw/（⚠ **この venv で通る**。requirements.txt に websockets と requests を入れてある）
 ./.venv/bin/python -m cli.fetch --dataset daily          # 足（tastytrade）
 ./.venv/bin/python -m cli.fetch --exog exog_daily        # ⚠ 外部の日次系列（為替・イールド・気象・地震）
+./.venv/bin/python -m cli.fetch --exog impact_daily      # ⚠ 災害と政策不確実性（本命）
+./.venv/bin/python -m cli.fetch --exog impact_warnings   # ⚠ NWS の警報の保管庫（IEM）。**Crawl-delay 120 秒で 30 分かかる**
 
 # 2. 調整 → data/adjusted/（⚠ まず --report で継ぎ目を見てから書く）
 ./.venv/bin/python -m cli.adjust --period d --report
@@ -37,6 +39,8 @@ python3 -m venv .venv && ./.venv/bin/pip install -r requirements.txt
 
 # 検査
 ./.venv/bin/python -m cli.check --layer adjusted --period d
+# ⚠ **検証（IEM の保管庫）と運用（NWS の API）が同じ値か**。⚠ 7 日以内の日でしか測れない
+./.venv/bin/python -m cli.crosscheck --day 2026-09-07
 ./.venv/bin/python -m pytest -q tests           # 不変条件・調整の検算・先読み
 ```
 
@@ -59,7 +63,8 @@ python3 -m venv .venv && ./.venv/bin/pip install -r requirements.txt
 | `ail/data/sources/` | 取得元 | ファイルを 1 つ足す |
 | `ail/data/adjust.py` | ⚠ **目盛りの修復**（rules.md 2 章） | 触らない |
 | `ail/data/transforms/` | ⚠ **推定しない変換（`derived/` に置く）／ 推定する変換（置かない）** | 担当のファイルに足す |
-| `ail/features/` | `own_` `cs_` `rel_` `ll_` ＋ ⚠ **`ex_`（価格の外）** の 5 層 | 担当のファイルに関数を足す |
+| `ail/features/` | `own_` `cs_` `rel_` `ll_` ＋ ⚠ **`ex_`（価格の外）** ＋ ⚠ **`im_`（災害を銘柄へ割り当てる）** の 6 層 | 担当のファイルに関数を足す |
+| `config/exposure/` | ⚠ **災害 → 地域・業種 → 銘柄の重み**（`im_` 層が読む。⚠ **全部【推測】**） | TOML を足す |
 | `ail/selectors/` | F1〜F5 の選別手法 | ⚠ **関数に `@register` を付けるだけ** |
 | `ail/models/` | 基準線・線形・木 | 同上 |
 | `ail/validation/` | 分割・指標・統計 | 同上 |
@@ -91,6 +96,8 @@ def cmi(X, y, k, ctx):
 | --- | ---: | ---: | --- |
 | `own_only_h1` | 35（`own_` のみ） | 431,759 | ⚠ **いままでの形（プーリング）。** 各行が自分の履歴しか見ない。対象は 63 銘柄 |
 | `cross_section_h1` | 134（own 35 ／ cs 26 ／ rel 13 ／ ll 60） | 96,769 | ⚠ **全銘柄を使って 1 銘柄を当てる形。** ⚠ **対象は会社株 48 本**（ETF 15 本は説明変数側）／ 行が減るのは⚠ **全 63 が揃うのが 2018-06 以降**だから |
+| `own_2018` ／ `real_2018` ／ `placebo_2018` | 35 ／ 63 ／ 57 | 135,962 | ⚠ **本命（為替・金利）が偽薬（気象・地震）を超えるか**（§9。⚠ **超えなかった**） |
+| `own_impact_2018` ／ `impact_ex_2018` ／ `impact_2018` ／ `impact_placebo_2018` | 35 ／ 59 ／ 47 ／ 47 | — | ⚠ **災害を銘柄へ割り当てると効くか。** ⚠ **偽薬は「割り当ての入れ替え」** |
 
 ⚠ **`ll_leaders = "all"` にすると `ll_` が 60 → 248 列になる**（`config/experiment/cross_section_h1.toml`）。
 ⚠ **列を増やすほど多重検定になる**ので、FDR とデフレーテッド SR を対で通すこと（rules.md 11 章）。

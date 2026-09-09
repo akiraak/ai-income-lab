@@ -25,14 +25,41 @@
     ⚠ **検証には保管庫が要る**: IEM（`mesonet.agron.iastate.edu`）が数十年ぶん持つ。⚠ **ただし `Crawl-delay: 120`（2 分間隔）**
     ⚠ **NWS の API は `robots.txt` が `Disallow: /` だが規約が「公開データ・あらゆる目的に自由」と明記**（非商用の縛りも無い）。Open-Meteo と同じ立て方で採る
     ⚠ **USGS 地震は配信と保管庫が同じ経路にある稀な例**
-  - [ ] Phase 2-3: ⚠ **IEM から警報の保管庫を取る**（⚠ **`Crawl-delay: 120` なので期間をまとめて 1 回で取る**。日ごとに 3,000 回だと 100 時間かかる）
-    ⚠ **警報と被害額は別物**（警報は「起きるかも」、被害額は「起きた結果」）。⚠ **予測に使うなら警報のほうが先に出る**
-    ⚠ **同じ日を NWS の API と IEM の両方から取って突き合わせる検査**が要る（検証で見た値と運用で見る値が同じである保証）
-  - [ ] Phase 3: ⚠ **地域・業種への割り当て**（決めごと 2）。⚠ **`ex_` ではなく銘柄ごとに値が変わる層にする**
-  - [ ] Phase 4: 検証。⚠ **新しい偽薬を必ず併置する**
+  - [~] Phase 2-3: ⚠ **IEM から警報の保管庫を取る**（2026-09-09 に取得は完了。[記録 §12](docs/specs/experiments/daily-data-sources.md)）
+    ✅ **取れた**: `python3 -m cli.fetch --exog impact_warnings` → 34 系列・30,977 行（130,820 事象・2018-01-01〜2026-09-08）。⚠ **公表の遅れは 1 日**（NCEI は 101 日）
+    ⚠ **年ごとに `raw/iem/events/<年>.jsonl` へ保管して再開できる形にした**（7 年目でサーバに切られて 6 年ぶん 20 分を失ったため）
+    ⚠ **⚠ `data/` は git 管理外。別の環境では取り直しになる**（9 回の要求 × `Crawl-delay: 120` ＝ 約 30 分）。⚠ **手で `data/raw/iem/` を持っていけば省ける**
+    - [ ] ⚠ **熱の取り直し**: NWS が 2024-10 に `EH` → `XH` へ替えたので熱の系列が 2024-10-24 で止まっていた。コードは足した。⚠ **`raw/iem/events/2025-01-01_2026-01-01.jsonl` を消してから `cli.fetch --exog impact_warnings`**（2 回の要求・約 5 分。検証に使う 12 系列には影響しない）
+    - [ ] ⚠ **突き合わせ**: `python3 -m cli.crosscheck --day <7 日以内の日>`（NWS の API と IEM を同じ日で比べる。⚠ **IEM への要求は直前の要求から 120 秒空ける**）。コードは書いてあり、NWS 側は動くことを確認済み。⚠ **結果は未取得**
+  - [~] Phase 3: ⚠ **地域・業種への割り当て**（決めごと 2）。⚠ **コードは済み、検証は未実施**
+    ✅ `ail/features/impact.py`（`im_` 層）＋ `config/exposure/us63.toml`（6 経路・仮説つき・⚠ **重みは全部【推測】・後知恵あり**）＋ `tests/test_impact.py` 17 件
+    ⚠ **重みは変換の「後」に掛ける**（先に掛けると `z20` で消えて全銘柄が同じ値に戻る）。⚠ **曝露 0 は 0 で欠損にしない**
+    ⚠ **偽薬は「割り当ての入れ替え」**（`im_scramble`。並べ替えなので重みの分布は同じ、付き先だけ撹乱）。`im_with_placebo` で同じ表に `im_pb_` として並べられる
+  - [ ] Phase 4: 検証。⚠ **新しい偽薬を必ず併置する**（設定 5 本は済み。⚠ **回すのはこれから**）
+    ⚠ **順番**: (1) 熱の取り直し → (2) `cli.build` を `impact_ex_2018` `impact_2018` `impact_placebo_2018` `impact_both_2018` の 4 本（⚠ **行数が土台 `own_impact_2018` の 131,250 と揃うこと**。揃わなければ `start_date` を合わせる）→ (3) `cli.run` を 5 本（1 本 約 10 分）→ (4) `runs/<実行>/selected.csv` で `im_` 対 `im_pb_` の選ばれ方（偽発見率）→ (5) 記録 §12-4 以降・§13、台帳の吐き直し
+    ✅ 土台は済み: `own_impact_2018`（`runs/2026-09-09T12-22-33_own_impact_2018`。最良は F3-3 の −0.77bp、基準の「常に上」＋0.02bp を超える手法なし）。⚠ **`runs/` も git 管理外**なので別の環境では回し直す
   ⚠ **やり直さなくてよいこと**: 取得の作りは済んでいる（`ail/data/sources/` に 1 ファイル足すだけ ／ `--exog` で層に載る ／ 1 日ずらしと 0 埋めの規約は `ail/features/exog.py`）
   ⚠ **資金は動かさない**（2026-08-27 の方針）。⚠ **数字は【実測】/【公表値】/【推測】を明示する**
   関連: [daily-data-sources.md](docs/specs/experiments/daily-data-sources.md) ／ [rules.md](docs/specs/experiments/feature-discovery/rules.md) ／ [market-data-availability.md](docs/specs/market-data-availability.md)
+
+- [ ] 3090 Ti（24GB）を使った機械学習で予測モデルを検証する
+  利用者の指示（2026-09-09）: **3090Ti 24GB があるので、それを使用した機械学習での予測モデルの検証をする**
+  派生元: 「特徴量を見つけ出す手法の検証」（2026-09-08 完了。[§9-2](docs/specs/experiments/feature-discovery.md) の「やらずに閉じたもの」に**非線形モデル**がある）
+  ⚠ **これまでモデルは Ridge 1 本**（比べていたのは選別の手法であってモデルではない）。⚠ **モデルを替えるなら別タスク**と書いてあった、その別タスク
+  ⚠ **着手前にプランを作る**（`docs/plans/gpu-models.md`）。決めるのは 3 つ: どのモデル（勾配ブースティング ／ 系列モデル ／ 深層）・どの入力（`own_` だけ／断面／`ex_`・`im_` を足す）・⚠ **同じ規約で比べること**（[rules.md](docs/specs/experiments/feature-discovery/rules.md) 9 章・11 章。基準線・fold の符号・上乗せ t・デフレーテッド SR）
+  ⚠ **「GPU で大きいモデルを回せる」と「情報が増える」は別物**。⚠ **§9 で価格だけからは方向が出なかった**ので、モデルを替えて良い数字が出たら、まず先読み（rules.md 7 章）を疑う
+  ⚠ **資金は動かさない**（2026-08-27 の方針）
+  関連: [feature-discovery.md](docs/specs/experiments/feature-discovery.md) ／ [daily-data-sources.md](docs/specs/experiments/daily-data-sources.md)
+
+- [ ] 管理画面に「どのようなデータを保持しているか」が分かるページを追加する
+  利用者の指示（2026-09-09）: **どのようなデータを保持しているのかが分かるページを管理画面に追加**
+  ⚠ **読む正本は manifest**（`experiments/feature-discovery/data/manifests/*.json`）。⚠ **画面が CSV を開いて数え直さない**（検証の画面と同じ立て方。[dashboard.md §10](docs/specs/dashboard.md) 「実験側が書いたものを読むだけ」）
+  ⚠ **見せるもの**: 層（raw ／ adjusted ／ series ／ features）・取得元・枠（本命 ／ 偽薬）・系列数・行数・最古と最新の日・⚠ **公表の遅れ（ずらし幅）**・規約の判定（robots.txt ／ 公有 ／ 要判断）
+  ⚠ **枠（本命 ／ 偽薬）と仮説は config が宣言している**（`config/dataset/*.toml` の `role` `hypothesis`）。画面はそれを写すだけで、結果を見て分類しない
+  ⚠ **割り当て（`config/exposure/*.toml`）も 1 覧にする**（どの銘柄にどの災害の重みが付いているか。⚠ 全部【推測】である旨を画面に出す）
+  ⚠ **秘密は無い**（外部系列と足は公開データ）が、応答は他の画面と同じく `Redactor` を通す
+  ⚠ **着手前にプランを作る**（`docs/plans/dashboard-data-inventory.md`）。仕様は [dashboard.md](docs/specs/dashboard.md) に §11 として足す
+  関連: [dashboard.md](docs/specs/dashboard.md) ／ [daily-data-sources.md](docs/specs/experiments/daily-data-sources.md) ／ [rules.md 1 章](docs/specs/experiments/feature-discovery/rules.md)
 
 - [ ] データの取得元を広げる（判断待ちの 2 件）
   ⚠ **「予想モデルに使うデータを広く収集する」から切り出した**（2026-09-09 に本体は完了。[DONE](DONE.md)）

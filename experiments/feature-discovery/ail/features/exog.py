@@ -50,17 +50,24 @@ def _daily(sid: str, df: pd.DataFrame) -> pd.Series:
     return pd.Series(df["value"].astype(float).values, index=idx, name=sid).sort_index()
 
 
-def load_series(sources=DEFAULT_SOURCES,
-                zero_fill=DEFAULT_ZERO_FILL) -> tuple[dict[str, pd.Series], dict[str, str]]:
+def load_series(sources=DEFAULT_SOURCES, zero_fill=DEFAULT_ZERO_FILL,
+                only: tuple[str, ...] | None = None) -> tuple[dict[str, pd.Series], dict[str, str]]:
     """`raw/<取得元>/series/` を読む。⚠ **0 埋めする取得元だけ、暦の全日に広げてから埋める。**
 
     返り値は (系列, 系列 → 取得元)。⚠ **取得元が要るのは、ずらし幅が取得元ごとに違うため。**
+
+    ⚠ **`only` を渡すとその系列だけを読む。** ⚠ **`im_` 層と同じデータで比べる**ときに使う
+    （取得元ごと読むと列数が揃わず、比べているのが「割り当ての有無」なのか
+    ⚠ **「列が多いこと」なのか分からなくなる**）。
     """
+    keep = set(only) if only else None
     out: dict[str, pd.Series] = {}
     owner: dict[str, str] = {}
     for src in sources:
         d = store.series_dir(src)
         ids = store.symbols_in(d)
+        if keep is not None:
+            ids = [i for i in ids if i in keep]
         if not ids:
             continue
         zero = src in tuple(zero_fill)
@@ -96,6 +103,24 @@ def transform(s: pd.Series, kinds=DEFAULT_TRANSFORMS) -> pd.DataFrame:
     return x
 
 
+def asof_join(wide: pd.DataFrame, bar_ts, lag_days: int, max_stale_days: int) -> pd.DataFrame:
+    """⚠ **足の日から `lag_days` 日前の時点で公表されている最新の値**を貼る（as-of。過去側だけ）。
+
+    ⚠ **未来は構造的に入らない**（指定日以前しか見ない）。
+    ⚠ **引き継いだ値が `max_stale_days` より古ければ欠損にする**（止まった系列を定数の列で隠さない）。
+    ⚠ **`im_` 層も同じ規約で貼る**ので、ここを 1 か所にしてある。
+    """
+    idx = pd.DatetimeIndex(bar_ts).tz_convert("UTC").tz_localize(None).normalize()
+    asof = idx - pd.Timedelta(days=lag_days)
+    union = wide.index.union(asof)
+    picked = wide.reindex(union).ffill().reindex(asof)
+    seen = pd.Series(union, index=union).where(
+        wide.notna().any(axis=1).reindex(union, fill_value=False))
+    stale = (pd.Series(asof, index=asof) - seen.ffill().reindex(asof)).dt.days > max_stale_days
+    picked[stale.values] = np.nan
+    return picked
+
+
 @register("feature", "ex")
 def layer(panel: dict[str, pd.DataFrame], ctx: dict) -> dict[str, pd.DataFrame]:
     """⚠ **銘柄ごとの足に、`lag_days` だけ前の外部系列を貼る**（as-of。過去側だけを見る）。"""
@@ -108,7 +133,8 @@ def layer(panel: dict[str, pd.DataFrame], ctx: dict) -> dict[str, pd.DataFrame]:
     kinds = tuple(ctx.get("ex_transforms", DEFAULT_TRANSFORMS))
     max_stale = int(ctx.get("ex_max_stale_days", DEFAULT_MAX_STALE_DAYS))
 
-    series, owner = load_series(sources, zero_fill)
+    only = tuple(ctx.get("ex_only", ()) or ())
+    series, owner = load_series(sources, zero_fill, only or None)
     if not series:
         raise SystemExit("⚠ 外部系列が 1 本も無い。先に `python3 -m cli.fetch --exog exog_daily` を回す")
 
@@ -124,17 +150,7 @@ def layer(panel: dict[str, pd.DataFrame], ctx: dict) -> dict[str, pd.DataFrame]:
         wide.columns = [f"{PREFIX}{sid}_{k}" for sid, k in wide.columns]
         wide = wide.sort_index()
         for sym, bars in panel.items():
-            idx = pd.DatetimeIndex(bars["ts"]).tz_convert("UTC").tz_localize(None).normalize()
-            # ⚠ **as-of（backward）**: 足の日から lag 日前の時点で、⚠ **公表されている最新の値**を取る。
-            # ⚠ **未来は構造的に入らない**（指定日以前しか見ない）
-            asof = idx - pd.Timedelta(days=width)
-            union = wide.index.union(asof)
-            picked = wide.reindex(union).ffill().reindex(asof)
-            # ⚠ **引き継いだ値が古すぎたら欠損にする。** ⚠ **系列が止まったことを、定数の列で隠さない**
-            seen = pd.Series(union, index=union).where(
-                wide.notna().any(axis=1).reindex(union, fill_value=False))
-            stale = (pd.Series(asof, index=asof) - seen.ffill().reindex(asof)).dt.days > max_stale
-            picked[stale.values] = np.nan
+            picked = asof_join(wide, bars["ts"], width, max_stale)
             picked.index = bars.index
             out[sym].append(picked)
     return {sym: pd.concat(parts, axis=1) for sym, parts in out.items()}

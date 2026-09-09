@@ -1,0 +1,43 @@
+# ⚠ **割り当てが効くかを見る 4 本のうちの 1 本**: ⚠ **偽薬 — 割り当てを入れ替えた `im_` 層**
+#
+# ⚠ **系列も重みの分布もそのまま、銘柄への割り当てだけを撹乱する**（`im_scramble`）。
+# ⚠ **本物がこれを超えられないなら、効いて見えたのは「曝露にばらつきがあること」であって、
+#    割り当ての中身ではない。** ⚠ **§9 の気象・地震の偽薬は別枠で残してある**（枠を移さない）。
+name = "impact_placebo_2018"
+dataset = "daily"
+horizon = 1
+cost_bp = 5.0
+# ⚠ **4 本とも同じ日から始める。** ⚠ **NCEI の 120 日ずらし ＋ z20 の 20 日**が埋まる最初の日
+start_date = "2018-05-21"
+
+targets = "all"
+
+horizon_min = 1440.0
+bar_minutes = 1440.0
+
+feature_layers = ["own", "im"]
+
+selectors = [
+  "全部使う（基準）", "乱択（基準）",
+  "F1-1 相関", "F1-2 相互情報量", "F1-3 mRMR", "F1-5 検定+FDR",
+  "F2-3 Boruta", "F3-1 Lasso", "F3-2 木の重要度", "F3-3 並べ替え(MDA)", "F3-5 クラスタ化MDA",
+]
+k = 16
+
+model = "Ridge"
+baselines = ["常に上（ドリフト）", "直前リターンの符号"]
+
+[validation]
+split = "walk_forward"
+folds = 5
+purge = true
+embargo_bars = 0
+seed = 0
+
+[features]
+im_lag_days = 1
+im_exposure = "us63"
+im_transforms = ["d1", "z20"]
+im_max_stale_days = 7
+im_scramble = true           # ⚠ **割り当てを入れ替える**
+im_scramble_seed = 0

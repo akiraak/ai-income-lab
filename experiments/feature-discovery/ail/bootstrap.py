@@ -8,7 +8,11 @@ from ail.data.sources import tastytrade      # noqa: F401
 from ail.data.sources import ecb, noaa, treasury, usgs   # noqa: F401
 # ⚠ **社会にインパクトを与えるもの（本命）。** 偽薬（気象・地震）とは枠が別
 from ail.data.sources import epu, ncei_storm            # noqa: F401
+# ⚠ **警報は 2 経路**: IEM は保管庫（検証用）、NWS は配信（運用用）。⚠ **突き合わせは cli/crosscheck.py**
+from ail.data.sources import iem, nws                   # noqa: F401
 from ail.features import own, cross, relative, leadlag, exog   # noqa: F401
+# ⚠ **`im_` は銘柄ごとに値が変わる外部データ**（`ex_` との違いはそこだけ）
+from ail.features import impact                              # noqa: F401
 from ail.selectors import filter as _filter, wrapper, embedded  # noqa: F401
 from ail.models import baselines, linear     # noqa: F401
 from ail.validation import splits            # noqa: F401

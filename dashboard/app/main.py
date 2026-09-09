@@ -1,6 +1,6 @@
 """管理画面の本体（FastAPI）。
 
-画面: 監視（/）・記録（/records）・判定（/judge）・検証（/experiments）・操作（/ops、ローカル面）・開発（/dev、ローカル面）。
+画面: 監視（/）・記録（/records）・判定（/judge）・検証（/experiments）・データ（/data）・操作（/ops、ローカル面）・開発（/dev、ローカル面）。
 公開面（AIL_AUTH_MODE=cloudflare）では /ops と /dev は 404 を返し、POST は停止（/ops/halt）だけ受ける。
 すべての応答は Redactor を通す（秘密をブラウザに送らない）。
 """
@@ -150,6 +150,7 @@ def create_app(settings: Settings | None = None, start_monitors: bool = True) ->
     from .access import AccessGuard
     from .devtools import DevError, DevTools
     from . import experiments as exp
+    from . import inventory as inv
     from .judge import judge as run_judge
     from .masking import Redactor
     from .monitor import EventLog, Monitors
@@ -240,8 +241,9 @@ def create_app(settings: Settings | None = None, start_monitors: bool = True) ->
             "version": settings.version,
             "symbol": settings.symbol,
             "records_dir": str(settings.records_dir),
-            # ⚠ 検証の画面はデモの対象外（実験の記録をそのまま読む）ので、出所を出し分ける
+            # ⚠ 検証・データの画面はデモの対象外（実験側のファイルをそのまま読む）ので、出所を出し分ける
             "runs_dir": str(settings.runs_dir),
+            "exp_dir": str(settings.exp_dir),
             "dev_available": dev is not None,
             "demo": settings.demo,
         }
@@ -338,6 +340,17 @@ def create_app(settings: Settings | None = None, start_monitors: bool = True) ->
     @app.get("/api/experiments")
     async def api_experiments(request: Request):
         return JSONResponse(redactor(exp.index(settings.runs_dir)))
+
+    # ---------------------------------------------------------------- データ
+    # ⚠ **読むだけなので公開面にも出す。** 数字は実験側の manifest / config の写し（§11）
+
+    @app.get("/data", response_class=HTMLResponse)
+    async def data_page(request: Request):
+        return render(request, "data.html", page="data", inv=inv.index(settings))
+
+    @app.get("/api/data")
+    async def api_data(request: Request):
+        return JSONResponse(redactor(inv.index(settings)))
 
     @app.get("/api/judge")
     async def api_judge(request: Request):

@@ -51,6 +51,7 @@ class Settings:
     records_dir: Path
     sample_dir: Path
     runs_dir: Path
+    exp_dir: Path
     sample_python: str
     symbol: str
     poll_seconds: float
@@ -83,6 +84,31 @@ class Settings:
             "account_streamer": self.mock_account_streamer,
             "account_number": None,
         }
+
+    # ---- データの在庫（/data）が読む場所。⚠ **読むだけ。無くても画面は 200 を返す** ----
+    @property
+    def manifests_dir(self) -> Path:
+        return self.exp_dir / "data" / "manifests"
+
+    @property
+    def features_dir(self) -> Path:
+        return self.exp_dir / "data" / "features"
+
+    @property
+    def dataset_config_dir(self) -> Path:
+        return self.exp_dir / "config" / "dataset"
+
+    @property
+    def exposure_config_dir(self) -> Path:
+        return self.exp_dir / "config" / "exposure"
+
+    @property
+    def universe_config_dir(self) -> Path:
+        return self.exp_dir / "config" / "universe"
+
+    @property
+    def sources_config(self) -> Path:
+        return self.exp_dir / "config" / "sources.toml"
 
     @property
     def monitor_dir(self) -> Path:
@@ -173,6 +199,10 @@ def load_settings(environ: dict | None = None) -> Settings:
     runs_dir = Path(env.get("AIL_RUNS_DIR")
                     or REPO_ROOT / "experiments" / "feature-discovery" / "runs").resolve()
 
+    # データの在庫（/data）が読む実験ディレクトリ（manifest・meta・config）。⚠ **runs と同じく無くてよい**
+    exp_dir = Path(env.get("AIL_EXP_DIR")
+                   or REPO_ROOT / "experiments" / "feature-discovery").resolve()
+
     venv_python = sample_dir / ".venv" / "bin" / "python"
     sample_python = env.get("AIL_SAMPLE_PYTHON") or (str(venv_python) if venv_python.exists() else sys.executable)
 
@@ -203,6 +233,7 @@ def load_settings(environ: dict | None = None) -> Settings:
         records_dir=records_dir,
         sample_dir=sample_dir,
         runs_dir=runs_dir,
+        exp_dir=exp_dir,
         sample_python=sample_python,
         symbol=(env.get("AIL_SYMBOL") or "SPY").upper(),
         poll_seconds=float(env.get("AIL_POLL_SECONDS") or 30),

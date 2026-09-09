@@ -1,0 +1,64 @@
+# ⚠ **取得元ごとの宣言**（2026-09-09）。管理画面の「データ」（dashboard `/data`）が**写すだけ**の正本。
+#
+# ⚠ **ずらし幅（lag_days）の実効値は `ail/features/exog.py` / `ail/features/impact.py` の
+#    `DEFAULT_LAG_DAYS`・`DEFAULT_SOURCE_LAG_DAYS` が持つ。** ここは画面に見せるための宣言で、
+#    ⚠ **一致は `tests/test_sources_decl.py` が固定する**（同じ数字を 2 か所で手管理しない）。
+#
+# ⚠ **規約の判定（terms）は 3 分類**: "公有"（米政府の著作物 17 U.S.C. §105）／
+#    "robots"（robots.txt と規約を実測して問題なし）／ "契約"（口座の規約の範囲で使う）。
+#    ⚠ **「要判断」の取得元（FRED・Open-Meteo・SILSO）はデータを持っていないので、ここには載せない**
+#    （[daily-data-sources.md §2・§4](../../../docs/specs/experiments/daily-data-sources.md)）。
+
+[tastytrade]
+label = "tastytrade API（価格の足）"
+terms = "契約"
+terms_note = "口座保有者向けの API（Candle の購読上限 8,000 本【実測】）。データは手元の検証だけに使い、再配布しない"
+
+[ecb]
+label = "ECB 為替参照相場"
+lag_days = 1
+publish_note = "中央欧州時間 14:15 ごろの 1 日 1 回の値。翌日には取れる【実測 2026-09-08】"
+terms = "robots"
+terms_note = "公開データの配信 API。robots.txt に API パスの禁止なし【実測 2026-09-08】"
+
+[treasury]
+label = "米財務省 イールドカーブ"
+lag_days = 1
+publish_note = "翌日には出る"
+terms = "公有"
+terms_note = "米政府の著作物（17 U.S.C. §105）"
+
+[noaa]
+label = "NOAA GHCN-Daily（気象）"
+lag_days = 1
+publish_note = "翌日には出る（系列は数日止まることがある。前の値の引き継ぎは 7 日まで）"
+terms = "公有"
+terms_note = "米政府の著作物。robots.txt 無し（404）【実測 2026-09-08】"
+
+[usgs]
+label = "USGS 地震"
+lag_days = 1
+publish_note = "配信と保管庫が同じ経路にある稀な例【記録 §11】"
+terms = "公有"
+terms_note = "米政府の著作物。robots.txt 無し（404）【実測 2026-09-08】"
+
+[ncei_storm]
+label = "NCEI Storm Events（災害）"
+lag_days = 120
+publish_note = "⚠ 公表が 101 日遅れる【実測 2026-09-09】。余裕を見て 120 日ずらす（短いと先読みになる）"
+terms = "公有"
+terms_note = "米政府の著作物。robots.txt は /pub/ と /access/services/ を禁止していない【実測 2026-09-09】。⚠ SPC は Disallow: / なので採らない"
+
+[epu]
+label = "EPU（政策不確実性指数）"
+lag_days = 1
+publish_note = "前日分まで出る【実測 2026-09-09】"
+terms = "robots"
+terms_note = "policyuncertainty.com は robots.txt 無し（404）【実測 2026-09-09】。出典: Baker-Bloom-Davis 2016"
+
+[iem]
+label = "IEM（NWS 警報の保管庫）"
+lag_days = 1
+publish_note = "警報は被害より先に出る。公表の遅れ 1 日【実測 2026-09-09】（NCEI の 101 日を埋める経路）"
+terms = "robots"
+terms_note = "元データは NWS（米政府の公有）。IEM は保管庫で、robots.txt の Crawl-delay: 120 を守って取得【実測 2026-09-09】"

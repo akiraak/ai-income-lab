@@ -43,7 +43,7 @@ def assert_clean(text: str, where: str):
 
 
 def test_pages_render_without_secrets(client):
-    for path in ["/", "/?partial=1", "/records", "/records/20260908T140000Z", "/records/diff?a=20260908T140000Z&b=20260909T140000Z", "/judge", "/ops", "/dev", "/api/state", "/api/records", "/api/judge", "/api/events"]:
+    for path in ["/", "/?partial=1", "/records", "/records/20260908T140000Z", "/records/diff?a=20260908T140000Z&b=20260909T140000Z", "/judge", "/data", "/ops", "/dev", "/api/state", "/api/records", "/api/judge", "/api/data", "/api/events"]:
         r = client.get(path)
         assert r.status_code == 200, path
         assert_clean(r.text, path)

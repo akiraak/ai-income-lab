@@ -51,16 +51,6 @@
   ⚠ **資金は動かさない**（2026-08-27 の方針）
   関連: [feature-discovery.md](docs/specs/experiments/feature-discovery.md) ／ [daily-data-sources.md](docs/specs/experiments/daily-data-sources.md)
 
-- [ ] 管理画面に「どのようなデータを保持しているか」が分かるページを追加する
-  利用者の指示（2026-09-09）: **どのようなデータを保持しているのかが分かるページを管理画面に追加**
-  ⚠ **読む正本は manifest**（`experiments/feature-discovery/data/manifests/*.json`）。⚠ **画面が CSV を開いて数え直さない**（検証の画面と同じ立て方。[dashboard.md §10](docs/specs/dashboard.md) 「実験側が書いたものを読むだけ」）
-  ⚠ **見せるもの**: 層（raw ／ adjusted ／ series ／ features）・取得元・枠（本命 ／ 偽薬）・系列数・行数・最古と最新の日・⚠ **公表の遅れ（ずらし幅）**・規約の判定（robots.txt ／ 公有 ／ 要判断）
-  ⚠ **枠（本命 ／ 偽薬）と仮説は config が宣言している**（`config/dataset/*.toml` の `role` `hypothesis`）。画面はそれを写すだけで、結果を見て分類しない
-  ⚠ **割り当て（`config/exposure/*.toml`）も 1 覧にする**（どの銘柄にどの災害の重みが付いているか。⚠ 全部【推測】である旨を画面に出す）
-  ⚠ **秘密は無い**（外部系列と足は公開データ）が、応答は他の画面と同じく `Redactor` を通す
-  ⚠ **着手前にプランを作る**（`docs/plans/dashboard-data-inventory.md`）。仕様は [dashboard.md](docs/specs/dashboard.md) に §11 として足す
-  関連: [dashboard.md](docs/specs/dashboard.md) ／ [daily-data-sources.md](docs/specs/experiments/daily-data-sources.md) ／ [rules.md 1 章](docs/specs/experiments/feature-discovery/rules.md)
-
 - [ ] データの取得元を広げる（判断待ちの 2 件）
   ⚠ **「予想モデルに使うデータを広く収集する」から切り出した**（2026-09-09 に本体は完了。[DONE](DONE.md)）
   ⚠ **どちらも私には決められない。** ⚠ **取れないのではなく、本プロジェクトをどう位置づけるかで決まる**

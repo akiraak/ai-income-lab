@@ -79,6 +79,7 @@ def settings(tmp_path):
         records_dir=records,
         sample_dir=SAMPLE_DIR,
         runs_dir=tmp_path / "runs",
+        exp_dir=tmp_path / "feature-discovery",
         sample_python=sys.executable,
         symbol="SPY",
         poll_seconds=30,

@@ -1,5 +1,17 @@
 # DONE
 
+- 2026-09-09 管理画面に「どのようなデータを保持しているか」が分かるページ（`/data`）を追加した
+  - プラン: [docs/plans/archive/dashboard-data-inventory.md](docs/plans/archive/dashboard-data-inventory.md) / 仕様: [dashboard.md §11](docs/specs/dashboard.md) / コード: `dashboard/app/inventory.py` ＋ `experiments/feature-discovery/config/sources.toml`
+  - 利用者の指示（2026-09-09）「**どのようなデータを保持しているのかが分かるページを管理画面に追加**」から
+  - 見せるもの: 足（raw ／ adjusted × 日足 ／ 1 分足。⚠ **中身の種別つき — 会社株 48 ／ ETF 26 ／ 実質は株の ETF 12**）・外部系列（本命 62 本 ／ 偽薬 11 本）・特徴量の表（8 ＋ 先読み用 3）・取得元と規約・割り当て（災害 → 銘柄）。計 2,303,547 行（2026-09-09 時点の手元）
+  - 種別（株式か ETF か）は利用者の指摘（2026-09-09「どのような種類のデータなのか分からない」）で追加。⚠ **`config/universe/*.toml` の `groups` の宣言を銘柄名で引くだけ**（画面が銘柄名から推測しない。宣言に無い銘柄は「分類なし」で見せる）。銘柄の集合の限界（生存バイアス・選定日）も同じ節に出す
+  - ⚠ **§10 と同じ立て方 — 実験側が書いたものを読むだけ。** 行数・期間は manifest（`data/manifests/*.json`）と sidecar（`data/features/*/d.meta.json`）の写しで、⚠ **CSV / parquet を開いて数え直さない**。管理画面の依存も増やしていない（TOML は 3.11+ の `tomllib`）
+  - ⚠ **枠（本命 ／ 偽薬）と仮説は `config/dataset/*.toml` の宣言の写し**（結果を見て分類しない）。⚠ **manifest の枠と食い違ったら ⚠ を立てて見せる**（黙ってどちらかを選ばない）
+  - ⚠ **ずらし幅と規約の判定は `config/sources.toml` に宣言を新設**（公有 ／ robots ／ 契約 の 3 分類 ＋ 根拠と実測日）。⚠ **実効値は `ail/features/exog.py` / `impact.py` のままで、一致は実験側の `tests/test_sources_decl.py` 5 件が固定する**（同じ数字を 2 か所で手管理しない。宣言だけ直してコードを直し忘れると「120 日ずらしている」と言いながら 1 日しかずらしていない嘘になる）
+  - ⚠ **割り当て（`config/exposure/us63.toml`）は【推測】と後知恵（`hindsight`）を画面に明示**。経路 6 本と重みの表（銘柄 × 地域ほか）を宣言のまま出す
+  - 面は両方（読むだけ・秘密なし）。応答は `Redactor` を通し、`test_app.py` の秘密 grep に `/data` `/api/data` を追加。⚠ **デモの対象外**（帯とフッタで明示）。⚠ **`AIL_EXP_DIR` が無くても 200**（g3plus には COPY しない）
+  - 検査: dashboard 側 `tests/test_inventory.py` 8 件（写すだけであること・食い違いの ⚠・壊れたファイルでも落ちない）＋ 実験側 5 件。全 51 ＋ 5 件が通過。実データの `/data` も別ポートで確認（利用者が動かしている 3012 は触っていない）
+
 - 2026-09-09 予想モデルに使うデータを広く集め、⚠ **本命が偽薬を超えないことを実測した**
   - プラン: [docs/plans/archive/daily-data-sources.md](docs/plans/archive/daily-data-sources.md) / ⚠ **主成果物: [docs/specs/experiments/daily-data-sources.md](docs/specs/experiments/daily-data-sources.md)**（判定は §9）/ コード: `experiments/feature-discovery/ail/data/sources/` ＋ `ail/features/exog.py`
   - 利用者の指示（2026-09-08）「**予想モデルに使うデータを広く収集する**」「**為替のデータを入れる。それ以外で日ごとのデータで入れられるものを調査する。⚠ 天気予報など全く関連がなさそうなものでもいい**」から

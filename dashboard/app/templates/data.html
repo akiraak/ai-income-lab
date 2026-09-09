@@ -1,0 +1,173 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>データ <span class="muted small">実験（feature-discovery）が保持しているもの{% if inv.total_rows %} · 計 {{ '{:,}'.format(inv.total_rows) }} 行{% endif %}</span></h2>
+
+<p class="muted small">
+  <b>この画面は読むだけ。</b>系列数・行数・期間は取得時に実験側が書いた manifest
+  （<code>data/manifests/*.json</code>）の値をそのまま出す（CSV を開いて数え直さない）。
+  <b>枠（本命 ／ 偽薬）と仮説は <code>config/dataset/*.toml</code> の宣言の写し</b>で、結果を見て分類し直さない。
+  ずらし幅と規約の判定は <code>config/sources.toml</code> の宣言（コードとの一致は実験側のテストが固定）。
+</p>
+
+{% if inv.empty %}
+<p class="muted">実験のデータが無い（<code>{{ inv.exp_dir }}</code>）。<code>data/</code> は git 管理外なので、取得した手元にだけある。</p>
+{% else %}
+
+{# ---------------- 足（価格） ---------------- #}
+<h3>足（価格） <span class="muted small">layer: raw ／ adjusted</span></h3>
+{% if not inv.bars %}<p class="muted small">足の manifest が無い。</p>{% else %}
+<div class="scroll-x">
+<table class="exp">
+<tr><th>層</th><th>粒度</th><th>取得元</th><th>中身</th><th>銘柄</th><th>行数</th><th>期間</th><th>検査の引っかかり</th><th>調整</th><th>取得日</th></tr>
+{% for m in inv.bars %}
+<tr>
+  <td class="cell-{{ 'ok' if m.layer == 'adjusted' else 'na' }}"><b>{{ m.layer_label }}</b><div class="small muted">{{ m.file }}</div></td>
+  <td>{{ m.period_label }}</td>
+  <td>{{ m.source_label }}<div class="small muted">{{ m.dataset or '' }}</div></td>
+  <td class="small">{% for kind, n in m.kinds %}{{ kind }} <b>{{ n }}</b>{{ ' · ' if not loop.last }}{% endfor %}
+    <details><summary class="small muted">銘柄の一覧（{{ m.series|length }}）</summary>
+      <table class="small"><tr><th>銘柄</th><th>種別</th><th>行</th><th>期間</th></tr>
+      {% for s in m.series %}<tr><td><b>{{ s.name }}</b></td><td>{{ s.kind }}</td><td class="num">{{ '{:,}'.format(s.rows) if s.rows else '—' }}</td><td class="muted">{{ s.oldest }} 〜 {{ s.newest }}</td></tr>{% endfor %}
+      </table>
+    </details></td>
+  <td class="num">{{ m.symbols }}</td>
+  <td class="num">{{ '{:,}'.format(m.rows) if m.rows else '—' }}</td>
+  <td class="small">{{ m.oldest or '—' }} 〜 {{ m.newest or '—' }}</td>
+  <td class="small {{ 'warn' if m.issues else 'muted' }}">{{ m.issues|join(' · ') if m.issues else 'なし' }}</td>
+  <td class="small muted">{% if m.repaired_breaks is not none %}修復 {{ m.repaired_breaks }} · 実際の変動 {{ m.kept_as_real_move }} · 直した行 {{ '{:,}'.format(m.rows_rescaled or 0) }}<br>配当調整{{ 'あり' if m.dividend_adjusted else 'なし' }}{% else %}—{% endif %}</td>
+  <td class="small muted">{{ m.written_at or '—' }}</td>
+</tr>
+{% endfor %}
+</table>
+</div>
+<p class="muted small">⚠ 種別（会社株 ／ ETF）は <code>config/universe/*.toml</code> の <code>groups</code> の宣言を銘柄名で引いたもの（画面は銘柄名から推測しない）。
+⚠ 調整前（raw）の日足は分割の断層を含みうる。検証に使うのは調整後（rules.md 2 章）。</p>
+{% if inv.universes %}
+<table class="exp">
+<tr><th>銘柄の集合</th><th>中身</th><th>選定</th></tr>
+{% for u in inv.universes %}
+<tr>
+  <td><b>{{ u.name }}</b></td>
+  <td class="small">{{ u.description or '—' }}<div class="muted">{% for g, syms in u.groups.items() %}{{ g }} {{ syms|length }} 本{{ ' · ' if not loop.last }}{% endfor %}</div></td>
+  <td class="small muted">{{ u.selected_on or '—' }}{% if u.survivorship_bias %}<br><span class="warn">⚠ 生存バイアスあり</span>（選定時点で存在する銘柄から選んでいる）{% endif %}</td>
+</tr>
+{% endfor %}
+</table>
+{% endif %}
+{% endif %}
+
+{# ---------------- 外部系列 ---------------- #}
+<h3>外部系列 <span class="muted small">{% for role, n in inv.external_roles.items() %}{{ role }} {{ n }} 本{{ ' · ' if not loop.last }}{% endfor %}</span></h3>
+{% if not inv.external %}<p class="muted small">外部系列の manifest が無い。</p>{% else %}
+<div class="scroll-x">
+<table class="exp">
+<tr><th>枠</th><th>取得元</th><th>系列</th><th>行数</th><th>期間</th><th>ずらし幅</th><th>規約</th><th>仮説（取得の前の宣言）</th></tr>
+{% for e in inv.external %}
+<tr>
+  <td class="cell-{{ 'ok' if e.role == '本命' else 'na' }}"><b>{{ e.role or '—' }}</b>{% if e.role_mismatch %}<div class="small warn">⚠ config と manifest で枠が食い違う</div>{% endif %}</td>
+  <td>{{ e.source_label }}<div class="small muted">{{ e.dataset or '' }} · {{ e.written_at or '' }}</div>
+    <details><summary class="small muted">系列の一覧（{{ e.series|length }}）</summary>
+      <table class="small"><tr><th>系列</th><th>行</th><th>期間</th></tr>
+      {% for s in e.series %}<tr><td><code>{{ s.name }}</code></td><td class="num">{{ '{:,}'.format(s.rows) if s.rows else '—' }}</td><td class="muted">{{ s.oldest }} 〜 {{ s.newest }}</td></tr>{% endfor %}
+      </table>
+    </details></td>
+  <td class="num">{{ e.symbols }}</td>
+  <td class="num">{{ '{:,}'.format(e.rows) if e.rows else '—' }}</td>
+  <td class="small">{{ e.oldest or '—' }} 〜 {{ e.newest or '—' }}</td>
+  <td class="num {{ 'warn' if (e.lag_days or 0) > 1 }}">{% if e.lag_days %}{{ e.lag_days }} 日{% else %}—{% endif %}</td>
+  <td class="small">{{ e.terms or '—' }}</td>
+  <td class="small muted">{{ e.hypothesis or ('⚠ 値動きと因果を想定しない（偽薬）' if e.role == '偽薬' else '—') }}{% if e.note %}<br>{{ e.note }}{% endif %}</td>
+</tr>
+{% endfor %}
+</table>
+</div>
+<p class="muted small">⚠ <b>偽薬（気象・地震）は値動きと因果を想定しない対照。</b>選別手法がそれを選んだ割合が偽発見率の実測になる（daily-data-sources.md §9）。
+⚠ <b>ずらし幅 ＝ 足の日から何日前の時点で公表されている値を使うか。</b>NCEI Storm Events は公表が 101 日遅れる【実測】ので 120 日ずらす。</p>
+{% endif %}
+
+{# ---------------- 特徴量 ---------------- #}
+<h3>特徴量の表 <span class="muted small">data/features/&lt;実験&gt;/</span></h3>
+{% if not inv.features and not inv.leak_features %}<p class="muted small">特徴量の表が無い。</p>{% else %}
+<table class="exp">
+<tr><th>実験</th><th>元の層</th><th>粒度</th><th>行数</th><th>列数</th><th>作成</th></tr>
+{% for f in inv.features %}
+<tr>
+  <td><b>{{ f.experiment }}</b></td>
+  <td class="cell-{{ 'ok' if f.layer == 'adjusted' else 'warn' }}">{{ f.layer_label }}</td>
+  <td>{{ f.period_label }}</td>
+  <td class="num">{{ '{:,}'.format(f.rows) if f.rows else '—' }}</td>
+  <td class="num">{{ f.features }}</td>
+  <td class="small muted">{{ f.built_at or '—' }}</td>
+</tr>
+{% endfor %}
+{% for f in inv.leak_features %}
+<tr class="muted">
+  <td>{{ f.experiment }} <span class="small warn">⚠ 先読みの検査用</span></td>
+  <td>{{ f.layer_label }}</td>
+  <td>{{ f.period_label }}</td>
+  <td class="num">{{ '{:,}'.format(f.rows) if f.rows else '—' }}</td>
+  <td class="num">{{ f.features }}</td>
+  <td class="small muted">{{ f.built_at or '—' }}</td>
+</tr>
+{% endfor %}
+</table>
+<p class="muted small">⚠ 先読みの検査用の表は、わざと未来の値を混ぜて配線を確かめるためのもの（検証には使わない）。</p>
+{% endif %}
+
+{# ---------------- 取得元と規約 ---------------- #}
+<h3>取得元と規約</h3>
+{% if not inv.sources %}<p class="muted small"><code>config/sources.toml</code> が無い。</p>{% else %}
+<div class="scroll-x">
+<table class="exp">
+<tr><th>取得元</th><th>規約の判定</th><th>根拠</th><th>公表の遅れ ／ ずらし幅</th></tr>
+{% for s in inv.sources %}
+<tr>
+  <td><b>{{ s.label or s.source }}</b><div class="small muted"><code>{{ s.source }}</code></div></td>
+  <td class="cell-ok"><b>{{ s.terms or '—' }}</b></td>
+  <td class="small muted">{{ s.terms_note or '—' }}</td>
+  <td class="small">{% if s.lag_days %}<b>{{ s.lag_days }} 日ずらす</b> — {% endif %}{{ s.publish_note or '—' }}</td>
+</tr>
+{% endfor %}
+</table>
+</div>
+<p class="muted small">⚠ 「要判断」で採っていない取得元（FRED・Open-Meteo・SILSO）はデータを持っていないのでこの表に無い（daily-data-sources.md §2・§4 が正本）。</p>
+{% endif %}
+
+{# ---------------- 割り当て ---------------- #}
+<h3>割り当て（災害 → 銘柄） <span class="muted small">config/exposure/</span></h3>
+{% if not inv.exposures %}<p class="muted small">割り当ての宣言が無い。</p>{% else %}
+{% for x in inv.exposures %}
+<div class="note">⚠ <b>重みは全部【推測】</b>（出典のある売上の地域内訳ではない。{{ x.selected_on or '—' }} 時点の主業種と拠点から振ったもの）。
+{% if x.hindsight %}⚠ <b>後知恵あり</b> — 検証の期間の中で起きた出来事を知って振っている（偽薬でも消えない限界）。{% endif %}
+⚠ 割り当てそのものが仮説であり、外れれば効かない。</div>
+<p class="muted small"><b>{{ x.name }}</b> · 曝露を持つ銘柄 {{ x.symbols|length }} 本{% if x.note %} · {{ x.note }}{% endif %}</p>
+<div class="scroll-x">
+<table class="exp">
+<tr><th>経路</th><th>取得元</th><th>系列</th><th>形</th><th>重みの表</th><th>仮説（取得の前の宣言）</th></tr>
+{% for c in x.channels %}
+<tr>
+  <td><b>{{ c.name }}</b></td>
+  <td>{{ c.source }}</td>
+  <td><code>{{ c.series }}</code></td>
+  <td class="small">{{ '地域ごと' if c.kind == 'region' else '全国 × 1 重み' }}</td>
+  <td><code>{{ c.weights }}</code></td>
+  <td class="small muted">{{ c.hypothesis or '—' }}{% if c.note %}<br>{{ c.note }}{% endif %}</td>
+</tr>
+{% endfor %}
+</table>
+</div>
+{% for table, entries in x.weights.items() %}
+<details>
+  <summary class="small">重みの表 <code>{{ table }}</code>（{{ entries|length }} 銘柄）【推測】</summary>
+  <table class="small">
+  <tr><th>銘柄</th><th>合計</th><th>内訳</th></tr>
+  {% for e in entries %}<tr><td><b>{{ e.symbol }}</b></td><td class="num">{{ '%g'|format(e.total) }}</td><td class="muted">{{ e.detail }}</td></tr>{% endfor %}
+  </table>
+</details>
+{% endfor %}
+{% endfor %}
+<p class="muted small">書いていない銘柄の重みは 0（＝ 曝露なし。0 は欠損ではない）。偽薬は「割り当ての入れ替え」（<code>im_scramble</code>）で、重みの分布はそのままに付き先だけを撹乱する。</p>
+{% endif %}
+
+{% endif %}
+{% endblock %}

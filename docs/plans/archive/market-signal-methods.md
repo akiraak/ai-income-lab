@@ -1,7 +1,7 @@
 # 上昇・下降のシグナルを中心に、データ分析の手法を広く調べる
 
 作成日: 2026-09-08。前の起票（「トレード予想に使う計算手法を調査する」）を、利用者の指示 3 本で作り直したもの。
-対象: [online-tradable-assets.md](../specs/online-tradable-assets.md) の **E8（譲渡益を繰り返し実現する運用）**。成果物は `docs/specs/experiments/e8-signal-methods.md`（新規）。
+対象: [online-tradable-assets.md](../../specs/online-tradable-assets.md) の **E8（譲渡益を繰り返し実現する運用）**。成果物は `docs/specs/experiments/e8-signal-methods.md`（新規）。
 
 ## 0. この作業の形
 
@@ -14,7 +14,7 @@
 
 ⚠ **3 によって作業の重心が変わった。** 前の版は「1 件でも成立するものがあるか」を探す形だったが、
 本版は **「どんな手法があるかを網羅して属性を付ける」ことが先**で、達成率での順位付けは最後に 1 回行う。
-体系側の [catalog.md](../specs/income-taxonomy/catalog.md)（手法 64 件に属性を付けた表）と同じ作り方をする。
+体系側の [catalog.md](../../specs/income-taxonomy/catalog.md)（手法 64 件に属性を付けた表）と同じ作り方をする。
 
 ⚠ **先に書いておく（調査を歪めないため）。** 年 1000% は監査された公表運用成績としては確認されていない水準である【要確認・§4-4 の周回 6 で当たる】。
 このプランは「達成できる手法を探す」だけでなく、**カタログの上で「どこまで届くか」「何が上限を作っているか」を出す**形にしてある。
@@ -44,14 +44,14 @@ flowchart LR
 
 | 項目 | 値 | 出典 |
 | --- | --- | --- |
-| 元手・投下時間・居住地 | **$100,000**、週 **5〜15 時間**、米国 WA 州 | [overview.md §6](../specs/overview.md)【確定】 |
-| 現物株の売買手数料 | **$0**（tastytrade ほか）。API プレミアムも $0 | [trading-fee-comparison.md §0](../specs/trading-fee-comparison.md)【公表値】 |
+| 元手・投下時間・居住地 | **$100,000**、週 **5〜15 時間**、米国 WA 州 | [overview.md §6](../../specs/overview.md)【確定】 |
+| 現物株の売買手数料 | **$0**（tastytrade ほか）。API プレミアムも $0 | [trading-fee-comparison.md §0](../../specs/trading-fee-comparison.md)【公表値】 |
 | 規制費（売り側） | SEC §31 **$20.60/百万ドル**、FINRA TAF **$0.000195/株** | 同 付録 B【公表値】 |
-| 税 | 現物短期 **24 / 40.8%**、現物 1 年超 15 / 23.8%、§1256 **18.6 / 30.6%** | [trading-tax.md §6-1](../specs/trading-tax.md)【推測（税率は公表値）】 |
+| 税 | 現物短期 **24 / 40.8%**、現物 1 年超 15 / 23.8%、§1256 **18.6 / 30.6%** | [trading-tax.md §6-1](../../specs/trading-tax.md)【推測（税率は公表値）】 |
 | wash sale | ⚠ 現物株に効く（先物には効かない） | 同 §2-2【公表値】 |
-| 発注の往復 | dry-run **877 ms** / 発注 **1,885 ms** / 取消 **387 ms**、約定まで **6.8 秒** | [tastytrade-api-sample.md](../specs/experiments/tastytrade-api-sample.md)【実測】 |
+| 発注の往復 | dry-run **877 ms** / 発注 **1,885 ms** / 取消 **387 ms**、約定まで **6.8 秒** | [tastytrade-api-sample.md](../../specs/experiments/tastytrade-api-sample.md)【実測】 |
 | 気配の遅延 | サーバの時計で **−0.12 秒**（12 回の中央値） | 同【実測】 |
-| データ | 米国上場は L0 まで存在。⚠ **個別銘柄はどの経路も登録が要る** | [market-data-availability.md](../specs/market-data-availability.md)【公表値 ＋ 実測】 |
+| データ | 米国上場は L0 まで存在。⚠ **個別銘柄はどの経路も登録が要る** | [market-data-availability.md](../../specs/market-data-availability.md)【公表値 ＋ 実測】 |
 
 ## 2. 調査の枠
 
@@ -98,7 +98,7 @@ flowchart TB
 | ID | 系統の記号 ＋ 連番（A1、B3 …）。系統は §6 の 12 |
 | 手法 | 一般に通っている名前。⚠ 別名があれば併記 |
 | 当てにいくもの | **方向 / 幅 / 転換点 / 相対** |
-| 要る粒度 | L0 tick・板 ／ L1 分足 ／ L2 日足 ／ L3 週次〜（[market-data-availability.md §1-2](../specs/market-data-availability.md) の階梯） |
+| 要る粒度 | L0 tick・板 ／ L1 分足 ／ L2 日足 ／ L3 週次〜（[market-data-availability.md §1-2](../../specs/market-data-availability.md) の階梯） |
 | 回転数 | 年あたりの往復の目安（コストと税の計算に直結） |
 | 計算資源 | 表計算で足りる ／ 手元の CPU ／ ⚠ GPU・低遅延の設備が要る |
 | 現物で組めるか | ○ ／ ⚠ 片脚だけ ／ ✕（空売り・デリバティブが要る） |
@@ -151,7 +151,7 @@ flowchart LR
 | ベット比率 | 年 11 倍を狙うと投入比率が**ケリー基準の最適を超える**領域に入りやすい。超えると成長率は下がり破産確率だけが上がる【要確認】 |
 | 集中 | 銘柄を広げるほど市場平均に近づくので、11 倍には集中が要る。⚠ 集中は 1 銘柄の事故で終わる |
 | 目標の性質 | ⚠ **「期待値が最大」と「11 倍に届く確率が最大」は別の設計**（後者は分散を上げるほうが有利になりうる） |
-| 参考の下限 | 分配で置くだけなら税引後 $2,601〜$3,542（[online-tradable-assets.md §4](../specs/online-tradable-assets.md)）。⚠ **目標に届かない候補が、これすら超えないなら E8 は E1/E2 に劣る** |
+| 参考の下限 | 分配で置くだけなら税引後 $2,601〜$3,542（[online-tradable-assets.md §4](../../specs/online-tradable-assets.md)）。⚠ **目標に届かない候補が、これすら超えないなら E8 は E1/E2 に劣る** |
 
 ## 4. ループの設計 — 広げてから絞る
 
@@ -493,7 +493,7 @@ flowchart TB
 
 **成果物**: `docs/specs/experiments/e8-signal-methods.md`（**カタログ本体 ＋ 失敗台帳（§5-4）＋ 判定**）。
 ⚠ **失敗台帳はカタログと対で読む表**で、「どの型で何件落ちたか」の集計が判定の根拠になる。
-**反映先**: [online-tradable-assets.md](../specs/online-tradable-assets.md) の E8、[overview.md §6](../specs/overview.md) の結果表。
+**反映先**: [online-tradable-assets.md](../../specs/online-tradable-assets.md) の E8、[overview.md §6](../../specs/overview.md) の結果表。
 
 ## 9. 方針との関係
 
@@ -502,7 +502,7 @@ flowchart TB
 | 資金・機材を動かす実行はしない（2026-08-27） | **守る**。⚠ 目標が高くても売買はしない。tastytrade の例外は API の挙動だけで、本プランは乗らない |
 | 登録・契約・課金をしない | **守る**（§7）。登録が要る経路は【公表値】止まり |
 | 数値は【実測】/【公表値】/【推測】を明示 | カタログの列として持つ。⚠ **年 1000% は「目標」であって予測ではない**と冒頭に書く |
-| 投資助言ではなく調査資料 | [trading-tax.md](../specs/trading-tax.md) と同じ扱い。⚠ 特定の銘柄・売買は推奨しない。破産確率と前提を同じ節に併記する |
+| 投資助言ではなく調査資料 | [trading-tax.md](../../specs/trading-tax.md) と同じ扱い。⚠ 特定の銘柄・売買は推奨しない。破産確率と前提を同じ節に併記する |
 
 ## 10. 検証（この作業自体の品質）
 

@@ -10,6 +10,8 @@ from ail.data.sources import ecb, noaa, treasury, usgs   # noqa: F401
 from ail.data.sources import epu, ncei_storm            # noqa: F401
 # ⚠ **警報は 2 経路**: IEM は保管庫（検証用）、NWS は配信（運用用）。⚠ **突き合わせは cli/crosscheck.py**
 from ail.data.sources import iem, nws                   # noqa: F401
+# ⚠ **暦（発表日）。** 値ではなく日付そのものが情報（econ_calendar）
+from ail.data.sources import fomc                       # noqa: F401
 from ail.features import own, cross, relative, leadlag, exog   # noqa: F401
 # ⚠ **`im_` は銘柄ごとに値が変わる外部データ**（`ex_` との違いはそこだけ）
 from ail.features import impact                              # noqa: F401

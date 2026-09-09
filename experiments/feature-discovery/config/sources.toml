@@ -56,6 +56,12 @@ publish_note = "前日分まで出る【実測 2026-09-09】"
 terms = "robots"
 terms_note = "policyuncertainty.com は robots.txt 無し（404）【実測 2026-09-09】。出典: Baker-Bloom-Davis 2016"
 
+[fomc]
+label = "FOMC 会合日程（連邦準備制度）"
+publish_note = "⚠ 値ではなく暦。予定は事前に公表されるので、ずらしの概念が無い（「明日は発表日」は先読みにならない）"
+terms = "公有"
+terms_note = "米政府の著作物。robots.txt 無し（404）【実測 2026-09-09】。⚠ BLS（雇用統計・CPI）は robots.txt 自体が 403 なので採らない"
+
 [iem]
 label = "IEM（NWS 警報の保管庫）"
 lag_days = 1

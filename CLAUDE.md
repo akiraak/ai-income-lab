@@ -61,17 +61,21 @@ cd dashboard
 python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
 cp .env.example .env                                   # AIL_AUTH_MODE=local（既定は loopback）
 ./run.sh                                               # http://127.0.0.1:3012
+# または プロジェクト直下から（⚠ **ポートを掴んでいるプロセスを止めてから起動する**）
+../run-server.sh                                       # --port N / --no-kill / --demo
 .venv/bin/python -m pytest -q tests                    # 面の判定・JWT・記録と判定・秘密が応答に出ないこと
 ```
 
 - `experiments/tastytrade-api-sample/` の `ttclient.py` / `record.py` を import し、記録（`out/*.jsonl`）をそのまま読む。資格情報もサンプルの `.env` を読む
-- 画面: 監視（`/`）・記録と差分（`/records`）・6 観点の自動判定（`/judge`）・操作（`/ops`）・開発（`/dev`）。**操作と開発はローカル面だけ**
+- 画面: 監視（`/`）・記録と差分（`/records`）・6 観点の自動判定（`/judge`）・**検証（`/experiments`）**・操作（`/ops`）・開発（`/dev`）。**操作と開発はローカル面だけ**
+- **検証の画面**は `experiments/feature-discovery/runs/` を**読むだけ**（`AIL_RUNS_DIR`）。**スコアは最良手法（基準線を除く）の純利 bp** で、fold の符号・上乗せ t・実効標本数・デフレーテッド SR を横に並べる。⚠ **検査は実験側が `checks.json` に書いたものを読むだけ**（管理画面に pandas / scipy を入れない）。仕様は `docs/specs/dashboard.md` §10
 - **鍵なしでも動く（デモ）**: 資格情報が無いか `AIL_DEMO=1` なら、起動時にモックサーバを立てて全画面にモックのデータを出す（帯に「デモ」）。データは `data/demo/` に分ける。仕様 §6-2
 - 面は `AIL_AUTH_MODE`: `loopback`（既定）/ `local`（＋ LAN）/ `cloudflare`（公開面。Access の JWT を全リクエストで検証。**監視と停止だけ**）
 - **停止ボタン** ＝ 記録ディレクトリに `HALT` を書き、働いている注文を全部取り消す。`sample.py` も `HALT` があると発注系の手順を拒否する
 - 本番の鍵はサンプルと同じ 3 段（dry-run `TT_ALLOW_PROD_DRY_RUN=1` / 取消 `allow_prod_cancel` / 発注 `TT_ALLOW_PROD_ORDERS=1` ＋ 確認文）。**取消の鍵で発注は開かない**
 - 秘密（client secret・トークン・口座番号）はブラウザに送らない。全応答が `Redactor` を通る
 - g3plus に載せる契約は `docs/specs/dashboard.md` §7。デプロイ設定・公開ホスト名・Access は **g3plus-ops（private）側にだけ書く**
+- 起動は `dashboard/run.sh`、または**プロジェクト直下の `run-server.sh`**（⚠ **既にポートを掴んでいるプロセスを止めてから起動する**）。⚠ **プロセスは名前ではなくポートから引く**（`pgrep -f` のパターンは自分自身のコマンドラインにも当たるため）。⚠ **vibeboard（3010）は触らない**
 - vibeboard との棲み分け: vibeboard はこのリポジトリの文書とタスクを見る**開発用**、dashboard は tastytrade の口座と記録を見る**運用用**。ポートも別（3010 / 3012）
 
 ## 実験コード

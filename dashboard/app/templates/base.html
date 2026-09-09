@@ -13,6 +13,7 @@
     <a href="/" class="{{ 'on' if page == 'monitor' else '' }}">監視</a>
     <a href="/records" class="{{ 'on' if page == 'records' else '' }}">記録</a>
     <a href="/judge" class="{{ 'on' if page == 'judge' else '' }}">判定</a>
+    <a href="/experiments" class="{{ 'on' if page == 'experiments' else '' }}">検証</a>
     {% if face == 'local' %}
     <a href="/ops" class="{{ 'on' if page == 'ops' else '' }}">操作</a>
     <a href="/dev" class="{{ 'on' if page == 'dev' else '' }}">開発</a>
@@ -37,7 +38,7 @@
   </form>
 </div>
 {% if demo %}
-<div class="demobar">🧪 <b>デモ</b> — 資格情報が無い（または <code>AIL_DEMO=1</code>）ので、手元のモックサーバのデータを表示している。tastytrade には繋いでいない。記録・監視ログは <code>data/demo/</code> に分けて置く</div>
+<div class="demobar">🧪 <b>デモ</b> — 資格情報が無い（または <code>AIL_DEMO=1</code>）ので、手元のモックサーバのデータを表示している。tastytrade には繋いでいない。記録・監視ログは <code>data/demo/</code> に分けて置く{% if page == 'experiments' %} — <b>⚠ ただしこの「検証」の画面はデモの対象外。実験の記録（<code>{{ runs_dir }}</code>）をそのまま読んでいるので、数字は本物</b>{% endif %}</div>
 {% endif %}
 {% if halt.halted %}
 <div class="haltbar">⛔ <b>停止中（HALT）</b> {{ halt.since|pt }} · {{ halt.actor }} {% if halt.reason %}· {{ halt.reason }}{% endif %} — 発注系はすべて拒否される{% if face == 'local' %}。解除は <a href="/ops">操作</a> から{% endif %}</div>
@@ -46,7 +47,7 @@
 <main>
 {% block content %}{% endblock %}
 </main>
-<footer class="foot"><span>{{ now|pt }} / {{ now|et }}</span><span class="muted">記録: {{ records_dir }}</span></footer>
+<footer class="foot"><span>{{ now|pt }} / {{ now|et }}</span><span class="muted">{% if page == 'experiments' %}検証の記録: {{ runs_dir }}{% else %}記録: {{ records_dir }}{% endif %}</span></footer>
 <script src="/static/app.js"></script>
 </body>
 </html>

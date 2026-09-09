@@ -21,5 +21,5 @@ AI を使って収入を稼ぐ方法を体系化し、**机上で検証する**�
 
 | 画面 | 用途 | 起動 |
 | --- | --- | --- |
-| [dashboard/](dashboard/) | **売買システムの管理画面**。tastytrade の口座・注文・認証の監視、API 検証の記録と 6 観点の判定、開発時の検証。仕様は [docs/specs/dashboard.md](docs/specs/dashboard.md) | `cd dashboard && ./run.sh` → http://127.0.0.1:3012 |
+| [dashboard/](dashboard/) | **売買システムの管理画面**。tastytrade の口座・注文・認証の監視、API 検証の記録と 6 観点の判定、開発時の検証。仕様は [docs/specs/dashboard.md](docs/specs/dashboard.md) | `./run-server.sh` → http://127.0.0.1:3012（⚠ ポートを掴んでいるプロセスを止めてから起動する） |
 | vibeboard | 開発管理画面。`docs/` と `TODO.md` の閲覧・編集 | `node vibeboard/dist/cli.js --root .` → http://localhost:3010 |

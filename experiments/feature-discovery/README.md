@@ -3,6 +3,9 @@
 ⚠ **規約は [rules.md](../../docs/specs/experiments/feature-discovery/rules.md) が正本。**
 記録は [feature-discovery.md](../../docs/specs/experiments/feature-discovery.md)、プランは [analysis-structure.md](../../docs/plans/archive/analysis-structure.md)。
 
+⚠ **「何を試して、どうだったか」は [ledger.md](../../docs/specs/experiments/feature-discovery/ledger.md)**（台帳）。
+⚠ **台帳は生成物である**（`cli/report.py --catalog`）。⚠ **手法を 1 つ足して回したら、台帳を吐き直す。**
+
 ⚠ **資金は動かさない**（2026-08-27 の方針）。データ取得は既にある tastytrade の口座の**読み取りだけ**で、発注系には触れない。
 
 ## 回し方
@@ -26,6 +29,10 @@ python3 -m venv .venv && ./.venv/bin/pip install -r requirements.txt
 # 5. 実行を横に並べる
 ./.venv/bin/python -m cli.report
 ./.venv/bin/python -m cli.report --diff <実行A> <実行B>
+
+# 6. ⚠ 台帳（試した結果の一覧）を作り直す。**手で書き換えない**
+./.venv/bin/python -m cli.report --catalog \
+  > ../../docs/specs/experiments/feature-discovery/ledger.md
 
 # 検査
 ./.venv/bin/python -m cli.check --layer adjusted --period d
@@ -56,6 +63,9 @@ python3 -m venv .venv && ./.venv/bin/pip install -r requirements.txt
 | `ail/models/` | 基準線・線形・木 | 同上 |
 | `ail/validation/` | 分割・指標・統計 | 同上 |
 | `cli/` | 入口（薄く保つ） | 触らない |
+| `ail/catalog.py` ／ `cli/ledger.py` | ⚠ **台帳**（カタログ・registry・`runs/` の突き合わせ） | 触らない |
+| `config/legacy.toml` | 旧配線の結果表の**読み場所**（⚠ **数字は書かない**） | 触らない |
+| `config/catalog_notes.toml` | ⚠ **未実施の手法の「次の一手」**（人が書く唯一の列） | ⚠ **実装したら行を消す** |
 | `data/` | ⚠ **git 管理外**。`raw/` は書き換えない | — |
 | `runs/` | ⚠ **git 管理外**。1 実行 1 ディレクトリ | — |
 

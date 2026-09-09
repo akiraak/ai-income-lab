@@ -6,6 +6,7 @@
       env.json       種・コードの版（git の commit）・ライブラリの版
       result.csv     手法ごとの成績（fold ごとの生の行）
       summary.csv    手法ごとにまとめたもの
+      checks.json    ⚠ fold の符号・上乗せ・実効標本数・デフレーテッド SR（管理画面が読む）
       log.txt        画面に出したものと同じ
       fitted/        ⚠ 標本から学んだ係数（再現用。⚠ **次の実行では読み込まない**）
 
@@ -73,6 +74,10 @@ class Run:
         os.makedirs(d, exist_ok=True)
         with open(os.path.join(d, f"{name}.json"), "w", encoding="utf-8") as f:
             json.dump(doc, f, ensure_ascii=False, indent=2, default=str)
+
+    def checks(self, doc: dict) -> None:
+        """⚠ **検査の結果。** fold の符号・上乗せ・実効標本数・デフレーテッド SR を記録の一部にする。"""
+        self._write("checks.json", doc)
 
     def result(self, raw: pd.DataFrame, summary: pd.DataFrame) -> None:
         raw.to_csv(os.path.join(self.dir, "result.csv"), index=False)

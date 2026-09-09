@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>検証 <span class="muted small">特徴量の発見手法 · {{ ex.total }} 件{% for k, n in ex.kinds.items() %} · {{ k }} {{ n }}{% endfor %}{% if ex.leak_runs %} · 配線の検査 {{ ex.leak_runs|length }}{% endif %}</span></h2>
+
+<p class="muted small">
+  <b>スコア = 最良手法（基準線を除く）の純利 bp。</b>大きいほど上に出る。
+  ⚠ <b>スコアは 1 つの数字なので、fold の偏りも多重検定も数字自体には出ない。</b>
+  右の 5 列（層・純利・fold・上乗せ・DSR）を必ず一緒に読む。
+  検査は実験側が <code>checks.json</code> に書いたものをそのまま出している（画面では計算しない）。
+</p>
+
+{% if not ex.runs and not ex.leak_runs %}
+<p class="muted">検証の記録が無い（<code>{{ ex.runs_dir }}</code>）。<code>runs/</code> は git 管理外なので、実行した手元にだけある。</p>
+{% else %}
+
+<table class="exp">
+<tr>
+  <th>スコア<br><span class="small muted">純利 bp</span></th>
+  <th>検証</th><th>種類</th><th>最良の手法</th>
+  <th>層</th><th>純利</th><th>fold</th><th>上乗せ</th><th>DSR</th>
+  <th class="small">条件</th>
+</tr>
+{% for r in ex.runs %}
+<tr>
+  <td class="score {{ 'pos' if (r.score or 0) > 0 else 'neg' }}">
+    {% if r.score is none %}—{% else %}<b>{{ '%+.2f'|format(r.score) }}</b>{% endif %}
+  </td>
+  <td><a href="/experiments/{{ r.run_id }}"><b>{{ r.title }}</b></a>
+      <div class="small muted">{{ r.run_id }}</div></td>
+  <td>{{ r.kind }}</td>
+  <td>{{ r.best.method or '—' }}
+      {% if r.best %}<div class="small muted">粗利 {{ '%+.2f'|format(r.best.粗利bp) }}bp · 的中率 {{ '%.4f'|format(r.best.的中率) }} · {{ '%.1f'|format(r.best.本数) }} 本</div>{% endif %}</td>
+  <td class="cell-{{ 'ok' if r.marks.層 == '✅' else ('warn' if r.marks.層 == '⚠' else 'na') }}">
+    <span class="mark">{{ r.marks.層 }}</span><div class="small">{{ r.layer_label }}</div></td>
+  <td class="cell-{{ 'ok' if r.marks.純利 == '✅' else ('warn' if r.marks.純利 == '⚠' else 'na') }}">
+    <span class="mark">{{ r.marks.純利 }}</span></td>
+  <td class="cell-{{ 'ok' if r.marks.fold == '✅' else ('warn' if r.marks.fold == '⚠' else 'na') }}">
+    <span class="mark">{{ r.marks.fold }}</span>
+    {% if r.folds %}<div class="small">{{ r.folds.positive }}/{{ r.folds.folds }} {{ r.folds.pattern }}</div>{% endif %}</td>
+  <td class="cell-{{ 'ok' if r.marks.上乗せ == '✅' else ('warn' if r.marks.上乗せ == '⚠' else 'na') }}">
+    <span class="mark">{{ r.marks.上乗せ }}</span>
+    {% if r.edge and r.edge.t is not none %}<div class="small">{{ '%+.2f'|format(r.edge.mean_bp) }}bp t={{ '%.2f'|format(r.edge.t) }}</div>{% endif %}</td>
+  <td class="cell-{{ 'ok' if r.marks.DSR == '✅' else ('warn' if r.marks.DSR == '⚠' else 'na') }}">
+    <span class="mark">{{ r.marks.DSR }}</span>
+    {% if r.dsr %}<div class="small">{{ '%.4f'|format(r.dsr.DSR) }}<br>{{ r.dsr.n_trials }} 試行</div>{% endif %}</td>
+  <td class="small muted">{{ r.gran }} · {{ r.horizon }}<br>{{ r.feature_layers }} · {{ r.features }} 本 · k={{ r.k }}<br>{{ '{:,}'.format(r.rows) if r.rows else '—' }} 行 · {{ r.symbols }} 銘柄</td>
+</tr>
+{% endfor %}
+</table>
+
+<p class="muted small">
+  <b>✅ の条件</b> —
+  層: 調整後（⚠ 調整前の日足は分割調整の誤りを含む） ／
+  純利: 往復コストを引いて正 ／
+  fold: <b>全 fold で正</b>（平均が正でも符号が割れるなら実力ではない） ／
+  上乗せ: 「常に上」への上乗せの t &gt; 3.0 ／
+  DSR: <b>実効標本数で割り引いた</b>デフレーテッド SR &gt; 0.95。
+  ⚠ DSR は「SR &gt; 0」の検定であって「基準線を超えたか」ではない。
+  ⚠ 試行数は増えるので、古い検証の DSR は当時の試行数のもの。
+</p>
+
+{% if ex.missing_checks %}
+<p class="muted small">⚠ 検査がまだ無い実行: {% for r in ex.missing_checks %}<code>{{ r }}</code> {% endfor %}—
+  <code>python3 -m cli.report --recheck</code> で書ける。</p>
+{% endif %}
+
+{% if ex.leak_runs %}
+<h3>⚠ 配線の検査（一覧の対象外）</h3>
+<p class="muted small">わざと未来の値を混ぜた実行。<b>成績が良いのは当たり前なので、上の一覧には入れない。</b>
+  ここが跳ね上がらなければ、上の「効かない」は「配線が壊れていて測れていない」と読むべきである。</p>
+<table class="exp">
+<tr><th>スコア<br><span class="small muted">純利 bp</span></th><th>検証</th><th>最良の手法</th><th>的中率</th><th>IC</th></tr>
+{% for r in ex.leak_runs %}
+<tr>
+  <td class="score leak">{% if r.score is none %}—{% else %}{{ '%+.2f'|format(r.score) }}{% endif %}</td>
+  <td><a href="/experiments/{{ r.run_id }}"><b>{{ r.title }}</b></a><div class="small muted">{{ r.run_id }}</div></td>
+  <td>{{ r.best.method or '—' }}</td>
+  <td>{% if r.best %}{{ '%.4f'|format(r.best.的中率) }}{% endif %}</td>
+  <td>{% if r.best %}{{ '%.4f'|format(r.best.IC) }}{% endif %}</td>
+</tr>
+{% endfor %}
+</table>
+{% endif %}
+{% endif %}
+{% endblock %}

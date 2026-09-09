@@ -122,3 +122,17 @@ details summary { cursor:pointer; color:var(--accent); font-size:12px; }
 .note { background:var(--warn-bg); border:1px solid rgba(210,153,34,.35); color:#f0d9a1; padding:8px 12px; border-radius:6px; margin:8px 0; }
 .danger { background:var(--ng-bg); border:1px solid rgba(248,81,73,.4); color:#ffb4ae; padding:8px 12px; border-radius:6px; margin:8px 0; }
 .note code, .danger code { background:rgba(0,0,0,.3); color:inherit; border-color:transparent; }
+
+/* ---- 検証（/experiments）。⚠ スコアは 1 列だが、検査の 5 列と必ず並べて見せる */
+table.exp td { vertical-align:top; }
+table.exp .mark { font-size:18px; }
+table.exp td.score { text-align:right; font-variant-numeric:tabular-nums; font-size:16px; white-space:nowrap; }
+.score.pos b, td.pos, .v.pos { color:var(--ok-ink); }
+.score.neg b, td.neg, .v.neg { color:var(--muted); }
+.score.leak { color:var(--sub); }
+table.exp tr.best td { background:rgba(88,166,255,.07); }
+.exp-cards { display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:10px; margin:12px 0; }
+.exp-cards .card .k { color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:.05em; }
+.exp-cards .card .v { font-size:24px; font-variant-numeric:tabular-nums; margin:4px 0 2px; }
+table.exp-kv th { width:auto; white-space:nowrap; text-transform:none; letter-spacing:0; font-size:11px; }
+table.exp-kv td { font-variant-numeric:tabular-nums; }

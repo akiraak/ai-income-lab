@@ -12,6 +12,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import warnings
 
@@ -22,7 +23,7 @@ from sklearn.preprocessing import StandardScaler
 from ail import config, registry, runs
 from ail.contracts import META_COLUMNS
 from ail.data import store
-from ail.validation import metrics
+from ail.validation import checks, metrics
 import ail.bootstrap  # noqa: F401
 
 warnings.filterwarnings("ignore")
@@ -92,16 +93,26 @@ def main() -> None:
     name = args.experiment + ("_leak" if args.leak else "")
     run = runs.Run(name, {k: v for k, v in exp.items() if not k.startswith("_")},
                    int(exp.get("validation", {}).get("seed", 0)))
+    # ⚠ **層は表の隣の sidecar を正とする。** `--layer` は自己申告なので、
+    # ⚠ **食い違ったらここで言う**（黙って通すと台帳の「データの層」が嘘になる）
+    meta = _features_meta(path)
+    if meta and meta.get("layer") and meta["layer"] != args.layer:
+        run.log(f"⚠ **--layer {args.layer} だが、表は層 {meta['layer']} から作られている**"
+                f"（{os.path.basename(path)}）。⚠ **sidecar のほうを記録に残す。**")
     run.inputs({"features_file": os.path.relpath(path, store.ROOT),
-                "layer": args.layer, "rows_before_sample": int(len(panel)),
+                "layer": (meta or {}).get("layer") or args.layer,
+                "layer_declared": args.layer, "features_meta": meta,
+                "rows_before_sample": int(len(panel)),
                 "features": len(feats), "symbols": int(panel["symbol"].nunique()),
                 "sample": args.sample,
-                "data_manifest": {p: _digest(p) for p in ("raw", "adjusted")}})
+                "data_manifest": {p: _digest(p, ds["period"]) for p in ("raw", "adjusted")}})
 
+    full_panel = panel          # ⚠ **相関は間引く前で測る**（checks.py の注記）
     if args.sample and len(panel) > args.sample:
         panel = panel.iloc[:: max(1, len(panel) // args.sample)]
     leaky = [c for c in feats if c.startswith("LEAK")]
-    run.log(f"実験 {args.experiment} / 層 {args.layer} / {ds['period']} 足")
+    layer = (meta or {}).get("layer") or args.layer
+    run.log(f"実験 {args.experiment} / 層 {layer} / {ds['period']} 足")
     run.log(f"行 {len(panel):,} / 特徴量 {len(feats)}"
             + (f"  ⚠ **わざとした先読みの列あり: {leaky}**" if leaky else ""))
 
@@ -114,12 +125,42 @@ def main() -> None:
     run.log(g.to_string())
     run.log(f"\n⚠ 純利 = 粗利 − コスト {exp.get('cost_bp', 5.0)}bp。⚠ **正でなければその手法は使えない。**")
     run.result(res, g)
+
+    # ⚠ **検査はここで 1 度だけ計算して記録に残す**（管理画面は読むだけ。プラン §2）
+    n_sel = len([x for x in exp.get("selectors", []) if not checks.is_baseline(x)])
+    doc = checks.compute(res, g, exp, panel=panel, full_panel=full_panel,
+                         n_trials=checks.n_trials_now(n_sel), leak=args.leak)
+    run.checks(doc)
+    run.log(_checks_line(doc))
     print(f"→ {os.path.relpath(run.close(), store.ROOT)}")
 
 
-def _digest(layer: str) -> str | None:
+def _checks_line(doc: dict) -> str:
+    b, f = doc.get("best"), doc.get("folds")
+    if not b:
+        return ""
+    parts = [f"最良 {b['method']} 純利 {b['純利bp']:+.2f}bp"]
+    if f:
+        parts.append(f"fold {f['positive']}/{f['folds']} {f['pattern']}")
+    if (e := doc.get("edge_vs_drift")) and e.get("t") is not None:
+        parts.append(f"上乗せ {e['mean_bp']:+.2f}bp t={e['t']:.2f}")
+    if d := doc.get("dsr"):
+        parts.append(f"DSR {d['DSR']:.4f}（実効 n {d['n_obs']:,} / {d['n_trials']} 試行）")
+    return "検査: " + " ／ ".join(parts)
+
+
+def _features_meta(path: str) -> dict | None:
+    """`cli.build` が表の隣に書いた層の記録。⚠ **無ければ古い表（自己申告のまま）。**"""
+    p = os.path.splitext(path)[0] + ".meta.json"
+    if not os.path.exists(p):
+        return None
+    with open(p, encoding="utf-8") as f:
+        return json.load(f)
+
+
+def _digest(layer: str, period: str = "d") -> str | None:
     try:
-        return store.manifest_digest(layer, "d")
+        return store.manifest_digest(layer, period)
     except Exception:
         return None
 

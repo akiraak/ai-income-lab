@@ -1,0 +1,42 @@
+# ⚠ **旧配線（`evaluate.py`）が出した結果表の取り込み口。**
+#
+# ⚠ **数字はここに書かない。** spec の表を**その場で読む**（`ail/catalog.py`）。
+# ⚠ ここに書くのは「どこを読むか」と「その表がどんな条件で出たか」だけである。
+# 数字を写した瞬間に二重管理になり、spec を直しても台帳が古いまま残る。
+#
+# ⚠ **`evaluate.py` は構造化（2026-09-08）で消えている。** 1 分足は fold ごとの生データも
+# 残っていないので、⚠ **fold の符号は「—」のまま**になる（再測するまで埋まらない）。
+
+[[table]]
+id = "legacy-min1-h390"
+heading = "### 3-3."               # ⚠ この見出しの直後の最初の表を読む
+spec = "docs/specs/experiments/feature-discovery.md"
+granularity = "1 分足"
+bar_minutes = 1.0
+horizon = 390                      # ⚠ 390 本先 ≒ 1 日先
+layer = "raw"                      # ⚠ 調整前。1 分足に目盛りの誤りは無い（§3 の注記）
+feature_layers = ["own"]
+targets = "all"
+k = 8
+cost_bp = 5.0
+rows = 44206
+features = 35
+symbols = 63
+seed = 0
+
+[[table]]
+id = "legacy-daily-h1"
+heading = "### 4-3."
+spec = "docs/specs/experiments/feature-discovery.md"
+granularity = "日足"
+bar_minutes = 1440.0
+horizon = 1
+layer = "raw"                      # ⚠ 調整前。**日足はこれが効いて無効**（§6-3）
+feature_layers = ["own"]
+targets = "all"
+k = 8
+cost_bp = 5.0
+rows = 61680
+features = 35
+symbols = 63
+seed = 0

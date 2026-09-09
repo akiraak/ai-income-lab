@@ -1,0 +1,77 @@
+# ⚠ **未実施の手法に「次に何が要るか」を 1 行ずつ。**
+#
+# ⚠ **台帳のうち、機械で出せないのはこの列だけである。** だから 1 か所に閉じる。
+# 実装したら registry に名前が載り、台帳の「実装」が自動で ✅ になるので、⚠ **ここの行は消してよい。**
+#
+# 書き方: 「どこに何を足せば試せるか」を具体的に書く。⚠ **感想や見どころは書かない**
+#         （それは spec §2 の「見どころ」の列の仕事）。
+#
+# cost = 手間。⚠ **台帳はこの順に並べる**（小 → 中 → 大 → 見送り）。
+#   小     … 既にあるファイルに関数を 1 つ足すだけ
+#   中     … 依存ライブラリか、先に別の実装が要る
+#   大     … 新しいモジュールが要る、または計算時間を先に測る必要がある
+#   見送り … ⚠ **試さないと決めたもの。** ⚠ **理由を next に必ず書く**（「まだ」ではないことが読み手に伝わるように）
+
+[method.F1-4]
+cost = "小"
+next = "`ail/selectors/filter.py` に 10 行。⚠ **ラベルを見ないので単独では判定できない。** 前処理として他の手法の前に挟む形でしか意味が無い"
+
+[method.F1-6]
+cost = "中"
+next = "`ail/selectors/filter.py` ＋ `dcor`。⚠ **計算量が標本の 2 乗**なので、6 万行では部分標本が要る（fold ごとに 5,000 行を抜くなど）"
+
+[method.F1-7]
+cost = "小"
+next = "`ail/selectors/filter.py` に 15 行。⚠ **訓練分割をさらに時間で割って IC の符号の一致率を測る。** 既に持っている fold の枠をそのまま使える"
+
+[method.F2-1]
+cost = "中"
+next = "`ail/selectors/wrapper.py` に 30 行。⚠ **35 本で前進選択は 35 × 8 回モデルを回す。** 1 fold あたりの時間を先に測る"
+
+[method.F2-2]
+cost = "小"
+next = "`ail/selectors/wrapper.py` に 10 行（`sklearn.feature_selection.RFE`）。⚠ **重要度の定義に依存する**ので F3-2 / F3-3 の弱点をそのまま引き継ぐ"
+
+[method.F2-4]
+cost = "見送り"
+next = "見送り。⚠ **探索空間 2^35 に対して標本が足りない**（E8 の X5）。⚠ **先に F2-1 で「探索を広げると悪化する」ことを確かめてから判断する**"
+
+[method.F3-4]
+cost = "中"
+next = "`ail/selectors/embedded.py` ＋ `shap`。⚠ **木モデルが要る**ので `ail/models/trees.py` の実装が先。⚠ **説明であって因果ではない**（Kumar ら 2020）"
+
+[method.F3-6]
+cost = "中"
+next = "`ail/selectors/embedded.py` ＋ `knockpy`。⚠ **偽発見率を厳密に制御できる唯一の枠。** ⚠ **特徴量の分布を仮定する**ので、まず `own_` 35 本の分布を見る"
+
+[method.F4-1]
+cost = "大"
+next = "`ail/selectors/generative.py` ＋ `gplearn`。⚠ **式そのものを探索する＝ n_trials が数えられなくなる。** ⚠ **デフレーテッド SR を通す前提でないと回さない**"
+
+[method.F4-2]
+cost = "見送り"
+next = "見送り。⚠ **Featuretools は関係データ向け**で、単一の時系列では効きが限定的（spec §2 の F4-2）。⚠ **決算・板を入れるなら再検討する**"
+
+[method.F4-3]
+cost = "大"
+next = "`ail/features/tsfresh.py`（新規）＋ `ail/bootstrap.py` に 1 行。⚠ **794 本 × 63 銘柄の計算時間を先に測る。** F1-5（実装済み）と対で使う設計なので、⚠ **選別側は既にある**"
+
+[method.F4-4]
+cost = "中"
+next = "`ail/features/own.py` に 15 行。⚠ **35 本の 2 次で 630 列。** 断面（`cross_section_h1`）と足すと列が爆発するので、⚠ **own だけで先に試す**"
+
+[method.F5-1]
+cost = "小"
+next = "`ail/selectors/representation.py` に 10 行。⚠ **必ず訓練分割の内側で fit する**（rules.md 3 章の B・9 章の規約 4）。⚠ **`fitted/` に成分を残す**"
+
+[method.F5-2]
+cost = "見送り"
+next = "見送り。⚠ **標本 6 万行で 35 本を圧縮しても情報は増えない。** ⚠ **F5-1（PCA）が効かないなら AE も効かない**と考え、PCA の結果を見てから判断する"
+
+[method.F5-3]
+cost = "大"
+next = "`ail/features/matrixprofile.py`（新規）＋ `stumpy`。⚠ **先読みが入りやすい**（rules.md 7 章）。⚠ **`cli/build.py --leak` の対照実験を必ず通す**"
+
+[method.F5-4]
+cost = "中"
+next = "`ail/features/own.py` に 20 行（`pywt`）。⚠ **基底と窓の選択で結果が動く＝ 多重検定が増える。** ⚠ **試す組み合わせの数を先に決めて `n_trials` に数える**"

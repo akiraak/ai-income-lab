@@ -1,6 +1,6 @@
 """管理画面の本体（FastAPI）。
 
-画面: 監視（/）・記録（/records）・判定（/judge）・操作（/ops、ローカル面）・開発（/dev、ローカル面）。
+画面: 監視（/）・記録（/records）・判定（/judge）・検証（/experiments）・操作（/ops、ローカル面）・開発（/dev、ローカル面）。
 公開面（AIL_AUTH_MODE=cloudflare）では /ops と /dev は 404 を返し、POST は停止（/ops/halt）だけ受ける。
 すべての応答は Redactor を通す（秘密をブラウザに送らない）。
 """
@@ -149,6 +149,7 @@ def create_app(settings: Settings | None = None, start_monitors: bool = True) ->
 
     from .access import AccessGuard
     from .devtools import DevError, DevTools
+    from . import experiments as exp
     from .judge import judge as run_judge
     from .masking import Redactor
     from .monitor import EventLog, Monitors
@@ -239,6 +240,8 @@ def create_app(settings: Settings | None = None, start_monitors: bool = True) ->
             "version": settings.version,
             "symbol": settings.symbol,
             "records_dir": str(settings.records_dir),
+            # ⚠ 検証の画面はデモの対象外（実験の記録をそのまま読む）ので、出所を出し分ける
+            "runs_dir": str(settings.runs_dir),
             "dev_available": dev is not None,
             "demo": settings.demo,
         }
@@ -316,6 +319,25 @@ def create_app(settings: Settings | None = None, start_monitors: bool = True) ->
         runs = load_runs(settings.records_dir)
         result = run_judge(runs, events.load(), include_mock=settings.demo)
         return render(request, "judge.html", page="judge", judge=result)
+
+    # ---------------------------------------------------------------- 検証
+    # ⚠ **読むだけなので公開面にも出す。** 検査は実験側が checks.json に書いたものをそのまま使う
+
+    @app.get("/experiments", response_class=HTMLResponse)
+    async def experiments_page(request: Request):
+        return render(request, "experiments.html", page="experiments",
+                      ex=exp.index(settings.runs_dir))
+
+    @app.get("/experiments/{run_id}", response_class=HTMLResponse)
+    async def experiment_page(request: Request, run_id: str):
+        run = exp.one(settings.runs_dir, run_id)
+        if run is None:
+            raise HTTPException(status_code=404, detail="その検証は無い")
+        return render(request, "experiment.html", page="experiments", run=run)
+
+    @app.get("/api/experiments")
+    async def api_experiments(request: Request):
+        return JSONResponse(redactor(exp.index(settings.runs_dir)))
 
     @app.get("/api/judge")
     async def api_judge(request: Request):

@@ -393,6 +393,9 @@ def cmi(X, y, k, ctx):
 
 ## 付録: 本書と実装の対応
 
+⚠ **試した結果の一覧は [ledger.md](ledger.md)**（`cli/report.py --catalog` の生成物）。
+⚠ **本書の 9 章・11 章の規約が、台帳の「判定」と「fold の符号」の列にそのまま効いている。**
+
 | 章 | 実装 |
 | ---: | --- |
 | 1 | `ail/data/store.py` |
@@ -407,3 +410,4 @@ def cmi(X, y, k, ctx):
 | 10 | `ail/runs.py` ／ `ail/config.py` ／ `ail/registry.py` |
 | 11 | `ail/validation/stats.py` |
 | 12 | `config/universe/us63.toml` の注記 |
+| ⚠ **台帳** | `ail/catalog.py` ／ `cli/ledger.py` ／ `config/legacy.toml` ／ `config/catalog_notes.toml` |

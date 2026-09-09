@@ -78,6 +78,7 @@ def settings(tmp_path):
         data_dir=data,
         records_dir=records,
         sample_dir=SAMPLE_DIR,
+        runs_dir=tmp_path / "runs",
         sample_python=sys.executable,
         symbol="SPY",
         poll_seconds=30,
@@ -85,3 +86,21 @@ def settings(tmp_path):
     )
     s.ensure_dirs()
     return s
+
+
+def write_experiment(runs_dir: Path, run_id: str, *, config: dict, inputs: dict,
+                     summary: list[tuple], checks: dict | None = None) -> Path:
+    """検証の実行記録（runs/<実行>/）を 1 つ作る。summary は (手法, 本数, 的中率, IC, 粗利, 純利)。"""
+    d = runs_dir / run_id
+    d.mkdir(parents=True, exist_ok=True)
+    (d / "config.json").write_text(json.dumps(config, ensure_ascii=False), encoding="utf-8")
+    (d / "inputs.json").write_text(json.dumps(inputs, ensure_ascii=False), encoding="utf-8")
+    (d / "env.json").write_text(json.dumps({"seed": 0, "git_commit": "abc1234",
+                                            "started_at": run_id.split("_")[0]},
+                                           ensure_ascii=False), encoding="utf-8")
+    lines = ["手法,本数,的中率,IC,粗利bp,純利bp,fold数"]
+    lines += [",".join(str(x) for x in row) + ",5" for row in summary]
+    (d / "summary.csv").write_text("\n".join(lines) + "\n", encoding="utf-8")
+    if checks is not None:
+        (d / "checks.json").write_text(json.dumps(checks, ensure_ascii=False), encoding="utf-8")
+    return d

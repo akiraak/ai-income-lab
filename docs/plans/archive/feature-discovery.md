@@ -1,6 +1,6 @@
 # 特徴量を見つけ出す手法を、1 分足の実データで検証する
 
-作成日: 2026-09-08。派生元: [E8 の記録](../specs/experiments/e8-signal-methods.md)（手法カタログ 93 件と判定）。
+作成日: 2026-09-08。派生元: [E8 の記録](../../specs/experiments/e8-signal-methods.md)（手法カタログ 93 件と判定）。
 成果物: `docs/specs/experiments/feature-discovery.md`（新規）＋ `experiments/feature-discovery/`（コード）。
 
 ## 0. この作業の形
@@ -15,15 +15,15 @@
 
 ### 0-1. ⚠ E8 から引き継ぐ 1 つの決定 — 自前の数字の扱い
 
-[E8 §5-1](../specs/experiments/e8-signal-methods/evidence.md) で「⚠ **自前の計算は反証にだけ使う。良い数字が出ても根拠にしない。悪い数字が出たときだけ落とす根拠にする**」と決めた。
+[E8 §5-1](../../specs/experiments/e8-signal-methods/evidence.md) で「⚠ **自前の計算は反証にだけ使う。良い数字が出ても根拠にしない。悪い数字が出たときだけ落とす根拠にする**」と決めた。
 ⚠ **本タスクは自前の数字を作る側なので、この非対称をどう扱うかを先に決めておく。**
 
 | 出た結果 | 本タスクでの扱い |
 | --- | --- |
 | **悪い数字**（優位性が無い・コストで消える） | ⚠ **そのまま結論にしてよい。** E8 のカタログの該当行に反映する |
-| **良い数字** | ⚠ **根拠の強さは「中」を上限**とする。査読論文の裏付けが別にある場合だけ「中」、無ければ**「弱」扱いで候補にしない**。⚠ **デフレーテッド SR（[E8 L3](../specs/experiments/e8-signal-methods/catalog.md)）と パージ CV（L2）を通していない数字は、良くても報告しない** |
+| **良い数字** | ⚠ **根拠の強さは「中」を上限**とする。査読論文の裏付けが別にある場合だけ「中」、無ければ**「弱」扱いで候補にしない**。⚠ **デフレーテッド SR（[E8 L3](../../specs/experiments/e8-signal-methods/catalog.md)）と パージ CV（L2）を通していない数字は、良くても報告しない** |
 
-⚠ **これは [E8 §9-1](../specs/experiments/e8-signal-methods/verdict.md) の限界 1（「自前のバックテストを 1 件も回していない」）を埋めにいく作業でもある。**
+⚠ **これは [E8 §9-1](../../specs/experiments/e8-signal-methods/verdict.md) の限界 1（「自前のバックテストを 1 件も回していない」）を埋めにいく作業でもある。**
 
 ## 1. 目的と背景
 
@@ -42,7 +42,7 @@ flowchart TB
   F -.->|"結果を書き戻す"| S
 ```
 
-⚠ **入力の線引きは E8 と同じ**（[E8 §1-1](../specs/experiments/e8-signal-methods/frame.md)）。約定・気配・OHLCV と、そこから作る量だけ。決算・ニュース・センチメントは使わない。
+⚠ **入力の線引きは E8 と同じ**（[E8 §1-1](../../specs/experiments/e8-signal-methods/frame.md)）。約定・気配・OHLCV と、そこから作る量だけ。決算・ニュース・センチメントは使わない。
 
 ## 2. Phase 1 — データ経路（1 分足）
 
@@ -60,14 +60,14 @@ flowchart TB
 | ---: | --- | --- |
 | 1 | ⚠ **tastytrade の Candle に `toTime` は効くか** | プローブを 1 回足して実測する。効けば**窓を刻んで何年でも遡れる** |
 | 2 | 銘柄をいくつ取れるか | 1 セッション 100 購読が上限【公表値】。8 銘柄同時は実測済み |
-| 3 | 暗号資産（Kraken）を併用するか | ⚠ **24 時間・無登録・標本が多い**が、手数料が**片道 0.80%**（[E8 §6-2](../specs/experiments/e8-signal-methods/failures.md)）で必要優位性を 2 桁上回る |
+| 3 | 暗号資産（Kraken）を併用するか | ⚠ **24 時間・無登録・標本が多い**が、手数料が**片道 0.80%**（[E8 §6-2](../../specs/experiments/e8-signal-methods/failures.md)）で必要優位性を 2 桁上回る |
 | 4 | 保存の形 | `experiments/feature-discovery/data/` に Parquet か CSV。⚠ **git 管理外**（`out/` と同じ扱い） |
 
 ⚠ **1 が「効かない」なら、標本は 1 銘柄あたり 8,000 本しかない。** その場合は**銘柄を横に増やして標本を作る**（E8 の回避策 R10 と同じ手）。
 
 ## 3. Phase 2 — 特徴量を見つけ出す手法の調査
 
-E8 の[カタログ](../specs/experiments/e8-signal-methods/catalog.md)と同じ作り方で、⚠ **「特徴量の作り方」ではなく「特徴量の見つけ方」**を並べる。起点は 5 系統。
+E8 の[カタログ](../../specs/experiments/e8-signal-methods/catalog.md)と同じ作り方で、⚠ **「特徴量の作り方」ではなく「特徴量の見つけ方」**を並べる。起点は 5 系統。
 
 > この図の主張: 見つけ方は 5 系統。⚠ **上 2 つはモデルの外で選び、下 3 つはモデルが選ぶ。**
 
@@ -131,7 +131,7 @@ flowchart LR
 | `experiments/feature-discovery/` | **新規**。取得・特徴量・モデル・検証のコード。⚠ `data/` と `out/` は git 管理外 |
 | `experiments/tastytrade-api-sample/candle_probe.py` | ⚠ `toTime` の実測のために引数を 1 つ足すかもしれない（読み取り専用は維持） |
 | `docs/specs/experiments/feature-discovery.md` | **新規**。手法カタログ ＋ 検証結果 ＋ 判定 |
-| [E8 のカタログ](../specs/experiments/e8-signal-methods/catalog.md) | ⚠ **落ちた行に自前の反証を書き戻す**（根拠の強さは上げない） |
+| [E8 のカタログ](../../specs/experiments/e8-signal-methods/catalog.md) | ⚠ **落ちた行に自前の反証を書き戻す**（根拠の強さは上げない） |
 | CLAUDE.md | ⚠ **触らない。** 資金は動かさないので方針の内側 |
 
 ## 6. テスト方針

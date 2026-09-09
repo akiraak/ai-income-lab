@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>{{ run.title }}
+  {% if run.leak %}<span class="badge badge-mock">配線の検査</span>{% endif %}
+  <span class="muted small">{{ run.run_id }}</span></h2>
+<p><a href="/experiments">← 検証の一覧</a></p>
+
+<div class="exp-cards">
+  <div class="card">
+    <div class="k">スコア（最良手法の純利）</div>
+    <div class="v {{ 'pos' if (run.score or 0) > 0 else 'neg' }}">
+      {% if run.score is none %}—{% else %}{{ '%+.2f'|format(run.score) }} bp{% endif %}</div>
+    <div class="small muted">{{ run.best.method or '—' }}{% if run.best %} · 粗利 {{ '%+.2f'|format(run.best.粗利bp) }}bp · コスト {{ run.cost_bp }}bp{% endif %}</div>
+  </div>
+  <div class="card">
+    <div class="k">fold の符号</div>
+    <div class="v">{% if run.folds %}{{ run.folds.positive }}/{{ run.folds.folds }}{% else %}—{% endif %}</div>
+    <div class="small muted">{% if run.folds %}{{ run.folds.pattern }}{% else %}記録なし{% endif %}</div>
+  </div>
+  <div class="card">
+    <div class="k">「常に上」への上乗せ</div>
+    <div class="v">{% if run.edge %}{{ '%+.2f'|format(run.edge.mean_bp) }} bp{% else %}—{% endif %}</div>
+    <div class="small muted">{% if run.edge and run.edge.t is not none %}t = {{ '%.2f'|format(run.edge.t) }}（目安は t &gt; 3.0）{% endif %}</div>
+  </div>
+  <div class="card">
+    <div class="k">デフレーテッド SR</div>
+    <div class="v">{% if run.dsr %}{{ '%.4f'|format(run.dsr.DSR) }}{% else %}—{% endif %}</div>
+    <div class="small muted">{% if run.dsr %}実効 n {{ '{:,}'.format(run.dsr.n_obs) }} · {{ run.dsr.n_trials }} 試行{% else %}パネルを確かめられず未計算{% endif %}</div>
+  </div>
+</div>
+
+{% if run.panel_note %}<p class="muted small">{{ run.panel_note }}</p>{% endif %}
+
+<h3>条件</h3>
+<table class="exp-kv">
+  <tr><th>種類</th><td>{{ run.kind }}</td><th>粒度</th><td>{{ run.gran }}</td><th>地平</th><td>{{ run.horizon }}</td></tr>
+  <tr><th>データの層</th><td>{{ run.layer_label }}（<code>{{ run.layer }}</code>）</td>
+      <th>特徴量の層</th><td>{{ run.feature_layers }}</td><th>特徴量</th><td>{{ run.features }} 本</td></tr>
+  <tr><th>選ぶ本数 k</th><td>{{ run.k }}</td><th>行</th><td>{{ '{:,}'.format(run.rows) if run.rows else '—' }}</td>
+      <th>銘柄</th><td>{{ run.symbols }}</td></tr>
+  <tr><th>種</th><td>{{ run.seed }}</td><th>commit</th><td><code>{{ run.commit or '—' }}</code></td>
+      <th>実行</th><td>{{ run.started_at }}</td></tr>
+</table>
+
+{% if run.breadth %}
+<h3>行数は標本数ではない</h3>
+<table class="exp-kv">
+  <tr><th>系列数</th><td>{{ run.breadth.系列数 }}</td>
+      <th>実効系列数</th><td><b>{{ run.breadth.実効系列数 }}</b></td>
+      <th>t 値の割引</th><td>×{{ run.breadth.t値の割引 }}</td></tr>
+  <tr><th>検証に回った行</th><td>{{ '{:,}'.format(run.breadth.検証の行) }}</td>
+      <th>実効的な観測数</th><td><b>{{ '{:,}'.format(run.breadth.実効観測数) }}</b></td>
+      <th>パネルの時刻</th><td>{{ '{:,}'.format(run.breadth.パネルの時刻) }}</td></tr>
+</table>
+<p class="muted small">同じ市場の銘柄は独立ではない。行数をそのまま標本数として読むと t 値を過大に読む。
+  {% if run.dsr %}⚠ このデフレーテッド SR は「SR &gt; 0」の検定であって「基準線を超えたか」ではない。{% endif %}</p>
+{% endif %}
+
+{% if run.folds %}
+<h3>fold ごとの純利（bp）</h3>
+<table class="exp">
+<tr>{% for v in run.folds['values'] %}<th>fold {{ loop.index }}</th>{% endfor %}<th>平均</th></tr>
+<tr>{% for v in run.folds['values'] %}<td class="{{ 'pos' if v > 0 else 'neg' }}">{{ '%+.2f'|format(v) }}</td>{% endfor %}
+    <td><b>{{ '%+.2f'|format(run.score) }}</b></td></tr>
+</table>
+{% if run.edge %}
+<p class="muted small">「常に上」への上乗せ（粗利）:
+  {% for v in run.edge['values'] %}<span class="{{ 'pos' if v > 0 else 'neg' }}">{{ '%+.2f'|format(v) }}</span> {% endfor %}
+  · 平均 {{ '%+.2f'|format(run.edge.mean_bp) }}bp · {{ run.edge.positive }}/{{ run.edge.folds }} 正
+  {% if run.drift_gross is not none %}· 「常に上」自身の粗利 {{ '%+.2f'|format(run.drift_gross) }}bp{% endif %}</p>
+{% endif %}
+{% endif %}
+
+<h3>手法ごとの成績</h3>
+<table class="exp">
+<tr><th>手法</th><th>本数</th><th>的中率</th><th>IC</th><th>粗利 bp</th><th>純利 bp</th></tr>
+{% for m in run.summary %}
+<tr class="{{ 'best' if m.手法 == run.best.method else '' }}">
+  <td>{{ m.手法 }}</td>
+  <td>{{ '%.1f'|format(m.本数) if m.本数 is not none else '—' }}</td>
+  <td>{{ '%.4f'|format(m.的中率) if m.的中率 is not none else '—' }}</td>
+  <td>{{ '%+.4f'|format(m.IC) if m.IC is not none else '—' }}</td>
+  <td>{{ '%+.2f'|format(m.粗利bp) if m.粗利bp is not none else '—' }}</td>
+  <td class="{{ 'pos' if (m.純利bp or 0) > 0 else 'neg' }}"><b>{{ '%+.2f'|format(m.純利bp) if m.純利bp is not none else '—' }}</b></td>
+</tr>
+{% endfor %}
+</table>
+<p class="muted small">スコアには<b>基準線を使わない</b>（「常に上」「直前リターンの符号」「全部使う」「乱択」）。
+  基準線は比べる相手であって、採否の対象ではない。</p>
+{% endblock %}

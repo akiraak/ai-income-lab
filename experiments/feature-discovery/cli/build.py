@@ -10,7 +10,9 @@
 from __future__ import annotations
 
 import argparse
+import json
 import os
+import time
 
 import numpy as np
 import pandas as pd
@@ -104,7 +106,15 @@ def build(experiment: str, layer: str = "adjusted", leak: bool = False,
                            f"{period}.parquet")
     os.makedirs(os.path.dirname(out), exist_ok=True)
     df.to_parquet(out, index=False)
-    print(f"→ {os.path.relpath(out, store.ROOT)}")
+
+    # ⚠ **どの層から作った表かを、表の隣に書く。** ⚠ `cli.run --layer` は自己申告なので、
+    # ⚠ **食い違うと台帳の「データの層」の列がそのまま嘘になる**（`ail/catalog.py`）。
+    meta = {"layer": layer, "experiment": experiment, "period": period, "leak": leak,
+            "rows": int(len(df)), "features": len(feats),
+            "built_at": time.strftime("%Y-%m-%dT%H-%M-%S")}
+    with open(os.path.splitext(out)[0] + ".meta.json", "w", encoding="utf-8") as f:
+        json.dump(meta, f, ensure_ascii=False, indent=2)
+    print(f"→ {os.path.relpath(out, store.ROOT)}（層 {layer}）")
     return df
 
 

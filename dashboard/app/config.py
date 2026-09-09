@@ -50,6 +50,7 @@ class Settings:
     data_dir: Path
     records_dir: Path
     sample_dir: Path
+    runs_dir: Path
     sample_python: str
     symbol: str
     poll_seconds: float
@@ -168,6 +169,10 @@ def load_settings(environ: dict | None = None) -> Settings:
     records_default = sample_dir / "out" if env.get("AIL_DATA_DIR") is None else data_dir / "records"
     records_dir = Path(env.get("AIL_RECORDS_DIR") or records_default).resolve()
 
+    # 検証（特徴量の発見手法）の実行記録。⚠ **git 管理外なので、別環境では空でよい**
+    runs_dir = Path(env.get("AIL_RUNS_DIR")
+                    or REPO_ROOT / "experiments" / "feature-discovery" / "runs").resolve()
+
     venv_python = sample_dir / ".venv" / "bin" / "python"
     sample_python = env.get("AIL_SAMPLE_PYTHON") or (str(venv_python) if venv_python.exists() else sys.executable)
 
@@ -197,6 +202,7 @@ def load_settings(environ: dict | None = None) -> Settings:
         data_dir=data_dir,
         records_dir=records_dir,
         sample_dir=sample_dir,
+        runs_dir=runs_dir,
         sample_python=sample_python,
         symbol=(env.get("AIL_SYMBOL") or "SPY").upper(),
         poll_seconds=float(env.get("AIL_POLL_SECONDS") or 30),

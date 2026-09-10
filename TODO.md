@@ -103,10 +103,17 @@
     - 観点 A〜F（認証の寿命・常駐・現在値・往復・レート制限・SDK）を 1 表にし、**費用込みで「無人で 1 営業日回る」会場**を選ぶ
     - 品揃え（債券・外国株・FX・先物）と信用判定（IBKR は「中」）を並べ、tastytrade を置き換える理由があるかを判断する
 
-- [ ] titan に client から SSH で入って `run-vibeboard.sh` を動かしたとき、外部からページを見られるようにする
+- [ ] titan に client から SSH で入って `run-vibeboard.sh` を動かしたとき、外部からページを見られるようにする [plan](docs/plans/vibeboard-remote-view.md)
   利用者の指示（2026-09-10）: **titan に client から ssh 接続して run-vibeboard.sh を動かしたときに外部からページが見れるようにする**
   派生元: 「自宅の外から SSH で GPU 機（WSL2）に入れるようにする（Tailscale）」（2026-09-10 完了。[DONE](DONE.md) ／ [運用メモ](docs/plans/archive/remote-ssh-tailscale.md)）
   ⚠ **現状（2026-09-10 に確認）**: vibeboard の待ち受けは `127.0.0.1` に**ハードコード**（`vibeboard/src/config.ts` の `host: '127.0.0.1'`。`--host` も `vibeboard.config.json` の `host` も無い）。`run-vibeboard.sh` は `--port` しか通さないので、そのままでは titan の外から `http://titan:3010` は開けない
   候補（着手時にプランで 1 つに決める）: (a) client 側で `ssh -L 3010:127.0.0.1:3010 titan` して手元の `localhost:3010` で見る（コード変更なし・鍵認証の内側に閉じる） (b) vibeboard に `--host` / `VIBEBOARD_HOST` を足して Tailscale の面（`tailscale ip -4`）だけに bind し、Hyper-V FW に 3010 を許可する（⚠ **vibeboard は upstream からの vendor なので変更は upstream に入れて `vibeboard update --from` で配る**） (c) Windows 側の `tailscale serve` で 3010 を tailnet に出す
   ⚠ vibeboard の `/files` は「外部公開していない前提」で dotfiles 403 だけの守り（`server.ts`）。(b)(c) は **LAN や tailnet の他端末にも見える**ので、bind 先を Tailscale の面に限るか、Access 相当の認証を前に置くかをプランで決める
   ⚠ **3010 は利用者の端末前面の vibeboard が使う。titan 側の起動は 3011 など別ポートで、既にポートを掴んでいるプロセスを止めてから**
+  利用者の指示（2026-09-10 追記）: URL は **`http://titan-income-vibeboard`** のようにサービス名を入れる（Tailscale Services。プラン §2-2）。⚠ **`run-server.sh`（dashboard）は危険なので公開しない**（serve 経由は全部ループバックに見え、発注の面が無認証で開くため。外から見るなら `ssh -L` だけ）
+  - [ ] Phase 0: 決めごとの確認（経路は tailscale serve・名前は Tailscale Services で `titan-income-vibeboard`・ポートは 3010 のまま・dashboard は公開しない・Funnel 禁止・HTTPS は見送り）
+    ⚠ **tailnet に出す＝自分の全端末から鍵なしで vibeboard の Files 編集と Tasks 投函が届く**。この点を利用者が了解してから進む
+  - [ ] Phase 1: vibeboard を titan のノード名で出す（Claude が `ssh titan` で実行）— 起動して loopback で 200 → ⚠ **分岐点: Windows 側の curl.exe から `127.0.0.1:3010` に届くか** → `tailscale.exe serve --bg --http=3010` → tailnet の面で 200・LAN の面は拒否
+  - [ ] Phase 2: Sx360 からの接続試験 — `http://titan:3010` が 200・`titan.lan` は拒否 → ブラウザで各タブ・SSE の即時更新・Tasks に titan のセッション（試すのは「説明」だけ）→ 外の回線（利用者）
+  - [ ] Phase 3: 名前を付ける（Tailscale Services）— titan の版 ≥ 1.86 → 管理画面で `titan-income-vibeboard`（`tcp:80`）を定義し `grants` を足す（利用者）→ titan で `serve --service=svc:titan-income-vibeboard --http=80` → 承認（利用者）→ FQDN で 200・⚠ **短い名前 `http://titan-income-vibeboard` は【要実測】** → ノード名 ＋ ポートの serve を外す
+  - [ ] Phase 4: 仕上げ — titan 再起動後も serve が残り `./run-vibeboard.sh` で開く・`http://titan:3012` は拒否のまま → CLAUDE.md の vibeboard 節に 1 行 → DONE / archive

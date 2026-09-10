@@ -116,7 +116,7 @@
       ✅ `Sx360` の WSL で `~/.ssh/titan-ed25519` を生成し、WezTerm 用に `C:\Users\akira\.ssh\` にも置いた（2026-09-09）。ssh config に `titan`（tailnet・MagicDNS 名）/ `titan-lan`（LAN 直結の逃げ道）を WSL・Windows 両方に追加
       ✅ 利用者が titan の `authorized_keys` に `Sx360` の公開鍵を追記（2026-09-09）
       - [ ] 利用者: `Sx360` でパスフレーズを付与（WSL: `ssh-keygen -p -f ~/.ssh/titan-ed25519`、Windows: `ssh-keygen -p -f C:\Users\akira\.ssh\titan-ed25519`）
-      - [ ] 利用者: titan の未使用の鍵 `remote-client-ed25519`（`authorized_keys` の注釈 `akira-remote-client-2026-09`）を外す。スマホ用の鍵は使うときにスマホ側で作る
+      ✅ titan の未使用の鍵 `remote-client-ed25519` を `authorized_keys` から外し、鍵ファイルも削除（2026-09-09。バックアップ `authorized_keys.bak-20260909`）。残るのは Sx360 の 2 本（`titan-ed25519` = ssh config の `titan` が使う ／ `gpu-home-ed25519` = 利用者が 20:32 に作成）。スマホ用の鍵は使うときにスマホ側で作る
   - [x] Phase 4: 接続試験（2026-09-09。残っていた外の回線からの実測が通った）
     ✅ 同一マシン内から tailnet の IP（`100.82.194.13`）で SSH → GPU まで到達を実測（2026-09-09。mirrored が Tailscale の面を eth2 として WSL に映しており、懸念だった干渉は起きていない）
     ✅ `Sx360` から LAN 経由で 22 番に到達し、鍵なしは `Permission denied (publickey)` を実測（2026-09-09。別ホストから Windows FW を跨いで WSL の sshd に届いている）

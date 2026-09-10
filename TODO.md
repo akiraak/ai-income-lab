@@ -1,5 +1,16 @@
 # TODO
 
+- [ ] DeepLearning と GAN を使った検証をかなり増やす。GAN の実行を継続して回せる仕組みを入れる
+  利用者の指示（2026-09-10）: **DeepLearningとGANを使った検証をかなり増やす。GANの実行を継続して回せる仕組みを入れる**
+  土台: `runs/` に GPU 系の実行が既にある（2026-09-09 の gpu_mlp_2018・gpu_ridge_gan_2018・gpu_lgbm_gan_2018）。GAN 系は最良でも純利 −4.74 / −7.35bp で基準線を超えていない
+  ⚠ 手法を増やすほど n_trials が増えて DSR は下がる（[rules.md §11-4](docs/specs/experiments/feature-discovery/rules.md)。数え落とすと必ず甘くなる）。継続実行の仕組みは n_trials の自動集計・台帳への反映とセットで作る
+  ⚠ GAN を含む「標本から学ぶ変換」は訓練分割の内側で fit（rules §3 B）。fitted は `runs/` に残すが次の実行では読み込まない
+  ⚠ 継続実行も 1 実行 1 ディレクトリ（rules §10）。seed・config・入力の指紋を毎回残す
+  GPU は 3090 Ti（メモリは全部使ってよい。デバイスは `AIL_TORCH_DEVICE`）
+  - [ ] DL / GAN の手法を増やして検証を回す（着手時にプランを作る）
+  - [ ] GAN の実行を継続して回せる仕組み（キュー or ループ、失敗時の再開、台帳の自動更新）
+  関連: [rules.md](docs/specs/experiments/feature-discovery/rules.md) ／ [ledger.md](docs/specs/experiments/feature-discovery/ledger.md)
+
 - [ ] 社会にインパクトを与えそうなデータを増やす（気象・地震の延長） [plan](docs/plans/impact-data.md)
   利用者の指示（2026-09-09）: **気象と地震のような社会にインパクトを与えそうなデータを増やす**
   派生元: 「予想モデルに使うデータを広く収集する」（2026-09-09 完了。[記録 §9](docs/specs/experiments/daily-data-sources.md)）

@@ -103,19 +103,30 @@
     ✅ スリープは設定済みだった（AC/DC とも「なし」を実測）
     ⚠ **スタートアップへの書き込みは権限でブロックされた**（自動起動の常駐設定は利用者が置くべきという趣旨）
     - [ ] 利用者: titan の `C:\Users\akira\wsl-autostart.vbs`（2026-09-09 に scratchpad から退避）を `shell:startup` にコピーし、Windows を再起動して Sx360 から `ssh titan hostname` が通ることを確認
+      手順（titan の Windows で）:
+      1. `Win + R` → `shell:startup` → Enter（スタートアップのフォルダが開く）
+      2. そこへ `C:\Users\akira\wsl-autostart.vbs` をコピー（中身: `wsl.exe -d Sandbox24 --exec sleep infinity` を隠し窓で起動）
+      3. Windows を再起動してログオン。⚠ titan 側でターミナルを開かない（開くと WSL が上がって確認にならない）
+      4. Sx360 から `ssh titan hostname` → `titan` と返れば完了
       ⚠ ログオンするまで WSL は上がらない。無人で使うなら自動サインイン（`netplwiz`）が別途要る
   - [~] Phase 3: Tailscale の導入とログイン
     ✅ winget で v1.102.3 を導入し、アカウント連携も完了（2026-09-09。デバイス `titan` / `100.82.194.13` / `titan.tail061b58.ts.net`）
     - [x] 利用者: ログイン URL をブラウザで開いてアカウント連携（2026-09-09）
-    - [ ] 利用者: Tailscale アカウントに 2 要素認証を付ける（乗っ取られると経路ごと開くため）
-      ⚠ Tailscale 自体に 2FA は無く、ログインに使った ID プロバイダの 2 段階認証がそれに当たる。このテイルネットのログインは Google（`akiraak@gmail.com`）なので Google の 2 段階認証を有効にする
+    - [x] 利用者: Tailscale アカウントに 2 要素認証を付ける（2026-09-09。Google アカウントの 2 段階認証がオンであること、管理画面の端末が `titan` と `sx360` の 2 台だけであることを利用者が確認）
+      ⚠ Tailscale 自体に 2FA は無く、ログインに使った ID プロバイダ（Google `akiraak@gmail.com`）の 2 段階認証がそれに当たる
     - [~] 利用者: 外で使う端末（ノート PC・スマホ）に Tailscale クライアントを入れ同じアカウントでログイン
       ✅ ノート PC `Sx360`（WSL2 mirrored・Windows ユーザー `akira`）に winget で v1.102.3 を導入（2026-09-09）
       ✅ `Sx360` のログイン完了（2026-09-09。`sx360` = `100.119.134.116`。WSL から MagicDNS 名が引け、`tailscale ping titan` は LAN 直通 7ms）
     - [~] 端末側の鍵。⚠ **方針を変えた: titan の `remote-client-ed25519` を運ばず、定石どおり端末側で生成する**（titan は鍵なしを拒否するので、鍵を運ぶ経路が無い）
       ✅ `Sx360` の WSL で `~/.ssh/titan-ed25519` を生成し、WezTerm 用に `C:\Users\akira\.ssh\` にも置いた（2026-09-09）。ssh config に `titan`（tailnet・MagicDNS 名）/ `titan-lan`（LAN 直結の逃げ道）を WSL・Windows 両方に追加
       ✅ 利用者が titan の `authorized_keys` に `Sx360` の公開鍵を追記（2026-09-09）
-      - [ ] 利用者: `Sx360` でパスフレーズを付与（WSL: `ssh-keygen -p -f ~/.ssh/titan-ed25519`、Windows: `ssh-keygen -p -f C:\Users\akira\.ssh\titan-ed25519`）
+      - [ ] 利用者: `Sx360` でパスフレーズを付与。3 か所。⚠ 2026-09-09 20:40 時点で 3 つとも未付与を実測
+        手順（Sx360 で。同じパスフレーズでよい）:
+        1. WSL のターミナルで `ssh-keygen -p -f ~/.ssh/titan-ed25519`
+        2. 同じく `ssh-keygen -p -f ~/.ssh/gpu-home-ed25519`
+        3. PowerShell で `ssh-keygen -p -f "$env:USERPROFILE\.ssh\titan-ed25519"`（WezTerm の ssh_domains が使う方）
+        4. 確認: `ssh-keygen -y -P "" -f ~/.ssh/titan-ed25519` がエラーになれば付いている
+        ⚠ 付けたあとは接続のたびに入力を求められる。Claude のセッションから `ssh titan` を使う前に `eval "$(ssh-agent -s)" && ssh-add ~/.ssh/titan-ed25519`
       ✅ titan の未使用の鍵 `remote-client-ed25519` を `authorized_keys` から外し、鍵ファイルも削除（2026-09-09。バックアップ `authorized_keys.bak-20260909`）。残るのは Sx360 の 2 本（`titan-ed25519` = ssh config の `titan` が使う ／ `gpu-home-ed25519` = 利用者が 20:32 に作成）。スマホ用の鍵は使うときにスマホ側で作る
   - [x] Phase 4: 接続試験（2026-09-09。残っていた外の回線からの実測が通った）
     ✅ 同一マシン内から tailnet の IP（`100.82.194.13`）で SSH → GPU まで到達を実測（2026-09-09。mirrored が Tailscale の面を eth2 として WSL に映しており、懸念だった干渉は起きていない）

@@ -73,6 +73,13 @@ flowchart LR
 - 外で使う端末（ノート PC・スマホ）にも Tailscale クライアントを入れ、同じアカウントでログイン
 - 秘密鍵を端末へコピーし、パスフレーズを付ける
 
+### 実機での変更点（2026-09-09・クライアント側の作業）
+
+- 鍵は **端末（Sx360）側で生成**した `titan-ed25519` を使う。titan で先に作った `remote-client-ed25519` は運ばない（titan が鍵なしを拒否するので秘密鍵を運ぶ経路が無く、端末側生成が定石でもある）
+- WezTerm の接続先は deco-tarm の `ssh.local.lua`（端末ごと・git 管理外）に置く。`wezterm.lua` は配布スクリプトが毎回上書きするため
+- tailnet 経由で titan の sshd に到達すること・鍵で通ること・`wezterm connect titan` で GPU が見えることまで Sx360 から実測した
+- 外の回線（スマホのテザリング）からも `ssh titan` → `nvidia-smi` が通った。経路は最初 DERP 中継（`tailscale ping` 約 210〜240ms・`ssh` 往復 2.1s）で、10 往復のうちに直結へ切り替わって 78ms【実測】。Phase 4 はこれで完了
+
 ### Phase 4: 接続試験（利用者）
 
 - LAN 内から: `ssh -i <鍵> ubuntu@<この PC の LAN IP>` が**鍵で通り**、鍵なしが**拒否される**こと

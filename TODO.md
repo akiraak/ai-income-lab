@@ -94,23 +94,38 @@
   利用者の指示（2026-09-09）: **WSL2 の GPU 機に家の外から SSH で接続して作業したい。Tailscale で進める**
   ⚠ リポジトリのコードには触れない（変更先は WSL の sshd 設定・Windows のスタートアップ・電源設定・Tailscale 導入）
   ⚠ 調査済み（2026-09-09）: mirrored モード・ssh.socket 待受・FW 許可まで整っている。残りは経路・認証・常時稼働の 3 つ
+  📌 **引き継ぎ（2026-09-09 夜・Sx360 → titan）**: ノート PC `Sx360` 側の作業は全部済み（Tailscale ログイン・鍵・ssh config・WezTerm・外の回線からの実測）。残りは下の未チェック 4 つで、**titan の Windows / WSL で行うのは「vbs をスタートアップへ」と「未使用の鍵を外す」**、利用者がどこからでも行えるのが「パスフレーズ」（⚠ これだけは Sx360 で）と「Google の 2 段階認証」。4 つが済んだら親タスクを DONE へ移し、プランを archive へ
   - [x] Phase 1: WSL 側の受け入れ（2026-09-09）
     ✅ 鍵 `~/.ssh/remote-client-ed25519` を生成し `authorized_keys` へ登録。`sshd_config.d/60-remote-access.conf` で鍵認証のみに固定
     ✅ ループバックで実測: 鍵で通過・鍵なしは `Permission denied (publickey)`・SSH セッションから CUDA 動作（torch `cuda: True`）
     ⚠ **SSH セッションには WSL の PATH（`/usr/lib/wsl/lib`）が乗らない**。`nvidia-smi` は `/usr/local/bin` へ symlink で解決済み
   - [~] Phase 2: Windows 側の常時稼働
     ✅ スリープは設定済みだった（AC/DC とも「なし」を実測）
-    ⚠ **スタートアップへの書き込みは権限でブロックされた**（自動起動の常駐設定は利用者が置くべきという趣旨）。vbs は scratchpad に用意済み、コピーは利用者
+    ⚠ **スタートアップへの書き込みは権限でブロックされた**（自動起動の常駐設定は利用者が置くべきという趣旨）
+    - [ ] 利用者: titan の `C:\Users\akira\wsl-autostart.vbs`（2026-09-09 に scratchpad から退避）を `shell:startup` にコピーし、Windows を再起動して Sx360 から `ssh titan hostname` が通ることを確認
+      ⚠ ログオンするまで WSL は上がらない。無人で使うなら自動サインイン（`netplwiz`）が別途要る
   - [~] Phase 3: Tailscale の導入とログイン
     ✅ winget で v1.102.3 を導入し、アカウント連携も完了（2026-09-09。デバイス `titan` / `100.82.194.13` / `titan.tail061b58.ts.net`）
     - [x] 利用者: ログイン URL をブラウザで開いてアカウント連携（2026-09-09）
     - [ ] 利用者: Tailscale アカウントに 2 要素認証を付ける（乗っ取られると経路ごと開くため）
-    - [ ] 利用者: 外で使う端末（ノート PC・スマホ）に Tailscale クライアントを入れ同じアカウントでログイン
-    - [ ] 利用者: 秘密鍵 `remote-client-ed25519` を端末へコピーし、端末側でパスフレーズを付与（`ssh-keygen -p`）
-  - [~] Phase 4: 接続試験
+      ⚠ Tailscale 自体に 2FA は無く、ログインに使った ID プロバイダの 2 段階認証がそれに当たる。このテイルネットのログインは Google（`akiraak@gmail.com`）なので Google の 2 段階認証を有効にする
+    - [~] 利用者: 外で使う端末（ノート PC・スマホ）に Tailscale クライアントを入れ同じアカウントでログイン
+      ✅ ノート PC `Sx360`（WSL2 mirrored・Windows ユーザー `akira`）に winget で v1.102.3 を導入（2026-09-09）
+      ✅ `Sx360` のログイン完了（2026-09-09。`sx360` = `100.119.134.116`。WSL から MagicDNS 名が引け、`tailscale ping titan` は LAN 直通 7ms）
+    - [~] 端末側の鍵。⚠ **方針を変えた: titan の `remote-client-ed25519` を運ばず、定石どおり端末側で生成する**（titan は鍵なしを拒否するので、鍵を運ぶ経路が無い）
+      ✅ `Sx360` の WSL で `~/.ssh/titan-ed25519` を生成し、WezTerm 用に `C:\Users\akira\.ssh\` にも置いた（2026-09-09）。ssh config に `titan`（tailnet・MagicDNS 名）/ `titan-lan`（LAN 直結の逃げ道）を WSL・Windows 両方に追加
+      ✅ 利用者が titan の `authorized_keys` に `Sx360` の公開鍵を追記（2026-09-09）
+      - [ ] 利用者: `Sx360` でパスフレーズを付与（WSL: `ssh-keygen -p -f ~/.ssh/titan-ed25519`、Windows: `ssh-keygen -p -f C:\Users\akira\.ssh\titan-ed25519`）
+      - [ ] 利用者: titan の未使用の鍵 `remote-client-ed25519`（`authorized_keys` の注釈 `akira-remote-client-2026-09`）を外す。スマホ用の鍵は使うときにスマホ側で作る
+  - [x] Phase 4: 接続試験（2026-09-09。残っていた外の回線からの実測が通った）
     ✅ 同一マシン内から tailnet の IP（`100.82.194.13`）で SSH → GPU まで到達を実測（2026-09-09。mirrored が Tailscale の面を eth2 として WSL に映しており、懸念だった干渉は起きていない）
-    - [ ] ⚠ **外の回線からの実測が残っている**（別端末を Wi-Fi 切りの回線にして `ssh ubuntu@titan.tail061b58.ts.net` → `nvidia-smi`。同一マシン内の成功は Hyper-V FW を跨ぐ外来経路の証明にはならない）
-    - [ ] WezTerm の ssh_domains で接続できること
+    ✅ `Sx360` から LAN 経由で 22 番に到達し、鍵なしは `Permission denied (publickey)` を実測（2026-09-09。別ホストから Windows FW を跨いで WSL の sshd に届いている）
+    ✅ `Sx360` から tailnet 経由で titan の sshd に到達し、鍵なしは `Permission denied (publickey)` を実測（2026-09-09。**別ホスト → Tailscale → Hyper-V FW → WSL の経路が通っている**。残る差は NAT 越えだけ）
+    ✅ `Sx360` から tailnet 経由の `ssh titan` で鍵が通り `nvidia-smi` に RTX 3090 Ti（24564 MiB・ドライバ 610.62）が出た。`titan-lan` も通り、別の鍵は引き続き拒否（2026-09-09）
+    ✅ **外の回線から通った**（2026-09-09。`Sx360` をスマホのテザリング `172.20.10.x` にし、自宅 LAN の 22 番に届かないことを確認したうえで `ssh titan` → `nvidia-smi -L` に 3090 Ti。経路は最初 DERP（sea）中継で `tailscale ping` 208〜244ms、`ssh` の往復 2.1s。⚠ **その後 10 往復のうちに直結へ切り替わり 78ms**（titan 側の自宅グローバル IP:58005 へ）。繋ぎ始めの数秒は中継で遅く、以後は直結になる）
+    - [x] WezTerm の ssh_domains で接続できること（2026-09-09）
+      ✅ deco-tarm に端末ごとの `ssh.local.lua` を読む仕組みを足し（自動生成の `SSH:<host>` は残す）、`Sx360` に `titan` / `titan-lan` を配置。`wezterm connect titan` で開いた窓の `nvidia-smi` が titan 側に記録され、3090 Ti が見えた。⚠ deco-tarm 側は未コミット
+      ⚠ 起動中の WezTerm には新しいドメインが出ない（再読み込みでは増えない）。`wezterm connect titan` か起動し直しで出る
 
 - [ ] moomoo・IBKR の実検証（tastytrade と同じ 6 手順・6 観点で横並びにする）
   - 背景: 2026-09-04 に 3 社 → tastytrade 1 社へ絞ったときの**再開条件**（[plan §1-2](docs/plans/tastytrade-api-sample.md)）に当たる。債券・外国株・FX まで同じ口座で試したいなら IBKR、PFOF なしの執行を試したいなら moomoo

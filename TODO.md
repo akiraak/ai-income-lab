@@ -102,3 +102,11 @@
   - [ ] Phase 4: 3 社の横並び判定
     - 観点 A〜F（認証の寿命・常駐・現在値・往復・レート制限・SDK）を 1 表にし、**費用込みで「無人で 1 営業日回る」会場**を選ぶ
     - 品揃え（債券・外国株・FX・先物）と信用判定（IBKR は「中」）を並べ、tastytrade を置き換える理由があるかを判断する
+
+- [ ] titan に client から SSH で入って `run-vibeboard.sh` を動かしたとき、外部からページを見られるようにする
+  利用者の指示（2026-09-10）: **titan に client から ssh 接続して run-vibeboard.sh を動かしたときに外部からページが見れるようにする**
+  派生元: 「自宅の外から SSH で GPU 機（WSL2）に入れるようにする（Tailscale）」（2026-09-10 完了。[DONE](DONE.md) ／ [運用メモ](docs/plans/archive/remote-ssh-tailscale.md)）
+  ⚠ **現状（2026-09-10 に確認）**: vibeboard の待ち受けは `127.0.0.1` に**ハードコード**（`vibeboard/src/config.ts` の `host: '127.0.0.1'`。`--host` も `vibeboard.config.json` の `host` も無い）。`run-vibeboard.sh` は `--port` しか通さないので、そのままでは titan の外から `http://titan:3010` は開けない
+  候補（着手時にプランで 1 つに決める）: (a) client 側で `ssh -L 3010:127.0.0.1:3010 titan` して手元の `localhost:3010` で見る（コード変更なし・鍵認証の内側に閉じる） (b) vibeboard に `--host` / `VIBEBOARD_HOST` を足して Tailscale の面（`tailscale ip -4`）だけに bind し、Hyper-V FW に 3010 を許可する（⚠ **vibeboard は upstream からの vendor なので変更は upstream に入れて `vibeboard update --from` で配る**） (c) Windows 側の `tailscale serve` で 3010 を tailnet に出す
+  ⚠ vibeboard の `/files` は「外部公開していない前提」で dotfiles 403 だけの守り（`server.ts`）。(b)(c) は **LAN や tailnet の他端末にも見える**ので、bind 先を Tailscale の面に限るか、Access 相当の認証を前に置くかをプランで決める
+  ⚠ **3010 は利用者の端末前面の vibeboard が使う。titan 側の起動は 3011 など別ポートで、既にポートを掴んでいるプロセスを止めてから**

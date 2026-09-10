@@ -11,59 +11,11 @@
   - [ ] GAN の実行を継続して回せる仕組み（キュー or ループ、失敗時の再開、台帳の自動更新）
   関連: [rules.md](docs/specs/experiments/feature-discovery/rules.md) ／ [ledger.md](docs/specs/experiments/feature-discovery/ledger.md)
 
-- [ ] 社会にインパクトを与えそうなデータを増やす（気象・地震の延長） [plan](docs/plans/impact-data.md)
-  利用者の指示（2026-09-09）: **気象と地震のような社会にインパクトを与えそうなデータを増やす**
-  派生元: 「予想モデルに使うデータを広く収集する」（2026-09-09 完了。[記録 §9](docs/specs/experiments/daily-data-sources.md)）
-  ⚠ **着手前に決めることが 2 つある。どちらも決めずに集めると、集めた分だけ無駄になる**
-  - [x] ⚠ **決めごと 1: 気象と地震は「偽薬」のまま残す**（2026-09-09。[plan §2-1](docs/plans/impact-data.md)）
-    ⚠ **移さない。** ⚠ **結果を見てから枠を移すのは後付け**で、[§9](docs/specs/experiments/daily-data-sources.md) の「雑音だった」という結論を自分で崩す
-    ⚠ **移すと物差しを失う。** ⚠ **偽薬が無いと「本命が効いた」を検証できない**（§9 で効いた唯一の仕掛け）
-    ⚠ **新しく取るものを本命として足し、仮説を取得の前に 1 行で書く**
-  - [ ] ⚠ **決めごと 2: 全銘柄で同じ値にしないこと**（⚠ **これが効かなかった一番の理由**）
-    ⚠ **[§9-4](docs/specs/experiments/daily-data-sources.md) の判定**: `ex_` 層は全銘柄で同じ値になるので、⚠ **市場全体の方向にしか効きようがなく、銘柄の選択には効かない**
-    ⚠ **災害は地域と業種に割り当てれば銘柄を区別できる**（ハリケーン → 保険・メキシコ湾の精製 ／ 日本の地震 → EWJ）。⚠ **割り当てを持たないなら、また同じ結果になる**
-  - [x] Phase 1: 規約の確認（2026-09-09。[記録 §10-1](docs/specs/experiments/daily-data-sources.md)）
-    ⚠ **NOAA SPC は `robots.txt` が `Disallow: /` なので採らない**（Stooq と同じ扱い）。⚠ **同じ事象は NCEI（公式の保管庫）から取れる**
-    ⚠ **ついでに §3-4 で使った NCEI の `/access/services/` が禁止に含まれないことも確認した**
-  - [x] Phase 2: ⚠ **取得して層に置いた**（2026-09-09。`python3 -m cli.fetch --exog impact_daily`。[記録 §10-2](docs/specs/experiments/daily-data-sources.md)）
-    ⚠ **本命 14 系列**: NCEI Storm Events 13（全国 3 ／ 種類 6 ／ ⚠ **地域 4 の被害額**）＋ EPU 日次 1
-    ⚠ **仮説を取得の前に書いた**（災害＝保険と操業停止 ／ EPU＝投資を控える）。⚠ **書けないものは本命にしない**
-    ⚠ **一番大きい発見: Storm Events は公表が 101 日遅れる**。⚠ **一律 1 日ずらしだと先読みになる**ので、⚠ **ずらし幅を取得元ごとに変えられるようにした**（Storm Events は 120 日）
-    ⚠ **災害も地震と同じ形**（行が無い日 = 0 件。竜巻は 1,607 日が 0）。前方埋め禁止
-    ⚠ **偽薬は §9 のまま動かしていない。** 外部系列は 本命 28 ／ 偽薬 11 の計 39 本になった
-  - [x] Phase 2-2: ⚠ **リアルタイムの経路を探した**（2026-09-09。[記録 §11](docs/specs/experiments/daily-data-sources.md)）
-    ⚠ **「今の値が取れる」と「検証に使える」は別物だった**。⚠ **NWS の警報 API はリアルタイムだが遡れるのは 7〜14 日**
-    ⚠ **検証には保管庫が要る**: IEM（`mesonet.agron.iastate.edu`）が数十年ぶん持つ。⚠ **ただし `Crawl-delay: 120`（2 分間隔）**
-    ⚠ **NWS の API は `robots.txt` が `Disallow: /` だが規約が「公開データ・あらゆる目的に自由」と明記**（非商用の縛りも無い）。Open-Meteo と同じ立て方で採る
-    ⚠ **USGS 地震は配信と保管庫が同じ経路にある稀な例**
-  - [~] Phase 2-3: ⚠ **IEM から警報の保管庫を取る**（2026-09-09 に取得は完了。[記録 §12](docs/specs/experiments/daily-data-sources.md)）
-    ✅ **取れた**: `python3 -m cli.fetch --exog impact_warnings` → 34 系列・30,977 行（130,820 事象・2018-01-01〜2026-09-08）。⚠ **公表の遅れは 1 日**（NCEI は 101 日）
-    ⚠ **年ごとに `raw/iem/events/<年>.jsonl` へ保管して再開できる形にした**（7 年目でサーバに切られて 6 年ぶん 20 分を失ったため）
-    ⚠ **⚠ `data/` は git 管理外。別の環境では取り直しになる**（9 回の要求 × `Crawl-delay: 120` ＝ 約 30 分）。⚠ **手で `data/raw/iem/` を持っていけば省ける**
-    - [ ] ⚠ **熱の取り直し**: NWS が 2024-10 に `EH` → `XH` へ替えたので熱の系列が 2024-10-24 で止まっていた。コードは足した。⚠ **`raw/iem/events/2025-01-01_2026-01-01.jsonl` を消してから `cli.fetch --exog impact_warnings`**（2 回の要求・約 5 分。検証に使う 12 系列には影響しない）
-    - [ ] ⚠ **突き合わせ**: `python3 -m cli.crosscheck --day <7 日以内の日>`（NWS の API と IEM を同じ日で比べる。⚠ **IEM への要求は直前の要求から 120 秒空ける**）。コードは書いてあり、NWS 側は動くことを確認済み。⚠ **結果は未取得**
-  - [~] Phase 3: ⚠ **地域・業種への割り当て**（決めごと 2）。⚠ **コードは済み、検証は未実施**
-    ✅ `ail/features/impact.py`（`im_` 層）＋ `config/exposure/us63.toml`（6 経路・仮説つき・⚠ **重みは全部【推測】・後知恵あり**）＋ `tests/test_impact.py` 17 件
-    ⚠ **重みは変換の「後」に掛ける**（先に掛けると `z20` で消えて全銘柄が同じ値に戻る）。⚠ **曝露 0 は 0 で欠損にしない**
-    ⚠ **偽薬は「割り当ての入れ替え」**（`im_scramble`。並べ替えなので重みの分布は同じ、付き先だけ撹乱）。`im_with_placebo` で同じ表に `im_pb_` として並べられる
-  - [ ] Phase 4: 検証。⚠ **新しい偽薬を必ず併置する**（設定 5 本は済み。⚠ **回すのはこれから**）
-    ⚠ **順番**: (1) 熱の取り直し → (2) `cli.build` を `impact_ex_2018` `impact_2018` `impact_placebo_2018` `impact_both_2018` の 4 本（⚠ **行数が土台 `own_impact_2018` の 131,250 と揃うこと**。揃わなければ `start_date` を合わせる）→ (3) `cli.run` を 5 本（1 本 約 10 分）→ (4) `runs/<実行>/selected.csv` で `im_` 対 `im_pb_` の選ばれ方（偽発見率）→ (5) 記録 §12-4 以降・§13、台帳の吐き直し
-    ✅ 土台は済み: `own_impact_2018`（`runs/2026-09-09T12-22-33_own_impact_2018`。最良は F3-3 の −0.77bp、基準の「常に上」＋0.02bp を超える手法なし）。⚠ **`runs/` も git 管理外**なので別の環境では回し直す
-  ⚠ **やり直さなくてよいこと**: 取得の作りは済んでいる（`ail/data/sources/` に 1 ファイル足すだけ ／ `--exog` で層に載る ／ 1 日ずらしと 0 埋めの規約は `ail/features/exog.py`）
-  ⚠ **資金は動かさない**（2026-08-27 の方針）。⚠ **数字は【実測】/【公表値】/【推測】を明示する**
-  関連: [daily-data-sources.md](docs/specs/experiments/daily-data-sources.md) ／ [rules.md](docs/specs/experiments/feature-discovery/rules.md) ／ [market-data-availability.md](docs/specs/market-data-availability.md)
-
-- [ ] データの取得元を広げる（判断待ちの 2 件）
-  ⚠ **「予想モデルに使うデータを広く収集する」から切り出した**（2026-09-09 に本体は完了。[DONE](DONE.md)）
-  ⚠ **どちらも私には決められない。** ⚠ **取れないのではなく、本プロジェクトをどう位置づけるかで決まる**
-  - [ ] ⚠ **(1) FRED の無料 API キーを取るか**（読み取り専用の登録。売買口座の登録とは別物）
-    ⚠ **取らなくても金利と商品は揃っている**（イールドは米財務省から、商品は ETF で取得済み）
-    ⚠ **FRED でしか手軽に取れないのは 3 つ**: 信用スプレッド ／ 商品の現物価格（ETF とは別物）／ 1962 年からの長い履歴
-    ⚠ **4 つ目が増えた（2026-09-09）: 雇用統計・CPI の発表日**（FRED の releases API）。⚠ **BLS 直接は robots.txt 自体が 403 で採れない**（[記録 §1](docs/specs/experiments/econ-calendar.md)）
-  - [ ] ⚠ **(2) 本プロジェクトを「非商用」と言えるか**（目的が「収入を稼ぐ方法の体系化」なので言い切れない）
-    ⚠ **効くのは Open-Meteo と SILSO（太陽黒点 76,214 行・1818 年〜）。** ⚠ **天気は NOAA で代替済み**
-  - [ ] 判断が付いたら: 連邦準備 H.10 の URL 確定 ／ 地磁気の長期 ／ 黒点の公有経路 ／ GDELT の規約
-  関連: [記録 §4](docs/specs/experiments/daily-data-sources.md) ／ [market-data-availability.md](docs/specs/market-data-availability.md)
+- [ ] データの取得
+  - [ ] 既存にないデータを考える
+    ⚠ **終了しないタスク**（完了にしない・`DONE.md` に移さない）。既存の層に無いデータを考え続けるための常設タスク
+    思いついたデータ源は、この下に子タスクとして足し、採る・採らないの判断と根拠（規約・遅延・銘柄を区別できるか）を残す
+    関連: [daily-data-sources.md](docs/specs/experiments/daily-data-sources.md)
 
 - [ ] tastytrade で、実際の API 取引のサンプルプログラムを動かす [plan](docs/plans/tastytrade-api-sample.md)
   - 対象は [docs/specs/service-trust-assessment.md](docs/specs/service-trust-assessment.md) の判定「高」で、[docs/specs/trading-fee-comparison.md](docs/specs/trading-fee-comparison.md) §4 で株 $0・API プレミアム $0、常駐プロセス不要の tastytrade 1 社。moomoo・IBKR は 2026-09-04 に対象から外した（再開条件はプラン §1-2）

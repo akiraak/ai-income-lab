@@ -1,6 +1,9 @@
 # 社会にインパクトを与えそうなデータを増やす
 
-作成: 2026-09-09 ／ 対象: `experiments/feature-discovery/`
+作成: 2026-09-09 ／ **完了: 2026-09-10** ／ 対象: `experiments/feature-discovery/`
+結果: [daily-data-sources.md §10〜§13](../../specs/experiments/daily-data-sources.md)。
+⚠ **割り当て（`im_` 層）は土台を超えず、入れ替えた偽薬とも区別できなかった**（§13-4。
+割り当てなし `ex_` の正の数字は検定を通らず結論にしない）。⚠ **§6 の限界 1（重みは人が決める＝【推測】）がそのまま出た。**
 派生元: [daily-data-sources.md §9](../specs/experiments/daily-data-sources.md)（**本命は偽薬を超えなかった**）
 関連: [rules.md](../specs/experiments/feature-discovery/rules.md) ／ [market-data-availability.md](../specs/market-data-availability.md)
 

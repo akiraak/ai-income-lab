@@ -86,6 +86,8 @@
   ⚠ リポジトリのコードには触れない（変更先は WSL の sshd 設定・Windows のスタートアップ・電源設定・Tailscale 導入）
   ⚠ 調査済み（2026-09-09）: mirrored モード・ssh.socket 待受・FW 許可まで整っている。残りは経路・認証・常時稼働の 3 つ
   📌 **引き継ぎ（2026-09-09 夜・Sx360 → titan）**: ノート PC `Sx360` 側の作業は全部済み（Tailscale ログイン・鍵・ssh config・WezTerm・外の回線からの実測）。残りは下の未チェック 4 つで、**titan の Windows / WSL で行うのは「vbs をスタートアップへ」と「未使用の鍵を外す」**、利用者がどこからでも行えるのが「パスフレーズ」（⚠ これだけは Sx360 で）と「Google の 2 段階認証」。4 つが済んだら親タスクを DONE へ移し、プランを archive へ
+  📌 2026-09-10 08:46 titan で確認: 残りは「vbs をスタートアップへ」（titan）と「パスフレーズ付与」（Sx360）の 2 つで、**どちらも利用者の作業**（スタートアップへの書き込みは 2026-09-09 に権限でブロック済みのため Claude は行わない）。`shell:startup` に vbs は未配置を実測（DeepL のみ）。受け側は健在（`ssh.socket` active・tailnet に `titan` / `sx360` の 2 台）
+  📌 2026-09-10 追記: 「ログオン不要で電源オンだけで上がる」タスクスケジューラ版を Phase 2 に追加。利用者の指示: **先にログオンする vbs 版を通し、その後こちらへ切り替える**
   - [x] Phase 1: WSL 側の受け入れ（2026-09-09）
     ✅ 鍵 `~/.ssh/remote-client-ed25519` を生成し `authorized_keys` へ登録。`sshd_config.d/60-remote-access.conf` で鍵認証のみに固定
     ✅ ループバックで実測: 鍵で通過・鍵なしは `Permission denied (publickey)`・SSH セッションから CUDA 動作（torch `cuda: True`）
@@ -95,11 +97,24 @@
     ⚠ **スタートアップへの書き込みは権限でブロックされた**（自動起動の常駐設定は利用者が置くべきという趣旨）
     - [ ] 利用者: titan の `C:\Users\akira\wsl-autostart.vbs`（2026-09-09 に scratchpad から退避）を `shell:startup` にコピーし、Windows を再起動して Sx360 から `ssh titan hostname` が通ることを確認
       手順（titan の Windows で）:
-      1. `Win + R` → `shell:startup` → Enter（スタートアップのフォルダが開く）
+      1. `Win + R` → `shell:startup` → Enter（スタートアップのフォルダが開く）。⚠ titan では Win + R がスクショに横取りされる（2026-09-10。常駐アプリのホットキー。DeepL の可能性）→ エクスプローラーのアドレスバーに `shell:startup` と入力して開く
       2. そこへ `C:\Users\akira\wsl-autostart.vbs` をコピー（中身: `wsl.exe -d Sandbox24 --exec sleep infinity` を隠し窓で起動）
       3. Windows を再起動してログオン。⚠ titan 側でターミナルを開かない（開くと WSL が上がって確認にならない）
       4. Sx360 から `ssh titan hostname` → `titan` と返れば完了
-      ⚠ ログオンするまで WSL は上がらない。無人で使うなら自動サインイン（`netplwiz`）が別途要る
+      ⚠ ログオンするまで WSL は上がらない。無人で使う話は下の「ログオン不要」版（タスクスケジューラ）で扱う
+    - [ ] 利用者: ログインせず電源オンだけで WSL が上がるようにする（タスクスケジューラ）
+      依存: 「titan の `C:\Users\akira\wsl-autostart.vbs`（2026-09-09 に scratchpad から退避）を `shell:startup` にコピーし、Windows を再起動して Sx360 から `ssh titan hostname` が通ることを確認」
+      方針（2026-09-10・利用者の指示）: 先にログオン前提の vbs 版を通し、通ってからこちらへ切り替える。Tailscale は Windows のサービスなのでログオン前から繋がっており、ログオンを待っているのは WSL（sshd）だけ
+      手順（titan のタスクスケジューラ → 「タスクの作成」）:
+      1. 全般: 名前 `wsl-autostart`。「**ユーザーがログオンしているかどうかにかかわらず実行する**」を選ぶ（「パスワードを保存しない」はオフのまま）
+      2. トリガー: 新規 → 「スタートアップ時」
+      3. 操作: 新規 → プログラム `C:\Windows\System32\wsl.exe`、引数 `-d Sandbox24 --exec sleep infinity`
+      4. 条件: 「コンピューターを AC 電源で使用している場合のみ〜」のチェックを外す
+      5. 設定: ⚠ 「**タスクを停止するまでの時間**」（既定 3 日）のチェックを外す。外さないと 3 日後に常駐が殺されて SSH が落ちる
+      6. OK でアカウントの**パスワード**を入力（⚠ PIN 不可。Microsoft アカウントならそのパスワード。パスワードレス運用だと保存できない → その場合の代替は `netplwiz` の自動サインイン）
+      確認: 再起動して titan に触らず、Sx360 から `ssh titan hostname`。通ったら「シャットダウン → 電源オン」でも同じ確認（⚠ 高速スタートアップが有効だと電源オフ→オンで「スタートアップ時」トリガーが発火しないことがある → `powercfg /h off` で無効化）
+      ⚠ 通ったら `shell:startup` の vbs は外す（二重起動を避けて片方に揃える）
+      ⚠ アカウントのパスワードを変えたらタスクに入れ直しが要る
   - [~] Phase 3: Tailscale の導入とログイン
     ✅ winget で v1.102.3 を導入し、アカウント連携も完了（2026-09-09。デバイス `titan` / `100.82.194.13` / `titan.tail061b58.ts.net`）
     - [x] 利用者: ログイン URL をブラウザで開いてアカウント連携（2026-09-09）

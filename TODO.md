@@ -81,12 +81,6 @@
   - [ ] Phase 6（方針 (c)）: 本番口座で 1 株（入金と発注は利用者が行う）
     - ⚠ 2026-09-05 の dry-run で **着金前でも 1 株は通る**ことが分かっている（買付余力 1000.0 が効き、`available-trading-funds` 0.0 は効かない）。着金を待つ必要は無い
 
-- [ ] titan 接続の残り（利用者の作業 3 つ） [plan](docs/plans/archive/remote-ssh-tailscale.md)
-  派生元: 「自宅の外から SSH で GPU 機（WSL2）に入れるようにする（Tailscale）」（2026-09-10 完了。[DONE](DONE.md)。経路・鍵・無人起動は済み、外から `ssh titan` → `nvidia-smi` まで実測）
-  - [ ] 利用者: titan の `shell:startup` から `wsl-autostart.vbs` を外す（タスクスケジューラ版 `wsl-autostart` に揃える。元ファイルは `C:\Users\akira\wsl-autostart.vbs` に残る）
-  - [ ] 利用者: 「シャットダウン → 電源オン」でもログオンなしで `ssh titan` が通ることを確認（前に管理者で `powercfg /h off`。高速スタートアップは有効を実測 `HiberbootEnabled=1`。再起動では確認済み）
-  - [ ] 利用者: Sx360 の鍵にパスフレーズを付ける。3 か所（WSL: `ssh-keygen -p -f ~/.ssh/titan-ed25519` と `~/.ssh/gpu-home-ed25519`、PowerShell: `ssh-keygen -p -f "$env:USERPROFILE\.ssh\titan-ed25519"`）。⚠ 付けたら Claude のセッションで `ssh titan` を使う前に `eval "$(ssh-agent -s)" && ssh-add ~/.ssh/titan-ed25519`
-
 - [ ] moomoo・IBKR の実検証（tastytrade と同じ 6 手順・6 観点で横並びにする）
   - 背景: 2026-09-04 に 3 社 → tastytrade 1 社へ絞ったときの**再開条件**（[plan §1-2](docs/plans/tastytrade-api-sample.md)）に当たる。債券・外国株・FX まで同じ口座で試したいなら IBKR、PFOF なしの執行を試したいなら moomoo
   - 使い回せるもの: `experiments/tastytrade-api-sample/` の記録形式は `venue` 列を持ち、`ttclient.py` の関数名は会場に依存しない（`authenticate` / `list_accounts` / `get_quote` / `dry_run_order` / `submit_order` / `cancel_order`）。**同じ名前で別モジュールを書けば `sample.py` の 6 手順はそのまま動く**

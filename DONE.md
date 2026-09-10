@@ -1,5 +1,14 @@
 # DONE
 
+- 2026-09-10 titan に client から SSH で入って `run-vibeboard.sh` を動かしたとき、外部からページを見られるようにした（`http://titan-income-vibeboard`）
+  - プラン: [docs/plans/archive/vibeboard-remote-view.md](docs/plans/archive/vibeboard-remote-view.md)（実測の表・運用メモ・切り分けの型を追記済み）。CLAUDE.md の vibeboard 節に 1 行
+  - 利用者の指示（2026-09-10）「**titan に client から ssh 接続して run-vibeboard.sh を動かしたときに外部からページが見れるようにする**」「URL は **`http://titan-income-vibeboard`** のようにサービス名を入れる」「**`run-server.sh`（dashboard）は危険なので公開しない**」から。派生元は「自宅の外から SSH で GPU 機に入れるようにする（Tailscale）」（同日完了）
+  - 構成: vibeboard と `run-vibeboard.sh` は**無変更**（`127.0.0.1:3010` のまま）。titan の Windows 側 tailscaled が `tailscale serve --service=svc:titan-income-vibeboard --http=80 http://127.0.0.1:3010` で tailnet からの接続を終端して loopback へ渡す（mirrored で Windows → WSL の 127.0.0.1 が届くことを実測）。名前は Tailscale Services（仮想 IP 100.101.131.54、`autoApprovers` で自動承認）。**短い名前 `http://titan-income-vibeboard` で引けることを実測**。Funnel なし・HTTPS なし・dashboard（3012）は出さない
+  - 実測: Sx360 から名前で 200（20〜24ms）・SSE が `touch` から 0.5 秒・Tasks の API ok・LAN と 3012 は閉・公開 DNS に名前なし。利用者がブラウザの各タブと即時更新・titan の Claude セッションの Tasks 表示・外の回線・**titan 再起動後に `./run-vibeboard.sh` で名前が開く**ことを確認（serve は再起動をまたぐ）。vibeboard の起動は**手動でよい**と決定（無人起動は作らない）
+  - ⚠ 落とし穴 4 つ: (1) **serve の外向きポートを vibeboard と同じ 3010 にすると、mirrored のポート共有で WSL の bind が `EADDRINUSE` になり以後 vibeboard が起動できない**（portGuard は「vibeboard 以外に使われています: 不明」）→ 外向きは 80 (2) **Tailscale Services のホストは tag 付きノード必須**（`service hosts must be tagged nodes`）→ titan に `tag:titan`。方針が既定の全許可なので SSH は落ちないことを `debug netmap` で確かめてから付けた。鍵の期限は再認証していないので残る (3) ssh の非対話シェルは `node` / `claude` が PATH に無い（nvm・`~/.local/bin`） (4) `ssh 'bash -s' < script` の中で Windows の interop バイナリが stdin の残りを食う → ファイルに置いてから実行
+  - Claude からの `tailscale.exe serve` / tag 付与は分類器に止まるため、利用者が `!` で実行し Claude が実測する分担にした
+  - ⚠ **資金は動かしていない**（2026-08-27 の方針）。リポジトリのコード変更なし（CLAUDE.md・TODO・DONE・プランだけ）。変更先は Tailscale 管理画面（方針・Service・tag）と titan の tailscaled の serve 設定
+
 - 2026-09-10 titan 接続の残り 3 つを潰した（vbs を外す・シャットダウン→電源オン・鍵のパスフレーズ）
   - 派生元: 「自宅の外から SSH で GPU 機（WSL2）に入れるようにする（Tailscale）」（同日完了、下の項）。運用メモは [docs/plans/archive/remote-ssh-tailscale.md](docs/plans/archive/remote-ssh-tailscale.md)
   - `shell:startup` の `wsl-autostart.vbs` を外し、無人起動はタスクスケジューラ `wsl-autostart` だけに揃えた（元ファイルは `C:\Users\akira\wsl-autostart.vbs` に残す）

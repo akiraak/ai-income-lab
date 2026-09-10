@@ -72,6 +72,13 @@ def exp_dir(tmp_path: Path) -> Path:
         "layer": "exog", "period": "series", "source": "usgs", "dataset": "impact_2018",
         "symbols": 3, "role": "本命", "totals": {"rows": 300}, "series": {},
     }), encoding="utf-8")
+    (exp / "data" / "manifests" / "exog_noaa.json").write_text(json.dumps({
+        "layer": "exog", "period": "series", "source": "noaa", "dataset": "weather_2018",
+        "symbols": 2, "role": "偽薬", "totals": {"rows": 200},
+        "series": {"ex_tmax": {"rows": 100, "oldest_ms": 1514764800000,
+                               "newest_ms": 1750000000000},
+                   "ex_prcp": {"rows": 100}},
+    }), encoding="utf-8")
     (exp / "data" / "features" / "own_2018").mkdir(parents=True)
     (exp / "data" / "features" / "own_2018" / "d.meta.json").write_text(json.dumps({
         "experiment": "own_2018", "layer": "adjusted", "period": "d",
@@ -82,14 +89,18 @@ def exp_dir(tmp_path: Path) -> Path:
         'hypothesis = "災害は保険と操業停止に効く"\n', encoding="utf-8")
     (exp / "config" / "universe").mkdir(parents=True)
     (exp / "config" / "universe" / "us63.toml").write_text(
-        'name = "us63"\nselected_on = "2026-09-01"\n[groups]\ncompany = ["AAPL"]\netf = ["SPY"]\n',
+        'name = "us63"\nselected_on = "2026-09-01"\nsurvivorship_bias = true\n'
+        '[groups]\ncompany = ["AAPL"]\netf = ["SPY"]\n',
         encoding="utf-8")
     (exp / "config" / "exposure").mkdir(parents=True)
     (exp / "config" / "exposure" / "us63.toml").write_text(
         'name = "us63"\nhindsight = true\n[[channel]]\nname = "hurricane"\n'
+        'source = "ncei"\nseries = "im_tropical"\nkind = "region"\nweights = "hurricane"\n'
         'hypothesis = "保険"\n[weights.hurricane]\nALL = 0.5\n', encoding="utf-8")
     (exp / "config" / "sources.toml").write_text(
-        '[usgs]\nlabel = "USGS 地震"\nlag_days = 1\nterms = "公開データ"\n', encoding="utf-8")
+        '[usgs]\nlabel = "USGS 地震"\nlag_days = 1\nterms = "公開データ"\n'
+        'terms_note = "米政府の著作物"\npublish_note = "翌日に確定"\n'
+        '[noaa]\nlabel = "NOAA 気象"\nlag_days = 2\nterms = "公有"\n', encoding="utf-8")
     return exp
 
 
@@ -199,7 +210,7 @@ def test_data_sidebar_sections(exp_dir):
     items = vibetab.data_sidebar(vibetab.ExpPaths(exp_dir))["items"]
     assert [i["id"] for i in items] == [sec for sec, _ in vibetab.DATA_SECTIONS]
     by_id = {i["id"]: i for i in items}
-    assert "1,300" in by_id["overview"]["sub"]   # manifest の rows の合計（写し）
+    assert "1,500" in by_id["overview"]["sub"]   # manifest の rows の合計（写し）
 
 
 @pytest.mark.parametrize("section", [sec for sec, _ in vibetab.DATA_SECTIONS])
@@ -214,8 +225,46 @@ def test_data_section_contents(exp_dir):
     external = vibetab.data_section_html(paths, "external")
     assert "災害は保険と操業停止に効く" in external                       # 仮説は宣言の写し
     assert "USGS 地震" in external
-    assert "⚠ あり" in vibetab.data_section_html(paths, "exposures")     # 後知恵
+    assert "後知恵あり" in vibetab.data_section_html(paths, "exposures")  # 後知恵
     assert vibetab.data_section_html(paths, "nazo") is None
+
+
+# --------------------------------------------- データタブの情報量（data.html と同等）
+
+
+def test_data_external_details_and_placebo(exp_dir):
+    body = vibetab.data_section_html(vibetab.ExpPaths(exp_dir), "external")
+    assert "系列の一覧" in body                       # manifest ごとの系列の details
+    assert "ex_tmax" in body                          # 系列の一覧の中身
+    assert "値動きと因果を想定しない（偽薬）" in body   # 仮説なしの偽薬の既定文
+    assert "公開データ" in body                        # 規約の列（sources.toml の写し）
+    assert "偽発見率" in body                          # 脚注
+
+
+def test_data_sources_columns(exp_dir):
+    body = vibetab.data_section_html(vibetab.ExpPaths(exp_dir), "sources")
+    assert "1 日ずらす" in body                        # 太字のずらし幅
+    assert "米政府の著作物" in body                    # 根拠（terms_note）の列
+    assert "翌日に確定" in body                        # 公表の遅れ（publish_note）の列
+    assert "FRED・Open-Meteo・SILSO" in body           # 「要判断」の脚注
+
+
+def test_data_exposures_note_and_channels(exp_dir):
+    body = vibetab.data_section_html(vibetab.ExpPaths(exp_dir), "exposures")
+    assert "重みは全部【推測】" in body                 # 注記の箱
+    assert "地域ごと" in body                          # 経路の形（kind = region）
+    assert "ncei" in body                              # 経路の取得元
+    assert "im_tropical" in body                       # 経路の系列
+    assert "im_scramble" in body                       # 脚注（偽薬 ＝ 割り当ての入れ替え）
+
+
+def test_data_bars_features_universes_notes(exp_dir):
+    paths = vibetab.ExpPaths(exp_dir)
+    bars = vibetab.data_section_html(paths, "bars")
+    assert "adjusted_d.json" in bars                   # manifest のファイル名
+    assert "銘柄名から推測しない" in bars              # 種別の脚注
+    assert "先読みの検査用の表" in vibetab.data_section_html(paths, "features")
+    assert "選定時点で存在する銘柄" in vibetab.data_section_html(paths, "universes")
 
 
 def test_data_missing_exp_dir(tmp_path):

@@ -1,12 +1,5 @@
 # TODO
 
-- [ ] vibeboard のデータタブを、管理画面（run-server.sh）の `/data` と同じくらいまで情報量を増やす
-  利用者の指示（2026-09-10）: **vibeboard データを run-server.sh と同じように情報量を増やす**
-  対象は `dashboard/vibetab.py` の `/data/*`。比較の基準は dashboard の `/data`（`app/templates/data.html`、仕様は [dashboard.md §11](docs/specs/dashboard.md)）
-  いま vibetab 側に薄い部分の例: 外部系列の manifest ごとの詳細（series の一覧・検査の引っかかり）・枠と仮説の表の粒度・規約の注記の出し方
-  読み方は今までどおり `app/inventory.py` を使う（同じ数字を 2 か所で計算しない）
-  関連: [plan](docs/plans/archive/vibeboard-experiments-tabs.md)
-
 - [ ] 社会にインパクトを与えそうなデータを増やす（気象・地震の延長） [plan](docs/plans/impact-data.md)
   利用者の指示（2026-09-09）: **気象と地震のような社会にインパクトを与えそうなデータを増やす**
   派生元: 「予想モデルに使うデータを広く収集する」（2026-09-09 完了。[記録 §9](docs/specs/experiments/daily-data-sources.md)）

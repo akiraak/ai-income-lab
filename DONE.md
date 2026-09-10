@@ -1,5 +1,11 @@
 # DONE
 
+- 2026-09-10 vibeboard データタブを dashboard の `/data` と同じ情報量にした
+  - プラン: [docs/plans/archive/vibetab-data-parity.md](docs/plans/archive/vibetab-data-parity.md)。利用者の指示（2026-09-10）「**vibeboard データを run-server.sh と同じように情報量を増やす**」
+  - `dashboard/vibetab.py` の `/data/*` を `app/templates/data.html`（仕様 dashboard.md §11）に揃えた: **外部系列**は列を data.html と同じ並び（枠 ／ 取得元 ＋ 系列の一覧の details ／ 系列 ／ 行数 ／ 期間 ／ ずらし幅 ／ 規約 ／ 仮説）にし、仮説の無い偽薬には既定文「値動きと因果を想定しない（偽薬）」。**規約とずらし幅**は 根拠（terms_note）と 公表の遅れ（publish_note）を別の列に分離。**割り当て**は data.html と同じ構成（【推測】・後知恵の注記の箱 → 経路の表〔取得元・系列・形・重みの表〕→ 重みの details）。足に manifest のファイル名、特徴量に調整前の ⚠、集合の生存バイアスに括弧書き、各節に data.html と同じ脚注（種別の出所 ／ 偽発見率 ／ ずらし幅の意味 ／ 要判断の取得元 ／ 重み 0 と im_scramble）
+  - ⚠ 読み方は不変: `app/inventory.py` の写しだけ（CSV / parquet を開かない）。脚注の文面は data.html と同じ（言い回しを 2 つ作らない）。取得元ごとの注記の details は「規約とずらし幅」の列に移して削除
+  - 実測: pytest 80 件 pass（vibetab 27 件、fixture に偽薬の manifest・経路の詳細・survivorship_bias を追加して 4 本追加）。実データで全 7 節が例外なく描画（外部系列に ECB 7 本 49,349 行の一覧など）。3015 を起動し直し、中継 `/ext/data/view` で系列の一覧・【推測】の注記・im_scramble の脚注を確認
+
 - 2026-09-10 vibeboard 検証タブの「まとめ」に、検証方法の特徴の説明と「どの検証が有効か」の分析を足した
   - プラン: [docs/plans/archive/vibetab-overview-methods.md](docs/plans/archive/vibetab-overview-methods.md)。利用者の指示（2026-09-10）「**vibeboard 検証のまとめにそれぞれの検証方法の特徴などを説明。どの検証が有効かの分析も入れる**」
   - `dashboard/vibetab.py` のまとめページに 3 節を追加: (1) **検証方法とその特徴** — 種類・粒度・先・層の 4 軸の表（値は runs/ から拾う）＋ 種類（断面 ／ プーリング ／ 先読みの検査）ごとの 何を見るか・強み・弱み。⚠ 静的な文言に数字は書かない（正本は rules.md §6・§7・§9 と dashboard.md §10） (2) **検証方法ごとの成績** — 組ごとに実行数・4 検査 ✅ の件数と、その組の最良実行の `checks.json` の写し（純利 bp・fold・上乗せ t・DSR・実効観測数） (3) **どの検証が有効か** — 配線（先読みの検査が全部跳ねたか）／「発見あり」と言える実検証があるか／層 ✅ の上位 2 組の比較／層 ⚠（調整前）の組は比較から外す、を marks の数え上げで機械的に文面を選ぶ

@@ -423,11 +423,17 @@ def data_sidebar(paths: ExpPaths) -> dict:
     return {"items": items}
 
 
-def _series_details(series: list[dict]) -> str:
-    rows = [[esc(s["name"]), esc(s.get("kind") or ""), fmt(s["rows"], 0),
-             esc(s["oldest"] or "—"), esc(s["newest"] or "—")] for s in series]
-    return (f"<details><summary>系列 {len(series)} 本</summary>"
-            + table(["系列", "種別", "行数", "最古", "最新"], rows, {2}) + "</details>")
+def _series_details(series: list[dict], with_kind: bool = True) -> str:
+    """系列の一覧の details。足は種別つき、外部系列は種別なし（宣言が無いため）。"""
+    if with_kind:
+        rows = [[esc(s["name"]), esc(s.get("kind") or ""), fmt(s["rows"], 0),
+                 esc(s["oldest"] or "—"), esc(s["newest"] or "—")] for s in series]
+        return (f"<details><summary>系列 {len(series)} 本</summary>"
+                + table(["系列", "種別", "行数", "最古", "最新"], rows, {2}) + "</details>")
+    rows = [[f"<code>{esc(s['name'])}</code>", fmt(s["rows"], 0),
+             f"{esc(s['oldest'] or '—')} 〜 {esc(s['newest'] or '—')}"] for s in series]
+    return (f"<details><summary>系列の一覧（{len(series)}）</summary>"
+            + table(["系列", "行", "期間"], rows, {1}) + "</details>")
 
 
 def data_section_html(paths: ExpPaths, section: str) -> str | None:
@@ -441,6 +447,10 @@ def data_section_html(paths: ExpPaths, section: str) -> str | None:
         return page(label, "\n".join(body))
 
     if section == "overview":
+        body.append("<p class='meta'><b>この画面は読むだけ。</b>系列数・行数・期間は取得時に実験側が書いた"
+                    " manifest（data/manifests/*.json）の値をそのまま出す（CSV を開いて数え直さない）。"
+                    "枠（本命 ／ 偽薬）と仮説は config/dataset/*.toml の宣言の写しで、結果を見て分類し直さない。"
+                    "ずらし幅と規約の判定は config/sources.toml の宣言（コードとの一致は実験側のテストが固定）。</p>")
         body.append(kv_table([
             ("行数の合計（manifest の写し）", fmt(inv["total_rows"], 0)),
             ("足（価格）", f"{len(inv['bars'])} 表"),
@@ -451,11 +461,11 @@ def data_section_html(paths: ExpPaths, section: str) -> str | None:
             ("銘柄の集合", fmt(len(inv["universes"]), 0)),
             ("割り当て", fmt(len(inv["exposures"]), 0)),
         ]))
-        body.append("<p class='meta'>数字はすべて実験側の manifest / config の写し。この画面は数え直さない。</p>")
     elif section == "bars":
         for m in inv["bars"]:
             body.append(f"<h2>{esc(m['layer_label'])} ・ {esc(m['period_label'])} ・ {esc(m['source_label'])}</h2>")
-            pairs = [("dataset", esc(m["dataset"])), ("銘柄", fmt(m["symbols"], 0)),
+            pairs = [("manifest", f"<code>{esc(m['file'])}</code>"), ("dataset", esc(m["dataset"])),
+                     ("銘柄", fmt(m["symbols"], 0)),
                      ("行数", fmt(m["rows"], 0)), ("期間", f"{esc(m['oldest'] or '—')} 〜 {esc(m['newest'] or '—')}"),
                      ("種別", " ／ ".join(f"{esc(k)} {v}" for k, v in m["kinds"]) or "—"),
                      ("書かれた時刻", esc(m["written_at"] or "—"))]
@@ -467,41 +477,67 @@ def data_section_html(paths: ExpPaths, section: str) -> str | None:
                 pairs.append(("検査の引っかかり", "<span class='warn'>⚠ " + esc(" ／ ".join(m["issues"])) + "</span>"))
             body.append(kv_table(pairs))
             body.append(_series_details(m["series"]))
+        body.append("<p class='meta'>⚠ 種別（会社株 ／ ETF）は config/universe/*.toml の groups の宣言を"
+                    "銘柄名で引いたもの（画面は銘柄名から推測しない）。"
+                    "⚠ 調整前（raw）の日足は分割の断層を含みうる。検証に使うのは調整後（rules.md 2 章）。</p>")
     elif section == "external":
         rows = []
         for e in inv["external"]:
-            role = esc(e["role"] or "—") + (" <span class='warn'>⚠ manifest と不一致</span>" if e["role_mismatch"] else "")
-            rows.append([esc(e["source_label"]), role, fmt(e["symbols"], 0), fmt(e["rows"], 0),
+            role = f"<b>{esc(e['role'] or '—')}</b>" + (
+                "<div class='warn'>⚠ config と manifest で枠が食い違う</div>" if e["role_mismatch"] else "")
+            src = (esc(e["source_label"])
+                   + f"<div class='meta'>{esc(e.get('dataset') or '')} ・ {esc(e.get('written_at') or '—')}</div>"
+                   + _series_details(e["series"], with_kind=False))
+            lag = f"{fmt(e['lag_days'], 0)} 日" if e.get("lag_days") else "—"
+            if (e.get("lag_days") or 0) > 1:
+                lag = f"<span class='warn'>{lag}</span>"
+            hyp = esc(e["hypothesis"] or ("⚠ 値動きと因果を想定しない（偽薬）" if e["role"] == "偽薬" else "—"))
+            if e.get("note"):
+                hyp += f"<br>{esc(e['note'])}"
+            rows.append([role, src, fmt(e["symbols"], 0), fmt(e["rows"], 0),
                          f"{esc(e['oldest'] or '—')} 〜 {esc(e['newest'] or '—')}",
-                         fmt(e["lag_days"], 0), esc(e["hypothesis"] or "—")])
-        body.append(table(["取得元", "枠", "系列", "行数", "期間", "ずらし(日)", "仮説（取得の前の宣言）"], rows, {2, 3, 5}))
-        body.append("<p class='meta'>枠（本命 ／ 偽薬）と仮説は config/dataset の宣言の写し。結果を見てからの分類はしない。</p>")
-        for e in inv["external"]:
-            if e.get("publish_note") or e.get("terms_note"):
-                body.append(f"<details><summary>{esc(e['source_label'])} の注記</summary><p>"
-                            + esc(e.get("publish_note") or "") + " " + esc(e.get("terms_note") or "") + "</p></details>")
+                         lag, esc(e.get("terms") or "—"), hyp])
+        body.append(table(["枠", "取得元", "系列", "行数", "期間", "ずらし幅", "規約", "仮説（取得の前の宣言）"],
+                          rows, {2, 3}))
+        body.append("<p class='meta'>枠（本命 ／ 偽薬）と仮説は config/dataset の宣言の写し。結果を見てからの分類はしない。"
+                    "⚠ 偽薬（気象・地震）は値動きと因果を想定しない対照。選別手法がそれを選んだ割合が"
+                    "偽発見率の実測になる（daily-data-sources.md §9）。<br>"
+                    "⚠ ずらし幅 ＝ 足の日から何日前の時点で公表されている値を使うか。"
+                    "NCEI Storm Events は公表が 101 日遅れる【実測】ので 120 日ずらす。</p>")
     elif section == "features":
         for title, feats in (("検証に使う表", inv["features"]), ("先読みの検査の表", inv["leak_features"])):
             if not feats:
                 continue
             body.append(f"<h2>{title}</h2>")
-            rows = [[esc(f["experiment"]), esc(f["layer_label"]), esc(f["period_label"]),
+            rows = [[esc(f["experiment"]),
+                     (esc(f["layer_label"]) if f["layer"] == "adjusted"
+                      else f"<span class='warn'>⚠ {esc(f['layer_label'])}</span>"),
+                     esc(f["period_label"]),
                      fmt(f["rows"], 0), fmt(f["features"], 0), esc(f["built_at"] or "—")] for f in feats]
-            body.append(table(["実験", "層", "粒度", "行数", "特徴量", "作られた時刻"], rows, {3, 4}))
+            body.append(table(["実験", "元の層", "粒度", "行数", "列数", "作成"], rows, {3, 4}))
+        body.append("<p class='meta'>⚠ 先読みの検査用の表は、わざと未来の値を混ぜて配線を確かめるためのもの"
+                    "（検証には使わない）。</p>")
     elif section == "sources":
         rows = []
         for s in inv["sources"]:
-            rows.append([esc(s["source"]), esc(s.get("label") or "—"), fmt(s.get("lag_days"), 0),
-                         esc(s.get("terms") or "—"), esc(s.get("terms_note") or s.get("publish_note") or "—")])
-        body.append(table(["取得元", "表示名", "ずらし(日)", "規約の判定", "注記"], rows, {2}))
-        body.append("<p class='meta'>ずらし幅と規約は config/sources.toml の写し。コードとの一致は実験側のテストが固定する。</p>")
+            rows.append([f"<b>{esc(s.get('label') or s['source'])}</b>"
+                         f"<div class='meta'><code>{esc(s['source'])}</code></div>",
+                         esc(s.get("terms") or "—"),
+                         esc(s.get("terms_note") or "—"),
+                         ((f"<b>{fmt(s.get('lag_days'), 0)} 日ずらす</b> — " if s.get("lag_days") else "")
+                          + esc(s.get("publish_note") or "—"))])
+        body.append(table(["取得元", "規約の判定", "根拠", "公表の遅れ ／ ずらし幅"], rows))
+        body.append("<p class='meta'>ずらし幅と規約は config/sources.toml の写し。コードとの一致は実験側のテストが固定する。"
+                    "⚠ 「要判断」で採っていない取得元（FRED・Open-Meteo・SILSO）はデータを持っていないので"
+                    "この表に無い（daily-data-sources.md §2・§4 が正本）。</p>")
     elif section == "universes":
         for u in inv["universes"]:
             body.append(f"<h2>{esc(u['name'])}</h2>")
             body.append(kv_table([
                 ("説明", esc(u["description"] or "—")),
                 ("選定日", esc(u["selected_on"] or "—")),
-                ("生存バイアス", "<span class='warn'>⚠ あり</span>" if u["survivorship_bias"] else "なし"),
+                ("生存バイアス", "<span class='warn'>⚠ あり（選定時点で存在する銘柄から選んでいる）</span>"
+                 if u["survivorship_bias"] else "なし"),
             ]))
             for group, symbols in u["groups"].items():
                 label_g = inventory.KIND_LABEL.get(group, group)
@@ -510,19 +546,30 @@ def data_section_html(paths: ExpPaths, section: str) -> str | None:
     elif section == "exposures":
         for x in inv["exposures"]:
             body.append(f"<h2>{esc(x['name'])}</h2>")
-            pairs = [("注記", esc(x["note"] or "—")), ("選定日", esc(x["selected_on"] or "—")),
-                     ("後知恵", "<span class='warn'>⚠ あり（重みは全部【推測】）</span>" if x["hindsight"] else "なし"),
-                     ("銘柄", esc(" ".join(x["symbols"])) or "—")]
-            body.append(kv_table(pairs))
+            note = ("⚠ <b>重みは全部【推測】</b>（出典のある売上の地域内訳ではない。"
+                    f"{esc(x['selected_on'] or '—')} 時点の主業種と拠点から振ったもの）。")
+            if x["hindsight"]:
+                note += "⚠ <b>後知恵あり</b> — 検証の期間の中で起きた出来事を知って振っている（偽薬でも消えない限界）。"
+            note += "⚠ 割り当てそのものが仮説であり、外れれば効かない。"
+            body.append(f"<p class='warn'>{note}</p>")
+            body.append(f"<p class='meta'>曝露を持つ銘柄 {len(x['symbols'])} 本"
+                        + (f" ・ {esc(x['note'])}" if x["note"] else "") + "</p>")
             if x["channels"]:
-                rows = [[esc(c.get("name") or "—"), esc(c.get("hypothesis") or c.get("note") or "—")]
+                rows = [[f"<b>{esc(c.get('name') or '—')}</b>", esc(c.get("source") or "—"),
+                         f"<code>{esc(c.get('series') or '—')}</code>",
+                         ("地域ごと" if c.get("kind") == "region" else "全国 × 1 重み"),
+                         f"<code>{esc(c.get('weights') or '—')}</code>",
+                         esc(c.get("hypothesis") or "—")
+                         + (f"<br>{esc(c['note'])}" if c.get("note") else "")]
                         for c in x["channels"]]
-                body.append(f"<details><summary>経路 {len(x['channels'])} 本</summary>"
-                            + table(["経路", "仮説"], rows) + "</details>")
+                body.append(table(["経路", "取得元", "系列", "形", "重みの表", "仮説（取得の前の宣言）"], rows))
             for tname, entries in x["weights"].items():
                 rows = [[esc(e["symbol"]), fmt(e["total"], 4), esc(e["detail"])] for e in entries]
-                body.append(f"<details><summary>重み: {esc(tname)}（{len(entries)} 銘柄）</summary>"
+                body.append(f"<details><summary>重みの表 {esc(tname)}（{len(entries)} 銘柄）【推測】</summary>"
                             + table(["銘柄", "合計", "内訳"], rows, {1}) + "</details>")
+        body.append("<p class='meta'>書いていない銘柄の重みは 0（＝ 曝露なし。0 は欠損ではない）。"
+                    "偽薬は「割り当ての入れ替え」（im_scramble）で、重みの分布はそのままに"
+                    "付き先だけを撹乱する。</p>")
     return page(label, "\n".join(body))
 
 

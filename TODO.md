@@ -90,6 +90,28 @@
   - [ ] Phase 6（方針 (c)）: 本番口座で 1 株（入金と発注は利用者が行う）
     - ⚠ 2026-09-05 の dry-run で **着金前でも 1 株は通る**ことが分かっている（買付余力 1000.0 が効き、`available-trading-funds` 0.0 は効かない）。着金を待つ必要は無い
 
+- [ ] 自宅の外から SSH で GPU 機（WSL2）に入れるようにする（Tailscale） [plan](docs/plans/remote-ssh-tailscale.md)
+  利用者の指示（2026-09-09）: **WSL2 の GPU 機に家の外から SSH で接続して作業したい。Tailscale で進める**
+  ⚠ リポジトリのコードには触れない（変更先は WSL の sshd 設定・Windows のスタートアップ・電源設定・Tailscale 導入）
+  ⚠ 調査済み（2026-09-09）: mirrored モード・ssh.socket 待受・FW 許可まで整っている。残りは経路・認証・常時稼働の 3 つ
+  - [x] Phase 1: WSL 側の受け入れ（2026-09-09）
+    ✅ 鍵 `~/.ssh/remote-client-ed25519` を生成し `authorized_keys` へ登録。`sshd_config.d/60-remote-access.conf` で鍵認証のみに固定
+    ✅ ループバックで実測: 鍵で通過・鍵なしは `Permission denied (publickey)`・SSH セッションから CUDA 動作（torch `cuda: True`）
+    ⚠ **SSH セッションには WSL の PATH（`/usr/lib/wsl/lib`）が乗らない**。`nvidia-smi` は `/usr/local/bin` へ symlink で解決済み
+  - [~] Phase 2: Windows 側の常時稼働
+    ✅ スリープは設定済みだった（AC/DC とも「なし」を実測）
+    ⚠ **スタートアップへの書き込みは権限でブロックされた**（自動起動の常駐設定は利用者が置くべきという趣旨）。vbs は scratchpad に用意済み、コピーは利用者
+  - [~] Phase 3: Tailscale の導入とログイン
+    ✅ winget で v1.102.3 を導入し、アカウント連携も完了（2026-09-09。デバイス `titan` / `100.82.194.13` / `titan.tail061b58.ts.net`）
+    - [x] 利用者: ログイン URL をブラウザで開いてアカウント連携（2026-09-09）
+    - [ ] 利用者: Tailscale アカウントに 2 要素認証を付ける（乗っ取られると経路ごと開くため）
+    - [ ] 利用者: 外で使う端末（ノート PC・スマホ）に Tailscale クライアントを入れ同じアカウントでログイン
+    - [ ] 利用者: 秘密鍵 `remote-client-ed25519` を端末へコピーし、端末側でパスフレーズを付与（`ssh-keygen -p`）
+  - [~] Phase 4: 接続試験
+    ✅ 同一マシン内から tailnet の IP（`100.82.194.13`）で SSH → GPU まで到達を実測（2026-09-09。mirrored が Tailscale の面を eth2 として WSL に映しており、懸念だった干渉は起きていない）
+    - [ ] ⚠ **外の回線からの実測が残っている**（別端末を Wi-Fi 切りの回線にして `ssh ubuntu@titan.tail061b58.ts.net` → `nvidia-smi`。同一マシン内の成功は Hyper-V FW を跨ぐ外来経路の証明にはならない）
+    - [ ] WezTerm の ssh_domains で接続できること
+
 - [ ] moomoo・IBKR の実検証（tastytrade と同じ 6 手順・6 観点で横並びにする）
   - 背景: 2026-09-04 に 3 社 → tastytrade 1 社へ絞ったときの**再開条件**（[plan §1-2](docs/plans/tastytrade-api-sample.md)）に当たる。債券・外国株・FX まで同じ口座で試したいなら IBKR、PFOF なしの執行を試したいなら moomoo
   - 使い回せるもの: `experiments/tastytrade-api-sample/` の記録形式は `venue` 列を持ち、`ttclient.py` の関数名は会場に依存しない（`authenticate` / `list_accounts` / `get_quote` / `dry_run_order` / `submit_order` / `cancel_order`）。**同じ名前で別モジュールを書けば `sample.py` の 6 手順はそのまま動く**

@@ -1,5 +1,18 @@
 {
   "files": {
     "exclude": [".git", "node_modules", ".venv", "__pycache__", ".pytest_cache", "dist"]
-  }
+  },
+  "customTabs": [
+    {
+      "name": "experiments",
+      "label": "検証",
+      "baseUrl": "http://127.0.0.1:3015/experiments",
+      "command": ["python3", "dashboard/vibetab.py"]
+    },
+    {
+      "name": "data",
+      "label": "データ",
+      "baseUrl": "http://127.0.0.1:3015/data"
+    }
+  ]
 }

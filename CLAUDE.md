@@ -142,7 +142,6 @@ node vibeboard/dist/cli.js --root .
   受信口（`$XDG_RUNTIME_DIR/cc-socks/<pid>.sock`）を引いて投函する。hook が使えない環境では
   `node vibeboard/dist/cli.js listen --name <画面の名前>` を回す
 - ローカル開発専用（本番管理画面とは独立）
-- **titan で動かした vibeboard は tailnet から `http://titan-income-vibeboard`** で見る（Tailscale Services。titan の Windows 側 `tailscale serve --service=svc:titan-income-vibeboard --http=80 http://127.0.0.1:3010`、再起動をまたいで残る。Funnel なし。2026-09-10）。`ssh titan` で入って `./run-vibeboard.sh` を叩けば開く。⚠ **dashboard（3012）は serve に出さない**（serve 経由は全部ループバックに見え、発注の面が無認証で開く。外から見るなら `ssh -L 3013:127.0.0.1:3012 titan`）。⚠ **serve の外向きポートを 3010 にしない**（mirrored では Windows 側の listener が WSL の bind を塞ぎ、vibeboard が起動できなくなる）。経緯と切り分けは `docs/plans/archive/vibeboard-remote-view.md`
 - ポート変更は `--port` または `VIBEBOARD_PORT` 環境変数で指定可能
 - 本体の更新は `node vibeboard/dist/cli.js update --restart`（再 degit → `npm install` → `init` → 同じ root の vibeboard の起動し直し、を 1 コマンドで）
 
@@ -190,3 +189,10 @@ node vibeboard/dist/cli.js --root .
    - 親タスクを `DONE.md` に移動する
    - 対応するプランファイルは `docs/plans/archive/` に移動する
 <!-- vibeboard:end -->
+
+## vibeboard のこのプロジェクト固有の運用
+
+⚠ **この節はマーカーの外に置く**（`vibeboard update` / `init` はマーカー間を置換するので、中に書くと消える。2026-09-10 に一度消えた）。
+
+- **titan で動かした vibeboard は tailnet から `http://titan-income-vibeboard`** で見る（Tailscale Services。titan の Windows 側 `tailscale serve --service=svc:titan-income-vibeboard --http=80 http://127.0.0.1:3010`、再起動をまたいで残る。Funnel なし。2026-09-10）。`ssh titan` で入って `./run-vibeboard.sh` を叩けば開く。⚠ **dashboard（3012）は serve に出さない**（serve 経由は全部ループバックに見え、発注の面が無認証で開く。外から見るなら `ssh -L 3013:127.0.0.1:3012 titan`）。⚠ **serve の外向きポートを 3010 にしない**（mirrored では Windows 側の listener が WSL の bind を塞ぎ、vibeboard が起動できなくなる）。経緯と切り分けは `docs/plans/archive/vibeboard-remote-view.md`
+- **検証・データのタブ**（2026-09-10）: `vibeboard.config.json` の customTabs。中身は `dashboard/vibetab.py`（127.0.0.1:3015、標準ライブラリのみ。vibeboard の sidecar が `python3` で自動起動）が `experiments/feature-discovery/` の `runs/` と在庫を読んで出す。vibeboard 本体が `/ext/<name>` で中継する（upstream 改造）ので、`http://titan-income-vibeboard` 越しでもタブが動く。⚠ **customTabs の baseUrl に dashboard（3012）を指定しない**（中継後はループバック発に見え、ローカル面が開く）。プランは `docs/plans/archive/vibeboard-experiments-tabs.md`

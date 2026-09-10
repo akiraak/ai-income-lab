@@ -1,5 +1,18 @@
 # DONE
 
+- 2026-09-10 vibeboard に検証・データのタブを足し、Sx360 から見られるようにした
+  - プラン: [docs/plans/archive/vibeboard-experiments-tabs.md](docs/plans/archive/vibeboard-experiments-tabs.md)（実測の表・踏んだ落とし穴・他プロジェクトへの影響の確認まで記録済み）
+  - 利用者の指示（2026-09-10）「**vibeboard に検証やデータなどのタブを追加して表示する**」。派生元は「g3plus で見せる」（中止）→「run-server を Sx360 から見る」（方向転換）の 2 段。**dashboard（3012）を tailnet に出さない決定は維持**
+  - 構成: (1) vibeboard 本体に `/ext/<name>/*` → customTab の baseUrl の中継を追加（upstream `akiraak/vibeboard` の **b86cf26** に push 済み。ブラウザには baseUrl を配らず同一オリジンの `/ext/<name>` を配る ＝ tailscale serve / `ssh -L` 越しでもタブが動く。SSE 素通し・`..` は 400・未定義タブ 404・open proxy にはならない） (2) `dashboard/vibetab.py`（127.0.0.1:3015、標準ライブラリのみ、sidecar が自動起動）が `app/experiments.py` / `app/inventory.py` を import して検証（runs の一覧・6 検査つき詳細）とデータ在庫（7 節）を出す (3) `vibeboard.config.json` に customTabs 2 つ
+  - 実測: upstream の `npm test` 55 件・dashboard の pytest 70 件 pass。ループバックで sidebar / 全 view 200・`checks.json` の touch から 5 秒以内に SSE（`sidebar` ＋ `item-changed`）・既存タブの回帰なし・3015 は 127.0.0.1 bind。**Sx360 のブラウザからの表示は利用者が確認**（2026-09-10）
+  - 他プロジェクトへの影響: customTabs を使うのは ai-income-lab だけ（titan の全 config を確認）。customTabs 無し構成の新ビルドで主要 API の回帰なし・`/ext/*` 404。旧式プラグインとの差分は root 絶対パス参照と CSP の 2 点だけで該当プラグインなし
+  - ⚠ 落とし穴: **`vibeboard update` の `init` は CLAUDE.md のマーカー間を置換する**。titan の Tailscale Services の記述が一度消えた → マーカーの外の「vibeboard のこのプロジェクト固有の運用」節に移した。プロジェクト固有の記述はマーカーの中に書かない
+
+- 2026-09-10 「g3plus の管理画面で検証・データを見せる」案は途中で中止した（方向転換）
+  - プラン: [docs/plans/archive/g3plus-experiments-view.md](docs/plans/archive/g3plus-experiments-view.md)。`runs/` の rsync まで実施したところで利用者が「titan の vibeboard にタブを足す」へ方向転換（TODO の「vibeboard に検証・データのタブを足す」）
+  - g3plus へ転送した写しは削除して元に戻した。compose は変更していない。g3plus の `/experiments` `/data` は契約（dashboard.md §7）どおり「空だが 200」のまま
+  - なお同日、この前段として g3plus の ail-dashboard を最新 main（eec106c。`/experiments`・`/data` 画面を含む）に更新した（pull → build → up -d、healthy・5 画面 200・非ループバック 403）
+
 - 2026-09-10 titan に client から SSH で入って `run-vibeboard.sh` を動かしたとき、外部からページを見られるようにした（`http://titan-income-vibeboard`）
   - プラン: [docs/plans/archive/vibeboard-remote-view.md](docs/plans/archive/vibeboard-remote-view.md)（実測の表・運用メモ・切り分けの型を追記済み）。CLAUDE.md の vibeboard 節に 1 行
   - 利用者の指示（2026-09-10）「**titan に client から ssh 接続して run-vibeboard.sh を動かしたときに外部からページが見れるようにする**」「URL は **`http://titan-income-vibeboard`** のようにサービス名を入れる」「**`run-server.sh`（dashboard）は危険なので公開しない**」から。派生元は「自宅の外から SSH で GPU 機に入れるようにする（Tailscale）」（同日完了）

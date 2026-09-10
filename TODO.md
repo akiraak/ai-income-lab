@@ -95,15 +95,10 @@
   - [~] Phase 2: Windows 側の常時稼働
     ✅ スリープは設定済みだった（AC/DC とも「なし」を実測）
     ⚠ **スタートアップへの書き込みは権限でブロックされた**（自動起動の常駐設定は利用者が置くべきという趣旨）
-    - [ ] 利用者: titan の `C:\Users\akira\wsl-autostart.vbs`（2026-09-09 に scratchpad から退避）を `shell:startup` にコピーし、Windows を再起動して Sx360 から `ssh titan hostname` が通ることを確認
-      手順（titan の Windows で）:
-      1. `Win + R` → `shell:startup` → Enter（スタートアップのフォルダが開く）。⚠ titan では Win + R がスクショに横取りされる（2026-09-10。常駐アプリのホットキー。DeepL の可能性）→ エクスプローラーのアドレスバーに `shell:startup` と入力して開く
-      2. そこへ `C:\Users\akira\wsl-autostart.vbs` をコピー（中身: `wsl.exe -d Sandbox24 --exec sleep infinity` を隠し窓で起動）
-      3. Windows を再起動してログオン。⚠ titan 側でターミナルを開かない（開くと WSL が上がって確認にならない）
-      4. Sx360 から `ssh titan hostname` → `titan` と返れば完了
-      ⚠ ログオンするまで WSL は上がらない。無人で使う話は下の「ログオン不要」版（タスクスケジューラ）で扱う
+    ✅ 利用者が titan のスタートアップに `wsl-autostart.vbs` を置いた。Sx360 から確認（2026-09-10）: `ssh titan` が通り、Windows の起動 09:08:20 → 常駐の `sleep infinity`（PID 641）の開始 09:09:21 で、再起動からログオン直後に vbs が WSL を上げている。titan に触らずに `ssh titan` が通った
+      ⚠ ログオンするまで WSL は上がらない。無人で使うなら自動サインイン（`netplwiz`）が別途要る
     - [ ] 利用者: ログインせず電源オンだけで WSL が上がるようにする（タスクスケジューラ）
-      依存: 「titan の `C:\Users\akira\wsl-autostart.vbs`（2026-09-09 に scratchpad から退避）を `shell:startup` にコピーし、Windows を再起動して Sx360 から `ssh titan hostname` が通ることを確認」
+      依存: 「titan の `C:\Users\akira\wsl-autostart.vbs`（2026-09-09 に scratchpad から退避）を `shell:startup` にコピーし、Windows を再起動して Sx360 から `ssh titan hostname` が通ることを確認」（2026-09-10 に完了。上の ✅）
       方針（2026-09-10・利用者の指示）: 先にログオン前提の vbs 版を通し、通ってからこちらへ切り替える。Tailscale は Windows のサービスなのでログオン前から繋がっており、ログオンを待っているのは WSL（sshd）だけ
       手順（titan のタスクスケジューラ → 「タスクの作成」）:
       1. 全般: 名前 `wsl-autostart`。「**ユーザーがログオンしているかどうかにかかわらず実行する**」を選ぶ（「パスワードを保存しない」はオフのまま）

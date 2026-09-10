@@ -8,3 +8,5 @@ pyarrow==25.0.1      # data/features/*.parquet（CSV だと 1 実験 300MB に�
 pytest==9.1.1        # tests/（不変条件・調整の検算・先読み）
 requests==2.32.5     # ⚠ 取得（ttclient が使う）。サンプルと同じ版に固定する
 websockets==15.0.1   # ⚠ 取得（DXLink）。同上
+lightgbm==4.7.0      # 勾配ブースティング（plans/gpu-models.md §1。⚠ この規模なら CPU で足りる）
+torch==2.14.0        # MLP・WGAN-GP（同 §1・§2）。既定 wheel は CUDA ランタイム同梱（+cu130）

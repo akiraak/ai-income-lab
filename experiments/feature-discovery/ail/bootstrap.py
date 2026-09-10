@@ -17,4 +17,6 @@ from ail.features import own, cross, relative, leadlag, exog   # noqa: F401
 from ail.features import impact                              # noqa: F401
 from ail.selectors import filter as _filter, wrapper, embedded  # noqa: F401
 from ail.models import baselines, linear     # noqa: F401
+# ⚠ **モデルの軸**（plans/archive/gpu-models.md）: 勾配ブースティング・MLP・GAN 増強
+from ail.models import trees, deep, gan      # noqa: F401
 from ail.validation import splits            # noqa: F401

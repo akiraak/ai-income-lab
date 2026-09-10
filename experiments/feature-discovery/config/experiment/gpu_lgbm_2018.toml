@@ -1,0 +1,33 @@
+# ⚠ **モデルの軸の 1 本**: 勾配ブースティング（plans/archive/gpu-models.md §3-2）
+#
+# ⚠ **own_impact_2018 と model・selectors 以外は完全に同じ**（期間・粒度・地平・k・種・コスト）。
+# Ridge の対照は runs/2026-09-09T12-22-33_own_impact_2018。⚠ **違うのはモデルだけ。**
+# 選別は 4 本に絞る（モデルの比較の主役は「全部使う × モデル」の行。選別の優劣は決着済み）。
+name = "gpu_lgbm_2018"
+dataset = "daily"
+horizon = 1
+cost_bp = 5.0
+start_date = "2018-05-21"
+
+targets = "all"
+
+horizon_min = 1440.0
+bar_minutes = 1440.0
+
+feature_layers = ["own"]
+
+selectors = [
+  "全部使う（基準）", "乱択（基準）",
+  "F3-3 並べ替え(MDA)", "F3-1 Lasso",
+]
+k = 16
+
+model = "LightGBM"
+baselines = ["常に上（ドリフト）", "直前リターンの符号"]
+
+[validation]
+split = "walk_forward"
+folds = 5
+purge = true
+embargo_bars = 0
+seed = 0

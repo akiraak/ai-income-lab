@@ -1,0 +1,31 @@
+# ⚠ **GAN 増強の 2 本目**: 最良の非線形（Phase 2 で LightGBM）＋ WGAN-GP（plans/archive/gpu-models.md §2・Phase 3）
+#
+# ⚠ **増強なしの対照は gpu_lgbm_2018**（同じ LightGBM・同じ規約）。⚠ **違うのは増強だけ。**
+name = "gpu_lgbm_gan_2018"
+dataset = "daily"
+horizon = 1
+cost_bp = 5.0
+start_date = "2018-05-21"
+
+targets = "all"
+
+horizon_min = 1440.0
+bar_minutes = 1440.0
+
+feature_layers = ["own"]
+
+selectors = [
+  "全部使う（基準）", "乱択（基準）",
+  "F3-1 Lasso",
+]
+k = 16
+
+model = "LightGBM+GAN増強"
+baselines = ["常に上（ドリフト）", "直前リターンの符号"]
+
+[validation]
+split = "walk_forward"
+folds = 5
+purge = true
+embargo_bars = 0
+seed = 0

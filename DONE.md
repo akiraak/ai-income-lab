@@ -1,5 +1,16 @@
 # DONE
 
+- 2026-09-09 3090 Ti（24GB）を使った機械学習で予測モデルを検証した
+  - プラン: [docs/plans/archive/gpu-models.md](docs/plans/archive/gpu-models.md) / ⚠ **主成果物: [docs/specs/experiments/gpu-models.md](docs/specs/experiments/gpu-models.md)**（判定は §6）/ コード: `experiments/feature-discovery/ail/models/{trees,deep,gan,holdout}.py`（registry に足しただけ。配線は不変）
+  - 利用者の指示（2026-09-09）「**3090Ti 24GB があるので、それを使用した機械学習での予測モデルの検証をする**」「**モデル候補に GAN を加える**」から。[feature-discovery §9-2](docs/specs/experiments/feature-discovery.md) の「やらずに閉じたもの」の**非線形モデル**を別タスクとして実施
+  - 決めごと: モデルは LightGBM・MLP（⚠ **系列モデルは見送り** — 入力の表現ごと変わり、モデルの軸と入力の軸が混ざる）／ ⚠ **GAN は予測器ではなく増強**（WGAN-GP を fold ごとに訓練分割の内側で fit・α = 100% 固定）／ 入力は own_ 2018 と断面 134 本（`ex_`・`im_` は足さない）／ ハイパーパラメータは事前固定でチューニングなし
+  - ⚠ **判定: 「採る」は 0。** own_ で**初めて純利が正**（LightGBM 全部使う ＋1.52bp・MLP ＋0.99bp）だが ⚠ **fold 1（コロナ 2019-10〜2021-02）を外すと −1.38bp に反転・対ドリフト上乗せ −0.04bp ≒ 0** ＝ §8 と同じ 1 期間依存で「保留」。断面 × LightGBM は −4.51bp と Ridge（−2.80bp）より悪化。⚠ **GAN 増強は両予測器を悪化させ「落とす」**（Ridge −1.67 ／ LightGBM −2.60bp。コロナ期の信号まで薄めた）
+  - ⚠ **§9 の結論「価格だけからは方向が出ない」は、モデルを非線形にしても・GAN で増強しても変わらない。** 選別（§9）・断面（§8）・モデル（本タスク）の 3 軸で同じ形が独立に出た
+  - leak 対照 6 実行すべてで的中率 91〜99% に跳ね、配線は健全。⚠ **台帳の鍵にモデル列を追加**（「全部使う × Ridge 以外」はモデルが処置なので試行に数える）。n_trials 45 → 58・DSR 最良 0.41（< 0.95）
+  - GPU: 利用者の指示「**GPU を使う処理はしていない＝ 全メモリ使用可**」を受け、利用者が llama-server を停止（⚠ `systemctl --user stop` は Claude の権限で弾かれる）。Phase 2 は CPU・Phase 3 は GPU（cuda 固定）。⚠ **`torch.cuda.mem_get_info()` が問い合わせだけで約 350MiB 掴む罠**を踏み、`nvidia-smi` 経由に修正。WGAN-GP 1 fit は GPU 3 分 ／ CPU 6 分【実測から換算】＝ 幅 128 の小さい網は起動律速で 2 倍しか縮まない
+  - torch 2.14.0（+cu130）・lightgbm 4.7.0 を requirements に固定。tests 130 件通過（決定性・GAN 増強の構造・台帳の後方互換）
+  - ⚠ **資金は動かしていない**（2026-08-27 の方針）。⚠ **投資助言ではなく調査資料**
+
 - 2026-09-09 経済指標の発表日（暦）を取り、発表日と株価の関連を実測した
   - プラン: [docs/plans/archive/econ-calendar.md](docs/plans/archive/econ-calendar.md) / ⚠ **主成果物: [docs/specs/experiments/econ-calendar.md](docs/specs/experiments/econ-calendar.md)**（判定は §5）/ コード: `experiments/feature-discovery/ail/data/sources/fomc.py` ＋ `cli/eventstudy.py`
   - 利用者の指示（2026-09-09）「**雇用統計の発表日など経済に影響を与える状況も取得する。⚠ 重要なのは発表日と株価との関連**」から

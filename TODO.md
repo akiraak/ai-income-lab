@@ -42,15 +42,6 @@
   ⚠ **資金は動かさない**（2026-08-27 の方針）。⚠ **数字は【実測】/【公表値】/【推測】を明示する**
   関連: [daily-data-sources.md](docs/specs/experiments/daily-data-sources.md) ／ [rules.md](docs/specs/experiments/feature-discovery/rules.md) ／ [market-data-availability.md](docs/specs/market-data-availability.md)
 
-- [ ] 3090 Ti（24GB）を使った機械学習で予測モデルを検証する
-  利用者の指示（2026-09-09）: **3090Ti 24GB があるので、それを使用した機械学習での予測モデルの検証をする**
-  派生元: 「特徴量を見つけ出す手法の検証」（2026-09-08 完了。[§9-2](docs/specs/experiments/feature-discovery.md) の「やらずに閉じたもの」に**非線形モデル**がある）
-  ⚠ **これまでモデルは Ridge 1 本**（比べていたのは選別の手法であってモデルではない）。⚠ **モデルを替えるなら別タスク**と書いてあった、その別タスク
-  ⚠ **着手前にプランを作る**（`docs/plans/gpu-models.md`）。決めるのは 3 つ: どのモデル（勾配ブースティング ／ 系列モデル ／ 深層）・どの入力（`own_` だけ／断面／`ex_`・`im_` を足す）・⚠ **同じ規約で比べること**（[rules.md](docs/specs/experiments/feature-discovery/rules.md) 9 章・11 章。基準線・fold の符号・上乗せ t・デフレーテッド SR）
-  ⚠ **「GPU で大きいモデルを回せる」と「情報が増える」は別物**。⚠ **§9 で価格だけからは方向が出なかった**ので、モデルを替えて良い数字が出たら、まず先読み（rules.md 7 章）を疑う
-  ⚠ **資金は動かさない**（2026-08-27 の方針）
-  関連: [feature-discovery.md](docs/specs/experiments/feature-discovery.md) ／ [daily-data-sources.md](docs/specs/experiments/daily-data-sources.md)
-
 - [ ] データの取得元を広げる（判断待ちの 2 件）
   ⚠ **「予想モデルに使うデータを広く収集する」から切り出した**（2026-09-09 に本体は完了。[DONE](DONE.md)）
   ⚠ **どちらも私には決められない。** ⚠ **取れないのではなく、本プロジェクトをどう位置づけるかで決まる**

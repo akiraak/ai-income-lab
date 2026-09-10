@@ -1,0 +1,33 @@
+# ⚠ **GAN 増強の 1 本目**: Ridge ＋ WGAN-GP の合成データ（plans/archive/gpu-models.md §2・Phase 3）
+#
+# ⚠ **増強なしの対照は own_impact_2018**（同じ Ridge・同じ規約）。⚠ **違うのは増強だけ。**
+# ⚠ **GAN は fold ごとに訓練分割の内側で fit する**（rules.md 3 章 B。ail/models/gan.py）。
+# ⚠ **GPU で回す前提**（CPU だと 5 fold × 4 選別の GAN 学習が数時間になる【推測】）。
+name = "gpu_ridge_gan_2018"
+dataset = "daily"
+horizon = 1
+cost_bp = 5.0
+start_date = "2018-05-21"
+
+targets = "all"
+
+horizon_min = 1440.0
+bar_minutes = 1440.0
+
+feature_layers = ["own"]
+
+selectors = [
+  "全部使う（基準）", "乱択（基準）",
+  "F3-1 Lasso",
+]
+k = 16
+
+model = "Ridge+GAN増強"
+baselines = ["常に上（ドリフト）", "直前リターンの符号"]
+
+[validation]
+split = "walk_forward"
+folds = 5
+purge = true
+embargo_bars = 0
+seed = 0

@@ -1,0 +1,40 @@
+# ⚠ **Phase 4**: 断面 134 本に最良の非線形（Phase 2 で LightGBM）を 1 本だけ（plans/archive/gpu-models.md §3-1）
+#
+# ⚠ **cross_section_h1 と model・selectors 以外は完全に同じ**（Ridge の対照は
+# runs/2026-09-08T19-42-54_cross_section_h1）。⚠ **§8 で唯一 純利が正の行が出た入力**だが、
+# ⚠ **その正は fold 1（コロナ）に全面依存だった**（§8-6）。同じ検査をここでも通す。
+name = "gpu_lgbm_cs"
+dataset = "daily"
+horizon = 1
+cost_bp = 5.0
+
+feature_layers = ["own", "cs", "rel", "ll"]
+
+targets = "company"
+
+horizon_min = 1440.0
+bar_minutes = 1440.0
+
+selectors = [
+  "全部使う（基準）", "乱択（基準）",
+  "F3-3 並べ替え(MDA)", "F3-1 Lasso",
+]
+k = 32
+
+model = "LightGBM"
+baselines = ["常に上（ドリフト）", "直前リターンの符号"]
+
+[validation]
+split = "walk_forward"
+folds = 5
+purge = true
+embargo_bars = 1        # ⚠ 断面は同じ時刻の他銘柄を見るので、境目を 1 本空ける
+seed = 0
+
+[features]
+ll_leaders = "etf"
+ll_lags = [1, 2, 3, 5]
+beta_window = 60
+
+[notes]
+common_window_only = true

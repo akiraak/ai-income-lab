@@ -40,9 +40,16 @@ def _git_commit() -> str | None:
 
 def _versions() -> dict:
     import numpy, sklearn, scipy          # noqa: E401
-    return {"python": sys.version.split()[0], "numpy": numpy.__version__,
-            "pandas": pd.__version__, "scikit-learn": sklearn.__version__,
-            "scipy": scipy.__version__, "platform": platform.platform()}
+    out = {"python": sys.version.split()[0], "numpy": numpy.__version__,
+           "pandas": pd.__version__, "scikit-learn": sklearn.__version__,
+           "scipy": scipy.__version__, "platform": platform.platform()}
+    # ⚠ **モデルの軸で使う版も残す**（plans/archive/gpu-models.md。入っていない環境では黙って省く）
+    for mod in ("torch", "lightgbm"):
+        try:
+            out[mod] = __import__(mod).__version__
+        except Exception:
+            pass
+    return out
 
 
 class Run:

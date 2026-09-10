@@ -208,10 +208,13 @@ def _run_trials(run: dict) -> list[dict]:
     cfg, inputs = run["config"], run.get("inputs", {})
     gran, bar_min = _granularity(cfg)
     layer = _layer_of(run)
+    model = cfg.get("model", "Ridge")
     rows = []
     for method, s in run["summary"].iterrows():
         rows.append({
             "手法名": str(method), "粒度": gran, "地平": _horizon(cfg.get("horizon", 0), bar_min),
+            # ⚠ **「基準 」の行はモデルを使わない**（常に上・直前符号）。モデル別に割れないよう「—」
+            "モデル": "—" if str(method).startswith("基準 ") else model,
             "層": layer, "特徴量の層": " ".join(cfg.get("feature_layers", [])),
             "対象": cfg.get("targets") or "all", "k": cfg.get("k"),
             "コストbp": cfg.get("cost_bp"), "本数": s.get("本数"), "的中率": s.get("的中率"),
@@ -263,6 +266,7 @@ def legacy_trials(decl: dict) -> list[dict]:
         rows.append({
             "手法名": name, "粒度": decl.get("granularity", "?"),
             "地平": _horizon(float(decl.get("horizon", 0)), bar_min),
+            "モデル": "—" if name.startswith("基準") else decl.get("model", "Ridge"),
             "層": decl.get("layer", "?"), "特徴量の層": " ".join(decl.get("feature_layers", [])),
             "対象": decl.get("targets", "all"), "k": decl.get("k"),
             "コストbp": decl.get("cost_bp"),
@@ -290,10 +294,17 @@ JUDGE_RULES = [
 
 
 def judge(row: dict, baselines: set[str]) -> tuple[str, str]:
-    """(判定, 理由)。⚠ **3 値（採る / 落とす / 保留）＋ 基準線。**"""
+    """(判定, 理由)。⚠ **3 値（採る / 落とす / 保留）＋ 基準線。**
+
+    ⚠ **「全部使う × Ridge 以外のモデル」は基準線ではなく手法として判定する**
+    （モデルが処置。plans/archive/gpu-models.md §3-4。乱択・「基準 」の行は従来どおり基準線）。
+    """
     invalid = row.get("粒度") == "日足" and row.get("層") == "raw"
     note = "⚠ **無効・要再測**（分割調整の誤り。§6-3）" if invalid else ""
-    if canonical(row["手法名"])[1] in baselines or row["手法名"].startswith("基準 "):
+    model_treated = (row["手法名"] == "全部使う（基準）"
+                     and (row.get("モデル") or "Ridge") not in ("Ridge", "—"))
+    if (canonical(row["手法名"])[1] in baselines or row["手法名"].startswith("基準 ")) \
+            and not model_treated:
         if "常に上" in row["手法名"]:
             note = (note + " ／ " if note else "") + "⚠ **ほとんど回転しない＝ 実際はコストを払わない**"
         return "基準", note or "⚠ 採否の対象ではない"
@@ -314,7 +325,22 @@ def judge(row: dict, baselines: set[str]) -> tuple[str, str]:
 
 # --- 台帳の行 -----------------------------------------------------------
 
-KEY = ("鍵", "粒度", "地平", "特徴量の層", "層")   # ⚠ 利用者が決めた 1 行の粒度
+KEY = ("鍵", "モデル", "粒度", "地平", "特徴量の層", "層")   # ⚠ 利用者が決めた 1 行の粒度
+# ⚠ **モデルは 2026-09-09 に鍵へ足した**（plans/archive/gpu-models.md §3-2）。それまでは Ridge 1 本だったので
+# ⚠ **既存の行はどれも割れない**（旧実行はモデル未指定 = Ridge として読む）
+
+
+def is_trial(row: dict) -> bool:
+    """台帳の 1 行を n_trials に数えるか。⚠ **数え落とすと DSR が必ず甘くなる**（rules.md 11 章 規約 4）。
+
+    カタログ ID を持つ行（従来どおり）に加え、⚠ **モデルが処置の行**
+    （「全部使う × Ridge 以外のモデル」）も数える（plans/archive/gpu-models.md §3-4）。
+    乱択・「基準 」の行は従来どおり基準線として数えない。
+    """
+    if row.get("ID"):
+        return True
+    return (row.get("鍵") == "全部使う（基準）"
+            and (row.get("モデル") or "Ridge") not in ("Ridge", "—"))
 
 
 def canonical(name: str) -> tuple[str | None, str]:
@@ -343,7 +369,8 @@ def trials() -> tuple[list[dict], list[dict], list[dict]]:
             continue
         cfg, inputs, env = run["config"], run.get("inputs", {}), run.get("env", {})
         gran, _ = _granularity(cfg)
-        run_list.append({"実行": name, "粒度": gran, "層": _layer_of(run),
+        run_list.append({"実行": name, "粒度": gran, "モデル": cfg.get("model", "Ridge"),
+                         "層": _layer_of(run),
                          "行": inputs.get("rows_before_sample"), "特徴量": inputs.get("features"),
                          "銘柄": inputs.get("symbols"), "種": env.get("seed"),
                          "commit": env.get("git_commit"),

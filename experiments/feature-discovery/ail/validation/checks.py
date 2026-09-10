@@ -134,10 +134,13 @@ def _panel_checks(panel: pd.DataFrame, full_panel: pd.DataFrame | None, gross_bp
 
 
 def n_trials_now(extra: int = 0) -> int | None:
-    """台帳が数えている試行数 ＋ この実行ぶん。⚠ **数え落とすと必ず甘くなる**（rules.md 11 章 規約 4）。"""
+    """台帳が数えている試行数 ＋ この実行ぶん。⚠ **数え落とすと必ず甘くなる**（rules.md 11 章 規約 4）。
+
+    ⚠ **数える規則は `catalog.is_trial` が正本**（カタログ ID の行 ＋ モデルが処置の行）。
+    """
     try:
         from ail import catalog
         rows, _leak, _runs = catalog.trials()
-        return len([r for r in rows if r.get("ID")]) + int(extra)
+        return len([r for r in rows if catalog.is_trial(r)]) + int(extra)
     except Exception:
         return None

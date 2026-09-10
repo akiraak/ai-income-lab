@@ -131,7 +131,10 @@ def main() -> None:
     run.result(res, g)
 
     # ⚠ **検査はここで 1 度だけ計算して記録に残す**（管理画面は読むだけ。プラン §2）
+    # ⚠ **モデルが Ridge 以外なら「全部使う × モデル」も 1 試行**（plans/archive/gpu-models.md §3-4）
     n_sel = len([x for x in exp.get("selectors", []) if not checks.is_baseline(x)])
+    if exp.get("model", "Ridge") != "Ridge" and "全部使う（基準）" in exp.get("selectors", []):
+        n_sel += 1
     doc = checks.compute(res, g, exp, panel=panel, full_panel=full_panel,
                          n_trials=checks.n_trials_now(n_sel), leak=args.leak)
     run.checks(doc)

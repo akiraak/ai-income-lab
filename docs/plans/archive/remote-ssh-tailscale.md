@@ -82,12 +82,30 @@ flowchart LR
 - tailnet 経由で titan の sshd に到達すること・鍵で通ること・`wezterm connect titan` で GPU が見えることまで Sx360 から実測した
 - 外の回線（スマホのテザリング）からも `ssh titan` → `nvidia-smi` が通った。経路は最初 DERP 中継（`tailscale ping` 約 210〜240ms・`ssh` 往復 2.1s）で、10 往復のうちに直結へ切り替わって 78ms【実測】。Phase 4 はこれで完了
 
+- ログオンなしの起動（タスクスケジューラ）では **Windows の Tailscale を「Run unattended」にしておく必要がある**。無いとサービスは動いていても接続せず（`tailscale status` が「起動中 / NoState」）、外からは届かない。`tailscale set --unattended` で有効化し、以後は無人でも接続する（2026-09-10 実測）
+
 ### Phase 4: 接続試験（利用者）
 
 - LAN 内から: `ssh -i <鍵> ubuntu@<この PC の LAN IP>` が**鍵で通り**、鍵なしが**拒否される**こと
 - tailnet 経由: 端末の Wi-Fi を切る等で外部回線にし、`ssh ubuntu@<Tailscale IP または MagicDNS 名>` が通ること
 - WezTerm: `wezterm ssh` または ssh_domains で同上
 - 通ったら `nvidia-smi` で GPU が見えることまで確認
+
+## 運用メモ（2026-09-10 完了時点。TODO にだけあった手順をここへ移した）
+
+| 項目 | 場所・値 |
+|---|---|
+| titan の sshd | `/etc/ssh/sshd_config.d/60-remote-access.conf`（`PasswordAuthentication no` / `KbdInteractiveAuthentication no` / `PermitRootLogin no`）。socket activation |
+| titan の `authorized_keys` | Sx360 の `titan-ed25519`（ssh config の `titan` が使う）と `gpu-home-ed25519`（利用者作成）。バックアップ `authorized_keys.bak-20260909` |
+| 無人起動 | タスクスケジューラ `wsl-autostart`（システムの開始時・ログオン不問・電源条件なし・実行時間制限なし）。定義 XML は `C:\Users\akira\wsl-autostart-task.xml`。登録は管理者 PowerShell で `schtasks /create /tn wsl-autostart /xml C:\Users\akira\wsl-autostart-task.xml /ru titan\akira /rp *`（PIN 不可・昇格が要る） |
+| ログオン時起動（旧） | `shell:startup` の `wsl-autostart.vbs`（`wsl.exe -d Sandbox24 --exec sleep infinity` を隠し窓で）。タスク版が通ったので外す予定 |
+| Tailscale（titan） | Windows サービス。**`tailscale set --unattended` 済み**（これが無いとログオン前は「起動中 / NoState」で外から届かない） |
+| Tailscale（Sx360） | v1.102.3、`sx360` = 100.119.134.116。ログインは Google（`akiraak@gmail.com`、2 段階認証オン） |
+| 電源（titan） | 高パフォーマンス。スリープ・休止とも「なし」。ディスプレイ電源オフ AC 15 分（ログオン画面の 1 分は効かず、15 分でよいと判断）。高速スタートアップは有効のまま（電源オフ→オンの確認前に `powercfg /h off`） |
+| Sx360 の ssh alias | `titan`（`titan.tail061b58.ts.net`）／ `titan-lan`（`titan.lan` = 10.0.1.81）。WSL と Windows の両方の ssh config |
+| WezTerm | deco-tarm の `ssh.local.lua` に `titan` / `titan-lan`。`wezterm connect titan` で開く（起動中の WezTerm には再起動まで出ない） |
+
+切り分けの型: tailnet で届かないときは、まず `tailscale status` で titan がオンラインか、次に LAN 側 `10.0.1.81:22` が開いているか。Windows が上がって WSL も上がっているのに Tailscale だけ落ちていれば、無人実行の設定が容疑者。
 
 ## テスト方針
 

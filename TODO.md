@@ -81,71 +81,11 @@
   - [ ] Phase 6（方針 (c)）: 本番口座で 1 株（入金と発注は利用者が行う）
     - ⚠ 2026-09-05 の dry-run で **着金前でも 1 株は通る**ことが分かっている（買付余力 1000.0 が効き、`available-trading-funds` 0.0 は効かない）。着金を待つ必要は無い
 
-- [ ] 自宅の外から SSH で GPU 機（WSL2）に入れるようにする（Tailscale） [plan](docs/plans/remote-ssh-tailscale.md)
-  利用者の指示（2026-09-09）: **WSL2 の GPU 機に家の外から SSH で接続して作業したい。Tailscale で進める**
-  ⚠ リポジトリのコードには触れない（変更先は WSL の sshd 設定・Windows のスタートアップ・電源設定・Tailscale 導入）
-  ⚠ 調査済み（2026-09-09）: mirrored モード・ssh.socket 待受・FW 許可まで整っている。残りは経路・認証・常時稼働の 3 つ
-  📌 **引き継ぎ（2026-09-09 夜・Sx360 → titan）**: ノート PC `Sx360` 側の作業は全部済み（Tailscale ログイン・鍵・ssh config・WezTerm・外の回線からの実測）。残りは下の未チェック 4 つで、**titan の Windows / WSL で行うのは「vbs をスタートアップへ」と「未使用の鍵を外す」**、利用者がどこからでも行えるのが「パスフレーズ」（⚠ これだけは Sx360 で）と「Google の 2 段階認証」。4 つが済んだら親タスクを DONE へ移し、プランを archive へ
-  📌 2026-09-10 08:46 titan で確認: 残りは「vbs をスタートアップへ」（titan）と「パスフレーズ付与」（Sx360）の 2 つで、**どちらも利用者の作業**（スタートアップへの書き込みは 2026-09-09 に権限でブロック済みのため Claude は行わない）。`shell:startup` に vbs は未配置を実測（DeepL のみ）。受け側は健在（`ssh.socket` active・tailnet に `titan` / `sx360` の 2 台）
-  📌 2026-09-10 追記: 「ログオン不要で電源オンだけで上がる」タスクスケジューラ版を Phase 2 に追加。利用者の指示: **先にログオンする vbs 版を通し、その後こちらへ切り替える**
-  - [x] Phase 1: WSL 側の受け入れ（2026-09-09）
-    ✅ 鍵 `~/.ssh/remote-client-ed25519` を生成し `authorized_keys` へ登録。`sshd_config.d/60-remote-access.conf` で鍵認証のみに固定
-    ✅ ループバックで実測: 鍵で通過・鍵なしは `Permission denied (publickey)`・SSH セッションから CUDA 動作（torch `cuda: True`）
-    ⚠ **SSH セッションには WSL の PATH（`/usr/lib/wsl/lib`）が乗らない**。`nvidia-smi` は `/usr/local/bin` へ symlink で解決済み
-  - [~] Phase 2: Windows 側の常時稼働
-    ✅ スリープは設定済みだった（AC/DC とも「なし」を実測）
-    ⚠ **スタートアップへの書き込みは権限でブロックされた**（自動起動の常駐設定は利用者が置くべきという趣旨）
-    ✅ 利用者が titan のスタートアップに `wsl-autostart.vbs` を置いた。Sx360 から確認（2026-09-10）: `ssh titan` が通り、Windows の起動 09:08:20 → 常駐の `sleep infinity`（PID 641）の開始 09:09:21 で、再起動からログオン直後に vbs が WSL を上げている。titan に触らずに `ssh titan` が通った
-      ⚠ ログオンするまで WSL は上がらない。無人で使うなら自動サインイン（`netplwiz`）が別途要る
-    - [~] 利用者: ログインせず電源オンだけで WSL が上がるようにする（タスクスケジューラ）
-      ✅ 2026-09-10 登録完了: 利用者が管理者 PowerShell から XML 取り込み（上の近道コマンド）で作成。⚠ **昇格なしの端末だと「アクセスが拒否されました」になる**（1 回目はこれで失敗。パスワード違いなら「ログオン失敗」と出るので区別できる）。パスワードは titan にサインインしている Microsoft アカウントのもの
-      ✅ `schtasks /query` で実測: 状態 準備完了・ログオンモード 対話型/バックグラウンド・スケジュール「システムの開始時」・「タスクを停止するまでの時間」**無効**（3 日で殺される既定は解除できている）
-      ⚠ Hello 専用サインイン（パスワードレス）のトグルは**有効**を実測（`DevicePasswordLessBuildVersion=0x2`）だが、パスワード保存自体はできた。起動時に本当に走るかは下の再起動の確認で分かる（走らなければこのトグルが容疑者）
-      ✅ ログオンせず放置しても電源は落ちない設定を実測（2026-09-10。高パフォーマンス プランで スリープ 0・休止 0 = どちらも「なし」。無人スリープはスリープ復帰時だけに効くので起動直後には無関係）。勝手な再起動は Windows Update だけで、起動時タスクなので再起動後も SSH は自動復帰する。画面は別で消える（ディスプレイ電源オフ AC 15 分を実測。ログオン画面では既定 約 1 分のロック時タイムアウトが先に効く）
-      依存: 「titan の `C:\Users\akira\wsl-autostart.vbs`（2026-09-09 に scratchpad から退避）を `shell:startup` にコピーし、Windows を再起動して Sx360 から `ssh titan hostname` が通ることを確認」（2026-09-10 に完了。上の ✅）
-      方針（2026-09-10・利用者の指示）: 先にログオン前提の vbs 版を通し、通ってからこちらへ切り替える。Tailscale は Windows のサービスなのでログオン前から繋がっており、ログオンを待っているのは WSL（sshd）だけ
-      📌 2026-09-10 下ごしらえ済み（Claude・titan で実測）: タスク定義 XML を `C:\Users\akira\wsl-autostart-task.xml` に配置した（下の手順 1〜5 を織り込み済み: スタートアップ時トリガー・「ログオンしているかどうかにかかわらず実行」・電源条件なし・実行時間制限なし）。`wsl-autostart` タスクは**未登録**、**高速スタートアップは有効**（`HiberbootEnabled=0x1`）→ 下の確認の「シャットダウン → 電源オン」の前に `powercfg /h off`（管理者）が実際に要る。登録自体はパスワード入力と管理者昇格が要るため Claude は行わない
-      近道（管理者 PowerShell で 1 コマンド。GUI の手順 1〜6 の代わり）:
-      `schtasks /create /tn wsl-autostart /xml C:\Users\akira\wsl-autostart-task.xml /ru titan\akira /rp *`
-      （`/rp *` でパスワードを対話入力。⚠ PIN 不可。GUI 派はタスクスケジューラ → 「タスクのインポート」で同じ XML を選んでもよい。その場合も手順 6 のパスワード入力はある）
-      手順（XML を使わず GUI で作る場合。titan のタスクスケジューラ → 「タスクの作成」）:
-      1. 全般: 名前 `wsl-autostart`。「**ユーザーがログオンしているかどうかにかかわらず実行する**」を選ぶ（「パスワードを保存しない」はオフのまま）
-      2. トリガー: 新規 → 「スタートアップ時」
-      3. 操作: 新規 → プログラム `C:\Windows\System32\wsl.exe`、引数 `-d Sandbox24 --exec sleep infinity`
-      4. 条件: 「コンピューターを AC 電源で使用している場合のみ〜」のチェックを外す
-      5. 設定: ⚠ 「**タスクを停止するまでの時間**」（既定 3 日）のチェックを外す。外さないと 3 日後に常駐が殺されて SSH が落ちる
-      6. OK でアカウントの**パスワード**を入力（⚠ PIN 不可。Microsoft アカウントならそのパスワード。パスワードレス運用だと保存できない → その場合の代替は `netplwiz` の自動サインイン）
-      確認: 再起動して titan に触らず、Sx360 から `ssh titan hostname`。通ったら「シャットダウン → 電源オン」でも同じ確認（⚠ 高速スタートアップが有効だと電源オフ→オンで「スタートアップ時」トリガーが発火しないことがある → `powercfg /h off` で無効化）
-      ⚠ 通ったら `shell:startup` の vbs は外す（二重起動を避けて片方に揃える）
-      ⚠ アカウントのパスワードを変えたらタスクに入れ直しが要る
-  - [~] Phase 3: Tailscale の導入とログイン
-    ✅ winget で v1.102.3 を導入し、アカウント連携も完了（2026-09-09。デバイス `titan` / `100.82.194.13` / `titan.tail061b58.ts.net`）
-    - [x] 利用者: ログイン URL をブラウザで開いてアカウント連携（2026-09-09）
-    - [x] 利用者: Tailscale アカウントに 2 要素認証を付ける（2026-09-09。Google アカウントの 2 段階認証がオンであること、管理画面の端末が `titan` と `sx360` の 2 台だけであることを利用者が確認）
-      ⚠ Tailscale 自体に 2FA は無く、ログインに使った ID プロバイダ（Google `akiraak@gmail.com`）の 2 段階認証がそれに当たる
-    - [~] 利用者: 外で使う端末（ノート PC・スマホ）に Tailscale クライアントを入れ同じアカウントでログイン
-      ✅ ノート PC `Sx360`（WSL2 mirrored・Windows ユーザー `akira`）に winget で v1.102.3 を導入（2026-09-09）
-      ✅ `Sx360` のログイン完了（2026-09-09。`sx360` = `100.119.134.116`。WSL から MagicDNS 名が引け、`tailscale ping titan` は LAN 直通 7ms）
-    - [~] 端末側の鍵。⚠ **方針を変えた: titan の `remote-client-ed25519` を運ばず、定石どおり端末側で生成する**（titan は鍵なしを拒否するので、鍵を運ぶ経路が無い）
-      ✅ `Sx360` の WSL で `~/.ssh/titan-ed25519` を生成し、WezTerm 用に `C:\Users\akira\.ssh\` にも置いた（2026-09-09）。ssh config に `titan`（tailnet・MagicDNS 名）/ `titan-lan`（LAN 直結の逃げ道）を WSL・Windows 両方に追加
-      ✅ 利用者が titan の `authorized_keys` に `Sx360` の公開鍵を追記（2026-09-09）
-      - [ ] 利用者: `Sx360` でパスフレーズを付与。3 か所。⚠ 2026-09-09 20:40 時点で 3 つとも未付与を実測
-        手順（Sx360 で。同じパスフレーズでよい）:
-        1. WSL のターミナルで `ssh-keygen -p -f ~/.ssh/titan-ed25519`
-        2. 同じく `ssh-keygen -p -f ~/.ssh/gpu-home-ed25519`
-        3. PowerShell で `ssh-keygen -p -f "$env:USERPROFILE\.ssh\titan-ed25519"`（WezTerm の ssh_domains が使う方）
-        4. 確認: `ssh-keygen -y -P "" -f ~/.ssh/titan-ed25519` がエラーになれば付いている
-        ⚠ 付けたあとは接続のたびに入力を求められる。Claude のセッションから `ssh titan` を使う前に `eval "$(ssh-agent -s)" && ssh-add ~/.ssh/titan-ed25519`
-      ✅ titan の未使用の鍵 `remote-client-ed25519` を `authorized_keys` から外し、鍵ファイルも削除（2026-09-09。バックアップ `authorized_keys.bak-20260909`）。残るのは Sx360 の 2 本（`titan-ed25519` = ssh config の `titan` が使う ／ `gpu-home-ed25519` = 利用者が 20:32 に作成）。スマホ用の鍵は使うときにスマホ側で作る
-  - [x] Phase 4: 接続試験（2026-09-09。残っていた外の回線からの実測が通った）
-    ✅ 同一マシン内から tailnet の IP（`100.82.194.13`）で SSH → GPU まで到達を実測（2026-09-09。mirrored が Tailscale の面を eth2 として WSL に映しており、懸念だった干渉は起きていない）
-    ✅ `Sx360` から LAN 経由で 22 番に到達し、鍵なしは `Permission denied (publickey)` を実測（2026-09-09。別ホストから Windows FW を跨いで WSL の sshd に届いている）
-    ✅ `Sx360` から tailnet 経由で titan の sshd に到達し、鍵なしは `Permission denied (publickey)` を実測（2026-09-09。**別ホスト → Tailscale → Hyper-V FW → WSL の経路が通っている**。残る差は NAT 越えだけ）
-    ✅ `Sx360` から tailnet 経由の `ssh titan` で鍵が通り `nvidia-smi` に RTX 3090 Ti（24564 MiB・ドライバ 610.62）が出た。`titan-lan` も通り、別の鍵は引き続き拒否（2026-09-09）
-    ✅ **外の回線から通った**（2026-09-09。`Sx360` をスマホのテザリング `172.20.10.x` にし、自宅 LAN の 22 番に届かないことを確認したうえで `ssh titan` → `nvidia-smi -L` に 3090 Ti。経路は最初 DERP（sea）中継で `tailscale ping` 208〜244ms、`ssh` の往復 2.1s。⚠ **その後 10 往復のうちに直結へ切り替わり 78ms**（titan 側の自宅グローバル IP:58005 へ）。繋ぎ始めの数秒は中継で遅く、以後は直結になる）
-    - [x] WezTerm の ssh_domains で接続できること（2026-09-09）
-      ✅ deco-tarm に端末ごとの `ssh.local.lua` を読む仕組みを足し（自動生成の `SSH:<host>` は残す）、`Sx360` に `titan` / `titan-lan` を配置。`wezterm connect titan` で開いた窓の `nvidia-smi` が titan 側に記録され、3090 Ti が見えた。⚠ deco-tarm 側は未コミット
-      ⚠ 起動中の WezTerm には新しいドメインが出ない（再読み込みでは増えない）。`wezterm connect titan` か起動し直しで出る
+- [ ] titan 接続の残り（利用者の作業 3 つ） [plan](docs/plans/archive/remote-ssh-tailscale.md)
+  派生元: 「自宅の外から SSH で GPU 機（WSL2）に入れるようにする（Tailscale）」（2026-09-10 完了。[DONE](DONE.md)。経路・鍵・無人起動は済み、外から `ssh titan` → `nvidia-smi` まで実測）
+  - [ ] 利用者: titan の `shell:startup` から `wsl-autostart.vbs` を外す（タスクスケジューラ版 `wsl-autostart` に揃える。元ファイルは `C:\Users\akira\wsl-autostart.vbs` に残る）
+  - [ ] 利用者: 「シャットダウン → 電源オン」でもログオンなしで `ssh titan` が通ることを確認（前に管理者で `powercfg /h off`。高速スタートアップは有効を実測 `HiberbootEnabled=1`。再起動では確認済み）
+  - [ ] 利用者: Sx360 の鍵にパスフレーズを付ける。3 か所（WSL: `ssh-keygen -p -f ~/.ssh/titan-ed25519` と `~/.ssh/gpu-home-ed25519`、PowerShell: `ssh-keygen -p -f "$env:USERPROFILE\.ssh\titan-ed25519"`）。⚠ 付けたら Claude のセッションで `ssh titan` を使う前に `eval "$(ssh-agent -s)" && ssh-add ~/.ssh/titan-ed25519`
 
 - [ ] moomoo・IBKR の実検証（tastytrade と同じ 6 手順・6 観点で横並びにする）
   - 背景: 2026-09-04 に 3 社 → tastytrade 1 社へ絞ったときの**再開条件**（[plan §1-2](docs/plans/tastytrade-api-sample.md)）に当たる。債券・外国株・FX まで同じ口座で試したいなら IBKR、PFOF なしの執行を試したいなら moomoo

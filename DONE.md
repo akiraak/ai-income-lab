@@ -1,5 +1,15 @@
 # DONE
 
+- 2026-09-10 自宅の外から SSH で GPU 機（WSL2）に入れるようにした（Tailscale）
+  - プラン: [docs/plans/archive/remote-ssh-tailscale.md](docs/plans/archive/remote-ssh-tailscale.md)（実機での変更点・運用メモ・切り分けの型を追記済み）
+  - 利用者の指示（2026-09-09）「**WSL2 の GPU 機に家の外から SSH で接続して作業したい。Tailscale で進める**」から。2026-09-09 に titan 側（受け入れ・Tailscale 導入）、同日夜〜09-10 に Sx360 側（クライアント・接続試験）を進め、09-10 に titan 側の無人起動を Sx360 から検証して閉じた
+  - 構成: titan（GPU 機・WSL2 mirrored）の Windows に Tailscale、WSL に鍵認証のみの sshd。Sx360（ノート）から `ssh titan`（MagicDNS 名）、逃げ道は `titan-lan`（LAN 直結）。鍵は端末側で生成した `titan-ed25519`。WezTerm は deco-tarm に足した `ssh.local.lua` の仕組みで `wezterm connect titan`
+  - 実測: 自宅 LAN（直結 7ms）とスマホのテザリング（DERP 中継 208〜244ms → 数往復で直結 78ms）の両方で `ssh titan` → `nvidia-smi` に RTX 3090 Ti。⚠ **再起動後、誰もログオンしていない状態（`explorer.exe` 0・セッション 0）で外から入れる**（タスクスケジューラ `wsl-autostart` ＋ Tailscale の無人実行）
+  - ⚠ 落とし穴 3 つ: (1) **Windows の Tailscale は `tailscale set --unattended` が無いとログオン前に接続しない**（サービスは動いていて「起動中 / NoState」）。LAN 側の 22 番が開いていたことで切り分け、Sx360 から `titan-lan` 経由で有効化 → 5 秒で復帰、再起動をまたいで持続 (2) **起動中の WezTerm は設定を再読み込みしても新しい SSH ドメインを登録しない**（`wezterm connect` か起動し直し） (3) サーバ側で先に作った鍵は運ぶ経路が無く（鍵なしを拒否するため）、定石どおり端末側で生成した
+  - 懸念だった mirrored モードと Windows 側 Tailscale の干渉は起きなかった（Tailscale の面が eth2 として WSL に映る）。Hyper-V FW は 22 番の許可で足りた。**Sx360 から LAN・tailnet の両方で、鍵なしは `Permission denied (publickey)` になる**ことも確認
+  - 残した 3 項目（`shell:startup` の vbs を外す・シャットダウン→電源オンの確認・Sx360 の鍵のパスフレーズ）は TODO「titan 接続の残り」へ
+  - ⚠ **資金は動かしていない**（2026-08-27 の方針）。リポジトリのコードには触れていない（変更先は titan の sshd・タスク・Tailscale・電源、Sx360 の ssh config・鍵・Tailscale・WezTerm、deco-tarm リポジトリ）
+
 - 2026-09-09 3090 Ti（24GB）を使った機械学習で予測モデルを検証した
   - プラン: [docs/plans/archive/gpu-models.md](docs/plans/archive/gpu-models.md) / ⚠ **主成果物: [docs/specs/experiments/gpu-models.md](docs/specs/experiments/gpu-models.md)**（判定は §6）/ コード: `experiments/feature-discovery/ail/models/{trees,deep,gan,holdout}.py`（registry に足しただけ。配線は不変）
   - 利用者の指示（2026-09-09）「**3090Ti 24GB があるので、それを使用した機械学習での予測モデルの検証をする**」「**モデル候補に GAN を加える**」から。[feature-discovery §9-2](docs/specs/experiments/feature-discovery.md) の「やらずに閉じたもの」の**非線形モデル**を別タスクとして実施

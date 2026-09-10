@@ -18,7 +18,9 @@ import vibetab
 # ---------------------------------------------------------------- 最小のデータ
 
 
-def make_run(runs_dir: Path, name: str, leak: bool = False, score: float = 1.5) -> Path:
+def make_run(runs_dir: Path, name: str, leak: bool = False, score: float = 1.5,
+             positive: int = 5, t: float = 3.5, dsr: float = 0.97,
+             layer: str = "adjusted", layers: tuple = ("own", "cs")) -> Path:
     d = runs_dir / name
     d.mkdir(parents=True)
     (d / "summary.csv").write_text(
@@ -28,9 +30,9 @@ def make_run(runs_dir: Path, name: str, leak: bool = False, score: float = 1.5) 
         encoding="utf-8")
     (d / "config.json").write_text(json.dumps(
         {"dataset": "daily", "horizon": 1, "k": 5, "cost_bp": 5.0,
-         "feature_layers": ["own", "cs"]}), encoding="utf-8")
+         "feature_layers": list(layers)}), encoding="utf-8")
     (d / "inputs.json").write_text(json.dumps(
-        {"layer": "adjusted", "features": 100, "symbols": 63, "rows_before_sample": 131250}),
+        {"layer": layer, "features": 100, "symbols": 63, "rows_before_sample": 131250}),
         encoding="utf-8")
     (d / "env.json").write_text(json.dumps(
         {"seed": 7, "git_commit": "abc1234", "started_at": "2026-09-09T12:00:00"}),
@@ -38,10 +40,10 @@ def make_run(runs_dir: Path, name: str, leak: bool = False, score: float = 1.5) 
     (d / "checks.json").write_text(json.dumps({
         "leak": leak,
         "best": {"method": "F3-1 Lasso", "純利bp": score},
-        "folds": {"positive": 5, "folds": 5},
-        "edge_vs_drift": {"t": 3.5},
-        "dsr": {"DSR": 0.97},
-        "breadth": {"系列数": 63, "実効系列数": 4.7},
+        "folds": {"positive": positive, "folds": 5},
+        "edge_vs_drift": {"t": t},
+        "dsr": {"DSR": dsr},
+        "breadth": {"系列数": 63, "実効系列数": 4.7, "実効観測数": 4087},
         "drift_粗利bp": 0.02,
         "panel": "パネルの注意書き",
     }, ensure_ascii=False), encoding="utf-8")
@@ -115,6 +117,64 @@ def test_exp_overview_html(runs_dir):
     assert "検証のまとめ" in body
     assert "+1.50" in body
     assert "先読みの検査" in body
+
+
+# ---------------------------------------------------------------- まとめの 3 節
+
+
+def test_exp_overview_methods_and_traits(runs_dir):
+    body = vibetab.exp_overview_html(runs_dir)
+    assert "検証方法とその特徴" in body
+    assert "検証方法ごとの成績" in body
+    # fixture の実検証は feature_layers に cs があるので断面。組の表に組が出る
+    assert "断面・日足・1 日先・調整後" in body
+    assert "先読みの検査・日足・1 日先・調整後" in body
+    assert "4,087" in body                       # breadth の実効観測数（写し）
+
+
+def test_exp_overview_analysis_pass(runs_dir):
+    """fixture は先読みが跳ね、実検証も 4 検査 ✅ → 両方の ✅ 分岐。"""
+    body = vibetab.exp_overview_html(runs_dir)
+    assert "配線は働いている" in body
+    assert "4 検査を満たす実行が 1 件" in body
+
+
+def test_exp_overview_analysis_no_leak_no_pass(tmp_path):
+    """先読みの検査が無く、検査も通らない → ⏳ と ⚠ の分岐。"""
+    runs = tmp_path / "runs"
+    make_run(runs, "2026-09-09T12-00-00_own", score=-1.0, positive=2, t=0.5, dsr=0.3)
+    body = vibetab.exp_overview_html(runs)
+    assert "配線の確認がまだ無い" in body
+    assert "「発見あり」と言える検証はまだ無い" in body
+
+
+def test_exp_overview_analysis_leak_not_jumping(tmp_path):
+    """跳ねない先読みの検査 → 配線を疑う分岐。"""
+    runs = tmp_path / "runs"
+    make_run(runs, "2026-09-09T12-00-00_own_leak", leak=True,
+             score=1.0, positive=2, t=0.5, dsr=0.3)
+    body = vibetab.exp_overview_html(runs)
+    assert "跳ねない先読みの検査がある" in body
+
+
+def test_exp_overview_raw_layer_excluded(tmp_path):
+    """日足 × raw は層 ⚠ → 有効性の比較から外す。"""
+    runs = tmp_path / "runs"
+    make_run(runs, "2026-09-09T12-00-00_raw", layer="raw", score=2.0)
+    body = vibetab.exp_overview_html(runs)
+    assert "有効性の比較から外す" in body
+    assert "調整前" in body
+
+
+def test_exp_overview_compares_two_methods(tmp_path):
+    """層 ✅ の組が 2 つ → スコアの上での比較の文が出る（最良が先）。"""
+    runs = tmp_path / "runs"
+    make_run(runs, "2026-09-09T12-00-00_cs", score=2.0, positive=2, t=0.7, dsr=0.5)
+    make_run(runs, "2026-09-09T13-00-00_own", score=1.0, positive=2, t=0.6, dsr=0.4,
+             layers=("own",))
+    body = vibetab.exp_overview_html(runs)
+    assert "スコアの上では <b>断面・日足・1 日先・調整後</b> が最良" in body
+    assert "プーリング・日足・1 日先・調整後" in body
 
 
 def test_exp_run_html(runs_dir):

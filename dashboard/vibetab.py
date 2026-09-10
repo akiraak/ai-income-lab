@@ -140,6 +140,170 @@ def kv_table(pairs: list[tuple[str, str]]) -> str:
 
 # ---------------------------------------------------------------- 検証（runs/）
 
+# 層を除く 4 検査（純利・fold・上乗せ・DSR）。「合格」＝ この 4 つが全部 ✅
+SCORE_MARKS = ("純利", "fold", "上乗せ", "DSR")
+
+# 検証方法の 4 軸。⚠ 画面向けの文言だけ（正本は rules.md §6・§7・§9 と dashboard.md §10）。
+# ⚠ 文言に数字を書かない。数字は checks.json の写し（下の節）から出す
+AXIS_NOTES = [
+    ("種類", "特徴量に他銘柄の層（cs・rel・ll）が入るか。先読みの検査は対照実験なので別枠"),
+    ("粒度", "足の長さ"),
+    ("先", "ラベルの地平（何本先の終値までのリターンを当てるか）"),
+    ("層", "入力データの層。⚠ 調整前は分割調整の誤りを含むので、有効性の比較には使わない（層の検査が ⚠）"),
+]
+
+# 種類ごとの特徴（何を見るか ／ 強み ／ 弱み・注意）
+KIND_TRAITS = [
+    ("断面",
+     "own に加えて、同じ足の他銘柄を見る層（cs・rel・ll）を特徴量に含める",
+     "銘柄間の相対（どの銘柄が上がるか）を使える。行が銘柄 × 時刻に広がるぶん実効観測数が積み上がりやすい",
+     "銘柄が揃わない足では意味が薄い。fold の境目を同じ足の他銘柄が跨ぐので、エンバーゴが要る"),
+    ("プーリング",
+     "各銘柄が自分の履歴（own。ex を足すことも）だけを見て、銘柄を縦に積む",
+     "組が単純で、層・手法・費用の効き方を切り分けやすい",
+     "own だけでは銘柄を増やしても「1 銘柄の実験を N 回」に近い。銘柄どうしは独立でないので、実効系列数まで割り引くと標本は見た目ほど増えない"),
+    ("先読みの検査",
+     "ラベルを混ぜた列（LEAK_）を 1 本足した対照実験。どの検証にも対で回す",
+     "数字が跳ねなければ検証の配線（分割・パージ・コスト）が壊れている、を毎回確かめられる",
+     "スコアが高いのは正常（そういう検査）。手法の成績としては読まない"),
+]
+
+
+def _passes(run: dict) -> bool:
+    """層を除く 4 検査が全部 ✅ か。⚠ しきい値は `with_marks` が持つ（ここで二重に判定しない）。"""
+    marks = run.get("marks") or {}
+    return all(marks.get(k) == "✅" for k in SCORE_MARKS)
+
+
+def _bp(v) -> str:
+    return "—" if v is None else f"{v:+.2f}"
+
+
+def exp_methods(idx: dict) -> list[dict]:
+    """検証方法（種類・粒度・先・層の組）ごとの要約。
+
+    ⚠ **数字は各組で最もスコアの高い実行の checks.json の写し**（`index()` はスコアの降順なので
+    先頭が最良）。組で数えるのは実行の件数と ✅ の件数だけで、統計は計算しない。
+    """
+    groups: dict[tuple, dict] = {}
+    for r in idx["runs"] + idx["leak_runs"]:
+        key = (r["kind"], r["gran"], r["horizon"], r["layer_label"])
+        g = groups.setdefault(key, {"label": "・".join(key), "kind": r["kind"],
+                                    "count": 0, "passed": 0, "best": r})
+        g["count"] += 1
+        g["passed"] += 1 if _passes(r) else 0
+    return list(groups.values())
+
+
+def _traits_html(idx: dict) -> str:
+    """① 検証方法とその特徴。軸の「いまの値」だけ runs/ から拾い、説明は静的な文言。"""
+    values: dict[str, list] = {axis: [] for axis, _ in AXIS_NOTES}
+    for r in idx["runs"] + idx["leak_runs"]:
+        for axis, v in (("種類", r["kind"]), ("粒度", r["gran"]),
+                        ("先", r["horizon"]), ("層", r["layer_label"])):
+            if v not in values[axis]:
+                values[axis].append(v)
+    body = ["<h2>検証方法とその特徴</h2>",
+            "<p class='meta'>検証方法 ＝ 種類・粒度・先・層の 4 軸の組。一覧のタイトルもこの組から"
+            "組み立てている。正本は rules.md（§6 層・§7 先読み・§9 検証）と dashboard.md §10。</p>"]
+    body.append(table(["軸", "いまの値", "意味"],
+                      [[esc(axis), " ／ ".join(esc(v) for v in values[axis]) or "—", esc(note)]
+                       for axis, note in AXIS_NOTES]))
+    body.append(table(["種類", "何を見るか", "強み", "弱み・注意"],
+                      [[esc(c) for c in row] for row in KIND_TRAITS]))
+    return "\n".join(body)
+
+
+def _methods_html(groups: list[dict]) -> str:
+    """② 検証方法ごとの成績。数字は各組の最良実行の写し。"""
+    body = ["<h2>検証方法ごとの成績</h2>"]
+    if not groups:
+        body.append("<p class='meta'>実行がまだ無い。</p>")
+        return "\n".join(body)
+    rows = []
+    for g in groups:
+        b = g["best"]
+        folds = b.get("folds") or {}
+        rows.append([
+            esc(g["label"]), fmt(g["count"], 0), f"{g['passed']} / {g['count']}",
+            _bp(b["score"]),
+            (f"{fmt(folds.get('positive'))} / {fmt(folds.get('folds'))} 正" if folds else "—"),
+            fmt((b.get("edge") or {}).get("t")),
+            fmt((b.get("dsr") or {}).get("DSR"), 3),
+            fmt((b.get("breadth") or {}).get("実効観測数"), 0),
+        ])
+    body.append(table(["検証方法", "実行", "4 検査 ✅", "最良 純利bp", "fold", "上乗せ t", "DSR", "実効観測数"],
+                      rows, {1, 3, 5, 6, 7}))
+    body.append("<p class='meta'>数字は各組で最もスコアの高い実行の checks.json の写し（組では数え直さない）。"
+                "4 検査 ＝ 純利・fold・上乗せ・DSR（層を除く）。"
+                "⚠ 組どうしは条件（銘柄・期間・列の数）が違うので、スコアの差が手法の差とは限らない。</p>")
+    return "\n".join(body)
+
+
+def _analysis_html(idx: dict, groups: list[dict]) -> str:
+    """③ どの検証が有効か。⚠ 文面の分岐だけがここにあり、判定は marks の数え上げで決まる。"""
+    real, leaks = idx["runs"], idx["leak_runs"]
+    items: list[str] = []
+
+    # 1) 配線: 先読みの検査（対照実験）が跳ねているか
+    if not leaks:
+        items.append("⏳ <b>配線の確認がまだ無い。</b>先読みの検査（対照実験）を先に回す。"
+                     "跳ねる先読みが無いうちは、実検証の数字を読まない（rules.md §7）。")
+    else:
+        ng = [r for r in leaks if not _passes(r)]
+        if ng:
+            items.append("⚠ <b>跳ねない先読みの検査がある</b>（"
+                         + "、".join(esc(r["run_id"]) for r in ng)
+                         + "）。実検証の数字より先に、検証の配線を疑う（rules.md §7）。")
+        else:
+            scores = sorted(r["score"] for r in leaks if r["score"] is not None)
+            rng = (f"純利 {_bp(scores[0])}〜{_bp(scores[-1])}bp" if len(scores) > 1
+                   else f"純利 {_bp(scores[0])}bp" if scores else "スコアなし")
+            items.append(f"✅ <b>配線は働いている。</b>先読みの検査 {len(leaks)} 件は 4 検査ぜんぶ ✅"
+                         f"（{rng}）。わざと先読みさせるとこれだけ跳ねるので、"
+                         "分割・パージ・コストの配線は先読みを見逃していない。")
+
+    # 2) 実検証に「発見あり」と言えるものがあるか
+    passed = [r for r in real if _passes(r)]
+    if not real:
+        items.append("⏳ 実検証の実行がまだ無い。")
+    elif not passed:
+        items.append(f"⚠ <b>「発見あり」と言える検証はまだ無い。</b>実検証 {len(real)} 件のうち"
+                     f"純利 &gt; 0 は {idx['positive']} 件あるが、4 検査を同時に満たす実行は 0 件。"
+                     "スコアが正でも、fold の符号が割れる・基準線への上乗せが小さい・DSR が低いうちは"
+                     "偶然と区別できない（rules.md §11: 良い数字は根拠「中」が上限）。")
+    else:
+        items.append(f"✅ <b>4 検査を満たす実行が {len(passed)} 件ある</b>（"
+                     + "、".join(f"{esc(r['title'])}〔{esc(r['run_id'])}〕" for r in passed)
+                     + "）。⚠ n_trials は増え続けるので、確定は台帳（ledger.md）を正とする。")
+
+    # 3) 組の比較（層 ✅ の実検証だけ。groups は最良スコアの降順に並んでいる）
+    valid = [g for g in groups
+             if g["kind"] != "先読みの検査" and (g["best"].get("marks") or {}).get("層") == "✅"]
+    if len(valid) >= 2:
+        a, b = valid[0], valid[1]
+        ea = (a["best"].get("breadth") or {}).get("実効観測数")
+        eb = (b["best"].get("breadth") or {}).get("実効観測数")
+        marks_a = a["best"].get("marks") or {}
+        items.append(f"スコアの上では <b>{esc(a['label'])}</b> が最良（{_bp(a['best']['score'])}bp・"
+                     f"実効観測数 {fmt(ea, 0)}）。次点は {esc(b['label'])}"
+                     f"（{_bp(b['best']['score'])}bp・{fmt(eb, 0)}）。実効観測数が大きい組ほど、"
+                     "同じ強さの効きでも検査に乗りやすい。ただし最良の組の検査も "
+                     f"{esc(' '.join(marks_a.values()))}（層 純利 fold 上乗せ DSR）で、上の判定は変わらない。")
+
+    # 4) 層 ⚠ の組は比較から外す
+    invalid = [g for g in groups if (g["best"].get("marks") or {}).get("層") == "⚠"]
+    if invalid:
+        items.append("⚠ <b>"
+                     + "、".join(esc(g["label"]) for g in invalid)
+                     + f" の {sum(g['count'] for g in invalid)} 件は有効性の比較から外す。</b>"
+                     "調整前の層は分割調整の誤りを含む（層 ⚠）。過去の数字の再現用としてだけ残す。")
+
+    return ("<h2>どの検証が有効か</h2>\n<ul>"
+            + "".join(f"<li>{i}</li>" for i in items)
+            + "</ul>\n<p class='meta'>この節は runs/ の写し（✅ / ⚠ / ⏳ は仕様 §10-3 の条件）から"
+              "機械的に組む。run が増えれば文面も変わる。</p>")
+
 
 def exp_sidebar(runs_dir: Path) -> dict:
     idx = experiments.index(runs_dir)
@@ -170,6 +334,7 @@ def _marks_row(run: dict) -> str:
 
 def exp_overview_html(runs_dir: Path) -> str:
     idx = experiments.index(runs_dir)
+    groups = exp_methods(idx)
     body = ["<h1>検証のまとめ</h1>",
             f"<div class='meta'>{esc(idx['runs_dir'])}</div>"]
     body.append(kv_table([
@@ -179,6 +344,9 @@ def exp_overview_html(runs_dir: Path) -> str:
         ("先読みの検査", fmt(len(idx["leak_runs"]))),
         ("checks.json が無い実行", esc(", ".join(idx["missing_checks"]) or "なし")),
     ]))
+    body.append(_traits_html(idx))
+    body.append(_methods_html(groups))
+    body.append(_analysis_html(idx, groups))
     body.append("<h2>一覧（スコアの降順）</h2>")
     rows = []
     for r in idx["runs"] + idx["leak_runs"]:

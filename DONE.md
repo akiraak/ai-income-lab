@@ -1,5 +1,11 @@
 # DONE
 
+- 2026-09-10 vibeboard 検証タブの「まとめ」に、検証方法の特徴の説明と「どの検証が有効か」の分析を足した
+  - プラン: [docs/plans/archive/vibetab-overview-methods.md](docs/plans/archive/vibetab-overview-methods.md)。利用者の指示（2026-09-10）「**vibeboard 検証のまとめにそれぞれの検証方法の特徴などを説明。どの検証が有効かの分析も入れる**」
+  - `dashboard/vibetab.py` のまとめページに 3 節を追加: (1) **検証方法とその特徴** — 種類・粒度・先・層の 4 軸の表（値は runs/ から拾う）＋ 種類（断面 ／ プーリング ／ 先読みの検査）ごとの 何を見るか・強み・弱み。⚠ 静的な文言に数字は書かない（正本は rules.md §6・§7・§9 と dashboard.md §10） (2) **検証方法ごとの成績** — 組ごとに実行数・4 検査 ✅ の件数と、その組の最良実行の `checks.json` の写し（純利 bp・fold・上乗せ t・DSR・実効観測数） (3) **どの検証が有効か** — 配線（先読みの検査が全部跳ねたか）／「発見あり」と言える実検証があるか／層 ✅ の上位 2 組の比較／層 ⚠（調整前）の組は比較から外す、を marks の数え上げで機械的に文面を選ぶ
+  - ⚠ **「画面側で数え直さない」は維持**: 数字は写しの引用だけ、数えるのは件数と ✅ の数だけ。しきい値（t > 3 など）は `with_marks`（仕様 §10-3）のままで vibetab に二重に持たない。run が増えれば分析の文面も変わる
+  - 実測: pytest 76 件 pass（vibetab 23 件、8 件追加）。実データ 25 run で 断面の最良 +2.30bp（fold 2/5・t 0.71・DSR 0.928・実効観測数 10,870）・先読みの検査 9 件 +103.42〜+136.71bp が写しと一致。3015 の旧プロセスをポートから引いて止めて起動し直し、vibeboard の中継 `/ext/experiments/view?item=overview` に 3 節が出ることを確認（⚠ vibeboard 本体 3010 は触っていない）
+
 - 2026-09-10 vibeboard に検証・データのタブを足し、Sx360 から見られるようにした
   - プラン: [docs/plans/archive/vibeboard-experiments-tabs.md](docs/plans/archive/vibeboard-experiments-tabs.md)（実測の表・踏んだ落とし穴・他プロジェクトへの影響の確認まで記録済み）
   - 利用者の指示（2026-09-10）「**vibeboard に検証やデータなどのタブを追加して表示する**」。派生元は「g3plus で見せる」（中止）→「run-server を Sx360 から見る」（方向転換）の 2 段。**dashboard（3012）を tailnet に出さない決定は維持**

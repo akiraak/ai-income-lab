@@ -1,5 +1,11 @@
 # DONE
 
+- 2026-09-11 vibeboard 本文の相対リンクを Ctrl+クリックすると Cannot GET になる問題を修正した
+  - プラン: [docs/plans/archive/vibeboard-ctrl-click-links.md](docs/plans/archive/vibeboard-ctrl-click-links.md)。利用者の報告（2026-09-11）「**rules.md などを普通にクリックだと問題ないが、Ctrl+クリックだとCannot GET /rules.mdと表示される**」
+  - 原因: クリック委譲（`setupDocLinkInterception`）が修飾キー付きクリックを意図的に素通しし、href が相対パスのままブラウザが `/rules.md` をサーバへ取りにいっていた。対応: 描画時に href 属性そのものを hash URL へ書き換える `rewriteRelativeDocLinks` を新設し、プレビュー本文と TODO ツリーの描画後に呼ぶ。中クリック・「リンクのアドレスをコピー」も同時に直った。同一 hash クリックの再描画は `data-doc-link` を印にクリック委譲が従来どおり拾う
+  - ⚠ upstream 改造（`vibeboard/src/web/app.js`。`/ext` 中継と同類）。`vibeboard update` の再 degit で消えるので、akiraak/vibeboard 本体にも同じ修正を入れておくのがよい
+  - 検証: `node --check` pass。titan で動作中の 3010 は `src/web` をディスクからそのまま配信するため再起動不要（配信中の app.js に反映済みを curl で確認）。units.md の描画 HTML に相対 href（`rules.md`・`ledger.md`・`../threshold-trading.md` 等）が残ることも確認（書き換えはクライアント側で行う）
+
 - 2026-09-10 検証の単位（実行 → 手法 → 試行 → fold → セル）を図を使って解説する specs のページを作成した
   - プラン: [docs/plans/archive/validation-units-page.md](docs/plans/archive/validation-units-page.md)。成果物: [units.md](docs/specs/experiments/feature-discovery/units.md)。利用者の指示（2026-09-10）「**実行 → 手法 → 試行 → fold → セルを図などを使い分かりやすく解説するspecsのページを作成する**」
   - §0〜§7 ＋ 早見の付録。図 7 枚（全図に主張 1 行・ノード 12 個以内）。規約の再定義はせず、rules.md 10・11・13 章と `ail/catalog.py`（`KEY`・`is_trial`・`_collapse`・`canonical`）への 1 行要約＋リンクに徹した。要点: 実行 → 手法は入れ子だが手法 → 試行は**実行をまたいだ畳み込み**／ B&H が数値同一のまま形式 × 閾値で 6 行に割れる実例で「行が割れる ＝ 鍵が違う」を示す ／ 鍵 9 列の年表（2026-09-08 新設 → 09-09 モデル → 09-10 検証方式・形式・閾値、旧実行は既定値で割れない）／ n_trials の数え方の分岐図 ／ fold の符号の出どころ（新方式は対 B&H 上乗せ）／ セル → 銘柄別 bp（成果物）とポートフォリオ日次純利（採否）の分岐

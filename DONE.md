@@ -1,5 +1,11 @@
 # DONE
 
+- 2026-09-10 検証の仕方を実際の取引に近づけた（閾値つき売買・買い専用・銘柄別 bp）— 追試まで完了、**どの手法・形式・閾値も B&H を超えなかった**
+  - プラン: [docs/plans/archive/trading-validation.md](docs/plans/archive/trading-validation.md)。記録: [threshold-trading.md](docs/specs/experiments/threshold-trading.md)。規約: [rules.md 13 章](docs/specs/experiments/feature-discovery/rules.md)。利用者の指示（2026-09-10）「**検証の仕方を変えます。…買いか売りかの指標を買い0%-100%…一定以上（例:買い50%）の指標で行う。売りはその銘柄のポジションを持っていなければ売れない。実際の取引に近いものにする**」＋ 追記 4 件（売りも 50% 超で手仕舞い ／ 銘柄ごとのモデル ／ 共通と銘柄別の両方 ／ 閾値 3 パターン）
+  - Step 1〜3（プラン §1 の設計・rules.md 13 章・実装）は同日完了済み。設計: θ ∈ {50, 55, 60}% 事前固定・Platt 較正（tail holdout）・片道 2.5bp を売買した日だけ・fold 末尾で強制清算・採否は対 B&H 上乗せ・(A) 共通 / (B) 銘柄別で日付基準の fold を共有
+  - Step 4（追試）【実測 2026-09-10】: 10 実行（own / ownex × Ridge / LightGBM × (A)(B) ＋ leak 2 本）→ **24 試行中 23 が上乗せ負で「落とす」、1 つ（own × Ridge × (A) × θ=50 の ＋12.8bp）も t 0.13・符号 1/5 で「保留」（雑音）**。旧最良（LightGBM ＋1.52bp）は較正すると買い% がほぼ定数（a ≈ 0）になり「fold 3 を休む B&H」に退化（上乗せ −54.8bp）。銘柄別 (B) は全 12 試行で共通 (A) より悪い（回転のコストと逆選択）。leak 対照は両形式で跳ねた（上乗せ ＋22,000bp・5/5・t ≈ 17）＝ 配線は健全
+  - 台帳を吐き直した（`n_trials` 67 → **91**。鍵に 検証方式・形式・閾値 の 3 列、旧 67 試行は 1 行も不変＝テストで固定）。銘柄別 bp は per_symbol.csv と記録 §6（⚠ 大小は手法ではなく銘柄のドリフト）。数字はすべて【実測】・資金は動かしていない
+
 - 2026-09-10 社会にインパクトを与えそうなデータを増やした（気象・地震の延長）— 検証まで完了、**割り当ては効かなかった**
   - プラン: [docs/plans/archive/impact-data.md](docs/plans/archive/impact-data.md)。記録: [daily-data-sources.md §10〜§13](docs/specs/experiments/daily-data-sources.md)。利用者の指示（2026-09-09）「**気象と地震のような社会にインパクトを与えそうなデータを増やす**」
   - 取得（2026-09-09 済み）: NCEI Storm Events 13 系列 ＋ EPU 1（§10）、IEM 警報の保管庫 34 系列（§12）。仮説は取得の前に書き、気象・地震は偽薬のまま残した（決めごと 1）

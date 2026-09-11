@@ -1,5 +1,20 @@
 # DONE
 
+- 2026-09-11 vibeboard のタスク追加・子タスク追加を共通の中央ダイアログにした
+  - プラン: [docs/plans/archive/vibeboard-task-add-dialog.md](docs/plans/archive/vibeboard-task-add-dialog.md)。利用者の指示（2026-09-11）「**トップへの追加と、既存タスクへの子タスク追加を共通のものにする。実装を初めて**」（前段の調査で「既存の `.modal-overlay` / `.modal` に載せられる」と確認済み）
+  - `showAddTaskDialog(parent, onDone)` 1 本に統一（`parent = null` がトップレベル、`{ id, text }` が子）。呼び分けは「タスク追加」「子タスク追加」の 2 ボタンだけ。Esc で閉じる・⚠ 外側クリックでは閉じない（入力途中の誤クリック対策）・Ctrl+Enter で送信・下書きは親単位で保持（成功で消す）
+  - インラインフォームを両方撤去（2 組あった textarea・送信・下書き保持のコードが 1 本に。SSE 再描画でフォームが作り直される問題も構造ごと解消）
+  - 状態欄の簡素化（同日・利用者の指摘「**表示が大きすぎる。もっとシンプルに。複数実行して増えていかないように**」）: 出すのは**動いているものと失敗だけ**。成功は欄に出さず（ツリーの更新が結果そのもの）完了トースト 1 回、実行中 / 待ちは 1 行に集約（「文面（ほか N 件待ち）」）、失敗は 1 行（詳細はツールチップ）＋ やり直す / 消す。サーバも成功ジョブを 60 秒で一覧から落とし、`add-dismiss` を新設、やり直しは古い失敗の行を消してから積み直す
+  - 確認: `node --check`・`tsc`・claudeJob テスト 9 件 pass・3010 を新ビルドで起動し直し（add-dismiss の応答確認）。✅ 2026-09-11 に利用者がブラウザで動作確認済み
+
+- 2026-09-11 vibeboard の Tasks にタスク追加・子タスク追加を実装した（バックグラウンドの Claude Code を通す）
+  - プラン: [docs/plans/archive/vibeboard-task-add.md](docs/plans/archive/vibeboard-task-add.md)。利用者の指示（2026-09-11）「**vibeboardのTasksにタスク追加と既存のタスクへの子タスク追加を実装。削除と違いClaude Codeの処理を通す**」＋追記「**Claude Code の処理は既存のターミナルの Claude Code ではなくバックグラウンドで動かす**」
+  - 方式: 削除（サーバ直接編集）とも投函（実行 / プラン作成 / 説明）とも別の第 3 系統。`POST /api/tasks/add` → 新モジュール `vibeboard/src/claudeJob.ts` が `claude -p` を shell なしで spawn（prompt は stdin）。**許すツールは `--allowedTools 'Edit(TODO.md)'` だけ ＋ `--disallowedTools` で Bash / Write 等を明示拒否**。⚠ 直列は追加ジョブどうしだけで、投函・人のセッションとは独立に並行。成功判定は終了コードでなく**事後検査（TODO.md に文面の個数が増えたか）**。UI は「プロジェクト全体」のタスク追加と、タスク詳細の子タスク追加（1 行目 ＝ 文面そのまま、2 行目以降 ＝ メモ。状態表示・やり直し付き）。モデル・制限時間は `vibeboard.config.json` の `taskAdd`（既定: CLI の既定モデル・120 秒）
+  - Phase 0 の実測【2026-09-11・claude 2.1.269】: `-p` で `Edit(TODO.md)` のパス限定 allow が**効く**（TODO.md は編集でき、他ファイルの Edit は拒否）。`-p` セッションは受信口が無いので vibeboard の hook に**誤登録されない**（session-hook.mjs が socket 無しを弾く）
+  - テスト: 偽 claude での自動テスト 9 件（直列・タイムアウト・事後検査の個数判定・起動失敗・probe・prompt の中身）を `vibeboard/test/claudeJob.test.js` に追加、`npm test` 64 件 pass。実 claude の通し（スクラッチの root・port 3941）: トップレベル追加 → 適切なセクションに入りメモも字下げ ✅、子タスク追加 → 親の子の末尾 ✅、空文面 400・親なし 404 ✅、TODO.md 以外の変更なし ✅
+  - titan の 3010 は新ビルドで起動し直し済み（新 API 応答を確認）。CLAUDE.md はマーカー内（テンプレ `claude-md-snippet.md` と同文）とマーカー外（⚠ upstream 未反映の注意）に追記
+  - ⚠ **akiraak/vibeboard 本体への反映は残タスク**（TODO に追加。反映まで `vibeboard update` を流すと消える）
+
 - 2026-09-11 検証の単位の解説（units.md）に実データの実行例 2 パターンを追加して体感に落とせるようにした
   - プラン: [docs/plans/archive/units-md-examples.md](docs/plans/archive/units-md-examples.md)。成果物: [units.md §8](docs/specs/experiments/feature-discovery/units.md)。利用者の指示（2026-09-11）「**units.md に実際のデータやモデルを使った実行例を追加して体感に落とせるようにする**。**種類の違う 2 パターンを用意する**」
   - パターン A（§8-1）: 新方式（閾値売買・LightGBM）の実行 `trade_own_lgbm_a` を上から下へ展開（config → summary 12 行 → result 60 行 → per_symbol 3,780 行 → 台帳の 3 試行）。見どころ: fold 1・2・4・5 は B&H と数字が完全一致（毎日「上」＝持ちっぱなし）で fold 3 だけ全 63 銘柄見送り → 上乗せ −273.92bp が平均 −54.78bp・「0/5 00−00」・「落とす」になる算術。基準線の行が θ で変わらないこと、乱択と全部使うが「同じ売買 → 同数値」になることも実ファイルで示した

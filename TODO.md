@@ -34,6 +34,11 @@
   ⚠ **終了しないタスク**（完了にしない・`DONE.md` に移さない・消さない）。利用者の指示（2026-09-11）: **「疑問に思ったことを登録し解決していく大タスク」。このタスク自体は消さずにずっと残るようにする**
   使い方: ⚠ **子タスクの追加は利用者が指示する**（利用者の指示 2026-09-11。Claude は疑問に答えても、指示なしにここへ子タスクを足さない）。解決した子タスクは、答えの要点（と、ドキュメントに反映した場合はそのリンク）をメモで残して `DONE.md` へ移す。親のこの行は残す
 
+- [ ] vibeboard のタスク追加・子タスク追加の改造を akiraak/vibeboard 本体へ反映する
+  経緯: タスク追加・子タスク追加の実装は 2026-09-11 に完了（`DONE.md`・[plan](docs/plans/archive/vibeboard-task-add.md)）。本体は別リポジトリなので反映だけ残っている
+  対象: `src/claudeJob.ts`（新規）・`src/server.ts`・`src/todo.ts`・`src/config.ts`・`src/web/app.js`・`src/web/style.css`・`src/templates/claude-md-snippet.md`・`test/claudeJob.test.js`
+  ⚠ 反映するまでこのプロジェクトで `vibeboard update` を流さない（再 degit で改造が消える。Ctrl+クリック修正・`/ext` 中継と同様）
+
 - [ ] データの取得
   - [ ] 既存にないデータを考える
     ⚠ **終了しないタスク**（完了にしない・`DONE.md` に移さない）。既存の層に無いデータを考え続けるための常設タスク

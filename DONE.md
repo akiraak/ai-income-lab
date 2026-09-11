@@ -1,5 +1,10 @@
 # DONE
 
+- 2026-09-11 vibeboard のタスク追加・子タスク追加（＋未反映だった Ctrl+クリック修正）を akiraak/vibeboard 本体へ反映した
+  - upstream の main へ 2 コミットを push: `a8561b6`（Ctrl+クリック修正。ai-income-lab の `50abed8` の app.js パッチをそのまま適用）／ `a0f4b67`（タスク追加一式: `claudeJob.ts`・`server.ts`・`todo.ts`・`config.ts`・`app.js`・`style.css`・テンプレ・テスト）
+  - 反映後は vendor と本体の src / test が完全一致（`diff -rq` で確認）。本体側でも `npm test` 64 件 pass
+  - これで **`vibeboard update` を流しても改造は消えない**（CLAUDE.md の注意書きを「反映済み」に更新）
+
 - 2026-09-11 vibeboard のタスク追加・子タスク追加を共通の中央ダイアログにした
   - プラン: [docs/plans/archive/vibeboard-task-add-dialog.md](docs/plans/archive/vibeboard-task-add-dialog.md)。利用者の指示（2026-09-11）「**トップへの追加と、既存タスクへの子タスク追加を共通のものにする。実装を初めて**」（前段の調査で「既存の `.modal-overlay` / `.modal` に載せられる」と確認済み）
   - `showAddTaskDialog(parent, onDone)` 1 本に統一（`parent = null` がトップレベル、`{ id, text }` が子）。呼び分けは「タスク追加」「子タスク追加」の 2 ボタンだけ。Esc で閉じる・⚠ 外側クリックでは閉じない（入力途中の誤クリック対策）・Ctrl+Enter で送信・下書きは親単位で保持（成功で消す）

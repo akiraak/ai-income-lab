@@ -1,5 +1,13 @@
 # DONE
 
+- 2026-09-11 vibeboard の Tasks 詳細ペインの説明文を 1 行に短くした
+  - プラン: [docs/plans/archive/vibeboard-tasks-hint-trim.md](docs/plans/archive/vibeboard-tasks-hint-trim.md)。タスク「vibeboardのTasksの画面上右の説明文が長すぎる」（⚠ **vibeboard のタスク追加機能で登録された最初のタスク**）
+  - 6 文・約 340 字の塊を 3 か所へ分割: 常時表示は 1 行の要約 ＋「?」トグル ／ ボタンごとの説明は各ボタンの title（実行・プラン作成・説明・削除・「追加の指示」の textarea）／ 全文は「?」で開いたときだけ（従来の 6 文をそのまま移した。情報は捨てていない）。条件つき警告（hook 未導入等）は従来どおり
+  - akiraak/vibeboard 本体にも同じ差分を push（`87406f8`）。vendor と本体の一致を維持
+  - ⚠ **対象の取り違えを利用者の指摘で訂正**（同日）: タスクの「画面上右の説明文」は詳細ペイン下部の hint ではなく、**画面最上部の「Tasks」の右に出るタスク全文（`.topbar-sub`）**だった。`.topbar-sub` を 1 行に切り詰め（ellipsis）、全 5 か所の設定箇所で title（ホバーで全文）を揃えた（`d39f857`）。hint の分割も改善としてそのまま残す
+  - ⚠ **ellipsis では解決にならなかった**（同日）: 切り詰めは幅が足りないときしか効かず、横に広い画面では全文がそのまま 1 行で出続けた。利用者の指示「**この右上の部分は不要なので削除して**」→ **Tasks 画面では topbar にタスク文面を出さない**（本文の h1 と重複していた。空にする）。本体へも push（`5c329fc`）。ellipsis と title の整備は Files 等の長いパス用に残す
+  - 確認: `node --check` pass（vendor・本体とも）。サーバ無変更（リロードで反映）
+
 - 2026-09-11 vibeboard のタスク追加・子タスク追加（＋未反映だった Ctrl+クリック修正）を akiraak/vibeboard 本体へ反映した
   - upstream の main へ 2 コミットを push: `a8561b6`（Ctrl+クリック修正。ai-income-lab の `50abed8` の app.js パッチをそのまま適用）／ `a0f4b67`（タスク追加一式: `claudeJob.ts`・`server.ts`・`todo.ts`・`config.ts`・`app.js`・`style.css`・テンプレ・テスト）
   - 反映後は vendor と本体の src / test が完全一致（`diff -rq` で確認）。本体側でも `npm test` 64 件 pass

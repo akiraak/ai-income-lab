@@ -590,5 +590,5 @@ flowchart LR
 | 10 | `ail/runs.py` ／ `ail/config.py` ／ `ail/registry.py` |
 | 11 | `ail/validation/stats.py` |
 | 12 | `config/universe/us63.toml` の注記 |
-| ⚠ **13** | `ail/validation/simulate.py`・`ail/models/calibrate.py`・`ail/validation/splits.py`（日付基準の fold edge）・`ail/catalog.py`（⚠ **Phase 2 で実装** — [プラン §Phase 2](../../../plans/trading-validation.md)） |
+| ⚠ **13** | `ail/validation/simulate.py`（状態機械）／ `ail/models/calibrate.py`（Platt 較正）／ `ail/validation/splits.py` の `date_edges`・`folds_by_dates`（日付基準の fold edge）／ `ail/validation/checks.py` の `compute_trading` ／ `ail/catalog.py`（鍵 3 列・`_judge_trading`）／ `cli/run.py` の `[trading]` 節・`evaluate_trading` ／ `config/experiment/trade_*.toml` 8 本（2026-09-10 実装） |
 | ⚠ **台帳** | `ail/catalog.py` ／ `cli/ledger.py` ／ `config/legacy.toml` ／ `config/catalog_notes.toml` |

@@ -204,14 +204,38 @@ def _layer_of(run: dict) -> str:
     return meta.get("layer") or inputs.get("layer") or "?"
 
 
+def _trading_of(cfg: dict) -> tuple[str, str]:
+    """(検証方式, 形式)。⚠ **旧実行は（毎日往復・共通）として読む**（rules.md 13-9 の 1）。"""
+    t = cfg.get("trading") or {}
+    if t.get("style") == "threshold":
+        return "閾値売買", ("銘柄別" if t.get("form") == "per_symbol" else "共通")
+    return "毎日往復", "共通"
+
+
+def _edge_vs_bh(result: pd.DataFrame | None, method: str, th) -> tuple[float | None, str | None]:
+    """(対 B&H 上乗せの平均 bp, fold の符号)。⚠ **fold の符号は上乗せで見る**（rules.md 13-7）。"""
+    if result is None or "閾値" not in result or th is None:
+        return None, None
+    r = result[(result["手法"] == method) & (result["閾値"] == float(th))].sort_values("fold")
+    b = result[(result["手法"] == "基準 常に上（ドリフト）")
+               & (result["閾値"] == float(th))].sort_values("fold")
+    if r.empty or b.empty or len(r) != len(b):
+        return None, None
+    e = r["純利bp"].values - b["純利bp"].values
+    pat = "".join("＋" if v > 0 else "−" if v < 0 else "0" for v in e)
+    return float(e.mean()), f"{int((e > 0).sum())}/{len(e)} {pat}"
+
+
 def _run_trials(run: dict) -> list[dict]:
     cfg, inputs = run["config"], run.get("inputs", {})
     gran, bar_min = _granularity(cfg)
     layer = _layer_of(run)
     model = cfg.get("model", "Ridge")
+    style, form = _trading_of(cfg)
     rows = []
     for method, s in run["summary"].iterrows():
-        rows.append({
+        th = s.get("閾値") if style == "閾値売買" else None
+        row = {
             "手法名": str(method), "粒度": gran, "地平": _horizon(cfg.get("horizon", 0), bar_min),
             # ⚠ **「基準 」の行はモデルを使わない**（常に上・直前符号）。モデル別に割れないよう「—」
             "モデル": "—" if str(method).startswith("基準 ") else model,
@@ -219,10 +243,17 @@ def _run_trials(run: dict) -> list[dict]:
             "対象": cfg.get("targets") or "all", "k": cfg.get("k"),
             "コストbp": cfg.get("cost_bp"), "本数": s.get("本数"), "的中率": s.get("的中率"),
             "IC": s.get("IC"), "粗利bp": s.get("粗利bp"), "純利bp": s.get("純利bp"),
-            "fold": _sign_pattern(run.get("result"), str(method)),
+            "fold": None if style == "閾値売買" else _sign_pattern(run.get("result"), str(method)),
+            "検証方式": style, "形式": form,
+            "閾値": f"{float(th):g}" if th is not None else "—",
             "実行": run["実行"], "leak": run["leak"], "行": inputs.get("rows_before_sample"),
             "出所": "runs",
-        })
+        }
+        if style == "閾値売買":
+            # ⚠ 閾値ごとに行が割れるので、fold の符号も閾値ごとの上乗せで引き直す
+            edge, pat = _edge_vs_bh(run.get("result"), str(method), th)
+            row["上乗せbp"], row["上乗せfold"], row["fold"] = edge, pat, pat
+        rows.append(row)
     return rows
 
 
@@ -274,7 +305,8 @@ def legacy_trials(decl: dict) -> list[dict]:
                for k in ("本数", "的中率", "IC")},
             "粗利bp": _num(cells[ix["粗利"]]) if ix["粗利"] is not None else None,
             "純利bp": _num(cells[ix["純利"]]),
-            "fold": None, "実行": decl["id"], "leak": False, "行": decl.get("rows"),
+            "fold": None, "検証方式": "毎日往復", "形式": "共通", "閾値": "—",
+            "実行": decl["id"], "leak": False, "行": decl.get("rows"),
             "出所": "legacy",
         })
     return rows
@@ -283,6 +315,8 @@ def legacy_trials(decl: dict) -> list[dict]:
 # --- 判定 ---------------------------------------------------------------
 
 # ⚠ **判定は数字から機械的に決める**（プラン §2-4）。落とした理由は E8 の失敗の型で書く
+# ⚠ **閾値売買の行は対 B&H の上乗せで判定する**（rules.md 13-7。純利の符号では
+# 「買って持っただけ」と区別できない）
 JUDGE_RULES = [
     ("純利 > 0 かつ fold の符号が全部正", "採る", "—"),
     ("純利 > 0 だが fold の符号が割れる", "保留", "⚠ 平均だけ正（rules.md 11 章 規約 5）"),
@@ -290,6 +324,10 @@ JUDGE_RULES = [
     ("純利 ≤ 0 かつ 粗利 ≤ 0", "落とす", "**X2 ＋ X9** コスト以前に優位性が無い"),
     ("⚠ 日足 × データの層が raw", "保留", "⚠ **無効・要再測**（分割調整の誤り。§6-3）"),
     ("基準線の行", "基準", "⚠ 採否の対象ではない。手法はこれを超えて初めて意味がある"),
+    ("閾値売買: 上乗せ > 0 かつ fold の上乗せ符号が全部正", "採る",
+     "⚠ DSR を通すまでは根拠「中」が上限（rules.md 13-7）"),
+    ("閾値売買: 上乗せ > 0 だが符号が割れる", "保留", "⚠ 平均だけ正（rules.md 13-7）"),
+    ("閾値売買: 上乗せ ≤ 0", "落とす", "⚠ **基準線以下 ＝ 何も学んでいない**（rules.md 13-7）"),
 ]
 
 
@@ -298,9 +336,13 @@ def judge(row: dict, baselines: set[str]) -> tuple[str, str]:
 
     ⚠ **「全部使う × Ridge 以外のモデル」は基準線ではなく手法として判定する**
     （モデルが処置。plans/archive/gpu-models.md §3-4。乱択・「基準 」の行は従来どおり基準線）。
+    ⚠ **閾値売買の行は別の表**（rules.md 13-7）: 判定の量が「対 B&H の上乗せ」に変わり、
+    「全部使う」も手法として判定する（検証方式が処置。13-9 の 4）。
     """
     invalid = row.get("粒度") == "日足" and row.get("層") == "raw"
     note = "⚠ **無効・要再測**（分割調整の誤り。§6-3）" if invalid else ""
+    if row.get("検証方式") == "閾値売買":
+        return _judge_trading(row, note)
     model_treated = (row["手法名"] == "全部使う（基準）"
                      and (row.get("モデル") or "Ridge") not in ("Ridge", "—"))
     if (canonical(row["手法名"])[1] in baselines or row["手法名"].startswith("基準 ")) \
@@ -323,11 +365,36 @@ def judge(row: dict, baselines: set[str]) -> tuple[str, str]:
     return "落とす", "**X2 ＋ X9** コスト以前に優位性が無い"
 
 
+def _judge_trading(row: dict, note: str) -> tuple[str, str]:
+    """閾値売買の判定（rules.md 13-7 の表）。⚠ **量は対 B&H の上乗せ**。"""
+    name = row.get("手法名") or ""
+    if name.startswith("基準 ") or name == "乱択（基準）":
+        if "常に上" in name:
+            note = (note + " ／ " if note else "") + "⚠ 新方式では期初買い・期末売り（B&H）。上乗せの基準"
+        return "基準", note or "⚠ 採否の対象ではない"
+    if row.get("粒度") == "日足" and row.get("層") == "raw":
+        return "保留", note
+    edge = row.get("上乗せbp")
+    if edge is None:
+        return "保留", "対 B&H の上乗せが読めない"
+    fold = row.get("上乗せfold") or ""
+    if edge > 0:
+        if fold and fold.split("/")[0] == fold.split("/")[1].split(" ")[0]:
+            return "採る", (f"対 B&H 上乗せ {edge:+.2f}bp。"
+                            "⚠ DSR を通すまでは根拠「中」が上限（rules.md 13-7）")
+        return "保留", f"⚠ 上乗せの平均だけ正（{edge:+.2f}bp）。fold の符号が割れる（rules.md 13-7）"
+    return "落とす", (f"⚠ **基準線以下 ＝ 何も学んでいない**"
+                      f"（対 B&H 上乗せ {edge:+.2f}bp ≤ 0。rules.md 13-7）")
+
+
 # --- 台帳の行 -----------------------------------------------------------
 
-KEY = ("鍵", "モデル", "粒度", "地平", "特徴量の層", "層")   # ⚠ 利用者が決めた 1 行の粒度
+KEY = ("鍵", "モデル", "粒度", "地平", "特徴量の層", "層",
+       "検証方式", "形式", "閾値")   # ⚠ 利用者が決めた 1 行の粒度
 # ⚠ **モデルは 2026-09-09 に鍵へ足した**（plans/archive/gpu-models.md §3-2）。それまでは Ridge 1 本だったので
 # ⚠ **既存の行はどれも割れない**（旧実行はモデル未指定 = Ridge として読む）
+# ⚠ **検証方式・形式・閾値は 2026-09-10 に足した**（rules.md 13-9 の 1）。旧実行・旧配線は
+# ⚠ **（毎日往復・共通・—）として読む**ので、既存の行はどれも割れない
 
 
 def is_trial(row: dict) -> bool:
@@ -336,7 +403,12 @@ def is_trial(row: dict) -> bool:
     カタログ ID を持つ行（従来どおり）に加え、⚠ **モデルが処置の行**
     （「全部使う × Ridge 以外のモデル」）も数える（plans/archive/gpu-models.md §3-4）。
     乱択・「基準 」の行は従来どおり基準線として数えない。
+    ⚠ **閾値売買の行は閾値 1 水準ごとに 1 試行**（rules.md 13-9 の 3・4）。検証方式が処置なので
+    「全部使う × Ridge」も数える。基準線（B&H・直前符号・乱択）は数えない。
     """
+    if row.get("検証方式") == "閾値売買":
+        name = row.get("手法名") or ""
+        return not (name.startswith("基準 ") or name == "乱択（基準）")
     if row.get("ID"):
         return True
     return (row.get("鍵") == "全部使う（基準）"
@@ -395,7 +467,8 @@ def _collapse(rows: list[dict], tol: float = 0.1) -> list[dict]:
     """同じ鍵の行をまとめる。⚠ **食い違ったら黙って隠さず印を付ける**（rules.md 11 章 規約 7）。"""
     groups: dict[tuple, list[dict]] = {}
     for r in rows:
-        groups.setdefault(tuple(r[k] for k in KEY), []).append(r)
+        # ⚠ 鍵の列が無い行（手書きの検査用など）は None で寄せる。実運用の行は必ず全列を持つ
+        groups.setdefault(tuple(r.get(k) for k in KEY), []).append(r)
     out = []
     for key, g in groups.items():
         # ⚠ **代表は新配線の一番新しい実行。** 旧配線の表しか無いときだけそれを使う

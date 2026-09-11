@@ -1,0 +1,40 @@
+# ⚠ **閾値つき売買の橋渡し 4 本のうちの 1 本**（rules.md 13-8・プラン trading-validation §Phase 3 の 1〜4）。
+# ⚠ **own_2018 と同じ表・同じ日付 fold で回し、旧最良との差を「検証方式だけの差」として読む。**
+#
+# ⚠ **TOML の平の key はテーブル見出しより上に書く**（rules.md 10 章 規約 1）
+name = "trade_own_ridge_a"
+dataset = "daily"
+horizon = 1
+cost_bp = 5.0
+features_from = "own_2018"     # ⚠ 表は作り直さず own_2018 のものを読む（13-8。表の差を混ぜない）
+
+feature_layers = ["own"]
+targets = "all"
+
+horizon_min = 1440.0
+bar_minutes = 1440.0
+
+# ⚠ 選別は「全部使う」1 本に絞る（選別の優劣は決着済み。処置は検証方式）。乱択は選別の基準線
+selectors = ["全部使う（基準）", "乱択（基準）"]
+k = 16
+
+model = "Ridge"
+baselines = ["常に上（ドリフト）", "直前リターンの符号"]
+
+[trading]
+style = "threshold"
+thresholds = [50, 55, 60]      # ⚠ 事前固定。結果を見て動かさない（rules.md 13-3）
+form = "shared"                # (A) 銘柄共通 1 本
+
+[validation]
+split = "walk_forward_dates"   # ⚠ fold の切れ目は日付で決める（rules.md 13-6 の 1）
+folds = 5
+purge = true
+embargo_bars = 0
+seed = 0
+
+[features]
+ex_lag_days = 1
+ex_zero_fill = ["usgs"]
+ex_transforms = ["d1", "z20"]
+ex_max_stale_days = 7

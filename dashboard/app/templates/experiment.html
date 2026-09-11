@@ -10,15 +10,15 @@
     <div class="k">スコア（最良手法の純利）</div>
     <div class="v {{ 'pos' if (run.score or 0) > 0 else 'neg' }}">
       {% if run.score is none %}—{% else %}{{ '%+.2f'|format(run.score) }} bp{% endif %}</div>
-    <div class="small muted">{{ run.best.method or '—' }}{% if run.best %} · 粗利 {{ '%+.2f'|format(run.best.粗利bp) }}bp · コスト {{ run.cost_bp }}bp{% endif %}</div>
+    <div class="small muted">{{ run.best.method or '—' }}{% if run.best %}{% if run.best.閾値 is defined and run.best.閾値 is not none %} · θ={{ '%g'|format(run.best.閾値) }}%{% endif %} · 粗利 {{ '%+.2f'|format(run.best.粗利bp) }}bp · コスト {{ run.cost_bp }}bp{% endif %}</div>
   </div>
   <div class="card">
-    <div class="k">fold の符号</div>
+    <div class="k">fold の符号{% if run.style == 'threshold' %}（上乗せ）{% endif %}</div>
     <div class="v">{% if run.folds %}{{ run.folds.positive }}/{{ run.folds.folds }}{% else %}—{% endif %}</div>
     <div class="small muted">{% if run.folds %}{{ run.folds.pattern }}{% else %}記録なし{% endif %}</div>
   </div>
   <div class="card">
-    <div class="k">「常に上」への上乗せ</div>
+    <div class="k">{% if run.style == 'threshold' %}対 B&amp;H の上乗せ{% else %}「常に上」への上乗せ{% endif %}</div>
     <div class="v">{% if run.edge %}{{ '%+.2f'|format(run.edge.mean_bp) }} bp{% else %}—{% endif %}</div>
     <div class="small muted">{% if run.edge and run.edge.t is not none %}t = {{ '%.2f'|format(run.edge.t) }}（目安は t &gt; 3.0）{% endif %}</div>
   </div>
@@ -57,13 +57,17 @@
 {% endif %}
 
 {% if run.folds %}
-<h3>fold ごとの純利（bp）</h3>
+<h3>{% if run.style == 'threshold' %}fold ごとの上乗せ（対 B&amp;H、bp）{% else %}fold ごとの純利（bp）{% endif %}</h3>
 <table class="exp">
 <tr>{% for v in run.folds['values'] %}<th>fold {{ loop.index }}</th>{% endfor %}<th>平均</th></tr>
 <tr>{% for v in run.folds['values'] %}<td class="{{ 'pos' if v > 0 else 'neg' }}">{{ '%+.2f'|format(v) }}</td>{% endfor %}
-    <td><b>{{ '%+.2f'|format(run.score) }}</b></td></tr>
+    <td><b>{{ '%+.2f'|format(run.edge.mean_bp if run.style == 'threshold' and run.edge else run.score) }}</b></td></tr>
 </table>
-{% if run.edge %}
+{% if run.style == 'threshold' %}
+<p class="muted small">⚠ 新方式では B&amp;H でも純利が正になりうる（ドリフト）ので、fold の符号は純利ではなく
+  <b>対 B&amp;H の上乗せ</b>で見る（rules.md 13-7）。
+  {% if run.bh_net is not none %}B&amp;H 自身の純利 {{ '%+.2f'|format(run.bh_net) }}bp。{% endif %}</p>
+{% elif run.edge %}
 <p class="muted small">「常に上」への上乗せ（粗利）:
   {% for v in run.edge['values'] %}<span class="{{ 'pos' if v > 0 else 'neg' }}">{{ '%+.2f'|format(v) }}</span> {% endfor %}
   · 平均 {{ '%+.2f'|format(run.edge.mean_bp) }}bp · {{ run.edge.positive }}/{{ run.edge.folds }} 正
@@ -71,20 +75,55 @@
 {% endif %}
 {% endif %}
 
+{% if run.by_threshold %}
+<h3>閾値ごとの成績（3 水準とも載せる）</h3>
+<table class="exp">
+<tr><th>θ</th><th>最良手法</th><th>純利 bp</th><th>B&amp;H 純利</th><th>上乗せ</th><th>上乗せ fold</th>
+    <th>DSR</th><th>取引/fold</th><th>保有日率</th><th>銘柄別 中央値</th><th>四分位</th><th>勝ち銘柄</th></tr>
+{% for th, e in run.by_threshold.items() %}
+<tr>
+  <td><b>{{ th }}%</b></td>
+  <td>{{ e.best.method }}</td>
+  <td class="{{ 'pos' if (e.best.純利bp or 0) > 0 else 'neg' }}">{{ '%+.2f'|format(e.best.純利bp) }}</td>
+  <td>{{ '%+.2f'|format(e.bh_純利bp) if e.bh_純利bp is defined else '—' }}</td>
+  <td class="{{ 'pos' if e.edge_vs_bh and e.edge_vs_bh.mean_bp > 0 else 'neg' }}">
+    {% if e.edge_vs_bh %}{{ '%+.2f'|format(e.edge_vs_bh.mean_bp) }}{% if e.edge_vs_bh.t is not none %} (t={{ '%.2f'|format(e.edge_vs_bh.t) }}){% endif %}{% else %}—{% endif %}</td>
+  <td>{% if e.edge_vs_bh %}{{ e.edge_vs_bh.positive }}/{{ e.edge_vs_bh.folds }} {{ e.edge_vs_bh.pattern }}{% else %}—{% endif %}</td>
+  <td>{{ '%.4f'|format(e.dsr.DSR) if e.dsr else '—' }}</td>
+  <td>{{ '%.0f'|format(e.best.取引回数) if e.best.取引回数 is defined else '—' }}</td>
+  <td>{{ '%.2f'|format(e.best.保有日率) if e.best.保有日率 is defined else '—' }}</td>
+  <td>{% if e.per_symbol %}{{ '%+.2f'|format(e.per_symbol.中央値bp) }}{% else %}—{% endif %}</td>
+  <td>{% if e.per_symbol %}[{{ '%+.2f'|format(e.per_symbol.四分位bp[0]) }}, {{ '%+.2f'|format(e.per_symbol.四分位bp[1]) }}]{% else %}—{% endif %}</td>
+  <td>{% if e.per_symbol %}{{ e.per_symbol.勝ち銘柄 }}/{{ e.per_symbol.銘柄数 }}{% else %}—{% endif %}</td>
+</tr>
+{% endfor %}
+</table>
+<p class="muted small">⚠ 閾値は事前固定の 3 水準で、<b>良かった閾値だけを報告しない</b>（rules.md 13-3）。
+  ⚠ 「θ が高いほど良い」は「取引しない＝コストを払わないだけ」の可能性があるので、取引回数を必ず横に読む（13-10）。
+  銘柄別 bp は成果物（per_symbol.csv）で、<b>採否には使わない</b>（13-7）。数字は checks.json の写し。</p>
+{% endif %}
+
 <h3>手法ごとの成績</h3>
 <table class="exp">
-<tr><th>手法</th><th>本数</th><th>的中率</th><th>IC</th><th>粗利 bp</th><th>純利 bp</th></tr>
+<tr><th>手法</th>{% if run.style == 'threshold' %}<th>θ</th>{% endif %}<th>本数</th><th>的中率</th><th>IC</th><th>粗利 bp</th><th>純利 bp</th>{% if run.style == 'threshold' %}<th>取引/fold</th><th>保有日率</th>{% endif %}</tr>
 {% for m in run.summary %}
 <tr class="{{ 'best' if m.手法 == run.best.method else '' }}">
   <td>{{ m.手法 }}</td>
+  {% if run.style == 'threshold' %}<td>{{ '%g'|format(m.閾値) if m.閾値 is defined and m.閾値 is not none else '—' }}</td>{% endif %}
   <td>{{ '%.1f'|format(m.本数) if m.本数 is not none else '—' }}</td>
   <td>{{ '%.4f'|format(m.的中率) if m.的中率 is not none else '—' }}</td>
   <td>{{ '%+.4f'|format(m.IC) if m.IC is not none else '—' }}</td>
   <td>{{ '%+.2f'|format(m.粗利bp) if m.粗利bp is not none else '—' }}</td>
   <td class="{{ 'pos' if (m.純利bp or 0) > 0 else 'neg' }}"><b>{{ '%+.2f'|format(m.純利bp) if m.純利bp is not none else '—' }}</b></td>
+  {% if run.style == 'threshold' %}
+  <td>{{ '%.0f'|format(m.取引回数) if m.取引回数 is defined and m.取引回数 is not none else '—' }}</td>
+  <td>{{ '%.2f'|format(m.保有日率) if m.保有日率 is defined and m.保有日率 is not none else '—' }}</td>
+  {% endif %}
 </tr>
 {% endfor %}
 </table>
-<p class="muted small">スコアには<b>基準線を使わない</b>（「常に上」「直前リターンの符号」「全部使う」「乱択」）。
-  基準線は比べる相手であって、採否の対象ではない。</p>
+<p class="muted small">スコアには<b>基準線を使わない</b>（「常に上」「直前リターンの符号」「乱択」
+  {%- if run.style != 'threshold' %}「全部使う」{% endif %}）。
+  基準線は比べる相手であって、採否の対象ではない。
+  {% if run.style == 'threshold' %}⚠ 閾値売買では検証方式が処置なので「全部使う」は手法として扱う（rules.md 13-9）。{% endif %}</p>
 {% endblock %}

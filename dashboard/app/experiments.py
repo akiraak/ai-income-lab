@@ -41,6 +41,10 @@ def _read_summary(path: Path) -> list[dict]:
         d = {"手法": (r.get("手法") or "").strip()}
         for k in ("本数", "的中率", "IC", "粗利bp", "純利bp", "fold数"):
             d[k] = _num(r.get(k))
+        # 閾値つき売買（rules.md 13 章）の列。旧実行には無いので、あるときだけ持つ
+        for k in ("閾値", "取引回数", "保有日率"):
+            if r.get(k) not in (None, ""):
+                d[k] = _num(r.get(k))
         out.append(d)
     return out
 
@@ -92,6 +96,10 @@ def title_of(config: dict, inputs: dict, leak: bool) -> str:
     gran, bar = granularity(config)
     layer = LAYER_LABEL.get((inputs.get("layer") or "").strip(), inputs.get("layer") or "—")
     parts = [base_kind(config), gran, horizon(config, bar), layer]
+    t = config.get("trading") or {}
+    if t.get("style") == "threshold":
+        # 閾値つき売買（rules.md 13 章）。形式 (A) 共通 / (B) 銘柄別 もタイトルで見分ける
+        parts.append("閾値売買・" + ("銘柄別" if t.get("form") == "per_symbol" else "共通"))
     title = "・".join(p for p in parts if p and p != "—")
     return f"{title}（先読みの検査）" if leak else title
 
@@ -109,7 +117,9 @@ def load_run(d: Path) -> dict | None:
     env, ch = _read_json(d / "env.json"), _read_json(d / "checks.json")
     leak = bool(ch.get("leak")) or d.name.endswith("_leak")
     best = ch.get("best") or {}
-    folds, edge, dsr, breadth = (ch.get("folds"), ch.get("edge_vs_drift"),
+    # ⚠ 閾値つき売買の実行は「上乗せ」が対 B&H（edge_vs_bh。rules.md 13-7）。旧実行は対「常に上」
+    folds, edge, dsr, breadth = (ch.get("folds"),
+                                 ch.get("edge_vs_bh") or ch.get("edge_vs_drift"),
                                  ch.get("dsr"), ch.get("breadth"))
     gran, bar = granularity(config)
     return {
@@ -139,6 +149,13 @@ def load_run(d: Path) -> dict | None:
         "breadth": breadth,
         "drift_gross": ch.get("drift_粗利bp"),
         "panel_note": ch.get("panel"),
+        # 閾値つき売買（rules.md 13 章）。⚠ **checks.json の写しを出すだけ。画面側で数え直さない**
+        "style": ch.get("style"),
+        "form": ch.get("form"),
+        "thresholds": ch.get("thresholds"),
+        "by_threshold": ch.get("by_threshold"),
+        "bh_net": ch.get("bh_純利bp"),
+        "per_symbol": ch.get("per_symbol"),
         "has_checks": bool(ch),
         "summary": summary,
     }

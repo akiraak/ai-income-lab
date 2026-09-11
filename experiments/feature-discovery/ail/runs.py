@@ -8,6 +8,7 @@
       summary.csv    手法ごとにまとめたもの
       checks.json    ⚠ fold の符号・上乗せ・実効標本数・デフレーテッド SR（管理画面が読む）
       selected.csv   ⚠ 手法が fold ごとに選んだ列（偽薬を選んだ割合の実測に使う）
+      per_symbol.csv ⚠ 銘柄別の純利 bp（閾値つき売買だけ。成果物であって採否には使わない）
       log.txt        画面に出したものと同じ
       fitted/        ⚠ 標本から学んだ係数（再現用。⚠ **次の実行では読み込まない**）
 
@@ -95,6 +96,11 @@ class Run:
     def result(self, raw: pd.DataFrame, summary: pd.DataFrame) -> None:
         raw.to_csv(os.path.join(self.dir, "result.csv"), index=False)
         summary.to_csv(os.path.join(self.dir, "summary.csv"))
+
+    def per_symbol(self, df: pd.DataFrame) -> None:
+        """⚠ **銘柄別 bp は成果物**（rules.md 13-7。利用者の求める出力）。⚠ **採否には使わない。**"""
+        if len(df):
+            df.to_csv(os.path.join(self.dir, "per_symbol.csv"), index=False)
 
     def close(self) -> str:
         with open(os.path.join(self.dir, "log.txt"), "w", encoding="utf-8") as f:

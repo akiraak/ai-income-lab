@@ -317,3 +317,60 @@ def test_exp_fingerprint_moves_on_checks_update(runs_dir):
     after = vibetab.exp_fingerprint(runs_dir)
     assert after != before
     assert set(after) == set(before)
+
+
+# ---------------------------------------------------------------- 閾値つき売買（rules.md 13 章）
+
+
+def make_trading_run(runs_dir: Path, name: str) -> Path:
+    d = runs_dir / name
+    d.mkdir(parents=True)
+    head = "手法,閾値,本数,的中率,IC,粗利bp,純利bp,取引回数,保有日率,fold数\n"
+    rows = []
+    for th, net in ((50.0, 10.0), (55.0, 12.0), (60.0, 8.0)):
+        rows.append(f"全部使う（基準）,{th},35.0,0.52,0.03,{net + 3.0},{net},60.0,0.5,5")
+        rows.append(f"基準 常に上（ドリフト）,{th},0.0,0.52,0.0,{net + 4.0},{net - 1.0},63.0,1.0,5")
+    (d / "summary.csv").write_text(head + "\n".join(rows) + "\n", encoding="utf-8")
+    (d / "config.json").write_text(json.dumps(
+        {"dataset": "daily", "horizon": 1, "k": 16, "cost_bp": 5.0, "model": "Ridge",
+         "feature_layers": ["own"],
+         "trading": {"style": "threshold", "thresholds": [50, 55, 60], "form": "shared"}}),
+        encoding="utf-8")
+    (d / "inputs.json").write_text(json.dumps(
+        {"layer": "adjusted", "features": 35, "symbols": 63, "rows_before_sample": 135962}),
+        encoding="utf-8")
+    (d / "env.json").write_text(json.dumps(
+        {"seed": 0, "git_commit": "abc1234", "started_at": "2026-09-10T12:00:00"}),
+        encoding="utf-8")
+    entry = {"best": {"method": "全部使う（基準）", "純利bp": 12.0, "粗利bp": 15.0,
+                      "的中率": 0.52, "本数": 35.0, "取引回数": 60.0, "保有日率": 0.5},
+             "edge_vs_bh": {"pattern": "＋＋＋＋＋", "positive": 5, "folds": 5,
+                            "values": [1.0, 2.0, 0.5, 0.8, 0.7], "mean_bp": 1.0, "t": 3.5},
+             "bh_純利bp": 11.0,
+             "dsr": {"DSR": 0.97, "n_trials": 91, "n_obs": 1800},
+             "per_symbol": {"銘柄数": 63, "中央値bp": 3.2, "四分位bp": [-5.0, 12.0],
+                            "勝ち銘柄": 40}}
+    (d / "checks.json").write_text(json.dumps({
+        "leak": False, "style": "threshold", "form": "shared", "cost_bp": 5.0,
+        "thresholds": [50.0, 55.0, 60.0],
+        "by_threshold": {"50": entry, "55": entry, "60": entry},
+        "best": {**entry["best"], "閾値": 55.0},
+        "folds": {k: entry["edge_vs_bh"][k] for k in ("pattern", "positive", "folds", "values")},
+        "edge_vs_bh": entry["edge_vs_bh"], "bh_純利bp": 11.0,
+        "dsr": entry["dsr"], "per_symbol": entry["per_symbol"],
+    }, ensure_ascii=False), encoding="utf-8")
+    return d
+
+
+def test_exp_run_html_shows_thresholds(tmp_path):
+    """⚠ 3 閾値とも出す・上乗せは対 B&H・銘柄別は要約だけ（checks.json の写し）。"""
+    runs = tmp_path / "runs"
+    make_trading_run(runs, "2026-09-10T12-00-00_trade_own_ridge_a")
+    body = vibetab.exp_run_html(runs, "2026-09-10T12-00-00_trade_own_ridge_a")
+    assert body is not None
+    assert "閾値ごとの成績" in body
+    assert body.count("55%") >= 1 and "50%" in body and "60%" in body
+    assert "対 B&H の上乗せ" in body.replace("&amp;", "&")
+    assert "勝ち 40/63" in body
+    assert "θ=55%" in body                      # 最良の閾値
+    assert "閾値売買・共通" in body              # タイトルで形式が読める

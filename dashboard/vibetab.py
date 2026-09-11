@@ -372,12 +372,17 @@ def exp_run_html(runs_dir: Path, run_id: str) -> str | None:
     folds, edge, dsr, breadth = run["folds"], run["edge"], run["dsr"], run["breadth"]
     checks: list[tuple[str, str]] = [
         ("スコア（最良手法の純利 bp）", "—" if run["score"] is None else f"{run['score']:+.2f}"),
-        ("最良手法", esc((run["best"] or {}).get("手法") or "—")),
+        ("最良手法", esc((run["best"] or {}).get("method") or "—")
+                    + (f"（θ={(run['best'] or {}).get('閾値'):g}%）"
+                       if (run.get("best") or {}).get("閾値") is not None else "")),
     ]
+    threshold = run.get("style") == "threshold"
     if folds:
-        checks.append(("fold の符号", f"{fmt(folds.get('positive'))} / {fmt(folds.get('folds'))} が正"))
+        checks.append(("fold の符号" + ("（対 B&H 上乗せ）" if threshold else ""),
+                       f"{fmt(folds.get('positive'))} / {fmt(folds.get('folds'))} が正"))
     if edge:
-        checks.append(("基準線への上乗せ t", fmt(edge.get("t"))))
+        checks.append(("対 B&H の上乗せ t" if threshold else "基準線への上乗せ t",
+                       fmt(edge.get("t"))))
     if dsr:
         checks.append(("デフレーテッド SR", fmt(dsr.get("DSR"), 3)))
     if breadth:
@@ -387,11 +392,42 @@ def exp_run_html(runs_dir: Path, run_id: str) -> str | None:
     body.append(kv_table(checks))
     if run["panel_note"]:
         body.append(f"<p class='warn'>⚠ {esc(run['panel_note'])}</p>")
+    if run.get("by_threshold"):
+        # 閾値つき売買（rules.md 13 章）。⚠ checks.json の写しを出すだけ（ここで数え直さない）
+        body.append("<h2>閾値ごとの成績（3 水準とも載せる）</h2>")
+        rows = []
+        for th, e in run["by_threshold"].items():
+            b, ed, ps = e.get("best") or {}, e.get("edge_vs_bh") or {}, e.get("per_symbol") or {}
+            rows.append([
+                f"{esc(th)}%", esc(b.get("method") or "—"), fmt(b.get("純利bp")),
+                fmt(e.get("bh_純利bp")),
+                (f"{ed.get('mean_bp', 0):+.2f}" + (f" (t={ed['t']:.2f})" if ed.get("t") is not None else "")
+                 if ed else "—"),
+                (f"{ed.get('positive')}/{ed.get('folds')} {esc(ed.get('pattern') or '')}" if ed else "—"),
+                fmt((e.get("dsr") or {}).get("DSR"), 3),
+                fmt(b.get("取引回数"), 0), fmt(b.get("保有日率")),
+                (f"{ps.get('中央値bp', 0):+.2f} ／ 勝ち {ps.get('勝ち銘柄')}/{ps.get('銘柄数')}"
+                 if ps else "—"),
+            ])
+        body.append(table(["θ", "最良手法", "純利bp", "B&H 純利", "上乗せ", "上乗せ fold",
+                           "DSR", "取引/fold", "保有日率", "銘柄別 bp"], rows,
+                          {2, 3, 4, 6, 7, 8}))
+        body.append("<p class='meta'>⚠ 閾値は事前固定（rules.md 13-3。良かった閾値だけ報告しない）。"
+                    "fold の符号は対 B&H の上乗せで見る（13-7）。「θ が高いほど良い」は"
+                    "「取引しないだけ」の可能性があるので取引回数を必ず横に読む（13-10）。"
+                    "銘柄別 bp は成果物（per_symbol.csv）で採否には使わない。</p>")
     body.append("<h2>手法ごとの成績（summary.csv）</h2>")
-    rows = [[esc(s["手法"]), fmt(s["本数"], 0), fmt(s["的中率"], 3), fmt(s["IC"], 3),
-             fmt(s["粗利bp"]), fmt(s["純利bp"]), fmt(s["fold数"], 0)] for s in run["summary"]]
-    body.append(table(["手法", "本数", "的中率", "IC", "粗利bp", "純利bp", "fold数"],
-                      rows, {1, 2, 3, 4, 5, 6}))
+    if threshold:
+        rows = [[esc(s["手法"]), fmt(s.get("閾値"), 0), fmt(s["本数"], 0), fmt(s["的中率"], 3),
+                 fmt(s["IC"], 3), fmt(s["粗利bp"]), fmt(s["純利bp"]),
+                 fmt(s.get("取引回数"), 0), fmt(s.get("保有日率"))] for s in run["summary"]]
+        body.append(table(["手法", "θ", "本数", "的中率", "IC", "粗利bp", "純利bp",
+                           "取引/fold", "保有日率"], rows, {1, 2, 3, 4, 5, 6, 7, 8}))
+    else:
+        rows = [[esc(s["手法"]), fmt(s["本数"], 0), fmt(s["的中率"], 3), fmt(s["IC"], 3),
+                 fmt(s["粗利bp"]), fmt(s["純利bp"]), fmt(s["fold数"], 0)] for s in run["summary"]]
+        body.append(table(["手法", "本数", "的中率", "IC", "粗利bp", "純利bp", "fold数"],
+                          rows, {1, 2, 3, 4, 5, 6}))
     body.append("<h2>設定</h2>")
     body.append(kv_table([
         ("種類", esc(run["kind"])), ("粒度", esc(run["gran"])), ("先", esc(run["horizon"])),

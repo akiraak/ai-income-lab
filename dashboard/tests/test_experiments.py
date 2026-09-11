@@ -192,3 +192,90 @@ def test_demo_banner_says_the_validation_screen_is_not_mock(settings):
         assert str(settings.runs_dir) in e          # 出所は runs/ を出す
         # ⚠ 他の画面では今までどおり（余計な断りを出さない）
         assert "この「検証」の画面はデモの対象外" not in c.get("/records").text
+
+
+# --- 閾値つき売買（rules.md 13 章） --------------------------------------
+
+import json  # noqa: E402
+
+TRADE = {**POOL, "name": "trade_own_ridge_a", "model": "Ridge",
+         "trading": {"style": "threshold", "thresholds": [50, 55, 60], "form": "shared"}}
+TRADE_B = {**TRADE, "trading": {**TRADE["trading"], "form": "per_symbol"}}
+
+
+def _th_entry(th, net):
+    return {"best": {"method": "全部使う（基準）", "純利bp": net, "粗利bp": net + 3.0,
+                     "的中率": 0.52, "本数": 35.0, "取引回数": 60.0, "保有日率": 0.5},
+            "edge_vs_bh": {"pattern": "＋＋＋＋＋", "positive": 5, "folds": 5,
+                           "values": [1.0, 2.0, 0.5, 0.8, 0.7], "mean_bp": 1.0, "t": 3.5},
+            "bh_純利bp": net - 1.0,
+            "dsr": {"SR": 0.02, "SR0": 0.01, "DSR": 0.97, "n_trials": 91, "n_obs": 1800,
+                    "歪度": -0.3, "尖度": 5.2},
+            "per_symbol": {"銘柄数": 63, "中央値bp": 3.2, "四分位bp": [-5.0, 12.0],
+                           "勝ち銘柄": 40}}
+
+
+def trade_checks():
+    by = {"50": _th_entry(50, 10.0), "55": _th_entry(55, 12.0), "60": _th_entry(60, 8.0)}
+    return {"leak": False, "style": "threshold", "form": "shared", "cost_bp": 5.0,
+            "thresholds": [50.0, 55.0, 60.0], "by_threshold": by,
+            "best": {**by["55"]["best"], "閾値": 55.0},
+            "folds": {k: by["55"]["edge_vs_bh"][k]
+                      for k in ("pattern", "positive", "folds", "values")},
+            "edge_vs_bh": by["55"]["edge_vs_bh"], "bh_純利bp": 11.0,
+            "dsr": by["55"]["dsr"], "per_symbol": by["55"]["per_symbol"]}
+
+
+def write_trading_experiment(runs_dir, run_id, config=None, checks_doc=None):
+    d = write_experiment(runs_dir, run_id, config=config or TRADE,
+                         inputs={"layer": "adjusted", "features": 35, "symbols": 63,
+                                 "rows_before_sample": 135962},
+                         summary=[], checks=checks_doc or trade_checks())
+    lines = ["手法,閾値,本数,的中率,IC,粗利bp,純利bp,取引回数,保有日率,fold数"]
+    for th, net in ((50.0, 10.0), (55.0, 12.0), (60.0, 8.0)):
+        lines.append(f"全部使う（基準）,{th},35.0,0.52,0.03,{net + 3.0},{net},60.0,0.5,5")
+        lines.append(f"基準 常に上（ドリフト）,{th},0.0,0.52,0.0,{net + 4.0},{net - 1.0},63.0,1.0,5")
+    (d / "summary.csv").write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return d
+
+
+def test_trading_title_names_the_style_and_form():
+    """閾値売買の実行はタイトルで見分けられる（形式 (A) 共通 / (B) 銘柄別も）。"""
+    assert exp.title_of(TRADE, {"layer": "adjusted"}, leak=False) \
+        == "プーリング・日足・1 日先・調整後・閾値売買・共通"
+    assert exp.title_of(TRADE_B, {"layer": "adjusted"}, leak=False) \
+        == "プーリング・日足・1 日先・調整後・閾値売買・銘柄別"
+
+
+def test_trading_edge_comes_from_edge_vs_bh(tmp_path):
+    """⚠ **新方式の上乗せは対 B&H**（edge_vs_bh）。旧鍵（edge_vs_drift）が無くても読める。"""
+    write_trading_experiment(tmp_path, "2026-09-10T10-00-00_trade_own_ridge_a")
+    r = exp.index(tmp_path)["runs"][0]
+    assert r["style"] == "threshold" and r["form"] == "shared"
+    assert r["edge"]["t"] == 3.5
+    assert r["score"] == 12.0 and r["best"]["閾値"] == 55.0
+    assert set(r["by_threshold"]) == {"50", "55", "60"}
+    assert r["marks"]["上乗せ"] == "✅" and r["marks"]["DSR"] == "✅" and r["marks"]["fold"] == "✅"
+
+
+def test_trading_summary_keeps_the_threshold_columns(tmp_path):
+    write_trading_experiment(tmp_path, "2026-09-10T10-00-00_trade_own_ridge_a")
+    r = exp.index(tmp_path)["runs"][0]
+    row = r["summary"][0]
+    assert row["閾値"] == 50.0 and row["取引回数"] == 60.0 and row["保有日率"] == 0.5
+
+
+def test_trading_detail_page_shows_all_three_thresholds(settings):
+    """⚠ **3 閾値とも画面に出す**（rules.md 13-3。checks.json の写しを出すだけ）。"""
+    write_trading_experiment(settings.runs_dir, "2026-09-10T10-00-00_trade_own_ridge_a")
+    with TestClient(create_app(settings), client=("127.0.0.1", 50000)) as c:
+        r = c.get("/experiments")
+        assert r.status_code == 200 and "閾値売買・共通" in r.text
+        d = c.get("/experiments/2026-09-10T10-00-00_trade_own_ridge_a")
+        assert d.status_code == 200
+        assert "閾値ごとの成績" in d.text
+        for th in ("50%", "55%", "60%"):
+            assert th in d.text
+        assert "対 B&amp;H の上乗せ" in d.text
+        assert "40/63" in d.text                     # 銘柄別の勝ち銘柄（成果物の要約）
+        assert "θ=55%" in d.text                     # 最良の閾値

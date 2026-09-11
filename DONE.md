@@ -1,5 +1,11 @@
 # DONE
 
+- 2026-09-11 検証の単位の解説（units.md）に実データの実行例 2 パターンを追加して体感に落とせるようにした
+  - プラン: [docs/plans/archive/units-md-examples.md](docs/plans/archive/units-md-examples.md)。成果物: [units.md §8](docs/specs/experiments/feature-discovery/units.md)。利用者の指示（2026-09-11）「**units.md に実際のデータやモデルを使った実行例を追加して体感に落とせるようにする**。**種類の違う 2 パターンを用意する**」
+  - パターン A（§8-1）: 新方式（閾値売買・LightGBM）の実行 `trade_own_lgbm_a` を上から下へ展開（config → summary 12 行 → result 60 行 → per_symbol 3,780 行 → 台帳の 3 試行）。見どころ: fold 1・2・4・5 は B&H と数字が完全一致（毎日「上」＝持ちっぱなし）で fold 3 だけ全 63 銘柄見送り → 上乗せ −273.92bp が平均 −54.78bp・「0/5 00−00」・「落とす」になる算術。基準線の行が θ で変わらないこと、乱択と全部使うが「同じ売買 → 同数値」になることも実ファイルで示した
+  - パターン B（§8-2）: 旧方式（毎日往復・Ridge）を逆向きに、台帳の 1 行「F1-2 相互情報量 × own ex」（保留・⚠ 5 実行・幅 4.35bp）から 5 実行へ分解。幅 ＝ ＋2.60 −（−1.75）の出どころが鍵の粗さ（同じ「own ex」でも特徴量プールが 85〜57 本と違う。inputs.json で分かる）にあること、代表 ＝ 一番新しい実行（`catalog._collapse`）、旧方式にはセル（per_symbol.csv）が無いことを示した
+  - 定義は 1 つも足していない（units.md §0 の位置づけどおり、実例と読み方だけ）。図 2 枚（各パターン 1 枚・主張 1 行・ノード 12 個以内）。数字はすべて【実測】・2026-09-10 生成の台帳を併記し、引用値は runs/ の実ファイルと台帳の行に全数突き合わせ済み（fold 純利・上乗せ平均・幅・特徴量本数・行数・再現列）
+
 - 2026-09-11 vibeboard 本文の相対リンクを Ctrl+クリックすると Cannot GET になる問題を修正した
   - プラン: [docs/plans/archive/vibeboard-ctrl-click-links.md](docs/plans/archive/vibeboard-ctrl-click-links.md)。利用者の報告（2026-09-11）「**rules.md などを普通にクリックだと問題ないが、Ctrl+クリックだとCannot GET /rules.mdと表示される**」
   - 原因: クリック委譲（`setupDocLinkInterception`）が修飾キー付きクリックを意図的に素通しし、href が相対パスのままブラウザが `/rules.md` をサーバへ取りにいっていた。対応: 描画時に href 属性そのものを hash URL へ書き換える `rewriteRelativeDocLinks` を新設し、プレビュー本文と TODO ツリーの描画後に呼ぶ。中クリック・「リンクのアドレスをコピー」も同時に直った。同一 hash クリックの再描画は `data-doc-link` を印にクリック委譲が従来どおり拾う

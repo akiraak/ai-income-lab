@@ -1,15 +1,49 @@
 # TODO
 
-- [ ] DeepLearning と GAN を使った検証をかなり増やす。GAN の実行を継続して回せる仕組みを入れる
+- [ ] DeepLearning と進化的探索（遺伝的アルゴリズム）を使った検証をかなり増やす。進化的探索の実行を継続して回せる仕組みを入れる
   利用者の指示（2026-09-10）: **DeepLearningとGANを使った検証をかなり増やす。GANの実行を継続して回せる仕組みを入れる**
-  土台: `runs/` に GPU 系の実行が既にある（2026-09-09 の gpu_mlp_2018・gpu_ridge_gan_2018・gpu_lgbm_gan_2018）。GAN 系は最良でも純利 −4.74 / −7.35bp で基準線を超えていない
+  ⚠ 旧題は「GAN」だったが、利用者の意図は遺伝的アルゴリズム（モデル集団を対決させ、勝者の特徴で次世代を作る進化的探索）だったので 2026-09-10 に改題。ML 用語の GAN（データ増強）は 2026-09-09 に検証済みで「落とす」（[gpu-models.md §4](docs/specs/experiments/gpu-models.md)）
+  土台: `runs/` に GPU 系の実行が既にある（2026-09-09 の gpu_mlp_2018・gpu_ridge_gan_2018・gpu_lgbm_gan_2018）。GAN（データ増強）系は最良でも純利 −4.74 / −7.35bp で基準線を超えていない
   ⚠ 手法を増やすほど n_trials が増えて DSR は下がる（[rules.md §11-4](docs/specs/experiments/feature-discovery/rules.md)。数え落とすと必ず甘くなる）。継続実行の仕組みは n_trials の自動集計・台帳への反映とセットで作る
-  ⚠ GAN を含む「標本から学ぶ変換」は訓練分割の内側で fit（rules §3 B）。fitted は `runs/` に残すが次の実行では読み込まない
+  ⚠ 進化的探索の選抜も「標本から学ぶ変換」として訓練分割の内側で行う（rules §3 B）。fitted は `runs/` に残すが次の実行では読み込まない
   ⚠ 継続実行も 1 実行 1 ディレクトリ（rules §10）。seed・config・入力の指紋を毎回残す
   GPU は 3090 Ti（メモリは全部使ってよい。デバイスは `AIL_TORCH_DEVICE`）
-  - [ ] DL / GAN の手法を増やして検証を回す（着手時にプランを作る）
-  - [ ] GAN の実行を継続して回せる仕組み（キュー or ループ、失敗時の再開、台帳の自動更新）
-  関連: [rules.md](docs/specs/experiments/feature-discovery/rules.md) ／ [ledger.md](docs/specs/experiments/feature-discovery/ledger.md)
+  - [x] 時系列から上昇下降トレンドを学習する最新 AI 技術の調査 [plan](docs/plans/archive/ts-trend-ai-survey.md)
+    利用者の指示（2026-09-10）: **時系列のデータから上昇下降のトレンドを学習するような最新のAI技術がないか調べて**
+    ✅ 2026-09-10 完了。成果物: [ts-trend-ai-survey.md](docs/specs/experiments/ts-trend-ai-survey.md)。5 系統に整理し、候補リスト（§7）を作成。金融の一次評価 2 本が「汎用基盤モデルは対ランダムウォークの利得が小さくまばら」で §9 と同じ形
+  - [ ] DL / 進化的探索の手法を増やして検証を回す（着手時にプランを作る）
+    依存: 「時系列から上昇下降トレンドを学習する最新 AI 技術の調査」
+    依存: 「検証の仕方を実際の取引に近づける（閾値つき売買・買い専用・銘柄別 bp）」
+    候補は [ts-trend-ai-survey.md §7](docs/specs/experiments/ts-trend-ai-survey.md): 優先 1 進化的ファクター探索の基盤 / 2 時系列分類器（MiniRocket ＋ Hydra ＋ QUANT）/ 3 系列モデル 1 本（PatchTST 系）
+  - [ ] 進化的探索の実行を継続して回せる仕組み（キュー or ループ、失敗時の再開、台帳の自動更新）
+    関連: [rules.md](docs/specs/experiments/feature-discovery/rules.md) ／ [ledger.md](docs/specs/experiments/feature-discovery/ledger.md)
+
+- [ ] 検証の仕方を実際の取引に近づける（閾値つき売買・買い専用・銘柄別 bp） [plan](docs/plans/trading-validation.md)
+  利用者の指示（2026-09-10）: **検証の仕方を変えます。予想モデルはデータは６３銘柄と経済指標など（天気なども入ってよい）を使い検証では１銘柄の売買を行う。買いか売りかの指標を買い0%-100%, 売り0%-100%など幅のある値で出し、一定以上（例:買い50%）の指標で行う。売りはその銘柄のポジションを持っていなければ売れない。実際の取引に近いものにする。検証での機関の最終ではポジションを全て売る。１つの予想モデルでそれぞれの銘柄を売買したときのdpを出す**
+  利用者の指示（2026-09-10 追記）: **売りも同じように50%を超えたら売るようにして**
+  利用者の指示（2026-09-10 追記）: **売買を行う銘柄ごとに予想モデルを作成するようにする**（⚠ 前提の注記: 現行も銘柄共通モデル 1 本だが入力が銘柄ごとなので指標は銘柄ごとに違う。全銘柄同一の指標になるのは、入力を市場横断データだけにした場合）
+  利用者の指示（2026-09-10 追記）: **現状のモデルで各銘柄ごとに検証を行うのと、各銘柄モデルを作成するのと両方やる**
+  利用者の指示（2026-09-10 追記）: **閾値を３パターンで比較できるようにもする**
+  今の検証（[rules.md](docs/specs/experiments/feature-discovery/rules.md)・`ail/validation/metrics.py`）との差分は 5 つ:
+  ① 毎日必ず張る → **閾値を超えた日だけ売買**（見送りができる）。買いは買い指標が閾値超で建て、売りは売り指標が閾値超で手仕舞う。**閾値は 3 パターンを事前固定して比較**（値はプランで決める。例: 30 / 50 / 70%）
+  ② 空売りあり → **買い専用**。売り指標は保有中の手仕舞いにだけ効く（未保有なら売り指標が 50% を超えても何もしない）
+  ③ 出力は符号だけ → **買い / 売りの強さを 0〜100% の幅で出す**
+  ④ 全セルの単純平均 bp → **銘柄ごとの bp**（検証期間の末尾で全ポジションを清算してから確定）
+  ⑤ 学習の入力は own_ 中心 → **63 銘柄横断 ＋ 経済指標・天気などの外生データ**（`ail/data/sources/` の NOAA・NWS・EPU・ECB 等が使える。⚠ im_ 層は偽薬と区別できず終了済み）。モデルは **2 形式の両方をやる**: (A) 銘柄共通 1 本（現行の形）＋ 銘柄別特徴量 / (B) 売買する銘柄ごとに 1 本（63 本 × fold）
+  - [x] Step 1: プランを作る（docs/plans/）。⚠ 設計論点を先に決める [plan](docs/plans/trading-validation.md)
+    ✅ 2026-09-10 完了。設計論点の答え（プラン §1）: 閾値は**同じ値の組 3 つ θ ∈ {50, 55, 60}%**（3 × 3 = 9 にしない。売り% = 100 − 買い% なので独立に振る仮説が無く、θ ≥ 50 で買い売りが排他になる）／ 確率化は**分類に替えず Platt 較正**（tail holdout で fit。モデルの軸を動かさない）／ コストは建てた日・手仕舞った日だけ**片道 2.5bp**、fold 末尾で強制清算 ／ 採否は**ポートフォリオ（63 銘柄等加重）の対 B&H 上乗せ**で判定し銘柄別 bp は成果物として per_symbol.csv に残す ／ 基準線は**買い% = 100 の定数指標**としてシミュレータを共有 ／ (A)(B) は**日付基準の fold edge** を共有 ／ n_trials は**形式も閾値も処置**として数える（67 → 91 前後【推測】）／ leak 対照は上乗せの跳ねで配線を検査
+  - [x] Step 2: rules.md の改訂（評価規約の正本。旧指標との対応と、台帳の新旧の区別を決める） [plan §Phase 1](docs/plans/trading-validation.md)
+    ✅ 2026-09-10 完了。[rules.md](docs/specs/experiments/feature-discovery/rules.md) に **13 章「閾値つき売買の検証」** を追加（冒頭の変更規約に従い「なぜ = 利用者の指示・実際の取引への接近」「変える前の結果 = 残す・無効化しない」を明記）。13-1 適用範囲（変わるのは予測の後ろだけ）／ 13-2 較正 ／ 13-3 閾値 ／ 13-4 シミュレータ ／ 13-5 基準線 ／ 13-6 形式 (A)(B) ／ 13-7 採否（対 B&H 上乗せ）／ **13-8 旧指標との対応（数字を直接比べない。橋渡しは Phase 3 の対だけ）** ／ **13-9 台帳の新旧（「検証方式」列で区別・旧 67 試行は 1 行も変えない・n_trials の数え方）** ／ 13-10 leak 対照。9 章・11 章に 13 章への差し替えの注記、付録に実装対応（Phase 2 で実装）を追記
+  - [ ] Step 3: 実装（売買シミュレータ・モデル出力の確率化・銘柄別の記録形式・checks.json の対応） [plan §Phase 2](docs/plans/trading-validation.md)
+  - [ ] Step 4: 既存の最良手法（LightGBM 全部使う等）を新検証で追試し、旧指標との差を台帳に残す [plan §Phase 3](docs/plans/trading-validation.md)
+  関連: [rules.md](docs/specs/experiments/feature-discovery/rules.md) ／ [gpu-models.md](docs/specs/experiments/gpu-models.md)
+
+- [ ] 検証の単位（実行 → 手法 → 試行 → fold → セル）を図を使って分かりやすく解説する specs のページを作成する
+  利用者の指示（2026-09-10）: **実行 → 手法 → 試行 → fold → セルを図などを使い分かりやすく解説するspecsのページを作成する**
+  名称の正本: [rules.md](docs/specs/experiments/feature-discovery/rules.md)（10・11・13 章）と `ail/catalog.py`（`KEY`・`is_trial`・`_collapse`）。ページはそれらの解説であり、規約の正本は rules.md のまま動かさない
+  盛り込む関係（2026-09-10 の確認結果）: 1 実行に複数の手法（TOML の `selectors` ＋ 自動で付く基準線 2 本）／ 同じ鍵の手法が複数の実行にあれば 1 試行にまとめ「再現」列で幅を出す ／ 鍵のどれかが違えば同じ手法名でも別試行 ／ leak 実行は別の表
+  13 章で鍵に足された 検証方式・形式・閾値 の 3 列と、試行の下の量（銘柄別 bp・ポートフォリオ日次純利）も同じページで扱う
+  関連: [ledger.md](docs/specs/experiments/feature-discovery/ledger.md) ／ [plan](docs/plans/trading-validation.md)
 
 - [ ] データの取得
   - [ ] 既存にないデータを考える

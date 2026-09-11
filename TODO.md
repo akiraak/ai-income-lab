@@ -30,17 +30,6 @@
   - [ ] 進化的探索の実行を継続して回せる仕組み（キュー or ループ、失敗時の再開、台帳の自動更新）
     関連: [rules.md](docs/specs/experiments/feature-discovery/rules.md) ／ [ledger.md](docs/specs/experiments/feature-discovery/ledger.md)
 
-- [ ] 検証の単位（実行 → 手法 → 試行 → fold → セル）を図を使って分かりやすく解説する specs のページを作成する [plan](docs/plans/validation-units-page.md)
-  利用者の指示（2026-09-10）: **実行 → 手法 → 試行 → fold → セルを図などを使い分かりやすく解説するspecsのページを作成する**
-  名称の正本: [rules.md](docs/specs/experiments/feature-discovery/rules.md)（10・11・13 章）と `ail/catalog.py`（`KEY`・`is_trial`・`_collapse`）。ページはそれらの解説であり、規約の正本は rules.md のまま動かさない
-  盛り込む関係（2026-09-10 の確認結果）: 1 実行に複数の手法（TOML の `selectors` ＋ 自動で付く基準線 2 本）／ 同じ鍵の手法が複数の実行にあれば 1 試行にまとめ「再現」列で幅を出す ／ 鍵のどれかが違えば同じ手法名でも別試行 ／ leak 実行は別の表
-  13 章で鍵に足された 検証方式・形式・閾値 の 3 列と、試行の下の量（銘柄別 bp・ポートフォリオ日次純利）も同じページで扱う
-  関連: [ledger.md](docs/specs/experiments/feature-discovery/ledger.md) ／ [plan](docs/plans/archive/trading-validation.md)
-  - [ ] Step 1: units.md の骨組みと §0〜§2（位置づけ・全体図・実行）
-  - [ ] Step 2: §3〜§5（試行への畳み込み・鍵 9 列・数え方）。実例を台帳から採取
-  - [ ] Step 3: §6〜§7（fold・セル・試行の下の量）
-  - [ ] Step 4: リンクの張り込み（rules.md 付録・feature-discovery.md 冒頭・`cli/report.py` → ledger.md 再生成）と検査
-
 - [ ] データの取得
   - [ ] 既存にないデータを考える
     ⚠ **終了しないタスク**（完了にしない・`DONE.md` に移さない）。既存の層に無いデータを考え続けるための常設タスク

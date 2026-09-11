@@ -1,5 +1,10 @@
 # DONE
 
+- 2026-09-10 検証の単位（実行 → 手法 → 試行 → fold → セル）を図を使って解説する specs のページを作成した
+  - プラン: [docs/plans/archive/validation-units-page.md](docs/plans/archive/validation-units-page.md)。成果物: [units.md](docs/specs/experiments/feature-discovery/units.md)。利用者の指示（2026-09-10）「**実行 → 手法 → 試行 → fold → セルを図などを使い分かりやすく解説するspecsのページを作成する**」
+  - §0〜§7 ＋ 早見の付録。図 7 枚（全図に主張 1 行・ノード 12 個以内）。規約の再定義はせず、rules.md 10・11・13 章と `ail/catalog.py`（`KEY`・`is_trial`・`_collapse`・`canonical`）への 1 行要約＋リンクに徹した。要点: 実行 → 手法は入れ子だが手法 → 試行は**実行をまたいだ畳み込み**／ B&H が数値同一のまま形式 × 閾値で 6 行に割れる実例で「行が割れる ＝ 鍵が違う」を示す ／ 鍵 9 列の年表（2026-09-08 新設 → 09-09 モデル → 09-10 検証方式・形式・閾値、旧実行は既定値で割れない）／ n_trials の数え方の分岐図 ／ fold の符号の出どころ（新方式は対 B&H 上乗せ）／ セル → 銘柄別 bp（成果物）とポートフォリオ日次純利（採否）の分岐
+  - 実例はすべて 2026-09-10 生成の台帳・実在の実行から採取（166 行 ＝ 手法 91 ＋ 基準線 75、n_trials 91、leak 表 81 行、`trade_own_lgbm_a` の summary 12 行 → result 60 行 → per_symbol 3,780 行 など）。リンクの張り込み: rules.md 付録・feature-discovery.md 冒頭・`cli/ledger.py`（台帳 §1 冒頭）→ ledger.md 再生成の差分はリンク行のみ（既存 166 行は不変）。検査: 鍵 9 列が `catalog.KEY` と完全一致・相対リンク全解決・pytest test_catalog 33 件 pass
+
 - 2026-09-10 検証の仕方を実際の取引に近づけた（閾値つき売買・買い専用・銘柄別 bp）— 追試まで完了、**どの手法・形式・閾値も B&H を超えなかった**
   - プラン: [docs/plans/archive/trading-validation.md](docs/plans/archive/trading-validation.md)。記録: [threshold-trading.md](docs/specs/experiments/threshold-trading.md)。規約: [rules.md 13 章](docs/specs/experiments/feature-discovery/rules.md)。利用者の指示（2026-09-10）「**検証の仕方を変えます。…買いか売りかの指標を買い0%-100%…一定以上（例:買い50%）の指標で行う。売りはその銘柄のポジションを持っていなければ売れない。実際の取引に近いものにする**」＋ 追記 4 件（売りも 50% 超で手仕舞い ／ 銘柄ごとのモデル ／ 共通と銘柄別の両方 ／ 閾値 3 パターン）
   - Step 1〜3（プラン §1 の設計・rules.md 13 章・実装）は同日完了済み。設計: θ ∈ {50, 55, 60}% 事前固定・Platt 較正（tail holdout）・片道 2.5bp を売買した日だけ・fold 末尾で強制清算・採否は対 B&H 上乗せ・(A) 共通 / (B) 銘柄別で日付基準の fold を共有

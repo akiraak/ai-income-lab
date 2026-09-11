@@ -15,6 +15,18 @@
     依存: 「時系列から上昇下降トレンドを学習する最新 AI 技術の調査」
     依存: 「検証の仕方を実際の取引に近づける（閾値つき売買・買い専用・銘柄別 bp）」（✅ 2026-09-10 完了。新手法の検証は閾値売買方式＝対 B&H 上乗せで測る。[threshold-trading.md](docs/specs/experiments/threshold-trading.md)）
     候補は [ts-trend-ai-survey.md §7](docs/specs/experiments/ts-trend-ai-survey.md): 優先 1 進化的ファクター探索の基盤 / 2 時系列分類器（MiniRocket ＋ Hydra ＋ QUANT）/ 3 系列モデル 1 本（PatchTST 系）
+  - [ ] ChatGPT からの GAN 案の実装（条件付き GAN による株価シナリオ予測） [plan](docs/plans/cgan-scenario-forecast.md)
+    利用者の指示（2026-09-10）: **ChatGPTからのGAN案の実装**（指示書が長いので全文はプランに収載）
+    ⚠ ここの「GAN」は ML 用語どおりの**条件付き GAN（WGAN-GP）を予測器として使う**案。親タスクの「GAN ＝ 進化的探索」とも、2026-09-09 に落とした**データ増強** GAN（[gpu-models.md §4](docs/specs/experiments/gpu-models.md)）とも別物（プラン §0-1 に整理）
+    中身: 直前 60 営業日を条件に次の 5 営業日の日次対数リターンを 1,000 本生成し、上昇確率・予測区間・下落リスクを推定。主指標は 5 日累積リターン分布の CRPS。履歴ベース再標本化・軽量モデル・既存モデルの 3 種と同条件で比較
+    ⚠ 採用・収益性を前提にしない。ベースラインに負けても、検証を完了し結果を明示すればタスクとしては完了（プラン §9）
+    関連: 「DL / 進化的探索の手法を増やして検証を回す」
+    - [ ] Phase 0: 設計決定（統合位置・対象銘柄・既存 `gan.py` の再利用可否・設定の分離）
+    - [ ] Phase 1: データと特徴量（予測時点で利用可能な値だけ・scaler は学習区間内 fit）＋ リーク防止テスト
+    - [ ] Phase 2: 条件付き WGAN-GP の実装（学習・checkpoint 選択・モード崩壊の検出）
+    - [ ] Phase 3: 時間順分割・walk-forward と比較対象 3 種。最終テストの前に採用基準を記録
+    - [ ] Phase 4: 評価指標（CRPS・Brier・被覆率）と予測出力（JSON・分位点・校正図・予測区間図）
+    - [ ] Phase 5: 再現性の確認と評価レポート（比較表・期間・seed 別結果・採用判断）
   - [ ] 進化的探索の実行を継続して回せる仕組み（キュー or ループ、失敗時の再開、台帳の自動更新）
     関連: [rules.md](docs/specs/experiments/feature-discovery/rules.md) ／ [ledger.md](docs/specs/experiments/feature-discovery/ledger.md)
 

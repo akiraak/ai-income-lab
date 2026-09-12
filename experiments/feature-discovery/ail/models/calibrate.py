@@ -50,7 +50,13 @@ def fit(model_fn, Xtr, ytr, ctx: dict, split: str = "train") -> Calibration:
     else:
         # ⚠ 訓練が薄い（(B) の最初の fold など）。in-sample の過信ごと記録に残す
         pred, target, source = np.asarray(model_fn(Xtr, ytr, Xtr, ctx), float), ytr, "train"
-    up = target > 0
+    return fit_from_predictions(pred, target, source)
+
+
+def fit_from_predictions(pred: np.ndarray, target: np.ndarray, source: str) -> Calibration:
+    """予測と実現値の対から較正を作る（前置きの門も同じ計算を使う。rules.md 14-5）。"""
+    pred = np.asarray(pred, dtype=float)
+    up = np.asarray(target, dtype=float) > 0
     if up.all() or (~up).all() or np.std(pred) == 0:
         # 片側しか無い・予測が定数 → 傾きは学べない。基準率の定数確率に落とす
         p = (up.sum() + 1.0) / (len(up) + 2.0)               # Laplace 平滑化

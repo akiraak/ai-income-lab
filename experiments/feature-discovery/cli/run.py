@@ -225,12 +225,35 @@ def evaluate_trading(panel: pd.DataFrame, feats: list[str], exp: dict, run: runs
     return res, pd.DataFrame(sym_out), summary, daily
 
 
+def apply_gate(exp: dict, gate_doc: dict, ignore: bool, run: runs.Run) -> dict | None:
+    """前置きの門を実験に適用する（rules.md 14-5）。全手法が門前なら None（＝ 閾値売買を回さない）。
+
+    ⚠ `--ignore-gate` は「門前の手法を後から回す」用（14-5 の規律 3）。回した手法は summary に
+    載るので、台帳では門前の行が立たず**普通の試行として数えられる**。
+    """
+    blocked = list(gate_doc.get("blocked", []))
+    if ignore and blocked:
+        gate_doc["forced"] = True
+        run.log("⚠ --ignore-gate: 門前の手法も回す（そのときは普通に試行として数える。rules.md 14-5 規律 3）")
+        return exp
+    if not gate_doc.get("passed"):
+        run.log("⚠ **全手法が門前 ＝ 閾値売買を回さない**（台帳には「門前」で残す・"
+                "n_trials に数えない。rules.md 14-5）")
+        return None
+    if blocked:
+        run.log("⚠ 門前の手法は回さない: " + "、".join(blocked) + "（rules.md 14-5）")
+        return {**exp, "selectors": [s for s in exp["selectors"] if s not in blocked]}
+    return exp
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--experiment", required=True)
     ap.add_argument("--leak", action="store_true", help="⚠ 配線の検査（未来を混ぜた表を使う）")
     ap.add_argument("--sample", type=int, default=60000, help="行が多いとき間引く（0 で間引かない）")
     ap.add_argument("--layer", default="adjusted", help="記録に残すだけ（表は cli.build が作る）")
+    ap.add_argument("--ignore-gate", action="store_true",
+                    help="⚠ 門前の手法も回す（後から回す用。普通に試行として数える。rules.md 14-5）")
     args = ap.parse_args()
 
     exp = config.resolve_experiment(args.experiment)     # ⚠ ここで名前を全部解決する
@@ -271,6 +294,20 @@ def main() -> None:
             + (f"  ⚠ **わざとした先読みの列あり: {leaky}**" if leaky else ""))
 
     if trading:
+        # ⚠ **門が先**（rules.md 14-5 規律 1）。通らない手法は閾値売買を回さず、門の値だけ checks に残す
+        from ail.validation import gate
+        gate_doc = gate.evaluate_gate(panel, feats, exp, run)
+        gated_exp = apply_gate(exp, gate_doc, args.ignore_gate, run)
+        if gated_exp is None:
+            t = exp["trading"]
+            run.checks({"leak": args.leak, "style": "threshold",
+                        "form": str(t.get("form", "shared")),
+                        "cost_bp": float(exp.get("cost_bp", 5.0)),
+                        "thresholds": [float(x) for x in t.get("thresholds", (50.0, 55.0, 60.0))],
+                        "gate": gate_doc})
+            print(f"→ {os.path.relpath(run.close(), store.ROOT)}")
+            return
+        exp = gated_exp
         res, per_sym, g, daily = evaluate_trading(panel, feats, exp, run)
         run.log("")
         run.log(g.to_string())
@@ -280,11 +317,13 @@ def main() -> None:
         run.result(res, g)
         run.per_symbol(per_sym)
         # 新方式は検証方式が処置: 基準線（乱択・「基準 」）以外の選別 × 閾値の数だけ試行が増える（13-9）
+        # ⚠ 門前の手法は selectors からもう外れているので、ここで数えるのは回した手法だけ（14-5）
         n_meth = len([s for s in exp.get("selectors", []) if s != "乱択（基準）"])
         n_th = len(exp["trading"].get("thresholds", (50.0, 55.0, 60.0)))
         doc = checks.compute_trading(res, g, per_sym, daily, exp,
                                      n_trials=checks.n_trials_now(n_meth * n_th),
                                      leak=args.leak, panel=full_panel)
+        doc["gate"] = gate_doc                       # ⚠ 記録するだけ。採否には使わない（14-5）
         run.checks(doc)
         run.log(_checks_line_trading(doc))
         print(f"→ {os.path.relpath(run.close(), store.ROOT)}")

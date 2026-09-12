@@ -653,5 +653,5 @@ flowchart LR
 | 11 | `ail/validation/stats.py` |
 | 12 | `config/universe/us63.toml` の注記 |
 | ⚠ **13** | `ail/validation/simulate.py`（状態機械）／ `ail/models/calibrate.py`（Platt 較正）／ `ail/validation/splits.py` の `date_edges`・`folds_by_dates`（日付基準の fold edge）／ `ail/validation/checks.py` の `compute_trading` ／ `ail/catalog.py`（鍵 3 列・`_judge_trading`）／ `cli/run.py` の `[trading]` 節・`evaluate_trading` ／ `config/experiment/trade_*.toml` 8 本（2026-09-10 実装） |
-| ⚠ **14** | ⚠ **実装は後続**（TODO「検証方式の改善の反映と実装」の子タスク 4 件: 1995 表・門（`cli/run.py`）・診断列（`checks.py`）・台帳の注記）。検討記録と実測は [validation-power.md](validation-power.md) |
+| ⚠ **14** | 14-3 診断列 = `ail/validation/checks.py` の `_edge_bins`・`_breadth_trading` ／ 14-5 門 = `ail/validation/gate.py` ＋ `cli/run.py` の gate 節（`--ignore-gate` が規律 3 の「後から回す」）＋ `ail/catalog.py` の「門前」判定 ／ 閉じる注記 = `config/catalog_notes.toml` の `[[closed]]`（いずれも 2026-09-11 実装）。⚠ **14-4 の 1995 表は後続**（TODO の子タスク）。検討記録と実測は [validation-power.md](validation-power.md) |
 | ⚠ **台帳** | `ail/catalog.py` ／ `cli/ledger.py` ／ `config/legacy.toml` ／ `config/catalog_notes.toml` |

@@ -41,7 +41,14 @@
   - [x] rules.md へ 14 章を反映（検討記録 §7 の案。⚠ 上の 3 問の回答が先）
     ✅ 2026-09-11 反映済み。3 問の決定（固定・数えない・閉じる）を 14-5 と変更規約の答えに織り込んだ。付録の実装対応表に「14 = 実装は後続」の行も追加
   - [ ] 検証期間の延長: features の 1995 表の構築と橋渡し対（⚠ raw は 1994-11 から 8,000 本取得済みで再取得不要。12 章への生存バイアス追記もここで。検討記録 §3-3）
-  - [ ] 前置きの門の実装（cli/run.py の gate 節・checks への記録・台帳の「門前」判定。検討記録 §5）
+  - [x] 前置きの門の実装（cli/run.py の gate 節・checks への記録・台帳の「門前」判定。検討記録 §5） [plan](docs/plans/archive/trading-gate.md)
+    ✅ 2026-09-11 完了。`ail/validation/gate.py`（AUC ≥ 0.52・買い% 幅 ≥ 20 点を**事前固定**）＋ `cli/run.py` の gate 節（門前なら閾値売買を回さず checks に gate だけ残す・`--ignore-gate` が規律 3 の「後から回す」）＋ 台帳の「門前」判定（n_trials に数えない）
+    実データの検算は検討記録 §8-1 と一致（本番 4 実行は全部門前・leak だけ AUC 1.000／幅 100 点で通過 ＝ §5-3 の反実仮想どおり 24 試行は 1 つも回らない）。テスト 196 件 pass（新規 16）。台帳の再生成の差分は判定表の 1 行だけで **91 試行・判定は不変**
+    ⚠ 管理画面（`/experiments`）には門前の実行が出ない（`summary.csv` が無く `load_run` が None を返すため）。台帳には出るので「隠さない」は満たすが、下の残タスクで塞ぐ
+  - [ ] 管理画面の検証画面に「門前」の実行を出す（`dashboard/app/experiments.py` の `load_run` が summary 無しの実行を落とすので、門前の実行が一覧から黙って消える）
+    派生元: 「前置きの門の実装」（✅ 2026-09-11）
+    ⚠ **検査は実験側が `checks.json` に書いたものを読むだけ**（管理画面で数え直さない。CLAUDE.md）。門の値は `checks.json` の `gate` にある
+    関連: [dashboard.md §10](docs/specs/dashboard.md) ／ [rules.md 14-5](docs/specs/experiments/feature-discovery/rules.md)
   - [x] 診断列の実装（fold 10 等分の上乗せ符号・実効系列数を compute_trading に。採否は変えない。検討記録 §3-1・§3-5） [plan](docs/plans/archive/trading-diagnostics.md)
     ✅ 2026-09-11 完了。checks.json に edge_bins（fold 内 2 等分の上乗せ符号）と breadth（実効系列数）。実データ検算は検討記録 §3-1 と一致（00＋＋−−0000・2/10・t 0.18・実効 4.708）。テスト 180 件 pass。⚠ 既存 10 実行の checks は書き換えない（日次系列が無く後埋め不能。--recheck は閾値売買をとばすよう修正）
   - [x] 台帳の注記拡張と保留 16 行の処遇の反映（catalog_notes を試行の行にも書ける形に拡張。⚠ 判定列は変えない・台帳は手で書かない。検討記録 §6-2） [plan](docs/plans/archive/ledger-close-notes.md)

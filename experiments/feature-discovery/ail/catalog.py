@@ -185,13 +185,22 @@ def _read_run(name: str) -> dict | None:
     d = os.path.join(runs.RUNS, name)
     s = os.path.join(d, "summary.csv")
     c = os.path.join(d, "config.json")
-    if not (os.path.exists(s) and os.path.exists(c)):
+    if not os.path.exists(c):
         return None
     doc = {"実行": name, "leak": name.endswith("_leak")}
-    for f in ("config", "inputs", "env"):
+    for f in ("config", "inputs", "env", "checks"):
         p = os.path.join(d, f + ".json")
         doc[f] = json.load(open(p, encoding="utf-8")) if os.path.exists(p) else {}
-    doc["summary"] = pd.read_csv(s, index_col=0)
+    gate = doc["checks"].get("gate") or {}
+    if os.path.exists(s):
+        doc["summary"] = pd.read_csv(s, index_col=0)
+    elif gate.get("blocked") and not gate.get("forced"):
+        # ⚠ **全手法が門前の実行は summary を持たない**（検証を回していない）。
+        # ⚠ **台帳に「門前」で残すために拾う**（隠さない。rules.md 14-5）。
+        # ⚠ **`--ignore-gate`（forced）で summary が無いのは「回したのに落ちた」**なので従来どおり読まない
+        doc["summary"] = pd.DataFrame()
+    else:
+        return None
     r = os.path.join(d, "result.csv")
     doc["result"] = pd.read_csv(r) if os.path.exists(r) else None
     return doc
@@ -254,6 +263,39 @@ def _run_trials(run: dict) -> list[dict]:
             edge, pat = _edge_vs_bh(run.get("result"), str(method), th)
             row["上乗せbp"], row["上乗せfold"], row["fold"] = edge, pat, pat
         rows.append(row)
+    rows += _gate_rows(run, gran, bar_min, layer, model, style, form)
+    return rows
+
+
+def _gate_rows(run: dict, gran: str, bar_min: float, layer: str,
+               model: str, style: str, form: str) -> list[dict]:
+    """門前の手法の行（rules.md 14-5）。⚠ **検証の数字を持たない**（回していないから）。
+
+    ⚠ **summary に載っている手法には作らない**: `--ignore-gate` で後から回した手法は
+    普通の行になり、そのときは普通に試行として数える（14-5 の規律 3）。
+    ⚠ **閾値は「—」**（どの閾値も回していない。1 手法 1 行で、試行にも数えない）。
+    """
+    gate = (run.get("checks") or {}).get("gate") or {}
+    # ⚠ `--ignore-gate` の実行に門前の行は作らない（回すと決めた実行なので、結果の行だけが正しい）
+    if style != "閾値売買" or not gate.get("blocked") or gate.get("forced"):
+        return []
+    cfg, inputs = run["config"], run.get("inputs", {})
+    ran = {str(m) for m in run["summary"].index} if len(run["summary"]) else set()
+    rows = []
+    for m in gate["blocked"]:
+        if str(m) in ran:
+            continue
+        g = (gate.get("methods") or {}).get(m, {})
+        rows.append({
+            "手法名": str(m), "粒度": gran, "地平": _horizon(cfg.get("horizon", 0), bar_min),
+            "モデル": model, "層": layer, "特徴量の層": " ".join(cfg.get("feature_layers", [])),
+            "対象": cfg.get("targets") or "all", "k": cfg.get("k"),
+            "コストbp": cfg.get("cost_bp"), "本数": None, "的中率": None, "IC": None,
+            "粗利bp": None, "純利bp": None, "fold": None,
+            "検証方式": style, "形式": form, "閾値": "—",
+            "実行": run["実行"], "leak": run["leak"], "行": inputs.get("rows_before_sample"),
+            "出所": "runs", "門前": {"auc": g.get("auc"), "width_pt": g.get("width_pt")},
+        })
     return rows
 
 
@@ -324,6 +366,8 @@ JUDGE_RULES = [
     ("純利 ≤ 0 かつ 粗利 ≤ 0", "落とす", "**X2 ＋ X9** コスト以前に優位性が無い"),
     ("⚠ 日足 × データの層が raw", "保留", "⚠ **無効・要再測**（分割調整の誤り。§6-3）"),
     ("基準線の行", "基準", "⚠ 採否の対象ではない。手法はこれを超えて初めて意味がある"),
+    ("閾値売買: 門を通らない（訓練内 holdout の AUC ＜ 0.52 または 買い% 幅 ＜ 20 点）", "門前",
+     "⚠ **検証を回さない・n_trials に数えない**（rules.md 14-5）"),
     ("閾値売買: 上乗せ > 0 かつ fold の上乗せ符号が全部正", "採る",
      "⚠ DSR を通すまでは根拠「中」が上限（rules.md 13-7）"),
     ("閾値売買: 上乗せ > 0 だが符号が割れる", "保留", "⚠ 平均だけ正（rules.md 13-7）"),
@@ -366,7 +410,16 @@ def judge(row: dict, baselines: set[str]) -> tuple[str, str]:
 
 
 def _judge_trading(row: dict, note: str) -> tuple[str, str]:
-    """閾値売買の判定（rules.md 13-7 の表）。⚠ **量は対 B&H の上乗せ**。"""
+    """閾値売買の判定（rules.md 13-7 の表）。⚠ **量は対 B&H の上乗せ**。
+
+    ⚠ **門前の行は別扱い**（rules.md 14-5）: 検証を回していないので数字の判定は掛けられない。
+    """
+    if g := row.get("門前"):
+        auc = "—" if g.get("auc") is None else f"{g['auc']:.3f}"
+        width = "—" if g.get("width_pt") is None else f"{g['width_pt']:.1f}"
+        return "門前", (f"⚠ **門を通らず、検証を回していない**（訓練内 holdout の AUC {auc}・"
+                        f"買い% 幅 {width} 点。水準は AUC ≥ 0.52・幅 ≥ 20 点で事前固定。"
+                        "n_trials に数えない — rules.md 14-5）")
     name = row.get("手法名") or ""
     if name.startswith("基準 ") or name == "乱択（基準）":
         if "常に上" in name:
@@ -405,9 +458,13 @@ def is_trial(row: dict) -> bool:
     乱択・「基準 」の行は従来どおり基準線として数えない。
     ⚠ **閾値売買の行は閾値 1 水準ごとに 1 試行**（rules.md 13-9 の 3・4）。検証方式が処置なので
     「全部使う × Ridge」も数える。基準線（B&H・直前符号・乱択）は数えない。
+    ⚠ **門前の行も数えない**（rules.md 14-5。検証 fold の結果で選別していないから。
+    後から回したら普通の行になって数える — 規律 3）。
     """
     if row.get("検証方式") == "閾値売買":
         name = row.get("手法名") or ""
+        if row.get("門前"):
+            return False
         return not (name.startswith("基準 ") or name == "乱択（基準）")
     if row.get("ID"):
         return True

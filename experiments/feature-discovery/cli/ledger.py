@@ -43,6 +43,9 @@ def build() -> str:
     rows = sorted(d["rows"], key=_sort_key)
     # ⚠ **試行の行 = カタログ ID の行 ＋ モデルが処置の行**（catalog.is_trial が正本）
     methods = [r for r in rows if catalog.is_trial(r)]
+    # ⚠ 門前の行は試行でも基準線でもない（検証を回していない。rules.md 14-5）
+    gated = [r for r in rows if r.get("門前")]
+    base_n = len(rows) - len(methods) - len(gated)
     counts = {k: sum(1 for r in methods if r["判定"] == k) for k in ("採る", "落とす", "保留")}
     fam = {}
     for c in d["catalog"]:
@@ -90,7 +93,8 @@ def build() -> str:
     a("")
     held = [r for r in methods if r["判定"] == "保留"]
     invalid = [r for r in held if "無効" in (r["理由"] or "")]
-    a(f"⚠ **試行は {len(methods)} 行（手法）＋ {len(rows) - len(methods)} 行（基準線）。**"
+    a(f"⚠ **試行は {len(methods)} 行（手法）＋ {base_n} 行（基準線）"
+      + (f" ＋ {len(gated)} 行（門前）" if gated else "") + "。**"
       f" ⚠ **「採る」は {counts['採る']} 件。** 落とす {counts['落とす']} 行 ／ "
       f"保留 {counts['保留']} 行。")
     if held:
@@ -105,6 +109,11 @@ def build() -> str:
         a(f"⚠ **保留のうち {len(closed)} 行は「閉じる」の注記つき**（再測しない。理由は各行の理由列と "
           "[validation-power.md §6-2](validation-power.md)。検出限界の 2 桁下で、この物差しでは白黒つかない大きさ。"
           "⚠ **判定の列は変えない** — [rules.md 14 章](rules.md)）。")
+    if gated:
+        a("")
+        a(f"⚠ **門前が {len(gated)} 行**（前置きの門を通らず、閾値売買を回していない。"
+          "検証の数字を持たず、⚠ **n_trials に数えない** — [rules.md 14-5](rules.md)。"
+          "後から回したら普通の試行として数える）。")
     a("")
     a("| 何を聞かれたら | この台帳のどこで答えるか |")
     a("| --- | --- |")
@@ -180,7 +189,8 @@ def build() -> str:
     # --- 2. 台帳 ---
     a("## 2. 台帳（試した結果）")
     a("")
-    a(f"⚠ **{len(rows)} 行。** うち手法 {len(methods)} 行・基準線 {len(rows) - len(methods)} 行。")
+    a(f"⚠ **{len(rows)} 行。** うち手法 {len(methods)} 行・基準線 {base_n} 行"
+      + (f"・門前 {len(gated)} 行" if gated else "") + "。")
     a("")
     head = ["ID", "手法", "系統", "実装", "モデル", "層", "粒度", "地平", "特徴量の層",
             "検証方式", "形式", "閾値", "本数",

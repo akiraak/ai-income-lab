@@ -120,9 +120,9 @@ note = "台帳（ledger.md）の行を読むための単位。図解は units.md
 
   [[section.term]]
   name = "台帳（ledger）"
-  short = "試した全手法の結果と判定の一覧。生成物なので手で書き換えない。"
-  doc = "docs/specs/experiments/feature-discovery/ledger.md"
-  where = "冒頭の読み方"
+  short = "試した全手法の結果と判定の一覧。⚠ 多重検定の分母（n_trials）の正本で、生成物なので手で書き換えない。"
+  doc = "docs/specs/experiments/feature-discovery/ledger-role.md"
+  where = "§2 4 つの役割"
 
   [[section.term]]
   name = "判定（採る / 保留 / 落とす）"

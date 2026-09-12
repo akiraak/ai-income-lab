@@ -117,8 +117,11 @@ def build(experiment: str, layer: str = "adjusted", leak: bool = False,
 
     # ⚠ **どの層から作った表かを、表の隣に書く。** ⚠ `cli.run --layer` は自己申告なので、
     # ⚠ **食い違うと台帳の「データの層」の列がそのまま嘘になる**（`ail/catalog.py`）。
+    # ⚠ **表の開始と終わりも隣に書く。** ⚠ **台帳の鍵の「期間」がこれを読む**（rules.md 14-4 の
+    # ⚠ 橋渡し対。2018 表と 1995 表が同じ鍵にまとまると、期間だけの差として読めない）
     meta = {"layer": layer, "experiment": experiment, "period": period, "leak": leak,
             "rows": int(len(df)), "features": len(feats),
+            "start": str(df["ts"].min().date()), "end": str(df["ts"].max().date()),
             "built_at": time.strftime("%Y-%m-%dT%H-%M-%S")}
     with open(os.path.splitext(out)[0] + ".meta.json", "w", encoding="utf-8") as f:
         json.dump(meta, f, ensure_ascii=False, indent=2)

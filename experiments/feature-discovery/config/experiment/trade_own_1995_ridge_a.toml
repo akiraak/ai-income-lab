@@ -1,0 +1,48 @@
+# ⚠ **検証期間の橋渡し対の 1995 側**（rules.md 14-4。相手は `trade_own_ridge_a` = 2018 表）。
+#
+# ⚠ **`trade_own_ridge_a.toml` との違いは `features_from` の 1 行だけ。** モデル・選別・閾値・
+# ⚠ **形式・fold 数・種・コストは全部同じにしてある。** ⚠ **揃えないと、比べているのが期間の差か
+# ⚠ **設定の差か分からなくなる**（13-8 の橋渡しの形）。
+#
+# ⚠ **この実行は門前でも回す**（`--ignore-gate`）。14-4 が橋渡し対を要求しており、
+# 検討記録 §3-3 が「延長表で回すのは新しい試行として数える」と明言しているので、
+# ⚠ **回すと先に決めてから回し、3 試行（θ 3 水準）として数える**（n_trials 91 → 94）。
+# 14-5 規律 3（後から回したら普通に数える）の形であり、数え落としではない。
+#
+# ⚠ **TOML の平の key はテーブル見出しより上に書く**（rules.md 10 章 規約 1）
+name = "trade_own_1995_ridge_a"
+dataset = "daily"
+horizon = 1
+cost_bp = 5.0
+features_from = "own_1995"     # ⚠ 表は作り直さず own_1995 のものを読む（13-8。表の差を混ぜない）
+
+feature_layers = ["own"]
+targets = "all"
+
+horizon_min = 1440.0
+bar_minutes = 1440.0
+
+# ⚠ 選別は「全部使う」1 本に絞る（選別の優劣は決着済み。処置は期間）。乱択は選別の基準線
+selectors = ["全部使う（基準）", "乱択（基準）"]
+k = 16
+
+model = "Ridge"
+baselines = ["常に上（ドリフト）", "直前リターンの符号"]
+
+[trading]
+style = "threshold"
+thresholds = [50, 55, 60]      # ⚠ 事前固定。結果を見て動かさない（rules.md 13-3）
+form = "shared"                # (A) 銘柄共通 1 本
+
+[validation]
+split = "walk_forward_dates"   # ⚠ fold の切れ目は日付で決める（rules.md 13-6 の 1）
+folds = 5
+purge = true
+embargo_bars = 0
+seed = 0
+
+[features]
+ex_lag_days = 1
+ex_zero_fill = ["usgs"]
+ex_transforms = ["d1", "z20"]
+ex_max_stale_days = 7

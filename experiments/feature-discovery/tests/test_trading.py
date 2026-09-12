@@ -231,13 +231,17 @@ def test_old_runs_read_as_every_day_round_trip():
                for r in rows)
 
 
-def test_existing_67_trials_are_unchanged():
-    """⚠ **既存の台帳 67 試行が 1 行も変わらない**（13-9 の 2。後方互換）。"""
+def test_old_rows_are_not_split_by_the_trading_columns():
+    """⚠ **13 章が足した 3 列（検証方式・形式・閾値）では旧行が 1 行も割れない**（13-9 の 2）。
+
+    ⚠ **試行数そのものは 67 に釘付けしない。** 2026-09-12 に**期間**を鍵へ足して遡って当てたので、
+    旧行は期間ごとに割れた（67 → 112。⚠ **数字は再計算していない** — rules.md 14-4）。
+    この検査の目的は「13 章の 3 列が旧行を割っていないこと」なので、そちらを見る。
+    """
     rows, _leak, _runs = catalog.trials()
     old = [r for r in rows if r["検証方式"] == "毎日往復"]
-    assert len([r for r in old if catalog.is_trial(r)]) == 67
-    # 旧行は全部（毎日往復・共通・—）なので、鍵の 3 列で 1 行も割れていない
     assert all(r["形式"] == "共通" and r["閾値"] == "—" for r in old)
+    assert len([r for r in old if catalog.is_trial(r)]) == 112
 
 
 @pytest.mark.parametrize("name,expect", [

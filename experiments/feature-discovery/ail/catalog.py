@@ -18,6 +18,7 @@
 
 from __future__ import annotations
 
+import functools
 import json
 import os
 import re
@@ -213,6 +214,48 @@ def _layer_of(run: dict) -> str:
     return meta.get("layer") or inputs.get("layer") or "?"
 
 
+@functools.lru_cache(maxsize=None)
+def _table_period(rel_path: str) -> tuple[str | None, int]:
+    """表の実物から (最古の日, 行数) を読む。⚠ **無ければ (None, 0)。** パスごとにキャッシュする。"""
+    path = os.path.join(ROOT, rel_path)
+    if not os.path.exists(path):
+        return None, 0
+    ts = pd.read_parquet(path, columns=["ts"])["ts"]
+    if not len(ts):
+        return None, 0
+    return str(pd.to_datetime(ts.min()).date()), int(len(ts))
+
+
+def _period_of(run: dict) -> str:
+    """表の期間（開始日）。⚠ **その実行が実際に読んだ表の最古の日**を正とする（rules.md 14-4）。
+
+    ⚠ **鍵に入れるのは、開始日の違う表の行が同じ鍵にまとまらないようにするため**（まとまると
+    ⚠ **期間だけの差として読めず、試行としても数えられない。** まとめた食い違いが「再現の幅」の
+    ⚠ 列に出て、配線の疑いと読み違える）。出所は 3 段:
+
+      1. `inputs.panel_start`  — 実行が記録している（2026-09-11 以降の実行）
+      2. `features_meta.start` — 実行が持っている sidecar の写し
+      3. ⚠ **`features_file` が指す表の実物**（2026-09-12 の利用者決定で遡って埋めた）
+
+    ⚠ **3 は「行数が実行の記録と一致する」ときだけ使う。** 表は後から作り直されていることがあり
+    （実測: ある実行は 131,250 行を読んだが、いまの同名の表は 130,134 行）、
+    ⚠ **別の表の開始日を貼ってはいけない。** 合わなければ・表が消えていれば「—」。
+    ⚠ **config の `start_date` からは埋めない**: 表を借りる実行（`features_from`）には書いていないし、
+    いまの config を過去の実行に当てるのは**自己申告になる**（`--layer` と同じ形の事故）。
+    """
+    inputs = run.get("inputs", {})
+    meta = inputs.get("features_meta") or {}
+    if v := (inputs.get("panel_start") or meta.get("start")):
+        return str(v)
+    if not (rel := inputs.get("features_file")):
+        return "—"
+    start, rows = _table_period(rel)
+    recorded = meta.get("rows") or inputs.get("rows_before_sample")
+    if start is None or recorded is None or int(recorded) != rows:
+        return "—"
+    return start
+
+
 def _trading_of(cfg: dict) -> tuple[str, str]:
     """(検証方式, 形式)。⚠ **旧実行は（毎日往復・共通）として読む**（rules.md 13-9 の 1）。"""
     t = cfg.get("trading") or {}
@@ -239,6 +282,7 @@ def _run_trials(run: dict) -> list[dict]:
     cfg, inputs = run["config"], run.get("inputs", {})
     gran, bar_min = _granularity(cfg)
     layer = _layer_of(run)
+    period = _period_of(run)
     model = cfg.get("model", "Ridge")
     style, form = _trading_of(cfg)
     rows = []
@@ -248,7 +292,8 @@ def _run_trials(run: dict) -> list[dict]:
             "手法名": str(method), "粒度": gran, "地平": _horizon(cfg.get("horizon", 0), bar_min),
             # ⚠ **「基準 」の行はモデルを使わない**（常に上・直前符号）。モデル別に割れないよう「—」
             "モデル": "—" if str(method).startswith("基準 ") else model,
-            "層": layer, "特徴量の層": " ".join(cfg.get("feature_layers", [])),
+            "層": layer, "期間": period,
+            "特徴量の層": " ".join(cfg.get("feature_layers", [])),
             "対象": cfg.get("targets") or "all", "k": cfg.get("k"),
             "コストbp": cfg.get("cost_bp"), "本数": s.get("本数"), "的中率": s.get("的中率"),
             "IC": s.get("IC"), "粗利bp": s.get("粗利bp"), "純利bp": s.get("純利bp"),
@@ -263,11 +308,11 @@ def _run_trials(run: dict) -> list[dict]:
             edge, pat = _edge_vs_bh(run.get("result"), str(method), th)
             row["上乗せbp"], row["上乗せfold"], row["fold"] = edge, pat, pat
         rows.append(row)
-    rows += _gate_rows(run, gran, bar_min, layer, model, style, form)
+    rows += _gate_rows(run, gran, bar_min, layer, period, model, style, form)
     return rows
 
 
-def _gate_rows(run: dict, gran: str, bar_min: float, layer: str,
+def _gate_rows(run: dict, gran: str, bar_min: float, layer: str, period: str,
                model: str, style: str, form: str) -> list[dict]:
     """門前の手法の行（rules.md 14-5）。⚠ **検証の数字を持たない**（回していないから）。
 
@@ -288,7 +333,8 @@ def _gate_rows(run: dict, gran: str, bar_min: float, layer: str,
         g = (gate.get("methods") or {}).get(m, {})
         rows.append({
             "手法名": str(m), "粒度": gran, "地平": _horizon(cfg.get("horizon", 0), bar_min),
-            "モデル": model, "層": layer, "特徴量の層": " ".join(cfg.get("feature_layers", [])),
+            "モデル": model, "層": layer, "期間": period,
+            "特徴量の層": " ".join(cfg.get("feature_layers", [])),
             "対象": cfg.get("targets") or "all", "k": cfg.get("k"),
             "コストbp": cfg.get("cost_bp"), "本数": None, "的中率": None, "IC": None,
             "粗利bp": None, "純利bp": None, "fold": None,
@@ -340,7 +386,9 @@ def legacy_trials(decl: dict) -> list[dict]:
             "手法名": name, "粒度": decl.get("granularity", "?"),
             "地平": _horizon(float(decl.get("horizon", 0)), bar_min),
             "モデル": "—" if name.startswith("基準") else decl.get("model", "Ridge"),
-            "層": decl.get("layer", "?"), "特徴量の層": " ".join(decl.get("feature_layers", [])),
+            # ⚠ 旧配線の表は表の期間を残していない（「—」。後から埋めない）
+            "層": decl.get("layer", "?"), "期間": "—",
+            "特徴量の層": " ".join(decl.get("feature_layers", [])),
             "対象": decl.get("targets", "all"), "k": decl.get("k"),
             "コストbp": decl.get("cost_bp"),
             **{k: (_num(cells[ix[k]]) if ix[k] is not None and ix[k] < len(cells) else None)
@@ -442,12 +490,14 @@ def _judge_trading(row: dict, note: str) -> tuple[str, str]:
 
 # --- 台帳の行 -----------------------------------------------------------
 
-KEY = ("鍵", "モデル", "粒度", "地平", "特徴量の層", "層",
+KEY = ("鍵", "モデル", "粒度", "地平", "特徴量の層", "層", "期間",
        "検証方式", "形式", "閾値")   # ⚠ 利用者が決めた 1 行の粒度
 # ⚠ **モデルは 2026-09-09 に鍵へ足した**（plans/archive/gpu-models.md §3-2）。それまでは Ridge 1 本だったので
 # ⚠ **既存の行はどれも割れない**（旧実行はモデル未指定 = Ridge として読む）
 # ⚠ **検証方式・形式・閾値は 2026-09-10 に足した**（rules.md 13-9 の 1）。旧実行・旧配線は
 # ⚠ **（毎日往復・共通・—）として読む**ので、既存の行はどれも割れない
+# ⚠ **期間（表の開始日）は 2026-09-11 に足した**（rules.md 14-4 の 1995 表）。⚠ **記録の無い実行は
+# ⚠ **全部「—」に寄るので、既存の行はどれも割れない**（後から遡って埋めない。`_period_of`）
 
 
 def is_trial(row: dict) -> bool:
@@ -603,7 +653,7 @@ def notes(path: str | None = None) -> dict[str, dict]:
 # `[[closed]]` の照合キー → 台帳の列名。⚠ **TOML の bare key は ASCII だけ**なのでここで写す
 _CLOSED_FIELDS = {"key": "鍵", "model": "モデル", "layers": "特徴量の層",
                   "style": "検証方式", "threshold": "閾値", "layer": "層",
-                  "form": "形式", "granularity": "粒度"}
+                  "form": "形式", "granularity": "粒度", "period": "期間"}
 
 
 def closed_notes(path: str | None = None) -> list[dict]:

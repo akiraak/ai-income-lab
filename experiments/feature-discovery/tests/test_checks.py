@@ -146,3 +146,43 @@ def test_leak_runs_are_marked():
     res = result_of({"F1-1 相関": [116.0] * 5, "基準 常に上（ドリフト）": [0] * 5})
     doc = checks.compute(res, summary_of(res), CONFIG, leak=True)
     assert doc["leak"] is True and doc["best"]["純利bp"] > 100
+
+
+# --- 試行数の数え方（2026-09-12。⚠ 二重計上を直した） ----------------------
+
+def test_the_ledger_already_counts_the_run_that_just_wrote_its_summary(tmp_path, monkeypatch):
+    """⚠ **`summary.csv` を書いた時点で、台帳はもうこの実行を数えている。**
+
+    だから `n_trials_now` に「この実行ぶん」を足してはいけない（足すと二重になる。
+    2026-09-12 までそうなっていた。validation-power.md §8-2-5）。
+    """
+    import json
+
+    from ail import catalog, runs
+
+    monkeypatch.setattr(runs, "RUNS", str(tmp_path))
+    count = lambda: len([r for r in catalog.trials()[0] if catalog.is_trial(r)])  # noqa: E731
+    before = count()
+
+    d = tmp_path / "2026-01-01T00-00-00_x"
+    d.mkdir()
+    (d / "config.json").write_text(json.dumps(
+        {"model": "Ridge", "bar_minutes": 1440.0, "horizon": 1, "feature_layers": ["own"],
+         "trading": {"style": "threshold", "thresholds": [50]}}), encoding="utf-8")
+    (d / "summary.csv").write_text("手法,閾値,純利bp\n全部使う（基準）,50.0,1.0\n", encoding="utf-8")
+
+    assert count() == before + 1                      # ⚠ 置いただけで台帳が数える
+    assert checks.n_trials_now() == before + 1        # ⚠ 足さないのが正しい
+
+
+def test_n_trials_now_matches_the_ledger():
+    """⚠ **正本は台帳。** `checks.json` に残るのは「そのときの台帳の数」そのものである。"""
+    from ail import catalog
+
+    assert checks.n_trials_now() == len([r for r in catalog.trials()[0] if catalog.is_trial(r)])
+
+
+def test_n_trials_now_refuses_an_extra():
+    """⚠ **同じ間違いを書けなくする。** 「この実行ぶん」を渡す引数はもう無い。"""
+    with pytest.raises(TypeError):
+        checks.n_trials_now(3)

@@ -139,6 +139,98 @@ def test_canonical_joins_by_id_not_by_name(name, want):
     assert catalog.canonical(name) == want
 
 
+# --- 期間（rules.md 14-4 の 1995 表） -----------------------------------
+
+@pytest.mark.parametrize("inputs,want", [
+    ({"panel_start": "1995-02-10", "features_meta": {"start": "2018-01-31"}}, "1995-02-10"),
+    ({"features_meta": {"start": "2018-01-31"}}, "2018-01-31"),   # 実行が記録していなければ sidecar
+    ({"features_meta": {"layer": "adjusted"}}, "—"),              # ⚠ どちらも無ければ埋めない
+    ({}, "—"),
+])
+def test_period_comes_from_the_table_the_run_actually_read(inputs, want):
+    """⚠ **読んだ表を正とし、無いものは「—」**（config の start_date から埋めない。14-4）。"""
+    assert catalog._period_of({"inputs": inputs}) == want
+
+
+def _fake_table(tmp_path, name, start, n):
+    """期間を遡るときに読む表の代わり。⚠ `ts` の列だけ見ている。"""
+    import pandas as pd
+
+    p = tmp_path / name
+    pd.DataFrame({"ts": pd.date_range(start, periods=n, freq="D", tz="UTC"),
+                  "y": range(n)}).to_parquet(p, index=False)
+    return str(p)
+
+
+def test_period_is_backfilled_from_the_table_the_run_read(tmp_path):
+    """記録の無い実行は、⚠ **その実行が読んだ表の実物**から埋める（2026-09-12 の利用者決定）。"""
+    p = _fake_table(tmp_path, "a.parquet", "2018-01-31", 5)
+    assert catalog._period_of({"inputs": {"features_file": p, "rows_before_sample": 5}}) == "2018-01-31"
+
+
+def test_backfill_refuses_a_table_that_was_rebuilt(tmp_path):
+    """⚠ **表は後から作り直されている。** 行数が合わなければ別の表なので、開始日を貼らない。"""
+    p = _fake_table(tmp_path, "b.parquet", "2018-06-15", 5)
+    assert catalog._period_of({"inputs": {"features_file": p, "rows_before_sample": 7}}) == "—"
+    assert catalog._period_of({"inputs": {"features_file": p,
+                                          "features_meta": {"rows": 7}}}) == "—"
+
+
+def test_backfill_refuses_when_it_cannot_check(tmp_path):
+    """表が消えている ／ 行数の記録が無い ときは埋めない（分からないものは分からないと書く）。"""
+    gone = str(tmp_path / "nope.parquet")
+    assert catalog._period_of({"inputs": {"features_file": gone, "rows_before_sample": 5}}) == "—"
+    p = _fake_table(tmp_path, "c.parquet", "2018-01-31", 5)
+    assert catalog._period_of({"inputs": {"features_file": p}}) == "—"
+
+
+def test_each_row_reports_the_numbers_of_its_own_run():
+    """⚠ **期間で行を割っても数字は再計算されない**（rules.md 14-4 の「割るのは再計算ではない」）。"""
+    import os
+
+    import pandas as pd
+
+    from ail import runs
+
+    checked = 0
+    for r in catalog.ledger()["rows"]:
+        p = os.path.join(runs.RUNS, r["実行"], "summary.csv")
+        if not os.path.exists(p):
+            continue                                   # 旧配線の表・門前の実行は summary を持たない
+        s = pd.read_csv(p, index_col=0)
+        hit = s[s.index.astype(str) == r["手法名"]]
+        if r.get("閾値") not in (None, "—") and "閾値" in s.columns:
+            hit = hit[hit["閾値"] == float(r["閾値"])]
+        if not len(hit):
+            continue
+        assert float(hit["純利bp"].iloc[0]) == float(r["純利bp"]), r["実行"] + " / " + r["手法名"]
+        checked += 1
+    assert checked > 100, f"突き合わせた行が {checked} 行しかない（runs/ が空か配線が変わった）"
+
+
+def test_period_is_part_of_the_key():
+    """⚠ **鍵に入っていないと 1995 表の行が 2018 表の行に飲まれる**（試行として数えられない）。"""
+    assert "期間" in catalog.KEY
+
+
+def test_rows_of_different_periods_do_not_merge():
+    """同じ手法・同じ表の層でも、期間が違えば別の試行（14-4 の橋渡し対）。"""
+    base = {"鍵": "全部使う（基準）", "モデル": "Ridge", "粒度": "日足", "地平": "1 本（1 日）",
+            "特徴量の層": "own", "層": "adjusted", "検証方式": "閾値売買", "形式": "共通",
+            "閾値": "50", "純利bp": 1.0, "fold": None, "出所": "runs", "実行": "r"}
+    same = catalog._collapse([{**base, "期間": "—"}, {**base, "期間": "—"}])
+    split = catalog._collapse([{**base, "期間": "—"}, {**base, "期間": "1995-02-10"}])
+    assert len(same) == 1 and same[0]["実行数"] == 2
+    assert len(split) == 2 and all(r["実行数"] == 1 for r in split)
+
+
+def test_closed_note_can_pin_a_row_by_period():
+    """⚠ **期間で釘付けできないと、1995 表の行まで「閉じる」が当たる**（当たれば生成が止まる）。"""
+    rows = [_held_row(期間="—"), _held_row(期間="1995-02-10")]
+    catalog._apply_closed(rows, [{"key": "F1-2", "period": "—", "note": "閉じる注記"}])
+    assert rows[0].get("閉じる") is True and not rows[1].get("閉じる")
+
+
 # --- 判定 ---------------------------------------------------------------
 
 BASES = {"全部使う（基準）", "乱択（基準）", "常に上（ドリフト）", "直前リターンの符号"}
@@ -213,6 +305,7 @@ def test_ledger_markdown_renders():
     assert "## 3. まだ試していない手法" in text
     assert text.count("```mermaid") >= 2          # ⚠ 図を最低 1 枚（CLAUDE.md）
     assert "0/5 −−−−−" in text                    # fold の符号が出ている
+    assert "| 期間 |" in text                      # 期間の列と、その読み方（14-4）
 
 
 def test_unimplemented_rows_are_ordered_by_effort():

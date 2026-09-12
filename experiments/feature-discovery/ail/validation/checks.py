@@ -262,14 +262,21 @@ def compute_trading(result: pd.DataFrame, summary: pd.DataFrame, per_symbol: pd.
     return doc
 
 
-def n_trials_now(extra: int = 0) -> int | None:
-    """台帳が数えている試行数 ＋ この実行ぶん。⚠ **数え落とすと必ず甘くなる**（rules.md 11 章 規約 4）。
+def n_trials_now() -> int | None:
+    """台帳が数えている試行数。⚠ **数え落とすと必ず甘くなる**（rules.md 11 章 規約 4）。
 
     ⚠ **数える規則は `catalog.is_trial` が正本**（カタログ ID の行 ＋ モデルが処置の行）。
+
+    ⚠ **`summary.csv` を書いたあとに呼ぶ。** 台帳は `runs/*/summary.csv` を読むので、
+    ⚠ **この時点で台帳はもうこの実行の行を数えている。** だから「この実行ぶん」を足さない
+    （2026-09-12 まで足しており、各実行の `n_trials` がそのぶん多かった。
+    ⚠ **足す方式は重複にも弱い** — 同じ設定を同じ表で回し直すと台帳の鍵では 1 試行のままだし、
+    leak 対照は台帳に入らない。[validation-power.md §8-2-5](../../../../docs/specs/experiments/feature-discovery/validation-power.md)）。
+    ⚠ **引数は受けない**（受けると同じ間違いがまた書ける）。
     """
     try:
         from ail import catalog
         rows, _leak, _runs = catalog.trials()
-        return len([r for r in rows if catalog.is_trial(r)]) + int(extra)
+        return len([r for r in rows if catalog.is_trial(r)])
     except Exception:
         return None

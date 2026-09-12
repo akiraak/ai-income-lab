@@ -81,9 +81,14 @@ next = "`ail/features/own.py` に 20 行（`pywt`）。⚠ **基底と窓の選�
 # ⚠ **保留の試行の行に「閉じる」の注記を付ける。** 判定の列は変えない・行は消さない（13-9 の 2）。
 # 照合キーは ASCII（TOML の bare key の制約）で、台帳の列に写る:
 #   key = 鍵（カタログ ID か鍵名）／ model = モデル ／ layers = 特徴量の層 ／
-#   style = 検証方式 ／ threshold = 閾値 ／ layer = 層 ／ form = 形式 ／ granularity = 粒度
+#   style = 検証方式 ／ threshold = 閾値 ／ layer = 層 ／ form = 形式 ／ granularity = 粒度 ／
+#   period = 期間（表の開始日。⚠ **「—」は記録より前の実行**。rules.md 14-4）
 # ⚠ **1 エントリはちょうど 1 行に一致しないと生成が止まる**（黙って空振りさせない）。
 # 処遇の決定は 2026-09-11・利用者（全 16 行を閉じる・再測しない）。
+#
+# ⚠ **16 件すべてに `period` が入っている**（2026-09-12。期間を遡って埋めて行が割れたため）。
+# ⚠ **閉じたのは 2026-09-11 の台帳にあった 16 行**＝ そのとき代表になっていた実行の期間である。
+# ⚠ **割れて新しく出てきた保留の行は閉じない**（別の試行であり、あの決定の対象ではない）。
 
 # 型 3: 新方式の雑音 1 行
 [[closed]]
@@ -93,6 +98,9 @@ layers = "own"
 style = "閾値売買"
 form = "共通"
 threshold = "50"
+# ⚠ **期間で 2018 表の行に釘付けする**（1995 表の同じ手法の行と鍵が分かれた。rules.md 14-4）。
+# ⚠ **1995 表の行（期間 1995-02-10）は閉じない** — 別の期間で新しく回した試行である
+period = "2018-01-31"
 note = "⚠ **閉じる（2026-09-11・再測しない）**: t 0.13・DSR 0.279 の雑音。検出限界（符号 5/5 ≈ +1,700bp/fold 級）の 2 桁下（[validation-power.md §6-2](validation-power.md)）"
 
 # 型 1: 橋渡し済み 3 行
@@ -101,6 +109,7 @@ key = "全部使う（基準）"
 model = "LightGBM"
 layers = "own"
 style = "毎日往復"
+period = "2018-05-21"
 note = "⚠ **閉じる（2026-09-11・代表済み）**: 同じ表・同じモデルの閾値売買の対で「落とす」が実測済み（上乗せ −54.8bp・0/5。[threshold-trading.md §3](../threshold-trading.md)・[validation-power.md §6-2](validation-power.md)）"
 
 [[closed]]
@@ -108,6 +117,7 @@ key = "F3-3"
 model = "LightGBM"
 layers = "own"
 style = "毎日往復"
+period = "2018-05-21"
 note = "⚠ **閉じる（2026-09-11・再測しない）**: 旧 fold の符号列が同表の LightGBM × 全部使う と同一で、その閾値売買の対（落とす）が代表【推測】。大きさは検出限界の 2 桁下（[validation-power.md §6-2](validation-power.md)）"
 
 [[closed]]
@@ -115,6 +125,7 @@ key = "全部使う（基準）"
 model = "MLP"
 layers = "own"
 style = "毎日往復"
+period = "2018-05-21"
 note = "⚠ **閉じる（2026-09-11・再測しない）**: own で LightGBM と同型の実測があり追試しないと決定済み【推測】。大きさは検出限界の 2 桁下（[validation-power.md §6-2](validation-power.md)）"
 
 # 型 2: own ex の 8 行（再現幅 3.1〜6.9bp > 平均 +0.27〜+2.60bp）
@@ -122,42 +133,49 @@ note = "⚠ **閉じる（2026-09-11・再測しない）**: own で LightGBM �
 key = "F1-1"
 layers = "own ex"
 style = "毎日往復"
+period = "2018-06-15"
 note = "⚠ **閉じる（2026-09-11・再測しない）**: 検出限界の 2 桁下で、再現幅（6.04bp）が平均（+1.45bp）を上回る（[validation-power.md §6-2](validation-power.md)）"
 
 [[closed]]
 key = "F1-2"
 layers = "own ex"
 style = "毎日往復"
+period = "2018-06-15"
 note = "⚠ **閉じる（2026-09-11・再測しない）**: 検出限界の 2 桁下で、再現幅（4.35bp）が平均（+2.60bp）を上回る（[validation-power.md §6-2](validation-power.md)）"
 
 [[closed]]
 key = "F1-3"
 layers = "own ex"
 style = "毎日往復"
+period = "2018-06-15"
 note = "⚠ **閉じる（2026-09-11・再測しない）**: 検出限界の 2 桁下で、再現幅（5.04bp）が平均（+0.42bp）を上回る（[validation-power.md §6-2](validation-power.md)）"
 
 [[closed]]
 key = "F1-5"
 layers = "own ex"
 style = "毎日往復"
+period = "2018-06-15"
 note = "⚠ **閉じる（2026-09-11・再測しない）**: 検出限界の 2 桁下で、再現幅（4.53bp）が平均（+0.27bp）を上回る（[validation-power.md §6-2](validation-power.md)）"
 
 [[closed]]
 key = "F2-3"
 layers = "own ex"
 style = "毎日往復"
+period = "2018-06-15"
 note = "⚠ **閉じる（2026-09-11・再測しない）**: 検出限界の 2 桁下で、再現幅（4.62bp）が平均（+1.60bp）を上回る（[validation-power.md §6-2](validation-power.md)）"
 
 [[closed]]
 key = "F3-1"
 layers = "own ex"
 style = "毎日往復"
+period = "2018-06-15"
 note = "⚠ **閉じる（2026-09-11・再測しない）**: 検出限界の 2 桁下で、再現幅（4.81bp）が平均（+2.59bp）を上回る（[validation-power.md §6-2](validation-power.md)）"
 
 [[closed]]
 key = "F3-2"
 layers = "own ex"
 style = "毎日往復"
+period = "2018-06-15"
 note = "⚠ **閉じる（2026-09-11・再測しない）**: 検出限界の 2 桁下で、再現幅（6.92bp）が平均（+2.59bp）を上回る（[validation-power.md §6-2](validation-power.md)）"
 
 [[closed]]
@@ -165,6 +183,7 @@ key = "F3-3"
 model = "Ridge"
 layers = "own ex"
 style = "毎日往復"
+period = "2018-06-15"
 note = "⚠ **閉じる（2026-09-11・再測しない）**: 検出限界の 2 桁下で、再現幅（3.13bp）が平均（+0.64bp）を上回る（[validation-power.md §6-2](validation-power.md)）"
 
 # 型 2: 断面（own cs rel ll）の 4 行
@@ -172,6 +191,7 @@ note = "⚠ **閉じる（2026-09-11・再測しない）**: 検出限界の 2 �
 key = "F1-2"
 layers = "own cs rel ll"
 style = "毎日往復"
+period = "2018-06-27"
 note = "⚠ **閉じる（2026-09-11・再測しない）**: 検出限界の 2 桁下（[validation-power.md §6-2](validation-power.md)）"
 
 [[closed]]
@@ -179,6 +199,7 @@ key = "F3-1"
 model = "Ridge"
 layers = "own cs rel ll"
 style = "毎日往復"
+period = "2018-06-27"
 note = "⚠ **閉じる（2026-09-11・再測しない）**: 検出限界の 2 桁下（[validation-power.md §6-2](validation-power.md)）"
 
 [[closed]]
@@ -186,10 +207,12 @@ key = "F3-1"
 model = "LightGBM"
 layers = "own cs rel ll"
 style = "毎日往復"
+period = "2018-06-27"
 note = "⚠ **閉じる（2026-09-11・再測しない）**: 検出限界の 2 桁下（[validation-power.md §6-2](validation-power.md)）"
 
 [[closed]]
 key = "F3-5"
 layers = "own cs rel ll"
 style = "毎日往復"
+period = "2018-06-27"
 note = "⚠ **閉じる（2026-09-11・再測しない）**: 検出限界の 2 桁下（[validation-power.md §6-2](validation-power.md)）"

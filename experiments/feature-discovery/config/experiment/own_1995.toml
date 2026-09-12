@@ -1,0 +1,50 @@
+# ⚠ **検証期間を延ばした表**（rules.md 14-4。検討記録 validation-power.md §3-3）。
+#
+# ⚠ **`own_2018.toml` との違いは `start_date` を書かないことだけ。** 層・粒度・地平・k・種・
+# ⚠ **コスト・選別・モデルは全部同じにしてある。** ⚠ **揃えないと、比べているのが期間の差か
+# ⚠ **設定の差か分からなくなる**（13-8 の橋渡しの形）。
+#
+# ⚠ **開始日は手で選ばない**（14-9 の向き。手で選んだ数値は 1 つずつが自由度）。
+# `own_` の 60 本の助走が終わった最初の日が自動的に開始になる（実測 1995-02-10）。
+# ⚠ **raw は 1994-11 から 8,000 本取得済み**で、これ以上は遡れない（12 章 限界 3）。
+#
+# ⚠ **`ex`（外部系列）は 2018 年から、`rel_sec_*` はセクター ETF が 1998-12 からなので混ぜない。**
+# 混ぜると表の開始が切り戻り、期間を延ばす目的と衝突する。
+#
+# ⚠ **早い期間ほどパネルが痩せる**（1995 年に存在するのは 63 銘柄のうち 29 本。12 章）。
+#
+# ⚠ **TOML の平の key はテーブル見出しより上に書く**（rules.md 10 章 規約 1）
+name = "own_1995"
+dataset = "daily"
+horizon = 1
+cost_bp = 5.0
+
+feature_layers = ["own"]
+targets = "all"
+
+horizon_min = 1440.0
+bar_minutes = 1440.0
+
+selectors = [
+  "全部使う（基準）", "乱択（基準）",
+  "F1-1 相関", "F1-2 相互情報量", "F1-3 mRMR", "F1-5 検定+FDR",
+  "F2-3 Boruta", "F3-1 Lasso", "F3-2 木の重要度", "F3-3 並べ替え(MDA)", "F3-5 クラスタ化MDA",
+]
+k = 16
+
+model = "Ridge"
+baselines = ["常に上（ドリフト）", "直前リターンの符号"]
+
+[validation]
+split = "walk_forward"
+folds = 5
+purge = true
+embargo_bars = 0
+seed = 0
+
+[features]
+ex_lag_days = 1
+
+ex_zero_fill = ["usgs"]
+ex_transforms = ["d1", "z20"]
+ex_max_stale_days = 7

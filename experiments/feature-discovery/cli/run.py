@@ -271,9 +271,13 @@ def main() -> None:
     if meta and meta.get("layer") and meta["layer"] != args.layer:
         run.log(f"⚠ **--layer {args.layer} だが、表は層 {meta['layer']} から作られている**"
                 f"（{os.path.basename(path)}）。⚠ **sidecar のほうを記録に残す。**")
+    # ⚠ **期間は「読んだ表」から取る**（sidecar の自己申告ではなく実物）。台帳の鍵の「期間」が
+    # ⚠ **これを正として読む**（rules.md 14-4。⚠ **無い実行は「—」で、後から埋めない**）
+    ts = pd.to_datetime(panel["ts"])
     run.inputs({"features_file": os.path.relpath(path, store.ROOT),
                 "layer": (meta or {}).get("layer") or args.layer,
                 "layer_declared": args.layer, "features_meta": meta,
+                "panel_start": str(ts.min().date()), "panel_end": str(ts.max().date()),
                 "rows_before_sample": int(len(panel)),
                 "features": len(feats), "symbols": int(panel["symbol"].nunique()),
                 "sample": args.sample,
@@ -316,12 +320,11 @@ def main() -> None:
                 "「買って持っただけ」と区別できない）。")
         run.result(res, g)
         run.per_symbol(per_sym)
-        # 新方式は検証方式が処置: 基準線（乱択・「基準 」）以外の選別 × 閾値の数だけ試行が増える（13-9）
-        # ⚠ 門前の手法は selectors からもう外れているので、ここで数えるのは回した手法だけ（14-5）
-        n_meth = len([s for s in exp.get("selectors", []) if s != "乱択（基準）"])
-        n_th = len(exp["trading"].get("thresholds", (50.0, 55.0, 60.0)))
+        # ⚠ **`summary.csv` を書いたあとに数える。** 台帳はそれを読むので、この実行の行
+        # （検証方式が処置 ＝ 選別 × 閾値の数。門前の手法は selectors から外れている）は
+        # ⚠ **もう台帳に入っている。この実行ぶんを足さない**（13-9・14-5。足すと二重になる）
         doc = checks.compute_trading(res, g, per_sym, daily, exp,
-                                     n_trials=checks.n_trials_now(n_meth * n_th),
+                                     n_trials=checks.n_trials_now(),
                                      leak=args.leak, panel=full_panel)
         doc["gate"] = gate_doc                       # ⚠ 記録するだけ。採否には使わない（14-5）
         run.checks(doc)
@@ -340,12 +343,10 @@ def main() -> None:
     run.result(res, g)
 
     # ⚠ **検査はここで 1 度だけ計算して記録に残す**（管理画面は読むだけ。プラン §2）
-    # ⚠ **モデルが Ridge 以外なら「全部使う × モデル」も 1 試行**（plans/archive/gpu-models.md §3-4）
-    n_sel = len([x for x in exp.get("selectors", []) if not checks.is_baseline(x)])
-    if exp.get("model", "Ridge") != "Ridge" and "全部使う（基準）" in exp.get("selectors", []):
-        n_sel += 1
+    # ⚠ **`summary.csv`（上の `run.result`）を書いたあとに数える。** 台帳はそれを読むので、
+    # ⚠ **この実行の行はもう台帳に入っている。この実行ぶんを足さない**（足すと二重になる）
     doc = checks.compute(res, g, exp, panel=panel, full_panel=full_panel,
-                         n_trials=checks.n_trials_now(n_sel), leak=args.leak)
+                         n_trials=checks.n_trials_now(), leak=args.leak)
     run.checks(doc)
     run.log(_checks_line(doc))
     print(f"→ {os.path.relpath(run.close(), store.ROOT)}")

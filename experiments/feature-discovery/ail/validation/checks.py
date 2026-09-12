@@ -135,6 +135,48 @@ def _panel_checks(panel: pd.DataFrame, full_panel: pd.DataFrame | None, gross_bp
 
 # --- 閾値つき売買（rules.md 13 章） -------------------------------------
 
+def _edge_bins(method_daily, bh_daily, per_fold: int = 2) -> dict | None:
+    """fold 内で日数を等分した上乗せ符号（rules.md 14-3 の診断列）。⚠ **採否には使わない。**
+
+    ⚠ **fold 境界（強制清算の位置）を bin がまたがない**ように、既存 fold の中だけで割る。
+    偶然の全符号正は 5 fold の 3.1% から 10 bin の 0.098% に締まるが、
+    ⚠ **全符号正を要求する検出限界はむしろ上がる**ので判定には使わない（validation-power.md §3-2）。
+    B&H の系列と fold 数・日付が合わなければ None（計算できないものは省く）。
+    """
+    if not method_daily or not bh_daily or len(method_daily) != len(bh_daily):
+        return None
+    vals: list[float] = []
+    for m, b in zip(method_daily, bh_daily):
+        if len(m) != len(b) or not (m.index == b.index).all():
+            return None
+        e = (m.values - b.values)
+        for part in np.array_split(np.arange(len(e)), per_fold):
+            vals.append(float(e[part].sum()))
+    d = _sign_row(vals)
+    d["bins"] = d.pop("folds")
+    t = _t(vals)
+    return {"per_fold": per_fold, **d, "mean_bp": round(float(np.mean(vals)), 4),
+            "t": (round(t, 4) if t is not None else None),
+            "注記": "⚠ 診断列。採否は 5 fold の上乗せと DSR のまま（rules.md 14-3）"}
+
+
+def _breadth_trading(panel) -> dict | None:
+    """実効系列数の常時併記（rules.md 14-3）。⚠ **DSR の n_obs（検証日数）は変えない。**
+
+    per_symbol の「勝ち銘柄 58/63」を独立な 58 勝と読み違えないための併記
+    （63 系列の実効は 4.71 本【実測】。rules.md 12 章 限界 2）。
+    """
+    if panel is None or not {"symbol", "ts", "y"} <= set(panel.columns):
+        return None
+    wide = panel.pivot_table(index="ts", columns="symbol", values="y").dropna(how="any")
+    if wide.shape[1] < 2 or len(wide) < 3:
+        return None
+    eb = stats.effective_breadth(wide)
+    return {"系列数": eb["系列数"], "実効系列数": round(eb["実効系列数"], 3),
+            "t値の割引": round(eb["t値の割引"], 4), "パネルの時刻": int(len(wide)),
+            "注記": "⚠ per_symbol の読み違え防止の併記。n_obs は検証日数のまま（rules.md 14-3）"}
+
+
 def best_method_trading(methods) -> str | None:
     """新方式の最良手法。⚠ **「基準 」と乱択だけを除く**（「全部使う」は検証方式が処置なので手法。13-9）。"""
     rows = [str(m) for m in methods
@@ -144,13 +186,15 @@ def best_method_trading(methods) -> str | None:
 
 def compute_trading(result: pd.DataFrame, summary: pd.DataFrame, per_symbol: pd.DataFrame,
                     daily: dict, config: dict, n_trials: int | None = None,
-                    leak: bool = False) -> dict:
+                    leak: bool = False, panel: pd.DataFrame | None = None) -> dict:
     """閾値つき売買の検査（rules.md 13 章）。⚠ **3 閾値とも残す**（良かった閾値だけ報告しない。13-3 の 3）。
 
     - fold の符号は **対 B&H の上乗せ**で見る（13-7。純利の符号では「買って持っただけ」と区別できない）
     - DSR の SR は **ポートフォリオ日次純利系列（fold 連結）** から。歪度・尖度も系列から実測して渡す。
       n_obs は検証日数（⚠ 行数 63 × 日数 を使わない）
     - 銘柄別 bp は要約だけ載せる（成果物は per_symbol.csv。⚠ **採否には使わない**）
+    - 診断列（rules.md 14-3。⚠ **採否には使わない**）: `edge_bins`（fold 内 2 等分の上乗せ符号）と、
+      `panel` があれば `breadth`（実効系列数）
     """
     t = config.get("trading", {})
     doc: dict = {"leak": bool(leak), "style": "threshold",
@@ -179,6 +223,8 @@ def compute_trading(result: pd.DataFrame, summary: pd.DataFrame, per_symbol: pd.
             entry["edge_vs_bh"] = {**_sign_row(e), "mean_bp": round(float(e.mean()), 4),
                                    "t": (round(t_, 4) if (t_ := _t(e)) is not None else None)}
             entry["bh_純利bp"] = round(float(net[DRIFT].mean()), 4)
+        if (eb := _edge_bins(daily.get((name, th)), daily.get((DRIFT, th)))) is not None:
+            entry["edge_bins"] = eb
         series = pd.concat(daily.get((name, th), [pd.Series(dtype=float)]))
         if len(series) >= 3 and float(series.std()) > 0 and n_trials and n_trials >= 2:
             sr = float(series.mean() / series.std())
@@ -199,12 +245,14 @@ def compute_trading(result: pd.DataFrame, summary: pd.DataFrame, per_symbol: pd.
                                    "勝ち銘柄": int((tot > 0).sum())}
         by[f"{th:g}"] = entry
     doc["by_threshold"] = by
+    if (br := _breadth_trading(panel)) is not None:
+        doc["breadth"] = br
 
     # 最良の閾値の写しを最上位にも置く（一覧の 1 数字）。⚠ **3 閾値とも by_threshold にある**
     if by:
         top = max(by, key=lambda k: by[k]["best"]["純利bp"])
         doc["best"] = {**by[top]["best"], "閾値": float(top)}
-        for key in ("edge_vs_bh", "bh_純利bp", "dsr", "per_symbol"):
+        for key in ("edge_vs_bh", "bh_純利bp", "dsr", "per_symbol", "edge_bins"):
             if key in by[top]:
                 doc[key] = by[top][key]
         if "edge_vs_bh" in by[top]:

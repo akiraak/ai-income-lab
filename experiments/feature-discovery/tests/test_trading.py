@@ -322,3 +322,48 @@ def test_compute_trading_skew_and_kurtosis_come_from_the_series():
     d = doc["by_threshold"]["50"]["dsr"]
     assert "歪度" in d and "尖度" in d
     assert d["尖度"] != 3.0 or d["歪度"] != 0.0
+
+
+# --- 診断列（rules.md 14-3） ---------------------------------------------
+
+def test_edge_bins_split_inside_folds():
+    """⚠ **bin は fold 境界をまたがない**（強制清算の位置は動かない。rules.md 14-3）。"""
+    ts1 = pd.date_range("2021-01-01", periods=6, freq="D")
+    ts2 = pd.date_range("2021-04-01", periods=4, freq="D")
+    m = [pd.Series([1.0, 1.0, 1.0, 2.0, 2.0, 2.0], index=ts1),
+         pd.Series([5.0, 5.0, -1.0, -1.0], index=ts2)]
+    b = [pd.Series(0.0, index=ts1), pd.Series(0.0, index=ts2)]
+    d = checks._edge_bins(m, b, per_fold=2)
+    assert d["per_fold"] == 2 and d["bins"] == 4
+    assert d["values"] == [3.0, 6.0, 10.0, -2.0]           # fold 内で 2 等分した合計
+    assert d["pattern"] == "＋＋＋−" and d["positive"] == 3
+    assert sum(d["values"]) == pytest.approx(float(sum(s.sum() for s in m)))
+    assert "採否" in d["注記"]                              # ⚠ 診断であって判定ではない
+
+
+def test_edge_bins_refuses_mismatched_series():
+    """⚠ **計算できないものは省く**（0 や null で埋めない）。B&H と形が合わなければ None。"""
+    ts = pd.date_range("2021-01-01", periods=5, freq="D")
+    m = [pd.Series(1.0, index=ts)]
+    assert checks._edge_bins(m, None) is None
+    assert checks._edge_bins(m, []) is None
+    assert checks._edge_bins(m, [pd.Series(1.0, index=ts[:4])]) is None   # 長さ違い
+    assert checks._edge_bins(m, m + m) is None                            # fold 数違い
+
+
+def test_compute_trading_carries_edge_bins_and_breadth():
+    """診断列（rules.md 14-3）: edge_bins は常に、breadth は panel があるときだけ。判定の量は不変。"""
+    res, summary, sym, daily, cfg = _fake_outputs()
+    doc = checks.compute_trading(res, summary, sym, daily, cfg, n_trials=70)
+    e = doc["by_threshold"]["50"]
+    assert e["edge_bins"]["per_fold"] == 2 and e["edge_bins"]["bins"] == 2
+    assert "edge_bins" in doc                              # 最良閾値の写しにも載る
+    assert "breadth" not in doc                            # ⚠ panel 無しでは省く
+    rng = np.random.default_rng(1)
+    ts = pd.date_range("2021-01-01", periods=40, freq="D", tz="UTC")
+    panel = pd.DataFrame({"symbol": np.repeat(["AAA", "BBB", "CCC"], 40),
+                          "ts": list(ts) * 3, "y": rng.normal(0, 0.01, 120)})
+    doc2 = checks.compute_trading(res, summary, sym, daily, cfg, n_trials=70, panel=panel)
+    assert doc2["breadth"]["系列数"] == 3
+    assert 1.0 <= doc2["breadth"]["実効系列数"] <= 3.0
+    assert doc2["by_threshold"]["50"]["dsr"]["n_obs"] == 50   # ⚠ n_obs は検証日数のまま

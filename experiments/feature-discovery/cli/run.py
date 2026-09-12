@@ -284,7 +284,7 @@ def main() -> None:
         n_th = len(exp["trading"].get("thresholds", (50.0, 55.0, 60.0)))
         doc = checks.compute_trading(res, g, per_sym, daily, exp,
                                      n_trials=checks.n_trials_now(n_meth * n_th),
-                                     leak=args.leak)
+                                     leak=args.leak, panel=full_panel)
         run.checks(doc)
         run.log(_checks_line_trading(doc))
         print(f"→ {os.path.relpath(run.close(), store.ROOT)}")

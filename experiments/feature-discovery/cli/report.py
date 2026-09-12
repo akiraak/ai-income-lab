@@ -77,6 +77,11 @@ def recheck() -> None:
             print(f"  {name}: result/summary が無い → とばす")
             continue
         doc = _load(name)
+        # ⚠ **閾値売買の実行はとばす。** checks.compute は閾値で行が割れた result を扱えず、
+        # ⚠ **compute_trading に要る日次系列は保存されていないので後から作れない**（診断は実行時に付く）
+        if ((doc.get("config") or {}).get("trading") or {}).get("style") == "threshold":
+            print(f"  {name}: 閾値売買 → とばす（checks は実行時にしか書けない）")
+            continue
         pair = _panel_for(doc)
         panel, full = pair if pair else (None, None)
         out = checks.compute(pd.read_csv(res), pd.read_csv(summ, index_col=0),

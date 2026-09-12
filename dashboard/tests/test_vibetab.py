@@ -203,6 +203,67 @@ def test_exp_run_html_rejects_unknown_and_traversal(runs_dir):
     assert vibetab.exp_run_html(runs_dir, "") is None
 
 
+def test_fmt_only_trims_zeros_after_the_point():
+    """⚠ **整数部の 0 を削らない**（20.0 を「2」と出すと水準の表示が嘘になる）。"""
+    assert vibetab.fmt(20.0, 0) == "20"
+    assert vibetab.fmt(20.0) == "20"
+    assert vibetab.fmt(1650.0) == "1,650"
+    assert vibetab.fmt(0.5034, 3) == "0.503"
+    assert vibetab.fmt(3.20, 1) == "3.2"
+    assert vibetab.fmt(None) == "—"
+
+
+# --------------------------------------------- 門前の実行（rules.md 14-5）
+
+
+def make_gated_run(runs_dir: Path, name: str) -> Path:
+    """⚠ **summary.csv を書かない**（前置きの門で閾値売買を回していない実行）。"""
+    d = runs_dir / name
+    d.mkdir(parents=True)
+    (d / "config.json").write_text(json.dumps(
+        {"dataset": "daily", "horizon": 1, "k": 16, "cost_bp": 5.0, "feature_layers": ["own"],
+         "trading": {"style": "threshold", "thresholds": [50, 55, 60], "form": "shared"}}),
+        encoding="utf-8")
+    (d / "inputs.json").write_text(json.dumps(
+        {"layer": "adjusted", "features": 35, "symbols": 63, "rows_before_sample": 135962}),
+        encoding="utf-8")
+    (d / "env.json").write_text(json.dumps(
+        {"seed": 0, "git_commit": "abc1234", "started_at": "2026-09-11T11:00:00"}),
+        encoding="utf-8")
+    (d / "checks.json").write_text(json.dumps({
+        "leak": False, "style": "threshold", "form": "shared", "cost_bp": 5.0,
+        "thresholds": [50.0, 55.0, 60.0],
+        "gate": {"auc_min": 0.52, "width_min_pt": 20.0, "form": "shared",
+                 "methods": {"全部使う（基準）": {"auc": 0.5034, "width_pt": 3.2,
+                                                  "auc_folds": [0.5, 0.51, None, 0.49, 0.5],
+                                                  "width_folds": [3.2] * 5, "passed": False}},
+                 "passed": [], "blocked": ["全部使う（基準）"]},
+    }, ensure_ascii=False), encoding="utf-8")
+    return d
+
+
+def test_gated_run_is_listed_apart_and_not_counted(runs_dir):
+    """⚠ **門前は目次とまとめに出るが、「検証 N 件」には数えない**（rules.md 14-5）。"""
+    make_gated_run(runs_dir, "2026-09-11T11-00-00_trade_own_lgbm_a")
+    items = vibetab.exp_sidebar(runs_dir)["items"]
+    by_id = {i["id"]: i for i in items}
+    g = by_id["2026-09-11T11-00-00_trade_own_lgbm_a"]
+    assert g["badge"] == "門前" and "門前" in g["group"]
+    assert "検証 1 件" in by_id["overview"]["sub"]          # ⚠ 門前を足して 2 件にしない
+    body = vibetab.exp_overview_html(runs_dir)
+    assert "門前（前置きの門を通らず、検証を回していない）" in body
+    assert "0.503" in body and "3.2" in body                # 門の 2 値（写し）
+
+
+def test_gated_run_page_shows_the_gate_not_an_empty_score(runs_dir):
+    make_gated_run(runs_dir, "2026-09-11T11-00-00_trade_own_lgbm_a")
+    body = vibetab.exp_run_html(runs_dir, "2026-09-11T11-00-00_trade_own_lgbm_a")
+    assert body is not None
+    assert "回していない" in body and "前置きの門" in body
+    assert "0.503" in body and "閾値売買・共通" in body
+    assert "スコア（最良手法の純利 bp）" not in body        # ⚠ 空の成績を出さない
+
+
 # ---------------------------------------------------------------- データタブ
 
 

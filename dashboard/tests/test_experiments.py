@@ -279,3 +279,130 @@ def test_trading_detail_page_shows_all_three_thresholds(settings):
         assert "対 B&amp;H の上乗せ" in d.text
         assert "40/63" in d.text                     # 銘柄別の勝ち銘柄（成果物の要約）
         assert "θ=55%" in d.text                     # 最良の閾値
+
+
+# --- 前置きの門（rules.md 14-5） ----------------------------------------
+#
+# ⚠ **門前の実行は `summary.csv` を持たない**（閾値売買を回していないから）。
+# ⚠ **画面から黙って消えてはいけない**（台帳には「門前」の行で残る。隠さない）。
+
+def gate_doc(blocked=("全部使う（基準）",), passed=(), forced=False, auc=0.5034, width=3.2):
+    methods = {}
+    for m in list(blocked) + list(passed):
+        ok = m not in blocked
+        methods[m] = {"auc": 0.6 if ok else auc, "width_pt": 44.0 if ok else width,
+                      "auc_folds": [auc, auc + 0.01, None, auc - 0.01, auc],
+                      "width_folds": [width] * 5, "passed": ok}
+    doc = {"auc_min": 0.52, "width_min_pt": 20.0, "form": "shared", "methods": methods,
+           "passed": list(passed), "blocked": list(blocked),
+           "注記": "⚠ 訓練内 holdout の fold 中央値"}
+    if forced:
+        doc["forced"] = True
+    return doc
+
+
+def write_gated_experiment(runs_dir, run_id, *, gate=None, config=None):
+    """⚠ **門前の実行** = `summary.csv` が無く、`checks.json` に `gate` だけある記録。"""
+    return write_experiment(runs_dir, run_id, config=config or TRADE,
+                            inputs={"layer": "adjusted", "features": 35, "symbols": 63,
+                                    "rows_before_sample": 135962},
+                            summary=None,
+                            checks={"leak": False, "style": "threshold", "form": "shared",
+                                    "cost_bp": 5.0, "thresholds": [50.0, 55.0, 60.0],
+                                    "gate": gate or gate_doc()})
+
+
+def test_gated_run_is_kept_but_not_counted_as_a_validation(tmp_path):
+    """⚠ **門前の実行が一覧から黙って消えてはいけない**（この修正の本体）。
+
+    ⚠ **同時に「検証 N 件」には数えない**（回していないので。n_trials に数えないのと同じ）。
+    """
+    write_trading_experiment(tmp_path, "2026-09-11T10-00-00_trade_own_ridge_a")
+    write_gated_experiment(tmp_path, "2026-09-11T11-00-00_trade_own_lgbm_a")
+    ex = exp.index(tmp_path)
+    assert [r["run_id"] for r in ex["runs"]] == ["2026-09-11T10-00-00_trade_own_ridge_a"]
+    assert [r["run_id"] for r in ex["gated_runs"]] == ["2026-09-11T11-00-00_trade_own_lgbm_a"]
+    assert ex["total"] == 1 and ex["positive"] == 1      # ⚠ 門前は数に入れない
+    assert sum(ex["kinds"].values()) == 1
+    g = ex["gated_runs"][0]
+    assert g["score"] is None and g["gated"] is True
+    # 門の値は checks.json の写し（画面では判定し直さない）
+    assert [m["method"] for m in g["gate_blocked"]] == ["全部使う（基準）"]
+    assert g["gate_blocked"][0]["auc"] == 0.5034 and g["gate_blocked"][0]["width_pt"] == 3.2
+    assert g["gate"]["auc_min"] == 0.52 and g["gate"]["width_min_pt"] == 20.0
+
+
+def test_blocked_method_without_its_values_still_gets_a_row(tmp_path):
+    """⚠ **門前の手法は必ず 1 行出す。** 値が無くても行ごと消えると、また黙って隠れる。"""
+    g = gate_doc()
+    g["methods"] = {}                                    # 値が欠けた記録
+    write_gated_experiment(tmp_path, "2026-09-11T11-00-00_trade_own_lgbm_a", gate=g)
+    r = exp.index(tmp_path)["gated_runs"][0]
+    assert [m["method"] for m in r["gate_blocked"]] == ["全部使う（基準）"]
+    assert r["gate_blocked"][0]["auc"] is None and r["gate_blocked"][0]["width_pt"] is None
+
+
+def test_gated_run_has_no_marks_because_it_was_not_run(tmp_path):
+    """⚠ **⏳ を 5 つ並べない。** 門前は「計算していない」ではなく「回していない」。"""
+    write_gated_experiment(tmp_path, "2026-09-11T11-00-00_trade_own_lgbm_a")
+    assert exp.index(tmp_path)["gated_runs"][0]["marks"] == {}
+
+
+def test_forced_run_without_summary_is_still_dropped(tmp_path):
+    """⚠ **`--ignore-gate` で summary が無いのは「回したのに結果が無い」**（台帳と同じ条件）。"""
+    write_gated_experiment(tmp_path, "2026-09-11T11-00-00_trade_own_lgbm_a",
+                           gate=gate_doc(forced=True))
+    ex = exp.index(tmp_path)
+    assert ex["runs"] == [] and ex["gated_runs"] == [] and ex["total"] == 0
+
+
+def test_run_without_summary_and_without_gate_is_dropped(tmp_path):
+    """門の記録も無い（壊れた・途中で落ちた）実行は従来どおり拾わない。"""
+    write_experiment(tmp_path, "2026-09-11T11-00-00_trade_own_lgbm_a", config=TRADE,
+                     inputs={"layer": "adjusted"}, summary=None, checks={"style": "threshold"})
+    assert exp.index(tmp_path)["gated_runs"] == [] and exp.index(tmp_path)["runs"] == []
+
+
+def test_partially_gated_run_stays_in_the_list_with_its_score(tmp_path):
+    """一部の手法だけ門前 → ⚠ **回した手法のスコアは消さず、回さなかった手法も隠さない。**"""
+    d = write_trading_experiment(tmp_path, "2026-09-11T10-00-00_trade_own_ridge_a")
+    ch = json.loads((d / "checks.json").read_text(encoding="utf-8"))
+    ch["gate"] = gate_doc(blocked=("F3-1 Lasso",), passed=("全部使う（基準）",))
+    (d / "checks.json").write_text(json.dumps(ch, ensure_ascii=False), encoding="utf-8")
+    ex = exp.index(tmp_path)
+    r = ex["runs"][0]
+    assert ex["gated_runs"] == [] and r["gated"] is False and r["score"] == 12.0
+    assert [m["method"] for m in r["gate_blocked"]] == ["F3-1 Lasso"]
+    assert r["marks"]["上乗せ"] == "✅"                  # 判定の列は今までどおり
+
+
+def test_gated_run_shows_up_on_the_pages_with_the_gate_values(settings):
+    write_gated_experiment(settings.runs_dir, "2026-09-11T11-00-00_trade_own_lgbm_a")
+    with TestClient(create_app(settings), client=("127.0.0.1", 50000)) as c:
+        r = c.get("/experiments")
+        assert r.status_code == 200
+        assert "門前" in r.text and "2026-09-11T11-00-00_trade_own_lgbm_a" in r.text
+        assert "0.503" in r.text and "3.2" in r.text        # 門の 2 値
+        assert "≥ 0.52" in r.text and "≥ 20 点" in r.text    # 事前固定の水準（写し）
+        assert "n_trials" in r.text                         # 数えないことを画面に書く
+        d = c.get("/experiments/2026-09-11T11-00-00_trado")  # 無い実行は 404 のまま
+        assert d.status_code == 404
+        d = c.get("/experiments/2026-09-11T11-00-00_trade_own_lgbm_a")
+        assert d.status_code == 200
+        assert "回していない" in d.text and "前置きの門" in d.text
+        assert "閾値売買・共通" in d.text                    # 条件は出す
+        j = c.get("/api/experiments")
+        assert j.status_code == 200 and len(j.json()["gated_runs"]) == 1
+
+
+def test_partially_gated_detail_page_names_the_methods_not_run(settings):
+    d = write_trading_experiment(settings.runs_dir, "2026-09-11T10-00-00_trade_own_ridge_a")
+    ch = json.loads((d / "checks.json").read_text(encoding="utf-8"))
+    ch["gate"] = gate_doc(blocked=("F3-1 Lasso",), passed=("全部使う（基準）",))
+    (d / "checks.json").write_text(json.dumps(ch, ensure_ascii=False), encoding="utf-8")
+    with TestClient(create_app(settings), client=("127.0.0.1", 50000)) as c:
+        t = c.get("/experiments/2026-09-11T10-00-00_trade_own_ridge_a").text
+        assert "門前の手法が 1 件" in t and "F3-1 Lasso" in t
+        assert "前置きの門" in t and "通過" in t             # 通った手法も並べる
+        # ⚠ 一覧では今までどおりスコアの行に出る（別表には出さない）
+        assert "+12.00" in c.get("/experiments").text

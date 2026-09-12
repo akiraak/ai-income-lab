@@ -47,6 +47,8 @@ b { font-weight:600; }
 .badge { display:inline-block; padding:1px 8px; border-radius:4px; font-weight:700; font-size:11px; letter-spacing:.05em; border:1px solid transparent; }
 .badge.big { font-size:13px; padding:3px 12px; }
 .badge-cert { background:var(--cert); color:#fff; } .badge-prod { background:var(--prod); color:#fff; } .badge-mock { background:var(--mock-bg); color:#d2b8ff; border-color:rgba(163,113,247,.5); }
+/* 門前（前置きの門を通らず検証を回していない実行。rules.md 14-5）。⚠ 配線の検査（紫）とは別物なので琥珀 */
+.badge-gate { background:var(--warn-bg); color:var(--warn-ink); border-color:rgba(210,153,34,.5); }
 .demobar { background:var(--mock-bg); color:#d2b8ff; border-bottom:1px solid rgba(163,113,247,.35); padding:7px 18px; font-size:13px; } .demobar code { color:#d2b8ff; background:rgba(0,0,0,.3); border-color:rgba(163,113,247,.35); }
 .haltbar { background:#b62324; color:#fff; padding:10px 18px; font-size:15px; } .haltbar a { color:#fff; text-decoration:underline; }
 .flash { background:var(--warn-bg); color:var(--warn-ink); border-bottom:1px solid rgba(210,153,34,.35); padding:8px 18px; }

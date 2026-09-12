@@ -8,6 +8,10 @@
 
 ⚠ **スコアは「最良手法（基準線を除く）の純利 bp」**（利用者が 2026-09-08 に決めた）。
 ⚠ **1 つの数字なので fold の偏りも多重検定も出ない。** だから検査の列を必ず横に並べる。
+
+⚠ **前置きの門（rules.md 14-5）を通らなかった実行も出す**（2026-09-11。仕様 §10-6）。
+⚠ **`summary.csv` を持たないので黙って落ちていた。** 台帳には「門前」で残るので、画面からも消さない。
+⚠ **ただし検証としては数えない**（回していないから）ので、`index` が別枠（`gated_runs`）に出す。
 """
 
 from __future__ import annotations
@@ -108,13 +112,49 @@ def _mark(ok: bool | None) -> str:
     return "✅" if ok is True else "⚠" if ok is False else "⏳"
 
 
+def gate_methods(gate: dict) -> list[dict]:
+    """前置きの門（rules.md 14-5）の写し。手法ごとに AUC・買い% 幅・通過。
+
+    ⚠ **写すだけ。** 水準（AUC ≥ 0.52・幅 ≥ 20 点）と通過は実験側が `checks.json` に
+    書いたものをそのまま出す（⚠ **画面で門を再判定しない**）。
+    """
+    blocked = [str(m) for m in (gate.get("blocked") or [])]
+    methods = gate.get("methods") or {}
+    names = list(methods) + [m for m in blocked if m not in methods]   # ⚠ 門前は必ず 1 行出す
+    out = []
+    for name in names:
+        g = methods.get(name) or {}
+        out.append({"method": str(name), "auc": g.get("auc"), "width_pt": g.get("width_pt"),
+                    "auc_folds": list(g.get("auc_folds") or []),
+                    "width_folds": list(g.get("width_folds") or []),
+                    "passed": str(name) not in blocked, "note": g.get("注記")})
+    return out
+
+
+def is_gated(summary: list[dict], gate: dict) -> bool:
+    """⚠ **全手法が門前 ＝ 閾値売買を回していない実行か**（`summary.csv` を持たない）。
+
+    ⚠ **条件は台帳（`ail/catalog.py`）と同じ。** `--ignore-gate`（`forced`）で summary が
+    無いのは「回したのに結果が無い」なので門前とは読まない。
+    """
+    return not summary and bool(gate.get("blocked")) and not gate.get("forced")
+
+
 def load_run(d: Path) -> dict | None:
-    """1 実行ぶん。⚠ **summary.csv が無いものは検証として数えない。**"""
+    """1 実行ぶん。⚠ **summary.csv が無い実行は「門前」だけ拾う**（rules.md 14-5）。
+
+    ⚠ **門前は「計算していない」ではなく「回していない」。** 台帳には残るので、
+    ⚠ **画面からも消さない**（隠さない）。検証としては数えないので `index` が別枠に出す。
+    """
     summary = _read_summary(d / "summary.csv")
-    if not summary:
+    ch = _read_json(d / "checks.json")
+    gate = ch.get("gate") or {}
+    gated = is_gated(summary, gate)
+    if not summary and not gated:
         return None
+    methods = gate_methods(gate)
     config, inputs = _read_json(d / "config.json"), _read_json(d / "inputs.json")
-    env, ch = _read_json(d / "env.json"), _read_json(d / "checks.json")
+    env = _read_json(d / "env.json")
     leak = bool(ch.get("leak")) or d.name.endswith("_leak")
     best = ch.get("best") or {}
     # ⚠ 閾値つき売買の実行は「上乗せ」が対 B&H（edge_vs_bh。rules.md 13-7）。旧実行は対「常に上」
@@ -158,6 +198,12 @@ def load_run(d: Path) -> dict | None:
         "per_symbol": ch.get("per_symbol"),
         "has_checks": bool(ch),
         "summary": summary,
+        # 前置きの門（rules.md 14-5）。⚠ **門前も残す**（数えないが隠さない）
+        "gated": gated,
+        "gate": gate or None,
+        "gate_methods": methods,
+        "gate_blocked": [m for m in methods if not m["passed"]],
+        "gate_forced": bool(gate.get("forced")),
     }
 
 
@@ -173,7 +219,14 @@ def load_all(runs_dir: Path) -> list[dict]:
 
 
 def with_marks(run: dict) -> dict:
-    """検査の列に ✅ / ⚠ / ⏳ を付ける。⚠ **スコアの横に必ず出すもの。**"""
+    """検査の列に ✅ / ⚠ / ⏳ を付ける。⚠ **スコアの横に必ず出すもの。**
+
+    ⚠ **門前の実行には付けない**（rules.md 14-5）。⏳ を 5 つ並べると「計算待ち」に見えるが、
+    ⚠ **門前は計算していないのではなく検証を回していない。** 代わりに門の 2 値を出す。
+    """
+    if run.get("gated"):
+        run["marks"] = {}
+        return run
     folds, edge, dsr = run.get("folds"), run.get("edge"), run.get("dsr")
     all_pos = (folds and folds.get("folds") and folds["positive"] == folds["folds"]) or None
     t = (edge or {}).get("t")
@@ -190,19 +243,27 @@ def with_marks(run: dict) -> dict:
 
 
 def index(runs_dir: Path) -> dict:
-    """一覧。⚠ **スコアの降順。先読みの検査は別枠に出す**（混ぜると全部が嘘になる）。"""
+    """一覧。⚠ **スコアの降順。先読みの検査と門前は別枠に出す**（混ぜると全部が嘘になる）。
+
+    ⚠ **門前の実行は `total` / `positive` / `kinds` に数えない**（rules.md 14-5）。
+    ⚠ **検証を回していないので「検証 N 件」に足すと水増しになる**（n_trials に数えないのと同じ）。
+    """
     runs = [with_marks(r) for r in load_all(runs_dir)]
-    real = [r for r in runs if not r["leak"]]
-    leak = [r for r in runs if r["leak"]]
+    gated = [r for r in runs if r["gated"]]
+    scored = [r for r in runs if not r["gated"]]
+    real = [r for r in scored if not r["leak"]]
+    leak = [r for r in scored if r["leak"]]
     key = lambda r: (r["score"] is not None, r["score"] or 0.0)   # noqa: E731
     real.sort(key=key, reverse=True)
     leak.sort(key=key, reverse=True)
+    gated.sort(key=lambda r: r["run_id"], reverse=True)           # 門前はスコアが無いので新しい順
     kinds: dict[str, int] = {}
     for r in real:
         kinds[r["kind"]] = kinds.get(r["kind"], 0) + 1
     return {
         "runs": real,
         "leak_runs": leak,
+        "gated_runs": gated,
         "kinds": kinds,
         "total": len(real),
         "positive": sum(1 for r in real if (r["score"] or 0) > 0),

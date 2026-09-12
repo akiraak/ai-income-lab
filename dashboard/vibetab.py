@@ -86,13 +86,20 @@ def esc(v) -> str:
 
 
 def fmt(v, digits: int = 2) -> str:
-    """数値は桁を丸め、無いものは —。"""
+    """数値は桁を丸め、無いものは —。
+
+    ⚠ **削るのは小数点以下の 0 だけ。** 素の `rstrip("0")` は整数部の 0 まで削るので、
+    ⚠ **20.0 が「2」・1650.0 が「1,65」になる**（2026-09-11 に門の水準の表示で踏んだ）。
+    """
     if v is None:
         return "—"
     if isinstance(v, bool):
         return "あり" if v else "なし"
     if isinstance(v, float):
-        return f"{v:,.{digits}f}".rstrip("0").rstrip(".") if v == v else "—"
+        if v != v:
+            return "—"
+        s = f"{v:,.{digits}f}"
+        return s.rstrip("0").rstrip(".") if "." in s else s
     if isinstance(v, int):
         return f"{v:,}"
     return esc(v)
@@ -324,12 +331,42 @@ def exp_sidebar(runs_dir: Path) -> dict:
         items.append({"id": r["run_id"], "label": r["title"], "sub": r["run_id"],
                       "group": "先読みの検査",
                       "badge": ("—" if r["score"] is None else f"{r['score']:+.2f}bp")})
+    # ⚠ 門前の実行も目次に出す（成績は無いが、回していないことを隠さない。rules.md 14-5）
+    for r in idx["gated_runs"]:
+        items.append({"id": r["run_id"], "label": r["title"], "sub": r["run_id"],
+                      "group": "⚠ 門前（回していない）", "badge": "門前"})
     return {"items": items}
 
 
 def _marks_row(run: dict) -> str:
     marks = run.get("marks") or {}
     return table(list(marks.keys()), [[esc(v) for v in marks.values()]])
+
+
+def _gate_levels(gate: dict) -> str:
+    """門の水準（事前固定）。⚠ **checks.json の写し。** 画面で決め直さない。"""
+    auc, width = (gate or {}).get("auc_min"), (gate or {}).get("width_min_pt")
+    return f"AUC ≥ {fmt(auc, 2)}・買い% 幅 ≥ {fmt(width, 0)} 点"
+
+
+def _gate_html(run: dict) -> str:
+    """前置きの門（rules.md 14-5）の表。⚠ **写すだけ**（通過・門前も checks.json のまま）。"""
+    gate = run.get("gate") or {}
+    rows = []
+    for m in run.get("gate_methods") or []:
+        rows.append([esc(m["method"]), fmt(m["auc"], 3), fmt(m["width_pt"], 1),
+                     " ".join(fmt(a, 3) for a in m["auc_folds"]) or "—",
+                     " ".join(fmt(w, 1) for w in m["width_folds"]) or "—",
+                     "通過" if m["passed"] else "<span class='warn'>⚠ 門前</span>",
+                     esc(m["note"] or "")])
+    out = [f"<h2>前置きの門（回すかどうか・水準は事前固定 {_gate_levels(gate)}）</h2>",
+           table(["手法", "holdout AUC", "買い% 幅", "fold ごとの AUC", "fold ごとの幅", "門", "注記"],
+                 rows, {1, 2}),
+           "<p class='meta'>2 値は訓練分割の内側の tail holdout で測る（検証 fold には特徴量にも"
+           "触っていないので、門は検証データの選別にならない）。⚠ 門の値は採否に使わない"
+           "（使うのは「回すかどうか」だけ）。⚠ 門前の手法は試行数（n_trials）に数えない。"
+           "後から <code>--ignore-gate</code> で回したら普通に数える（rules.md 14-5）。</p>"]
+    return "\n".join(out)
 
 
 def exp_overview_html(runs_dir: Path) -> str:
@@ -342,6 +379,8 @@ def exp_overview_html(runs_dir: Path) -> str:
         ("スコア（最良手法の純利 bp）が正", fmt(idx["positive"])),
         ("種類", " ・ ".join(f"{esc(k)} {v} 件" for k, v in idx["kinds"].items()) or "—"),
         ("先読みの検査", fmt(len(idx["leak_runs"]))),
+        # ⚠ 門前は「検証」に数えない（回していない。rules.md 14-5）が、件数は出す
+        ("⚠ 門前（検証を回していない）", fmt(len(idx["gated_runs"]))),
         ("checks.json が無い実行", esc(", ".join(idx["missing_checks"]) or "なし")),
     ]))
     body.append(_traits_html(idx))
@@ -357,6 +396,20 @@ def exp_overview_html(runs_dir: Path) -> str:
     body.append(table(["検証", "実行", "純利bp", "層 純利 fold 上乗せ DSR"], rows, {2}))
     body.append("<p class='meta'>スコアは最良手法（基準線を除く）の純利 bp。"
                 "1 つの数字なので、検査の列（fold の符号・上乗せ t・実効標本数・デフレーテッド SR）を必ず横に見る。</p>")
+    if idx["gated_runs"]:
+        # ⚠ 門前（rules.md 14-5）。上の一覧・件数には入れないが、隠さずここに出す
+        body.append("<h2>⚠ 門前（前置きの門を通らず、検証を回していない）</h2>")
+        rows = []
+        for r in idx["gated_runs"]:
+            for m in r["gate_blocked"]:
+                rows.append([esc(r["title"]), esc(r["run_id"]), esc(m["method"]),
+                             fmt(m["auc"], 3), fmt(m["width_pt"], 1)])
+        body.append(table(["検証", "実行", "回さなかった手法", "holdout AUC", "買い% 幅"],
+                          rows, {3, 4}))
+        body.append("<p class='meta'>確率に情報が無い手法は閾値売買を回さない。水準は事前固定で "
+                    + _gate_levels((idx["gated_runs"][0].get("gate") or {})) +
+                    "。⚠ 回していないので上の件数にも、採否の判定にも、試行数（n_trials）にも"
+                    "数えない。⚠ それでも隠さずここに出す（rules.md 14-5・台帳の「門前」の行と同じ）。</p>")
     return page("検証のまとめ", "\n".join(body))
 
 
@@ -367,6 +420,24 @@ def exp_run_html(runs_dir: Path, run_id: str) -> str | None:
     body = [f"<h1>{esc(run['title'])}</h1>",
             f"<div class='meta'>{esc(run['run_id'])} ・ 開始 {esc(run['started_at'])}"
             f" ・ commit {esc(run['commit'] or '—')}</div>"]
+    if run["gated"]:
+        # ⚠ 全手法が門前 ＝ 閾値売買を回していない（rules.md 14-5）。成績は無い
+        body.append("<p class='warn'>⚠ <b>全手法が門前 ＝ 閾値売買を回していない実行。</b>"
+                    "成績（スコア・fold の符号・上乗せ・DSR）は無い。"
+                    "⚠ 「計算していない」のではなく「回していない」。"
+                    "検証としても試行数（n_trials）としても数えないが、隠さずここに残す。</p>")
+        body.append(_gate_html(run))
+        body.append("<h2>設定</h2>")
+        body.append(kv_table([
+            ("種類", esc(run["kind"])), ("粒度", esc(run["gran"])), ("先", esc(run["horizon"])),
+            ("層", esc(run["layer_label"])), ("特徴量の層", esc(run["feature_layers"])),
+            ("特徴量", fmt(run["features"], 0)), ("銘柄", fmt(run["symbols"], 0)),
+            ("行数", fmt(run["rows"], 0)), ("k", fmt(run["k"], 0)),
+            ("検証方式", "閾値売買・" + ("銘柄別" if run["form"] == "per_symbol" else "共通")),
+            ("閾値", " ".join(f"{float(t):g}%" for t in (run["thresholds"] or [])) or "—"),
+            ("費用 bp", fmt(run["cost_bp"])), ("seed", fmt(run["seed"], 0)),
+        ]))
+        return page(run["title"], "\n".join(body))
     body.append("<h2>検査</h2>")
     body.append(_marks_row(run))
     folds, edge, dsr, breadth = run["folds"], run["edge"], run["dsr"], run["breadth"]
@@ -436,6 +507,15 @@ def exp_run_html(runs_dir: Path, run_id: str) -> str | None:
         ("行数", fmt(run["rows"], 0)), ("k", fmt(run["k"], 0)),
         ("費用 bp", fmt(run["cost_bp"])), ("seed", fmt(run["seed"], 0)),
     ]))
+    if run["gate"]:
+        # 一部の手法だけ門前だった実行（または --ignore-gate で回した実行）。⚠ 回さなかった手法を隠さない
+        if run["gate_forced"]:
+            body.append("<p class='warn'>⚠ <code>--ignore-gate</code> で回した実行。門前の手法も"
+                        "回しているので、普通の試行として数える（rules.md 14-5 の規律 3）。</p>")
+        elif run["gate_blocked"]:
+            body.append(f"<p class='warn'>⚠ 門前の手法が {len(run['gate_blocked'])} 件あり、"
+                        "その手法は回していない（上の成績には出ず、試行数にも数えない）。</p>")
+        body.append(_gate_html(run))
     return page(run["title"], "\n".join(body))
 
 

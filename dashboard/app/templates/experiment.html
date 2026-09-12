@@ -1,10 +1,60 @@
 {% extends "base.html" %}
+
+{# 前置きの門（rules.md 14-5）。⚠ **checks.json の `gate` の写しを出すだけ**（画面で判定し直さない） #}
+{% macro gate_table(run) %}
+{% set auc_min = '%.2f'|format(run.gate.auc_min) if run.gate.auc_min is not none else '—' %}
+{% set width_min = '%g'|format(run.gate.width_min_pt) if run.gate.width_min_pt is not none else '—' %}
+<h3>前置きの門 <span class="muted small">回すかどうかの判定 · 水準 AUC ≥ {{ auc_min }}・買い% 幅 ≥ {{ width_min }} 点（事前固定）</span></h3>
+<table class="exp">
+<tr><th>手法</th><th>holdout AUC</th><th>買い% 幅</th><th>fold ごとの AUC</th><th>fold ごとの幅</th><th>門</th></tr>
+{% for m in run.gate_methods %}
+<tr>
+  <td>{{ m.method }}</td>
+  <td>{{ '%.3f'|format(m.auc) if m.auc is not none else '—' }}</td>
+  <td>{{ '%.1f'|format(m.width_pt) if m.width_pt is not none else '—' }}</td>
+  <td class="small muted">{% for a in m.auc_folds %}{{ '%.3f'|format(a) if a is not none else '—' }} {% endfor %}</td>
+  <td class="small muted">{% for w in m.width_folds %}{{ '%.1f'|format(w) if w is not none else '—' }} {% endfor %}</td>
+  <td class="cell-{{ 'ok' if m.passed else 'warn' }}">{{ '通過' if m.passed else '⚠ 門前' }}
+      {% if m.note %}<div class="small muted">{{ m.note }}</div>{% endif %}</td>
+</tr>
+{% endfor %}
+</table>
+<p class="muted small">2 値はどちらも<b>訓練分割の内側の tail holdout</b>（較正の fit と同じ場所）で測る。
+  ⚠ <b>検証 fold には特徴量にも触っていない</b>ので、門は検証データの選別にならない。
+  ⚠ <b>門の値は採否に使わない</b>（使うのは「回すかどうか」だけ）。
+  ⚠ <b>門前の手法は試行数（n_trials）に数えない。</b>後から <code>--ignore-gate</code> で回したら普通に数える（rules.md 14-5）。
+  基準線（「基準 」・乱択）は門に掛けない（採否の対象ではない）。</p>
+{% endmacro %}
+
 {% block content %}
 <h2>{{ run.title }}
   {% if run.leak %}<span class="badge badge-mock">配線の検査</span>{% endif %}
+  {% if run.gated %}<span class="badge badge-gate">門前</span>{% endif %}
   <span class="muted small">{{ run.run_id }}</span></h2>
 <p><a href="/experiments">← 検証の一覧</a></p>
 
+{% if run.gated %}
+<div class="note">⚠ <b>全手法が門前 ＝ 閾値売買を回していない実行。</b>
+  成績（スコア・fold の符号・上乗せ・DSR）は<b>無い</b>。⚠ <b>「計算していない」のではなく「回していない」。</b>
+  検証としては数えず、試行数（n_trials）にも数えない。⚠ <b>それでも隠さずここに残す</b>（rules.md 14-5）。
+  下の門の表が、回さなかった理由（訓練内 holdout の AUC と買い% 幅）である。</div>
+
+<h3>条件</h3>
+<table class="exp-kv">
+  <tr><th>種類</th><td>{{ run.kind }}</td><th>粒度</th><td>{{ run.gran }}</td><th>地平</th><td>{{ run.horizon }}</td></tr>
+  <tr><th>データの層</th><td>{{ run.layer_label }}（<code>{{ run.layer }}</code>）</td>
+      <th>特徴量の層</th><td>{{ run.feature_layers }}</td><th>特徴量</th><td>{{ run.features }} 本</td></tr>
+  <tr><th>選ぶ本数 k</th><td>{{ run.k }}</td><th>行</th><td>{{ '{:,}'.format(run.rows) if run.rows else '—' }}</td>
+      <th>銘柄</th><td>{{ run.symbols }}</td></tr>
+  <tr><th>種</th><td>{{ run.seed }}</td><th>commit</th><td><code>{{ run.commit or '—' }}</code></td>
+      <th>実行</th><td>{{ run.started_at }}</td></tr>
+  <tr><th>検証方式</th><td>閾値売買・{{ '銘柄別' if run.form == 'per_symbol' else '共通' }}</td>
+      <th>閾値</th><td>{% for th in run.thresholds or [] %}{{ '%g'|format(th) }}%{{ ' ' }}{% endfor %}</td>
+      <th>費用 bp</th><td>{{ run.cost_bp }}</td></tr>
+</table>
+
+{{ gate_table(run) }}
+{% else %}
 <div class="exp-cards">
   <div class="card">
     <div class="k">スコア（最良手法の純利）</div>
@@ -126,4 +176,16 @@
   {%- if run.style != 'threshold' %}「全部使う」{% endif %}）。
   基準線は比べる相手であって、採否の対象ではない。
   {% if run.style == 'threshold' %}⚠ 閾値売買では検証方式が処置なので「全部使う」は手法として扱う（rules.md 13-9）。{% endif %}</p>
+
+{% if run.gate %}
+{% if run.gate_forced %}
+<div class="note">⚠ <b><code>--ignore-gate</code> で回した実行。</b>門前の手法も回しているので、
+  <b>普通の試行として数える</b>（rules.md 14-5 の規律 3）。</div>
+{% elif run.gate_blocked %}
+<div class="note">⚠ <b>門前の手法が {{ run.gate_blocked|length }} 件あり、その手法は回していない。</b>
+  上の成績には出ず、試行数（n_trials）にも数えない（rules.md 14-5）。⚠ <b>隠さないので、下の表に残す。</b></div>
+{% endif %}
+{{ gate_table(run) }}
+{% endif %}
+{% endif %}
 {% endblock %}

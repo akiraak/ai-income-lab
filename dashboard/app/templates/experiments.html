@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% block content %}
-<h2>検証 <span class="muted small">特徴量の発見手法 · {{ ex.total }} 件{% for k, n in ex.kinds.items() %} · {{ k }} {{ n }}{% endfor %}{% if ex.leak_runs %} · 配線の検査 {{ ex.leak_runs|length }}{% endif %}</span></h2>
+<h2>検証 <span class="muted small">特徴量の発見手法 · {{ ex.total }} 件{% for k, n in ex.kinds.items() %} · {{ k }} {{ n }}{% endfor %}{% if ex.leak_runs %} · 配線の検査 {{ ex.leak_runs|length }}{% endif %}{% if ex.gated_runs %} · <b class="warn">門前 {{ ex.gated_runs|length }}</b>{% endif %}</span></h2>
 
 <p class="muted small">
   <b>スコア = 最良手法（基準線を除く）の純利 bp。</b>大きいほど上に出る。
@@ -9,10 +9,13 @@
   検査は実験側が <code>checks.json</code> に書いたものをそのまま出している（画面では計算しない）。
 </p>
 
-{% if not ex.runs and not ex.leak_runs %}
+{% if not ex.runs and not ex.leak_runs and not ex.gated_runs %}
 <p class="muted">検証の記録が無い（<code>{{ ex.runs_dir }}</code>）。<code>runs/</code> は git 管理外なので、実行した手元にだけある。</p>
 {% else %}
 
+{% if not ex.runs %}
+<p class="muted">スコアの付いた検証がまだ無い（下の「門前」だけ）。</p>
+{% else %}
 <table class="exp">
 <tr>
   <th>スコア<br><span class="small muted">純利 bp</span></th>
@@ -58,6 +61,40 @@
   ⚠ DSR は「SR &gt; 0」の検定であって「基準線を超えたか」ではない。
   ⚠ 試行数は増えるので、古い検証の DSR は当時の試行数のもの。
 </p>
+{% endif %}
+
+{% if ex.gated_runs %}
+{% set gate0 = ex.gated_runs[0].gate %}
+{% set auc_min = '%.2f'|format(gate0.auc_min) if gate0.auc_min is not none else '—' %}
+{% set width_min = '%g'|format(gate0.width_min_pt) if gate0.width_min_pt is not none else '—' %}
+<h3>⚠ 門前（前置きの門を通らず、検証を回していない）</h3>
+<p class="muted small">確率に情報が無い手法は<b>閾値売買を回さない</b>（rules.md 14-5）。
+  ⚠ <b>回していないので上の一覧にも、採否の判定にも、試行数（n_trials）にも数えない。</b>
+  ⚠ <b>それでも隠さずここに出す。</b>
+  門の 2 値は<b>訓練分割の内側の holdout</b> で測ったもので（検証 fold には触っていない）、
+  水準は <b>AUC ≥ {{ auc_min }} かつ 買い% 幅 ≥ {{ width_min }} 点</b>で事前固定。
+  数字は <code>checks.json</code> の <code>gate</code> の写し（画面では門を判定し直さない）。
+</p>
+<table class="exp">
+<tr><th>検証</th><th>回さなかった手法</th>
+    <th>holdout AUC<br><span class="small muted">水準 ≥ {{ auc_min }}</span></th>
+    <th>買い% 幅<br><span class="small muted">水準 ≥ {{ width_min }} 点</span></th>
+    <th class="small">条件</th></tr>
+{% for r in ex.gated_runs %}{% for m in r.gate_blocked %}
+<tr>
+  <td>{% if loop.first %}<a href="/experiments/{{ r.run_id }}"><b>{{ r.title }}</b></a>
+      <div class="small muted">{{ r.run_id }}</div>{% endif %}</td>
+  <td>{{ m.method }}</td>
+  <td class="cell-warn">{{ '%.3f'|format(m.auc) if m.auc is not none else '—' }}</td>
+  <td class="cell-warn">{{ '%.1f'|format(m.width_pt) if m.width_pt is not none else '—' }}</td>
+  <td class="small muted">{% if loop.first %}{{ r.gran }} · {{ r.horizon }}<br>{{ r.feature_layers }} · {{ r.features }} 本 · k={{ r.k }}<br>{{ '{:,}'.format(r.rows) if r.rows else '—' }} 行 · {{ r.symbols }} 銘柄{% endif %}</td>
+</tr>
+{% endfor %}{% endfor %}
+</table>
+<p class="muted small">⚠ <b>門は「回すかどうか」だけに使い、採否には使わない</b>（値を採否に混ぜると門自体が選べた自由度になる）。
+  後から回すときは <code>--ignore-gate</code> で、そのときは<b>普通の試行として数える</b>（rules.md 14-5 の規律 3）。
+  台帳（<code>ledger.md</code>）にも「門前」の行として出る。</p>
+{% endif %}
 
 {% if ex.missing_checks %}
 <p class="muted small">⚠ 検査がまだ無い実行: {% for r in ex.missing_checks %}<code>{{ r }}</code> {% endfor %}—

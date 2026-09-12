@@ -668,6 +668,7 @@ flowchart LR
 ⚠ **試した結果の一覧は [ledger.md](ledger.md)**（`cli/report.py --catalog` の生成物）。
 ⚠ **本書の 9 章・11 章の規約が、台帳の「判定」と「fold の符号」の列にそのまま効いている。**
 検証の単位（実行 → 手法 → 試行 → fold → セル）の図解は [units.md](units.md)（本書 10・11・13 章の解説。規約の正本は本書のまま）。
+⚠ **DSR（11 章 規約 3・13-7）の式・入力・読み方の図解は [dsr.md](dsr.md)**（同じく解説で、規約と実装 `ail/validation/stats.py` が正本。✅ の水準 0.95 の正本は [dashboard.md §10-3](../../dashboard.md)）。
 
 | 章 | 実装 |
 | ---: | --- |

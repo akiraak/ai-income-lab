@@ -30,11 +30,20 @@ FEATURE_PREFIXES = {
 
 # 特徴量ではない列（検証で説明変数から外す）
 META_COLUMNS = ("symbol", "ts", "close", "y", "y_sign", "y_elapsed_min")
+# ⚠ **接頭辞で外すもの。** スケールのラベル `y_fwd_{W}`（先 W 本の累積リターン ＝ 学習の対象）は
+# ⚠ **窓の数だけ増える**ので、名前を数え上げずに接頭辞で外す。
+# ⚠ **外し忘れると「学習の対象がそのまま説明変数」になる** — 先読みの中でも最悪の形である
+META_PREFIXES = ("y_fwd_",)
+
+
+def is_meta(column: str) -> bool:
+    """説明変数から外す列か。⚠ **判定はここ 1 か所**（`cli/build.py` も `cli/run.py` もこれを使う）。"""
+    return column in META_COLUMNS or column.startswith(META_PREFIXES)
 
 
 def feature_columns(df) -> list[str]:
     """説明変数の列だけを返す。⚠ **ラベルとメタを必ず外す。**"""
-    return [c for c in df.columns if c not in META_COLUMNS]
+    return [c for c in df.columns if not is_meta(c)]
 
 
 def layer_of(column: str) -> str:

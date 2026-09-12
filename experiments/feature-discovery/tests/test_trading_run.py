@@ -53,7 +53,7 @@ def _feats(panel):
 def test_outputs_have_the_promised_shape(run, form):
     """result = 手法 × fold × 閾値、per_symbol = さらに × 銘柄（プラン §Phase 2 の 5）。"""
     panel = _panel()
-    res, per_sym, summary, daily = evaluate_trading(panel, _feats(panel), _exp(form), run)
+    res, per_sym, summary, daily, _x = evaluate_trading(panel, _feats(panel), _exp(form), run)
     methods = set(res["手法"])
     assert methods == {"全部使う（基準）", "基準 常に上（ドリフト）", "基準 直前リターンの符号"}
     assert set(res["閾値"]) == {50.0, 55.0, 60.0}
@@ -67,7 +67,7 @@ def test_outputs_have_the_promised_shape(run, form):
 def test_buy_and_hold_costs_exactly_5bp_per_fold(run):
     """B&H のコストは 1 fold ちょうど 5bp（13-5。粗利 − 純利 = 5）。"""
     panel = _panel()
-    res, _s, _g, _d = evaluate_trading(panel, _feats(panel), _exp(), run)
+    res, _s, _g, _d, _x = evaluate_trading(panel, _feats(panel), _exp(), run)
     bh = res[res["手法"] == "基準 常に上（ドリフト）"]
     assert np.allclose(bh["粗利bp"] - bh["純利bp"], 5.0)
     assert (bh["取引回数"] == 3).all()                      # 銘柄ごとに建て 1 回（清算は回数に入れない）
@@ -77,7 +77,7 @@ def test_buy_and_hold_costs_exactly_5bp_per_fold(run):
 def test_higher_theta_never_trades_more(run):
     """閾値を上げると取引回数は増えない（直前符号は回転が多いのでここで効く）。"""
     panel = _panel()
-    res, _s, _g, _d = evaluate_trading(panel, _feats(panel), _exp(), run)
+    res, _s, _g, _d, _x = evaluate_trading(panel, _feats(panel), _exp(), run)
     mom = res[res["手法"] == "基準 直前リターンの符号"]
     by = mom.groupby("閾値")["取引回数"].sum()
     assert by[50.0] >= by[55.0] >= by[60.0]
@@ -89,7 +89,7 @@ def test_leak_makes_the_edge_jump_in_both_forms(run, tmp_path, monkeypatch):
         r = runs.Run(f"leak_{form}", {}, seed=0)
         panel = _panel(leak=True)
         exp = _exp(form)
-        res, per_sym, summary, daily = evaluate_trading(panel, _feats(panel), exp, r)
+        res, per_sym, summary, daily, _x = evaluate_trading(panel, _feats(panel), exp, r)
         doc = checks.compute_trading(res, summary, per_sym, daily,
                                      {**exp, "trading": exp["trading"]}, n_trials=70, leak=True)
         for th, e in doc["by_threshold"].items():
@@ -101,7 +101,7 @@ def test_without_leak_the_edge_stays_small(run):
     """先読みの無い雑音の表では上乗せは跳ねない（跳ねたらまず配線を疑う。13-10）。"""
     panel = _panel()
     exp = _exp()
-    res, per_sym, summary, daily = evaluate_trading(panel, _feats(panel), exp, run)
+    res, per_sym, summary, daily, _x = evaluate_trading(panel, _feats(panel), exp, run)
     doc = checks.compute_trading(res, summary, per_sym, daily, exp, n_trials=70)
     for e in doc["by_threshold"].values():
         assert abs(e["edge_vs_bh"]["mean_bp"]) < 50.0

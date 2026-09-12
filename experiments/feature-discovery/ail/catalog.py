@@ -147,6 +147,19 @@ def baseline_names() -> set[str]:
     return {n for n in names if not _ID.match(n)}
 
 
+def detector_names() -> set[str]:
+    """検知器（買い% 1 本を返す手法。rules.md 14-1）。
+
+    ⚠ **カタログ 25 件の「選別手法」ではない**ので ID を持たないが、⚠ **基準線でもない。**
+    ⚠ **ID が無いだけで「基準線」に寄せると、台帳が「試した手法」を基準線として見せてしまう**
+    （数え方は `is_trial` が正本で、そちらは最初から手法として数えている）。
+    """
+    from ail import registry
+    import ail.bootstrap  # noqa: F401
+
+    return set(registry.available("detector"))
+
+
 # --- 試行（runs/ と 旧配線）---------------------------------------------
 
 def _granularity(config: dict) -> tuple[str, float]:
@@ -599,14 +612,17 @@ def ledger() -> dict:
     cat = entries()
     impl = implemented()
     bases = baseline_names()
+    dets = detector_names()
     rows, leak, run_list = trials()
 
     by_id = {c["ID"]: c for c in cat}
     for r in rows + leak:
         c = by_id.get(r["ID"])
         r["手法"] = c["手法"] if c else r["鍵"]
-        r["系統"] = f"{c['系統']} {c['系統名']}" if c else "基準線"
-        r["実装"] = "✅" if (r["ID"] in impl or r["鍵"] in bases) else "⚠ 無"
+        # ⚠ **検知器はカタログ外の手法であって基準線ではない**（rules.md 14-1）
+        r["系統"] = (f"{c['系統']} {c['系統名']}" if c
+                     else "検知器" if r["鍵"] in dets else "基準線")
+        r["実装"] = "✅" if (r["ID"] in impl or r["鍵"] in bases or r["鍵"] in dets) else "⚠ 無"
         r["判定"], r["理由"] = judge(r, bases)
     # ⚠ 判定が出そろってから「閉じる」注記を当てる（判定は変えない。rules.md 14 章）
     _apply_closed(rows, closed_notes())

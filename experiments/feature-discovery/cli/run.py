@@ -104,9 +104,12 @@ def evaluate_trading(panel: pd.DataFrame, feats: list[str], exp: dict, run: runs
     k = int(exp.get("k", 8))
     cost_bp = float(exp.get("cost_bp", 5.0))
     horizon_min = float(exp["horizon_min"])
-    ctx = {"seed": int(v.get("seed", 0)), **exp.get("model_args", {})}
+    seed = int(v.get("seed", 0))
     model = registry.resolve("model", exp.get("model", "Ridge"))
-    selectors = registry.resolve_all("selector", exp["selectors"])
+    # ⚠ **検知器はモデルを自分で呼ぶ**（買い% まで自前で作る。rules.md 14-1）ので ctx に入れて渡す
+    ctx = {"seed": seed, "model": model, "k": k, **exp.get("model_args", {})}
+    selectors = registry.resolve_all("selector", exp.get("selectors", []))
+    detectors = registry.resolve_all("detector", exp.get("detectors", []))
     baselines = registry.resolve_all("model", exp.get("baselines", []))
 
     edges = splits.date_edges(panel["ts"], int(v.get("folds", 5)))
@@ -114,6 +117,8 @@ def evaluate_trading(panel: pd.DataFrame, feats: list[str], exp: dict, run: runs
     sym_out: list[dict] = []
     picked: list[dict] = []
     daily: dict[tuple[str, float], list[pd.Series]] = {}
+    # ⚠ **14-6 (b) の乱択ゲートと、エピソード表（14-8）が要る保有日率**。どちらも診断で、採否に使わない
+    extra: dict[str, dict[tuple[str, float], list[pd.Series]]] = {"hold": {}, "rand": {}}
 
     for f, tr, te in splits.folds_by_dates(panel, edges, horizon_min,
                                            int(v.get("embargo_bars", 0)),
@@ -132,7 +137,15 @@ def evaluate_trading(panel: pd.DataFrame, feats: list[str], exp: dict, run: runs
             buy[f"基準 {bname}"] = np.where(p > 0, 100.0, 0.0)
             n_cols[f"基準 {bname}"] = 0.0
 
-        if form == "per_symbol":
+        if detectors:
+            # ⚠ **検知器は買い% を直接返す**（rules.md 14-1 の出力の契約）。選別もモデルも中に隠れる。
+            # ⚠ **シミュレータから先は選別 × モデルの経路とまったく同じものを使う**（物差しを揃える）
+            for name, fn in detectors.items():
+                bp, doc = fn(tr, te, feats, ctx)
+                buy[name] = np.asarray(bp, dtype=float)
+                n_cols[name] = float(len(doc.get("columns", [])))
+                fitted_doc[name] = doc
+        elif form == "per_symbol":
             # (B) 銘柄別: fit も較正も銘柄ごと（13-6 の 2）。fold の切れ目は上で決めた日付を共有
             sel_sum: dict[str, float] = {n: 0.0 for n in selectors}
             sel_cnt: dict[str, int] = {n: 0 for n in selectors}
@@ -182,15 +195,23 @@ def evaluate_trading(panel: pd.DataFrame, feats: list[str], exp: dict, run: runs
             for th in thresholds:
                 nets: dict[str, pd.Series] = {}
                 grosses: dict[str, pd.Series] = {}
-                trades, pos_days, days = 0, 0, 0
+                rands: dict[str, pd.Series] = {}
+                poss: dict[str, pd.Series] = {}
+                trades, pos_days, days, rand_trades = 0, 0, 0, 0
+                # ⚠ 乱択ゲートの種は config の種。⚠ **引く順は `groups` の並びで決まる**（再現する）
+                rng = np.random.default_rng(seed)
                 for s, idx in groups.items():
                     if np.isnan(bp[idx]).any():        # 飛ばした銘柄（(B) で訓練が無い）
                         continue
                     r = sim.simulate(bp[idx], y[idx], th, cost_bp)
-                    key = str(s)
-                    nets[key] = pd.Series(r["net_bp"], index=ts_te.iloc[idx].values)
-                    grosses[key] = pd.Series(r["gross_bp"], index=ts_te.iloc[idx].values)
+                    rg = sim.shifted_gate(r["pos"], y[idx], cost_bp, rng)   # 14-6 の b
+                    key, stamp = str(s), ts_te.iloc[idx].values
+                    nets[key] = pd.Series(r["net_bp"], index=stamp)
+                    grosses[key] = pd.Series(r["gross_bp"], index=stamp)
+                    rands[key] = pd.Series(rg["net_bp"], index=stamp)
+                    poss[key] = pd.Series(r["pos"].astype(float), index=stamp)
                     trades += r["trades"]
+                    rand_trades += rg["trades"]
                     pos_days += int(r["pos"].sum())
                     days += len(idx)
                     sym_out.append({"手法": mname, "閾値": th, "fold": f, "銘柄": key,
@@ -203,13 +224,19 @@ def evaluate_trading(panel: pd.DataFrame, feats: list[str], exp: dict, run: runs
                     continue
                 port_net = sim.portfolio_daily(nets)
                 port_gross = sim.portfolio_daily(grosses)
+                port_rand = sim.portfolio_daily(rands)
                 daily.setdefault((mname, th), []).append(port_net)
+                extra["hold"].setdefault((mname, th), []).append(sim.portfolio_daily(poss))
+                extra["rand"].setdefault((mname, th), []).append(port_rand)
                 out.append({"手法": mname, "fold": f, "閾値": th,
                             "選んだ本数": n_cols.get(mname, 0.0), "的中率": hit, "IC": ic,
                             "粗利bp": float(port_gross.sum()), "純利bp": float(port_net.sum()),
                             "取引回数": trades,
                             "保有日率": pos_days / days if days else 0.0,
-                            "検証日数": int(len(port_net))})
+                            "検証日数": int(len(port_net)),
+                            # ⚠ **基準線の診断**（14-6 b）。⚠ **採否には使わない**
+                            "乱択ゲート純利bp": float(port_rand.sum()),
+                            "乱択ゲート取引回数": rand_trades})
         run.log(f"  fold {f}: 訓練 {len(tr):,} / 検証 {len(te):,}（{len(groups)} 銘柄）")
 
     if picked:
@@ -219,10 +246,11 @@ def evaluate_trading(panel: pd.DataFrame, feats: list[str], exp: dict, run: runs
                   .agg(本数=("選んだ本数", "mean"), 的中率=("的中率", "mean"), IC=("IC", "mean"),
                        粗利bp=("粗利bp", "mean"), 純利bp=("純利bp", "mean"),
                        取引回数=("取引回数", "mean"), 保有日率=("保有日率", "mean"),
+                       乱択ゲートbp=("乱択ゲート純利bp", "mean"),
                        fold数=("fold", "size"))
                   .reset_index().set_index("手法")
                   .sort_values("純利bp", ascending=False).round(4))
-    return res, pd.DataFrame(sym_out), summary, daily
+    return res, pd.DataFrame(sym_out), summary, daily, extra
 
 
 def apply_gate(exp: dict, gate_doc: dict, ignore: bool, run: runs.Run) -> dict | None:
@@ -242,7 +270,8 @@ def apply_gate(exp: dict, gate_doc: dict, ignore: bool, run: runs.Run) -> dict |
         return None
     if blocked:
         run.log("⚠ 門前の手法は回さない: " + "、".join(blocked) + "（rules.md 14-5）")
-        return {**exp, "selectors": [s for s in exp["selectors"] if s not in blocked]}
+        key = "detectors" if exp.get("detectors") else "selectors"
+        return {**exp, key: [s for s in exp.get(key, []) if s not in blocked]}
     return exp
 
 
@@ -312,7 +341,7 @@ def main() -> None:
             print(f"→ {os.path.relpath(run.close(), store.ROOT)}")
             return
         exp = gated_exp
-        res, per_sym, g, daily = evaluate_trading(panel, feats, exp, run)
+        res, per_sym, g, daily, extra = evaluate_trading(panel, feats, exp, run)
         run.log("")
         run.log(g.to_string())
         run.log(f"\n⚠ 純利 = 売買した日だけ片道 {float(exp.get('cost_bp', 5.0)) / 2:g}bp を引いた後"
@@ -320,12 +349,15 @@ def main() -> None:
                 "「買って持っただけ」と区別できない）。")
         run.result(res, g)
         run.per_symbol(per_sym)
+        # ⚠ **日次のポートフォリオ系列を残す。** これが無かったので、検出限界の検討は同じ config を
+        # ⚠ **回し直して系列を作り直すしかなかった**（validation-power.md §1）。エピソード表もここを読む
+        run.daily(daily, extra)
         # ⚠ **`summary.csv` を書いたあとに数える。** 台帳はそれを読むので、この実行の行
         # （検証方式が処置 ＝ 選別 × 閾値の数。門前の手法は selectors から外れている）は
         # ⚠ **もう台帳に入っている。この実行ぶんを足さない**（13-9・14-5。足すと二重になる）
         doc = checks.compute_trading(res, g, per_sym, daily, exp,
                                      n_trials=checks.n_trials_now(),
-                                     leak=args.leak, panel=full_panel)
+                                     leak=args.leak, panel=full_panel, extra=extra)
         doc["gate"] = gate_doc                       # ⚠ 記録するだけ。採否には使わない（14-5）
         run.checks(doc)
         run.log(_checks_line_trading(doc))

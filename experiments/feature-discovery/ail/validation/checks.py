@@ -177,6 +177,83 @@ def _breadth_trading(panel) -> dict | None:
             "注記": "⚠ per_symbol の読み違え防止の併記。n_obs は検証日数のまま（rules.md 14-3）"}
 
 
+def _concat(parts) -> pd.Series | None:
+    """fold ごとの日次系列を 1 本に繋ぐ。⚠ **fold の境目（強制清算）はそのまま残る。**"""
+    if not parts:
+        return None
+    return pd.concat(parts).sort_index()
+
+
+def _random_gate(method_parts, rand_parts) -> dict | None:
+    """⚠ **同じ保有日率の乱択ゲートとの差**（rules.md 14-6 の b）。⚠ **基準線なので採否に使わない。**
+
+    ⚠ **これが正で初めて「正しい日を休んだ」と言える。** 手法と乱択ゲートは保有日数が同じなので、
+    ⚠ **差が 0 なら「ただ休んだだけ」**である（休む日をずらしても同じ成績になる）。
+    """
+    if not method_parts or not rand_parts or len(method_parts) != len(rand_parts):
+        return None
+    vals = [float(m.sum() - r.sum()) for m, r in zip(method_parts, rand_parts)]
+    t = _t(vals)
+    return {**_sign_row(vals), "mean_bp": round(float(np.mean(vals)), 4),
+            "rand_純利bp": round(float(np.mean([r.sum() for r in rand_parts])), 4),
+            "t": (round(t, 4) if t is not None else None),
+            "注記": "⚠ 基準線（rules.md 14-6 b）。⚠ **採否には使わない**。"
+                    "保有日数を保ったままポジションを巡回シフトしたもの"}
+
+
+def _episodes(bh_parts, method_parts, hold_parts, min_drop_bp: float = 1000.0) -> dict | None:
+    """⚠ **エピソード表**（rules.md 14-8）。⚠ **成果物であって採否には使わない。**
+
+    B&H ポートフォリオの累積（bp・対数なので足せる）から、⚠ **山 → 谷が `min_drop_bp` 以上の
+    下降エピソード**を拾い、同じ区間で手法が何 bp 取れたか・どれだけ休んだかを並べる。
+
+    ⚠ **実効標本はエピソードの回数**（検証期間で 10 回台）なので、⚠ **検定には使えない。**
+    ⚠ **fold の境目を跨ぐエピソードには強制清算のコストが入っている**（そのまま数える）。
+    """
+    bh, me = _concat(bh_parts), _concat(method_parts)
+    if bh is None or me is None or len(bh) != len(me) or not (bh.index == me.index).all():
+        return None
+    hold = _concat(hold_parts)
+    eq_bh, eq_me = bh.cumsum().to_numpy(), me.cumsum().to_numpy()
+    days = bh.index
+    rows: list[dict] = []
+    peak, peak_i, trough_i, live = eq_bh[0], 0, None, False
+
+    def close(recovery) -> None:
+        lo, hi = peak_i, trough_i
+        row = {"山": str(pd.Timestamp(days[lo]).date()),
+               "谷": str(pd.Timestamp(days[hi]).date()),
+               "回復": (None if recovery is None else str(pd.Timestamp(recovery).date())),
+               "日数": int(hi - lo),
+               "B&Hbp": round(float(eq_bh[hi] - eq_bh[lo]), 1),
+               "手法bp": round(float(eq_me[hi] - eq_me[lo]), 1)}
+        row["上乗せbp"] = round(row["手法bp"] - row["B&Hbp"], 1)
+        if hold is not None:
+            row["保有日率"] = round(float(hold.to_numpy()[lo + 1:hi + 1].mean()), 4) if hi > lo else None
+        rows.append(row)
+
+    for i in range(len(eq_bh)):
+        if eq_bh[i] >= peak:
+            if live:
+                close(days[i])
+                live = False
+            peak, peak_i = eq_bh[i], i
+        else:
+            if not live and eq_bh[i] - peak <= -min_drop_bp:
+                live, trough_i = True, i
+            elif live and eq_bh[i] < eq_bh[trough_i]:
+                trough_i = i
+    if live:
+        close(None)
+    if not rows:
+        return None
+    edges = [r["上乗せbp"] for r in rows]
+    return {"下げ幅の下限bp": min_drop_bp, "回数": len(rows),
+            "上乗せが正のエピソード": int(sum(1 for e in edges if e > 0)),
+            "上乗せの合計bp": round(float(sum(edges)), 1), "episodes": rows,
+            "注記": "⚠ 成果物（rules.md 14-8）。⚠ **実効標本はエピソードの回数なので検定に使わない**"}
+
+
 def best_method_trading(methods) -> str | None:
     """新方式の最良手法。⚠ **「基準 」と乱択だけを除く**（「全部使う」は検証方式が処置なので手法。13-9）。"""
     rows = [str(m) for m in methods
@@ -186,7 +263,8 @@ def best_method_trading(methods) -> str | None:
 
 def compute_trading(result: pd.DataFrame, summary: pd.DataFrame, per_symbol: pd.DataFrame,
                     daily: dict, config: dict, n_trials: int | None = None,
-                    leak: bool = False, panel: pd.DataFrame | None = None) -> dict:
+                    leak: bool = False, panel: pd.DataFrame | None = None,
+                    extra: dict | None = None) -> dict:
     """閾値つき売買の検査（rules.md 13 章）。⚠ **3 閾値とも残す**（良かった閾値だけ報告しない。13-3 の 3）。
 
     - fold の符号は **対 B&H の上乗せ**で見る（13-7。純利の符号では「買って持っただけ」と区別できない）
@@ -225,6 +303,14 @@ def compute_trading(result: pd.DataFrame, summary: pd.DataFrame, per_symbol: pd.
             entry["bh_純利bp"] = round(float(net[DRIFT].mean()), 4)
         if (eb := _edge_bins(daily.get((name, th)), daily.get((DRIFT, th)))) is not None:
             entry["edge_bins"] = eb
+        ex = extra or {}
+        # ⚠ **どちらも診断・成果物であって採否には使わない**（rules.md 14-6 b・14-8）
+        if (rg := _random_gate(daily.get((name, th)),
+                               (ex.get("rand") or {}).get((name, th)))) is not None:
+            entry["random_gate"] = rg
+        if (ep := _episodes(daily.get((DRIFT, th)), daily.get((name, th)),
+                            (ex.get("hold") or {}).get((name, th)))) is not None:
+            entry["episodes"] = ep
         series = pd.concat(daily.get((name, th), [pd.Series(dtype=float)]))
         if len(series) >= 3 and float(series.std()) > 0 and n_trials and n_trials >= 2:
             sr = float(series.mean() / series.std())
@@ -252,7 +338,8 @@ def compute_trading(result: pd.DataFrame, summary: pd.DataFrame, per_symbol: pd.
     if by:
         top = max(by, key=lambda k: by[k]["best"]["純利bp"])
         doc["best"] = {**by[top]["best"], "閾値": float(top)}
-        for key in ("edge_vs_bh", "bh_純利bp", "dsr", "per_symbol", "edge_bins"):
+        for key in ("edge_vs_bh", "bh_純利bp", "dsr", "per_symbol", "edge_bins",
+                    "random_gate", "episodes"):
             if key in by[top]:
                 doc[key] = by[top][key]
         if "edge_vs_bh" in by[top]:

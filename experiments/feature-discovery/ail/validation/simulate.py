@@ -53,6 +53,23 @@ def simulate(buy_pct, y, threshold: float, cost_bp: float = 5.0) -> dict:
             "skip_days": int((pos == 0).sum()), "cost_bp_total": float(cost_total)}
 
 
+def shifted_gate(pos, y, threshold_free_cost: float, rng) -> dict:
+    """⚠ **同じ保有日率の乱択ゲート**（rules.md 14-6 の b）。⚠ **基準線なので試行に数えない。**
+
+    ⚠ **「正しい日を休んだのか、ただ休んだだけか」を分ける**のが目的なので、
+    ⚠ **保有日数と売買回数は保ったまま、日付の対応だけを壊す** — ポジション系列を巡回シフトする。
+    （日をでたらめに選び直すと売買回数が跳ね上がり、⚠ **コストの差で負けるだけ**になって分離できない。）
+
+    ⚠ **巡回の継ぎ目で売買回数が ±1 ずれることがある**（端の 1 か所だけ）。保有日数はぴったり同じ。
+    """
+    p = np.asarray(pos, dtype=int)
+    n = len(p)
+    off = int(rng.integers(1, n)) if n > 2 else 0
+    rolled = np.roll(p, off)
+    # ⚠ **θ=50 に 0/100 を流すと、その 0/1 がそのままポジションになる**（同じ状態機械・同じコスト）
+    return simulate(rolled * 100.0, y, 50.0, threshold_free_cost)
+
+
 def portfolio_daily(sym_series: dict[str, pd.Series]) -> pd.Series:
     """銘柄別の日次系列（bp）を **等加重平均**で 1 本にする（rules.md 13-7）。
 

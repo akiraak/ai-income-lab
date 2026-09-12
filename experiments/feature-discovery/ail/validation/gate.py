@@ -44,24 +44,8 @@ def _median(vals) -> float | None:
     return round(float(np.median(xs)), 4) if xs else None
 
 
-def evaluate_gate(panel: pd.DataFrame, feats: list[str], exp: dict, run=None) -> dict:
-    """手法ごとに門の 2 指標を測り、通過を判定する。
-
-    fold の切れ目は `evaluate_trading` と同じ日付基準（13-6 の 1）。各 fold の**訓練分割だけ**を
-    使い、選別 → tail holdout の頭で fit → 尻の予測から AUC と（Platt を当てた）買い% の
-    p05-p95 幅を測る。5 fold の中央値が **AUC ≥ 0.52 かつ 幅 ≥ 20 点** なら通過。
-    ⚠ **holdout が 1 fold も切れない（訓練が薄い）指標は素通し**（回せば普通に試行として
-    数えるので、DSR が甘くなる向きではない）。
-    """
-    v = exp.get("validation", {})
-    k = int(exp.get("k", 8))
-    ctx = {"seed": int(v.get("seed", 0)), **exp.get("model_args", {})}
-    model = registry.resolve("model", exp.get("model", "Ridge"))
-    selectors = registry.resolve_all("selector", exp["selectors"])
-    methods = {n: fn for n, fn in selectors.items() if is_gated(n)}
-
-    per: dict[str, dict[str, list]] = {n: {"auc": [], "width": []} for n in methods}
-    edges = splits.date_edges(panel["ts"], int(v.get("folds", 5)))
+def _fold_selectors(panel, feats, exp, methods, per, edges, v, k, ctx, model) -> None:
+    """選別 × モデルの枝（既存）。訓練の尻の `tail_holdout` から 2 指標を測る。"""
     for _f, tr, _te in splits.folds_by_dates(panel, edges, float(exp["horizon_min"]),
                                              int(v.get("embargo_bars", 0)),
                                              float(exp.get("bar_minutes", 0.0))):
@@ -79,6 +63,57 @@ def evaluate_gate(panel: pd.DataFrame, feats: list[str], exp: dict, run=None) ->
             per[n]["auc"].append(_auc(yv, pred))
             buy = calibrate.fit_from_predictions(pred, yv, "holdout").buy_pct(pred)
             per[n]["width"].append(round(float(np.percentile(buy, 95) - np.percentile(buy, 5)), 4))
+
+
+def _fold_detectors(panel, feats, exp, methods, per, edges, v, ctx) -> None:
+    """検知器の枝。⚠ **訓練分割をさらに 2 つに割り、頭で作った買い% を尻で測る。**
+
+    ⚠ **検知器は買い% を直接返す**ので、門の 2 指標はその買い% からそのまま出せる
+    （選別の枝のように Platt を当て直さない）。⚠ **AUC の相手は「その日 1 日が上げたか」**で、
+    選別の枝とまったく同じ定義にしてある（水準 0.52 が同じ意味を持つようにするため）。
+    ⚠ **AUC は大きさを見ない**ので、レジーム級の効果を落としうる — 扱いは
+    [プラン §2-6](../../../../docs/plans/archive/downtrend-detection.md)（測って残すが門前でも回す）。
+    """
+    for _f, tr, _te in splits.folds_by_dates(panel, edges, float(exp["horizon_min"]),
+                                             int(v.get("embargo_bars", 0)),
+                                             float(exp.get("bar_minutes", 0.0))):
+        # ⚠ **訓練分割の内側だけ**で完結させる（検証 fold には特徴量にも触れない）
+        ts = pd.to_datetime(tr["ts"])
+        cut = ts.quantile(0.9)
+        head, hold = tr[ts < cut], tr[ts >= cut]
+        if len(head) < 500 or len(hold) < 50:
+            continue
+        yv = np.asarray(hold["y"].values, dtype=float)
+        for n, fn in methods.items():
+            buy = np.asarray(fn(head, hold, feats, ctx)[0], dtype=float)
+            per[n]["auc"].append(_auc(yv, buy))
+            per[n]["width"].append(round(float(np.percentile(buy, 95) - np.percentile(buy, 5)), 4))
+
+
+def evaluate_gate(panel: pd.DataFrame, feats: list[str], exp: dict, run=None) -> dict:
+    """手法ごとに門の 2 指標を測り、通過を判定する。
+
+    fold の切れ目は `evaluate_trading` と同じ日付基準（13-6 の 1）。各 fold の**訓練分割だけ**を
+    使い、選別 → tail holdout の頭で fit → 尻の予測から AUC と（Platt を当てた）買い% の
+    p05-p95 幅を測る。5 fold の中央値が **AUC ≥ 0.52 かつ 幅 ≥ 20 点** なら通過。
+    ⚠ **holdout が 1 fold も切れない（訓練が薄い）指標は素通し**（回せば普通に試行として
+    数えるので、DSR が甘くなる向きではない）。
+    ⚠ **検知器（`detectors`）のときは買い% を直接測る**（`_fold_detectors`）。
+    """
+    v = exp.get("validation", {})
+    k = int(exp.get("k", 8))
+    model = registry.resolve("model", exp.get("model", "Ridge"))
+    ctx = {"seed": int(v.get("seed", 0)), "model": model, "k": k, **exp.get("model_args", {})}
+    detectors = registry.resolve_all("detector", exp.get("detectors", []))
+    selectors = registry.resolve_all("selector", exp.get("selectors", []))
+    methods = {n: fn for n, fn in (detectors or selectors).items() if is_gated(n)}
+
+    per: dict[str, dict[str, list]] = {n: {"auc": [], "width": []} for n in methods}
+    edges = splits.date_edges(panel["ts"], int(v.get("folds", 5)))
+    if detectors:
+        _fold_detectors(panel, feats, exp, methods, per, edges, v, ctx)
+    else:
+        _fold_selectors(panel, feats, exp, methods, per, edges, v, k, ctx, model)
 
     methods_doc: dict[str, dict] = {}
     passed: list[str] = []
@@ -98,6 +133,7 @@ def evaluate_gate(panel: pd.DataFrame, feats: list[str], exp: dict, run=None) ->
             run.log(f"  門 {n}: holdout AUC {fmt_a} / 買い% 幅 {fmt_w} 点 → "
                     + ("通過" if ok else "⚠ **門前**"))
     return {"auc_min": AUC_MIN, "width_min_pt": WIDTH_MIN_PT, "form": "shared",
+            "kind": "detector" if detectors else "selector",
             "methods": methods_doc, "passed": passed, "blocked": blocked,
             "注記": "⚠ 訓練内 holdout の fold 中央値。門は (A) プール形式で 1 回だけ測り、"
                     "値は採否に使わない・門前は n_trials に数えない（rules.md 14-5）"}

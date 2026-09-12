@@ -12,6 +12,8 @@
 ⚠ **「何を試して、どうだったか」の一覧は [ledger.md](feature-discovery/ledger.md)**（2026-09-08 に作成）。
 台帳の単位（実行 → 手法 → 試行 → fold → セル）の図解は [units.md](feature-discovery/units.md)（2026-09-10 に作成。初見はこちらを先に読む）。
 ⚠ **検証方式を実際の取引に近づけた追試（閾値つき売買・買い専用・銘柄別 bp）は [threshold-trading.md](threshold-trading.md)**（2026-09-10。規約は [rules.md 13 章](feature-discovery/rules.md)。⚠ **結論は §9 と同じ — どの手法・形式・閾値も B&H を超えない**）。
+⚠ **予測の対象を「明日の方向」から「先 W 日のレジーム」に変えた検証は [downtrend-detection.md](downtrend-detection.md)**（2026-09-12。規約は [rules.md 15 章](feature-discovery/rules.md)）。
+⚠ **ここだけ結論の形が違う** — ⚠ **下降トレンドは検知できている**（12 回の下げの 12 回とも損失を半分前後に圧縮）が、⚠ **谷 → 回復の取り損ねが上回って全期間では B&H に負ける。**
 ⚠ **本書 §2 は「手法の一覧（やる前）」、台帳は「試した結果の一覧（やった後）」で別物である。**
 ⚠ **台帳は本書 §2 と `ail/registry.py` と `runs/` を突き合わせた生成物**なので、⚠ **§2 の表を直せば台帳も変わる。**
 

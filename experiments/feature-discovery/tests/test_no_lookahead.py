@@ -12,7 +12,8 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from ail.features import cross, labels, leadlag, own, relative
+from ail import contracts
+from ail.features import cross, labels, leadlag, own, relative, trend
 
 
 def bars(n=300, seed=0, start="2024-01-02"):
@@ -41,16 +42,17 @@ def _with_own(p):
     return ctx
 
 
-@pytest.mark.parametrize("layer_name", ["own", "cs", "rel", "ll"])
+@pytest.mark.parametrize("layer_name", ["own", "trend", "cs", "rel", "ll"])
 def test_truncating_the_future_does_not_change_the_past(layer_name):
     """⚠ **未来を切り落としても、過去の特徴量は 1 つも変わってはいけない。**"""
-    p = panel()
-    cut = 200
+    p = panel(n=600)
+    cut = 400
     ctx_full = _with_own(p)
     short = {s: df.iloc[:cut].reset_index(drop=True) for s, df in p.items()}
     ctx_short = _with_own(short)
 
-    fn = {"own": own.layer, "cs": cross.layer, "rel": relative.layer, "ll": leadlag.layer}[layer_name]
+    fn = {"own": own.layer, "trend": trend.layer, "cs": cross.layer,
+          "rel": relative.layer, "ll": leadlag.layer}[layer_name]
     full = fn(p, ctx_full)
     part = fn(short, ctx_short)
     for s in p:
@@ -68,6 +70,31 @@ def test_label_is_the_only_thing_that_sees_the_future():
     expect = np.log(df["close"].shift(-3)) - np.log(df["close"])
     assert np.allclose(y["y"].dropna(), expect.dropna())
     assert y["y"].iloc[-3:].isna().all()          # ⚠ 末尾 k 本はラベルが取れない
+
+
+def test_scale_labels_look_forward_and_are_never_features():
+    """⚠ **スケールのラベルは未来を見る。だからこそ説明変数に入ってはいけない**（プラン §2-2）。"""
+    df = bars(n=400)
+    y = labels.build_scales(df, (20, 60, 200))
+    lc = np.log(df["close"])
+    for w in (20, 60, 200):
+        col = f"{labels.SCALE_PREFIX}{w}"
+        assert np.allclose(y[col].dropna(), (lc.shift(-w) - lc).dropna())
+        assert y[col].iloc[-w:].isna().all()        # ⚠ 末尾 W 本はラベルが取れない
+        # ⚠ **説明変数から必ず外れること**（外れないと学習の対象がそのまま入力になる）
+        assert contracts.is_meta(col)
+        assert col not in contracts.feature_columns(y.assign(**{"x_dummy": 1.0}))
+
+
+def test_scale_labels_leak_columns_exist_per_scale():
+    """⚠ **leak 対照はスケールごとに要る**（1 日先の答えは 200 日先の符号をほとんど教えない）。"""
+    df = bars(n=400)
+    y = labels.build_scales(df, (20, 200), leak=True)
+    for w in (20, 200):
+        leak_col = f"{labels.LEAK_SCALE_PREFIX}{w}"
+        assert leak_col in y
+        assert not contracts.is_meta(leak_col)      # ⚠ leak 列は「わざと入れる説明変数」
+        assert leak_col in trend.scale_columns(list(y.columns) + ["own_trend%d_dist" % w], w)
 
 
 def test_leadlag_is_shifted():

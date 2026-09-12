@@ -13,10 +13,14 @@ from ail.data.sources import iem, nws                   # noqa: F401
 # ⚠ **暦（発表日）。** 値ではなく日付そのものが情報（econ_calendar）
 from ail.data.sources import fomc                       # noqa: F401
 from ail.features import own, cross, relative, leadlag, exog   # noqa: F401
+# ⚠ **`trend` は窓の長い `own_`**（20 / 60 / 200 営業日）。下降トレンドの検知が使う
+from ail.features import trend                               # noqa: F401
 # ⚠ **`im_` は銘柄ごとに値が変わる外部データ**（`ex_` との違いはそこだけ）
 from ail.features import impact                              # noqa: F401
 from ail.selectors import filter as _filter, wrapper, embedded  # noqa: F401
 from ail.models import baselines, linear     # noqa: F401
 # ⚠ **モデルの軸**（plans/archive/gpu-models.md）: 勾配ブースティング・MLP・GAN 増強
 from ail.models import trees, deep, gan      # noqa: F401
+# ⚠ **検知器（買い% 1 本を返す手法）**。下降トレンドの検知（plans/archive/downtrend-detection.md）
+from ail.detectors import scale as _scale    # noqa: F401
 from ail.validation import splits            # noqa: F401

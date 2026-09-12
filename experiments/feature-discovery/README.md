@@ -63,7 +63,8 @@ python3 -m venv .venv && ./.venv/bin/pip install -r requirements.txt
 | `ail/data/sources/` | 取得元 | ファイルを 1 つ足す |
 | `ail/data/adjust.py` | ⚠ **目盛りの修復**（rules.md 2 章） | 触らない |
 | `ail/data/transforms/` | ⚠ **推定しない変換（`derived/` に置く）／ 推定する変換（置かない）** | 担当のファイルに足す |
-| `ail/features/` | `own_` `cs_` `rel_` `ll_` ＋ ⚠ **`ex_`（価格の外）** ＋ ⚠ **`im_`（災害を銘柄へ割り当てる）** の 6 層 | 担当のファイルに関数を足す |
+| `ail/features/` | `own_` `cs_` `rel_` `ll_` ＋ ⚠ **`ex_`（価格の外）** ＋ ⚠ **`im_`（災害を銘柄へ割り当てる）** の 6 層 ＋ ⚠ **`trend`（窓 20/60/200 の長い `own_`）** | 担当のファイルに関数を足す |
+| ⚠ **`ail/detectors/`** | ⚠ **買い% 1 本を返す手法**（rules.md 14-1 の出力の契約・15 章）。選別 × モデルの代わりに、レジーム検知をそのまま 1 本足せる | ⚠ **関数に `@register("detector", ...)` を付けるだけ** |
 | `config/exposure/` | ⚠ **災害 → 地域・業種 → 銘柄の重み**（`im_` 層が読む。⚠ **全部【推測】**） | TOML を足す |
 | `ail/selectors/` | F1〜F5 の選別手法 | ⚠ **関数に `@register` を付けるだけ** |
 | `ail/models/` | 基準線・線形・木 | 同上 |
@@ -90,6 +91,19 @@ def cmi(X, y, k, ctx):
 `config/experiment/*.toml` の `selectors = [...]` に名前を足せば比較に入る。⚠ **配線は触らない。**
 ⚠ **名前の打ち間違いは走り出す前に落ちる**（`resolve_experiment` が全部解決してから走る）。
 
+⚠ **買い% を自分で作る手法（レジーム検知など）は `detector` で足す**（rules.md 14-1 の出力の契約・15 章）。
+
+```python
+# ail/detectors/scale.py に追記するだけ
+@register("detector", "D5 …")
+def d5(tr, te, feats, ctx):
+    ...
+    return buy_pct, doc      # ⚠ 買い%（0〜100・検証の行数ぶん）と、記録に残す辞書
+```
+
+`config/experiment/*.toml` の `detectors = [...]` に名前を足す。⚠ **シミュレータ・閾値・基準線・判定は共有する**
+（物差しを揃えないと、それまでの試行と並べられない）。
+
 ## いまある実験
 
 | 実験 | 特徴量 | 行 | ねらい |
@@ -98,6 +112,7 @@ def cmi(X, y, k, ctx):
 | `cross_section_h1` | 134（own 35 ／ cs 26 ／ rel 13 ／ ll 60） | 96,769 | ⚠ **全銘柄を使って 1 銘柄を当てる形。** ⚠ **対象は会社株 48 本**（ETF 15 本は説明変数側）／ 行が減るのは⚠ **全 63 が揃うのが 2018-06 以降**だから |
 | `own_2018` ／ `real_2018` ／ `placebo_2018` | 35 ／ 63 ／ 57 | 135,962 | ⚠ **本命（為替・金利）が偽薬（気象・地震）を超えるか**（§9。⚠ **超えなかった**） |
 | `own_impact_2018` ／ `impact_ex_2018` ／ `impact_2018` ／ `impact_placebo_2018` | 35 ／ 59 ／ 47 ／ 47 | — | ⚠ **災害を銘柄へ割り当てると効くか。** ⚠ **偽薬は「割り当ての入れ替え」** |
+| ⚠ **`trend_scales_1995`** | 53（own 35 ／ **trend 18**） | 410,404 | ⚠ **下降トレンドの検知**（rules.md 15 章）。⚠ **予測の対象が「明日の符号」ではなく「先 W 営業日の符号」**。1995-08〜2025-11・⚠ **両端が削れる**（頭は 200 本の助走・尻は `y_fwd_200`）。記録は [downtrend-detection.md](../../docs/specs/experiments/downtrend-detection.md) |
 
 ⚠ **`ll_leaders = "all"` にすると `ll_` が 60 → 248 列になる**（`config/experiment/cross_section_h1.toml`）。
 ⚠ **列を増やすほど多重検定になる**ので、FDR とデフレーテッド SR を対で通すこと（rules.md 11 章）。

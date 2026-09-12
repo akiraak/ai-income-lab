@@ -9,6 +9,7 @@
       checks.json    ⚠ fold の符号・上乗せ・実効標本数・デフレーテッド SR（管理画面が読む）
       selected.csv   ⚠ 手法が fold ごとに選んだ列（偽薬を選んだ割合の実測に使う）
       per_symbol.csv ⚠ 銘柄別の純利 bp（閾値つき売買だけ。成果物であって採否には使わない）
+      daily.csv      ⚠ 日次のポートフォリオ系列（純利・保有日率・乱択ゲート。エピソード表の素）
       log.txt        画面に出したものと同じ
       fitted/        ⚠ 標本から学んだ係数（再現用。⚠ **次の実行では読み込まない**）
 
@@ -96,6 +97,25 @@ class Run:
     def result(self, raw: pd.DataFrame, summary: pd.DataFrame) -> None:
         raw.to_csv(os.path.join(self.dir, "result.csv"), index=False)
         summary.to_csv(os.path.join(self.dir, "summary.csv"))
+
+    def daily(self, net: dict, extra: dict | None = None) -> None:
+        """⚠ **日次のポートフォリオ系列**（手法 × 閾値 × 日）。⚠ **fold を跨いで連結して 1 本にする。**
+
+        ⚠ **これが無いと、後から系列を見たいときに同じ config を回し直すしかない**
+        （2026-09-11 の検出限界の検討がそうなった。validation-power.md §1）。
+        エピソード表（rules.md 14-8）も検出限界の引き直しも、ここを読めば済む。
+        """
+        rows = []
+        for kind, table in (("純利bp", net), *(extra or {}).items()):
+            for (method, th), parts in (table or {}).items():
+                if not parts:
+                    continue
+                s = pd.concat(parts).sort_index()
+                rows.append(pd.DataFrame({"手法": method, "閾値": th, "系列": kind,
+                                          "ts": s.index, "値": s.to_numpy()}))
+        if rows:
+            pd.concat(rows, ignore_index=True).to_csv(
+                os.path.join(self.dir, "daily.csv"), index=False)
 
     def per_symbol(self, df: pd.DataFrame) -> None:
         """⚠ **銘柄別 bp は成果物**（rules.md 13-7。利用者の求める出力）。⚠ **採否には使わない。**"""

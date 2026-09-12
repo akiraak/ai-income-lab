@@ -99,6 +99,12 @@ def build() -> str:
           f"⚠ **純利は正だが fold の符号が割れる**ものが {len(held) - len(invalid)} 行。"
           + ("⚠ **後者は「採る」の一歩手前ではない。** ⚠ **多重検定を通していない良い数字である**"
              "（[rules.md 11 章](rules.md) 規約 2・3）。" if len(held) - len(invalid) else ""))
+    closed = [r for r in held if r.get("閉じる")]
+    if closed:
+        a("")
+        a(f"⚠ **保留のうち {len(closed)} 行は「閉じる」の注記つき**（再測しない。理由は各行の理由列と "
+          "[validation-power.md §6-2](validation-power.md)。検出限界の 2 桁下で、この物差しでは白黒つかない大きさ。"
+          "⚠ **判定の列は変えない** — [rules.md 14 章](rules.md)）。")
     a("")
     a("| 何を聞かれたら | この台帳のどこで答えるか |")
     a("| --- | --- |")

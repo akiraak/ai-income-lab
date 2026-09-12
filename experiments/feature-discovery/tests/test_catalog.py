@@ -232,3 +232,62 @@ def test_skipped_is_distinguished_from_not_yet_tried():
     for c in d["not_tried"]:
         if c["判定"] == "⚠ 見送り":
             assert "見送り" in c["次の一手"], f"{c['ID']}: 見送りの理由が書いていない"
+
+
+# --- 閉じる注記（rules.md 14 章） ----------------------------------------
+
+def _held_row(**kw):
+    base = {"鍵": "F1-2", "モデル": "Ridge", "特徴量の層": "own ex", "検証方式": "毎日往復",
+            "閾値": "—", "層": "adjusted", "形式": "共通", "粒度": "日足",
+            "判定": "保留", "理由": "⚠ 平均だけ正"}
+    return {**base, **kw}
+
+
+def test_closed_note_lands_on_the_row_and_keeps_the_verdict():
+    """⚠ **注記は理由列に足すだけ。判定は変えない**（rules.md 14 章・13-9 の 2）。"""
+    rows = [_held_row(), _held_row(特徴量の層="own", 判定="落とす")]
+    catalog._apply_closed(rows, [{"key": "F1-2", "layers": "own ex", "note": "閉じる注記"}])
+    assert rows[0]["理由"].endswith("閉じる注記") and rows[0]["閉じる"] is True
+    assert rows[0]["判定"] == "保留"
+    assert "閉じる注記" not in (rows[1].get("理由") or "")
+
+
+def test_closed_note_stops_when_nothing_matches():
+    """⚠ **黙って空振りさせない。** 0 件一致は書き間違い。"""
+    with pytest.raises(SystemExit):
+        catalog._apply_closed([_held_row()], [{"key": "F9-9", "note": "x"}])
+
+
+def test_closed_note_stops_when_ambiguous():
+    """2 行以上に当たるなら照合の鍵が足りない。"""
+    rows = [_held_row(), _held_row(モデル="LightGBM")]
+    with pytest.raises(SystemExit):
+        catalog._apply_closed(rows, [{"key": "F1-2", "layers": "own ex", "note": "x"}])
+
+
+def test_closed_note_refuses_non_held_rows():
+    """⚠ **閉じられるのは保留だけ。** 落とす行を閉じるのは設計ミス。"""
+    with pytest.raises(SystemExit):
+        catalog._apply_closed([_held_row(判定="落とす")], [{"key": "F1-2", "note": "x"}])
+
+
+def test_closed_note_rejects_unknown_keys_and_missing_note():
+    with pytest.raises(SystemExit):
+        catalog._apply_closed([_held_row()], [{"kee": "F1-2", "note": "x"}])
+    with pytest.raises(SystemExit):
+        catalog._apply_closed([_held_row()], [{"key": "F1-2"}])
+
+
+def test_real_closed_entries_each_hit_exactly_one_held_row():
+    """実物の `[[closed]]` が実台帳にちょうど 1 行ずつ当たり、判定を変えない。"""
+    d = catalog.ledger()                      # ⚠ 中で _apply_closed が走る（合わなければ止まる）
+    closed = [r for r in d["rows"] if r.get("閉じる")]
+    assert len(closed) == len(catalog.closed_notes()) == 16
+    assert all(r["判定"] == "保留" for r in closed)
+
+
+def test_ledger_mentions_closed_rows():
+    from cli import ledger
+    text = ledger.build()
+    assert "「閉じる」の注記つき" in text
+    assert text.count("閉じる（2026-09-11") >= 16

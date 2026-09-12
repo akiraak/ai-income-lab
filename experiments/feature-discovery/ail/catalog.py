@@ -501,6 +501,8 @@ def ledger() -> dict:
         r["系統"] = f"{c['系統']} {c['系統名']}" if c else "基準線"
         r["実装"] = "✅" if (r["ID"] in impl or r["鍵"] in bases) else "⚠ 無"
         r["判定"], r["理由"] = judge(r, bases)
+    # ⚠ 判定が出そろってから「閉じる」注記を当てる（判定は変えない。rules.md 14 章）
+    _apply_closed(rows, closed_notes())
 
     tried = {r["ID"] for r in rows if r["ID"]}
     note = notes()
@@ -537,3 +539,48 @@ def notes(path: str | None = None) -> dict[str, dict]:
         doc = tomllib.load(f)
     return {k: (v if isinstance(v, dict) else {"next": str(v)})
             for k, v in doc.get("method", {}).items()}
+
+
+# --- 閉じる注記（rules.md 14 章） ----------------------------------------
+
+# `[[closed]]` の照合キー → 台帳の列名。⚠ **TOML の bare key は ASCII だけ**なのでここで写す
+_CLOSED_FIELDS = {"key": "鍵", "model": "モデル", "layers": "特徴量の層",
+                  "style": "検証方式", "threshold": "閾値", "layer": "層",
+                  "form": "形式", "granularity": "粒度"}
+
+
+def closed_notes(path: str | None = None) -> list[dict]:
+    """試行の行に付ける「閉じる」の注記（`[[closed]]`。rules.md 14 章）。
+
+    ⚠ **判定は変えない・行は消さない**（13-9 の 2）。理由列の末尾に注記を足すだけ。
+    処遇の決定と根拠は validation-power.md §6-2。
+    """
+    p = path or os.path.join(CONFIG, "catalog_notes.toml")
+    if not os.path.exists(p):
+        return []
+    with open(p, "rb") as f:
+        return tomllib.load(f).get("closed", [])
+
+
+def _apply_closed(rows: list[dict], closed: list[dict]) -> None:
+    """`[[closed]]` を台帳の行に当てる。⚠ **黙って空振りさせない。**
+
+    - 1 エントリは**ちょうど 1 行**に一致すること（0 件 = 書き間違い、2 件以上 = 照合の鍵が足りない）
+    - 一致した行の判定は**「保留」**であること（⚠ **閉じられるのは保留だけ。** 落とす行を閉じるのは設計ミス）
+    """
+    for c in closed:
+        cond = {_CLOSED_FIELDS[k]: v for k, v in c.items() if k in _CLOSED_FIELDS}
+        unknown = [k for k in c if k not in _CLOSED_FIELDS and k != "note"]
+        if unknown or not c.get("note") or not cond:
+            raise SystemExit(f"⚠ [[closed]] の書き方が違う: {c}"
+                             f"（照合キーは {sorted(_CLOSED_FIELDS)}、本文は note）")
+        hit = [r for r in rows if all(str(r.get(col)) == str(v) for col, v in cond.items())]
+        if len(hit) != 1:
+            raise SystemExit(f"⚠ [[closed]] {cond} が {len(hit)} 行に一致した"
+                             "（ちょうど 1 行に当たるまで照合の鍵を足す。書き間違いなら直す）")
+        r = hit[0]
+        if r.get("判定") != "保留":
+            raise SystemExit(f"⚠ [[closed]] {cond}: 判定が {r.get('判定')!r}"
+                             "（閉じられるのは保留だけ。rules.md 14 章）")
+        r["理由"] = (f"{r['理由']} ／ " if r.get("理由") else "") + str(c["note"])
+        r["閉じる"] = True

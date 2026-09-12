@@ -345,6 +345,68 @@ flowchart LR
 - ⚠ **デモ（§6-2）の対象外**（§10-4 と同じ理由）。帯に「この画面はデモの対象外」と足し、フッタの出所は `AIL_EXP_DIR` を出す
 - ⚠ **`AIL_EXP_DIR` が無い・壊れた JSON / TOML でも 200 を返す**（g3plus には COPY しない。§7）
 
+## 12. 用語の画面（2026-09-12）
+
+vibeboard の**用語**タブ（`/ext/glossary`）。⚠ **索引であって解説書ではない。**
+1 語 1〜2 行の意味と、⚠ **詳しい定義がある文書へのリンク**だけを出す
+（プラン: [docs/plans/archive/vibeboard-glossary.md](../plans/archive/vibeboard-glossary.md)）。
+
+⚠ **この画面は管理画面（3012）には無い。** `vibetab.py` の 3 本目のタブで、
+§10・§11 と同じく **vibeboard 本体が `/ext/<name>` で中継する**。
+
+> この図の主張: ⚠ **説明はコードにも画面にも持たない。** 正本は TOML 1 本で、画面はその写しを出すだけ。
+
+```mermaid
+flowchart LR
+  T["dashboard/glossary.toml<br/>⚠ 用語の正本"] --> V["vibetab.py<br/>/glossary"]
+  V --> TAB["vibeboard の「用語」タブ<br/>節ごとの表"]
+  TAB -->|"リンク（target=_top）"| DOC["Specs / Plans / Files タブ<br/>⚠ 定義の正本"]
+```
+
+### 12-1. 規約
+
+| # | 規約 | ⚠ 理由 |
+| ---: | --- | --- |
+| 1 | ⚠ **用語の正本は `dashboard/glossary.toml`**（`tomllib`。画面は写し） | ⚠ **説明を Python に埋めない。** §10-2 の「画面は読むだけ」と同じ立て方 |
+| 2 | ⚠ **1 語 1〜2 行。詳しい定義を書かない**（テストが長さを固定する） | 定義が 2 か所にあると必ず食い違う。⚠ **食い違ったらリンク先が勝つ** |
+| 3 | ⚠ **動く数字を書かない**（試行数・DSR の値・行数） | ⚠ **数字は動く。** 用語表に残ると嘘になる。数字は検証タブ（§10）と spec が持つ |
+| 4 | リンクは vibeboard の hash URL（`/#specs/…`・`/#plans/…`・`/#files/…`）へ `target="_top"` | ⚠ **同じ画面の中で定義まで辿れる**。⚠ **節（§）へは飛べない**ので、節は文字で横に置く |
+| 5 | ⚠ **リンク先の実在をテストで固定する**（`tests/test_vibetab.py`） | ⚠ **リンク切れは索引の価値を消す。** 文書を移したら赤くなる |
+| 6 | 読めない・壊れているときは空で 200（仮の説明で埋めない） | 「用語が無い」と「壊れている」を混ぜない |
+
+### 12-2. 画面
+
+| 経路 | 中身 |
+| --- | --- |
+| `/glossary/api/sidebar` | 先頭が **すべての用語**（全語を 1 ページに出す。⚠ **ブラウザの検索で引くため**）、以下は分野ごとの節 |
+| `/glossary/view?item=<節 id\|all>` | 節の表（用語・意味・詳しく）。知らない id は 404 |
+| `/glossary/api/watch` | `glossary.toml` の mtime を見て、編集したらタブが自分で追いつく |
+
+分野は 8 つ（進め方 ／ 検証の単位と台帳 ／ 統計の検査 ／ 閾値つき売買 ／ データ ／ 手法とモデル ／ 口座と API ／ 収入の体系）。
+⚠ **語を足すのは TOML だけ**で、画面もサイドバーも追従する。
+
+### 12-3. ⚠ sidecar は vibeboard を再起動しても入れ替わらない（2026-09-12 に踏んだ）
+
+まっさらな状態なら **`./run-vibeboard.sh` だけで 3 タブとも上がる**【実測 2026-09-12】。
+sidecar（`vibetab.py`）は customTabs の `command`（**検証の 1 件だけが持つ**。3 タブとも同じ 1 プロセスが出す）で
+vibeboard の**子**として起き、⚠ **vibeboard を止めると一緒に止まる。**
+
+⚠ **例外が 1 つあり、そこを踏んだ。** タブに **「接続できません: HTTP 404」** が出たら、⚠ **3015 に古い `vibetab.py` が居座っている。**
+
+| 何が起きるか | なぜ |
+| --- | --- |
+| vibeboard を入れ直してもタブが 404 | vibeboard は `command` を実行する前に **baseUrl が応答するかを見て、応答したら起動しない**（`vibeboard/src/sidecar.ts` の `startOne`）。⚠ **古い sidecar が答えるので、新しいものは上がらない** |
+| 古い sidecar が生き残る | `vibetab.py` は bind できないとき ⚠ **静かに引く**（二重起動を避ける設計）。前の vibeboard の子は親が落ちても残ることがある |
+
+直し方: ⚠ **ポートから引いて**（`pgrep -f` は自分にも当たる）落とし、入れ直す。⚠ **3010 には触らない。**
+
+```bash
+pid=$(ss -ltnp | grep ":3015 " | grep -o 'pid=[0-9]*' | cut -d= -f2 | head -1) && kill "$pid"
+nohup python3 dashboard/vibetab.py &                   # 3 タブとも同じ 1 プロセスが出す
+```
+
+⚠ **この罠は用語タブに限らない**（検証・データも同じ 1 プロセスが出している）。⚠ **`vibetab.py` を直したら sidecar を入れ直す**。
+
 ## 9. 更新履歴
 
 - 2026-09-05: 初版（Phase 1〜4 の実装、デプロイ契約）
@@ -353,3 +415,4 @@ flowchart LR
 - 2026-09-08: **検証の画面**（§10）。`/experiments` に特徴量の発見手法の検証を、種類ごとのタイトルと比較できるスコア（最良手法の純利 bp）で並べる。検査（fold の符号・上乗せ t・実効標本数・デフレーテッド SR）は**実験側が `checks.json` に書いたものを読むだけ**。プランは [docs/plans/archive/dashboard-experiments.md](../plans/archive/dashboard-experiments.md)
 - 2026-09-08: 黒ベースに作り直し（`app/static/app.css` 全面。環境の色 cert 緑 / prod 赤 / MOCK 紫 と、状態の色 ok / warn / ng の 2 系統。監視は幅があれば cert と prod を横に並べ、注文表は折り返さず、口座ストリーマの通知は枠の中でスクロール）。プランと画面は [docs/plans/archive/dashboard-dark-design.md](../plans/archive/dashboard-dark-design.md)
 - 2026-09-09: **データの画面**（§11）。`/data` に実験が保持しているデータの在庫（足・外部系列・特徴量・規約・割り当て）を出す。数字は実験側の manifest / config の写しで、ずらし幅と規約の判定は `config/sources.toml`（新設。コードとの一致は実験側のテストが固定）。プランは [docs/plans/archive/dashboard-data-inventory.md](../plans/archive/dashboard-data-inventory.md)
+- 2026-09-12: **用語の画面**（§12）。vibeboard に「用語」タブを足し、8 分野 87 語の索引を出す。⚠ **正本は `dashboard/glossary.toml`** で、画面は写し。語からその定義がある spec へ `target="_top"` のリンクで飛ぶ（⚠ **節へは飛べないので節は文字で併記**）。⚠ **リンク先の実在はテストが固定する**。プランは [docs/plans/archive/vibeboard-glossary.md](../plans/archive/vibeboard-glossary.md)

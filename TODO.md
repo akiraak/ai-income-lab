@@ -102,3 +102,8 @@
     - 観点 A〜F（認証の寿命・常駐・現在値・往復・レート制限・SDK）を 1 表にし、**費用込みで「無人で 1 営業日回る」会場**を選ぶ
     - 品揃え（債券・外国株・FX・先物）と信用判定（IBKR は「中」）を並べ、tastytrade を置き換える理由があるかを判断する
 
+- [ ] vibeboard の「用語」タブを利用者の画面で確かめる（ブラウザを再読み込みするだけ）
+  派生元: 「vibeboardに用語解説のページを追加」（✅ 2026-09-12 完了。[plan](docs/plans/archive/vibeboard-glossary.md) ／ 仕様: [dashboard.md §12](docs/specs/dashboard.md)）
+  ✅ 2026-09-12: 「接続できません: HTTP 404」は**古い sidecar が 3015 に居座っていた**のが原因（[dashboard.md §12-3](docs/specs/dashboard.md)）。入れ直して 3 タブとも 200 を確認済み
+  確認: 上部に「用語」タブが出る ／ 「すべての用語」で 87 語が 1 ページに出る ／ 語の「詳しく」を押すと Specs / Files タブへ飛ぶ
+

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""vibeboard のカスタムタブ「検証」「データ」の中身を出す小さなサーバ。
+"""vibeboard のカスタムタブ「検証」「データ」「用語」の中身を出す小さなサーバ。
 
 vibeboard 本体が `/ext/<name>/...` でこのサーバへ中継する（プラン:
 docs/plans/vibeboard-experiments-tabs.md）。読むものと読み方は管理画面と同じで、
@@ -8,6 +8,8 @@ docs/plans/vibeboard-experiments-tabs.md）。読むものと読み方は管理�
 
   - `/experiments/api/sidebar` ・ `/experiments/view?item=<run_id|overview>` ・ `/experiments/api/watch`
   - `/data/api/sidebar` ・ `/data/view?item=<節>` ・ `/data/api/watch`
+  - `/glossary/api/sidebar` ・ `/glossary/view?item=<節|all>` ・ `/glossary/api/watch`
+    （用語は `dashboard/glossary.toml` が正本。⚠ **説明をこのコードに持たない**）
 
 ⚠ **標準ライブラリだけで書く**（venv 不要。vibeboard の sidecar が `python3` で起こす）。
 ⚠ **bind は 127.0.0.1 固定**。外に出る経路は vibeboard の中継だけ。
@@ -21,9 +23,10 @@ import json
 import os
 import sys
 import time
+import tomllib
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from urllib.parse import parse_qs, urlparse
+from urllib.parse import parse_qs, quote, urlparse
 
 DASHBOARD_DIR = Path(__file__).resolve().parent
 REPO_ROOT = DASHBOARD_DIR.parent
@@ -34,6 +37,14 @@ from app import experiments, inventory  # noqa: E402
 DEFAULT_PORT = 3015
 WATCH_INTERVAL_S = 5.0
 PING_INTERVAL_S = 30.0
+
+# 用語の正本。⚠ **説明はこのファイルではなく TOML 側にある**（docs/specs/dashboard.md §12）
+GLOSSARY_FILE = DASHBOARD_DIR / "glossary.toml"
+GLOSSARY_ALL = "all"
+
+# vibeboard の既定カテゴリ（vibeboard/src/config.ts の DEFAULT_CATEGORIES）。
+# ⚠ ここに無い場所の文書は Files タブへ飛ばす（飛び先が変わるだけで壊れはしない）
+DOC_CATEGORIES = (("docs/plans/", "plans"), ("docs/specs/", "specs"))
 
 # データの画面の節。⚠ **id はサイドバーと view で共有する**
 DATA_SECTIONS = [
@@ -689,6 +700,93 @@ def data_section_html(paths: ExpPaths, section: str) -> str | None:
     return page(label, "\n".join(body))
 
 
+# ---------------------------------------------------------------- 用語（glossary.toml）
+
+
+def load_glossary(path: Path | None = None) -> list[dict]:
+    """用語の正本（`dashboard/glossary.toml`）を読む。⚠ **画面は写しを出すだけ。**
+
+    ⚠ **読めないときは空**（0 や仮の説明で埋めない）。節は TOML に書いた順で出す。
+    """
+    try:
+        with open(path or GLOSSARY_FILE, "rb") as f:
+            doc = tomllib.load(f)
+    except (OSError, tomllib.TOMLDecodeError, ValueError):
+        return []
+    return [s for s in doc.get("section", []) if s.get("id")]
+
+
+def doc_url(rel: str) -> str:
+    """リポジトリ直下からの相対パスを vibeboard の hash URL にする。
+
+    ⚠ **節のアンカー（`#§13-7`）は付けない。** vibeboard は hash を経路に使っていて
+    ⚠ **文書の中の節へは飛べない**ので、節は文字で横に書く（`where`）。
+    """
+    def enc(p: str) -> str:
+        return "/".join(quote(s, safe="") for s in p.split("/"))
+
+    if rel.endswith((".md", ".html")):
+        for prefix, name in DOC_CATEGORIES:
+            if rel.startswith(prefix):
+                return f"/#{name}/{enc(rel[len(prefix):])}"
+    return f"/#files/{enc(rel)}"
+
+
+def _term_link(term: dict) -> str:
+    """「詳しく」の列。⚠ **iframe の中なので `target=_top`** で vibeboard ごと遷移させる。"""
+    rel = str(term.get("doc") or "")
+    if not rel:
+        return "—"
+    label = esc(rel.rsplit("/", 1)[-1])
+    where = esc(term.get("where") or "")
+    link = f"<a href=\"{esc(doc_url(rel))}\" target=\"_top\">{label}</a>"
+    return f"{link}<div class='meta'>{where}</div>" if where else link
+
+
+def _section_html(section: dict) -> str:
+    rows = [[f"<b>{esc(t.get('name'))}</b>", esc(t.get("short")), _term_link(t)]
+            for t in section.get("term", [])]
+    body = [f"<h2>{esc(section.get('label') or section['id'])}</h2>"]
+    if section.get("note"):
+        body.append(f"<p class='meta'>{esc(section['note'])}</p>")
+    body.append(table(["用語", "意味", "詳しく"], rows))
+    return "\n".join(body)
+
+
+def glossary_sidebar(path: Path | None = None) -> dict:
+    sections = load_glossary(path)
+    total = sum(len(s.get("term", [])) for s in sections)
+    items = [{"id": GLOSSARY_ALL, "label": "すべての用語", "sub": f"{total} 語", "group": "索引"}]
+    items += [{"id": s["id"], "label": s.get("label") or s["id"],
+               "sub": f"{len(s.get('term', []))} 語", "group": "分野"} for s in sections]
+    return {"items": items}
+
+
+def glossary_html(item: str, path: Path | None = None) -> str | None:
+    """1 節ぶん（または全語）の表。⚠ **知らない item は None**（404 にする）。"""
+    sections = load_glossary(path)
+    if item == GLOSSARY_ALL:
+        chosen, title = sections, "すべての用語"
+    else:
+        chosen = [s for s in sections if s["id"] == item]
+        if not chosen:
+            return None
+        title = chosen[0].get("label") or item
+    body = [f"<h1>{esc(title)}</h1>",
+            "<p class='meta'><b>この画面は索引。</b>1 語 1〜2 行だけを出す。"
+            "⚠ <b>定義の正本はリンク先の文書</b>で、食い違ったらあちらが勝つ。"
+            "⚠ <b>節（§）へは飛べない</b>ので、飛び先の文書の中で節を探す。"
+            "用語そのものは <code>dashboard/glossary.toml</code> が正本（画面はその写し）。</p>"]
+    if not sections:
+        body.append("<p class='warn'>⚠ 用語の表を読めない（<code>dashboard/glossary.toml</code> が無いか壊れている）。</p>")
+        return page(title, "\n".join(body))
+    if item == GLOSSARY_ALL and len(sections) > 1:
+        body.append("<p class='meta'>分野: " + " ／ ".join(
+            esc(s.get("label") or s["id"]) for s in sections) + "</p>")
+    body.extend(_section_html(s) for s in chosen)
+    return page(title, "\n".join(body))
+
+
 # ---------------------------------------------------------------- 変更の見張り（SSE）
 
 
@@ -729,6 +827,15 @@ def data_fingerprint(paths: ExpPaths) -> dict[str, float]:
     return out
 
 
+def glossary_fingerprint(path: Path | None = None) -> dict[str, float]:
+    """用語は 1 ファイルだけ見る（編集したらタブが自分で追いつく）。"""
+    p = path or GLOSSARY_FILE
+    try:
+        return {p.name: p.stat().st_mtime}
+    except OSError:
+        return {}
+
+
 # ---------------------------------------------------------------- HTTP
 
 
@@ -759,19 +866,23 @@ def make_handler(runs_dir: Path, paths: ExpPaths):
             if url.path == "/":
                 self._send(200, "text/plain; charset=utf-8", "vibetab ok\n")
                 return
-            if tab not in ("experiments", "data"):
+            if tab not in ("experiments", "data", "glossary"):
                 self._send(404, "text/plain; charset=utf-8", "not found\n")
                 return
             if rest == "":
                 self._send(200, "text/plain; charset=utf-8", f"vibetab {tab} ok\n")
             elif rest == "api/sidebar":
-                sidebar = exp_sidebar(runs_dir) if tab == "experiments" else data_sidebar(paths)
+                sidebar = {"experiments": lambda: exp_sidebar(runs_dir),
+                           "data": lambda: data_sidebar(paths),
+                           "glossary": glossary_sidebar}[tab]()
                 self._send(200, "application/json; charset=utf-8",
                            json.dumps(sidebar, ensure_ascii=False))
             elif rest == "view":
                 item = (parse_qs(url.query).get("item") or [""])[0]
                 if tab == "experiments":
                     body = exp_overview_html(runs_dir) if item == "overview" else exp_run_html(runs_dir, item)
+                elif tab == "glossary":
+                    body = glossary_html(item)
                 else:
                     body = data_section_html(paths, item)
                 if body is None:
@@ -788,8 +899,9 @@ def make_handler(runs_dir: Path, paths: ExpPaths):
             self.send_header("Content-Type", "text/event-stream; charset=utf-8")
             self.send_header("Cache-Control", "no-store")
             self.end_headers()
-            take = (lambda: exp_fingerprint(runs_dir)) if tab == "experiments" \
-                else (lambda: data_fingerprint(paths))
+            take = {"experiments": lambda: exp_fingerprint(runs_dir),
+                    "data": lambda: data_fingerprint(paths),
+                    "glossary": glossary_fingerprint}[tab]
             last = take()
             last_ping = time.monotonic()
             try:
@@ -803,8 +915,12 @@ def make_handler(runs_dir: Path, paths: ExpPaths):
                         removed = [k for k in last if k not in now]
                         self.wfile.write(b"event: sidebar\ndata: {}\n\n")
                         # 表示中の item だけが reload されるので、多めに投げて構わない
-                        ids = (changed + removed) if tab == "experiments" \
-                            else [sec for sec, _ in DATA_SECTIONS]
+                        if tab == "experiments":
+                            ids = changed + removed
+                        elif tab == "glossary":
+                            ids = [GLOSSARY_ALL] + [s["id"] for s in load_glossary()]
+                        else:
+                            ids = [sec for sec, _ in DATA_SECTIONS]
                         for i in ids:
                             payload = json.dumps({"id": i}, ensure_ascii=False)
                             self.wfile.write(f"event: item-changed\ndata: {payload}\n\n".encode())

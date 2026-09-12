@@ -1,5 +1,18 @@
 # DONE
 
+- 2026-09-12 vibeboard に「用語」のタブを足した（8 分野 87 語の索引）
+  - プラン: [docs/plans/archive/vibeboard-glossary.md](docs/plans/archive/vibeboard-glossary.md) ／ 仕様: [dashboard.md §12](docs/specs/dashboard.md) ／ 正本: `dashboard/glossary.toml`
+  - 利用者の追加指示（2026-09-12）: **specs に詳細がある場合はリンクを張る** → ⚠ **全 87 語にリンクを付けた**（語 → 意味 1 行 → その定義がある文書）
+  - 作りは検証・データのタブと同じ（`dashboard/vibetab.py` の 3 本目 ＋ `vibeboard.config.json` の customTabs）。⚠ **vibeboard 本体は 1 行も触っていない**
+  - ⚠ **用語の正本は TOML 1 本**（`tomllib` は標準ライブラリ）。⚠ **説明を Python に埋めない**＝ 画面は写しを出すだけ。語を足すのは TOML だけで、サイドバーの語数も追従する
+  - ⚠ **索引であって解説書ではない**: 1 語 1〜2 行（テストが 90 字で固定）・⚠ **動く数字（試行数・DSR の値・行数）は書かない**（動いたら嘘になるので、数字は検証タブと spec が持つ）
+  - リンクは vibeboard の hash URL（`/#specs/…`・`/#plans/…`・`/#files/…`）へ `target="_top"`。⚠ **節（§）へは飛べない**（vibeboard は hash を経路に使う）ので、節は文字で横に併記した
+  - 分野 8 つ: 進め方 10 ／ 検証の単位と台帳 12 ／ 統計の検査 17 ／ 閾値つき売買 12 ／ データ 13 ／ 手法とモデル 6 ／ 口座と API 12 ／ 収入の体系 5
+  - テスト: **dashboard 105 件 pass**（新規 9。⚠ **全リンク先の実在**・説明の長さ・語の重複なし・読めないときは空・HTTP の 404・fingerprint）
+  - 通しの確認: ⚠ **走っている vibeboard（3010）と sidecar（3015）には触らず**、別ポート（3019 / 3026）に立てた vibeboard で `/ext/glossary` の中継・サイドバー・404・リンク先（`/api/render/...` が 200）まで確認して落とした
+  - ⚠ **踏んだ落とし穴（利用者の報告「用語 に接続できません: HTTP 404」）**: vibeboard を入れ直しても **sidecar（3015）は 2026-09-10 起動の古いプロセスのまま**だった。⚠ **vibeboard は baseUrl が応答すると `command` を実行しない**（`sidecar.ts` の `startOne`）ので、古い sidecar が居座ると新しいコードが永久に上がらない。⚠ **`vibetab.py` を直したら、ポートから引いて sidecar を入れ直す**（3010 には触らない）。直し方は [dashboard.md §12-3](docs/specs/dashboard.md)。入れ直して 3 タブとも 200・用語のページにリンク 87 本を確認
+  - ⚠ **CLAUDE.md には追記していない**（別セッション発の依頼でプロジェクトの決めごとは変えない）
+
 - 2026-09-12 DSR（デフレーテッド SR）の解説ページを作った（疑問タスク「DSRの解説」）
   - プラン: [docs/plans/archive/dsr-explainer.md](docs/plans/archive/dsr-explainer.md) ／ 成果物: [dsr.md](docs/specs/experiments/feature-discovery/dsr.md)（[units.md](docs/specs/experiments/feature-discovery/units.md) と同じ「解説であって規約ではない」形）
   - **答えの要点**: DSR は ⚠ **「その SR は、何回も試したうちの当たりくじではないか」を確率で答える道具**。手法を N 個並べると実力ゼロでも最良の SR は正に見えるので、その**偶然の最良 SR0** を引いてから測る。⚠ **0.5 ＝ SR がちょうど SR0**・0.95 が管理画面の ✅（慣例で、必然ではない）

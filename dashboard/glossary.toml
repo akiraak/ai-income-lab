@@ -1,0 +1,569 @@
+# 用語の正本（vibeboard の「用語」タブが読む。仕様は docs/specs/dashboard.md §12）
+#
+# ⚠ 1 語 1〜2 行の索引であって、解説書ではない。詳しい定義は doc 側にあり、
+#    ⚠ 食い違ったら doc（リンク先）が勝つ。
+# ⚠ 動く数字（試行数・DSR の値・行数など）を書かない。数字は検証タブと spec が持つ。
+# ⚠ doc はリポジトリ直下からの相対パス。実在はテストが固定する（tests/test_vibetab.py）。
+#    where は節の番号や見出しを文字で書く（vibeboard は節アンカーへ飛べない）。
+
+[[section]]
+id = "project"
+label = "進め方"
+note = "このプロジェクトの決めごと。文書を読む前に知っておく語。"
+
+  [[section.term]]
+  name = "【実測】"
+  short = "自分で測って出した値。検証の実行・API の応答など、この手で取ったものだけに付ける。"
+  doc = "docs/specs/overview.md"
+  where = "§5 記号の早見表"
+
+  [[section.term]]
+  name = "【公表値】"
+  short = "提供元が公表している値。出典の URL と取得日を必ず併記する。取れなければ【推測】に落とす。"
+  doc = "docs/specs/overview.md"
+  where = "§5 記号の早見表"
+
+  [[section.term]]
+  name = "【推測】"
+  short = "根拠のない見込み。断定しないための印で、試算はここに入る。"
+  doc = "docs/specs/overview.md"
+  where = "§5 記号の早見表"
+
+  [[section.term]]
+  name = "正本"
+  short = "その定義を持つ側の文書やコード。解説や画面は写しで、食い違ったら正本が勝つ。"
+  doc = "docs/specs/experiments/feature-discovery/units.md"
+  where = "§0 この頁の位置づけ"
+
+  [[section.term]]
+  name = "机上で検証する"
+  short = "2026-08-27 の方針。一次情報と試算で成立条件を判定するところまでを成果物とし、購入・出品・登録は行わない。"
+  doc = "CLAUDE.md"
+  where = "プロジェクトの目的"
+
+  [[section.term]]
+  name = "一次情報"
+  short = "提供元そのものが出している情報（公表単価・規約・法令・仕様書）。まとめサイトや報道は二次で、隔離して扱う。"
+  doc = "CLAUDE.md"
+  where = "進め方"
+
+  [[section.term]]
+  name = "vibeboard"
+  short = "開発用の管理画面（3010）。この文書と TODO を見て、タスクをセッションへ渡す。"
+  doc = "CLAUDE.md"
+  where = "開発管理画面 (vibeboard)"
+
+  [[section.term]]
+  name = "管理画面（dashboard）"
+  short = "運用用の画面（3012）。tastytrade の口座と売買の記録を見る。vibeboard とは別物。"
+  doc = "docs/specs/dashboard.md"
+  where = "§1 画面"
+
+  [[section.term]]
+  name = "面（loopback / local / cloudflare）"
+  short = "管理画面をどこまで開けるかの 3 段。公開面（cloudflare）では監視と停止だけを出す。"
+  doc = "docs/specs/dashboard.md"
+  where = "§2 権限の設計"
+
+  [[section.term]]
+  name = "g3plus"
+  short = "公開面を載せる先の運用リポジトリ（private）。こちらはデプロイ契約だけを持ち、ホスト名や Access の設定はあちらに書く。"
+  doc = "docs/specs/dashboard.md"
+  where = "§7 デプロイ契約"
+
+[[section]]
+id = "units"
+label = "検証の単位と台帳"
+note = "台帳（ledger.md）の行を読むための単位。図解は units.md にある。"
+
+  [[section.term]]
+  name = "実行（run）"
+  short = "`cli.run` を 1 回回したもの。1 実行 1 ディレクトリで、設定・入力の指紋・種・結果・ログを残す。"
+  doc = "docs/specs/experiments/feature-discovery/units.md"
+  where = "§2 実行"
+
+  [[section.term]]
+  name = "手法"
+  short = "1 つの実行の中で比べた選別手法・基準線の 1 つ。実体は summary.csv の 1 行。"
+  doc = "docs/specs/experiments/feature-discovery/units.md"
+  where = "§3 手法 → 試行"
+
+  [[section.term]]
+  name = "試行"
+  short = "台帳の 1 行。同じ鍵の手法を実行をまたいでまとめたもので、多重検定の n_trials はこの数。"
+  doc = "docs/specs/experiments/feature-discovery/units.md"
+  where = "§5 試行の数え方"
+
+  [[section.term]]
+  name = "鍵"
+  short = "試行を分ける自由度の組（手法・モデル・粒度・地平・層・期間・検証方式・形式・閾値）。1 列でも違えば別の試行。"
+  doc = "docs/specs/experiments/feature-discovery/units.md"
+  where = "§4 鍵の列"
+
+  [[section.term]]
+  name = "fold"
+  short = "ウォークフォワードの分割 1 つ。判定に使う「符号が全部正か」はこの単位で数える。"
+  doc = "docs/specs/experiments/feature-discovery/units.md"
+  where = "§6 fold"
+
+  [[section.term]]
+  name = "セル"
+  short = "銘柄 × fold。閾値売買の最小の集計単位で、per_symbol.csv の 1 行にあたる。"
+  doc = "docs/specs/experiments/feature-discovery/units.md"
+  where = "§7 セル"
+
+  [[section.term]]
+  name = "再現の幅"
+  short = "同じ鍵の実行が複数あるときの数字のばらつき。⚠ 幅が出たら実力ではなく配線をまず疑う。"
+  doc = "docs/specs/experiments/feature-discovery/units.md"
+  where = "§3 手法 → 試行"
+
+  [[section.term]]
+  name = "台帳（ledger）"
+  short = "試した全手法の結果と判定の一覧。生成物なので手で書き換えない。"
+  doc = "docs/specs/experiments/feature-discovery/ledger.md"
+  where = "冒頭の読み方"
+
+  [[section.term]]
+  name = "判定（採る / 保留 / 落とす）"
+  short = "台帳の 3 値。基準線への上乗せが正で fold の符号が全部正なら採る、平均だけ正なら保留、上乗せが 0 以下なら落とす。"
+  doc = "docs/specs/experiments/feature-discovery/rules.md"
+  where = "§13-7 採否の物差し"
+
+  [[section.term]]
+  name = "基準線"
+  short = "採否の対象ではなく比べる相手。期初買い・期末売り、直前リターンの符号、全部使う、乱択の 4 本を必ず併記する。"
+  doc = "docs/specs/experiments/feature-discovery/rules.md"
+  where = "§9 検証の規約 ／ §13-5"
+
+  [[section.term]]
+  name = "門前"
+  short = "前置きの門を通らず、検証を回していない手法の判定。隠さず台帳に残すが、試行には数えない。"
+  doc = "docs/specs/experiments/feature-discovery/rules.md"
+  where = "§14-5 前置きの門"
+
+  [[section.term]]
+  name = "閉じる"
+  short = "再測せずに注記だけ足して決着させた保留の行。検出限界の 2 桁下にある効果が対象。"
+  doc = "docs/specs/experiments/feature-discovery/validation-power.md"
+  where = "§6-2 保留 16 行の処遇"
+
+[[section]]
+id = "stats"
+label = "統計の検査"
+note = "良い数字が偶然かどうかを見る道具。DSR の図解は dsr.md にある。"
+
+  [[section.term]]
+  name = "SR（シャープレシオ）"
+  short = "リターンをその標準偏差で割った値。⚠ この基盤では年率ではなく、日次または 1 賭けあたりで持つ。"
+  doc = "docs/specs/experiments/feature-discovery/dsr.md"
+  where = "§3 入力の 4 つ"
+
+  [[section.term]]
+  name = "SR0"
+  short = "真の実力がゼロの手法を試行数だけ回したとき、最良の SR がどこまで上がるかの期待値。偶然の下駄。"
+  doc = "docs/specs/experiments/feature-discovery/dsr.md"
+  where = "§2-1 SR0"
+
+  [[section.term]]
+  name = "DSR（デフレーテッド SR）"
+  short = "「その SR は何回も試したうちの当たりくじではないか」を確率で答える検査。0.5 は SR がちょうど SR0。"
+  doc = "docs/specs/experiments/feature-discovery/dsr.md"
+  where = "全体（§4 読み方）"
+
+  [[section.term]]
+  name = "n_trials"
+  short = "DSR に入れる試した手法の総数。正本は台帳で、⚠ 数え落とすと必ず甘くなる。"
+  doc = "docs/specs/experiments/feature-discovery/rules.md"
+  where = "§11 規約 4"
+
+  [[section.term]]
+  name = "上乗せ"
+  short = "fold ごとの（手法の純利 − 基準線の純利）。⚠ 採否の符号と t はこれで見る。"
+  doc = "docs/specs/experiments/feature-discovery/rules.md"
+  where = "§13-7 採否の物差し"
+
+  [[section.term]]
+  name = "fold の符号"
+  short = "fold ごとの上乗せが正か負かの並び。⚠ 平均が正でも符号が割れていれば実力ではない。"
+  doc = "docs/specs/experiments/feature-discovery/rules.md"
+  where = "§11 規約 5"
+
+  [[section.term]]
+  name = "t 値"
+  short = "平均を標準誤差で割った目安。⚠ fold は数本しかないので検定ではなく目安として読む。"
+  doc = "docs/specs/experiments/feature-discovery/rules.md"
+  where = "§13-7 採否の物差し"
+
+  [[section.term]]
+  name = "実効系列数"
+  short = "相関行列から出した「実質いくつの独立な系列か」。銘柄は独立ではないので、見かけの本数より必ず小さい。"
+  doc = "docs/specs/experiments/feature-discovery/rules.md"
+  where = "§12 限界 2"
+
+  [[section.term]]
+  name = "実効観測数"
+  short = "検証に回った行数を実効系列数で割り引いた標本数。⚠ 素の行数を標本数と読むと t も DSR も甘くなる。"
+  doc = "docs/specs/experiments/feature-discovery/dsr.md"
+  where = "§3 入力の 4 つ"
+
+  [[section.term]]
+  name = "検出限界"
+  short = "いまの物差しで拾える上乗せの下限。これより 1 桁小さい効果を狙う手法は、回す前に「測れない」と判断してよい。"
+  doc = "docs/specs/experiments/feature-discovery/validation-power.md"
+  where = "§3-2 検出限界"
+
+  [[section.term]]
+  name = "ウォークフォワード"
+  short = "時刻順に窓を伸ばしながら、前を訓練・後ろを検証にする分割。⚠ 時系列を無作為に切らない。"
+  doc = "docs/specs/experiments/feature-discovery/rules.md"
+  where = "§9 規約 1"
+
+  [[section.term]]
+  name = "パージ"
+  short = "ラベルが検証期間に食い込む訓練行を捨てること。重なりを残すと訓練と検証が繋がる。"
+  doc = "docs/specs/experiments/feature-discovery/rules.md"
+  where = "§9 規約 2"
+
+  [[section.term]]
+  name = "エンバーゴ"
+  short = "分割の境目をさらに数本空けること。同じ足の他銘柄が境目を跨ぐ断面で要る。"
+  doc = "docs/specs/experiments/feature-discovery/rules.md"
+  where = "§9 規約 3"
+
+  [[section.term]]
+  name = "FDR（偽発見率）"
+  short = "たくさん検定したときに、棄却したもののうち誤りが占める割合。Benjamini-Hochberg で抑える。"
+  doc = "docs/specs/experiments/e8-signal-methods/catalog.md"
+  where = "L7 の行"
+
+  [[section.term]]
+  name = "leak 対照（先読みの検査）"
+  short = "わざと未来を混ぜた列で回す対照実験。⚠ 跳ねなければ配線が壊れている。本番の表と混ぜない。"
+  doc = "docs/specs/experiments/feature-discovery/rules.md"
+  where = "§7 先読み禁止 ／ §13-10"
+
+  [[section.term]]
+  name = "前置きの門"
+  short = "訓練の内側だけを見て、確率の質が足りない手法の検証を回さない足切り。水準は事前固定で、採否には使わない。"
+  doc = "docs/specs/experiments/feature-discovery/rules.md"
+  where = "§14-5 前置きの門"
+
+  [[section.term]]
+  name = "診断列"
+  short = "fold を等分した上乗せ符号や実効系列数など、横に並べて読むだけの列。⚠ 採否には使わない。"
+  doc = "docs/specs/experiments/feature-discovery/rules.md"
+  where = "§14-3 診断列"
+
+[[section]]
+id = "trading"
+label = "閾値つき売買（いまの検証方式）"
+note = "2026-09-10 からの検証方式。予測の後ろだけが旧方式と違う。"
+
+  [[section.term]]
+  name = "閾値つき売買"
+  short = "確率が閾値を超えた日だけ買い持ちする検証方式。売買した日だけコストを払うので、実際の取引に近い。"
+  doc = "docs/specs/experiments/feature-discovery/rules.md"
+  where = "§13 閾値つき売買の検証"
+
+  [[section.term]]
+  name = "買い%"
+  short = "モデルの予測値を較正して 0〜100 にしたもの。売り% は 100 から引いた残りで、独立には出さない。"
+  doc = "docs/specs/experiments/feature-discovery/rules.md"
+  where = "§13-2 確率化"
+
+  [[section.term]]
+  name = "較正（Platt）"
+  short = "回帰の予測値を「上がる確率」に直す 1 変数のロジスティック回帰。⚠ 訓練分割の内側だけで fit する。"
+  doc = "docs/specs/experiments/feature-discovery/rules.md"
+  where = "§13-2 確率化"
+
+  [[section.term]]
+  name = "θ（閾値）"
+  short = "建てる・手仕舞う境目の確率。50・55・60% の 3 水準を事前固定し、3 つとも台帳に載せる。"
+  doc = "docs/specs/experiments/feature-discovery/rules.md"
+  where = "§13-3 閾値"
+
+  [[section.term]]
+  name = "状態機械"
+  short = "ポジションは 0 か 1 の 2 状態だけ。買い増しも空売りもせず、fold の末尾で強制清算する。"
+  doc = "docs/specs/experiments/feature-discovery/rules.md"
+  where = "§13-4 売買シミュレータ"
+
+  [[section.term]]
+  name = "B&H（期初買い・期末売り）"
+  short = "買って持つだけの基準線。⚠ これを超えない手法は何も学んでいない。"
+  doc = "docs/specs/experiments/feature-discovery/rules.md"
+  where = "§13-5 基準線"
+
+  [[section.term]]
+  name = "形式 (A) / (B)"
+  short = "(A) は銘柄共通の 1 モデル、(B) は銘柄ごとのモデル。違うのは fit の範囲だけで、どちらも別の試行として数える。"
+  doc = "docs/specs/experiments/feature-discovery/rules.md"
+  where = "§13-6 形式"
+
+  [[section.term]]
+  name = "粗利 bp / 純利 bp"
+  short = "コストを引く前と後の損益。⚠ 粗利が正でも純利が負なら使えない。bp は 0.01%。"
+  doc = "docs/specs/experiments/feature-discovery/rules.md"
+  where = "§9 規約 6 ／ §13-4"
+
+  [[section.term]]
+  name = "銘柄別 bp"
+  short = "銘柄ごとの累計純利。成果物として全部残すが、⚠ 採否には使わない（銘柄は独立ではない）。"
+  doc = "docs/specs/experiments/feature-discovery/rules.md"
+  where = "§13-7 採否の物差し"
+
+  [[section.term]]
+  name = "保有日率 / 取引回数"
+  short = "持っていた日の割合と売買の回数。⚠ 「閾値が高いほど良い」が「取引しないだけ」でないかを見抜くために必ず横に置く。"
+  doc = "docs/specs/experiments/feature-discovery/rules.md"
+  where = "§13-4 の 5 ／ §13-10"
+
+  [[section.term]]
+  name = "毎日往復（旧方式）"
+  short = "予測の符号どおりに毎日建て直す旧い検証方式。⚠ 別の物差しなので、新方式の数字と直接比べない。"
+  doc = "docs/specs/experiments/feature-discovery/rules.md"
+  where = "§13-8 旧指標との対応"
+
+  [[section.term]]
+  name = "閾値売買の実測"
+  short = "8 実行 × 3 閾値を回した記録。負けの本質は回転コストではなく「いつ休むかの情報が無い」ことだった。"
+  doc = "docs/specs/experiments/threshold-trading.md"
+  where = "§0 ここまでで分かったこと"
+
+[[section]]
+id = "data"
+label = "データ"
+note = "特徴量の表（パネル）がどう作られているか。層の接頭辞は名前から読める。"
+
+  [[section.term]]
+  name = "層（raw / adjusted）"
+  short = "調整前と調整後。⚠ 日足の調整前は分割の断層を含むので、検証に使うのは調整後だけ。"
+  doc = "docs/specs/experiments/feature-discovery/rules.md"
+  where = "§1 データの層 ／ §2 分割・配当の調整"
+
+  [[section.term]]
+  name = "粒度"
+  short = "足の長さ（日足・1 分足）。1 分足は提供元の上限で数週間しか遡れない。"
+  doc = "docs/specs/experiments/feature-discovery/rules.md"
+  where = "§1 データの層と置き場"
+
+  [[section.term]]
+  name = "地平（horizon）"
+  short = "ラベルが何本先までのリターンかという先の長さ。パージの幅もここで決まる。"
+  doc = "docs/specs/experiments/feature-discovery/rules.md"
+  where = "§8 ラベル"
+
+  [[section.term]]
+  name = "own_"
+  short = "その銘柄自身の履歴だけから作った特徴量。⚠ own だけでは銘柄を増やしても情報は増えにくい。"
+  doc = "docs/specs/experiments/feature-discovery/rules.md"
+  where = "§6 特徴量の命名と層"
+
+  [[section.term]]
+  name = "cs_ / rel_ / ll_"
+  short = "他銘柄を見る層。同じ足の断面での位置、市場やセクターに対する相対、他銘柄の遅らせた値。"
+  doc = "docs/specs/experiments/feature-discovery/rules.md"
+  where = "§6 特徴量の命名と層"
+
+  [[section.term]]
+  name = "ex_ / im_"
+  short = "価格の外から来る系列と、それを地域・業種へ割り当てたもの。⚠ 違いは銘柄ごとに値が変わるかどうかだけ。"
+  doc = "docs/specs/experiments/feature-discovery/rules.md"
+  where = "§6 特徴量の命名と層"
+
+  [[section.term]]
+  name = "LEAK_"
+  short = "わざと未来を混ぜた対照実験専用の列。本番の表には入らない。"
+  doc = "docs/specs/experiments/feature-discovery/rules.md"
+  where = "§6 特徴量の命名と層 ／ §7"
+
+  [[section.term]]
+  name = "偽薬（プラセボ）"
+  short = "値動きと因果を想定しないデータを、本命と同じ手順で流す対照。選別手法がそれを選んだ割合が偽発見率の実測になる。"
+  doc = "docs/specs/experiments/daily-data-sources.md"
+  where = "§9 検証（Phase 5）"
+
+  [[section.term]]
+  name = "ずらし幅"
+  short = "足の日から何日前の時点で公表されている値を使うか。公表が遅れる系列はその日数だけずらす。"
+  doc = "docs/specs/experiments/daily-data-sources.md"
+  where = "§2 規約の判定"
+
+  [[section.term]]
+  name = "割り当て（曝露）"
+  short = "災害などの系列を地域・業種の重みで銘柄へ配る定義。⚠ 重みは全部【推測】で、割り当てそのものが仮説。"
+  doc = "docs/specs/experiments/daily-data-sources.md"
+  where = "§13 検証（Phase 4）"
+
+  [[section.term]]
+  name = "生存バイアス"
+  short = "いま生き残っている銘柄だけで母集団を作ってしまう偏り。⚠ 期間を遡るほど深くなる、消せない限界。"
+  doc = "docs/specs/experiments/feature-discovery/rules.md"
+  where = "§12 限界 1 ／ §12-1"
+
+  [[section.term]]
+  name = "1995 表 / 2018 表"
+  short = "検証に使う特徴量の表の期間違い。⚠ 期間は台帳の鍵なので、同じ手法でも別の試行になる。"
+  doc = "docs/specs/experiments/feature-discovery/rules.md"
+  where = "§14-4 検証期間の延長"
+
+  [[section.term]]
+  name = "manifest"
+  short = "取得したときに実験側が書いた系列数・行数・期間の記録。⚠ 画面はこれを写すだけで数え直さない。"
+  doc = "docs/specs/dashboard.md"
+  where = "§11-1 何をどこから写すか"
+
+[[section]]
+id = "methods"
+label = "手法とモデル"
+note = "台帳に並ぶ選別手法とモデルの名前。カタログは feature-discovery.md にある。"
+
+  [[section.term]]
+  name = "選別手法（F 番号）"
+  short = "特徴量を選ぶ手法のカタログ番号。F1 は統計量、F3 はモデルを使うもの、F4 は式そのものを探すもの。"
+  doc = "docs/specs/experiments/feature-discovery.md"
+  where = "§2 手法のカタログ"
+
+  [[section.term]]
+  name = "全部使う / 乱択"
+  short = "選別しない基準線と、でたらめに選ぶ基準線。⚠ これを超えられない選別に意味は無い。"
+  doc = "docs/specs/experiments/feature-discovery/rules.md"
+  where = "§9 検証の規約"
+
+  [[section.term]]
+  name = "Ridge / LightGBM / MLP"
+  short = "比べている予測モデル 3 種。⚠ モデルは台帳の鍵なので、替えれば別の試行として数える。"
+  doc = "docs/specs/experiments/gpu-models.md"
+  where = "§3 モデル比較"
+
+  [[section.term]]
+  name = "GAN（3 つの意味）"
+  short = "この基盤では 3 つが混ざる。データ増強の GAN（検証済み・落とす）、予測器としての条件付き GAN、利用者の言う進化的探索。"
+  doc = "docs/specs/experiments/gpu-models.md"
+  where = "§4 GAN 増強"
+
+  [[section.term]]
+  name = "進化的探索"
+  short = "モデルの集団を対決させ、勝った特徴で次の世代を作る探索。⚠ 手法が増えるほど試行が増えて DSR は下がる。"
+  doc = "docs/specs/experiments/ts-trend-ai-survey.md"
+  where = "§6 系統 5 ／ §7 候補リスト"
+
+  [[section.term]]
+  name = "レジーム"
+  short = "上げ相場・下げ相場のような相場の状態。1 日先の方向ではなく状態を当てにいくのが、いま未検証の軸。"
+  doc = "docs/specs/experiments/feature-discovery/rules.md"
+  where = "§14-6〜14-9"
+
+[[section]]
+id = "broker"
+label = "口座と API"
+note = "tastytrade の API サンプルと、会場を選んだときの語。"
+
+  [[section.term]]
+  name = "tastytrade"
+  short = "API 検証の対象に選んだ 1 社。株の手数料と API の月額がどちらも無料で、常駐プロセスが要らない。"
+  doc = "docs/specs/experiments/tastytrade-api-sample.md"
+  where = "§1 6 観点の現況"
+
+  [[section.term]]
+  name = "cert（sandbox）"
+  short = "本番と分かれた練習用の環境。⚠ 相場データは配信されず、市場時間でも一時的に注文を拒否することがある。"
+  doc = "docs/specs/experiments/tastytrade-api-sample.md"
+  where = "§0-3 ／ §0-4"
+
+  [[section.term]]
+  name = "access token / refresh token"
+  short = "短命の認証トークンと、それを無人で取り直すための鍵。寿命は実測で確かめてある。"
+  doc = "docs/specs/experiments/tastytrade-api-sample.md"
+  where = "§0-4 access token の失効"
+
+  [[section.term]]
+  name = "口座ストリーマ / DXLink"
+  short = "注文と建玉の通知を受ける websocket と、気配を受ける websocket。認証ヘッダの形が文書の例と違う。"
+  doc = "docs/specs/experiments/tastytrade-api-sample.md"
+  where = "§0-3 口座ストリーマ"
+
+  [[section.term]]
+  name = "dry-run"
+  short = "発注の手前まで送って、通るかと費用だけを返させる確認。⚠ 本番でも余力の判定が効く。"
+  doc = "docs/specs/experiments/tastytrade-api-sample.md"
+  where = "§0-2 着金前でも買付余力は使える"
+
+  [[section.term]]
+  name = "3 段の鍵"
+  short = "本番で dry-run・取消・発注を開ける環境変数の 3 段。⚠ 取消の鍵で発注は開かない。"
+  doc = "docs/specs/dashboard.md"
+  where = "§2 本番の鍵"
+
+  [[section.term]]
+  name = "HALT（停止ボタン）"
+  short = "記録ディレクトリに置く停止の印。働いている注文を全部取り消し、以後の発注系の手順を拒否させる。"
+  doc = "docs/specs/dashboard.md"
+  where = "§2 停止ボタンの中身"
+
+  [[section.term]]
+  name = "6 観点（A〜F）"
+  short = "会場を無人で回せるかを見る観点。認証の寿命・常駐の要否・気配・往復・レート制限・SDK の保守。"
+  doc = "docs/specs/experiments/tastytrade-api-sample.md"
+  where = "§1 6 観点の現況"
+
+  [[section.term]]
+  name = "気配の遅延"
+  short = "配信された気配がどれだけ古いか。⚠ 開発機の時計では測れないので、同じ応答の時刻で補正した値を使う。"
+  doc = "docs/specs/experiments/tastytrade-api-sample.md"
+  where = "§0-4 気配の遅延"
+
+  [[section.term]]
+  name = "PFOF"
+  short = "注文を回す先から受け取る対価。手数料 0 の裏にあるので、金額に換算せず属性として記録する。"
+  doc = "docs/specs/trading-fee-comparison.md"
+  where = "付録 D PFOF の属性"
+
+  [[section.term]]
+  name = "分別管理"
+  short = "顧客の資産を会社の資産と分けて置く義務。種類によって義務が無い会場もあり、破綻時の扱いが変わる。"
+  doc = "docs/specs/service-trust-assessment.md"
+  where = "§1 定義 ／ 付録 B 壊れる形"
+
+  [[section.term]]
+  name = "信用の判定（高 / 中 / 低）"
+  short = "登録・顧客資産の保護・処分歴・資本の余裕から付けた 3 値。API 検証の対象は「高」だけに絞った。"
+  doc = "docs/specs/service-trust-assessment.md"
+  where = "§0 結論 ／ §4 判定表"
+
+[[section]]
+id = "taxonomy"
+label = "収入の体系"
+note = "稼ぎ方を分類する 3 軸と、手法につける記号。"
+
+  [[section.term]]
+  name = "軸 A（価値の源泉）"
+  short = "入金の直前に何が渡っているか。時間・技能・成果物・権利・資本・リスク引受・仲介・注目・資源の 9 つ。"
+  doc = "docs/specs/overview.md"
+  where = "§5 記号の早見表"
+
+  [[section.term]]
+  name = "軸 B（人の関与度）"
+  short = "入金 1 件を追加で出すのに要る人手。毎回関与する L1 から、関与しない L3 まで。"
+  doc = "docs/specs/overview.md"
+  where = "§5 記号の早見表"
+
+  [[section.term]]
+  name = "軸 C（当事者構成）"
+  short = "誰が誰に渡すか。人から人の P1 から、システムからシステムの P5 まで人が抜けていく。"
+  doc = "docs/specs/overview.md"
+  where = "§5 記号の早見表"
+
+  [[section.term]]
+  name = "手法 ID"
+  short = "体系の中の 1 手法につく記号。頭文字が価値の源泉で、数字がその中の通し番号。"
+  doc = "docs/specs/income-taxonomy.md"
+  where = "体系の全体像"
+
+  [[section.term]]
+  name = "リード / 資本"
+  short = "最初の入金までの期間と、要る元手の段。どちらも体系の中での取り決めで、相場ではない。"
+  doc = "docs/specs/overview.md"
+  where = "§5 記号の早見表"

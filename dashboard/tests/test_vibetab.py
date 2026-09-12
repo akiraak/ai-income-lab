@@ -365,6 +365,11 @@ def test_http_routes(server):
     assert _get(f"{server}/data/view?item=bars")[0] == 200
     assert _get(f"{server}/experiments/view?item=nai")[0] == 404
     assert _get(f"{server}/nazo/api/sidebar")[0] == 404
+    # 用語（正本は dashboard/glossary.toml。リポジトリの実物を読む）
+    status, body = _get(f"{server}/glossary/api/sidebar")
+    assert status == 200 and json.loads(body)["items"][0]["id"] == "all"
+    assert _get(f"{server}/glossary/view?item=all")[0] == 200
+    assert _get(f"{server}/glossary/view?item=nai")[0] == 404
 
 
 # ---------------------------------------------------------------- 見張り
@@ -435,3 +440,89 @@ def test_exp_run_html_shows_thresholds(tmp_path):
     assert "勝ち 40/63" in body
     assert "θ=55%" in body                      # 最良の閾値
     assert "閾値売買・共通" in body              # タイトルで形式が読める
+
+
+# ---------------------------------------------------------------- 用語（glossary.toml）
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
+
+
+@pytest.fixture()
+def small_glossary(tmp_path: Path) -> Path:
+    p = tmp_path / "g.toml"
+    p.write_text(
+        '[[section]]\nid = "units"\nlabel = "検証の単位"\nnote = "単位の語"\n\n'
+        '[[section.term]]\nname = "試行"\nshort = "台帳の 1 行"\n'
+        'doc = "docs/specs/experiments/feature-discovery/units.md"\nwhere = "§5"\n\n'
+        '[[section.term]]\nname = "TODO の語"\nshort = "カテゴリの外にある文書"\n'
+        'doc = "CLAUDE.md"\nwhere = "進め方"\n', encoding="utf-8")
+    return p
+
+
+def test_glossary_sidebar_has_index_first(small_glossary):
+    items = vibetab.glossary_sidebar(small_glossary)["items"]
+    assert items[0]["id"] == "all" and items[0]["sub"] == "2 語"
+    assert [i["id"] for i in items[1:]] == ["units"]
+
+
+def test_glossary_sidebar_missing_file(tmp_path):
+    """⚠ 読めないときは空（仮の説明で埋めない）。"""
+    items = vibetab.glossary_sidebar(tmp_path / "nai.toml")["items"]
+    assert [i["id"] for i in items] == ["all"] and items[0]["sub"] == "0 語"
+
+
+def test_glossary_view_links_to_vibeboard_hash(small_glossary):
+    body = vibetab.glossary_html("units", small_glossary)
+    assert body is not None
+    assert "試行" in body and "台帳の 1 行" in body
+    # docs/specs は Specs タブ、カテゴリの外は Files タブ。⚠ iframe から出るので target=_top
+    assert 'href="/#specs/experiments/feature-discovery/units.md" target="_top"' in body
+    assert 'href="/#files/CLAUDE.md" target="_top"' in body
+    assert "§5" in body
+
+
+def test_glossary_view_unknown_item(small_glossary):
+    assert vibetab.glossary_html("nai", small_glossary) is None
+
+
+def test_glossary_view_all_covers_every_section(small_glossary):
+    body = vibetab.glossary_html("all", small_glossary)
+    assert body is not None and "すべての用語" in body and "検証の単位" in body
+
+
+def test_glossary_fingerprint_moves_on_edit(small_glossary):
+    before = vibetab.glossary_fingerprint(small_glossary)
+    import os
+    st = small_glossary.stat()
+    os.utime(small_glossary, (st.st_atime, st.st_mtime + 10))
+    assert vibetab.glossary_fingerprint(small_glossary) != before
+
+
+# --- ここから下は「実物の glossary.toml」の検査（索引であることを固定する） ---
+
+
+def test_real_glossary_links_all_exist():
+    """⚠ リンク切れは索引の価値を消す。文書を移したらここが赤くなる。"""
+    missing = [(t["name"], t["doc"]) for s in vibetab.load_glossary()
+               for t in s["term"] if not (REPO_ROOT / t["doc"]).exists()]
+    assert missing == []
+
+
+def test_real_glossary_terms_are_short_and_unique():
+    """⚠ 1 語 1〜2 行の索引であって解説書ではない（長い説明は doc 側に置く）。"""
+    sections = vibetab.load_glossary()
+    assert len(sections) >= 2
+    names = [t["name"] for s in sections for t in s["term"]]
+    assert len(names) == len(set(names))          # 節をまたいで重複しない
+    for s in sections:
+        assert s.get("label") and s.get("term")
+        for t in s["term"]:
+            assert t["name"] and t["short"] and t["doc"]
+            assert len(t["short"]) <= 90, (t["name"], len(t["short"]))
+
+
+def test_real_glossary_covers_the_words_that_block_reading():
+    """入口として最低限引けること（語が消えたら足し直す合図）。"""
+    names = {t["name"] for s in vibetab.load_glossary() for t in s["term"]}
+    for w in ("試行", "DSR（デフレーテッド SR）", "上乗せ", "門前", "ex_ / im_", "cert（sandbox）"):
+        assert w in names

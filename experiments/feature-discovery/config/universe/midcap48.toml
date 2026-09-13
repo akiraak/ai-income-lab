@@ -1,0 +1,59 @@
+# 段 3 の銘柄集合（2026-09-12）。⚠ **対象と材料を分ける。**
+#
+# ⚠ **規則は取得の前に固定した**（docs/plans/archive/midcap-targets.md §1）:
+#   S&P 500 の構成銘柄のうち `us63` に無いものを ⚠ **ティッカーのアルファベット順**で 50 本取り、
+#   ⚠ **2018-06 より前から日足が取れないもの**を機械的に落とした。
+#   ⚠ **落ちた 2 本: ABNB（2020-12 開始）・AMCR（2019-06 開始）。** 成績では落としていない。
+#
+# ⚠ **`etf` に材料 63 本（us63 のぜんぶ）を入れているのは、`config.symbols_of` が
+#    `etf` と `company` しか読まないためと、`ll_leaders = "etf"` が先行銘柄としてこの群を読むため。**
+#    ⚠ **中身が ETF だからではない。** 内訳は `inputs_us63` で引く。
+#
+# ⚠ **`targets = "company"` で、当てる相手は下の 48 本だけになる**（材料 63 本は説明変数に使うが当てない）。
+#
+# ⚠ **生存バイアスは us63 より深い**（rules.md 12-1）: いまの構成銘柄を過去に当てはめるので、
+#    ⚠ **当時 500 に入っていたが消えた会社は 1 本も入らない。**
+# ⚠ **`sector_of` は書いていない**ので `rel_` 層は使えない（48 本ぶんの業種の割り当てが
+#    ⚠ **48 個の新しい【推測】になる**ため、`rel` を外す設計にした）。
+name = "midcap48"
+description = "対象 48 本（S&P 500 のうち us63 に無いティッカー順の先頭・2018-06 以前から取れるもの）＋ 材料 63 本"
+survivorship_bias = true
+selected_on = "2026-09-12"
+
+# ⚠ **材料として使う 63 本**（説明変数。⚠ **当てる相手ではない**）
+inputs_us63 = [
+  "SPY", "QQQ", "IWM", "DIA", "XLK", "XLF", "XLE", "XLV",
+  "XLI", "XLY", "XLP", "XLU", "XLB", "XLRE", "XLC", "AAPL",
+  "MSFT", "NVDA", "AMZN", "GOOGL", "META", "TSLA", "AVGO", "BRK/B",
+  "JPM", "V", "MA", "UNH", "XOM", "JNJ", "WMT", "PG",
+  "HD", "COST", "ORCL", "CVX", "MRK", "ABBV", "KO", "PEP",
+  "BAC", "CRM", "AMD", "NFLX", "ADBE", "LLY", "TMO", "ACN",
+  "MCD", "CSCO", "ABT", "INTC", "QCOM", "TXN", "DIS", "VZ",
+  "T", "PFE", "NKE", "BA", "GS", "CAT", "HON",
+]
+
+[groups]
+# ⚠ **材料 63 本**（`ll_leaders = "etf"` がここを先行銘柄として読む）
+etf = [
+  "SPY", "QQQ", "IWM", "DIA", "XLK", "XLF", "XLE", "XLV",
+  "XLI", "XLY", "XLP", "XLU", "XLB", "XLRE", "XLC", "AAPL",
+  "MSFT", "NVDA", "AMZN", "GOOGL", "META", "TSLA", "AVGO", "BRK/B",
+  "JPM", "V", "MA", "UNH", "XOM", "JNJ", "WMT", "PG",
+  "HD", "COST", "ORCL", "CVX", "MRK", "ABBV", "KO", "PEP",
+  "BAC", "CRM", "AMD", "NFLX", "ADBE", "LLY", "TMO", "ACN",
+  "MCD", "CSCO", "ABT", "INTC", "QCOM", "TXN", "DIS", "VZ",
+  "T", "PFE", "NKE", "BA", "GS", "CAT", "HON",
+]
+# ⚠ **当てる相手 48 本**
+company = [
+  "A", "ACGL", "ADI", "ADM", "ADP", "ADSK", "AEE", "AEP",
+  "AES", "AFL", "AIG", "AIZ", "AJG", "AKAM", "ALB", "ALGN",
+  "ALL", "ALLE", "AMAT", "AME", "AMGN", "AMP", "AMT", "ANET",
+  "AON", "AOS", "APA", "APD", "APH", "APO", "APP", "APTV",
+  "ARE", "ARES", "ATO", "AVY", "AWK", "AXON", "AXP", "AZO",
+  "BALL", "BAX", "BBY", "BDX", "BEN", "BG", "BIIB", "BKNG",
+]
+
+[market_proxy]
+market = "SPY"
+sectors = {}

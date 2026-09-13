@@ -1,0 +1,8 @@
+# 日足（74 銘柄）。⚠ **`daily.toml` から `universe` だけを変えた。** 取得元・本数・調整は同一。
+# ⚠ **`daily.toml` は書き換えていない**（既存の実行を再現できるようにするため）。
+name = "daily74"
+source = "tastytrade"
+period = "d"
+days = 12000
+universe = "us74"
+adjust = "split"      # ⚠ 日足は分割の断層が入りうる。none にしてはいけない

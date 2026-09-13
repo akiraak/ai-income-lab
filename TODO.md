@@ -1,13 +1,5 @@
 # TODO
 
-- [ ] 直した較正で 2018 表・LightGBM・GPU 系を回し直す（⚠ **急がない**。着手時にプランを作る）
-  派生元: 「買い% の幅が潰れる原因を切り分ける」（✅ 2026-09-12 完了。[buy-pct-width-collapse.md](docs/specs/experiments/buy-pct-width-collapse.md)）
-  ⚠ **Platt の数値解が 1 反復で止まっていた不具合を 2026-09-12 に直した**（[rules.md 13-2 の 6](docs/specs/experiments/feature-discovery/rules.md)）。⚠ **回し直したのは 1995 表の 5 実行だけ**
-  ⚠ **旧行 237 行は「旧」のまま台帳に残っている。** ⚠ **消さないので台帳は嘘をつかない**（鍵の「較正」で 旧 / std / — が区別できる）
-  ⚠ **回すなら全部数える**（[rules.md 14-10](docs/specs/experiments/feature-discovery/rules.md) 規約 2）。⚠ **1995 表の 5 実行で ＋72 試行だったので、残り全部なら ＋200 前後**【推測】
-  ⚠ **効きは系統で分かれると分かっている**【実測 2026-09-12】: ⚠ **選別 × モデルは取引が 2 桁増える**（1 日リターンの尺度＝ 不具合を踏む）／ ⚠ **検知器 D2・D3 はほとんど動かない**（60 日・200 日ラベルは予測のスケールが 10〜30 倍大きく、元から解けていた）
-  ⚠ **LightGBM・MLP・GPU 系は予測のスケールを測っていない**。⚠ **回す前に `cli/calibdiag.py` で 1 本測ると、動くかどうかが先に分かる**
-
 - [ ] DeepLearning と進化的探索（遺伝的アルゴリズム）を使った検証をかなり増やす。進化的探索の実行を継続して回せる仕組みを入れる
   利用者の指示（2026-09-10）: **DeepLearningとGANを使った検証をかなり増やす。GANの実行を継続して回せる仕組みを入れる**
   ⚠ 旧題は「GAN」だったが、利用者の意図は遺伝的アルゴリズム（モデル集団を対決させ、勝者の特徴で次世代を作る進化的探索）だったので 2026-09-10 に改題。ML 用語の GAN（データ増強）は 2026-09-09 に検証済みで「落とす」（[gpu-models.md §4](docs/specs/experiments/gpu-models.md)）
@@ -37,6 +29,27 @@
     - [ ] Phase 5: 再現性の確認と評価レポート（比較表・期間・seed 別結果・採用判断）
   - [ ] 進化的探索の実行を継続して回せる仕組み（キュー or ループ、失敗時の再開、台帳の自動更新）
     関連: [rules.md](docs/specs/experiments/feature-discovery/rules.md) ／ [ledger.md](docs/specs/experiments/feature-discovery/ledger.md)
+
+- [ ] GPU 系を閾値売買でも回せるようにする（⚠ **いまは 5 実行とも毎日往復しか無い**。着手時にプランを作る）
+  利用者の指示（2026-09-13）: **gpu 系も毎日往復ではない手法を実装する**
+  派生元: 「直した較正で 2018 表・LightGBM・GPU 系を回し直す」（✅ 2026-09-13 完了。[calibration-rerun.md](docs/specs/experiments/calibration-rerun.md) §1-2）
+  ⚠ **回し直しでは触れなかった側である**: ⚠ **`gpu_*` が対象外だったのは「較正を通らない ＝ 毎日往復だから」**。⚠ **これはその前提のほうを埋める話で、新規の試行になる**
+  ⚠ **モデルの実装は全部ある**（`ail/registry.py`: Ridge / MLP / LightGBM ＋ `+GAN増強` の 3 種）。⚠ **足りないのは `[trading]` を持つ config だけ**【実測 2026-09-13】
+  ⚠ **空白は 2 方向ある**（台帳の実測。[ledger.md](docs/specs/experiments/feature-discovery/ledger.md)）
+    ⚠ **(1) モデルの軸**: 閾値売買にあるのは Ridge と LightGBM だけ。⚠ **MLP・Ridge+GAN増強・LightGBM+GAN増強 は毎日往復に 3〜4 行あるきり**。⚠ **MLP+GAN増強 は実装だけあって 1 度も回っていない**
+    ⚠ **(2) 選別の軸**: ⚠ **閾値売買で回した選別は 4 本だけ**（F1-4・F1-7・F2-2・F5-1）。⚠ **13 手法が毎日往復にしか無い**（F1-1・F1-2・F1-3・F1-5・F2-3・F3-1・F3-2・F3-3・F3-5）。⚠ **`gpu_*` は F3-3 MDA と F3-1 Lasso を持っているので、移すと両方の空白が同時に埋まる**
+  ⚠ **`gpu_lgbm_cs` の層（own cs rel ll）も閾値売買に無い**（閾値売買側の断面は own cs rel ex ＝ 別の層）
+  ⚠ **費用の見積り**【推測】: ⚠ **GAN 増強は毎日往復で 1 本 43〜47 分**【実測 2026-09-09】。⚠ **閾値売買は `--sample` が効かない**（[rules.md 13-4](docs/specs/experiments/feature-discovery/rules.md)）ので行が 60,000 → 135,962 に増え、⚠ **1 本 1.5〜2 時間 × leak 対照ぶん 2 倍**。⚠ **MLP と LightGBM は 1 分未満なので先に回す**
+  ⚠ **GAN 増強は毎日往復で「落とす」が出ている**（[gpu-models.md §4](docs/specs/experiments/gpu-models.md)）。⚠ **それは回さない理由にならない**（[14-10 規約 1](docs/specs/experiments/feature-discovery/rules.md)）が、⚠ **新旧の数字は直接比べない**（13-8。物差しが違う）
+  ⚠ **緩めないもの**: 回すと決めるのは結果を見る前 ／ 回したものは全部 `n_trials` に数える（＋40〜50 試行【推測】）／ ⚠ **leak 対照を毎回通す** ／ 1 実行 1 ディレクトリ
+  ⚠ **予測のスケールを先に測る**: `cli/calibdiag.py` は 2026-09-13 に直してあり、⚠ **`反復_旧` が 2 なら旧の解が止まっていたという意味**。⚠ **MLP は 1 度も測っていない**
+  関連: 「DL / 進化的探索の手法を増やして検証を回す」
+  - [ ] MLP × 閾値売買（own 2018。⚠ **手間 小。ここから始める**）
+    ⚠ **`trade_own_lgbm_a.toml` の `model` を替えるだけで組める**。⚠ **モデルの軸で MLP だけが空白**
+  - [ ] LightGBM × 閾値売買に選別 2 本を足す（F3-3 MDA・F3-1 Lasso。⚠ **手間 小**）
+    ⚠ **`全部使う（基準）` は既存の鍵と重なるので再現の 2 実行目になる**。⚠ **新しく数えるのは選別 2 本 × 3 θ**
+  - [ ] LightGBM × 断面（own cs rel ll）× 閾値売買（⚠ **`gpu_lgbm_cs` の層。手間 小**）
+  - [ ] GAN 増強 3 種 × 閾値売買（Ridge+・LightGBM+・⚠ **MLP+ は初回**。⚠ **手間 大 — 1 本 1.5〜2 時間 ＋ leak**）
 
 - [ ] 台帳の空白を埋める（✅ **「小」4 件は 2026-09-12 に完了。残る未実施は 12 件**。手間の小さい順に回す）
   利用者の決定（2026-09-12）: **検証はコストが低いので可能性が低くても積極的に行う。空白は積極的に埋める** → [rules.md 14-10](docs/specs/experiments/feature-discovery/rules.md) に規約化済み

@@ -14,8 +14,15 @@
 | 容疑 | 見る列 | 効いていると言える形 |
 | --- | --- | --- |
 | 1 予測に散らばりが無い | `pred_std` | ⚠ **0 に近い** |
-| 2 Platt が最尤解に届いていない | `dll = ll_std − ll_now` | ⚠ **正**（同じ目的関数なので、届いていれば 0） |
+| 2 Platt が最尤解に届いていない | `dll = ll_std − ll_旧` | ⚠ **正**（同じ目的関数なので、届いていれば 0） |
 | 3 AUC 0.52 では幅 20 点が出ない | `width_std` ／ `--curve` | ⚠ **解き直しても 20 点に届かない** |
+
+⚠ **2026-09-13 に比較の相手を直した。** ⚠ **本文は 2026-09-12 の処置より前に書かれており、
+「現行」＝ `ail/models/calibrate.py` が生のまま解いていた頃の解を指していた。** ⚠ **処置後は
+`calibrate` 自身が標準化して解くので、そのままでは「直した解 vs 直した解」を比べることになり、
+`dll` が必ず 0 に潰れて「元から解けていた」と読めてしまう**（実測: LightGBM で 1e-10〜1e-12）。
+⚠ **旧の解き方（生の予測・`tol` 既定）を `_platt_legacy` で再現し、比較の相手をそちらへ移した。**
+⚠ **列の名前も `*_now` → `*_旧` に改めた**（`dll`・`pred_std`・`width_*_std` の意味は変えていない）。
 
 ⚠ **`--theta` は θ の置き方の検討用**（[記録](../../../docs/specs/experiments/theta-placement.md)）。
 ⚠ **3 案（絶対 / 中央値±δ / 分位点）の帯と、入口・出口が立つ日の割合を訓練分割の内側だけで出す。**
@@ -55,7 +62,11 @@ def _platt_standardized(pred: np.ndarray, up: np.ndarray) -> tuple[float, float]
     """⚠ **予測を標準化してから解き、元のスケールへ戻す。**
 
     ⚠ **変えたのは解き方だけ**で、モデル（1 変数ロジスティック）も標本も目的関数も同じ。
-    だから ⚠ **対数尤度が上がったら、現行の解が最尤解でなかったことの証明になる**（プラン §2-1）。
+    だから ⚠ **対数尤度が上がったら、旧の解が最尤解でなかったことの証明になる**（プラン §2-1）。
+
+    ⚠ **2026-09-12 以降は `ail/models/calibrate._platt` がこれと同じことをしている。**
+    ⚠ **`tol` だけがここは 1e-10 で、本番は既定の 1e-4 である** — ⚠ **標準化した後は勾配が
+    ⚠ **スケールに引きずられないので、どちらでも同じ解に着く**（実測: a の差は 5 桁目以下）。
     """
     from sklearn.linear_model import LogisticRegression
 
@@ -67,6 +78,23 @@ def _platt_standardized(pred: np.ndarray, up: np.ndarray) -> tuple[float, float]
     m.fit(z.reshape(-1, 1), up.astype(int))
     a_z, b_z = float(m.coef_[0, 0]), float(m.intercept_[0])
     return a_z / sd, b_z - a_z * mu / sd
+
+
+def _platt_legacy(pred: np.ndarray, up: np.ndarray) -> tuple[float, float, int]:
+    """⚠ **2026-09-12 より前の解き方を再現する**（生の予測をそのまま渡し、`tol` は既定 1e-4）。
+
+    ⚠ **これが「旧」の正体である。** ⚠ **本番コードはもう標準化して解いている**ので、
+    ⚠ **旧を測るにはここで再現するしかない。** ⚠ **`runs/` の旧行を作った経路そのものではなく、
+    ⚠ **同じ解き方の再現である**（旧行は再計算しない — rules.md 13-2 の 6）。
+
+    返り値の 3 つ目は **L-BFGS の反復回数**。⚠ **2 で止まっていたら動かぬ証拠**（プラン §2-2。
+    ⚠ **scikit-learn は開始点を 1 回目に数えるので、止まった解は 1 ではなく 2 と出る**）。
+    """
+    from sklearn.linear_model import LogisticRegression
+
+    m = LogisticRegression(C=1e6, solver="lbfgs", max_iter=1000)
+    m.fit(np.asarray(pred, dtype=float).reshape(-1, 1), up.astype(int))
+    return float(m.coef_[0, 0]), float(m.intercept_[0]), int(np.max(m.n_iter_))
 
 
 def _loglik(pred: np.ndarray, up: np.ndarray, a: float, b: float) -> float:
@@ -156,15 +184,22 @@ def _theta_rows(bank: list[dict]) -> pd.DataFrame:
 
 
 def _row(pred_fit, target_fit, pred_te, y_te, source: str) -> dict:
-    """1 fold × 1 手法。⚠ **現行の解と標準化した解を、同じ標本の上で並べる。**"""
+    """1 fold × 1 手法。⚠ **旧の解（`_platt_legacy`）と現行の解を、同じ標本の上で並べる。**
+
+    ⚠ **現行 ＝ `ail/models/calibrate`（2026-09-12 の処置後は標準化して解く）。**
+    ⚠ **旧を `calibrate` から取れなくなったので、ここで再現している**（上の注記）。
+    """
     pred_fit = np.asarray(pred_fit, dtype=float)
     up = np.asarray(target_fit, dtype=float) > 0
     cal = calibrate.fit_from_predictions(pred_fit, target_fit, source)
-    a1, b1 = _platt_standardized(pred_fit, up) if cal.source != "constant" else (0.0, cal.b)
-    buy_fit_now, buy_te_now = cal.buy_pct(pred_fit), cal.buy_pct(pred_te)
-    std_cal = calibrate.Calibration(a=a1, b=b1, source="std")
-    buy_fit_std, buy_te_std = std_cal.buy_pct(pred_fit), std_cal.buy_pct(pred_te)
-    ll0, ll1 = _loglik(pred_fit, up, cal.a, cal.b), _loglik(pred_fit, up, a1, b1)
+    if cal.source == "constant":                     # 片側ラベル・定数予測。旧も同じ定数に落ちる
+        a0, b0, it0 = 0.0, cal.b, 0
+    else:
+        a0, b0, it0 = _platt_legacy(pred_fit, up)
+    old = calibrate.Calibration(a=a0, b=b0, source="旧")
+    buy_fit_old, buy_te_old = old.buy_pct(pred_fit), old.buy_pct(pred_te)
+    buy_fit_std, buy_te_std = cal.buy_pct(pred_fit), cal.buy_pct(pred_te)
+    ll0, ll1 = _loglik(pred_fit, up, a0, b0), _loglik(pred_fit, up, cal.a, cal.b)
     return {
         "較正元": cal.source, "較正の行": int(len(pred_fit)),
         "上がる割合": round(float(up.mean()), 4),
@@ -173,15 +208,15 @@ def _row(pred_fit, target_fit, pred_te, y_te, source: str) -> dict:
         "pred_p05": float(np.percentile(pred_fit, 5)),
         "pred_p95": float(np.percentile(pred_fit, 95)),
         "auc_fit": _auc(target_fit, pred_fit), "auc_te": _auc(y_te, pred_te),
-        # 容疑 2: 解けているか
-        "a_now": cal.a, "b_now": cal.b, "a_std": a1, "b_std": b1,
-        "ll_now": ll0, "ll_std": ll1, "dll": ll1 - ll0,
+        # 容疑 2: 解けているか。⚠ **反復_旧 が 2 なら最適化が始まってすらいない**
+        "a_旧": a0, "b_旧": b0, "反復_旧": it0, "a_std": cal.a, "b_std": cal.b,
+        "ll_旧": ll0, "ll_std": ll1, "dll": ll1 - ll0,
         # 容疑 3: 解き直しても幅が出るか
-        "width_fit_now": _width(buy_fit_now), "width_fit_std": _width(buy_fit_std),
-        "width_te_now": _width(buy_te_now), "width_te_std": _width(buy_te_std),
-        "buy_te_now_中央": float(np.median(buy_te_now)),
+        "width_fit_旧": _width(buy_fit_old), "width_fit_std": _width(buy_fit_std),
+        "width_te_旧": _width(buy_te_old), "width_te_std": _width(buy_te_std),
+        "buy_te_旧_中央": float(np.median(buy_te_old)),
         "buy_te_std_中央": float(np.median(buy_te_std)),
-        **{k + "(現行)": v for k, v in _crossings(buy_te_now).items()},
+        **{k + "(旧)": v for k, v in _crossings(buy_te_old).items()},
         **{k + "(解直)": v for k, v in _crossings(buy_te_std).items()},
     }
 
@@ -276,9 +311,9 @@ def _detector_rows(panel, feats, exp, edges, v, ctx, bank=None) -> list[dict]:
                              "buy_tr": buy_c_tr})
             rows.append({"fold": f, "系統": "C 古典フィルタ", "手法": f"{label} SMA{w}", "列": 1,
                          "較正元": "none（学習しない）", "auc_te": _auc(yte, buy_c),
-                         "width_te_now": _width(buy_c), "width_te_std": _width(buy_c),
-                         "buy_te_now_中央": float(np.median(buy_c)),
-                         **{k + "(現行)": v2 for k, v2 in _crossings(buy_c).items()}})
+                         "width_te_旧": _width(buy_c), "width_te_std": _width(buy_c),
+                         "buy_te_旧_中央": float(np.median(buy_c)),
+                         **{k + "(旧)": v2 for k, v2 in _crossings(buy_c).items()}})
     return rows
 
 
@@ -360,9 +395,9 @@ def main() -> None:
             print(g.to_string())
         print("⚠ **fold 平均。** ⚠ **保有日率は「入口が立つ」以上・「1 − 出口が立つ」以下に入る**")
 
-    cols = ["fold", "手法", "較正元", "pred_std", "auc_fit", "a_now", "a_std",
-            "ll_now", "ll_std", "dll", "width_fit_now", "width_fit_std",
-            "width_te_now", "width_te_std", "buy_te_std_中央"]
+    cols = ["fold", "手法", "較正元", "pred_std", "auc_fit", "a_旧", "反復_旧", "a_std",
+            "ll_旧", "ll_std", "dll", "width_fit_旧", "width_fit_std",
+            "width_te_旧", "width_te_std", "buy_te_std_中央"]
     show = [c for c in cols if c in df.columns]
     with pd.option_context("display.width", 220, "display.max_columns", 40):
         print(df[show].to_string(index=False, float_format=lambda x: f"{x:.5g}"))

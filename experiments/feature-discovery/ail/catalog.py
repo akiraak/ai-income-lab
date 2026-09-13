@@ -714,7 +714,11 @@ def notes(path: str | None = None) -> dict[str, dict]:
 # `[[closed]]` の照合キー → 台帳の列名。⚠ **TOML の bare key は ASCII だけ**なのでここで写す
 _CLOSED_FIELDS = {"key": "鍵", "model": "モデル", "layers": "特徴量の層",
                   "style": "検証方式", "threshold": "閾値", "layer": "層",
-                  "form": "形式", "granularity": "粒度", "period": "期間"}
+                  "form": "形式", "granularity": "粒度", "period": "期間",
+                  # ⚠ **較正は 2026-09-13 に足した**（KEY に入っているのに照合できず、旧を閉じた
+                  # ⚠ **注記が std の行にも当たって「2 行に一致」で落ちた**）。⚠ **閉じるのは旧の行だけ** —
+                  # ⚠ **回し直した std の行は新しい試行なので、普通に判定させる**（rules.md 14-10 規約 2）
+                  "calibration": "較正"}
 
 
 def closed_notes(path: str | None = None) -> list[dict]:

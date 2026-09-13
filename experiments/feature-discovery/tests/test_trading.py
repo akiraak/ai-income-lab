@@ -140,6 +140,51 @@ def test_thin_training_falls_back_to_train_and_says_so():
     assert cal.doc["source"] == "train"
 
 
+def test_calibration_is_scale_invariant():
+    """⚠ **予測を定数倍しても買い% は変わらない**（2026-09-12 の処置。rules.md 13-2 の 6）。
+
+    ⚠ **これが 2026-09-12 まで壊れていた** — `lbfgs` の `tol` は平均対数損失の**勾配**で
+    ⚠ **収束を判定し、その勾配は予測のスケールに比例する。** 1 日リターンの尺度
+    （σ ≈ 0.0017）では 1 反復で「収束」と判定され、傾きが初期値 0 から動かなかった。
+    ⚠ **買い% の幅が 0.00002 点に潰れ、θ を跨げず、手法が違っても売買が 1 ビットも
+    ⚠ **違わなくなっていた**（[buy-pct-width-collapse.md](
+    ../../../docs/specs/experiments/buy-pct-width-collapse.md)）。
+    """
+    rng = np.random.default_rng(0)
+    n = 4000
+    pred = rng.normal(0, 1, n)
+    target = np.where(0.4 * pred + rng.normal(0, 1, n) > 0, 1.0, -1.0)
+    base = calibrate.fit_from_predictions(pred, target, "holdout")
+    for scale in (1e-1, 1e-2, 1e-3, 1e-4, 1e-6):
+        cal = calibrate.fit_from_predictions(pred * scale, target, "holdout")
+        # ⚠ **同じ標本・同じ目的関数なので、買い% は一致しなければならない**
+        assert np.allclose(cal.buy_pct(pred * scale), base.buy_pct(pred), atol=1e-6), scale
+        # ⚠ **幅が縮まないこと**（潰れていたときはここが 0 になった）
+        assert np.ptp(np.percentile(cal.buy_pct(pred * scale), [5, 95])) > 10.0, scale
+
+
+def test_calibration_reaches_the_maximum_likelihood():
+    """⚠ **止まっていないことを尤度で確かめる**（プラン §2-1 の決定的な検定）。
+
+    ⚠ **`a` の値だけでは「情報が無い」と「解けていない」を区別できない。** 区別できるのは尤度。
+    ⚠ **傾きを少し動かして尤度が上がるなら、解が止まっている。**
+    """
+    rng = np.random.default_rng(1)
+    n = 4000
+    pred = rng.normal(0, 0.0017, n)                        # ⚠ 1 日リターンの尺度
+    target = np.where(0.1 * pred / 0.0017 + rng.normal(0, 1, n) > 0, 1.0, -1.0)
+    cal = calibrate.fit_from_predictions(pred, target, "holdout")
+    up = target > 0
+
+    def ll(a, b):
+        p = 1.0 / (1.0 + np.exp(-np.clip(a * pred + b, -500, 500)))
+        return float(np.mean(np.where(up, np.log(p + 1e-12), np.log1p(-p + 1e-12))))
+
+    best = ll(cal.a, cal.b)
+    for f in (0.5, 0.8, 1.25, 2.0):
+        assert ll(cal.a * f, cal.b) <= best + 1e-9, f      # ⚠ 傾きをずらすと必ず下がる
+
+
 def test_one_sided_labels_fall_back_to_a_constant():
     """片側しか無い標本では傾きを学ばず、基準率の定数確率に落とす。"""
     X, _ = _toy(n=300)

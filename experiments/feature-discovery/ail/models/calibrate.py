@@ -16,6 +16,11 @@ import numpy as np
 
 from ail.models.holdout import tail_holdout
 
+# ⚠ **較正の版。台帳の鍵に入る**（rules.md 13-2 の 6・13-9 の 5）。
+# ⚠ **これが無い実行は「旧」＝ 2026-09-12 より前の、数値解が止まっていた較正である。**
+# ⚠ **旧行は再計算しない・消さない。** 回し直した分は別の鍵になり、新しい試行として数える
+VERSION = "std"
+
 
 @dataclass(frozen=True)
 class Calibration:
@@ -66,9 +71,25 @@ def fit_from_predictions(pred: np.ndarray, target: np.ndarray, source: str) -> C
 
 
 def _platt(pred: np.ndarray, up: np.ndarray) -> tuple[float, float]:
-    """ロジスティック回帰 1 変数（正則化はほぼ切る＝ 素の Platt）。決定的。"""
+    """ロジスティック回帰 1 変数（正則化はほぼ切る＝ 素の Platt）。決定的。
+
+    ⚠ **予測を標準化してから解き、係数を元のスケールへ戻す**（2026-09-12 の処置）。
+    ⚠ **モデルも標本も目的関数も変えていない。変えたのは解き方だけである**（rules.md 13-2 の 6）。
+
+    ⚠ **なぜ要るか**: `lbfgs` の `tol`（既定 1e-4）は L-BFGS-B の `gtol` に渡り、
+    ⚠ **平均対数損失の勾配**で収束を判定する。傾きの勾配は `≈ cov(y, pred)` で
+    ⚠ **予測のスケールにそのまま比例する**ので、1 日リターンの尺度（σ ≈ 0.0017）では
+    ⚠ **開始点の勾配 3e-5 が `tol` を下回り、1 反復で「収束」と判定されて a が 0 のまま出てくる。**
+    ⚠ **実測**: 生のまま 1 反復・a = 0.00013 ／ 標準化して 2 反復・a = 46.54（同じ最尤解）。
+    切り分けは [buy-pct-width-collapse.md](../../../../docs/specs/experiments/buy-pct-width-collapse.md)。
+    """
     from sklearn.linear_model import LogisticRegression
 
+    mu, sd = float(np.mean(pred)), float(np.std(pred))
+    if sd == 0.0:                                        # 呼び元が先に弾いているが念のため
+        return 0.0, 0.0
     m = LogisticRegression(C=1e6, solver="lbfgs", max_iter=1000)
-    m.fit(pred.reshape(-1, 1), up.astype(int))
-    return float(m.coef_[0, 0]), float(m.intercept_[0])
+    m.fit(((pred - mu) / sd).reshape(-1, 1), up.astype(int))
+    a_z, b_z = float(m.coef_[0, 0]), float(m.intercept_[0])
+    # ⚠ **元のスケールへ戻す。** σ(a·pred + b) が標準化した式とちょうど一致する
+    return a_z / sd, b_z - a_z * mu / sd

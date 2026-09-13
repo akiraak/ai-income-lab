@@ -301,6 +301,20 @@ def _trading_of(cfg: dict) -> tuple[str, str]:
     return "毎日往復", "共通"
 
 
+def _calibration_of(run: dict, style: str) -> str:
+    """鍵に入れる**較正の版**（rules.md 13-2 の 6）。
+
+    ⚠ **毎日往復は較正を通らない**（`sign(pred)` で張る）ので「—」。
+    ⚠ **閾値売買で記録が無い実行は「旧」** — 2026-09-12 より前の、⚠ **数値解が止まっていた較正である**
+    （[buy-pct-width-collapse.md](../../../docs/specs/experiments/buy-pct-width-collapse.md)）。
+    ⚠ **後から遡って埋めない**（`_period_of` の 3 段目と同じ向き。いまのコードを過去の実行に
+    当てるのは自己申告になる）。⚠ **旧行は再計算しない・消さない。回し直した分は別の鍵で数える。**
+    """
+    if style != "閾値売買":
+        return "—"
+    return str((run.get("checks") or {}).get("calibration") or "旧")
+
+
 def _edge_vs_bh(result: pd.DataFrame | None, method: str, th) -> tuple[float | None, str | None]:
     """(対 B&H 上乗せの平均 bp, fold の符号)。⚠ **fold の符号は上乗せで見る**（rules.md 13-7）。"""
     if result is None or "閾値" not in result or th is None:
@@ -335,7 +349,7 @@ def _run_trials(run: dict) -> list[dict]:
             "コストbp": cfg.get("cost_bp"), "本数": s.get("本数"), "的中率": s.get("的中率"),
             "IC": s.get("IC"), "粗利bp": s.get("粗利bp"), "純利bp": s.get("純利bp"),
             "fold": None if style == "閾値売買" else _sign_pattern(run.get("result"), str(method)),
-            "検証方式": style, "形式": form,
+            "検証方式": style, "形式": form, "較正": _calibration_of(run, style),
             "閾値": f"{float(th):g}" if th is not None else "—",
             "実行": run["実行"], "leak": run["leak"], "行": inputs.get("rows_before_sample"),
             "出所": "runs",
@@ -375,7 +389,8 @@ def _gate_rows(run: dict, gran: str, bar_min: float, layer: str, period: str,
             "対象": cfg.get("targets") or "all", "k": cfg.get("k"),
             "コストbp": cfg.get("cost_bp"), "本数": None, "的中率": None, "IC": None,
             "粗利bp": None, "純利bp": None, "fold": None,
-            "検証方式": style, "形式": form, "閾値": "—",
+            "検証方式": style, "形式": form, "較正": _calibration_of(run, style),
+            "閾値": "—",
             "実行": run["実行"], "leak": run["leak"], "行": inputs.get("rows_before_sample"),
             "出所": "runs", "門前": {"auc": g.get("auc"), "width_pt": g.get("width_pt")},
         })
@@ -432,7 +447,7 @@ def legacy_trials(decl: dict) -> list[dict]:
                for k in ("本数", "的中率", "IC")},
             "粗利bp": _num(cells[ix["粗利"]]) if ix["粗利"] is not None else None,
             "純利bp": _num(cells[ix["純利"]]),
-            "fold": None, "検証方式": "毎日往復", "形式": "共通", "閾値": "—",
+            "fold": None, "検証方式": "毎日往復", "形式": "共通", "較正": "—", "閾値": "—",
             "実行": decl["id"], "leak": False, "行": decl.get("rows"),
             "出所": "legacy",
         })
@@ -528,7 +543,7 @@ def _judge_trading(row: dict, note: str) -> tuple[str, str]:
 # --- 台帳の行 -----------------------------------------------------------
 
 KEY = ("鍵", "モデル", "粒度", "地平", "特徴量の層", "層", "期間", "銘柄",
-       "検証方式", "形式", "閾値")   # ⚠ 利用者が決めた 1 行の粒度
+       "検証方式", "形式", "較正", "閾値")   # ⚠ 利用者が決めた 1 行の粒度
 # ⚠ **モデルは 2026-09-09 に鍵へ足した**（plans/archive/gpu-models.md §3-2）。それまでは Ridge 1 本だったので
 # ⚠ **既存の行はどれも割れない**（旧実行はモデル未指定 = Ridge として読む）
 # ⚠ **検証方式・形式・閾値は 2026-09-10 に足した**（rules.md 13-9 の 1）。旧実行・旧配線は
@@ -538,6 +553,9 @@ KEY = ("鍵", "モデル", "粒度", "地平", "特徴量の層", "層", "期間
 # ⚠ **銘柄（実行が読んだ本数）は 2026-09-12 に足した**（11 章 規約 4 が「銘柄集合」を次元に挙げている）。
 # ⚠ **48 本の断面の実行と 63 本の実行が同じ鍵にまとまっていた**ので、⚠ **これは割れる = n_trials が増える。**
 # ⚠ **増えるのは厳しい側であり、数え落としを直したということである**（2026-09-11 の期間の追加と同じ形）
+# ⚠ **較正の版は 2026-09-12 に足した**（rules.md 13-2 の 6。Platt の数値解が止まっていた不具合の処置）。
+# ⚠ **既存の実行は `checks.calibration` を持たないので全部「旧」に寄り、行はどれも割れない。**
+# ⚠ **毎日往復は較正を通らないので「—」。** ⚠ **回し直した分は「std」で別の鍵になり、新しい試行として数える**
 
 
 def is_trial(row: dict) -> bool:

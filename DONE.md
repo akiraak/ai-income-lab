@@ -1,5 +1,22 @@
 # DONE
 
+- 2026-09-12 買い% の幅が潰れる原因を切り分けて直した（⚠ **犯人は Platt の数値解。⚠ 較正は「情報が無い」のではなく「解けていなかった」**）
+  - プラン: [docs/plans/archive/buy-pct-width-collapse.md](docs/plans/archive/buy-pct-width-collapse.md) ／ 記録: [buy-pct-width-collapse.md](docs/specs/experiments/buy-pct-width-collapse.md) ／ 規約: [rules.md 13-2 の 6・13-9 の 5](docs/specs/experiments/feature-discovery/rules.md) ／ 道具: `experiments/feature-discovery/cli/calibdiag.py`
+  - 発端: ⚠ **直近 2 タスクが独立に同じ壁に当たった** — [selectors-small-four](docs/specs/experiments/selectors-small-four.md)（⚠ **手法が違っても `result.csv` 60 行とも完全一致**）と [entry-timing](docs/specs/experiments/entry-timing.md)（⚠ **D 系は保有日率 0.987〜0.998**）
+  - **⚠ 原因は 1 つではなく 3 つあった**
+    - ⚠ **A（不具合）: Platt の数値解が 1 反復で止まっていた** — `LogisticRegression(lbfgs)` の `tol`（既定 1e-4）は**平均対数損失の勾配**で収束を判定し、⚠ **その勾配は予測のスケールに比例する。** 1 日リターンの尺度（σ ≈ 0.0017）では開始点の勾配 3e-5 が `tol` を下回り、⚠ **傾き `a` が初期値 0 のまま出ていた**（実測: 生のまま **1 反復・a = 0.00013** ／ 標準化して **21 反復・a = 46.55**）
+    - ⚠ **B（設計）: 直しても幅 20 点には届かない** — fold 中央値 **4.43 点**。⚠ **幅 20 点は AUC ≈ 0.57 の要求**で、⚠ **門（14-5）の 2 条件（AUC 0.52 かつ 幅 20 点）は互いに整合していない**
+    - ⚠ **C（設計）: 検知器は幅ではなく中心で潰れている** — D2 中期・D3 長期は ⚠ **正しく解けていて幅も 8〜45 点ある**が、⚠ **買い% の中心が 58.5 / 68.4%** にあり θ ∈ {50,55,60} が全部その下に落ちる。⚠ **較正が正しいことの帰結である**（200 営業日先が上がる確率は本当に高い）
+  - **⚠ 決定的だったのは尤度の比較**: ⚠ **`a` の値だけでは「情報が無い」と「解けていない」は区別できない。** 同じ標本・同じ目的関数で標準化して解き直すと ⚠ **25 行中 22 行で対数尤度が上がった** ＝ 現行の解は最尤解ではなかった
+  - **⚠ 2026-09-10 の結論を訂正した**（[threshold-trading.md §2](docs/specs/experiments/threshold-trading.md)）: 「較正の不具合ではない」の根拠だった leak 対照は ⚠ **反証になっていない。** ⚠ **leak でも同じ不具合を踏んでおり、信号が強すぎて幅 100 点に達してしまうだけだった**（同じ leak 実行の中で、leak 列を選ばない乱択だけが本番と同じ形で潰れている）
+  - **利用者の裁定（2026-09-12）**: (1) ⚠ **原因 A を直す** ／ (2) ⚠ **旧行は残し、回し直しを別試行として足す**（台帳の鍵に「較正」を足す）／ (3) ⚠ **原因 B・C には触らない**（結果を見てから水準を動かさない）
+  - **処置**: `_platt` を ⚠ **標準化してから解き、係数を元のスケールへ戻す**ようにした。⚠ **モデルも標本も目的関数も変えていないので 13-2 の定義は開いていない**（不具合の修正であって定義の変更ではない）
+  - **⚠ 回し直しの前後**（1995 表の 5 実行）: ⚠ **選別系は取引が 2 桁増えた**（`pca_1995` θ=55 は ⚠ **取引 0 回 → 115 回**・`sel_small4` θ=50 は 1,505 → **9,202 回/fold**）／ ⚠ **検知器系はほとんど動かない**（`trend_scales` θ=55 の上乗せ ＋101.3 → ＋100.6 ＝ 診断どおり）
+  - ⚠ **良くはなっていない**: ⚠ **「採る」は 0 件のまま。** 最良は `sel_small4` θ=50 の上乗せ ＋728.5bp だが ⚠ **t 0.47** ＝ 検出限界（[14-2](docs/specs/experiments/feature-discovery/rules.md)）の 1 桁下。θ=55・60 は依然として大きく負
+  - 検算: ✅ **HEAD の台帳 412 行が 1 行も消えず、較正の列を除けば 1 バイトも変わらない**（足されたのは 87 行）／ ✅ **leak 対照 4 対とも跳ねた**（選別系 ＋81,343〜81,365bp・t 11.30 ／ 検知器系 ＋12,903〜16,860bp・t 7.21〜8.17）／ **276 件 pass**（新規 2 本は ⚠ **スケール不変性**と**尤度が最大であること**）
+  - `n_trials` **265 → 337（＋72）**。⚠ **診断そのものは `n_trials` を動かしていない**（`cli/calibdiag.py` は `out/diag/` にしか書かず、`runs/` に `config.json` を作らないので台帳が拾わない）
+  - ⚠ **残る限界**: ⚠ **回し直したのは 1995 表の 5 実行だけ**（2018 表・LightGBM・GPU 系の旧行 237 行は「旧」のまま残っている）／ 原因 B・C は未着手（どちらも TODO に積んだ）
+
 - 2026-09-12 台帳の空白のうち手間「小」の 4 件を埋めた（⚠ **4 件とも届かない。⚠ だが 3 件は「効かない」ではなく「測れる差を作らない」**）
   - プラン: [docs/plans/archive/selectors-small-four.md](docs/plans/archive/selectors-small-four.md) ／ 記録: [selectors-small-four.md](docs/specs/experiments/selectors-small-four.md) ／ 台帳: [ledger.md](docs/specs/experiments/feature-discovery/ledger.md)
   - 対象: **F2-2 RFE ／ F1-7 IC の時系列安定性 ／ F1-4 分散しきい値 ／ F5-1 PCA**（[rules.md 14-10](docs/specs/experiments/feature-discovery/rules.md) の「手間の小さい順」の先頭 4 件）

@@ -98,13 +98,25 @@ def test_leak_makes_the_edge_jump_in_both_forms(run, tmp_path, monkeypatch):
 
 
 def test_without_leak_the_edge_stays_small(run):
-    """先読みの無い雑音の表では上乗せは跳ねない（跳ねたらまず配線を疑う。13-10）。"""
+    """先読みの無い雑音の表では上乗せは跳ねない（跳ねたらまず配線を疑う。13-10）。
+
+    ⚠ **水準を 50bp から 500bp に緩めた**（2026-09-12。較正の数値解を直したついで）。
+    ⚠ **緩める前は「上乗せがちょうど 0」だった** — 買い% が定数に潰れていて、雑音の表では
+    ⚠ **全手法が B&H と 1 ビットも違わない売買しかしなかったから**である
+    （[buy-pct-width-collapse.md](../../../docs/specs/experiments/buy-pct-width-collapse.md)）。
+    ⚠ **直したいまは雑音の表でも建てたり休んだりするので、ドリフトの取り損ねで数百 bp 動く。**
+    ⚠ **検査の中身は緩めていない** — この検査が守るのは 13-10 の「先読みが無いのに跳ねたら配線を疑う」で、
+    ⚠ **leak は ＋5,182bp・符号 5/5**【実測 2026-09-12】。⚠ **雑音は −172〜＋85bp・符号 1〜2/5** で 60 倍離れている。
+    """
     panel = _panel()
     exp = _exp()
     res, per_sym, summary, daily, _x = evaluate_trading(panel, _feats(panel), exp, run)
     doc = checks.compute_trading(res, summary, per_sym, daily, exp, n_trials=70)
-    for e in doc["by_threshold"].values():
-        assert abs(e["edge_vs_bh"]["mean_bp"]) < 50.0
+    for th, e in doc["by_threshold"].items():
+        ed = e["edge_vs_bh"]
+        assert abs(ed["mean_bp"]) < 500.0, (th, ed)        # ⚠ leak（＋5,182bp）の 1/10 未満
+        # ⚠ **符号が 5/5 揃うのは leak だけ**（`test_leak_makes_the_edge_jump_in_both_forms`）
+        assert ed["positive"] < ed["folds"], (th, ed)
 
 
 def test_calibration_coefficients_are_recorded(run, tmp_path):

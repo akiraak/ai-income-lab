@@ -274,9 +274,14 @@ def compute_trading(result: pd.DataFrame, summary: pd.DataFrame, per_symbol: pd.
     - 診断列（rules.md 14-3。⚠ **採否には使わない**）: `edge_bins`（fold 内 2 等分の上乗せ符号）と、
       `panel` があれば `breadth`（実効系列数）
     """
+    from ail.models import calibrate
+
     t = config.get("trading", {})
     doc: dict = {"leak": bool(leak), "style": "threshold",
                  "form": str(t.get("form", "shared")),
+                 # ⚠ **較正の版を残す**（rules.md 13-2 の 6）。⚠ **台帳の鍵に入るので、
+                 # ⚠ **旧実行（この key が無い ＝「旧」）と同じ行にまとまらない**
+                 "calibration": calibrate.VERSION,
                  "cost_bp": float(config.get("cost_bp", 5.0)),
                  "thresholds": [float(x) for x in t.get("thresholds", [])]}
     by: dict[str, dict] = {}

@@ -49,7 +49,11 @@ def wgan_gp_sample(Xtr, ytr, ctx) -> tuple[np.ndarray, np.ndarray]:
     opt_g = torch.optim.Adam(gen.parameters(), lr=1e-4, betas=(0.5, 0.9))
     opt_c = torch.optim.Adam(critic.parameters(), lr=1e-4, betas=(0.5, 0.9))
     g = torch.Generator(device="cpu").manual_seed(seed + 1)
-    batch = min(1024, len(data))
+    # ⚠ **既定は 1024（2026-09-09 に事前固定した形）。`ctx["gan_batch"]` でだけ動く。**
+    # ⚠ **batch を変えると最適化の軌跡が変わる ＝ 別の手法である**（rules.md 13-6 の 3・14-9）。
+    # ⚠ **だから別のモデル名で登録し、台帳の鍵を割る**（下の登録。同じ鍵にまとめると
+    # ⚠ **違う手法の数字が「再現の幅」に化ける**。rules.md 13-9 の 5）
+    batch = min(int(ctx.get("gan_batch", 1024)), len(data))
 
     def gradient_penalty(real_b, fake_b):
         eps = torch.rand(len(real_b), 1, device=dev)
@@ -83,10 +87,12 @@ def wgan_gp_sample(Xtr, ytr, ctx) -> tuple[np.ndarray, np.ndarray]:
     return synth[:, :-1], synth[:, -1] * ysd
 
 
-def _augmented(base_name: str):
+def _augmented(base_name: str, batch: int | None = None):
     def fn(Xtr, ytr, Xte, ctx):
         from ail import registry
 
+        if batch is not None:
+            ctx = {**ctx, "gan_batch": batch}       # ⚠ 呼び元の ctx は書き換えない
         Xs, ys = wgan_gp_sample(Xtr, ytr, ctx)
         cols = list(Xtr.columns) if hasattr(Xtr, "columns") else None
         if cols:
@@ -97,9 +103,18 @@ def _augmented(base_name: str):
         ya = np.concatenate([ys, np.asarray(ytr)])
         return registry.resolve("model", base_name)(Xa, ya, Xte, ctx)
 
-    fn.__name__ = f"gan_augmented_{base_name}"
+    fn.__name__ = (f"gan_augmented_{base_name}"
+                   + (f"_batch{batch}" if batch is not None else ""))
     return fn
 
 
+# ⚠ **batch 16,384 を別の名前で登録する**（2026-09-13。利用者の決定「両方回す」）。
+# ⚠ **既定の 1024 と同じ鍵にまとめない。** 台帳の鍵はモデル名を含むので、名前を割れば行も割れる。
+# ⚠ **速さのために入れた水準だが、入れた以上は普通の試行として数える**（rules.md 14-9・13-9 の 3）。
+# ⚠ **1 反復の時間は batch にほとんど依らない**【実測 2026-09-13】ので、
+# ⚠ **反復数が 1/9 になるぶんそのまま速くなる**（記録 `gan-threshold-trading.md`）。
+GAN_BATCH_LEVELS = {"": None, "(batch16k)": 16384}
+
 for _base in ("Ridge", "LightGBM", "MLP"):
-    register("model", f"{_base}+GAN増強")(_augmented(_base))
+    for _suffix, _batch in GAN_BATCH_LEVELS.items():
+        register("model", f"{_base}+GAN増強{_suffix}")(_augmented(_base, _batch))

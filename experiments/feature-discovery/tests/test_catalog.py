@@ -73,12 +73,16 @@ def test_entries_stops_when_the_count_disagrees(tmp_path):
         catalog.entries(str(p))
 
 
-def test_real_spec_has_25_methods_in_5_families():
-    """⚠ **本物の spec を読む。** 25 件・7/4/6/4/4 から動いたら気づく。"""
+def test_real_spec_has_26_methods_in_5_families():
+    """⚠ **本物の spec を読む。** 26 件・7/4/7/4/4 から動いたら気づく。
+
+    ⚠ **2026-09-13 に 25 件・F3 が 6 件から動かした**（`F3-1b` を足した。利用者の裁定 (d)＋(b)）。
+    ⚠ **この検査は「黙って減ったら気づく」ための仕掛けなので、意図して動かしたときだけ直す。**
+    """
     e = catalog.entries()
-    assert len(e) == 25
-    assert catalog.family_counts() == {"F1": 7, "F2": 4, "F3": 6, "F4": 4, "F5": 4}
-    assert len({x["ID"] for x in e}) == 25
+    assert len(e) == 26
+    assert catalog.family_counts() == {"F1": 7, "F2": 4, "F3": 7, "F4": 4, "F5": 4}
+    assert len({x["ID"] for x in e}) == 26
 
 
 def test_every_implemented_selector_is_in_the_catalog():
@@ -88,9 +92,22 @@ def test_every_implemented_selector_is_in_the_catalog():
     # ⚠ **2026-09-12 に「手間 小」の 4 件を足した**（プラン `plans/selectors-small-four.md`）。
     # ⚠ **F5-1 は `selector` ではなく `transform`** なので、`implemented()` が両方を見ている
     # ことの検査も兼ねる（見落とすと、回したのに台帳 §3 で「未実施」のままになる）
+    # ⚠ **F3-1b は 2026-09-13 に足した**（F3-1 の直した版。ID を分けないと台帳で同じ行にまとまる）
     assert set(catalog.implemented()) == {"F1-1", "F1-2", "F1-3", "F1-4", "F1-5", "F1-7",
-                                          "F2-2", "F2-3", "F3-1", "F3-2", "F3-3", "F3-5",
-                                          "F5-1"}
+                                          "F2-2", "F2-3", "F3-1", "F3-1b", "F3-2", "F3-3",
+                                          "F3-5", "F5-1"}
+
+
+@pytest.mark.parametrize("name,want", [
+    ("F3-1 Lasso", "F3-1"),
+    ("F3-1b Lasso（本数を固定）", "F3-1b"),        # ⚠ **末尾の小文字まで取る**
+    ("F1-5 検定+FDR", "F1-5"),
+    ("F10-2 何か", None),                          # ⚠ 系統は 1 桁（幽霊 ID を拾わない）
+    ("乱択（基準）", None),
+])
+def test_id_tells_f3_1_and_f3_1b_apart(name, want):
+    """⚠ **`F3-1` と `F3-1b` を取り違えたら、直した版が既存 20 行と同じ行にまとまる。**"""
+    assert catalog.canonical(name)[0] == want
 
 
 # --- 数の読み取り -------------------------------------------------------

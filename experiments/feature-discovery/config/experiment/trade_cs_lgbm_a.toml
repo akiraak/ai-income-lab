@@ -1,0 +1,56 @@
+# ⚠ **断面（own cs rel ll）を閾値売買で回す 1 本目**（プラン `plans/lasso-fix-cs-threshold.md` §0-3）。
+#
+# ⚠ **`gpu_lgbm_cs` と同じ表・同じ選別・同じ k・同じモデルで回し、差を「検証方式だけの差」として読む**
+# （rules.md 13-8 の橋渡し）。⚠ **閾値売買の層はここまで `own` と `own ex` しか無かった。**
+#
+# ⚠ **選別は `gpu_lgbm_cs` の 4 本 ＋ F3-1b の 1 本。** ⚠ **F3-1b は橋渡しの外側の 1 列**であって、
+# ⚠ **4 本どうしの比較を壊さない。** ⚠ **F3-1（壊れているほう）をわざと残してある** — 同じ fold・
+# ⚠ **同じ表で並ぶので、「フォールバックが効いていたのか」の直接の対照になる**
+# （利用者の裁定 2026-09-13 の (d)＋(b)）。
+#
+# ⚠ **TOML の平の key はテーブル見出しより上に書く**（rules.md 10 章 規約 1）
+name = "trade_cs_lgbm_a"
+dataset = "daily"
+horizon = 1
+cost_bp = 5.0
+features_from = "gpu_lgbm_cs"  # ⚠ 表は作り直さず gpu_lgbm_cs のものを読む（13-8。表の差を混ぜない）
+                               # ⚠ **96,769 行 × 134 列。`targets = "company"` は表に焼き込み済み**
+
+feature_layers = ["own", "cs", "rel", "ll"]
+targets = "company"            # ⚠ 借りる表の作られ方を写しただけ（build 時の設定。ここでは効かない）
+
+horizon_min = 1440.0
+bar_minutes = 1440.0
+
+selectors = [
+  "全部使う（基準）", "乱択（基準）",
+  "F3-3 並べ替え(MDA)", "F3-1 Lasso",
+  "F3-1b Lasso（本数を固定）",   # ⚠ **初回。** F3-1 の直した版（plans/lasso-fix-cs-threshold.md §1）
+]
+k = 32
+
+model = "LightGBM"
+baselines = ["常に上（ドリフト）", "直前リターンの符号"]
+
+[trading]
+style = "threshold"
+thresholds = [50, 55, 60]      # ⚠ 事前固定。結果を見て動かさない（rules.md 13-3）
+form = "shared"                # (A) 銘柄共通 1 本。⚠ **比較相手の既存行が (A) にしか無い**（先例 sel_lgbm_two）
+
+[validation]
+split = "walk_forward_dates"   # ⚠ fold の切れ目は日付で決める（rules.md 13-6 の 1）
+folds = 5
+purge = true
+# ⚠ **embargo は 1 のまま**（`gpu_lgbm_cs` と同じ）。⚠ **これは断面の層の性質であって検証方式ではない** —
+# ⚠ **cs / rel は同じ時刻の他銘柄を見る**ので境目を 1 本空ける。⚠ **0 にすると橋渡しに 2 つ目の差が入る**
+embargo_bars = 1
+seed = 0
+
+[features]
+# ⚠ **借りる表の作られ方を写したもの**（build 時の設定。`features_from` があるのでここでは効かない）
+ll_leaders = "etf"
+ll_lags = [1, 2, 3, 5]
+beta_window = 60
+
+[notes]
+common_window_only = true

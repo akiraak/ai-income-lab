@@ -1,5 +1,36 @@
 # TODO
 
+- [ ] 買い% の幅が潰れる原因を切り分ける（⚠ **次はここから始める**。着手時にプランを作る）
+  ⚠ **利用者の指示（2026-09-12）: この 1 番から着手する。** ⚠ **`/clear` を挟むので、以下に文脈を全部書いてある**
+  派生元: 「台帳の空白を埋める（手間 小 4 件）」（✅ 2026-09-12 完了。[selectors-small-four.md](docs/specs/experiments/selectors-small-four.md)）／ 「下降トレンドの売買タイミング」（✅ 2026-09-12 完了。[entry-timing.md](docs/specs/experiments/entry-timing.md)）
+  ⚠ **直近 2 タスクが独立に同じ壁に当たった。** ⚠ **これを直さないまま他の手法を流すと、全部「乱択と一致」で戻ってくる**（そして `n_trials` だけ増える）
+
+  **症状**: ⚠ **較正した買い% に幅が無いので、θ ∈ {50,55,60} を跨ぐ日が無く、状態機械が fold ごとに「ずっと持つ」か「ずっと休む」に潰れる**
+  - ⚠ **手法が違っても売買が 1 ビットも違わなくなる**【実測】: F1-7 ↔ 乱択・F5-1 PCA ↔ 乱択・F1-4 ↔ 全部使う が `result.csv` 60 行とも完全一致（[§2-1](docs/specs/experiments/selectors-small-four.md)）。⚠ **予測は違う（IC 0.0223 対 0.0211）のに売買が同じ**
+  - entry-timing でも同じ形: ⚠ **D 系は保有日率 0.987〜0.998 で、5 fold のうち 3 fold は B&H と 1 日も違わない**
+
+  ✅ **犯人は 2 か所に絞れている**【実測 2026-09-12・本番 18 実行の門の記録を横断】:
+
+  | 系統 | 測定 | 幅=0.0 点 | 幅≥20 点 | 幅の中央値 |
+  | --- | ---: | ---: | ---: | ---: |
+  | 選別 × モデル | 9 | **8** | 0 | **0.00** |
+  | D 学習ゲート | 18 | 5 | 0 | **4.94** |
+  | C 古典フィルタ | 15 | 0 | **15** | **100.00** |
+
+  - ⚠ **潰れているのは学習を通る経路だけ。** ✅ **C 古典フィルタは同じシミュレータ・同じ閾値・同じ物差しで幅 100 点を出している**
+  - ✅ **だから θ より下流（状態機械・コスト・物差し）は健全だと証明済み。** ⚠ **犯人は `Ridge の予測の散らばり` か `Platt 較正` の 2 か所**
+  - ⚠ **AUC は通っている**（今回の 4 手法で 0.519〜0.528。門の水準は AUC 0.52 かつ 幅 20 点）＝ ⚠ **順位はわずかに付くが確率に幅が出ない**
+  - 動く対照が手元にある: **C 系 `classic_filter` ／ D 系 `scale_gate`**（どちらも `ail/detectors/scale.py`）
+
+  ⚠ **先に決めること（プランの Phase 0）**
+  - ⚠ **較正を変えると [rules.md 13-2](docs/specs/experiments/feature-discovery/rules.md)（「分類モデルに替えず、回帰値を Platt 較正する」）を開くことになる。** ⚠ **既存 265 試行が別定義になりうる**ので、⚠ **[edge-drift-bias](docs/specs/experiments/edge-drift-bias.md) で 13-7 を変えなかったのと同じ判断が要る**
+  - ⚠ **だから Phase 1 は診断だけにする**（`Ridge の予測`・`Platt の (a,b)`・`買い%` の分布を同じ fold で並べる）。⚠ **診断は summary の行を作らないので `n_trials` を増やさない**
+  - ⚠ **規約を変えるなら、変える理由と代償を先に書く**（rules.md 冒頭の変更規約）
+
+  読む場所: 門 `ail/validation/gate.py`（`AUC_MIN` 0.52 ／ `WIDTH_MIN_PT` 20.0）／ 較正 `ail/models/calibrate.py` ／ 状態機械 `ail/validation/simulate.py` ／ 検知器 `ail/detectors/scale.py` ／ 実行は `experiments/feature-discovery/runs/*/checks.json` の `gate.methods[*].width_pt`
+  現状: `n_trials` **265** ／ 台帳 [ledger.md](docs/specs/experiments/feature-discovery/ledger.md) ／ ⚠ **「採る」は 0 件のまま**
+  関連: [rules.md 14-2](docs/specs/experiments/feature-discovery/rules.md)（検出限界）／ [14-5](docs/specs/experiments/feature-discovery/rules.md)（門は 2026-09-12 に診断へ降格）
+
 - [ ] DeepLearning と進化的探索（遺伝的アルゴリズム）を使った検証をかなり増やす。進化的探索の実行を継続して回せる仕組みを入れる
   利用者の指示（2026-09-10）: **DeepLearningとGANを使った検証をかなり増やす。GANの実行を継続して回せる仕組みを入れる**
   ⚠ 旧題は「GAN」だったが、利用者の意図は遺伝的アルゴリズム（モデル集団を対決させ、勝者の特徴で次世代を作る進化的探索）だったので 2026-09-10 に改題。ML 用語の GAN（データ増強）は 2026-09-09 に検証済みで「落とす」（[gpu-models.md §4](docs/specs/experiments/gpu-models.md)）

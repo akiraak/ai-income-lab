@@ -3,6 +3,7 @@
     python3 -m cli.calibdiag --experiment sel_small4_1995
     python3 -m cli.calibdiag --experiment trend_scales_1995
     python3 -m cli.calibdiag --curve            # AUC → 幅 の対応だけ引く
+    python3 -m cli.calibdiag --experiment trend_scales_1995 --theta   # θ の置き方 3 案を比べる
 
 ⚠ **これは検証ではなく診断である。** ⚠ **`runs/` には 1 バイトも書かない** — 出力は
 `out/diag/<時刻>/` に落とす。⚠ **`config.json` を持つディレクトリを作らないので
@@ -15,6 +16,10 @@
 | 1 予測に散らばりが無い | `pred_std` | ⚠ **0 に近い** |
 | 2 Platt が最尤解に届いていない | `dll = ll_std − ll_now` | ⚠ **正**（同じ目的関数なので、届いていれば 0） |
 | 3 AUC 0.52 では幅 20 点が出ない | `width_std` ／ `--curve` | ⚠ **解き直しても 20 点に届かない** |
+
+⚠ **`--theta` は θ の置き方の検討用**（[記録](../../../docs/specs/experiments/theta-placement.md)）。
+⚠ **3 案（絶対 / 中央値±δ / 分位点）の帯と、入口・出口が立つ日の割合を訓練分割の内側だけで出す。**
+⚠ **どれも採用していない**（2026-09-13 の裁定。rules.md 13-3 の 6）ので、⚠ **これは検討の道具であって本番の経路ではない。**
 """
 
 from __future__ import annotations
@@ -86,12 +91,68 @@ def _width(buy: np.ndarray) -> float:
 
 
 def _crossings(buy: np.ndarray) -> dict:
-    """⚠ **θ の上に居る日の割合。** 0 か 1 に張り付く ＝ 状態機械が「ずっと休む / ずっと持つ」に潰れる。
+    """⚠ **入口と出口のそれぞれが立つ日の割合。** どちらかが 0 に張り付くと状態機械が潰れる。
 
     ⚠ **最小値と最大値で「跨ぐか」を見ても足りない** — 1 日だけ超える系列は跨ぐが、
     ⚠ **売買はほとんど変わらない**（保有日率 0.998 の形）。⚠ **割合で見る。**
+
+    ⚠ **出口は `出口% > θ` ＝ `買い% < 100 − θ`**（rules.md 13-4・16-1）。
+    ⚠ **θ ≥ 50 なので、出口は必ず「買い% < 50」以下を要求する**（[プラン §2](
+    ../../../docs/plans/archive/theta-placement.md)）。
     """
-    return {f"上θ{int(t)}": round(float(np.mean(buy > t)), 4) for t in THRESHOLDS}
+    out = {f"上θ{int(t)}": round(float(np.mean(buy > t)), 4) for t in THRESHOLDS}
+    out.update({f"下θ{int(t)}": round(float(np.mean(buy < 100.0 - t)), 4) for t in THRESHOLDS})
+    return out
+
+
+# --------------------------------------------------------------------------- θ の置き方（案の比較）
+
+def _bands(buy_tr: np.ndarray) -> list[dict]:
+    """θ ∈ {50,55,60} を 3 通りの置き方で「帯 [下, 上]」に直す（[プラン §3](
+    ../../../docs/plans/archive/theta-placement.md)）。⚠ **材料は訓練分割の内側の買い% だけ。**
+
+    ⚠ **いまの契約は帯 [100 − θ, θ] と厳密に同じ**（入口 `買い% > θ`・出口 `買い% < 100 − θ`）。
+    ⚠ **だから 3 案は「帯の置き方」の違いとして 1 つの表に並べられる。**
+
+    | 案 | 帯 | ⚠ 現状に戻る条件 |
+    | --- | --- | --- |
+    | 1 現行（絶対） | [100 − θ, θ] | — |
+    | 2 中央値 ± δ（δ = θ − 50） | [中央値 − δ, 中央値 ＋ δ] | ⚠ **中央値が 50 なら現行と完全一致** |
+    | 3 分位点 | [Q(100 − θ), Q(θ)] | ⚠ **買い% が 0〜100 に一様なら現行と一致** |
+    """
+    med = float(np.median(buy_tr))
+    out = []
+    for t in THRESHOLDS:
+        d = t - 50.0
+        out.append({"θ": t, "案": "1 現行（絶対）", "下": 100.0 - t, "上": t})
+        out.append({"θ": t, "案": "2 中央値±δ", "下": med - d, "上": med + d})
+        out.append({"θ": t, "案": "3 分位点",
+                    "下": float(np.percentile(buy_tr, 100.0 - t)),
+                    "上": float(np.percentile(buy_tr, t))})
+    return out
+
+
+def _theta_rows(bank: list[dict]) -> pd.DataFrame:
+    """案ごとに「入口が立つ日 / 出口が立つ日」の割合を訓練分割の上で出す。
+
+    ⚠ **保有日率そのものは出さない** — 状態機械にはヒステリシスがあり、⚠ **保有日率は
+    ⚠ **[入口が立つ割合, 1 − 出口が立つ割合] の間に入る。** ⚠ **両端を出して挟む**のが正しく、
+    ⚠ **検証 fold を読まずに言えるのはここまでである**（プラン §3 規律 1）。
+    """
+    rows = []
+    for e in bank:
+        tr = e["buy_tr"]
+        for b in _bands(tr):
+            lo, hi = b["下"], b["上"]
+            rows.append({"fold": e["fold"], "系統": e["系統"], "手法": e["手法"],
+                         "θ": b["θ"], "案": b["案"],
+                         "帯下": round(lo, 2), "帯上": round(hi, 2),
+                         "買い%中央": round(float(np.median(tr)), 2),
+                         "入口が立つ": round(float(np.mean(tr > hi)), 4),
+                         "出口が立つ": round(float(np.mean(tr < lo)), 4),
+                         "保有日率の下限": round(float(np.mean(tr > hi)), 4),
+                         "保有日率の上限": round(1.0 - float(np.mean(tr < lo)), 4)})
+    return pd.DataFrame(rows)
 
 
 def _row(pred_fit, target_fit, pred_te, y_te, source: str) -> dict:
@@ -127,8 +188,12 @@ def _row(pred_fit, target_fit, pred_te, y_te, source: str) -> dict:
 
 # --------------------------------------------------------------------------- 選別 × モデル
 
-def _selector_rows(panel, feats, exp, edges, v, ctx, k, model) -> list[dict]:
-    """⚠ **`cli/run.py` の (A) 共通の経路をそのままなぞる**（較正 → 買い%）。"""
+def _selector_rows(panel, feats, exp, edges, v, ctx, k, model, bank=None) -> list[dict]:
+    """⚠ **`cli/run.py` の (A) 共通の経路をそのままなぞる**（較正 → 買い%）。
+
+    `bank` を渡すと ⚠ **訓練分割の内側の買い%**（較正を fit した標本の上の値）を貯める。
+    ⚠ **θ の置き方の検討はこれだけを材料にする**（プラン §3 規律 1）。
+    """
     selectors = registry.resolve_all("selector", exp.get("selectors", []))
     rows: list[dict] = []
     for f, tr, te in splits.folds_by_dates(panel, edges, float(exp["horizon_min"]),
@@ -149,6 +214,10 @@ def _selector_rows(panel, feats, exp, edges, v, ctx, k, model) -> list[dict]:
             else:
                 pred_fit, target, source = model(Xtr[cols], ytr, Xtr[cols], ctx), ytr, "train"
             pred_te = model(Xtr[cols], ytr, Xte[cols], ctx)
+            cal = calibrate.fit_from_predictions(np.asarray(pred_fit, float), target, source)
+            if bank is not None:
+                bank.append({"fold": f, "系統": "選別", "手法": prep.label(exp, name),
+                             "buy_tr": cal.buy_pct(pred_fit)})
             rows.append({"fold": f, "系統": "選別", "手法": prep.label(exp, name),
                          "列": len(cols),
                          **_row(np.asarray(pred_fit, float), np.asarray(target, float),
@@ -158,7 +227,7 @@ def _selector_rows(panel, feats, exp, edges, v, ctx, k, model) -> list[dict]:
 
 # --------------------------------------------------------------------------- 検知器
 
-def _detector_rows(panel, feats, exp, edges, v, ctx) -> list[dict]:
+def _detector_rows(panel, feats, exp, edges, v, ctx, bank=None) -> list[dict]:
     """⚠ **`ail/detectors/scale.py` の `scale_gate` を開いてなぞる。**
 
     ⚠ **C 系（`classic_filter`）は学習しないので較正が無い。** 幅だけ並べて、
@@ -189,12 +258,22 @@ def _detector_rows(panel, feats, exp, edges, v, ctx) -> list[dict]:
                 pred_fit = model(Xtr[head], ytr[head], Xtr[hold], ctx)
                 target, source = ytr[hold], "holdout"
             pred_te = model(Xtr, ytr, Xte, ctx)
+            if bank is not None:
+                cal = calibrate.fit_from_predictions(np.asarray(pred_fit, float), target, source)
+                bank.append({"fold": f, "系統": "D 学習ゲート", "手法": f"{label}{w}日",
+                             "buy_tr": cal.buy_pct(pred_fit)})
             rows.append({"fold": f, "系統": "D 学習ゲート", "手法": f"{label}{w}日", "列": len(cols),
                          **_row(np.asarray(pred_fit, float), np.asarray(target, float),
                                 np.asarray(pred_te, float), yte, source)})
             # ⚠ **同じ fold・同じスケールの C 系**（学習しない規則）
             buy_c = np.where(te[f"{trend.PREFIX}trend{w}_dist"].to_numpy(dtype=float) > 0,
                              100.0, 0.0)
+            if bank is not None:
+                # ⚠ **C 系は学習しないので「訓練の内側」が無い。** ⚠ **訓練分割の同じ規則の出力を使う**
+                buy_c_tr = np.where(
+                    tr[f"{trend.PREFIX}trend{w}_dist"].to_numpy(dtype=float) > 0, 100.0, 0.0)
+                bank.append({"fold": f, "系統": "C 古典フィルタ", "手法": f"{label} SMA{w}",
+                             "buy_tr": buy_c_tr})
             rows.append({"fold": f, "系統": "C 古典フィルタ", "手法": f"{label} SMA{w}", "列": 1,
                          "較正元": "none（学習しない）", "auc_te": _auc(yte, buy_c),
                          "width_te_now": _width(buy_c), "width_te_std": _width(buy_c),
@@ -232,6 +311,8 @@ def main() -> None:
     ap.add_argument("--experiment")
     ap.add_argument("--leak", action="store_true")
     ap.add_argument("--curve", action="store_true", help="AUC → 幅 の対応だけ引く")
+    ap.add_argument("--theta", action="store_true",
+                    help="⚠ θ の置き方 3 案を訓練分割の内側だけで比べる（プラン §3）")
     ap.add_argument("--tag", default="")
     args = ap.parse_args()
 
@@ -259,8 +340,9 @@ def main() -> None:
     edges = splits.date_edges(panel["ts"], int(v.get("folds", 5)))
 
     print(f"診断 {args.experiment}{' (leak)' if args.leak else ''} / 行 {len(panel):,} / 列 {len(feats)}")
-    rows = (_detector_rows(panel, feats, exp, edges, v, ctx) if exp.get("detectors")
-            else _selector_rows(panel, feats, exp, edges, v, ctx, k, model))
+    bank: list[dict] | None = [] if args.theta else None
+    rows = (_detector_rows(panel, feats, exp, edges, v, ctx, bank) if exp.get("detectors")
+            else _selector_rows(panel, feats, exp, edges, v, ctx, k, model, bank))
     df = pd.DataFrame(rows)
     df.to_csv(os.path.join(d, "folds.csv"), index=False)
     json.dump({"実験": args.experiment, "leak": args.leak,
@@ -268,6 +350,15 @@ def main() -> None:
                "⚠ 注記": "診断であって検証ではない。runs/ に書かないので n_trials は動かない"},
               open(os.path.join(d, "meta.json"), "w", encoding="utf-8"),
               ensure_ascii=False, indent=1)
+
+    if bank:
+        th = _theta_rows(bank)
+        th.to_csv(os.path.join(d, "theta.csv"), index=False)
+        g = (th.groupby(["系統", "手法", "案", "θ"])
+               [["帯下", "帯上", "買い%中央", "入口が立つ", "出口が立つ"]].mean().round(3))
+        with pd.option_context("display.width", 200, "display.max_rows", 400):
+            print(g.to_string())
+        print("⚠ **fold 平均。** ⚠ **保有日率は「入口が立つ」以上・「1 − 出口が立つ」以下に入る**")
 
     cols = ["fold", "手法", "較正元", "pred_std", "auc_fit", "a_now", "a_std",
             "ll_now", "ll_std", "dll", "width_fit_now", "width_fit_std",

@@ -129,6 +129,8 @@ def evaluate_trading(panel: pd.DataFrame, feats: list[str], exp: dict, run: runs
         groups = te.groupby("symbol").indices          # 銘柄 → 行位置（時刻順のまま）
 
         buy: dict[str, np.ndarray] = {}
+        # ⚠ **出口%**（rules.md 16-1）。⚠ **None の手法は 100 − 入口% で回る ＝ 既存と完全一致**
+        exits: dict[str, np.ndarray | None] = {}
         n_cols: dict[str, float] = {}
         fitted_doc: dict[str, dict] = {}
         # ⚠ 基準線は「買い% の定数指標」としてシミュレータを共有する（13-5。別実装を作らない）
@@ -141,8 +143,11 @@ def evaluate_trading(panel: pd.DataFrame, feats: list[str], exp: dict, run: runs
             # ⚠ **検知器は買い% を直接返す**（rules.md 14-1 の出力の契約）。選別もモデルも中に隠れる。
             # ⚠ **シミュレータから先は選別 × モデルの経路とまったく同じものを使う**（物差しを揃える）
             for name, fn in detectors.items():
-                bp, doc = fn(tr, te, feats, ctx)
+                res = fn(tr, te, feats, ctx)
+                # ⚠ **3 つ返すのは出口% を別に持つ検知器**（rules.md 16-1。`ail/detectors/pair.py`）
+                bp, ep, doc = res if len(res) == 3 else (res[0], None, res[1])
                 buy[name] = np.asarray(bp, dtype=float)
+                exits[name] = None if ep is None else np.asarray(ep, dtype=float)
                 n_cols[name] = float(len(doc.get("columns", [])))
                 fitted_doc[name] = doc
         elif form == "per_symbol":
@@ -188,6 +193,7 @@ def evaluate_trading(panel: pd.DataFrame, feats: list[str], exp: dict, run: runs
         run.fitted(f"calibration_f{f}", fitted_doc)     # ⚠ 再現用。次の実行では読み込まない（13-2 の 3）
 
         for mname, bp in buy.items():
+            ex = exits.get(mname)                  # ⚠ None なら 100 − 入口%（rules.md 16-1 の 4）
             ok = ~np.isnan(bp)
             hit = float(np.mean((bp[ok] > 50.0) == (y[ok] > 0))) if ok.any() else 0.0
             ic = (float(np.corrcoef(bp[ok], y[ok])[0, 1])
@@ -203,7 +209,10 @@ def evaluate_trading(panel: pd.DataFrame, feats: list[str], exp: dict, run: runs
                 for s, idx in groups.items():
                     if np.isnan(bp[idx]).any():        # 飛ばした銘柄（(B) で訓練が無い）
                         continue
-                    r = sim.simulate(bp[idx], y[idx], th, cost_bp)
+                    if ex is not None and np.isnan(ex[idx]).any():
+                        continue                       # ⚠ 出口% が欠けた銘柄も同じく飛ばす
+                    r = sim.simulate(bp[idx], y[idx], th, cost_bp,
+                                     exit_pct=None if ex is None else ex[idx])
                     rg = sim.shifted_gate(r["pos"], y[idx], cost_bp, rng)   # 14-6 の b
                     key, stamp = str(s), ts_te.iloc[idx].values
                     nets[key] = pd.Series(r["net_bp"], index=stamp)

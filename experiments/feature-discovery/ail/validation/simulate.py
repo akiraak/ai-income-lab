@@ -6,6 +6,11 @@
 
 ⚠ **θ は 50% 以上だけ**（13-3 の 2）。θ ≥ 50 なら買い（買い% > θ）と
 売り（100 − 買い% > θ）は同時に立たない。θ < 50 は優先規則という自由度が増えるので受けない。
+
+⚠ **2026-09-12: 出口% を別に受けられるようにした**（rules.md 16-1）。
+⚠ **状態が読む側を決める** — 未保有の日は入口% だけ、保有中の日は出口% だけを見るので、
+⚠ **2 本が同時に θ を超えても優先規則は要らない。**
+⚠ **`exit_pct` を省くと 100 − 入口% ＝ 1 出力の契約と完全に一致する**（16-1 の 4・16-2）。
 """
 
 from __future__ import annotations
@@ -14,10 +19,12 @@ import numpy as np
 import pandas as pd
 
 
-def simulate(buy_pct, y, threshold: float, cost_bp: float = 5.0) -> dict:
+def simulate(buy_pct, y, threshold: float, cost_bp: float = 5.0, exit_pct=None) -> dict:
     """1 銘柄 × 1 fold を状態機械で回す。
 
-    buy_pct: 0〜100 の系列（時刻順）。y: その日のリターン（対数）。threshold: θ（%）。
+    buy_pct: 入口%（0〜100 の系列・時刻順。⚠ **未保有の日に読む**）。y: その日のリターン（対数）。
+    threshold: θ（%）。exit_pct: 出口%（⚠ **保有中の日に読む**。rules.md 16-1）。
+    ⚠ **`exit_pct` を省くと 100 − 入口%**（＝ 1 出力の契約。既存の行はこちらで再現する）。
     戻り値: net_bp（日次純利 bp）・gross_bp・pos（0/1）・trades（建てた回数）・
     hold_ratio（保有日率）・skip_days（見送り日数）・cost_bp_total（払ったコスト bp）。
     """
@@ -28,6 +35,10 @@ def simulate(buy_pct, y, threshold: float, cost_bp: float = 5.0) -> dict:
     yy = np.asarray(y, dtype=float)
     if b.shape != yy.shape:
         raise ValueError(f"買い% と y の長さが違う（{b.shape} と {yy.shape}）")
+    # ⚠ **省いたら 100 − 入口%**（rules.md 16-1 の 4。既存の 217 試行はこの枝で再現する）
+    e = (100.0 - b) if exit_pct is None else np.asarray(exit_pct, dtype=float)
+    if e.shape != b.shape:
+        raise ValueError(f"入口% と出口% の長さが違う（{b.shape} と {e.shape}）")
     n = len(b)
     half = cost_bp / 2.0
     pos = np.zeros(n, dtype=int)
@@ -35,9 +46,9 @@ def simulate(buy_pct, y, threshold: float, cost_bp: float = 5.0) -> dict:
     p, trades, cost_total = 0, 0, 0.0
     for t in range(n):
         traded = False
-        if p == 0 and b[t] > threshold:            # 建てる（未保有のときだけ）
+        if p == 0 and b[t] > threshold:             # 建てる（⚠ 未保有のときだけ入口% を読む）
             p, traded, trades = 1, True, trades + 1
-        elif p == 1 and (100.0 - b[t]) > threshold:  # 手仕舞う（保有中のときだけ）
+        elif p == 1 and e[t] > threshold:           # 手仕舞う（⚠ 保有中のときだけ出口% を読む）
             p, traded = 0, True
         # ⚠ 未保有で売り指標が立っても何もしない（買い専用。13-4 の 2）
         pos[t] = p

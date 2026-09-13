@@ -23,4 +23,6 @@ from ail.models import baselines, linear     # noqa: F401
 from ail.models import trees, deep, gan      # noqa: F401
 # ⚠ **検知器（買い% 1 本を返す手法）**。下降トレンドの検知（plans/archive/downtrend-detection.md）
 from ail.detectors import scale as _scale    # noqa: F401
+# ⚠ **入口と出口を別の窓で持つ検知器**（出力 2 本。rules.md 16 章）
+from ail.detectors import pair as _pair      # noqa: F401
 from ail.validation import splits            # noqa: F401

@@ -18,6 +18,9 @@ from ail.features import trend                               # noqa: F401
 # ⚠ **`im_` は銘柄ごとに値が変わる外部データ**（`ex_` との違いはそこだけ）
 from ail.features import impact                              # noqa: F401
 from ail.selectors import filter as _filter, wrapper, embedded  # noqa: F401
+# ⚠ **表現学習は `selector` ではなく `transform`**（列そのものを作り替える。
+# プラン `plans/selectors-small-four.md` §1-1）
+from ail.selectors import representation                        # noqa: F401
 from ail.models import baselines, linear     # noqa: F401
 # ⚠ **モデルの軸**（plans/archive/gpu-models.md）: 勾配ブースティング・MLP・GAN 増強
 from ail.models import trees, deep, gan      # noqa: F401

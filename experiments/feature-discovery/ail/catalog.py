@@ -126,15 +126,21 @@ def family_counts(spec: str = SPEC) -> dict[str, int]:
 # --- 実装（registry）----------------------------------------------------
 
 def implemented() -> dict[str, str]:
-    """カタログの ID → registry の名前。⚠ **名前の先頭の ID で突き合わせる。**"""
+    """カタログの ID → registry の名前。⚠ **名前の先頭の ID で突き合わせる。**
+
+    ⚠ **`transform` も見る**（2026-09-12）。F5 表現学習型は `selector` の契約に入らないので
+    種類が別（プラン `plans/selectors-small-four.md` §1-1）。⚠ **ここを見落とすと、回したのに
+    ⚠ **台帳 §3 では「未実施」のままになる** — ⚠ **空白の数え方が静かに狂う。**
+    """
     from ail import registry
     import ail.bootstrap  # noqa: F401  （@register は import されて初めて効く）
 
     out = {}
-    for name in registry.available("selector"):
-        m = _ID.match(name)
-        if m:
-            out[m.group(1)] = name
+    for kind in ("selector", "transform"):
+        for name in registry.available(kind):
+            m = _ID.match(name)
+            if m:
+                out[m.group(1)] = name
     return out
 
 

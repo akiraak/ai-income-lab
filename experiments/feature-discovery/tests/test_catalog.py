@@ -85,8 +85,12 @@ def test_every_implemented_selector_is_in_the_catalog():
     """⚠ **registry に `F9-9` のような幽霊 ID があれば、台帳から静かに消える。**"""
     ids = {x["ID"] for x in catalog.entries()}
     assert set(catalog.implemented()) <= ids
-    assert set(catalog.implemented()) == {"F1-1", "F1-2", "F1-3", "F1-5",
-                                          "F2-3", "F3-1", "F3-2", "F3-3", "F3-5"}
+    # ⚠ **2026-09-12 に「手間 小」の 4 件を足した**（プラン `plans/selectors-small-four.md`）。
+    # ⚠ **F5-1 は `selector` ではなく `transform`** なので、`implemented()` が両方を見ている
+    # ことの検査も兼ねる（見落とすと、回したのに台帳 §3 で「未実施」のままになる）
+    assert set(catalog.implemented()) == {"F1-1", "F1-2", "F1-3", "F1-4", "F1-5", "F1-7",
+                                          "F2-2", "F2-3", "F3-1", "F3-2", "F3-3", "F3-5",
+                                          "F5-1"}
 
 
 # --- 数の読み取り -------------------------------------------------------
@@ -313,7 +317,9 @@ def test_unimplemented_rows_are_ordered_by_effort():
     d = catalog.ledger()
     order = [catalog.COST_ORDER.index(c["手間"]) for c in d["not_tried"]]
     assert order == sorted(order)
-    assert d["not_tried"][0]["手間"] == "小"
+    # ⚠ **先頭は「残っているうちで最も安い段」**（2026-09-12 に「小」を全部埋めたので、
+    # ⚠ **「先頭は必ず小」は前提として成り立たなくなった**。⚠ **不変条件は「安い順」のほう**）
+    assert order[0] == min(order), "⚠ 先頭が最も安い段になっていない"
     assert d["not_tried"][-1]["手間"] == "見送り"
 
 

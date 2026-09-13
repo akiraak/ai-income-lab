@@ -175,6 +175,16 @@ flowchart TB
 
 ⚠ **B の再現の規約**: fit した係数は `runs/<実行>/fitted/` に残す。⚠ **次の実行では読み込まずに毎回 fit し直す**（読み込むと分割をまたいで漏れる）。
 
+⚠ **B の置き場（2026-09-12 に決めた）**: registry の種類 **`transform`** に登録し、⚠ **標準化と選別の間に 1 段だけ**入れる（`ail/validation/prep.py`）。
+
+| # | 規約 | ⚠ 理由 |
+| ---: | --- | --- |
+| 1 | ⚠ **選別（`selector`）として書かない** | 選別の契約は ⚠ **「`X` にある列の名前を返す」**で、⚠ **新しい列を作る変換は入らない**。⚠ **検証分割 `Xte` も選別には渡らない**ので transform を当てる先が無い |
+| 2 | ⚠ **config に `transform` が無ければ 1 行も通らない** | ⚠ **足した段が既存の全実行に静かに効かないため。** ⚠ **テストで固定する**（同じオブジェクトが返ることまで見る） |
+| 3 | ⚠ **手法名の先頭に変換名を置く**（`F5-1 PCA ＋ 全部使う（基準）`） | ⚠ **台帳は手法名の先頭から ID を読む。** ⚠ **混ぜないと基準線の行に化けて試行が数えられない**（11 章 規約 4） |
+| 4 | ⚠ **門（14-5）にも同じ変換を当てる** | ⚠ **当てないと、門の数字が実際に回す列とは別の列についてのものになる** |
+| 5 | ⚠ **`catalog.implemented()` は `selector` と `transform` の両方を見る** | ⚠ **見落とすと、回したのに台帳 §3 で「未実施」のままになる**（2026-09-12 に踏みかけた） |
+
 ---
 
 ## 4. 時刻と識別子
@@ -925,7 +935,7 @@ flowchart LR
 | ---: | --- |
 | 1 | `ail/data/store.py` |
 | 2 | `ail/data/adjust.py` ／ `cli/adjust.py` |
-| 3 | `ail/data/transforms/` ／ `cli/run.py` の標準化 |
+| 3 | `ail/data/transforms/` ／ `cli/run.py` の標準化 ／ ⚠ **B の変換の 1 段 = `ail/registry.py` の種類 `transform` ＋ `ail/validation/prep.py` ＋ `cli/run.py`（標準化と選別の間・(A)(B) 両方）＋ `ail/validation/gate.py`**（2026-09-12 実装。⚠ **config に `transform` が無ければ 1 行も通らない** — [selectors-small-four.md §1](../selectors-small-four.md)） |
 | 4 | `ail/contracts.py` ／ `ail/data/store.py` の `to_filename` |
 | 5 | `ail/data/check.py` ／ `cli/check.py` |
 | 6 | `ail/features/{own,cross,relative,leadlag,exog,impact}.py` ／ ⚠ **`config/exposure/`（割り当ての重み）** |

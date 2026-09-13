@@ -23,7 +23,7 @@ from sklearn.preprocessing import StandardScaler
 from ail import config, registry, runs
 from ail.contracts import META_COLUMNS
 from ail.data import store
-from ail.validation import checks, metrics
+from ail.validation import checks, metrics, prep
 import ail.bootstrap  # noqa: F401
 
 warnings.filterwarnings("ignore")
@@ -75,13 +75,18 @@ def evaluate(panel: pd.DataFrame, feats: list[str], exp: dict, run: runs.Run) ->
         Xtr = pd.DataFrame(sc.transform(tr[feats]), columns=feats)
         Xte = pd.DataFrame(sc.transform(te[feats]), columns=feats)
         ytr = tr["y"].values
+        # ⚠ **標本から学ぶ変換の 1 段**（3 章 B）。⚠ **config に `transform` が無ければ素通り**
+        Xtr, Xte, tdoc = prep.apply(exp, Xtr, Xte, ctx)
+        if tdoc is not None:
+            run.fitted(f"transform_f{f}", tdoc)         # ⚠ 再現用。次の実行では読み込まない
         for name, fn in selectors.items():
             cols = fn(Xtr, ytr, k, ctx)                 # ⚠ 選別は訓練の内側だけ
             p = model(Xtr[cols], ytr, Xte[cols], ctx)
-            out.append({"手法": name, "fold": f, "選んだ本数": len(cols),
+            lab = prep.label(exp, name)                 # ⚠ 変換名を手法名に混ぜる（台帳の ID）
+            out.append({"手法": lab, "fold": f, "選んだ本数": len(cols),
                         **metrics.score(p, yte, cost_bp)})
             # ⚠ **何を選んだかを残す。** ⚠ **偽薬を選んだ割合が、そのまま偽発見率の実測になる**
-            picked.extend({"手法": name, "fold": f, "列": c} for c in cols)
+            picked.extend({"手法": lab, "fold": f, "列": c} for c in cols)
         run.log(f"  fold {f}: 訓練 {len(tr):,} / 検証 {len(te):,}")
     run.selected(pd.DataFrame(picked))
     return pd.DataFrame(out)
@@ -152,10 +157,11 @@ def evaluate_trading(panel: pd.DataFrame, feats: list[str], exp: dict, run: runs
                 fitted_doc[name] = doc
         elif form == "per_symbol":
             # (B) 銘柄別: fit も較正も銘柄ごと（13-6 の 2）。fold の切れ目は上で決めた日付を共有
-            sel_sum: dict[str, float] = {n: 0.0 for n in selectors}
-            sel_cnt: dict[str, int] = {n: 0 for n in selectors}
-            for name in selectors:
-                buy[name] = np.full(len(te), np.nan)
+            labels = {n: prep.label(exp, n) for n in selectors}   # ⚠ 変換名を混ぜた手法名
+            sel_sum: dict[str, float] = {l: 0.0 for l in labels.values()}
+            sel_cnt: dict[str, int] = {l: 0 for l in labels.values()}
+            for lab in labels.values():
+                buy[lab] = np.full(len(te), np.nan)
             for s, idx in groups.items():
                 tr_s = tr[tr["symbol"] == s]
                 te_s = te.iloc[idx]
@@ -166,30 +172,40 @@ def evaluate_trading(panel: pd.DataFrame, feats: list[str], exp: dict, run: runs
                 Xtr = pd.DataFrame(sc.transform(tr_s[feats]), columns=feats)
                 Xte = pd.DataFrame(sc.transform(te_s[feats]), columns=feats)
                 ytr = tr_s["y"].values
+                # ⚠ **(B) は銘柄ごとに fit する**ので、変換も銘柄ごとに fit し直す（3 章 B）
+                Xtr, Xte, tdoc = prep.apply(exp, Xtr, Xte, ctx)
+                if tdoc is not None:
+                    fitted_doc.setdefault("_transform", {})[str(s)] = tdoc
                 for name, fn in selectors.items():
+                    lab = labels[name]
                     cols = fn(Xtr, ytr, k, ctx)
                     cal = calibrate.fit(model, Xtr[cols], ytr, ctx)
                     pred = model(Xtr[cols], ytr, Xte[cols], ctx)
-                    buy[name][idx] = cal.buy_pct(pred)
-                    sel_sum[name] += len(cols)
-                    sel_cnt[name] += 1
-                    fitted_doc.setdefault(name, {})[str(s)] = cal.doc
-            for name in selectors:
-                n_cols[name] = sel_sum[name] / sel_cnt[name] if sel_cnt[name] else 0.0
+                    buy[lab][idx] = cal.buy_pct(pred)
+                    sel_sum[lab] += len(cols)
+                    sel_cnt[lab] += 1
+                    fitted_doc.setdefault(lab, {})[str(s)] = cal.doc
+            for lab in labels.values():
+                n_cols[lab] = sel_sum[lab] / sel_cnt[lab] if sel_cnt[lab] else 0.0
         else:
             # (A) 共通 1 本: 63 銘柄をプールして 1 モデル（現行の形）
             sc = StandardScaler().fit(tr[feats])
             Xtr = pd.DataFrame(sc.transform(tr[feats]), columns=feats)
             Xte = pd.DataFrame(sc.transform(te[feats]), columns=feats)
             ytr = tr["y"].values
+            # ⚠ **標本から学ぶ変換の 1 段**（3 章 B）。⚠ **config に `transform` が無ければ素通り**
+            Xtr, Xte, tdoc = prep.apply(exp, Xtr, Xte, ctx)
+            if tdoc is not None:
+                fitted_doc["_transform"] = tdoc
             for name, fn in selectors.items():
+                lab = prep.label(exp, name)             # ⚠ 変換名を手法名に混ぜる（台帳の ID）
                 cols = fn(Xtr, ytr, k, ctx)
                 cal = calibrate.fit(model, Xtr[cols], ytr, ctx)
                 pred = model(Xtr[cols], ytr, Xte[cols], ctx)
-                buy[name] = cal.buy_pct(pred)
-                n_cols[name] = float(len(cols))
-                fitted_doc[name] = cal.doc
-                picked.extend({"手法": name, "fold": f, "列": c} for c in cols)
+                buy[lab] = cal.buy_pct(pred)
+                n_cols[lab] = float(len(cols))
+                fitted_doc[lab] = cal.doc
+                picked.extend({"手法": lab, "fold": f, "列": c} for c in cols)
         run.fitted(f"calibration_f{f}", fitted_doc)     # ⚠ 再現用。次の実行では読み込まない（13-2 の 3）
 
         for mname, bp in buy.items():

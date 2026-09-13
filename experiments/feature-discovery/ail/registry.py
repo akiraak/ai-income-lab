@@ -24,7 +24,11 @@ _REGISTRY: dict[str, dict[str, Callable[..., Any]]] = {}
 # 登録できる種類。⚠ **ここに無い種類は受け付けない**（打ち間違いを早く落とすため）
 # ⚠ **`detector` は「買い% 1 本を返すもの」**（rules.md 14-1 の出力の契約）。選別 × モデルの組と違い、
 # ⚠ **中身を検証側に見せない**ので、スケールの合成もレジーム分岐もここに 1 本足せば同じ物差しで測れる
-KINDS = ("source", "feature", "selector", "model", "detector", "split", "metric", "stat")
+# ⚠ **`transform` は「列そのものを作り替えるもの」**（PCA・AE・多項式展開・ウェーブレット）。
+# ⚠ **`selector` の契約（既存の列名を返す）に入らない**ので種類を分けた
+# （プラン `plans/selectors-small-four.md` §1-1。⚠ **標準化と選別の間に 1 段だけ入る**）
+KINDS = ("source", "feature", "selector", "transform", "model", "detector",
+         "split", "metric", "stat")
 
 
 def register(kind: str, name: str) -> Callable[[Callable[..., Any]], Callable[..., Any]]:

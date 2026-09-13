@@ -1,0 +1,47 @@
+# ⚠ **モデルの軸の空白を埋める 2 本のうちの 1 本**（プラン `plans/mlp-threshold-trading.md`）。
+# ⚠ **trade_own_lgbm_b.toml と model 以外は完全に同じ**（表・fold・θ・選別・k・種・コスト）。
+#
+# ⚠ **(B) 銘柄別は MLP では代償が大きい**（プラン §1・§6）:
+#    - 1 fold で 63 銘柄 × 2 選別 × 2 回（較正用と予測用）＝ **MLP を 252 本 fit する**
+#    - ⚠ **fold 1 は約 360 行/銘柄しか無く MIN_TRAIN 500 を割る**ので、
+#      ⚠ **早期打ち切りの holdout が切れず 200 epoch 回り、較正も訓練予測で代用される**
+#      （`source = "train"`）。⚠ **消せない限界としてそのまま記録する**（rules.md 13-6 の 5）
+#
+# ⚠ **TOML の平の key はテーブル見出しより上に書く**（rules.md 10 章 規約 1）
+name = "trade_own_mlp_b"
+dataset = "daily"
+horizon = 1
+cost_bp = 5.0
+features_from = "own_2018"     # ⚠ 表は作り直さず own_2018 のものを読む（13-8。表の差を混ぜない）
+
+feature_layers = ["own"]
+targets = "all"
+
+horizon_min = 1440.0
+bar_minutes = 1440.0
+
+# ⚠ 選別は「全部使う」1 本に絞る（選別の優劣は決着済み。処置はモデル）。乱択は選別の基準線
+selectors = ["全部使う（基準）", "乱択（基準）"]
+k = 16
+
+# ⚠ **ハイパーパラメータは ail/models/deep.py の既定のまま。振らない**（rules.md 13-6 の 3）
+model = "MLP"
+baselines = ["常に上（ドリフト）", "直前リターンの符号"]
+
+[trading]
+style = "threshold"
+thresholds = [50, 55, 60]      # ⚠ 事前固定。結果を見て動かさない（rules.md 13-3）
+form = "per_symbol"            # (B) 銘柄別 63 本（fit も較正も銘柄ごと）
+
+[validation]
+split = "walk_forward_dates"   # ⚠ fold の切れ目は日付で決める（rules.md 13-6 の 1）
+folds = 5
+purge = true
+embargo_bars = 0
+seed = 0
+
+[features]
+ex_lag_days = 1
+ex_zero_fill = ["usgs"]
+ex_transforms = ["d1", "z20"]
+ex_max_stale_days = 7

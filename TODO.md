@@ -62,7 +62,8 @@
     ✅ **利用者の決定（2026-09-14）: 両方回す**（24 本・＋36 試行・n_trials 475 → 511【推測】・4 本並列で約 17 時間【推測】）
     - [x] Phase 0: 事前固定（プラン §0）
     - [x] Phase 1: config 12 本（`trade_ownex_lgbm_a/b` を写して `name`・`model` だけ差し替え）＋ 全 key 照合
-    - [ ] Phase 2: ⚠ **コミットしてから** 24 本を 4 本並列で起動（`AIL_TORCH_DEVICE=cuda`・フラグなし）
+    - [~] Phase 2: ⚠ **コミットしてから** 24 本を 4 本並列で起動（`AIL_TORCH_DEVICE=cuda`・フラグなし）
+      ✅ 2026-09-14 15:21 に起動（`984ad75`）。キューは `experiments/feature-discovery/out/gan_ownex/queue.sh`、進み具合は同じ場所の `queue.log`（`start` / `end … exit=`）。⚠ **完了の見込みは 09-15 08:00 ごろ**【推測】
     - [ ] Phase 3: 台帳の吐き直し＋検算（プラン §4 の 12 項目）
     - [ ] Phase 4: 記録（`gan-threshold-ownex.md`）・TODO/DONE・プランを archive へ
 

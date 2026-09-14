@@ -410,6 +410,12 @@ note = "特徴量の表（パネル）がどう作られているか。層の接
   where = "§14-4 検証期間の延長"
 
   [[section.term]]
+  name = "own / ownex（表の呼び名）"
+  short = "実験名に入る表の呼び名。own は own_ 層だけ、ownex は own・cs・rel・ex の層。⚠ ownex は ETF を対象から外す。"
+  doc = "docs/specs/experiments/feature-discovery/rules.md"
+  where = "§10-1 名前の付け方（実験名）"
+
+  [[section.term]]
   name = "manifest"
   short = "取得したときに実験側が書いた系列数・行数・期間の記録。⚠ 画面はこれを写すだけで数え直さない。"
   doc = "docs/specs/dashboard.md"
@@ -437,6 +443,18 @@ note = "台帳に並ぶ選別手法とモデルの名前。カタログは featu
   short = "比べている予測モデル 3 種。⚠ モデルは台帳の鍵なので、替えれば別の試行として数える。"
   doc = "docs/specs/experiments/gpu-models.md"
   where = "§3 モデル比較"
+
+  [[section.term]]
+  name = "モデル名（+GAN増強・(batch16k)）"
+  short = "台帳の鍵になる名前。基底に増強を「+」で足し、既定から外した水準だけ括弧で付ける。⚠ 計算が変われば名前も変える。"
+  doc = "docs/specs/experiments/feature-discovery/rules.md"
+  where = "§10-1 名前の付け方（モデル名）"
+
+  [[section.term]]
+  name = "実験名（trade_ownex_mlpgan16k_b）"
+  short = "config と実行ディレクトリの名前。表・モデル略・水準・形式（_a 共通 / _b 銘柄別）を並べる。⚠ 台帳の鍵ではない。"
+  doc = "docs/specs/experiments/feature-discovery/rules.md"
+  where = "§10-1 名前の付け方（実験名）"
 
   [[section.term]]
   name = "GAN（3 つの意味）"

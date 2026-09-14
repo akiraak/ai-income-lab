@@ -1,5 +1,15 @@
 # DONE
 
+- 2026-09-14 表の呼び名（own / ownex）とモデル名・実験名の付け方を定義し、用語集に足した
+  - 利用者の指示: **own, ownex を用語集に追加して。予想モデルの命名方法も定義がなかったら追加して**
+  - プラン: [docs/plans/archive/naming-glossary.md](docs/plans/archive/naming-glossary.md)
+  - ⚠ **命名の定義はどの spec にも無かった**（registry と `config/experiment/` の実物にあるだけ）→ [rules.md §10-1 名前の付け方](docs/specs/experiments/feature-discovery/rules.md) に実物から起こした。⚠ **規約の変更ではなく、既存の名前は 1 つも変えていない**
+    - **モデル名** ＝ 基底（`Ridge` / `LightGBM` / `MLP`）＋ 増強（`+GAN増強`）＋ 既定から外した水準だけ括弧（`(batch16k)`）。⚠ **台帳の鍵なので、計算が変われば名前も変える**
+    - **実験名** ＝ `trade_` ＋ 表の呼び名（`own` / `own_1995` / `ownex` / `cs`）＋ モデル略（`ridge` / `lgbm` / `mlp`、増強は末尾 `gan`）＋ 水準（`16k`）＋ 形式（`_a` / `_b`）。`_leak` は実行ディレクトリにだけ付く。⚠ **鍵ではないので、名前ではなく config の中身を正本とする**
+    - ⚠ `trade_` 以外の接頭辞（`gpu_` / `sel_` / `trend_` など）は **規則になっていない** と明記した（揃えると過去の実行ディレクトリと合わなくなる）
+  - 用語集（`dashboard/glossary.toml`）に 3 語: 「own / ownex（表の呼び名）」（データ）／「モデル名」「実験名」（手法とモデル）。どれも §10-1 へリンク
+  - 検査: ✅ 用語集のテスト 9 件 pass（リンク先の実在・90 字以内・重複なし）
+
 - 2026-09-14 門（`apply_gate`）の既定を「止めない」にした（⚠ **`--ignore-gate` を付け忘れると黙って 1 行も回らない罠を塞いだ** ／ 利用者の決定 (a)）
   - プラン: [docs/plans/archive/gate-diagnostic-default.md](docs/plans/archive/gate-diagnostic-default.md) ／ 規約: [rules.md 14-5・14-10 規約 2](docs/specs/experiments/feature-discovery/rules.md)
   - **既定と `--ignore-gate`（別名として残す）は門で止めない**。門前があれば `gate.forced: true`、呼び方は `gate.mode: "診断"` で残る。足切りは **`--gate` の opt-in**（`mode: "足切り"`）。両方の指定は argparse で拒否

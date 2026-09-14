@@ -370,13 +370,14 @@ def _gate_html(run: dict) -> str:
                      " ".join(fmt(w, 1) for w in m["width_folds"]) or "—",
                      "通過" if m["passed"] else "<span class='warn'>⚠ 門前</span>",
                      esc(m["note"] or "")])
-    out = [f"<h2>前置きの門（回すかどうか・水準は事前固定 {_gate_levels(gate)}）</h2>",
+    out = [f"<h2>前置きの門（診断・水準は事前固定 {_gate_levels(gate)}）</h2>",
            table(["手法", "holdout AUC", "買い% 幅", "fold ごとの AUC", "fold ごとの幅", "門", "注記"],
                  rows, {1, 2}),
            "<p class='meta'>2 値は訓練分割の内側の tail holdout で測る（検証 fold には特徴量にも"
-           "触っていないので、門は検証データの選別にならない）。⚠ 門の値は採否に使わない"
-           "（使うのは「回すかどうか」だけ）。⚠ 門前の手法は試行数（n_trials）に数えない。"
-           "後から <code>--ignore-gate</code> で回したら普通に数える（rules.md 14-5）。</p>"]
+           "触っていないので、門は検証データの選別にならない）。⚠ 門の値は採否に使わない。"
+           "⚠ 既定では回すかどうかも門で決めない（門前の手法も回し、普通の試行として数える。"
+           "rules.md 14-10 規約 2）。<code>--gate</code> で足切りした実行だけ、回さなかった手法を"
+           "試行数（n_trials）に数えない（14-5 の経緯）。</p>"]
     return "\n".join(out)
 
 
@@ -519,13 +520,14 @@ def exp_run_html(runs_dir: Path, run_id: str) -> str | None:
         ("費用 bp", fmt(run["cost_bp"])), ("seed", fmt(run["seed"], 0)),
     ]))
     if run["gate"]:
-        # 一部の手法だけ門前だった実行（または --ignore-gate で回した実行）。⚠ 回さなかった手法を隠さない
+        # 門前の手法も回した実行（既定）か、`--gate` で一部を外した実行。⚠ 回さなかった手法を隠さない
         if run["gate_forced"]:
-            body.append("<p class='warn'>⚠ <code>--ignore-gate</code> で回した実行。門前の手法も"
-                        "回しているので、普通の試行として数える（rules.md 14-5 の規律 3）。</p>")
+            body.append("<p class='warn'>⚠ 門前の手法も回した実行。門は診断なので、"
+                        "普通の試行として数える（rules.md 14-10 規約 2）。</p>")
         elif run["gate_blocked"]:
             body.append(f"<p class='warn'>⚠ 門前の手法が {len(run['gate_blocked'])} 件あり、"
-                        "その手法は回していない（上の成績には出ず、試行数にも数えない）。</p>")
+                        "その手法は回していない（<code>--gate</code> で足切りした実行。"
+                        "上の成績には出ず、試行数にも数えない）。</p>")
         body.append(_gate_html(run))
     return page(run["title"], "\n".join(body))
 

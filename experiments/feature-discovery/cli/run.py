@@ -278,17 +278,25 @@ def evaluate_trading(panel: pd.DataFrame, feats: list[str], exp: dict, run: runs
     return res, pd.DataFrame(sym_out), summary, daily, extra
 
 
-def apply_gate(exp: dict, gate_doc: dict, ignore: bool, run: runs.Run) -> dict | None:
-    """前置きの門を実験に適用する（rules.md 14-5）。全手法が門前なら None（＝ 閾値売買を回さない）。
+def apply_gate(exp: dict, gate_doc: dict, enforce: bool, run: runs.Run) -> dict | None:
+    """前置きの門を実験に適用する。
 
-    ⚠ `--ignore-gate` は「門前の手法を後から回す」用（14-5 の規律 3）。回した手法は summary に
-    載るので、台帳では門前の行が立たず**普通の試行として数えられる**。
+    ⚠ **既定（`enforce=False`）は診断**（rules.md 14-10 規約 2）: 門の値は記録するだけで、
+    ⚠ **門前の手法も全部回す**。そのとき `forced` を付けるので、台帳では門前の行が立たず
+    **普通の試行として数えられる**（`--ignore-gate` はこの既定の別名）。
+
+    `enforce=True`（`--gate`）だけが従来の足切り（14-5 の経緯）: 全手法が門前なら None
+    （＝ 閾値売買を回さない）、一部だけなら門前の手法を外す。⚠ **14-10 規約 2 に反する使い方。**
     """
     blocked = list(gate_doc.get("blocked", []))
-    if ignore and blocked:
-        gate_doc["forced"] = True
-        run.log("⚠ --ignore-gate: 門前の手法も回す（そのときは普通に試行として数える。rules.md 14-5 規律 3）")
+    gate_doc["mode"] = "足切り" if enforce else "診断"
+    if not enforce:
+        if blocked:
+            gate_doc["forced"] = True
+            run.log("⚠ 門前の手法も回す: " + "、".join(blocked)
+                    + "（門は診断。回したものは全部数える。rules.md 14-10 規約 2）")
         return exp
+    run.log("⚠ --gate: 門で足切りする（14-10 規約 2 に反する使い方。rules.md 14-5 の経緯）")
     if not gate_doc.get("passed"):
         run.log("⚠ **全手法が門前 ＝ 閾値売買を回さない**（台帳には「門前」で残す・"
                 "n_trials に数えない。rules.md 14-5）")
@@ -300,15 +308,23 @@ def apply_gate(exp: dict, gate_doc: dict, ignore: bool, run: runs.Run) -> dict |
     return exp
 
 
-def main() -> None:
+def _parser() -> argparse.ArgumentParser:
     ap = argparse.ArgumentParser()
     ap.add_argument("--experiment", required=True)
     ap.add_argument("--leak", action="store_true", help="⚠ 配線の検査（未来を混ぜた表を使う）")
     ap.add_argument("--sample", type=int, default=60000, help="行が多いとき間引く（0 で間引かない）")
     ap.add_argument("--layer", default="adjusted", help="記録に残すだけ（表は cli.build が作る）")
-    ap.add_argument("--ignore-gate", action="store_true",
-                    help="⚠ 門前の手法も回す（後から回す用。普通に試行として数える。rules.md 14-5）")
-    args = ap.parse_args()
+    g = ap.add_mutually_exclusive_group()
+    # ⚠ **既定は門で止めない**（rules.md 14-10 規約 2）。付け忘れで黙って 1 行も回らない罠を塞いだ（2026-09-14）
+    g.add_argument("--gate", action="store_true",
+                   help="⚠ 門で足切りする（全部門前なら回さない・一部なら外す）。14-10 規約 2 に反する使い方")
+    g.add_argument("--ignore-gate", action="store_true",
+                   help="既定と同じ（門は診断で全部回す）。過去の記録のコマンドのために残す別名")
+    return ap
+
+
+def main() -> None:
+    args = _parser().parse_args()
 
     exp = config.resolve_experiment(args.experiment)     # ⚠ ここで名前を全部解決する
     ds = exp["_dataset"]
@@ -352,10 +368,11 @@ def main() -> None:
             + (f"  ⚠ **わざとした先読みの列あり: {leaky}**" if leaky else ""))
 
     if trading:
-        # ⚠ **門が先**（rules.md 14-5 規律 1）。通らない手法は閾値売買を回さず、門の値だけ checks に残す
+        # ⚠ **門は先に測って checks に残す**（値を見てから回すかを決めない）。⚠ **既定では止めない**
+        # （rules.md 14-10 規約 2）。止めるのは `--gate` のときだけで、そのときは門の値だけ checks に残す
         from ail.validation import gate
         gate_doc = gate.evaluate_gate(panel, feats, exp, run)
-        gated_exp = apply_gate(exp, gate_doc, args.ignore_gate, run)
+        gated_exp = apply_gate(exp, gate_doc, args.gate, run)
         if gated_exp is None:
             t = exp["trading"]
             run.checks({"leak": args.leak, "style": "threshold",

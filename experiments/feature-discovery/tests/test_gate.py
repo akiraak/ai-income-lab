@@ -1,8 +1,8 @@
 """前置きの門（rules.md 14-5）の検査。
 
-⚠ **門は「回すかどうか」の足切りにだけ使い、採否には使わない。** 水準は事前固定
-（2026-09-11 利用者決定）。⚠ **検証 fold には特徴量にも触れない**（だから門前は
-n_trials に数えない）。実測の形は validation-power.md §5-1（雑音は幅で落ち、leak は大差で通る）。
+⚠ **門は採否に使わない。** ⚠ **2026-09-14 から既定では回すかどうかにも使わない**（診断。
+rules.md 14-10 規約 2）。足切りは `--gate` のときだけ。水準は事前固定（2026-09-11 利用者決定）。
+⚠ **検証 fold には特徴量にも触れない**。実測の形は validation-power.md §5-1（雑音は幅で落ち、leak は大差で通る）。
 """
 
 from __future__ import annotations
@@ -114,27 +114,61 @@ def _gate_doc(passed=(), blocked=()):
             "passed": list(passed), "blocked": list(blocked)}
 
 
-def test_apply_gate_stops_when_everything_is_blocked(run):
-    """全手法が門前なら None ＝ 閾値売買を回さない（規律 1: 門が先）。"""
+def test_default_does_not_stop_when_everything_is_blocked(run):
+    """⚠ **既定は診断**（14-10 規約 2）: 全手法が門前でも None を返さず全部回す。
+
+    ⚠ 2026-09-13 に `--ignore-gate` を付け忘れて、黙って 1 行も回らずに終わった罠の検査。
+    """
     exp = {**_exp(), "selectors": ["全部使う（基準）"]}
-    assert apply_gate(exp, _gate_doc(blocked=("全部使う（基準）",)), False, run) is None
+    doc = _gate_doc(blocked=("全部使う（基準）",))
+    out = apply_gate(exp, doc, False, run)
+    assert out is exp
+    assert doc["forced"] is True                         # 台帳が門前の行を作らない印
+    assert doc["mode"] == "診断"
 
 
-def test_apply_gate_filters_only_the_blocked_selectors(run):
-    """一部が門前なら、通った手法と基準線だけ残して回す。"""
+def test_default_keeps_the_blocked_selectors(run):
+    """既定では一部が門前でも外さない（門の値は checks に残るだけ）。"""
     exp = {**_exp(), "selectors": ["A", "B", "乱択（基準）"]}
-    out = apply_gate(exp, _gate_doc(passed=("A",), blocked=("B",)), False, run)
+    doc = _gate_doc(passed=("A",), blocked=("B",))
+    out = apply_gate(exp, doc, False, run)
+    assert out["selectors"] == ["A", "B", "乱択（基準）"]
+    assert doc["forced"] is True
+
+
+def test_default_without_blocked_is_not_forced(run):
+    """門前が無ければ forced は付けない（回さなかった手法が無いので印も要らない）。"""
+    exp = {**_exp(), "selectors": ["A"]}
+    doc = _gate_doc(passed=("A",))
+    assert apply_gate(exp, doc, False, run) is exp
+    assert "forced" not in doc and doc["mode"] == "診断"
+
+
+def test_enforce_stops_when_everything_is_blocked(run):
+    """`--gate`（従来の足切り）: 全手法が門前なら None ＝ 閾値売買を回さない。"""
+    exp = {**_exp(), "selectors": ["全部使う（基準）"]}
+    doc = _gate_doc(blocked=("全部使う（基準）",))
+    assert apply_gate(exp, doc, True, run) is None
+    assert "forced" not in doc and doc["mode"] == "足切り"
+
+
+def test_enforce_filters_only_the_blocked_selectors(run):
+    """`--gate` で一部が門前なら、通った手法と基準線だけ残して回す。"""
+    exp = {**_exp(), "selectors": ["A", "B", "乱択（基準）"]}
+    out = apply_gate(exp, _gate_doc(passed=("A",), blocked=("B",)), True, run)
     assert out["selectors"] == ["A", "乱択（基準）"]
     assert exp["selectors"] == ["A", "B", "乱択（基準）"]   # 元の exp は変えない
 
 
-def test_ignore_gate_runs_everything_and_marks_forced(run):
-    """--ignore-gate（規律 3 の「後から回す」）: 全部回し、gate に forced が付く。"""
-    exp = {**_exp(), "selectors": ["A", "B"]}
-    doc = _gate_doc(passed=("A",), blocked=("B",))
-    out = apply_gate(exp, doc, True, run)
-    assert out["selectors"] == ["A", "B"]
-    assert doc["forced"] is True
+def test_cli_flags():
+    """既定と `--ignore-gate` は診断・`--gate` だけ足切り・両方はエラー。"""
+    from cli.run import _parser
+    base = ["--experiment", "x"]
+    assert _parser().parse_args(base).gate is False
+    assert _parser().parse_args(base + ["--ignore-gate"]).gate is False
+    assert _parser().parse_args(base + ["--gate"]).gate is True
+    with pytest.raises(SystemExit):
+        _parser().parse_args(base + ["--gate", "--ignore-gate"])
 
 
 # --- 台帳の「門前」判定（catalog） ----------------------------------------

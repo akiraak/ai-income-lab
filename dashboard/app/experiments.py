@@ -134,8 +134,9 @@ def gate_methods(gate: dict) -> list[dict]:
 def is_gated(summary: list[dict], gate: dict) -> bool:
     """⚠ **全手法が門前 ＝ 閾値売買を回していない実行か**（`summary.csv` を持たない）。
 
-    ⚠ **条件は台帳（`ail/catalog.py`）と同じ。** `--ignore-gate`（`forced`）で summary が
-    無いのは「回したのに結果が無い」なので門前とは読まない。
+    ⚠ **条件は台帳（`ail/catalog.py`）と同じ。** `forced`（門前の手法も回した印。既定・
+    `--ignore-gate`）で summary が無いのは「回したのに結果が無い」なので門前とは読まない。
+    ⚠ 2026-09-14 から門は既定で止めないので、門前の実行は `--gate` で足切りしたときだけ生まれる。
     """
     return not summary and bool(gate.get("blocked")) and not gate.get("forced")
 

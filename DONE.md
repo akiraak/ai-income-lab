@@ -1,5 +1,14 @@
 # DONE
 
+- 2026-09-14 門（`apply_gate`）の既定を「止めない」にした（⚠ **`--ignore-gate` を付け忘れると黙って 1 行も回らない罠を塞いだ** ／ 利用者の決定 (a)）
+  - プラン: [docs/plans/archive/gate-diagnostic-default.md](docs/plans/archive/gate-diagnostic-default.md) ／ 規約: [rules.md 14-5・14-10 規約 2](docs/specs/experiments/feature-discovery/rules.md)
+  - **既定と `--ignore-gate`（別名として残す）は門で止めない**。門前があれば `gate.forced: true`、呼び方は `gate.mode: "診断"` で残る。足切りは **`--gate` の opt-in**（`mode: "足切り"`）。両方の指定は argparse で拒否
+  - ⚠ **台帳（`ail/catalog.py`）のロジックは変えていない**。`forced` の読み方がそのまま効くので、既存の `--ignore-gate` 実行 53 件と同じ扱いになる（コメントだけ直した）
+  - ⚠ **残した食い違い**: `--gate` で外した手法の「門前」行は、台帳の実装では n_trials に数えない（14-10 は「非計上も使わない」）。⚠ **門前の行はいま 0 行**で、既定では生まれない。揃えるのは別の裁定
+  - 画面の文言（`experiment.html`・`experiments.html`・`vibetab.py`）と [dashboard.md](docs/specs/dashboard.md) §10 の規約 5 を 14-10 に合わせた（判定のロジックは変えていない）
+  - **検算**: ✅ feature-discovery **294 件 pass**（`apply_gate` の検査を 3 本 → 6 本 ＋ 引数の検査 1 本に書き直した）／ ✅ dashboard **105 件 pass** ／ ✅ **台帳を作り直して HEAD との差分 0 行**
+  - ⚠ **既存の実行は再計算していない**（14-10 規約 5）
+
 - 2026-09-14 GAN 増強 3 種 × 閾値売買（own a/b × batch 1,024 / 16,384）を回した（⚠ **36 行とも「落とす」** ／ ⚠ **batch 16k は成績を一貫して動かさなかった** ／ ⚠ **n_trials 439 → 475**）
   - プラン: [docs/plans/archive/gan-threshold-trading.md](docs/plans/archive/gan-threshold-trading.md) ／ 記録: [gan-threshold-trading.md](docs/specs/experiments/gan-threshold-trading.md) ／ 台帳: [ledger.md](docs/specs/experiments/feature-discovery/ledger.md)
   - 親タスク: 「GPU 系を閾値売買でも回せるようにする」 ＝ ⚠ **own のモデルの軸を閉じた**（素の 3 種 ＋ `+GAN増強` 3 種 × 2 水準）。⚠ **ownex は空白として TODO に残した**

@@ -68,7 +68,7 @@
 {% set auc_min = '%.2f'|format(gate0.auc_min) if gate0.auc_min is not none else '—' %}
 {% set width_min = '%g'|format(gate0.width_min_pt) if gate0.width_min_pt is not none else '—' %}
 <h3>⚠ 門前（前置きの門を通らず、検証を回していない）</h3>
-<p class="muted small">確率に情報が無い手法は<b>閾値売買を回さない</b>（rules.md 14-5）。
+<p class="muted small">⚠ <b><code>--gate</code> で足切りした実行だけがここに出る。</b>既定では門は診断で、門前の手法も回す（rules.md 14-10 規約 2）。
   ⚠ <b>回していないので上の一覧にも、採否の判定にも、試行数（n_trials）にも数えない。</b>
   ⚠ <b>それでも隠さずここに出す。</b>
   門の 2 値は<b>訓練分割の内側の holdout</b> で測ったもので（検証 fold には触っていない）、
@@ -91,8 +91,8 @@
 </tr>
 {% endfor %}{% endfor %}
 </table>
-<p class="muted small">⚠ <b>門は「回すかどうか」だけに使い、採否には使わない</b>（値を採否に混ぜると門自体が選べた自由度になる）。
-  後から回すときは <code>--ignore-gate</code> で、そのときは<b>普通の試行として数える</b>（rules.md 14-5 の規律 3）。
+<p class="muted small">⚠ <b>門の値は採否に使わない</b>（値を採否に混ぜると門自体が選べた自由度になる）。
+  回し直すときは <code>--gate</code> を付けずに回し、そのときは<b>普通の試行として数える</b>（rules.md 14-10 規約 2）。
   台帳（<code>ledger.md</code>）にも「門前」の行として出る。</p>
 {% endif %}
 

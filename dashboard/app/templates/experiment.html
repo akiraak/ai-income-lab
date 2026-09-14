@@ -21,8 +21,8 @@
 </table>
 <p class="muted small">2 値はどちらも<b>訓練分割の内側の tail holdout</b>（較正の fit と同じ場所）で測る。
   ⚠ <b>検証 fold には特徴量にも触っていない</b>ので、門は検証データの選別にならない。
-  ⚠ <b>門の値は採否に使わない</b>（使うのは「回すかどうか」だけ）。
-  ⚠ <b>門前の手法は試行数（n_trials）に数えない。</b>後から <code>--ignore-gate</code> で回したら普通に数える（rules.md 14-5）。
+  ⚠ <b>門の値は採否に使わない。</b>⚠ <b>既定では回すかどうかも門で決めない</b>（門は診断。門前の手法も回し、普通の試行として数える。rules.md 14-10 規約 2）。
+  <code>--gate</code> で足切りした実行だけ、回さなかった手法が残り、それは試行数（n_trials）に数えない（14-5 の経緯）。
   基準線（「基準 」・乱択）は門に掛けない（採否の対象ではない）。</p>
 {% endmacro %}
 
@@ -34,7 +34,7 @@
 <p><a href="/experiments">← 検証の一覧</a></p>
 
 {% if run.gated %}
-<div class="note">⚠ <b>全手法が門前 ＝ 閾値売買を回していない実行。</b>
+<div class="note">⚠ <b>全手法が門前 ＝ 閾値売買を回していない実行</b>（<code>--gate</code> で足切りした実行。既定では門で止めない。rules.md 14-10 規約 2）。
   成績（スコア・fold の符号・上乗せ・DSR）は<b>無い</b>。⚠ <b>「計算していない」のではなく「回していない」。</b>
   検証としては数えず、試行数（n_trials）にも数えない。⚠ <b>それでも隠さずここに残す</b>（rules.md 14-5）。
   下の門の表が、回さなかった理由（訓練内 holdout の AUC と買い% 幅）である。</div>
@@ -179,10 +179,10 @@
 
 {% if run.gate %}
 {% if run.gate_forced %}
-<div class="note">⚠ <b><code>--ignore-gate</code> で回した実行。</b>門前の手法も回しているので、
-  <b>普通の試行として数える</b>（rules.md 14-5 の規律 3）。</div>
+<div class="note">⚠ <b>門前の手法も回した実行。</b>門は診断なので、
+  <b>普通の試行として数える</b>（rules.md 14-10 規約 2）。</div>
 {% elif run.gate_blocked %}
-<div class="note">⚠ <b>門前の手法が {{ run.gate_blocked|length }} 件あり、その手法は回していない。</b>
+<div class="note">⚠ <b>門前の手法が {{ run.gate_blocked|length }} 件あり、その手法は回していない</b>（<code>--gate</code> で足切りした実行）。
   上の成績には出ず、試行数（n_trials）にも数えない（rules.md 14-5）。⚠ <b>隠さないので、下の表に残す。</b></div>
 {% endif %}
 {{ gate_table(run) }}

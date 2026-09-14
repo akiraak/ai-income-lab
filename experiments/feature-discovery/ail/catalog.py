@@ -238,7 +238,8 @@ def _read_run(name: str) -> dict | None:
     elif gate.get("blocked") and not gate.get("forced"):
         # ⚠ **全手法が門前の実行は summary を持たない**（検証を回していない）。
         # ⚠ **台帳に「門前」で残すために拾う**（隠さない。rules.md 14-5）。
-        # ⚠ **`--ignore-gate`（forced）で summary が無いのは「回したのに落ちた」**なので従来どおり読まない
+        # ⚠ **`forced`（門前の手法も回した印。既定・`--ignore-gate`）で summary が無いのは「回したのに落ちた」**なので従来どおり読まない
+        # ⚠ 2026-09-14 から門は既定で止めない。**全手法が門前で summary が無いのは `--gate` で足切りした実行だけ**
         doc["summary"] = pd.DataFrame()
     else:
         return None
@@ -370,12 +371,13 @@ def _gate_rows(run: dict, gran: str, bar_min: float, layer: str, period: str,
                model: str, style: str, form: str) -> list[dict]:
     """門前の手法の行（rules.md 14-5）。⚠ **検証の数字を持たない**（回していないから）。
 
-    ⚠ **summary に載っている手法には作らない**: `--ignore-gate` で後から回した手法は
-    普通の行になり、そのときは普通に試行として数える（14-5 の規律 3）。
+    ⚠ **summary に載っている手法には作らない**: 門前でも回した手法（既定・`--ignore-gate`）は
+    普通の行になり、普通に試行として数える（rules.md 14-10 規約 2）。
+    ⚠ **門前の行が立つのは `--gate` で足切りした実行だけ**（2026-09-14 から門は既定で止めない）。
     ⚠ **閾値は「—」**（どの閾値も回していない。1 手法 1 行で、試行にも数えない）。
     """
     gate = (run.get("checks") or {}).get("gate") or {}
-    # ⚠ `--ignore-gate` の実行に門前の行は作らない（回すと決めた実行なので、結果の行だけが正しい）
+    # ⚠ `forced`（門前の手法も回した）実行に門前の行は作らない（回した実行なので、結果の行だけが正しい）
     if style != "閾値売買" or not gate.get("blocked") or gate.get("forced"):
         return []
     cfg, inputs = run["config"], run.get("inputs", {})

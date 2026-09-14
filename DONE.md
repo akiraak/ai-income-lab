@@ -1,5 +1,20 @@
 # DONE
 
+- 2026-09-14 GAN 増強 3 種 × 閾値売買（own a/b × batch 1,024 / 16,384）を回した（⚠ **36 行とも「落とす」** ／ ⚠ **batch 16k は成績を一貫して動かさなかった** ／ ⚠ **n_trials 439 → 475**）
+  - プラン: [docs/plans/archive/gan-threshold-trading.md](docs/plans/archive/gan-threshold-trading.md) ／ 記録: [gan-threshold-trading.md](docs/specs/experiments/gan-threshold-trading.md) ／ 台帳: [ledger.md](docs/specs/experiments/feature-discovery/ledger.md)
+  - 親タスク: 「GPU 系を閾値売買でも回せるようにする」 ＝ ⚠ **own のモデルの軸を閉じた**（素の 3 種 ＋ `+GAN増強` 3 種 × 2 水準）。⚠ **ownex は空白として TODO に残した**
+  - 利用者の決定（2026-09-13）: ⚠ **batch 16,384 も回す**（速さのための水準だが別の試行として数え、`…+GAN増強(batch16k)` で台帳の鍵を割った）
+  - ⚠ **起動したセッションは走行中に終わっていた**。別のセッション（2026-09-13 22:27〜）が監視を引き継ぎ、24 本の完了後に集計した
+  - **結果**【実測】: 上乗せ **−36.70 〜 −1,638.70bp/fold**。⚠ **B&H（＋1,652.02bp）を超えた行は 0**
+    - ⚠ **16k の (A) θ=60 はほとんど建てない**（Ridge 1 回/fold・保有日率 0.007）。⚠ **較正の傾き `|a|` が 1,024 の数分の 1 に寝ていた**。⚠ **batch の効きとして読まない**
+    - ⚠ **batch の効き**（16k − 1,024）は 18 セルで正 9・負 9
+    - ⚠ **(B) の fold 1・2 は 1,024 と 16k で 1 ビットも違わなかった**（1 銘柄の訓練が 1,024 行未満で `min(batch, 行)` が同じ）→ ⚠ **GAN は GPU 上でも決定的** ／ ⚠ **(B) の「batch の効き」は 3 fold 分しか無い**
+    - ⚠ **素のモデルとの差**: (B) では 18 セル中 17 で GAN 増強が負けを小さくしたが、⚠ **t > 2 は 1 セルだけ**（多重比較の範囲・18 セルは独立でない）。(A) は向きが揃わない。⚠ **どれも B&H 未満**
+  - **検算**: ✅ **291 件 pass** ／ ✅ **既存の台帳行は消えた 0・数字が変わった 0**（動いたのは台帳の基準線 12 行の `再現`（4 → 10 実行・3 → 9 実行、⚠ **どれも「一致」のまま**）と代表実行 ID、leak 表 12 行の代表実行 ID、冒頭の件数、§6 の生成文だけ）／ ✅ **leak 12 本とも跳ねた**（θ=50 で ＋20,704〜22,189bp・t 16.98〜21.76）／ ✅ 表の指紋一致 ／ ✅ config の差は `model`・`name` だけ ／ ✅ 較正 `std` 24/24 ／ 落とす **362 → 398 行**・保留 77 行（変わらず）
+    - ⚠ **13:46 に起動した 4 本の `git_commit` は `e2c90ea`**（config が未コミットだった）。⚠ **`config.json` と `75d341d` の toml は全 key 一致し、(B) fold 1・2 が `75d341d` の実行と bit 一致した** ＝ 再現はできる
+  - **費用**【実測】: 4 本並列で 1,024 の 12 本 **16 時間 34 分**（見込み 17.2）／ 16k の 12 本 **7 時間 5 分**（見込み 6.5）。1,024 → 16k は (B) **1.65 倍**（見込みどおり）・(A) **8.8 倍**（反復数の 14.6 倍には届かない）
+  - ⚠ **`AIL_TORCH_DEVICE=cuda` を明示して回した**（`env.json` に残らないので記録に書いた）
+
 - 2026-09-13 F3-1 Lasso の裁定を反映し、LightGBM × 断面（own cs rel ll）× 閾値売買を回した（⚠ **12 行のうち 11 行が「落とす」** ／ ⚠ **直しても成績は良くならなかった** ／ ⚠ **n_trials 427 → 439**）
   - プラン: [docs/plans/archive/lasso-fix-cs-threshold.md](docs/plans/archive/lasso-fix-cs-threshold.md) ／ 記録: [lasso-fix-cs-threshold.md](docs/specs/experiments/lasso-fix-cs-threshold.md) ／ 台帳: [ledger.md](docs/specs/experiments/feature-discovery/ledger.md)
   - ⚠ **2 タスクで 1 プラン**（①の裁定が②の config の中身を決めるため）。親タスク: 「GPU 系を閾値売買でも回せるようにする」の手間「小」4 件目 ＝ ⚠ **これで層の軸も閉じた**（残るは GAN 増強 3 種だけ）

@@ -428,6 +428,7 @@ flowchart LR
 | 〃 | `own_1995` | 同じ層で期間を遡った表（14-4） |
 | 〃 | `ownex` | ⚠ **`own ＋ cs ＋ rel ＋ ex`**。⚠ **対象は会社株だけ**（ETF は `rel_` を持てない。10 章 規約 2）。表の持ち主は `trade_ownex_ridge_a` |
 | 〃 | `cs` | `own ＋ cs ＋ rel ＋ ll`。対象は会社株だけ。表は `gpu_lgbm_cs` を読む |
+| 〃 | `ownseq` | ⚠ **`own ＋ seq`**（`seq` ＝ 過去 60 営業日の対数リターンの窓。時系列分類器の入力。2026-09-15）。対象は全銘柄。表の持ち主は `trade_ownseq_ridge_a` |
 | モデル略 | `ridge` / `lgbm` / `mlp` | 基底 |
 | 〃 | 末尾に `gan` | `+GAN増強` |
 | 水準 | `16k` | `(batch16k)`。⚠ **既定の水準は書かない**（モデル名と同じ） |

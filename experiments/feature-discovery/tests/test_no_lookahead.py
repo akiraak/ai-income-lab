@@ -13,7 +13,7 @@ import pandas as pd
 import pytest
 
 from ail import contracts
-from ail.features import cross, labels, leadlag, own, relative, trend
+from ail.features import cross, labels, leadlag, own, relative, seq, trend
 
 
 def bars(n=300, seed=0, start="2024-01-02"):
@@ -42,7 +42,7 @@ def _with_own(p):
     return ctx
 
 
-@pytest.mark.parametrize("layer_name", ["own", "trend", "cs", "rel", "ll"])
+@pytest.mark.parametrize("layer_name", ["own", "trend", "seq", "cs", "rel", "ll"])
 def test_truncating_the_future_does_not_change_the_past(layer_name):
     """⚠ **未来を切り落としても、過去の特徴量は 1 つも変わってはいけない。**"""
     p = panel(n=600)
@@ -51,7 +51,7 @@ def test_truncating_the_future_does_not_change_the_past(layer_name):
     short = {s: df.iloc[:cut].reset_index(drop=True) for s, df in p.items()}
     ctx_short = _with_own(short)
 
-    fn = {"own": own.layer, "trend": trend.layer, "cs": cross.layer,
+    fn = {"own": own.layer, "trend": trend.layer, "seq": seq.layer, "cs": cross.layer,
           "rel": relative.layer, "ll": leadlag.layer}[layer_name]
     full = fn(p, ctx_full)
     part = fn(short, ctx_short)

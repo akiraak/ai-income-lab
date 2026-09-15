@@ -1,5 +1,20 @@
 # DONE
 
+- 2026-09-15 時系列分類器 3 本（MiniRocket・Hydra・QUANT）を閾値売買で回した（⚠ **9 行のうち落とす 8・保留 1** ／ ⚠ **保留の中身は fold ごとの全部持つ／全部休む** ／ ⚠ **n_trials 553 → 562**）
+  - 利用者の指示: **TODO で次にやるべきものを選んで → 進めます**（Claude が [ts-trend-ai-survey.md §7](docs/specs/experiments/ts-trend-ai-survey.md) の優先 2 を推した）
+  - プラン: [docs/plans/archive/tsc-minirocket-hydra-quant.md](docs/plans/archive/tsc-minirocket-hydra-quant.md) ／ 記録: [tsc-threshold.md](docs/specs/experiments/tsc-threshold.md) ／ 台帳: [ledger.md](docs/specs/experiments/feature-discovery/ledger.md)
+  - 親タスク: 「DL / 進化的探索の手法を増やして検証を回す」の候補 2（⚠ **親は残す。優先 1・3 が未実施**）
+  - **足したもの**: `seq` 層（過去 60 営業日の対数リターン。`own_seq60_r0..r59`）／ 検知器 3 本（`ail/detectors/tsc.py`。窓 → 累積の道筋 → aeon の変換 → Ridge → Platt）／ config `trade_ownseq_ridge_a`（表の呼び名 `ownseq` を rules.md 10-1 に 1 行）／ テスト 10 件
+  - ⚠ **依存**: aeon 1.5.0 は `numba<0.64` を宣言し、宣言どおりだと numpy が 2.4.2 → 2.3.5 に下がる → ⚠ **`--no-deps` で入れて numba 0.67.0 と組み合わせ、宣言どおりの環境と 3 変換の出力がビット一致することを確かめた**（`requirements-nodeps.txt` に分けた）。⚠ **aeon は検知器の関数の中でだけ import する**
+  - **結果**【実測】: 上乗せ **＋61.92 〜 −1,703.88bp/fold**。⚠ **own 表 Ridge「全部使う」を 3 θ すべてで上回った手法は 0**（θ=50 は 3 本とも上回ったが保有日率 0.78〜0.80 ＝ B&H に寄っただけ、θ=55 は 3 本とも負け）
+    - ⚠ **唯一の保留 QUANT θ=50（＋61.92bp・t 0.44）は、fold 1・4・5 が保有日率 1.0・fold 3 が 0.0 で、平均を正にしたのは fold 2 の ＋589.93bp だけ**
+    - ⚠ **門の AUC 0.501〜0.508・買い% 幅 0.5〜2.1 点・較正の傾き a は 3 手法とも fold で符号が入れ替わる** ＝ 1 万列 × Ridge は訓練の頭と尻で向きが逆（雑音）【推測】
+    - ⚠ **θ=60 の MiniRocket・Hydra は取引 1.6 / 0.6 回/fold で純利そのものが負**
+  - **検算**: ✅ **304 件 pass** ／ ✅ 依存を入れても既存の版は不変・294 件 pass ／ ✅ 台帳 HEAD の 885 行で消えた行 0・数字か判定が変わった行 0（足されたのは 15 行）／ ✅ leak 対照が跳ねた（＋22,194bp・t 17.14・1 万列の中の `LEAK_` 1 列を拾った）／ ✅ 表の行が own_2018 と一致 ／ 落とす **476 → 484 行**・保留 **77 → 78 行**
+    - ⚠ **「表の own 列が own_2018 と 1 ビットも違わない」は満たさなかった**: own 18 列と `y` が最終ビットで違う（`own_ret_1` は 58 行・最大 8.9e-16）。⚠ **`seq` 層のせいではない** — いま `own_2018` を作り直すと新しい表と全列一致し、同じ終値から対数を取り直すと 58 行とも新しい値になる ＝ ⚠ **`np.log` の最終ビットが 2026-09-09 と違う**（numpy は同じ 2.4.2。原因は未特定）。基準線の純利の差は最大 9.1e-13bp で比較には効かない
+    - ⚠ **新しいコードは未コミットで回した**（`git_commit` は `4999c61`）→ 実行時点の sha256 を記録 §5 に残した
+  - **費用**【実測】: 本番 **17 分 5 秒**・leak **16 分 31 秒**（見込み 30〜90 分）。⚠ **最大メモリ 28.3GB**（見込み 15GB 前後・⚠ **搭載 30GB の 94%**）→ ⚠ **1995 表や形式 (B) に広げる前に配列の持ち方を直す**
+
 - 2026-09-15 選別の 7 手法（F1-1・F1-2・F1-3・F1-5・F2-3・F3-2・F3-5）を閾値売買に移して回した（⚠ **42 行とも「落とす」** ／ ⚠ **選別の順位はモデルを替えるとほぼ無相関** ／ ⚠ **n_trials 511 → 553**）
   - 利用者の指示: **選別の 7 手法を閾値売買に移して回す**
   - プラン: [docs/plans/archive/selectors-seven-threshold.md](docs/plans/archive/selectors-seven-threshold.md) ／ 記録: [selectors-seven-threshold.md](docs/specs/experiments/selectors-seven-threshold.md) ／ 台帳: [ledger.md](docs/specs/experiments/feature-discovery/ledger.md)

@@ -1,0 +1,55 @@
+# ⚠ **時系列分類器 3 本（MiniRocket・Hydra・QUANT）を閾値売買で回す**（プラン `plans/tsc-minirocket-hydra-quant.md`）。
+#
+# ⚠ **動かす軸は「入力の形」だけ。** これまでの手法は手で作った 35 列（own 層）を入力にしてきた。
+# ⚠ **ここでは過去 60 営業日の価格の道筋そのもの**（`seq` 層）から、論文どおりの変換で特徴を作る。
+# ⚠ **頭は 3 本とも Ridge → Platt**（論文の頭とは違う。同じ頭にしないと変換の差として読めない）。
+#
+# ⚠ **この 1 本が表の持ち主**（表の呼び名 `ownseq` ＝ own ＋ seq。rules.md 10-1）。
+# ⚠ **期間・銘柄・地平・fold・種は own_2018 ／ trade_own_ridge_a と同じ**にしてある。
+# ⚠ **表の行と own 35 列が own_2018 と 1 ビットも違わないことを検算する**（プラン §4 の 7）。
+#
+# ⚠ **事前固定するのは構造だけ**（rules.md 14-9）: 変換は aeon 1.5.0 の既定 ／ 窓 60 ／ 入力は累積の道筋 ／
+# 学習の対象は y（1 日）／ θ は 50・55・60 ／ 形式は (A) だけ。⚠ **3 × 3 閾値 = 9 試行**（553 → 562）。
+# ⚠ **門は測って記録するが、門前でも回す**（`cli/run.py` の既定。14-10 規約 2）。
+#
+# ⚠ **TOML の平の key はテーブル見出しより上に書く**（rules.md 10 章 規約 1）
+name = "trade_ownseq_ridge_a"
+dataset = "daily"
+horizon = 1
+cost_bp = 5.0
+start_date = "2018-01-31"      # ⚠ own_2018 と同じ（期間を揃える。rules.md 14-4）
+
+feature_layers = ["own", "seq"]
+targets = "all"
+
+horizon_min = 1440.0
+bar_minutes = 1440.0
+
+# ⚠ **検知器 3 本**（rules.md 15-1 の契約 ＝ 買い% 1 本）。⚠ **3 × 3 閾値 = 9 試行**
+detectors = [
+  "T1 MiniRocket（60日窓）",
+  "T2 Hydra（60日窓）",
+  "T3 QUANT（60日窓）",
+]
+k = 60                         # 窓の長さ（⚠ 選別はしない。窓の列は事前固定）
+
+model = "Ridge"
+baselines = ["常に上（ドリフト）", "直前リターンの符号"]
+
+[trading]
+style = "threshold"
+thresholds = [50, 55, 60]      # ⚠ 事前固定。結果を見て動かさない（rules.md 13-3）
+form = "shared"                # (A) 銘柄共通 1 本
+
+[validation]
+split = "walk_forward_dates"   # ⚠ fold の切れ目は日付で決める（rules.md 13-6 の 1）
+folds = 5
+purge = true
+embargo_bars = 0
+seed = 0
+
+[features]
+ex_lag_days = 1
+ex_zero_fill = ["usgs"]
+ex_transforms = ["d1", "z20"]
+ex_max_stale_days = 7

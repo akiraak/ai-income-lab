@@ -12,6 +12,7 @@
 
 ```bash
 python3 -m venv .venv && ./.venv/bin/pip install -r requirements.txt
+./.venv/bin/pip install --no-deps -r requirements-nodeps.txt   # ⚠ aeon（時系列分類器）。依存なしで入れる理由はファイルの注記
 
 # 1. 取得 → data/raw/（⚠ **この venv で通る**。requirements.txt に websockets と requests を入れてある）
 ./.venv/bin/python -m cli.fetch --dataset daily          # 足（tastytrade）

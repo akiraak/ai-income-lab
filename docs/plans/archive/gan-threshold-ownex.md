@@ -1,9 +1,9 @@
 # GAN 増強 3 種 × 閾値売買 × ownex（batch 1,024 / 16,384）
 
 親タスク: 「GPU 系を閾値売買でも回せるようにする」（利用者の指示 2026-09-13: **gpu 系も毎日往復ではない手法を実装する**）
-派生元: 「GAN 増強 3 種 × 閾値売買（own）」（✅ 2026-09-14 完了。[記録](../specs/experiments/gan-threshold-trading.md) ／ [プラン](archive/gan-threshold-trading.md)）
-規約: [rules.md 13 章](../specs/experiments/feature-discovery/rules.md)（閾値つき売買）／ [14-10](../specs/experiments/feature-discovery/rules.md)（空白は積極的に埋める）
-台帳: [ledger.md](../specs/experiments/feature-discovery/ledger.md)（着手時点 **n_trials 475**【実測 2026-09-14】・テスト **294 件 pass**【実測】）
+派生元: 「GAN 増強 3 種 × 閾値売買（own）」（✅ 2026-09-14 完了。[記録](../../specs/experiments/gan-threshold-trading.md) ／ [プラン](gan-threshold-trading.md)）
+規約: [rules.md 13 章](../../specs/experiments/feature-discovery/rules.md)（閾値つき売買）／ [14-10](../../specs/experiments/feature-discovery/rules.md)（空白は積極的に埋める）
+台帳: [ledger.md](../../specs/experiments/feature-discovery/ledger.md)（着手時点 **n_trials 475**【実測 2026-09-14】・テスト **294 件 pass**【実測】）
 
 ✅ **利用者の決定（2026-09-14）: batch 1,024 と 16,384 を両方回す**
 
@@ -20,7 +20,7 @@
 | +GAN増強 3 種（batch 16,384） | ✅（2026-09-14） | ⚠ **空白** |
 
 ⚠ **回す理由は「効くはず」ではない。** own では ⚠ **36 行とも「落とす」**で、batch の差（16k − 1,024）は ⚠ **18 セルで正 9・負 9** だった。
-⚠ **それは回さない理由にならない**（[14-10 規約 1](../specs/experiments/feature-discovery/rules.md)）。⚠ **目的は「ownex では未実施」を「ownex でも効かない / 効く」と区別できるようにすることだけ**（14-10 規約 4）。
+⚠ **それは回さない理由にならない**（[14-10 規約 1](../../specs/experiments/feature-discovery/rules.md)）。⚠ **目的は「ownex では未実施」を「ownex でも効かない / 効く」と区別できるようにすることだけ**（14-10 規約 4）。
 
 ⚠ **両方の batch を回す理由**（利用者の決定の背景）: (1) own と同じ組み合わせになり、own と ownex の比較に batch の違いが混ざらない
 (2) ⚠ **own の 16k (A) θ=60 で起きた「ほとんど建てない」（較正の傾きが寝た）が ownex でも起きるかを見られる**
@@ -119,7 +119,7 @@ GPU は 3090 Ti。着手時の使用 15,515MiB / 24,564MiB（llama-server が常
 
 ## 3. Phase 構成
 
-> この図の主張: ⚠ **起動の前にコミットする。** own では未コミットの config で起動した 4 本の `git_commit` がずれた（[記録 §6-1](../specs/experiments/gan-threshold-trading.md)）。
+> この図の主張: ⚠ **起動の前にコミットする。** own では未コミットの config で起動した 4 本の `git_commit` がずれた（[記録 §6-1](../../specs/experiments/gan-threshold-trading.md)）。
 
 ```mermaid
 flowchart LR
@@ -155,7 +155,7 @@ AIL_TORCH_DEVICE=cuda ./.venv/bin/python -m cli.run --experiment trade_ownex_rid
 
 ### Phase 4: 記録と後片付け
 
-`docs/specs/experiments/gan-threshold-ownex.md` に結果と判定を書く。own の記録（[gan-threshold-trading.md](../specs/experiments/gan-threshold-trading.md) §7）の「未実施」を更新する。⚠ **落とす結果でも記録を残す**（14-10 規約 5）。
+`docs/specs/experiments/gan-threshold-ownex.md` に結果と判定を書く。own の記録（[gan-threshold-trading.md](../../specs/experiments/gan-threshold-trading.md) §7）の「未実施」を更新する。⚠ **落とす結果でも記録を残す**（14-10 規約 5）。
 
 ---
 

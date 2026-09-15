@@ -36,9 +36,9 @@
   ⚠ **回し直しでは触れなかった側である**: ⚠ **`gpu_*` が対象外だったのは「較正を通らない ＝ 毎日往復だから」**。⚠ **これはその前提のほうを埋める話で、新規の試行になる**
   ⚠ **モデルの実装は全部ある**（`ail/registry.py`: Ridge / MLP / LightGBM ＋ `+GAN増強` の 3 種）。⚠ **足りないのは `[trading]` を持つ config だけ**【実測 2026-09-13】
   ⚠ **空白は 2 方向ある**（台帳の実測。[ledger.md](docs/specs/experiments/feature-discovery/ledger.md)）
-    ⚠ **(1) モデルの軸**: ✅ **素のモデル 3 種は 2026-09-13 に閉じた**（Ridge・LightGBM・MLP が own a/b ＋ ownex a/b の 4 本ずつ）。✅ **`+GAN増強` 3 種も own a/b は 2026-09-14 に閉じた**（batch 1,024 ／ 16k。⚠ **36 行とも落とす**。[記録](docs/specs/experiments/gan-threshold-trading.md)）。⚠ **残るは `+GAN増強` × ownex だけ**（下の子タスク）
+    ⚠ **(1) モデルの軸**: ✅ **素のモデル 3 種は 2026-09-13 に閉じた**（Ridge・LightGBM・MLP が own a/b ＋ ownex a/b の 4 本ずつ）。✅ **`+GAN増強` 3 種も own a/b は 2026-09-14 に閉じた**（batch 1,024 ／ 16k。⚠ **36 行とも落とす**。[記録](docs/specs/experiments/gan-threshold-trading.md)）。✅ **ownex も 2026-09-15 に閉じた**（⚠ **36 行とも落とす**。[記録](docs/specs/experiments/gan-threshold-ownex.md)）＝ ⚠ **モデルの軸は own・ownex とも閉じた**
     ⚠ **(2) 選別の軸**: ✅ **2026-09-13 に F3-3 MDA と F3-1 Lasso を移して 6 本になった**（F1-4・F1-7・F2-2・F5-1 ＋ F3-3・F3-1）。⚠ **残る 7 手法が毎日往復にしか無い**（F1-1・F1-2・F1-3・F1-5・F2-3・F3-2・F3-5 ＝ 実装 13 − 閾値売買 6）。✅ **F3-1 の不具合は 2026-09-13 に裁定して片付けた**（(d)＋(b)。直した `F3-1b` を別 ID で足した。[記録](docs/specs/experiments/lasso-fix-cs-threshold.md)）
-  ✅ **`gpu_lgbm_cs` の層（own cs rel ll）は 2026-09-13 に閉じた**（[記録](docs/specs/experiments/lasso-fix-cs-threshold.md)）。✅ **GAN 増強 3 種 × own も 2026-09-14 に閉じた**（[記録](docs/specs/experiments/gan-threshold-trading.md)）。⚠ **残るは GAN 増強 3 種 × ownex だけ**
+  ✅ **`gpu_lgbm_cs` の層（own cs rel ll）は 2026-09-13 に閉じた**（[記録](docs/specs/experiments/lasso-fix-cs-threshold.md)）。✅ **GAN 増強 3 種 × own も 2026-09-14 に閉じた**（[記録](docs/specs/experiments/gan-threshold-trading.md)）。✅ **GAN 増強 3 種 × ownex も 2026-09-15 に閉じた**（[記録](docs/specs/experiments/gan-threshold-ownex.md)）。⚠ **残るは (2) 選別の軸だけ**
   ⚠ **費用の見積り**【推測】: ⚠ **GAN 増強は毎日往復で 1 本 43〜47 分**【実測 2026-09-09】。⚠ **閾値売買は `--sample` が効かない**（[rules.md 13-4](docs/specs/experiments/feature-discovery/rules.md)）ので行が 60,000 → 135,962 に増え、⚠ **1 本 1.5〜2 時間 × leak 対照ぶん 2 倍**。⚠ **この見積りは MLP で 1 桁外した実績がある**（見込み 20〜40 分 → 実測 2 分 36 秒。[記録 §5-3](docs/specs/experiments/mlp-threshold-trading.md)）ので、⚠ **回すときに測り直す**
   ⚠ **GAN 増強は毎日往復で「落とす」が出ている**（[gpu-models.md §4](docs/specs/experiments/gpu-models.md)）。⚠ **それは回さない理由にならない**（[14-10 規約 1](docs/specs/experiments/feature-discovery/rules.md)）が、⚠ **新旧の数字は直接比べない**（13-8。物差しが違う）
   ⚠ **緩めないもの**: 回すと決めるのは結果を見る前 ／ 回したものは全部 `n_trials` に数える（＋40〜50 試行【推測】）／ ⚠ **leak 対照を毎回通す** ／ 1 実行 1 ディレクトリ
@@ -54,18 +54,6 @@
     ⚠ **唯一の保留は選別ではない**: 「全部使う（基準）」θ=50 の上乗せ ＋64.54bp・⚠ **t 0.30**・3/5・DSR 0.116。⚠ **選別 3 本はどの θ でも「全部使う」に負けた** ＝ ⚠ **断面の層でも選別の軸は効かない**
     ✅ **F3-1b は機械としては直った**（本数 1.4 → 32.0・買い% 幅 2.50 → 14.70 点）が、⚠ **成績は 3 θ で 2 勝 1 敗で、4 行とも B&H に届かない**。⚠ **AUC はむしろ下がった**（0.486 → 0.472）
     ⚠ **費用の見積りを 4 回続けて過大に外した**: 見込み 10〜25 分 → ⚠ **実測 4 分 9 秒**（本番 1:53 ＋ leak 2:15）。⚠ **CPU は 48 分**なので並列が効いているだけ。⚠ **「MDA は列数比で重くなる」は外れ**
-  - [~] GAN 増強 3 種 × 閾値売買 × **ownex**（⚠ **batch 1,024 だけなら ＋18 試行・16k も揃えるなら ＋36**。⚠ **手間 大**） [plan](docs/plans/gan-threshold-ownex.md)
-    派生元: 「GAN 増強 3 種 × 閾値売買（own）」（✅ 2026-09-14 完了。⚠ **36 行とも「落とす」**。[記録 §7](docs/specs/experiments/gan-threshold-trading.md)）
-    ⚠ **これは「効かなかった」ではなく「未実施」である**（[rules.md 14-10 規約 4](docs/specs/experiments/feature-discovery/rules.md)）。own で外したのはプラン §0-2 の規則（費用が「> 2 時間」の枝）による
-    ⚠ **費用の見積り**【推測】: own の実測（4 本並列で batch 1,024 の 12 本 16.6 時間・16k の 12 本 7.1 時間）に ownex の行数・銘柄数の比（約 0.75）を掛けて ⚠ **1,024 で約 12 時間・16k で約 5 時間**。⚠ **起動律速なので行数には比例しない**（[プラン §5](docs/plans/archive/gan-threshold-trading.md)）。回すときに測り直す
-    ⚠ **回す前に決めること**: batch を 1,024 だけにするか 16k も揃えるか（⚠ **own では 16k が成績を一貫して動かさなかった**が、⚠ **それは ownex で 16k を 1,024 の代わりにしてよい理由にはならない** — 別の試行）
-    ✅ **利用者の決定（2026-09-14）: 両方回す**（24 本・＋36 試行・n_trials 475 → 511【推測】・4 本並列で約 17 時間【推測】）
-    - [x] Phase 0: 事前固定（プラン §0）
-    - [x] Phase 1: config 12 本（`trade_ownex_lgbm_a/b` を写して `name`・`model` だけ差し替え）＋ 全 key 照合
-    - [~] Phase 2: ⚠ **コミットしてから** 24 本を 4 本並列で起動（`AIL_TORCH_DEVICE=cuda`・フラグなし）
-      ✅ 2026-09-14 15:21 に起動（`984ad75`）。キューは `experiments/feature-discovery/out/gan_ownex/queue.sh`、進み具合は同じ場所の `queue.log`（`start` / `end … exit=`）。⚠ **完了の見込みは 09-15 08:00 ごろ**【推測】
-    - [ ] Phase 3: 台帳の吐き直し＋検算（プラン §4 の 12 項目）
-    - [ ] Phase 4: 記録（`gan-threshold-ownex.md`）・TODO/DONE・プランを archive へ
 
 - [ ] 台帳の空白を埋める（✅ **「小」4 件は 2026-09-12 に完了。残る未実施は 12 件**。手間の小さい順に回す）
   利用者の決定（2026-09-12）: **検証はコストが低いので可能性が低くても積極的に行う。空白は積極的に埋める** → [rules.md 14-10](docs/specs/experiments/feature-discovery/rules.md) に規約化済み

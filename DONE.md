@@ -1,5 +1,19 @@
 # DONE
 
+- 2026-09-15 選別の 7 手法（F1-1・F1-2・F1-3・F1-5・F2-3・F3-2・F3-5）を閾値売買に移して回した（⚠ **42 行とも「落とす」** ／ ⚠ **選別の順位はモデルを替えるとほぼ無相関** ／ ⚠ **n_trials 511 → 553**）
+  - 利用者の指示: **選別の 7 手法を閾値売買に移して回す**
+  - プラン: [docs/plans/archive/selectors-seven-threshold.md](docs/plans/archive/selectors-seven-threshold.md) ／ 記録: [selectors-seven-threshold.md](docs/specs/experiments/selectors-seven-threshold.md) ／ 台帳: [ledger.md](docs/specs/experiments/feature-discovery/ledger.md)
+  - 決定（プラン §0-2。回す前に固定）: ⚠ **Ridge と LightGBM の両方 × own_2018 × 形式 (A)**。config 2 本（`trade_own_ridge_sel7_a` ／ `trade_own_lgbm_sel7_a`）は既存 `trade_own_{ridge,lgbm}_a` と `selectors`・`name` 以外 1 key も違わない。⚠ **コードは 1 行も変えていない**
+  - **結果**【実測】: 上乗せ **−29.97 〜 −1,652.02bp/fold**。⚠ **B&H（＋1,652.02bp）を超えた行は 0**
+    - ⚠ **事前条件「同じモデルの `全部使う`・`乱択` を 3 θ すべてで上回る」を満たした選別は 0 本**（42 セル中 10 セルで上回ったが、θ かモデルを替えると入れ替わる）
+    - ⚠ **7 本は 2 モデルに同じ列を渡した**（`selected.csv` 883 件すべて一致）のに、⚠ **θ=50 の順位相関は −0.07**。F1-1 は Ridge で最下位・LightGBM で最上位
+    - ⚠ **LightGBM は買い% 幅 0.15〜2.44 点で潰れていた**（Ridge は 3.30〜8.83 点）。⚠ **F1-2 θ=60 は 5 fold とも取引 0**。選別を替えても直らない
+    - ⚠ **F1-5・F2-3 もフォールバック（1 本）には落ちていない**（本数 25〜29 ／ 13〜23）。F1-1 と F1-3 は 16 本中 7〜8 本が共通
+  - **検算**: ✅ **294 件 pass** ／ ✅ **台帳 §2 の既存 843 行で消えた行 0・数字か判定が変わった行 0**（足されたのは 42 行）／ ✅ 基準線が既存と 60 行 × 2 モデルで食い違い 0 ／ ✅ leak 対照が跳ねた（＋22,190bp 前後・t 17.1・7 本とも先読みの列を 5/5 で選んだ）／ ✅ 表の指紋・較正 `std`・`git_commit a0581ce` ／ 落とす **434 → 476 行**・保留 77 行（変わらず）
+  - **費用**【実測】: 直列 4 本で **11 分 43 秒**（見込み 15〜65 分【推測】。⚠ **5 回目の過大な外れ**）。CPU は 2 時間 48 分
+  - 親タスク「GPU 系を閾値売買でも回せるようにする」（利用者の指示 2026-09-13: **gpu 系も毎日往復ではない手法を実装する**）を ⚠ **これで閉じた** — (1) モデルの軸（own・ownex。2026-09-13〜15）と (2) 選別の軸（2026-09-13・15）の両方が埋まった
+    - ⚠ **閉じたときに広げていないもの**: 形式 (B) での選別 ／ ownex・断面の表での 7 選別 ／ LightGBM の買い% が潰れる理由 ／ GAN 増強の予測のスケール（`calibdiag` は別立てで回さず、本番の `fitted/calibration_f*.json` で代用）。記録 §7 と [gan-threshold-ownex.md §7](docs/specs/experiments/gan-threshold-ownex.md)
+
 - 2026-09-15 GAN 増強 3 種 × 閾値売買 × **ownex**（batch 1,024 / 16,384）を回した（⚠ **36 行とも「落とす」** ／ ⚠ **own の「(B) で負けが小さくなる向き」は再現しなかった** ／ ⚠ **n_trials 475 → 511**）
   - プラン: [docs/plans/archive/gan-threshold-ownex.md](docs/plans/archive/gan-threshold-ownex.md) ／ 記録: [gan-threshold-ownex.md](docs/specs/experiments/gan-threshold-ownex.md) ／ 台帳: [ledger.md](docs/specs/experiments/feature-discovery/ledger.md)
   - 親タスク: 「GPU 系を閾値売買でも回せるようにする」 ＝ ⚠ **モデルの軸を own・ownex とも閉じた**（残るは選別の軸）

@@ -30,31 +30,6 @@
   - [ ] 進化的探索の実行を継続して回せる仕組み（キュー or ループ、失敗時の再開、台帳の自動更新）
     関連: [rules.md](docs/specs/experiments/feature-discovery/rules.md) ／ [ledger.md](docs/specs/experiments/feature-discovery/ledger.md)
 
-- [ ] GPU 系を閾値売買でも回せるようにする（⚠ **いまは 5 実行とも毎日往復しか無い**。着手時にプランを作る）
-  利用者の指示（2026-09-13）: **gpu 系も毎日往復ではない手法を実装する**
-  派生元: 「直した較正で 2018 表・LightGBM・GPU 系を回し直す」（✅ 2026-09-13 完了。[calibration-rerun.md](docs/specs/experiments/calibration-rerun.md) §1-2）
-  ⚠ **回し直しでは触れなかった側である**: ⚠ **`gpu_*` が対象外だったのは「較正を通らない ＝ 毎日往復だから」**。⚠ **これはその前提のほうを埋める話で、新規の試行になる**
-  ⚠ **モデルの実装は全部ある**（`ail/registry.py`: Ridge / MLP / LightGBM ＋ `+GAN増強` の 3 種）。⚠ **足りないのは `[trading]` を持つ config だけ**【実測 2026-09-13】
-  ⚠ **空白は 2 方向ある**（台帳の実測。[ledger.md](docs/specs/experiments/feature-discovery/ledger.md)）
-    ⚠ **(1) モデルの軸**: ✅ **素のモデル 3 種は 2026-09-13 に閉じた**（Ridge・LightGBM・MLP が own a/b ＋ ownex a/b の 4 本ずつ）。✅ **`+GAN増強` 3 種も own a/b は 2026-09-14 に閉じた**（batch 1,024 ／ 16k。⚠ **36 行とも落とす**。[記録](docs/specs/experiments/gan-threshold-trading.md)）。✅ **ownex も 2026-09-15 に閉じた**（⚠ **36 行とも落とす**。[記録](docs/specs/experiments/gan-threshold-ownex.md)）＝ ⚠ **モデルの軸は own・ownex とも閉じた**
-    ⚠ **(2) 選別の軸**: ✅ **2026-09-13 に F3-3 MDA と F3-1 Lasso を移して 6 本になった**（F1-4・F1-7・F2-2・F5-1 ＋ F3-3・F3-1）。⚠ **残る 7 手法が毎日往復にしか無い**（F1-1・F1-2・F1-3・F1-5・F2-3・F3-2・F3-5 ＝ 実装 13 − 閾値売買 6）。✅ **F3-1 の不具合は 2026-09-13 に裁定して片付けた**（(d)＋(b)。直した `F3-1b` を別 ID で足した。[記録](docs/specs/experiments/lasso-fix-cs-threshold.md)）
-  ✅ **`gpu_lgbm_cs` の層（own cs rel ll）は 2026-09-13 に閉じた**（[記録](docs/specs/experiments/lasso-fix-cs-threshold.md)）。✅ **GAN 増強 3 種 × own も 2026-09-14 に閉じた**（[記録](docs/specs/experiments/gan-threshold-trading.md)）。✅ **GAN 増強 3 種 × ownex も 2026-09-15 に閉じた**（[記録](docs/specs/experiments/gan-threshold-ownex.md)）。⚠ **残るは (2) 選別の軸だけ**
-  ⚠ **費用の見積り**【推測】: ⚠ **GAN 増強は毎日往復で 1 本 43〜47 分**【実測 2026-09-09】。⚠ **閾値売買は `--sample` が効かない**（[rules.md 13-4](docs/specs/experiments/feature-discovery/rules.md)）ので行が 60,000 → 135,962 に増え、⚠ **1 本 1.5〜2 時間 × leak 対照ぶん 2 倍**。⚠ **この見積りは MLP で 1 桁外した実績がある**（見込み 20〜40 分 → 実測 2 分 36 秒。[記録 §5-3](docs/specs/experiments/mlp-threshold-trading.md)）ので、⚠ **回すときに測り直す**
-  ⚠ **GAN 増強は毎日往復で「落とす」が出ている**（[gpu-models.md §4](docs/specs/experiments/gpu-models.md)）。⚠ **それは回さない理由にならない**（[14-10 規約 1](docs/specs/experiments/feature-discovery/rules.md)）が、⚠ **新旧の数字は直接比べない**（13-8。物差しが違う）
-  ⚠ **緩めないもの**: 回すと決めるのは結果を見る前 ／ 回したものは全部 `n_trials` に数える（＋40〜50 試行【推測】）／ ⚠ **leak 対照を毎回通す** ／ 1 実行 1 ディレクトリ
-  ⚠ **予測のスケールを先に測る**: `cli/calibdiag.py` は 2026-09-13 に直してあり、⚠ **`反復_旧` が 2 なら旧の解が止まっていたという意味**。✅ **MLP は own・ownex とも 2026-09-13 に測った** — ⚠ **`pred_std` はどちらも Ridge と同じ尺度で潰れていない**。⚠ **GAN 増強 3 種はまだ測っていない**
-  関連: 「DL / 進化的探索の手法を増やして検証を回す」
-  ✅ **MLP × 閾値売買は own・ownex とも 2026-09-13 に完了**（[記録](docs/specs/experiments/mlp-threshold-trading.md)）。⚠ **12 行とも「落とす」。n_trials 409 → 421**
-    ⚠ **費用の見積りを実測で直した**: ⚠ **「MLP は 1 分未満」は毎日往復の数字で、(B) 銘柄別の 63 倍の fit を数えていなかった**。⚠ **own の実測は (A) 12 秒 / (B) 2 分 36 秒で 4 本 7 分 13 秒、ownex は 4 本 5 分 26 秒**
-    ✅ **1 fit 124ms は表を替えても再現した**（own 1,260 fit で 124ms・ownex 960 fit で 123.8ms。⚠ **列が 35 → 124 に増えても変わらない ＝ オーバーヘッド支配**）。⚠ **次の (B) 形式の見積りは「fit 数 × 124ms」で引ける**
-    ⚠ **ただし GAN 増強は fit の中身が違うのでこの係数を流用しない**。⚠ **見積り（1 本 1.5〜2 時間）は回すときに測り直す**
-  - [x] LightGBM × 断面（own cs rel ll）× 閾値売買 ＋ F3-1 の裁定の反映
-    ✅ 2026-09-13 完了。プラン: [archive](docs/plans/archive/lasso-fix-cs-threshold.md) ／ 記録: [lasso-fix-cs-threshold.md](docs/specs/experiments/lasso-fix-cs-threshold.md)
-    ⚠ **12 行のうち 11 行が「落とす」・1 行が「保留」。n_trials 427 → 439**
-    ⚠ **唯一の保留は選別ではない**: 「全部使う（基準）」θ=50 の上乗せ ＋64.54bp・⚠ **t 0.30**・3/5・DSR 0.116。⚠ **選別 3 本はどの θ でも「全部使う」に負けた** ＝ ⚠ **断面の層でも選別の軸は効かない**
-    ✅ **F3-1b は機械としては直った**（本数 1.4 → 32.0・買い% 幅 2.50 → 14.70 点）が、⚠ **成績は 3 θ で 2 勝 1 敗で、4 行とも B&H に届かない**。⚠ **AUC はむしろ下がった**（0.486 → 0.472）
-    ⚠ **費用の見積りを 4 回続けて過大に外した**: 見込み 10〜25 分 → ⚠ **実測 4 分 9 秒**（本番 1:53 ＋ leak 2:15）。⚠ **CPU は 48 分**なので並列が効いているだけ。⚠ **「MDA は列数比で重くなる」は外れ**
-
 - [ ] 台帳の空白を埋める（✅ **「小」4 件は 2026-09-12 に完了。残る未実施は 12 件**。手間の小さい順に回す）
   利用者の決定（2026-09-12）: **検証はコストが低いので可能性が低くても積極的に行う。空白は積極的に埋める** → [rules.md 14-10](docs/specs/experiments/feature-discovery/rules.md) に規約化済み
   ⚠ **回す理由は「効くはず」ではない。** ⚠ **「未実施」を「効かなかった」と読ませないために埋める**（14-10 規約 4）

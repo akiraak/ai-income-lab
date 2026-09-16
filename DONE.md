@@ -1,5 +1,12 @@
 # DONE
 
+- 2026-09-16 WSL2 のメモリ割当を増やした（⚠ **31.6 GB → 47.0 GB・swap 8 → 12 GB**【実測 2026-09-16 `free -g` / `/proc/meminfo`】）
+  - 利用者の指示（2026-09-16）: **WSL2のメモリを増やすのをTODOに追加** → 利用者が `wsl --shutdown` を実行して反映を確認した
+  - きっかけ: 台帳の空白 F4-3（tsfresh・16 並列）が **23.7 / 31 GB・swap 1.8 GB** まで食い、見積り 23 分の実行が 32 分を超えた【実測 2026-09-16】（[ledger-blanks-large-two.md §6](docs/specs/experiments/ledger-blanks-large-two.md)）
+  - やったこと: ホストは物理 **63.1 GB**【実測。PowerShell `Win32_ComputerSystem`】・Windows 11 Home 22631・WSL 2.7.13。`C:\Users\akira\.wslconfig` の `[wsl2]` に `memory=48GB` を足した（Claude が WSL 側から書き、元は `.wslconfig.bak-2026-09-16` に残した）。swap は既定のまま（割当の 25% ＝ 12 GB）。⚠ **`networkingMode=mirrored` の行は残した**（tailnet 越しの vibeboard が依存）
+  - 反映【実測】: `MemTotal` 49,325,752 kB（47.0 GiB）・`SwapTotal` 12,582,912 kB（12 GiB）・32 コア。⚠ **`memory=48GB` を書いても WSL が見せるのは 47 GiB**（カーネル予約分）
+  - これで `ail/features/tsfresh.py` の `N_JOBS=16` を下げずに回せる見込み（16 × RES 2.3 GB ＝ 37 GB < 47 GB）【推測】
+
 - 2026-09-16 台帳の空白「大」2 件（F4-3 tsfresh の総当たり ／ F5-3 行列プロファイル）を回した（⚠ **6 行とも「落とす」** ／ ⚠ **カタログの実施可能な空白は 0 件になった** ／ ⚠ **n_trials 598 → 604**）
   - 利用者の指示: **TODO の次の作業の候補を調べて**（候補 4 つのうち Claude が推した A1 を利用者が選んだ）→ 途中で「このまま維持で」（メモリ増強のためにキューを止めない）
   - プラン: [docs/plans/archive/ledger-blanks-large-two.md](docs/plans/archive/ledger-blanks-large-two.md) ／ 記録: [ledger-blanks-large-two.md](docs/specs/experiments/ledger-blanks-large-two.md) ／ 台帳: [ledger.md](docs/specs/experiments/feature-discovery/ledger.md)

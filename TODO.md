@@ -128,11 +128,3 @@
 - [ ] 既存の仕組みをCodex GPT6 Astraに分析と評価をさせる
   利用者の指示（2026-09-16）。着手時にプランを作る
   ⚠ **外部サービスにコードを渡す**ので、git 管理外の資格情報・記録（`.env`・`out/` など）を含めない
-
-- [ ] WSL2 のメモリ割当を増やす（`.wslconfig` に `memory=` を足す。⚠ **実行するのは利用者**、WSL の再起動を伴う）
-  派生元: 利用者の指示（2026-09-16）: **WSL2のメモリを増やすのをTODOに追加**
-  ⚠ **きっかけ**: 台帳の空白 F4-3（tsfresh・16 並列）の実行で **23.7 / 31 GB・swap 1.8 GB** まで食い、見積り 23 分の実行が 32 分を超えた【実測 2026-09-16】。ワーカー 16 本がそれぞれ RES 2.3 GB
-  現状【実測 2026-09-16】: `C:\Users\akira\.wslconfig` は `[wsl2]` に `networkingMode=mirrored` だけで `memory=` が無い ＝ 既定の割当。WSL 側の `MemTotal` 31.6 GB・`SwapTotal` 8 GB・32 コア。既定は Windows の物理メモリの 50%【推測。Microsoft の wsl-config 文書の記憶。着手時に出典 URL と取得日を取る】
-  手順（利用者が Windows 側で）: (1) `.wslconfig` の `[wsl2]` に `memory=48GB`（物理の 75% 程度。Windows 側に 16 GB は残す）と、要れば `swap=16GB` を足す (2) ⚠ **`wsl --shutdown` は動いているキュー・vibeboard（3010）・dashboard（3012）を全部止める**ので、`runs/queue/*.json` に running が無いときに行う (3) 起動後に `free -g` で反映を確認し、この行に【実測】を書く
-  ⚠ **`networkingMode=mirrored` の行は消さない**（tailnet 越しの vibeboard がこれに依存。CLAUDE.md「vibeboard のこのプロジェクト固有の運用」）
-  関連: [ledger-blanks-large-two.md §6](docs/specs/experiments/ledger-blanks-large-two.md)（⚠ **メモリを増やすまでの代替は `ail/features/tsfresh.py` の `N_JOBS` を 16 → 8 に下げること**。⚠ 本番と leak は同じ値で回す）

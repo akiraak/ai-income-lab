@@ -11,12 +11,8 @@
   - [x] 時系列から上昇下降トレンドを学習する最新 AI 技術の調査 [plan](docs/plans/archive/ts-trend-ai-survey.md)
     利用者の指示（2026-09-10）: **時系列のデータから上昇下降のトレンドを学習するような最新のAI技術がないか調べて**
     ✅ 2026-09-10 完了。成果物: [ts-trend-ai-survey.md](docs/specs/experiments/ts-trend-ai-survey.md)。5 系統に整理し、候補リスト（§7）を作成。金融の一次評価 2 本が「汎用基盤モデルは対ランダムウォークの利得が小さくまばら」で §9 と同じ形
-  - [ ] DL / 進化的探索の手法を増やして検証を回す（着手時にプランを作る）
-    依存: 「時系列から上昇下降トレンドを学習する最新 AI 技術の調査」
-    依存: 「検証の仕方を実際の取引に近づける（閾値つき売買・買い専用・銘柄別 bp）」（✅ 2026-09-10 完了。新手法の検証は閾値売買方式＝対 B&H 上乗せで測る。[threshold-trading.md](docs/specs/experiments/threshold-trading.md)）
-    候補は [ts-trend-ai-survey.md §7](docs/specs/experiments/ts-trend-ai-survey.md): 優先 1 進化的ファクター探索の基盤 / 2 時系列分類器（MiniRocket ＋ Hydra ＋ QUANT）/ 3 系列モデル 1 本（PatchTST 系）
-    ✅ 優先 2（MiniRocket・Hydra・QUANT）は 2026-09-15 に回した: ⚠ **9 行のうち落とす 8・保留 1**（保留の中身は fold ごとの全部持つ／全部休む）。⚠ **own 表 Ridge を 3 θ で上回った手法 0**。n_trials 553 → 562。記録 [tsc-threshold.md](docs/specs/experiments/tsc-threshold.md)。⚠ **残るは優先 1・3**
-    ✅ 優先 3（PatchTST 1 本）は 2026-09-15 に回した: ⚠ **3 行とも落とす**（上乗せ −51 〜 −1,568bp）。⚠ **学習は 10 回とも検証 MSE で「0 と予測する」に負けた**。n_trials 562 → 565。記録 [patchtst-threshold.md](docs/specs/experiments/patchtst-threshold.md)。⚠ **窓から学ぶ 4 本（時系列分類器 3 ＋ PatchTST）はどれも own 表 Ridge を 3 θ で超えなかった。残るは優先 1**
+  ✅ **モデルの軸は 2026-09-15 に一旦閉じた**（利用者の指示: **親タスクを残しつつ一旦このタスクを終わらせて他を進める**）。子「DL / 進化的探索の手法を増やして検証を回す」は [DONE.md](DONE.md) へ移した（優先 2・3 とも「落とす」）
+  ⚠ **残る優先 1（進化的ファクター探索の基盤）は下の「進化的探索の実行を継続して回せる仕組み」が器である**（[ts-trend-ai-survey.md §7](docs/specs/experiments/ts-trend-ai-survey.md) の総括）
   - [ ] ChatGPT からの GAN 案の実装（条件付き GAN による株価シナリオ予測） [plan](docs/plans/cgan-scenario-forecast.md)
     利用者の指示（2026-09-10）: **ChatGPTからのGAN案の実装**（指示書が長いので全文はプランに収載）
     ⚠ ここの「GAN」は ML 用語どおりの**条件付き GAN（WGAN-GP）を予測器として使う**案。親タスクの「GAN ＝ 進化的探索」とも、2026-09-09 に落とした**データ増強** GAN（[gpu-models.md §4](docs/specs/experiments/gpu-models.md)）とも別物（プラン §0-1 に整理）
@@ -97,10 +93,8 @@
     ⚠ **未実施が残る**: 利用者の指示のうち ⚠ **経済指標（`ex` 層）を足した 3 本目**は回していない（2 つ動かすとどちらが効いたか分からないため別実行にした）
     検算: ✅ **既存 86 銘柄の調整結果が 1 バイトも変わっていない**（指紋一致）／ ✅ **leak 対照が跳ねた**（t 17.31・16.97）／ ✅ **台帳の前 450 行で数字が変わった行 0**。n_trials **211 → 217**
     ⚠ **限界**: 生存バイアスが us63 より深い ／ ⚠ **分割調整の「要確認」が 12 → 33 件** ／ ⚠ **アルファベット順の業種の偏りは確かめていない**（偏っていても入れ替えない）
-  - [ ] 段 3 の続き: 経済指標（`ex` 層）を足した 3 本目を回す
-    派生元: 「段 3」。⚠ **利用者の指示の未実施部分**
-    ⚠ **`ex` は全銘柄で同じ値**なので断面の順位には効かない。⚠ **効くとすれば市場全体の方向だけ**。⚠ **期待する効き方を先に書いてから回す**
-    ⚠ **過去に偽薬（気象・地震）を超えられなかった層である**（[daily-data-sources §9](docs/specs/experiments/daily-data-sources.md)）
+  ✅ **段 3 の続き（経済指標 `ex` 層）は 2026-09-15 に完了し [DONE.md](DONE.md) へ移した**: ⚠ **6 行とも落とす**（[midcap-targets.md §8](docs/specs/experiments/midcap-targets.md)）。n_trials 565 → 571
+  ⚠ **残った限界: 偽薬（気象・地震）の対照が無い**（系列が 2026-09-01 で止まっており期間が揃わない）。⚠ **災害のずらし幅 120 日を変えた対照も未実施**
   - [ ] 段 4: 上場廃止銘柄の日足が取れるか確かめる（⚠ **生存バイアスを消せる唯一の道**）
     ⚠ **broker の配信は上場中の銘柄だけ**と見込んでいる【推測】。⚠ **確かめるのは安い** — tastytrade の instruments で廃止銘柄を引くだけ
     ⚠ **これは「API の挙動」なので [CLAUDE.md](CLAUDE.md) の 2026-09-05 例外に当たり実測してよい**

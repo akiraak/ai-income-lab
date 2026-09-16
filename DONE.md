@@ -1,5 +1,24 @@
 # DONE
 
+- 2026-09-15 段 3 の続き: 中位 48 本に経済指標（`ex` 層）を足して回した（⚠ **6 行とも「落とす」** ／ ⚠ **予想どおり断面には効かず、動いたのは「いつ持つか」だけ** ／ ⚠ **n_trials 565 → 571**）
+  - 利用者の指示（2026-09-12）: **大型株や経済指標などのデータに入力値を入れて、その銘柄の予測ができるのかを検証したい** の ⚠ **未実施だった「経済指標」の部分**
+  - プラン: [docs/plans/archive/midcap-exog.md](docs/plans/archive/midcap-exog.md) ／ 記録: [midcap-targets.md §8](docs/specs/experiments/midcap-targets.md) ／ 台帳: [ledger.md](docs/specs/experiments/feature-discovery/ledger.md)
+  - **足したもの**: config 2 本だけ（`midcap_ex` ＝ own ＋ ex 91 列 ／ ⚠ **期間を揃えた対照 `midcap_own_s1809`**）。⚠ **コードは 1 行も変えていない**
+  - 決定（回す前に固定）: ⚠ **`ex` は本命の 4 取得元**（為替 7・イールド 7・災害 13・EPU 1 ＝ 28 系列 × 2 変換 ＝ 56 列）。⚠ **災害と EPU は 2026-09-09 に取ったのに 1 度も検証に入っていなかった** ／ 期待する効き方を先に記載（断面には効かない・見るのは乱択ゲート差）
+  - ⚠ **表の頭が 50 営業日落ちた**（災害の「熱」が 2018-04-23 始まり ＋ 公表の遅れ 120 日）→ ⚠ **同じ期間の `own` だけの対照を、結果を見る前に足した**（表は 95,856 行で並びまで一致・own 35 列と y はビット差 0）
+  - **結果**【実測】: 上乗せ own＋ex **−129.66 ／ −383.01 ／ −586.71bp**、own だけ **−370.17 ／ −81.35 ／ −909.86bp**（θ 50/55/60）。⚠ **事前条件「対照を 3 θ すべてで上回る」は 2 勝 1 敗で満たさない**
+    - ⚠ **取引 578 → 955 回/fold・保有日率 0.835 → 0.897** ＝ 動いたのは「いつ持つか」だけ（予想どおり断面には効かない）
+    - ⚠ **乱択ゲートとの差は ＋4.18 ／ −53.22 ／ ＋188.43bp で符号が割れる** ＝ 「休む日を当てた」証拠にならない。門は 2 本とも門前（AUC 0.4915 → 0.5143）
+  - **検算**: ✅ 313 件 pass（コード不変）／ ✅ `ex_` 56 列・定数列 0・欠損 0 ／ ✅ 基準線が 2 本で差 0 ／ ✅ leak が跳ねた（＋24,842bp・t 15.53・2 本で完全一致）／ ✅ 台帳の前 1,984 行で変わったのは件数の 4 行だけ・落とす 487 → 493
+  - ⚠ **残した限界**: 偽薬（気象・地震）の対照が無い（系列が 2026-09-01 で止まり期間が揃わない）／ 災害は 120 日ずらし＝「4 か月前の災害」を見ている
+  - **費用**【実測】: 表 4 本が各 1 分・実行 4 本で合計 22 秒（見積り 15〜50 分。⚠ **8 回目の過大な外れ**）
+
+- 2026-09-15 「DL / 進化的探索の手法を増やして検証を回す」を一旦終えた（⚠ **優先 2・3 とも「落とす」** ／ ⚠ **優先 1 は親タスクの下の「継続して回せる仕組み」に残す**）
+  - 利用者の指示: **親タスクを残しつつ一旦このタスクを終わらせて他を進める**
+  - 回した中身: 優先 2 時系列分類器 3 本（[tsc-threshold.md](docs/specs/experiments/tsc-threshold.md)。落とす 8・保留 1）／ 優先 3 系列モデル 1 本 PatchTST（[patchtst-threshold.md](docs/specs/experiments/patchtst-threshold.md)。落とす 3）。n_trials 553 → 565
+  - ⚠ **通しての読み**: 窓から学ぶ 4 本（MiniRocket・Hydra・QUANT・PatchTST）は ⚠ **どれも own 表 Ridge「全部使う」を 3 θ すべてでは超えなかった**。⚠ **[feature-discovery §9-2](docs/specs/experiments/feature-discovery.md) の「次に変えるなら推定器ではなく入力（情報源）」を 4 本ぶん裏づけた**【推測】
+  - ⚠ **閉じていないもの**: 優先 1（進化的ファクター探索の基盤）／ 優先 4（基盤モデルの fine-tune。系統 2・3 が全滅したので保留の条件は満たした）／ 形式 (B)・1995 表での再測
+
 - 2026-09-15 系列モデル 1 本（PatchTST）を閾値売買で回した（⚠ **3 行とも「落とす」** ／ ⚠ **学習は 10 回とも「0 と予測する」の検証 MSE に負けた** ／ ⚠ **n_trials 562 → 565**）
   - 利用者の指示: **TODO から次の作業を選んで → おすすめを始めて**（Claude が [ts-trend-ai-survey.md §7](docs/specs/experiments/ts-trend-ai-survey.md) の優先 3 を推した）
   - プラン: [docs/plans/archive/patchtst-threshold.md](docs/plans/archive/patchtst-threshold.md) ／ 記録: [patchtst-threshold.md](docs/specs/experiments/patchtst-threshold.md) ／ 台帳: [ledger.md](docs/specs/experiments/feature-discovery/ledger.md)

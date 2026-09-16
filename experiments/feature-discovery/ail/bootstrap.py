@@ -32,4 +32,8 @@ from ail.detectors import pair as _pair      # noqa: F401
 # ⚠ **入力の窓は `seq` 層**（過去 60 営業日の `own_`）。⚠ **aeon は検知器の関数の中でだけ import する**
 from ail.features import seq                 # noqa: F401
 from ail.detectors import tsc as _tsc        # noqa: F401
+# ⚠ **系列モデル 1 本（PatchTST）**（plans/patchtst-threshold.md）。⚠ **窓は時系列分類器と同じ**。
+# ⚠ **モデル `PatchTST` は検知器 `S1 PatchTST（60日窓）` からしか呼べない**（窓の配列が要る）
+from ail.models import patchtst as _patchtst  # noqa: F401
+from ail.detectors import seqmodel as _seqmodel  # noqa: F401
 from ail.validation import splits            # noqa: F401

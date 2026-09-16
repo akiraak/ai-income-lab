@@ -1,5 +1,18 @@
 # DONE
 
+- 2026-09-15 系列モデル 1 本（PatchTST）を閾値売買で回した（⚠ **3 行とも「落とす」** ／ ⚠ **学習は 10 回とも「0 と予測する」の検証 MSE に負けた** ／ ⚠ **n_trials 562 → 565**）
+  - 利用者の指示: **TODO から次の作業を選んで → おすすめを始めて**（Claude が [ts-trend-ai-survey.md §7](docs/specs/experiments/ts-trend-ai-survey.md) の優先 3 を推した）
+  - プラン: [docs/plans/archive/patchtst-threshold.md](docs/plans/archive/patchtst-threshold.md) ／ 記録: [patchtst-threshold.md](docs/specs/experiments/patchtst-threshold.md) ／ 台帳: [ledger.md](docs/specs/experiments/feature-discovery/ledger.md)
+  - 親タスク: 「DL / 進化的探索の手法を増やして検証を回す」の候補 3（⚠ **親は残す。優先 1（進化的探索の基盤）が未実施**）
+  - **足したもの**: `ail/models/patchtst.py`（公式実装 commit `204c21e` の移植。⚠ **属性名と作る順を揃え、公式の state_dict がそのまま読める**）／ 検知器 `S1 PatchTST（60日窓）`（`ail/detectors/seqmodel.py`。窓は時系列分類器と同じ道筋）／ config `trade_ownseq_patchtst_a`（`features_from = "trade_ownseq_ridge_a"`）／ テスト 9 件 ／ rules.md 10-1 にモデル名とモデル略を 1 行ずつ。⚠ **依存は足していない**
+  - 決定（回す前に固定）: ⚠ **大きさは論文の縮小側（H 4・D 16・F 128・0.3）を規則で選んだ**（学習の窓の本数を ETTh と ETTm1 の対数の中点と比べる）／ 予測の対象は道筋の次の 1 点 ＝ y ／ leak 対照だけ RevIN の後に重み 0 始まりの線形の項
+  - **結果**【実測】: 上乗せ **−51.11 ／ −989.89 ／ −1,568.40bp/fold**（θ 50/55/60）。⚠ **own 表 Ridge「全部使う」を 3 θ で上回らない**（θ=50 だけ上回ったが B&H に寄っただけ）
+    - ⚠ **最良の検証 MSE ÷ 0 予測の MSE が 10 回とも 1.05〜1.29** ＝ 何も学ばなかった。1 epoch 目は 1.4〜4.5 倍から始まる → ⚠ **RevIN が足し戻す窓の平均を打ち消しきれない**【推測】
+    - 門の AUC 0.500・買い% 幅 3.0 点・較正の傾き a は fold で符号が入れ替わる。θ=50 は fold 1・5 が保有日率 1.0、fold 3 が 0.017（時系列分類器の QUANT と同じ形）
+  - **検算**: ✅ **313 件 pass** ／ ✅ **公式実装と CPU・GPU ともビット一致**（Adam 200 ステップ後の重みまで）／ ✅ GPU でも別プロセス 2 回でビット一致 ／ ✅ leak 対照が跳ねた（＋16,363〜＋17,160bp・t 7.89〜11.41）／ ✅ 台帳の既存の手法行で数字か判定が変わった行 0 ／ ✅ 基準線が `trade_ownseq_ridge_a` と差 0 ／ 落とす **484 → 487 行**
+    - ⚠ **新しいコードは未コミットで回した**（`git_commit` は `1445678`）→ 実行前の sha256 を記録 §5 に残し、⚠ **実行後もファイルが一致することを確かめた**
+  - **費用**【実測】: 1 ステップ GPU 7.12ms・CPU 12.66ms → cuda。本番と leak を同時に走らせて **各 1 時間 37 分**（見積り 1.7 時間）・最大メモリ 2.6GB。⚠ **本番と同じ大きさで先に測ったので初めて見積りがほぼ当たった**
+
 - 2026-09-15 時系列分類器 3 本（MiniRocket・Hydra・QUANT）を閾値売買で回した（⚠ **9 行のうち落とす 8・保留 1** ／ ⚠ **保留の中身は fold ごとの全部持つ／全部休む** ／ ⚠ **n_trials 553 → 562**）
   - 利用者の指示: **TODO で次にやるべきものを選んで → 進めます**（Claude が [ts-trend-ai-survey.md §7](docs/specs/experiments/ts-trend-ai-survey.md) の優先 2 を推した）
   - プラン: [docs/plans/archive/tsc-minirocket-hydra-quant.md](docs/plans/archive/tsc-minirocket-hydra-quant.md) ／ 記録: [tsc-threshold.md](docs/specs/experiments/tsc-threshold.md) ／ 台帳: [ledger.md](docs/specs/experiments/feature-discovery/ledger.md)

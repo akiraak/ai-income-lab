@@ -1,0 +1,55 @@
+# ⚠ **系列モデル 1 本（PatchTST）を閾値売買で回す**（プラン `plans/patchtst-threshold.md`）。
+#
+# ⚠ **動かす軸は「モデル」だけ。** 入力の窓（過去 60 営業日の累積の道筋）・表・物差しは時系列分類器
+# （`trade_ownseq_ridge_a`）と同じで、⚠ **固定の変換 → Ridge を、窓から表現を学習する PatchTST に替える。**
+# ⚠ **PatchTST は道筋の次の 1 点 ＝ y を予測する**（論文と同じ「系列の続きを予測する」形）。
+#
+# ⚠ **表は作り直さない**（`features_from`。本番・leak とも時系列分類器の表を読む。rules.md 13-8）。
+# ⚠ **trade_ownseq_ridge_a.toml と name・features_from・detectors・model 以外は 1 key も違わない。**
+#
+# ⚠ **事前固定するのは構造だけ**（rules.md 14-9）: 構造と水準は公式実装の縮小側（ail/models/patchtst.py の
+# ARCH・TRAIN。選んだ規則はプラン §0-2 の 2）／ θ は 50・55・60 ／ 形式は (A) だけ。⚠ **1 × 3 閾値 = 3 試行**（562 → 565）。
+# ⚠ **model_args は書かない**（`patchtst_epochs`・`patchtst_lr` はテスト用の口）。
+# ⚠ **デバイスは AIL_TORCH_DEVICE を明示して回す**（本番と leak で同じもの。プラン §0-1）。
+# ⚠ **門は測って記録するが、門前でも回す**（`cli/run.py` の既定。14-10 規約 2）。
+#
+# ⚠ **TOML の平の key はテーブル見出しより上に書く**（rules.md 10 章 規約 1）
+name = "trade_ownseq_patchtst_a"
+dataset = "daily"
+horizon = 1
+cost_bp = 5.0
+start_date = "2018-01-31"      # ⚠ own_2018 と同じ（期間を揃える。rules.md 14-4）
+features_from = "trade_ownseq_ridge_a"   # ⚠ 表は時系列分類器のものを読む（作り直さない）
+
+feature_layers = ["own", "seq"]
+targets = "all"
+
+horizon_min = 1440.0
+bar_minutes = 1440.0
+
+# ⚠ **検知器 1 本**（rules.md 15-1 の契約 ＝ 買い% 1 本）。⚠ **1 × 3 閾値 = 3 試行**
+detectors = [
+  "S1 PatchTST（60日窓）",
+]
+k = 60                         # 窓の長さ（⚠ 選別はしない。窓の列は事前固定）
+
+model = "PatchTST"             # ⚠ 検知器と組。ほかのモデルにすると検知器が止まる
+baselines = ["常に上（ドリフト）", "直前リターンの符号"]
+
+[trading]
+style = "threshold"
+thresholds = [50, 55, 60]      # ⚠ 事前固定。結果を見て動かさない（rules.md 13-3）
+form = "shared"                # (A) 銘柄共通 1 本
+
+[validation]
+split = "walk_forward_dates"   # ⚠ fold の切れ目は日付で決める（rules.md 13-6 の 1）
+folds = 5
+purge = true
+embargo_bars = 0
+seed = 0
+
+[features]
+ex_lag_days = 1
+ex_zero_fill = ["usgs"]
+ex_transforms = ["d1", "z20"]
+ex_max_stale_days = 7

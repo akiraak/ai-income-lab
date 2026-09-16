@@ -16,6 +16,7 @@
     依存: 「検証の仕方を実際の取引に近づける（閾値つき売買・買い専用・銘柄別 bp）」（✅ 2026-09-10 完了。新手法の検証は閾値売買方式＝対 B&H 上乗せで測る。[threshold-trading.md](docs/specs/experiments/threshold-trading.md)）
     候補は [ts-trend-ai-survey.md §7](docs/specs/experiments/ts-trend-ai-survey.md): 優先 1 進化的ファクター探索の基盤 / 2 時系列分類器（MiniRocket ＋ Hydra ＋ QUANT）/ 3 系列モデル 1 本（PatchTST 系）
     ✅ 優先 2（MiniRocket・Hydra・QUANT）は 2026-09-15 に回した: ⚠ **9 行のうち落とす 8・保留 1**（保留の中身は fold ごとの全部持つ／全部休む）。⚠ **own 表 Ridge を 3 θ で上回った手法 0**。n_trials 553 → 562。記録 [tsc-threshold.md](docs/specs/experiments/tsc-threshold.md)。⚠ **残るは優先 1・3**
+    ✅ 優先 3（PatchTST 1 本）は 2026-09-15 に回した: ⚠ **3 行とも落とす**（上乗せ −51 〜 −1,568bp）。⚠ **学習は 10 回とも検証 MSE で「0 と予測する」に負けた**。n_trials 562 → 565。記録 [patchtst-threshold.md](docs/specs/experiments/patchtst-threshold.md)。⚠ **窓から学ぶ 4 本（時系列分類器 3 ＋ PatchTST）はどれも own 表 Ridge を 3 θ で超えなかった。残るは優先 1**
   - [ ] ChatGPT からの GAN 案の実装（条件付き GAN による株価シナリオ予測） [plan](docs/plans/cgan-scenario-forecast.md)
     利用者の指示（2026-09-10）: **ChatGPTからのGAN案の実装**（指示書が長いので全文はプランに収載）
     ⚠ ここの「GAN」は ML 用語どおりの**条件付き GAN（WGAN-GP）を予測器として使う**案。親タスクの「GAN ＝ 進化的探索」とも、2026-09-09 に落とした**データ増強** GAN（[gpu-models.md §4](docs/specs/experiments/gpu-models.md)）とも別物（プラン §0-1 に整理）

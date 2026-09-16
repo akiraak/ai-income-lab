@@ -401,7 +401,7 @@ def cmi(X, y, k, ctx):
 
 | 部品 | 書き方 | 実例 | 登録している場所 |
 | --- | --- | --- | --- |
-| 基底 | 素のモデル名 | `Ridge` / `LightGBM` / `MLP` | `ail/models/linear.py` / `trees.py` / `deep.py` |
+| 基底 | 素のモデル名 | `Ridge` / `LightGBM` / `MLP` / `PatchTST` | `ail/models/linear.py` / `trees.py` / `deep.py` / `patchtst.py`（⚠ **窓の配列でしか呼べない**。表の列では止まる） |
 | 増強 | 基底の後ろに `+` で段を足す | `Ridge+GAN増強` | `ail/models/gan.py` |
 | 水準 | ⚠ **既定から外した水準だけ**を括弧で最後に付ける（既定は書かない） | `Ridge+GAN増強(batch16k)`（既定は batch 1,024） | `ail/models/gan.py` の `GAN_BATCH_LEVELS` |
 | 基準線 | 何をするかを日本語で書く | `常に上（ドリフト）` / `直前リターンの符号` | `ail/models/baselines.py`。台帳では頭に「基準 」が付いた手法名で並ぶ |
@@ -430,6 +430,7 @@ flowchart LR
 | 〃 | `cs` | `own ＋ cs ＋ rel ＋ ll`。対象は会社株だけ。表は `gpu_lgbm_cs` を読む |
 | 〃 | `ownseq` | ⚠ **`own ＋ seq`**（`seq` ＝ 過去 60 営業日の対数リターンの窓。時系列分類器の入力。2026-09-15）。対象は全銘柄。表の持ち主は `trade_ownseq_ridge_a` |
 | モデル略 | `ridge` / `lgbm` / `mlp` | 基底 |
+| 〃 | `patchtst` | `PatchTST`（系列モデル。⚠ **検知器 `S1 PatchTST（60日窓）` と組でしか動かない**。2026-09-15） |
 | 〃 | 末尾に `gan` | `+GAN増強` |
 | 水準 | `16k` | `(batch16k)`。⚠ **既定の水準は書かない**（モデル名と同じ） |
 | 形式 | `_a` / `_b` | (A) 銘柄共通 ／ (B) 銘柄別（13-6） |

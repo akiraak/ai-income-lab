@@ -54,7 +54,7 @@ next = "⚠ **見送りのまま（2026-09-16 に再判断）。** ⚠ **Feature
 
 [method.F4-3]
 cost = "大"
-next = "`ail/features/tsfresh.py`（新規）＋ `ail/bootstrap.py` に 1 行。⚠ **794 本 × 63 銘柄の計算時間を先に測る。** F1-5（実装済み）と対で使う設計なので、⚠ **選別側は既にある**"
+next = "✅ **2026-09-16 に回した**（[ledger-blanks-large-two.md](../../../docs/specs/experiments/ledger-blanks-large-two.md)）。⚠ **3 行とも落とす**（対 B&H −388 / −638 / −1,225bp）。⚠ **`ail/features/tsfresh.py` は層ではなく `transform`**（層にすると `catalog.implemented()` が見ない）。⚠ **実際に出るのは 783 列**（794 は出ない）で、窓 60 では 277 列が全 NaN。⚠ **1 実行 60 分（メモリ律速。16 並列で 24GB）**。F1-5 は 485 列のうち 326 列を残し、ほとんど絞らなかった"
 
 [method.F4-4]
 cost = "中"
@@ -70,7 +70,7 @@ next = "⚠ **見送りのまま（2026-09-16 に再判断）。** ⚠ **PCA は
 
 [method.F5-3]
 cost = "大"
-next = "`ail/features/matrixprofile.py`（新規）＋ `stumpy`。⚠ **先読みが入りやすい**（rules.md 7 章）。⚠ **`cli/build.py --leak` の対照実験を必ず通す**"
+next = "✅ **2026-09-16 に回した**（[ledger-blanks-large-two.md](../../../docs/specs/experiments/ledger-blanks-large-two.md)）。⚠ **3 行とも落とす**（対 B&H −276 / −483 / −957bp）。⚠ **`ail/selectors/representation.py` の `transform`**。⚠ **先読みは窓（`seq` 層・shift(k≥0) だけ）の内側に閉じて構造的に消した** — 系列全体に `stumpy.stump` を当てていない。leak 対照は ＋22,194bp で跳ねた。1 実行 112 秒（`stumpy` は `tsfresh` の依存で入る）"
 
 [method.F5-4]
 cost = "中"

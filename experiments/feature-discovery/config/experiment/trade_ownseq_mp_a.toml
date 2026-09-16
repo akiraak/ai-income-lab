@@ -1,0 +1,53 @@
+# ⚠ **台帳の空白 F5-3 行列プロファイル（モチーフ）**（プラン `plans/archive/ledger-blanks-large-two.md`）。
+#
+# ⚠ **カタログは F5-3 に「先読みが入りやすい」と付けている。** ⚠ **窓の内側にだけ当てることで構造的に消した**
+# （`seq` 層は `shift(k≥0)` だけで作られている。プラン §2-1）。⚠ **系列全体に `stumpy.stump` を当てない。**
+#
+# ⚠ **選別は「全部使う（基準）」1 本だけ。** 作る列が 5 本しかないので絞る意味が無い。
+# ⚠ **2 本入れると台帳の鍵（先頭の ID）が同じ行に潰れる**（`trade_ownseq_tsf_a` の注記と同じ）。
+#
+# ⚠ **1 手法 × θ 3 水準 ＝ 3 試行**（601 → 604）。
+#
+# ⚠ **水準は事前固定**（プラン §2-2。⚠ **回す前に書いた**）: 部分列 m = 10（営業日 2 週間）・自己結合 ／
+# 出す列は ⚠ **最近傍距離の 最小・中央値・最大・最後の点 と 最近傍までの時間差の中央値 の 5 本だけ** ／
+# ⚠ **生の profile 51 点は出さない**（窓をもう 1 度渡したことになる）／ 訓練分割で標準化。
+# ⚠ **既定は `ail/selectors/representation.py`**
+#
+# ⚠ **TOML の平の key はテーブル見出しより上に書く**（rules.md 10 章 規約 1）
+name = "trade_ownseq_mp_a"
+dataset = "daily"
+horizon = 1
+cost_bp = 5.0
+start_date = "2018-01-31"      # ⚠ own_2018 と同じ（期間を揃える。rules.md 14-4）
+features_from = "trade_ownseq_ridge_a"   # ⚠ 時系列分類器の表（own ＋ seq）を読む。表は作り直さない
+feature_layers = ["own", "seq"]
+targets = "all"
+
+horizon_min = 1440.0
+bar_minutes = 1440.0
+
+transform = "F5-3 行列プロファイル（モチーフ）"
+
+selectors = ["全部使う（基準）"]   # ⚠ 変換の後は全列（＝ own 35 ＋ mp 5）を使う
+k = 16
+
+model = "Ridge"
+baselines = ["常に上（ドリフト）", "直前リターンの符号"]
+
+[trading]
+style = "threshold"
+thresholds = [50, 55, 60]      # ⚠ 事前固定。結果を見て動かさない（rules.md 13-3）
+form = "shared"                # (A) 銘柄共通 1 本
+
+[validation]
+split = "walk_forward_dates"   # ⚠ fold の切れ目は日付で決める（rules.md 13-6 の 1）
+folds = 5
+purge = true
+embargo_bars = 0
+seed = 0
+
+[features]
+ex_lag_days = 1
+ex_zero_fill = ["usgs"]
+ex_transforms = ["d1", "z20"]
+ex_max_stale_days = 7

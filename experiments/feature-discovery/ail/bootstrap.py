@@ -21,6 +21,9 @@ from ail.selectors import filter as _filter, wrapper, embedded  # noqa: F401
 # ⚠ **表現学習は `selector` ではなく `transform`**（列そのものを作り替える。
 # プラン `plans/selectors-small-four.md` §1-1）
 from ail.selectors import representation                        # noqa: F401
+# ⚠ **F4-3 tsfresh の総当たりも `transform`**（層にすると `catalog.implemented()` が見ない。
+# プラン `plans/archive/ledger-blanks-large-two.md` §1-1）。⚠ **窓は `seq` 層**
+from ail.features import tsfresh as _tsfresh                    # noqa: F401
 from ail.models import baselines, linear     # noqa: F401
 # ⚠ **モデルの軸**（plans/archive/gpu-models.md）: 勾配ブースティング・MLP・GAN 増強
 from ail.models import trees, deep, gan      # noqa: F401

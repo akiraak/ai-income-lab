@@ -1,0 +1,54 @@
+# ⚠ **台帳の空白 F4-3 tsfresh の総当たり**（プラン `plans/archive/ledger-blanks-large-two.md`）。
+#
+# ⚠ **選別は「F1-5 検定+FDR」1 本だけ。** カタログが「生成と選別が対（F1-5 と対）」と書いている組で、
+# ⚠ **794 列を絞るのは手法の一部**であって後付けの選別ではない。
+# ⚠ **2 本入れてはいけない** — 台帳の鍵は名前の先頭の ID で寄る（`ail/catalog.py` の `canonical`）ので、
+# ⚠ **「F4-3 … ＋ 全部使う」と「F4-3 … ＋ F1-5」は同じ行に潰れて数字が食い違う**
+# （`trade_own_poly_a` と `trade_own_gp_a` が踏んだ穴）。
+#
+# ⚠ **1 手法 × θ 3 水準 ＝ 3 試行**（598 → 601）。
+#
+# ⚠ **水準は事前固定**（プラン §7-3。⚠ **回す前に書いた。結果を見て動かさない**）:
+# 窓は `seq` 層の 60 ／ `ComprehensiveFCParameters`（実際に出るのは 783 列）／
+# 全部 NaN と定数の列は ⚠ **訓練分割だけで決めて**落とす ／ 残りは訓練分割の平均で埋め、訓練分割で標準化 ／
+# ⚠ **生の窓 60 列は落とし `own` 35 列は残す**。⚠ **既定は `ail/features/tsfresh.py`**
+#
+# ⚠ **TOML の平の key はテーブル見出しより上に書く**（rules.md 10 章 規約 1）
+name = "trade_ownseq_tsf_a"
+dataset = "daily"
+horizon = 1
+cost_bp = 5.0
+start_date = "2018-01-31"      # ⚠ own_2018 と同じ（期間を揃える。rules.md 14-4）
+features_from = "trade_ownseq_ridge_a"   # ⚠ 時系列分類器の表（own ＋ seq）を読む。表は作り直さない
+feature_layers = ["own", "seq"]
+targets = "all"
+
+horizon_min = 1440.0
+bar_minutes = 1440.0
+
+# ⚠ **標本から学ぶ変換**（rules.md 3 章 B）。⚠ **落とす列と標準化を訓練分割の内側で決め `fitted/` に残す**
+transform = "F4-3 tsfresh の総当たり（783 列）"
+
+selectors = ["F1-5 検定+FDR"]   # ⚠ **1 本だけ**（上の注記。⚠ **k は使わない手法**）
+k = 16
+
+model = "Ridge"
+baselines = ["常に上（ドリフト）", "直前リターンの符号"]
+
+[trading]
+style = "threshold"
+thresholds = [50, 55, 60]      # ⚠ 事前固定。結果を見て動かさない（rules.md 13-3）
+form = "shared"                # (A) 銘柄共通 1 本
+
+[validation]
+split = "walk_forward_dates"   # ⚠ fold の切れ目は日付で決める（rules.md 13-6 の 1）
+folds = 5
+purge = true
+embargo_bars = 0
+seed = 0
+
+[features]
+ex_lag_days = 1
+ex_zero_fill = ["usgs"]
+ex_transforms = ["d1", "z20"]
+ex_max_stale_days = 7

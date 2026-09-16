@@ -91,3 +91,72 @@ def tf_wavelet(Xtr, Xte, ctx):
     tr, te = conv(Xtr), conv(Xte)
     return tr, te, {"wavelet": WAVELET, "level": WAVELET_LEVEL, "窓の列": len(order),
                     "係数の列": int(tr.shape[1] - len(rest)), "残した列": len(rest)}
+
+
+# ⚠ **行列プロファイルの水準は事前固定**（プラン `plans/archive/ledger-blanks-large-two.md` §2-2）。
+# ⚠ **部分列の長さ `m` を振ると、振った数だけ n_trials が増える**（rules.md 14-9）
+MP_SUBSEQ = 10
+# ⚠ **並列の分割数**（プラン §7-1 の実測: 逐次 78.8 分 → 並列 8.0 分。⚠ **逐次だと予算を超える**）
+MP_JOBS = 16
+MP_COLUMNS = ("mp_min", "mp_med", "mp_max", "mp_last", "mp_lag_med")
+
+
+def _mp_block(w, m: int):
+    """窓の塊を 1 つ受けて、1 行あたり 5 つの要約を返す。⚠ **窓の内側にだけ当てる。**"""
+    import numpy as np
+    import stumpy
+
+    out = np.full((w.shape[0], len(MP_COLUMNS)), np.nan, dtype=float)
+    for i in range(w.shape[0]):
+        mp = stumpy.stump(np.ascontiguousarray(w[i]), m=m)
+        d = mp[:, 0].astype(float)
+        lag = np.abs(np.arange(len(d)) - mp[:, 1].astype(float))
+        if np.isnan(d).all():
+            continue                       # ⚠ 定数の窓。⚠ **NaN のまま返して後段で埋める**
+        out[i] = (np.nanmin(d), np.nanmedian(d), np.nanmax(d), d[-1], np.nanmedian(lag))
+    return out
+
+
+@register("transform", "F5-3 行列プロファイル（モチーフ）")
+def tf_matrixprofile(Xtr, Xte, ctx):
+    """⚠ **窓（`seq` 層・過去 60 営業日）の中でモチーフを探し、距離の要約 5 列に置き換える。**
+
+    部分列 `m` = 10（営業日 2 週間）・自己結合。⚠ **この 1 通りだけ回す**（プラン §2-2）。
+    出す列は ⚠ **最近傍距離の 最小・中央値・最大・最後の点** と ⚠ **最近傍までの時間差の中央値** の 5 本。
+
+    ⚠ **系列全体に `stumpy.stump` を当てない。** 全体に当てると足 i の値が
+    ⚠ **未来の部分列との距離を含む**（カタログが F5-3 に「先読みが入りやすい」と付けた理由。プラン §2）。
+    ⚠ **窓は `shift(k≥0)` だけで作られている**ので、その中に閉じれば先読みは構造的に消える。
+
+    ⚠ **生の窓 60 列は落とす**・⚠ **`own` の 35 列は残す**（F5-4 と同じ）。
+    ⚠ **距離は 0 中心ではない**ので、F4-3 と同じ理由で訓練分割で標準化する。
+    """
+    import numpy as np
+    import pandas as pd
+    from joblib import Parallel, delayed
+
+    from ail.features.tsfresh import window_order
+
+    order = window_order(Xtr.columns)
+    rest = [c for c in Xtr.columns if not c.startswith(SEQ_PREFIX)]
+    m = int(ctx.get("mp_subseq", MP_SUBSEQ))
+
+    def conv(X):
+        w = X[order].to_numpy(dtype=float)
+        parts = Parallel(n_jobs=MP_JOBS)(
+            delayed(_mp_block)(c, m) for c in np.array_split(w, MP_JOBS * 2))
+        return pd.DataFrame(np.vstack(parts), columns=list(MP_COLUMNS), index=X.index)
+
+    tr, te = conv(Xtr), conv(Xte)
+    # ⚠ **定数の窓が出した NaN は訓練分割の平均で埋める**（3 章 B。検証分割を見て決めない）
+    mu = tr.mean()
+    n_nan = int(tr.isna().to_numpy().sum()), int(te.isna().to_numpy().sum())
+    tr, te = tr.fillna(mu), te.fillna(mu)
+
+    sc = FittedTransform("standardize").fit(tr)
+    tr, te = sc.transform(tr), sc.transform(te)
+
+    return (pd.concat([Xtr[rest], tr], axis=1), pd.concat([Xte[rest], te], axis=1),
+            {"部分列": m, "窓の列": len(order), "作った列": len(MP_COLUMNS),
+             "残した元の列": len(rest), "⚠ 埋めた NaN（訓練 / 検証）": list(n_nan),
+             "標準化": sc.coefficients()})

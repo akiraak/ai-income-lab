@@ -1,5 +1,31 @@
 # DONE
 
+- 2026-09-16 台帳の空白「大」2 件（F4-3 tsfresh の総当たり ／ F5-3 行列プロファイル）を回した（⚠ **6 行とも「落とす」** ／ ⚠ **カタログの実施可能な空白は 0 件になった** ／ ⚠ **n_trials 598 → 604**）
+  - 利用者の指示: **TODO の次の作業の候補を調べて**（候補 4 つのうち Claude が推した A1 を利用者が選んだ）→ 途中で「このまま維持で」（メモリ増強のためにキューを止めない）
+  - プラン: [docs/plans/archive/ledger-blanks-large-two.md](docs/plans/archive/ledger-blanks-large-two.md) ／ 記録: [ledger-blanks-large-two.md](docs/specs/experiments/ledger-blanks-large-two.md) ／ 台帳: [ledger.md](docs/specs/experiments/feature-discovery/ledger.md)
+  - **やったこと**: `tsfresh` 0.21.2 を入れ（⚠ **`stumpy` 1.14.1 は依存で付いてくる** ＝ 2 件が 1 回の install で揃う。既存の固定版は 1 つも動かず 352 件 pass）、`ail/features/tsfresh.py`（新規・F4-3）と `ail/selectors/representation.py` の `tf_matrixprofile`（F5-3）を **`transform`** として足した。config 2 ＋ キュー 1・テスト 14 件
+    - ⚠ **台帳の「次の一手」（feature 層）から変えた**: 層にすると `catalog.implemented()` が見ず、⚠ **回しても空白が埋まらない**
+    - ⚠ **選別は 1 本だけ**（台帳の鍵は名前の先頭の ID で潰れる）: F4-3 は F1-5 検定+FDR（カタログの「対」）、F5-3 は全部使う
+    - ⚠ **F5-3 の先読みは窓の内側に閉じて構造的に消した**（`seq` 層は shift(k≥0) だけ）。行を並べ替えても各行の出力が変わらないことをテストで固定
+  - **事前登録**（⚠ 回す前に決めた）: 本番 2 ＋ leak 2 ／ n_trials ＋6 ／ θ 50・55・60 ／ Ridge ／ 判定は対 B&H 上乗せの符号（B&H ＝ ＋1,652.02bp/fold）
+  - **Phase 0 の実測**（⚠ 実装より先に測った）: 1 実行で 452,615 行が変換を通る（表の 3.33 倍）／ tsfresh は **783 列**（⚠ カタログの 794 は出ない）、うち全 NaN 277・定数 56 → **450 列**、⚠ **部分 NaN は 0**（補完の設計を落とせた）／ stumpy は逐次 78.8 分 ＝ 予算超過 → joblib 16 分割
+  - **結果**【実測】: 上乗せは F4-3 **−388.17 / −638.08 / −1,224.66bp**（t −1.21 / −1.67 / −2.55。θ=60 は 0/5）／ F5-3 **−275.58 / −483.13 / −957.14bp**（t −1.16 / −1.84 / −2.30）。⚠ **B&H を超えた行は 0**
+    - ⚠ **6 行中 5 行は同じ保有日率の乱択ゲートにも負けた**（−34〜−118bp。F4-3 θ=60 だけ ＋18.97）
+    - ⚠ **F1-5 は 485 列のうち 326 列を残した** — 11 万行では小さな相関も FDR 10% を通り、⚠ **「選別」はほとんど絞らない**。IC は F4-3 −0.0040・F5-3 −0.0023 とどちらも負
+    - ⚠ **同じ表・同じ Ridge の F4-1 記号回帰（−219 / −384 / −699bp）より 2 件とも悪い** ＝ ⚠ **列を機械で増やす（F4-3）も窓を要約し直す（F5-3）も 16 本の式に届かない**
+    - 門（診断）: F4-3 AUC 0.523・幅 5.3 点 ／ F5-3 AUC **0.498**・幅 6.0 点 → 2 件とも門前の水準だが 14-10 規約 2 で回した
+  - **検算**: ✅ **leak 対照 2 本とも跳ねた**（＋22,193.70 / ＋22,193.74bp・t 17.14・5/5・門 AUC 1.0）／ ✅ n_trials 604（落とす 520 → 526・保留 78 のまま）／ ✅ **判定が変わった既存行 0**（動いたのは基準線 6 行の「3 実行 → 5 実行・一致」だけ）／ ✅ B&H ＋1,652.02 で一致 ／ ✅ 実装 21 → 23・未実施 5 → 3（全部見送り）／ ✅ 366 件 pass
+  - **費用**【実測】: ⚠ **キュー 4 本で 7,473.5 秒（124.6 分）** — tsfresh 本番 3,633.5 / leak 3,617.0 秒（⚠ **見積り 22.9 分の 2.6 倍**。16 ワーカー × RES 2.3GB で 23.7/31GB・swap 1.8GB → WSL2 のメモリ増強を TODO に足した）／ stumpy 本番 112 / leak 111 秒（⚠ **見積り 8 分の 1/4**。事前測定はプール起動と JIT の固定費が支配していた）。⚠ **予算 7,200 秒を 2 本目で使い切り、同じコマンドで再開した**（設計どおり）
+  - ⚠ **踏んだもの**: tsfresh は ±inf も返す（`StandardScaler` が止まった → NaN に寄せた）／ 検証分割に NaN・inf が 1,280〜2,020 セル/fold 出た（事前測定は 0 件。訓練分割の平均で埋める保険が効いた）／ ⚠ **`pgrep -f` が監視スクリプト自身に当たり、止まったキューを「動いている」と 2 度誤読した**（CLAUDE.md の警告どおり。行頭を `python` に固定した正規表現で解決）
+  - ⚠ **限界**: 1 表・1 モデル・1 形式・1 窓長 ／ F1-5 の FDR 水準・F5-3 の m は 1 通り ／ 3.33 倍の再計算は残した
+
+- 2026-09-16 「台帳の空白を埋める」を閉じた（⚠ **カタログ 26 件のうち実施可能な空白は 0 件** ／ ⚠ **残る未実施 3 件は全部「見送り」で、2026-09-16 に再判断済み**）
+  - 利用者の決定（2026-09-12）: **検証はコストが低いので可能性が低くても積極的に行う。空白は積極的に埋める** → [rules.md 14-10](docs/specs/experiments/feature-discovery/rules.md)
+  - 経過: 「小」4 件（2026-09-12・[selectors-small-four.md](docs/specs/experiments/selectors-small-four.md)）→ 「中」6 件（2026-09-16・[ledger-blanks-six.md](docs/specs/experiments/ledger-blanks-six.md)）→ F4-1（2026-09-16・[evolutionary-search.md](docs/specs/experiments/evolutionary-search.md)）→ 「大」2 件（2026-09-16・[ledger-blanks-large-two.md](docs/specs/experiments/ledger-blanks-large-two.md)）。⚠ **未実施 12 → 3、実装 14 → 23**
+  - ⚠ **埋めた 15 手法・45 行の判定は全部「落とす」**（採る 0）。⚠ **それでよい** — 埋める目的は「効く手法を見つける」ではなく ⚠ **「未実施」を「効かなかった」と読ませないこと**（14-10 規約 4）。落とした行が分母になる（[ledger-role.md](docs/specs/experiments/feature-discovery/ledger-role.md)）
+  - 代償【実測】: n_trials 253 → 604。⚠ **SR0 は 0.0351 → 0.0733**（2018 表・n_obs 1,801 日）。⚠ **採否の判定式に DSR は入らない**ので採りにくくはなっていない
+  - ⚠ **見送り 3 件を回す条件**（`config/catalog_notes.toml` の「次の一手」）: F4-2 は決算・板を入れるとき ／ F5-2 は非線形圧縮に賭ける根拠が出たとき ／ F2-4 は F2-1 が B&H を超えたとき。⚠ **カタログに手法を足したら、この親タスクを新しく立てる**
+
 - 2026-09-16 GA（記号回帰）を Ridge 以外のモデルへ広げた（⚠ **6 行とも「落とす」** ／ ⚠ **探索の出力は 3 モデルで 1 ビットも違わない** ／ ⚠ **n_trials 592 → 598**）
   - 利用者の指示: **TODO の中から次にやるべき作業を選ぶ**（Claude が「進化的探索を他のモデル・経路に広げる」の (a) を推し、利用者が選んだ）
   - プラン: [docs/plans/archive/ga-models-lgbm-mlp.md](docs/plans/archive/ga-models-lgbm-mlp.md) ／ 記録: [evolutionary-search.md §8](docs/specs/experiments/evolutionary-search.md) ／ 台帳: [ledger.md](docs/specs/experiments/feature-discovery/ledger.md)

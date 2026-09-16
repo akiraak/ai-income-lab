@@ -10,7 +10,7 @@
   GPU は 3090 Ti（メモリは全部使ってよい。デバイスは `AIL_TORCH_DEVICE`）
   ✅ **進化的探索の実行を継続して回せる仕組みは 2026-09-16 に完了し [DONE.md](DONE.md) へ移した**: ⚠ **器は動いた**（キュー・再開・leak の自動追加・台帳の自動更新）／ ⚠ **F4-1 記号回帰は 3 行とも落とす** （[記録](docs/specs/experiments/evolutionary-search.md)）。n_trials 589 → 592
   ⚠ **選抜の位置は規約になった**（[rules.md 14-11](docs/specs/experiments/feature-discovery/rules.md)）: ⚠ **訓練分割の内側で選抜し、数えるのは champion だけ**。⚠ **(B) 検証 fold で選抜するなら先に規約を書き換える**
-  ⚠ **器は GA 専用ではない**（既存の config を並べるだけでも使える。⚠ **手間「大」の残り 2 件もここから回せる**）
+  ⚠ **器は GA 専用ではない**（既存の config を並べるだけでも使える）。✅ **2026-09-16 に手間「大」2 件（F4-3・F5-3）もここから回した**（3 度目の再利用。[記録 §6](docs/specs/experiments/ledger-blanks-large-two.md)。⚠ **予算 7,200 秒で止まった後、同じコマンドで再開できることも確かめた**）
   - [x] 時系列から上昇下降トレンドを学習する最新 AI 技術の調査 [plan](docs/plans/archive/ts-trend-ai-survey.md)
     利用者の指示（2026-09-10）: **時系列のデータから上昇下降のトレンドを学習するような最新のAI技術がないか調べて**
     ✅ 2026-09-10 完了。成果物: [ts-trend-ai-survey.md](docs/specs/experiments/ts-trend-ai-survey.md)。5 系統に整理し、候補リスト（§7）を作成。金融の一次評価 2 本が「汎用基盤モデルは対ランダムウォークの利得が小さくまばら」で §9 と同じ形
@@ -35,30 +35,12 @@
     ⚠ **先読みの罠**: 「GA の列を表にして `features_from` で読ませる」は ⚠ **表が fold を切る前に作られるので、式が全期間から学ばれる**（leak 対照が跳ねるのと同じ穴）
     ⚠ **(b) モデルそのものを進化させる ＝ 軽いモデルだけ**: ⚠ **今の GA はモデルを 1 回も学習させていない**（適合度は式 1 列と y の順位相関）。⚠ **個体をモデルにすると 1 個体 ＝ 1 学習で 4〜6 桁変わる** — 2,000 体なら 時系列分類器 約 4.7 日/fold ／ PatchTST 約 26 日/fold【推測。1 fold の学習は 3.4 分・19 分の実測から】
     ⚠ **モデルは台帳の鍵**（`catalog.KEY`）なので、1 モデルにつき n_trials ＋3
-    関連: [evolutionary-search.md](docs/specs/experiments/evolutionary-search.md) ／ [rules.md 14-11](docs/specs/experiments/feature-discovery/rules.md)（選抜は訓練分割の内側）／ 「F4-3 tsfresh の総当たり（794 特徴量）」（⚠ **同じ器から回せる**）
+    関連: [evolutionary-search.md](docs/specs/experiments/evolutionary-search.md) ／ [rules.md 14-11](docs/specs/experiments/feature-discovery/rules.md)（選抜は訓練分割の内側）／ [ledger-blanks-large-two.md](docs/specs/experiments/ledger-blanks-large-two.md)（✅ **2026-09-16 に F4-3・F5-3 を同じ器から回した**）
     ✅ **(a) の第一歩は 2026-09-16 に完了し [DONE.md](DONE.md) へ移した**: GA × LightGBM ／ GA × MLP（⚠ **6 行とも落とす**。⚠ **探索の出力は 3 モデルで 1 ビットも同じなので、これは「モデルだけを替えた」比較である**）。n_trials 592 → 598（[記録 §8](docs/specs/experiments/evolutionary-search.md)）
     ⚠ **前段に GA を挟んで良くなったのは 6 対のうち 3 つだけ**（±30〜390bp）で、⚠ **向きが揃わない ＝ 「GA を通すと良くなる」とは言えない**。⚠ **上下の幅は B&H との差より小さい**
     - [ ] GA の適合度を順位相関以外に替えて回す（⚠ **替えた数だけ n_trials が増えるので、回す前に水準を決める** — [14-9](docs/specs/experiments/feature-discovery/rules.md)）
     - [ ] 検知器に「変換済みの列を受け取る」口を足すか決める（⚠ **出力の契約 14-1 の変更**。設計から。半日〜1 日【推測】）
     - [ ] モデルの構造・ハイパラを進化させるか決める（⚠ **軽いモデルだけ**。⚠ **[13-6 規約 3](docs/specs/experiments/feature-discovery/rules.md)「ハイパーパラメータは動かさない」と 14-11 の書き換えが先**）
-
-- [ ] 台帳の空白を埋める（✅ **「小」4 件は 2026-09-12 ・ 「中」6 件と F4-1 は 2026-09-16 に完了**。⚠ **カタログの未実施は 12 → 5 件**＝ 手間「大」2 件（F4-3 tsfresh・F5-3 行列プロファイル）＋ 見送り 3 件（2026-09-16 に再判断して見送り継続））
-  ⚠ **残る 2 件はどちらも「計算時間を先に測る」が要る**（[ledger.md §3](docs/specs/experiments/feature-discovery/ledger.md) の「次の一手」）。⚠ **「n_trials の数え方」は F4-1 で決着した**（[rules.md 14-11](docs/specs/experiments/feature-discovery/rules.md)）
-  利用者の決定（2026-09-12）: **検証はコストが低いので可能性が低くても積極的に行う。空白は積極的に埋める** → [rules.md 14-10](docs/specs/experiments/feature-discovery/rules.md) に規約化済み
-  ⚠ **回す理由は「効くはず」ではない。** ⚠ **「未実施」を「効かなかった」と読ませないために埋める**（14-10 規約 4）
-  ✅ **代償が小さいことは実測で確かめた**【実測 2026-09-12】: 「小」4 件 ＝ ＋12 試行で **n_trials 253 → 265**、⚠ **SR0 は 0.034926 → 0.035108（＋0.52%）にしか動かなかった**（[selectors-small-four.md §4](docs/specs/experiments/selectors-small-four.md)）。残り 12 件でも同じ向き
-  ⚠ **緩めないもの**: 回すと決めるのは結果を見る前 ／ 回したものは門前も含めて全部数える ／ ⚠ **`--leak` 対照を毎回通す** ／ 1 実行 1 ディレクトリ
-  ⚠ **落とす結果でも消さない**（[ledger-role.md](docs/specs/experiments/feature-discovery/ledger-role.md)。落とした行が分母になる）
-  関連: [ledger.md §3](docs/specs/experiments/feature-discovery/ledger.md)（未実施 6 件の一覧と「次の一手」。⚠ **うち 3 件は「まだ試していない」・3 件は「試さないと決めた」**）
-  ✅ **「小」4 件が残した示唆は 2026-09-12 に解決した**: ⚠ **3 手法（F1-7・F5-1・F1-4）が乱択と 1 ビットも違わなかったのは Platt の数値解が止まっていたから**（[buy-pct-width-collapse.md](docs/specs/experiments/buy-pct-width-collapse.md)）。⚠ **直したら取引が 2 桁増えて手法ごとに散った**（それでも採るは 0 件）
-  ⚠ **だから 2026-09-12 以降に回す分は、直した較正（鍵の「較正」＝ std）で回る。** ⚠ **旧行と同じ鍵にはまとまらない**（⚠ **残るは手間「大」2 件**）
-  ✅ **F4-4 多項式展開・F5-4 ウェーブレットは、2026-09-12 に足した `transform` の口にそのまま乗る**（[selectors-small-four.md §1](docs/specs/experiments/selectors-small-four.md)）
-  ✅ **手間「中」の 6 件（F1-6・F2-1・F3-4・F3-6・F4-4・F5-4）は 2026-09-16 に完了し [DONE.md](DONE.md) へ移した**: ⚠ **18 行とも落とす**（[記録](docs/specs/experiments/ledger-blanks-six.md)）。⚠ **F4 生成型は初めての実施**。n_trials 571 → 589
-  ✅ **見送り 3 件（F4-2 Featuretools ／ F5-2 オートエンコーダ ／ F2-4 GA 部分集合探索）の再判断も 2026-09-16 に完了し [DONE.md](DONE.md) へ移した**: ⚠ **3 件とも見送りのまま**（根拠は `config/catalog_notes.toml` の「次の一手」）
-  ✅ **保留 78 行の処遇も 2026-09-16 に完了し [DONE.md](DONE.md) へ移した**: ⚠ **62 件を `[[closed]]` で閉じ、再測は 0 件**。⚠ **判定は 1 行も変えていない**（[validation-power.md §6-2-2](docs/specs/experiments/feature-discovery/validation-power.md)）
-  - [ ] F4-3 tsfresh の総当たり（794 特徴量）— 手間 大。⚠ **計算時間を先に測る**
-  ✅ **F4-1 遺伝的プログラミング・記号回帰は 2026-09-16 に完了し [DONE.md](DONE.md) へ移した**: ⚠ **3 行とも落とす**（上乗せ −219 〜 −699bp）。⚠ **数え方は「champion だけ数える」で決着**（[rules.md 14-11](docs/specs/experiments/feature-discovery/rules.md)）
-  - [ ] F5-3 行列プロファイル（モチーフ）— 手間 大。⚠ **先読みが入りやすい。leak 対照を必ず通す**
 
 - [ ] 出来高を `trend` 層に足して検知器を回す（✅ **回すと決定**。着手時にプランを作る）
   派生元: 「出来高を含んだデータから機械学習でトレンドを判断できるか調査する」（✅ 2026-09-12 完了。[volume-trend-ml.md](docs/specs/experiments/volume-trend-ml.md)）
@@ -106,6 +88,7 @@
   使い方: ⚠ **子タスクの追加は利用者が指示する**（利用者の指示 2026-09-11。Claude は疑問に答えても、指示なしにここへ子タスクを足さない）。解決した子タスクは、答えの要点（と、ドキュメントに反映した場合はそのリンク）をメモで残して `DONE.md` へ移す。親のこの行は残す
   - [ ] 古すぎるトレンドは直近では参考にならないのではないか
   - [ ] 保有日数の中央値など分布が知りたい。保有日数の短い取引ほど手数料が重くなってくるので
+  - [ ] 売りの時に買い、貝の時に売りという逆の売買したときの数値を確認する
 
 - [ ] データの取得
   - [ ] 既存にないデータを考える
@@ -134,11 +117,22 @@
     - [x] ⚠ `Session offline` は**一時的**と確認（25 分後に成功）。自動売買では「注文の中身が悪い」と読まず時間をおいて再送する設計が要る
   - [x] Phase 5: 記録と判定（2026-09-08。[記録](docs/specs/experiments/tastytrade-api-sample.md) の 6 観点・訂正候補 15 件・未実測 4 件、overview §4/§6 と CLAUDE.md への反映）
     - ⚠ 観点 A だけ ⏳。g3plus の管理画面が sandbox に繋いで監視を回しているので、**翌営業日に自動で ✅ になる**。9/9 に `/judge` を見る
-  - [ ] **着金の確認（$1,000 / SoFi → tastytrade、2026-09-05 送金指示）**
+  - [x] **着金の確認（$1,000 / SoFi → tastytrade、2026-09-05 送金指示）**
+    ✅ **2026-09-16 に `--step probe` で着金を確認した**（[記録 §0-5](docs/specs/experiments/tastytrade-api-sample.md)）: `cash-balance` 0.0 → **1000.0**・`pending-cash` 1000.0 → **0.0**。⚠ **`cash-available-to-withdraw` はまだ 0.0**（引き出し保留は続いている）。⚠ **買付余力は着金で増えていない**（1000.0 のまま ＝ 着金前から与信済み）。⚠ **着金日は特定できない**（9/5 と 9/16 の間に残高の記録が無い）
     - 着いたら `sample.py --step probe` をもう 1 回回し、着金前（[記録 §0](docs/specs/experiments/tastytrade-api-sample.md)）との差分を取る
     - 見るもの: `cash-balance` が 0.0 → 1000.0 になるか、`pending-cash` が消えるか、`cash-available-to-withdraw` がいつ立つか（＝ ACH の保留期間の実測）、`available-trading-funds` が 0.0 のままか
     - ⚠ 着金前の状態はもう測れない。⚠ 9/7 は Labor Day のため、着金は 9/8（火）以降の見込み
   - [ ] Phase 6（方針 (c)）: 本番口座で 1 株（入金と発注は利用者が行う）
     - ⚠ 2026-09-05 の dry-run で **着金前でも 1 株は通る**ことが分かっている（買付余力 1000.0 が効き、`available-trading-funds` 0.0 は効かない）。着金を待つ必要は無い
 
+- [ ] 既存の仕組みをCodex GPT6 Astraに分析と評価をさせる
+  利用者の指示（2026-09-16）。着手時にプランを作る
+  ⚠ **外部サービスにコードを渡す**ので、git 管理外の資格情報・記録（`.env`・`out/` など）を含めない
 
+- [ ] WSL2 のメモリ割当を増やす（`.wslconfig` に `memory=` を足す。⚠ **実行するのは利用者**、WSL の再起動を伴う）
+  派生元: 利用者の指示（2026-09-16）: **WSL2のメモリを増やすのをTODOに追加**
+  ⚠ **きっかけ**: 台帳の空白 F4-3（tsfresh・16 並列）の実行で **23.7 / 31 GB・swap 1.8 GB** まで食い、見積り 23 分の実行が 32 分を超えた【実測 2026-09-16】。ワーカー 16 本がそれぞれ RES 2.3 GB
+  現状【実測 2026-09-16】: `C:\Users\akira\.wslconfig` は `[wsl2]` に `networkingMode=mirrored` だけで `memory=` が無い ＝ 既定の割当。WSL 側の `MemTotal` 31.6 GB・`SwapTotal` 8 GB・32 コア。既定は Windows の物理メモリの 50%【推測。Microsoft の wsl-config 文書の記憶。着手時に出典 URL と取得日を取る】
+  手順（利用者が Windows 側で）: (1) `.wslconfig` の `[wsl2]` に `memory=48GB`（物理の 75% 程度。Windows 側に 16 GB は残す）と、要れば `swap=16GB` を足す (2) ⚠ **`wsl --shutdown` は動いているキュー・vibeboard（3010）・dashboard（3012）を全部止める**ので、`runs/queue/*.json` に running が無いときに行う (3) 起動後に `free -g` で反映を確認し、この行に【実測】を書く
+  ⚠ **`networkingMode=mirrored` の行は消さない**（tailnet 越しの vibeboard がこれに依存。CLAUDE.md「vibeboard のこのプロジェクト固有の運用」）
+  関連: [ledger-blanks-large-two.md §6](docs/specs/experiments/ledger-blanks-large-two.md)（⚠ **メモリを増やすまでの代替は `ail/features/tsfresh.py` の `N_JOBS` を 16 → 8 に下げること**。⚠ 本番と leak は同じ値で回す）

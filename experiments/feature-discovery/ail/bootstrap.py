@@ -36,4 +36,6 @@ from ail.detectors import tsc as _tsc        # noqa: F401
 # ⚠ **モデル `PatchTST` は検知器 `S1 PatchTST（60日窓）` からしか呼べない**（窓の配列が要る）
 from ail.models import patchtst as _patchtst  # noqa: F401
 from ail.detectors import seqmodel as _seqmodel  # noqa: F401
+# ⚠ **進化的探索（記号回帰）**。⚠ **選抜は訓練分割の内側だけ**（plans/archive/evolutionary-search-runner.md）
+from ail.search import evolve as _evolve  # noqa: F401
 from ail.validation import splits            # noqa: F401

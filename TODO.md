@@ -8,6 +8,9 @@
   ⚠ 進化的探索の選抜も「標本から学ぶ変換」として訓練分割の内側で行う（rules §3 B）。fitted は `runs/` に残すが次の実行では読み込まない
   ⚠ 継続実行も 1 実行 1 ディレクトリ（rules §10）。seed・config・入力の指紋を毎回残す
   GPU は 3090 Ti（メモリは全部使ってよい。デバイスは `AIL_TORCH_DEVICE`）
+  ✅ **進化的探索の実行を継続して回せる仕組みは 2026-09-16 に完了し [DONE.md](DONE.md) へ移した**: ⚠ **器は動いた**（キュー・再開・leak の自動追加・台帳の自動更新）／ ⚠ **F4-1 記号回帰は 3 行とも落とす** （[記録](docs/specs/experiments/evolutionary-search.md)）。n_trials 589 → 592
+  ⚠ **選抜の位置は規約になった**（[rules.md 14-11](docs/specs/experiments/feature-discovery/rules.md)）: ⚠ **訓練分割の内側で選抜し、数えるのは champion だけ**。⚠ **(B) 検証 fold で選抜するなら先に規約を書き換える**
+  ⚠ **器は GA 専用ではない**（既存の config を並べるだけでも使える。⚠ **手間「大」の残り 2 件もここから回せる**）
   - [x] 時系列から上昇下降トレンドを学習する最新 AI 技術の調査 [plan](docs/plans/archive/ts-trend-ai-survey.md)
     利用者の指示（2026-09-10）: **時系列のデータから上昇下降のトレンドを学習するような最新のAI技術がないか調べて**
     ✅ 2026-09-10 完了。成果物: [ts-trend-ai-survey.md](docs/specs/experiments/ts-trend-ai-survey.md)。5 系統に整理し、候補リスト（§7）を作成。金融の一次評価 2 本が「汎用基盤モデルは対ランダムウォークの利得が小さくまばら」で §9 と同じ形
@@ -25,11 +28,22 @@
     - [ ] Phase 3: 時間順分割・walk-forward と比較対象 3 種。最終テストの前に採用基準を記録
     - [ ] Phase 4: 評価指標（CRPS・Brier・被覆率）と予測出力（JSON・分位点・校正図・予測区間図）
     - [ ] Phase 5: 再現性の確認と評価レポート（比較表・期間・seed 別結果・採用判断）
-  - [ ] 進化的探索の実行を継続して回せる仕組み（キュー or ループ、失敗時の再開、台帳の自動更新）
-    関連: [rules.md](docs/specs/experiments/feature-discovery/rules.md) ／ [ledger.md](docs/specs/experiments/feature-discovery/ledger.md)
+  - [ ] 進化的探索を他のモデル・経路に広げる（⚠ **「既存のモデル全てに当てはめる」は計算量で成立しない**。意味が 2 つに分かれる）
+    派生元: 利用者の質問（2026-09-16）: **遺伝的アルゴリズムは既存のモデル全てに当てはめることはできる？**
+    ⚠ **(a) GA が作った列を食わせる ＝ ✅ ほぼ全部に当てはまる**: モデル 9 本（Ridge・LightGBM・MLP ＋ GAN 増強 6 種）は config の `model =` を 1 行替えるだけ（GA は `transform` ＝ モデルの前段なので非依存）
+    ⚠ **だが検知器 23 本には届かない**: `cli/run.py` の `if detectors:` 枝が `prep.apply` より**前**にあり、検知器の契約は「買い% を直接返す」（[14-1](docs/specs/experiments/feature-discovery/rules.md)）ので変換の口を通らない。PatchTST も実質こちら側（窓の配列が要る）
+    ⚠ **先読みの罠**: 「GA の列を表にして `features_from` で読ませる」は ⚠ **表が fold を切る前に作られるので、式が全期間から学ばれる**（leak 対照が跳ねるのと同じ穴）
+    ⚠ **(b) モデルそのものを進化させる ＝ 軽いモデルだけ**: ⚠ **今の GA はモデルを 1 回も学習させていない**（適合度は式 1 列と y の順位相関）。⚠ **個体をモデルにすると 1 個体 ＝ 1 学習で 4〜6 桁変わる** — 2,000 体なら 時系列分類器 約 4.7 日/fold ／ PatchTST 約 26 日/fold【推測。1 fold の学習は 3.4 分・19 分の実測から】
+    ⚠ **モデルは台帳の鍵**（`catalog.KEY`）なので、1 モデルにつき n_trials ＋3
+    関連: [evolutionary-search.md](docs/specs/experiments/evolutionary-search.md) ／ [rules.md 14-11](docs/specs/experiments/feature-discovery/rules.md)（選抜は訓練分割の内側）／ 「F4-3 tsfresh の総当たり（794 特徴量）」（⚠ **同じ器から回せる**）
+    ✅ **(a) の第一歩は 2026-09-16 に完了し [DONE.md](DONE.md) へ移した**: GA × LightGBM ／ GA × MLP（⚠ **6 行とも落とす**。⚠ **探索の出力は 3 モデルで 1 ビットも同じなので、これは「モデルだけを替えた」比較である**）。n_trials 592 → 598（[記録 §8](docs/specs/experiments/evolutionary-search.md)）
+    ⚠ **前段に GA を挟んで良くなったのは 6 対のうち 3 つだけ**（±30〜390bp）で、⚠ **向きが揃わない ＝ 「GA を通すと良くなる」とは言えない**。⚠ **上下の幅は B&H との差より小さい**
+    - [ ] GA の適合度を順位相関以外に替えて回す（⚠ **替えた数だけ n_trials が増えるので、回す前に水準を決める** — [14-9](docs/specs/experiments/feature-discovery/rules.md)）
+    - [ ] 検知器に「変換済みの列を受け取る」口を足すか決める（⚠ **出力の契約 14-1 の変更**。設計から。半日〜1 日【推測】）
+    - [ ] モデルの構造・ハイパラを進化させるか決める（⚠ **軽いモデルだけ**。⚠ **[13-6 規約 3](docs/specs/experiments/feature-discovery/rules.md)「ハイパーパラメータは動かさない」と 14-11 の書き換えが先**）
 
-- [ ] 台帳の空白を埋める（✅ **「小」4 件は 2026-09-12 ・ 「中」6 件は 2026-09-16 に完了**。⚠ **カタログの未実施は 12 → 6 件**＝ 手間「大」3 件（F4-1 記号回帰・F4-3 tsfresh・F5-3 行列プロファイル）＋ 見送り 3 件（2026-09-16 に再判断して見送り継続））
-  ⚠ **残る 3 件はどれも「計算時間を先に測る」か「n_trials の数え方を先に決める」が要る**（[ledger.md §3](docs/specs/experiments/feature-discovery/ledger.md) の「次の一手」）
+- [ ] 台帳の空白を埋める（✅ **「小」4 件は 2026-09-12 ・ 「中」6 件と F4-1 は 2026-09-16 に完了**。⚠ **カタログの未実施は 12 → 5 件**＝ 手間「大」2 件（F4-3 tsfresh・F5-3 行列プロファイル）＋ 見送り 3 件（2026-09-16 に再判断して見送り継続））
+  ⚠ **残る 2 件はどちらも「計算時間を先に測る」が要る**（[ledger.md §3](docs/specs/experiments/feature-discovery/ledger.md) の「次の一手」）。⚠ **「n_trials の数え方」は F4-1 で決着した**（[rules.md 14-11](docs/specs/experiments/feature-discovery/rules.md)）
   利用者の決定（2026-09-12）: **検証はコストが低いので可能性が低くても積極的に行う。空白は積極的に埋める** → [rules.md 14-10](docs/specs/experiments/feature-discovery/rules.md) に規約化済み
   ⚠ **回す理由は「効くはず」ではない。** ⚠ **「未実施」を「効かなかった」と読ませないために埋める**（14-10 規約 4）
   ✅ **代償が小さいことは実測で確かめた**【実測 2026-09-12】: 「小」4 件 ＝ ＋12 試行で **n_trials 253 → 265**、⚠ **SR0 は 0.034926 → 0.035108（＋0.52%）にしか動かなかった**（[selectors-small-four.md §4](docs/specs/experiments/selectors-small-four.md)）。残り 12 件でも同じ向き
@@ -37,13 +51,13 @@
   ⚠ **落とす結果でも消さない**（[ledger-role.md](docs/specs/experiments/feature-discovery/ledger-role.md)。落とした行が分母になる）
   関連: [ledger.md §3](docs/specs/experiments/feature-discovery/ledger.md)（未実施 6 件の一覧と「次の一手」。⚠ **うち 3 件は「まだ試していない」・3 件は「試さないと決めた」**）
   ✅ **「小」4 件が残した示唆は 2026-09-12 に解決した**: ⚠ **3 手法（F1-7・F5-1・F1-4）が乱択と 1 ビットも違わなかったのは Platt の数値解が止まっていたから**（[buy-pct-width-collapse.md](docs/specs/experiments/buy-pct-width-collapse.md)）。⚠ **直したら取引が 2 桁増えて手法ごとに散った**（それでも採るは 0 件）
-  ⚠ **だから 2026-09-12 以降に回す分は、直した較正（鍵の「較正」＝ std）で回る。** ⚠ **旧行と同じ鍵にはまとまらない**（⚠ **残るは手間「大」3 件**）
+  ⚠ **だから 2026-09-12 以降に回す分は、直した較正（鍵の「較正」＝ std）で回る。** ⚠ **旧行と同じ鍵にはまとまらない**（⚠ **残るは手間「大」2 件**）
   ✅ **F4-4 多項式展開・F5-4 ウェーブレットは、2026-09-12 に足した `transform` の口にそのまま乗る**（[selectors-small-four.md §1](docs/specs/experiments/selectors-small-four.md)）
   ✅ **手間「中」の 6 件（F1-6・F2-1・F3-4・F3-6・F4-4・F5-4）は 2026-09-16 に完了し [DONE.md](DONE.md) へ移した**: ⚠ **18 行とも落とす**（[記録](docs/specs/experiments/ledger-blanks-six.md)）。⚠ **F4 生成型は初めての実施**。n_trials 571 → 589
   ✅ **見送り 3 件（F4-2 Featuretools ／ F5-2 オートエンコーダ ／ F2-4 GA 部分集合探索）の再判断も 2026-09-16 に完了し [DONE.md](DONE.md) へ移した**: ⚠ **3 件とも見送りのまま**（根拠は `config/catalog_notes.toml` の「次の一手」）
   ✅ **保留 78 行の処遇も 2026-09-16 に完了し [DONE.md](DONE.md) へ移した**: ⚠ **62 件を `[[closed]]` で閉じ、再測は 0 件**。⚠ **判定は 1 行も変えていない**（[validation-power.md §6-2-2](docs/specs/experiments/feature-discovery/validation-power.md)）
   - [ ] F4-3 tsfresh の総当たり（794 特徴量）— 手間 大。⚠ **計算時間を先に測る**
-  - [ ] F4-1 遺伝的プログラミング・記号回帰 — 手間 大。⚠ **n_trials が数えられなくなる**ので数え方を先に決める
+  ✅ **F4-1 遺伝的プログラミング・記号回帰は 2026-09-16 に完了し [DONE.md](DONE.md) へ移した**: ⚠ **3 行とも落とす**（上乗せ −219 〜 −699bp）。⚠ **数え方は「champion だけ数える」で決着**（[rules.md 14-11](docs/specs/experiments/feature-discovery/rules.md)）
   - [ ] F5-3 行列プロファイル（モチーフ）— 手間 大。⚠ **先読みが入りやすい。leak 対照を必ず通す**
 
 - [ ] 出来高を `trend` 層に足して検知器を回す（✅ **回すと決定**。着手時にプランを作る）
@@ -90,12 +104,15 @@
 - [ ] 疑問に思ったことを登録し解決していく
   ⚠ **終了しないタスク**（完了にしない・`DONE.md` に移さない・消さない）。利用者の指示（2026-09-11）: **「疑問に思ったことを登録し解決していく大タスク」。このタスク自体は消さずにずっと残るようにする**
   使い方: ⚠ **子タスクの追加は利用者が指示する**（利用者の指示 2026-09-11。Claude は疑問に答えても、指示なしにここへ子タスクを足さない）。解決した子タスクは、答えの要点（と、ドキュメントに反映した場合はそのリンク）をメモで残して `DONE.md` へ移す。親のこの行は残す
+  - [ ] 古すぎるトレンドは直近では参考にならないのではないか
+  - [ ] 保有日数の中央値など分布が知りたい。保有日数の短い取引ほど手数料が重くなってくるので
 
 - [ ] データの取得
   - [ ] 既存にないデータを考える
     ⚠ **終了しないタスク**（完了にしない・`DONE.md` に移さない）。既存の層に無いデータを考え続けるための常設タスク
     思いついたデータ源は、この下に子タスクとして足し、採る・採らないの判断と根拠（規約・遅延・銘柄を区別できるか）を残す
     関連: [daily-data-sources.md](docs/specs/experiments/daily-data-sources.md)
+  - [ ] データに曜日を含めたものを検証する
 
 - [ ] tastytrade で、実際の API 取引のサンプルプログラムを動かす [plan](docs/plans/tastytrade-api-sample.md)
   - 対象は [docs/specs/service-trust-assessment.md](docs/specs/service-trust-assessment.md) の判定「高」で、[docs/specs/trading-fee-comparison.md](docs/specs/trading-fee-comparison.md) §4 で株 $0・API プレミアム $0、常駐プロセス不要の tastytrade 1 社。moomoo・IBKR は 2026-09-04 に対象から外した（再開条件はプラン §1-2）

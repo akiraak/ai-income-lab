@@ -58,7 +58,7 @@ def _fold_selectors(panel, feats, exp, methods, per, edges, v, k, ctx, model) ->
         # ⚠ **変換があれば門も同じ列で測る**（無ければ素通り）。⚠ **測らないと、門の数字が
         # ⚠ **実際に回す列とは別の列についてのものになる**（静かに間違った診断が checks に残る）。
         # ⚠ **門は訓練分割しか見ない**ので、fit も transform も同じ表に当てる（検証 fold に触れない）
-        Xtr, _, _ = prep.apply(exp, Xtr, Xtr, ctx)
+        Xtr, _, _ = prep.apply(exp, Xtr, Xtr, ctx, ytr)
         (Xh, yh), holdout = tail_holdout(Xtr, ytr)
         if holdout is None:
             continue

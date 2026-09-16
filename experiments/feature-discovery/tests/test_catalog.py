@@ -95,9 +95,12 @@ def test_every_implemented_selector_is_in_the_catalog():
     # ⚠ **F3-1b は 2026-09-13 に足した**（F3-1 の直した版。ID を分けないと台帳で同じ行にまとまる）
     # ⚠ **2026-09-15 に「手間 中」の 6 件を足した**（プラン `plans/ledger-blanks-six.md`）。
     # ⚠ **F4-4 と F5-4 は `transform`**（F5-1 と同じ枠）。⚠ **F4 系統はこれが初めての実装である。**
+    # ⚠ **F4-1 は 2026-09-16 に足した**（記号回帰。プラン `plans/archive/evolutionary-search-runner.md`）。
+    # ⚠ **これも `transform`**（式そのものを作るので `selector` の契約に入らない）。
+    # ⚠ **世代 × 個体は数えない** — 数えるのは champion × θ の 3 試行だけ（プラン §2 の (A)）
     assert set(catalog.implemented()) == {"F1-1", "F1-2", "F1-3", "F1-4", "F1-5", "F1-6", "F1-7",
                                           "F2-1", "F2-2", "F2-3", "F3-1", "F3-1b", "F3-2", "F3-3",
-                                          "F3-4", "F3-5", "F3-6", "F4-4", "F5-1", "F5-4"}
+                                          "F3-4", "F3-5", "F3-6", "F4-1", "F4-4", "F5-1", "F5-4"}
 
 
 @pytest.mark.parametrize("name,want", [

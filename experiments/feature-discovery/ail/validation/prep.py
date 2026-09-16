@@ -16,11 +16,18 @@ import pandas as pd
 from ail import registry
 
 
-def apply(exp: dict, Xtr: pd.DataFrame, Xte: pd.DataFrame, ctx: dict):
-    """(Xtr, Xte, 係数) を返す。⚠ **変換が無ければ入力をそのまま返す**（同じオブジェクト）。"""
+def apply(exp: dict, Xtr: pd.DataFrame, Xte: pd.DataFrame, ctx: dict, ytr=None):
+    """(Xtr, Xte, 係数) を返す。⚠ **変換が無ければ入力をそのまま返す**（同じオブジェクト）。
+
+    ⚠ **`ytr` は教師つきの変換だけが読む**（F4-1 記号回帰の適合度。2026-09-16 に足した）。
+    ⚠ **渡すのは訓練分割の y だけ**で、⚠ **検証分割の y はこの口に来ない**（3 章 B）。
+    ⚠ **ctx は複製して渡す** — 呼び元の ctx に混ぜると、選別やモデルにも見えてしまう。
+    """
     name = exp.get("transform")
     if not name:
         return Xtr, Xte, None
+    if ytr is not None:
+        ctx = {**ctx, "ytr": ytr}
     return registry.resolve("transform", name)(Xtr, Xte, ctx)
 
 

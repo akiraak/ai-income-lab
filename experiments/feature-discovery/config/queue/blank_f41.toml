@@ -1,0 +1,13 @@
+# ⚠ **台帳の空白 F4-1（記号回帰）を埋めるキュー**（プラン `plans/archive/evolutionary-search-runner.md` §4・§7）。
+#
+# ⚠ **本番 1 本につき `--leak` 対照が自動で 1 本並ぶ**（`leak = true`。rules.md 14-10 規約 6）。
+# ⚠ **手で足すと必ず忘れる**ので、器の既定に寄せてある。
+#
+# ⚠ **打ち切りは 3 つとも書く**（14-9）。⚠ **回し続ける仕組みは、放っておくと n_trials を無限に増やす。**
+# ⚠ **GA 自体の打ち切り（世代 20・1 fold 600 秒・5 世代）は `ail/search/evolve.py` にある。**
+experiments = ["trade_own_gp_a"]
+
+leak = true              # ⚠ 配線の穴に気づく唯一の手。切らない
+ledger = true            # ⚠ 本番の後に台帳を吐き直し、n_trials の推移を状態に残す
+max_failures = 3         # ⚠ 連続で失敗したら止める（直してから同じコマンドで再開する）
+time_budget_s = 7200     # ⚠ キュー全体の時間の上限（2 時間）

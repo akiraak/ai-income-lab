@@ -1,0 +1,59 @@
+# ⚠ **F4-1 記号回帰（GA）を Ridge 以外のモデルに広げる 2 本のうちの 1 本**（プラン `plans/ga-models-lgbm-mlp.md`）。
+# ⚠ **trade_own_gp_a.toml と `name` / `model` 以外は 1 文字も違わない**（表・fold・θ・選別・k・種・コスト・GA の水準）。
+# ⚠ **違うのはモデルだけ**なので、差を「モデルの差」として読める（rules.md 13-8）。
+# ⚠ **ハイパーパラメータは既定のまま。振らない**（13-6 規約 3。振った水準の数だけ n_trials が増える）。
+#
+# ⚠ **台帳の空白 F4-1 遺伝的プログラミング・記号回帰**（プラン `plans/archive/evolutionary-search-runner.md`）。
+#
+# ⚠ **この実行の新しさは「探索を訓練分割の内側に閉じた」ことにある**（プラン §2 の (A)）。
+# ⚠ **世代 × 個体（100 × 20 ＝ 最大 2,000 体）は n_trials に数えない。** 検証 fold に出るのは
+# ⚠ **fold ごとの champion 16 列だけ**で、それを 1 手法として数える（rules.md 14-5 の門と同型）。
+# ⚠ **1 手法 × θ 3 水準 ＝ 3 試行**（589 → 592）。
+#
+# ⚠ **選別は「全部使う」1 本だけ。** 「乱択（基準）」を入れると手法名が「F4-1 … ＋ 乱択（基準）」になり、
+# ⚠ **台帳が基準線と見分けられず試行に数えてしまう**（`trade_own_poly_a.toml` の教訓）。
+#
+# ⚠ **GA の水準は事前固定**（プラン §3-2。⚠ **回す前に書いた。結果を見て動かさない**）:
+# 個体 100 ／ 世代 20 ／ トーナメント 3 ／ エリート 2 ／ 交叉 0.7 ／ 突然変異 0.2 ／ 深さ 6 ／ ノード 30 ／
+# 適合度は訓練内 holdout の Spearman |ρ| ／ champion は相関 0.9 で間引いて k=16 ／
+# 打ち切りは 3 つ（世代 20・1 fold 600 秒・5 世代改善しなければ止める）。⚠ **既定は `ail/search/evolve.py`**
+#
+# ⚠ **TOML の平の key はテーブル見出しより上に書く**（rules.md 10 章 規約 1）
+name = "trade_own_gp_lgbm_a"
+dataset = "daily"
+horizon = 1
+cost_bp = 5.0
+features_from = "own_2018"     # ⚠ 表は作り直さず own_2018 のものを読む（13-8。表の差を混ぜない）
+
+feature_layers = ["own"]
+targets = "all"
+
+horizon_min = 1440.0
+bar_minutes = 1440.0
+
+# ⚠ **標本から学ぶ変換**（rules.md 3 章 B）。⚠ **式そのものを訓練分割の内側で探し、`fitted/` に残す**
+transform = "F4-1 記号回帰（遺伝的プログラミング）"
+
+selectors = ["全部使う（基準）"]   # ⚠ 変換の後は全列（＝ champion 16 列）を使う
+k = 16
+
+model = "LightGBM"
+baselines = ["常に上（ドリフト）", "直前リターンの符号"]
+
+[trading]
+style = "threshold"
+thresholds = [50, 55, 60]      # ⚠ 事前固定。結果を見て動かさない（rules.md 13-3）
+form = "shared"                # (A) 銘柄共通 1 本
+
+[validation]
+split = "walk_forward_dates"   # ⚠ fold の切れ目は日付で決める（rules.md 13-6 の 1）
+folds = 5
+purge = true
+embargo_bars = 0
+seed = 0
+
+[features]
+ex_lag_days = 1
+ex_zero_fill = ["usgs"]
+ex_transforms = ["d1", "z20"]
+ex_max_stale_days = 7

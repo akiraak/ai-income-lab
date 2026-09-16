@@ -93,9 +93,11 @@ def test_every_implemented_selector_is_in_the_catalog():
     # ⚠ **F5-1 は `selector` ではなく `transform`** なので、`implemented()` が両方を見ている
     # ことの検査も兼ねる（見落とすと、回したのに台帳 §3 で「未実施」のままになる）
     # ⚠ **F3-1b は 2026-09-13 に足した**（F3-1 の直した版。ID を分けないと台帳で同じ行にまとまる）
-    assert set(catalog.implemented()) == {"F1-1", "F1-2", "F1-3", "F1-4", "F1-5", "F1-7",
-                                          "F2-2", "F2-3", "F3-1", "F3-1b", "F3-2", "F3-3",
-                                          "F3-5", "F5-1"}
+    # ⚠ **2026-09-15 に「手間 中」の 6 件を足した**（プラン `plans/ledger-blanks-six.md`）。
+    # ⚠ **F4-4 と F5-4 は `transform`**（F5-1 と同じ枠）。⚠ **F4 系統はこれが初めての実装である。**
+    assert set(catalog.implemented()) == {"F1-1", "F1-2", "F1-3", "F1-4", "F1-5", "F1-6", "F1-7",
+                                          "F2-1", "F2-2", "F2-3", "F3-1", "F3-1b", "F3-2", "F3-3",
+                                          "F3-4", "F3-5", "F3-6", "F4-4", "F5-1", "F5-4"}
 
 
 @pytest.mark.parametrize("name,want", [
@@ -398,7 +400,8 @@ def test_real_closed_entries_each_hit_exactly_one_held_row():
     """実物の `[[closed]]` が実台帳にちょうど 1 行ずつ当たり、判定を変えない。"""
     d = catalog.ledger()                      # ⚠ 中で _apply_closed が走る（合わなければ止まる）
     closed = [r for r in d["rows"] if r.get("閉じる")]
-    assert len(closed) == len(catalog.closed_notes()) == 16
+    # ⚠ **2026-09-16 に 62 件足した**（保留の処遇。plans/ledger-hold-disposition.md）。16 ＋ 62 ＝ 78
+    assert len(closed) == len(catalog.closed_notes()) == 78
     assert all(r["判定"] == "保留" for r in closed)
 
 

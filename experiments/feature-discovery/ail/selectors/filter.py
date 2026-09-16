@@ -128,3 +128,53 @@ def sel_fdr(X, y, k, ctx):
     thr = [(i + 1) / m * 0.10 for i in range(m)]
     keep = [c for i, (c, pv) in enumerate(p.items()) if pv <= thr[i]]
     return keep or [p.index[0]]                          # ⚠ 全部落ちたら 1 本だけ残す
+
+
+# ⚠ **部分標本の大きさは事前固定**（プラン `plans/ledger-blanks-six.md` §0-2）。
+# ⚠ **距離相関は標本の 2 乗の距離行列を作る** — 11.3 万行なら 128 億対で、現実に回らない。
+# ⚠ **結果を見てから増やさない**（増やせば別の水準 ＝ 別の試行になる）
+DCOR_ROWS = 5000
+
+
+def _double_center(d: np.ndarray) -> np.ndarray:
+    """距離行列を二重中心化する（行平均・列平均を引いて全体平均を足す）。"""
+    return d - d.mean(axis=0, keepdims=True) - d.mean(axis=1, keepdims=True) + d.mean()
+
+
+def distance_correlation(a: np.ndarray, b: np.ndarray) -> float:
+    """距離相関（Székely ら 2007）。⚠ **0 ならば独立**（線形に限らない）。
+
+    ⚠ **相関と違って符号を持たない**（0 以上 1 以下）。⚠ **float32 で持つ**（5,000 行で 100MB/本）。
+    """
+    a = np.asarray(a, dtype=np.float32).reshape(-1)
+    b = np.asarray(b, dtype=np.float32).reshape(-1)
+    A = _double_center(np.abs(a[:, None] - a[None, :]))
+    B = _double_center(np.abs(b[:, None] - b[None, :]))
+    dcov2 = float(np.mean(A * B))
+    va, vb = float(np.mean(A * A)), float(np.mean(B * B))
+    if va <= 0.0 or vb <= 0.0:
+        return 0.0                                   # ⚠ 定数列（距離が全部 0）は独立扱い
+    return float(np.sqrt(max(dcov2, 0.0) / np.sqrt(va * vb)))
+
+
+@register("selector", "F1-6 距離相関・HSIC")
+def sel_dcor(X, y, k, ctx):
+    """⚠ **距離相関の上位 k 本。** ⚠ **HSIC は回さない**（回すと 2 手法ぶん数えることになる）。
+
+    ⚠ **計算量が標本の 2 乗**なので、⚠ **訓練分割から `DCOR_ROWS` 行を抜いて測る**
+    （抽き方は種で決まる ＝ 再現する）。⚠ **抜くのは訓練分割の内側だけ**（rules.md 3 章 B）。
+
+    ⚠ **線形相関（F1-1）との違いは、`y = |x|` のような向きの無い依存も拾うこと。**
+    ⚠ **拾えることと、売買で効くことは別である。**
+    """
+    y = np.asarray(y, dtype=float).reshape(-1)
+    n = len(X)
+    if n > DCOR_ROWS:
+        idx = np.random.default_rng(ctx.get("seed", 0)).choice(n, DCOR_ROWS, replace=False)
+        idx.sort()                                   # ⚠ 時刻の順は崩さない（距離相関には効かないが記録が読みやすい）
+        Xs, ys = X.iloc[idx], y[idx]
+    else:
+        Xs, ys = X, y
+    ys = np.asarray(ys, dtype=np.float32)
+    score = {c: distance_correlation(Xs[c].to_numpy(dtype=np.float32), ys) for c in X.columns}
+    return list(pd.Series(score).nlargest(min(int(k), X.shape[1])).index)

@@ -49,3 +49,26 @@ def sel_boruta(X, y, k, ctx):
     thr = imp[[c for c in sh.columns]].max()
     keep = [c for c in X.columns if imp[c] > thr]
     return keep or list(imp[X.columns].nlargest(1).index)
+
+
+@register("selector", "F2-1 前進選択・後退除去")
+def sel_forward(X, y, k, ctx):
+    """⚠ **前進選択だけ**（プラン `plans/ledger-blanks-six.md` §0-2）。
+
+    ⚠ **空の集合から始めて、交差検証の成績がいちばん上がる列を 1 本ずつ足す**（k 本まで）。
+    ⚠ **後退除去は回さない** — 両方回せばカタログ 1 行に対して 2 手法を数えることになる。
+
+    ⚠ **推定器は本体と同じ Ridge**（F2-2 RFE と同じ約束。選別の効きとモデルの違いを混ぜない）。
+    ⚠ **交差検証は 3 分割（既定の KFold・並べ替えなし）で決定的。**
+
+    ⚠ **これがカタログの言う「多重検定の温床」である**: k=16 まで足すのに
+    ⚠ **35 + 34 + … + 20 ＝ 約 440 通りを試し、そのたびにモデルを 3 回回す。**
+    ⚠ **選んだ列は「訓練分割の中で最も良く見えた組」なので、F1 の選別より過学習しやすい。**
+    """
+    from sklearn.feature_selection import SequentialFeatureSelector
+
+    n = min(int(k), X.shape[1] - 1) or 1            # ⚠ sklearn は「全列」を選べない（n < 列数）
+    est = Ridge(alpha=ctx.get("alpha", 1.0))
+    sfs = SequentialFeatureSelector(est, n_features_to_select=n, direction="forward",
+                                    cv=3, n_jobs=ctx.get("sfs_jobs", -1)).fit(X, np.asarray(y, dtype=float))
+    return list(X.columns[sfs.get_support()])

@@ -1,0 +1,56 @@
+# ⚠ **台帳の空白のうち選別 4 件**（F1-6・F2-1・F3-4・F3-6）を閾値売買で回す
+# （プラン `plans/ledger-blanks-six.md`）。
+#
+# ⚠ **trade_own_ridge_sel7_a.toml との違いは `selectors` の行（と name）だけ。** 表・モデル・閾値・形式・
+# ⚠ **fold 数・種・コスト・k・embargo は全部同じ**にしてあるので、先行の 7 選別と並べて読める（rules.md 13-8）。
+#
+# ⚠ **4 手法 × θ 3 水準 ＝ 12 試行として数える**（571 → 583）。⚠ **基準線 2 本は数えない**（13-9 の 4）。
+# ⚠ **その 2 本は `trade_own_ridge_a` と鍵が同じなので台帳でまとまる** — 数字が食い違ったら配線を壊した証拠。
+#
+# ⚠ **回すと決めたのは結果を見る前**（14-10 規約 3）。⚠ **門は診断なので門前でも回る**（`cli/run.py` の既定）。
+#
+# ⚠ **TOML の平の key はテーブル見出しより上に書く**（rules.md 10 章 規約 1）
+name = "trade_own_ridge_sel4_a"
+dataset = "daily"
+horizon = 1
+cost_bp = 5.0
+features_from = "own_2018"     # ⚠ 表は作り直さず own_2018 のものを読む（13-8。表の差を混ぜない）
+
+feature_layers = ["own"]
+targets = "all"
+
+horizon_min = 1440.0
+bar_minutes = 1440.0
+
+# ⚠ **処置は選別**（表・モデル・形式・検証方式は据え置き）。
+# ⚠ **どれも「訓練分割の内側だけで選ぶ」ことが要件**（rules.md 3 章 B）。⚠ **破っていないかは leak 対照で見る**
+selectors = [
+    "F1-6 距離相関・HSIC",          # ⚠ 距離相関だけ（HSIC は回さない）。部分標本 5,000 行・種 0
+    "F2-1 前進選択・後退除去",      # ⚠ 前進だけ（後退は回さない）。cv 3・推定器 Ridge
+    "F3-4 SHAP",                    # ⚠ LightGBM の pred_contrib（厳密な TreeSHAP）。shap は入れない
+    "F3-6 Model-X knockoffs",       # ⚠ ガウス等相関構成 ＋ knockoff+ ・目標 FDR q = 0.1
+    "全部使う（基準）",             # ⚠ 基準線。⚠ **これを超えられない選別は選ぶ意味が無い**
+    "乱択（基準）",                 # ⚠ 基準線。⚠ **これに負ける選別は「選んでいない」のと同じ**
+]
+k = 16
+
+model = "Ridge"
+baselines = ["常に上（ドリフト）", "直前リターンの符号"]
+
+[trading]
+style = "threshold"
+thresholds = [50, 55, 60]      # ⚠ 事前固定。結果を見て動かさない（rules.md 13-3）
+form = "shared"                # (A) 銘柄共通 1 本
+
+[validation]
+split = "walk_forward_dates"   # ⚠ fold の切れ目は日付で決める（rules.md 13-6 の 1）
+folds = 5
+purge = true
+embargo_bars = 0
+seed = 0
+
+[features]
+ex_lag_days = 1
+ex_zero_fill = ["usgs"]
+ex_transforms = ["d1", "z20"]
+ex_max_stale_days = 7

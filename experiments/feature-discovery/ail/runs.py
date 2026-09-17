@@ -20,6 +20,7 @@ from __future__ import annotations
 import json
 import os
 import platform
+import re
 import subprocess
 import sys
 import time
@@ -28,6 +29,34 @@ import pandas as pd
 
 ROOT = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
 RUNS = os.path.join(ROOT, "runs")
+
+# ⚠ **日付をずらした偽薬の実行は名前の末尾で見分ける**（`_leak` と同じ扱い。台帳の試行に数えない）
+_SHIFT = re.compile(r"_shift(\d+)$")
+
+
+def variant(experiment: str, leak: bool = False, shift_days: int = 0) -> str:
+    """表（`data/features/<これ>/`）と実行（`runs/<時刻>_<これ>/`）の名前。
+
+    ⚠ **対照（先読み・偽薬）は名前の末尾で本物と分ける。** ⚠ **本物と同じ名前にすると、台帳が
+    「特徴量の層」で実行をまとめるときに偽薬が代表の行を乗っ取る**（鍵が同じ「own ex」になる）。
+    """
+    if shift_days < 0:
+        raise SystemExit(f"⚠ --shift-days は 0 以上（負は未来の値を貼る）: {shift_days}")
+    if leak and shift_days:
+        raise SystemExit("⚠ --leak と --shift-days は同時に使わない（何の対照なのか分からなくなる）")
+    return experiment + ("_leak" if leak else "") + (f"_shift{shift_days}" if shift_days else "")
+
+
+def shift_days_of(name: str, config: dict | None = None) -> int:
+    """⚠ **偽薬（日付を過去へずらした）の実行なら、そのずらし幅。本物なら 0。**
+
+    名前の末尾（`_shift<S>`）か、config の `features.ex_shift_days` のどちらかで見分ける
+    （⚠ **TOML に直接書いた偽薬も取りこぼさない**）。
+    """
+    m = _SHIFT.search(name)
+    by_name = int(m.group(1)) if m else 0
+    by_config = int(((config or {}).get("features") or {}).get("ex_shift_days") or 0)
+    return by_name or by_config
 
 
 def _git_commit() -> str | None:

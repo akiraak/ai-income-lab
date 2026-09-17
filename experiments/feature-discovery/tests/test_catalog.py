@@ -232,3 +232,54 @@ def test_skipped_is_distinguished_from_not_yet_tried():
     for c in d["not_tried"]:
         if c["判定"] == "⚠ 見送り":
             assert "見送り" in c["次の一手"], f"{c['ID']}: 見送りの理由が書いていない"
+
+
+def _fake_run(root, name, net, config):
+    import json
+    d = root / name
+    d.mkdir()
+    (d / "config.json").write_text(json.dumps(config, ensure_ascii=False), encoding="utf-8")
+    (d / "summary.csv").write_text(
+        "手法,本数,的中率,IC,粗利bp,純利bp,fold数\n"
+        f"F1-1 相関,16.0,0.51,0.01,{net + 5},{net},5\n", encoding="utf-8")
+
+
+def test_shift_placebo_runs_never_become_trials(tmp_path, monkeypatch):
+    """⚠ **日付をずらした偽薬は対照であって試行ではない。**
+
+    ⚠ **鍵（手法 × 特徴量の層 …）が本物と同じなので、混ぜると最新の偽薬が代表の行を乗っ取り、
+    試行数（DSR の分母）も見かけだけ動く。** 名前の末尾でも config でも見分ける。
+    """
+    from ail import runs
+    cfg = {"dataset": "daily", "horizon": 1, "bar_minutes": 1440.0, "k": 16, "cost_bp": 5.0,
+           "feature_layers": ["own", "ex"], "features": {}}
+    _fake_run(tmp_path, "2026-09-16T00-00-00_impact_ex_2018", 3.0, cfg)
+    _fake_run(tmp_path, "2026-09-16T01-00-00_impact_ex_2018_shift365", -9.0,
+              {**cfg, "features": {"ex_shift_days": 365}})
+    _fake_run(tmp_path, "2026-09-16T02-00-00_hand_written_placebo", -7.0,
+              {**cfg, "features": {"ex_shift_days": 101}})
+    monkeypatch.setattr(runs, "RUNS", str(tmp_path))
+    monkeypatch.setattr(catalog, "legacy_tables", lambda *a, **k: [])
+    rows, leak, run_list = catalog.trials()
+    assert [r["純利bp"] for r in rows] == [3.0]
+    assert rows[0]["実行一覧"] == ["2026-09-16T00-00-00_impact_ex_2018"]
+    assert leak == []
+    assert {r["実行"]: r["偽薬"] for r in run_list} == {
+        "2026-09-16T00-00-00_impact_ex_2018": 0,
+        "2026-09-16T01-00-00_impact_ex_2018_shift365": 365,
+        "2026-09-16T02-00-00_hand_written_placebo": 101}
+
+
+@pytest.mark.parametrize("leak,shift,want", [
+    (False, 0, "x"), (True, 0, "x_leak"), (False, 365, "x_shift365")])
+def test_variant_names_keep_controls_apart(leak, shift, want):
+    from ail import runs
+    assert runs.variant("x", leak, shift) == want
+    assert runs.shift_days_of("2026-09-16T00-00-00_" + want) == shift
+
+
+@pytest.mark.parametrize("leak,shift", [(False, -1), (True, 365)])
+def test_variant_refuses_a_future_shift_or_a_mixed_control(leak, shift):
+    from ail import runs
+    with pytest.raises(SystemExit):
+        runs.variant("x", leak, shift)

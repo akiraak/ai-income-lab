@@ -12,6 +12,7 @@
 | 2-2 | ⚠ **前の値を引き継ぐ日数に上限を置く（列ごと）** | ⚠ **上限が無いと、系列が止まっても古い値が永久に貼られ、定数の特徴量になる** |
 | 2-3 | ⚠ **0 埋めは取得元の範囲全体で行い、窓が定数の `z` は 0** | ⚠ **まばらな系列（災害・降水）で欠損が出て、前方埋めで古い値を引きずった**（2026-09-16） |
 | 3 | ⚠ **全銘柄で同じ値になる** | ⚠ **断面では銘柄を区別できない**（方向には効きうるが、相対の順位には効かない） |
+| 4 | ⚠ **偽薬として日付だけを過去へずらせる**（`ex_shift_days`） | ⚠ **効いたのが「その日に何が起きたか」か「列の形」かを分ける**（2026-09-16。負は未来の値になるので拒む） |
 
 ⚠ **前の値を使うのは先読みではない。** 「その時点で公表されている最新の値」であり、未来は入らない。
 ⚠ **ただし地震だけは前の値を引きずってはいけない**（起きなかった日に前日の件数が入る）。
@@ -165,7 +166,13 @@ def layer(panel: dict[str, pd.DataFrame], ctx: dict) -> dict[str, pd.DataFrame]:
 
     # ⚠ **ずらし幅は取得元ごと。** 指定が無ければ既定表、それも無ければ全体の既定
     src_lag = {**DEFAULT_SOURCE_LAG_DAYS, **dict(ctx.get("ex_source_lag_days", {}))}
-    lag_of = {sid: max(int(src_lag.get(owner[sid], lag)), 1) for sid in series}
+    # ⚠ **偽薬: 日付だけを過去へ `ex_shift_days` 日ずらす**（[plan](../../../../docs/plans/exog-shift-placebo.md)）。
+    # 系列・変換・列の数はそのままで、⚠ **株価の日付との対応だけを壊す。** ⚠ **全取得元に同じ幅を足す**
+    # （取得元どうしの相対の位置を保つ）。⚠ **負は許さない**（未来の値を貼ることになる）
+    shift = int(ctx.get("ex_shift_days", 0) or 0)
+    if shift < 0:
+        raise ValueError(f"⚠ ex_shift_days は 0 以上でなければならない（負は未来の値）: {shift}")
+    lag_of = {sid: max(int(src_lag.get(owner[sid], lag)), 1) + shift for sid in series}
 
     out: dict[str, pd.DataFrame] = {sym: [] for sym in panel}
     # ⚠ **ずらし幅が同じ系列をまとめて貼る**（幅ごとに as-of の基準日が変わる）

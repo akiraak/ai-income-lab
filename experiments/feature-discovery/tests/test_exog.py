@@ -208,6 +208,52 @@ def test_sources_with_different_lags_are_both_present():
     assert out["ex_FAST_lvl"].iloc[0] > out["ex_SLOW_lvl"].iloc[0]     # 遅い側は古い値
 
 
+# --- 日付をずらした偽薬（2026-09-16）------------------------------------
+
+def test_a_shift_placebo_reads_the_value_s_days_further_back():
+    """⚠ **偽薬は日付だけを過去へ S 日ずらす。** 系列・変換・列はそのまま。"""
+    s = {"S1": series(n=400, start="2020-01-01")}
+    p = panel_of(["2021-01-01", "2021-01-02"])
+    real = layer(p, s, ex_transforms=("lvl",))["AAA"]
+    fake = layer(p, s, ex_transforms=("lvl",), ex_shift_days=30)["AAA"]
+    assert list(fake.columns) == list(real.columns)
+    assert list(real["ex_S1_lvl"] - fake["ex_S1_lvl"]) == [30.0, 30.0]
+
+
+def test_the_shift_is_added_on_top_of_each_source_lag():
+    """⚠ **NCEI の 120 日にも同じ S を足す**（取得元どうしの相対の位置を保つ）。"""
+    import ail.features.exog as m
+    s = {"FAST": series(n=800, start="2020-01-01"), "SLOW": series(n=800, start="2020-01-01")}
+    owner = {"FAST": "ecb", "SLOW": "ncei_storm"}
+    orig = m.load_series
+    m.load_series = lambda *a, **k: (s, owner)
+    try:
+        ctx = {"ex_transforms": ("lvl",), "ex_max_stale_days": 800}
+        real = m.layer(panel_of(["2021-06-01"]), dict(ctx))["AAA"]
+        fake = m.layer(panel_of(["2021-06-01"]), {**ctx, "ex_shift_days": 365})["AAA"]
+    finally:
+        m.load_series = orig
+    assert (real - fake).iloc[0].tolist() == [365.0, 365.0]
+    # 相対の位置（119 日の差）は変わらない
+    assert fake["ex_FAST_lvl"].iloc[0] - fake["ex_SLOW_lvl"].iloc[0] == pytest.approx(119.0)
+
+
+def test_a_negative_shift_is_refused():
+    """⚠ **負のずらしは未来の値を貼る。** 偽薬のためでも不変条件を破らない。"""
+    s = {"S1": series(n=400, start="2020-01-01")}
+    with pytest.raises(ValueError):
+        layer(panel_of(["2020-06-01"]), s, ex_shift_days=-1)
+
+
+def test_a_shifted_value_is_still_from_before_the_bar():
+    """⚠ **ずらしても、貼られる値は足の日より前の日付のものだけ。**"""
+    idx = pd.date_range("2020-01-01", periods=400, freq="D")
+    s = {"S1": pd.Series(idx.map(pd.Timestamp.toordinal).astype(float), index=idx, name="S1")}
+    dates = pd.date_range("2020-12-01", periods=20, freq="D")
+    out = layer(panel_of(dates), s, ex_transforms=("lvl",), ex_shift_days=100)["AAA"]
+    assert all(out["ex_S1_lvl"].values < dates.map(pd.Timestamp.toordinal).values - 100)
+
+
 # --- まばらな系列（0 の日が続く）— 2026-09-16 に塞いだ穴 ---------------------
 
 def test_z_of_a_window_with_no_variation_is_zero():

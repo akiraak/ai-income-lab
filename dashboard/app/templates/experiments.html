@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% block content %}
-<h2>検証 <span class="muted small">特徴量の発見手法 · {{ ex.total }} 件{% for k, n in ex.kinds.items() %} · {{ k }} {{ n }}{% endfor %}{% if ex.leak_runs %} · 配線の検査 {{ ex.leak_runs|length }}{% endif %}</span></h2>
+<h2>検証 <span class="muted small">特徴量の発見手法 · {{ ex.total }} 件{% for k, n in ex.kinds.items() %} · {{ k }} {{ n }}{% endfor %}{% if ex.leak_runs %} · 配線の検査 {{ ex.leak_runs|length }}{% endif %}{% if ex.placebo_runs %} · 偽薬 {{ ex.placebo_runs|length }}{% endif %}</span></h2>
 
 <p class="muted small">
   <b>スコア = 最良手法（基準線を除く）の純利 bp。</b>大きいほど上に出る。
@@ -9,7 +9,7 @@
   検査は実験側が <code>checks.json</code> に書いたものをそのまま出している（画面では計算しない）。
 </p>
 
-{% if not ex.runs and not ex.leak_runs %}
+{% if not ex.runs and not ex.leak_runs and not ex.placebo_runs %}
 <p class="muted">検証の記録が無い（<code>{{ ex.runs_dir }}</code>）。<code>runs/</code> は git 管理外なので、実行した手元にだけある。</p>
 {% else %}
 
@@ -77,6 +77,23 @@
   <td>{{ r.best.method or '—' }}</td>
   <td>{% if r.best %}{{ '%.4f'|format(r.best.的中率) }}{% endif %}</td>
   <td>{% if r.best %}{{ '%.4f'|format(r.best.IC) }}{% endif %}</td>
+</tr>
+{% endfor %}
+</table>
+{% endif %}
+
+{% if ex.placebo_runs %}
+<h3>⚠ 日付をずらした偽薬（一覧の対象外）</h3>
+<p class="muted small">外部系列（<code>ex_</code>）の日付だけを過去へずらした実行。<b>本物と同じ設定なので、上の一覧に混ぜると同じ名前の行が並んで本物が埋もれる。</b>
+  本物のスコアがここの分布の上端に出なければ、効いて見えたのは系列の中身ではなく列の形である。</p>
+<table class="exp">
+<tr><th>スコア<br><span class="small muted">純利 bp</span></th><th>検証</th><th>最良の手法</th><th>fold</th></tr>
+{% for r in ex.placebo_runs %}
+<tr>
+  <td class="score">{% if r.score is none %}—{% else %}{{ '%+.2f'|format(r.score) }}{% endif %}</td>
+  <td><a href="/experiments/{{ r.run_id }}"><b>{{ r.title }}</b></a><div class="small muted">{{ r.run_id }}</div></td>
+  <td>{{ r.best.method or '—' }}</td>
+  <td>{% if r.folds %}{{ r.folds.positive }}/{{ r.folds.folds }} {{ r.folds.pattern }}{% else %}—{% endif %}</td>
 </tr>
 {% endfor %}
 </table>

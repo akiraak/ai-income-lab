@@ -2,6 +2,7 @@
 {% block content %}
 <h2>{{ run.title }}
   {% if run.leak %}<span class="badge badge-mock">配線の検査</span>{% endif %}
+  {% if run.shift_days %}<span class="badge badge-mock">偽薬</span>{% endif %}
   <span class="muted small">{{ run.run_id }}</span></h2>
 <p><a href="/experiments">← 検証の一覧</a></p>
 

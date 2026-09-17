@@ -97,6 +97,26 @@ def test_leak_runs_are_kept_out_of_the_ranking(tmp_path):
     assert ex["total"] == 1
 
 
+def test_shift_placebo_runs_are_kept_out_of_the_ranking(tmp_path):
+    """⚠ **日付をずらした偽薬は本物と同じ設定・同じタイトルになる。** 一覧に混ぜると本物が埋もれる。"""
+    ex_cfg = {**POOL, "name": "impact_ex_2018", "feature_layers": ["own", "ex"]}
+    best = lambda net: {"best": {"method": "F2-3 Boruta", "純利bp": net, "粗利bp": net + 5,   # noqa: E731
+                                 "的中率": 0.51, "IC": 0.03, "本数": 26.6}}
+    write_experiment(tmp_path, "2026-09-16T22-27-52_impact_ex_2018", config=ex_cfg,
+                     inputs={"layer": "adjusted"}, summary=rows(3.23), checks=best(3.23))
+    write_experiment(tmp_path, "2026-09-17T01-00-00_impact_ex_2018_shift365", config=ex_cfg,
+                     inputs={"layer": "adjusted"}, summary=rows(4.10), checks=best(4.10))
+    write_experiment(tmp_path, "2026-09-17T02-00-00_by_config", inputs={"layer": "adjusted"},
+                     config={**ex_cfg, "features": {"ex_shift_days": 101}},
+                     summary=rows(-1.0), checks=best(-1.0))
+    ex = exp.index(tmp_path)
+    assert [r["run_id"] for r in ex["runs"]] == ["2026-09-16T22-27-52_impact_ex_2018"]
+    assert ex["total"] == 1
+    assert [r["shift_days"] for r in ex["placebo_runs"]] == [365, 101]      # スコアの降順
+    assert ex["placebo_runs"][0]["title"].endswith("（偽薬: 日付 −365 日）")
+    assert ex["placebo_runs"][0]["kind"] == "偽薬（日付ずらし）"
+
+
 # --- 検査の印 -----------------------------------------------------------
 
 def test_marks_flag_split_folds_and_raw_daily(tmp_path):
@@ -165,6 +185,23 @@ def test_page_and_detail_render(settings):
         assert "「常に上」自身の粗利 +4.75bp" in d.text
         j = c.get("/api/experiments")
         assert j.status_code == 200 and j.json()["runs"][0]["score"] == 2.30
+
+
+def test_placebo_section_and_badge_render(settings):
+    cfg = {**POOL, "name": "impact_ex_2018", "feature_layers": ["own", "ex"]}
+    write_experiment(settings.runs_dir, "2026-09-17T01-00-00_impact_ex_2018_shift365", config=cfg,
+                     inputs={"layer": "adjusted"}, summary=rows(-1.25),
+                     checks={"best": {"method": "F3-3 並べ替え(MDA)", "純利bp": -1.25, "粗利bp": 3.75,
+                                      "的中率": 0.50, "IC": 0.01, "本数": 16.0},
+                             "folds": {"positive": 1, "folds": 5, "pattern": "＋−−−−",
+                                       "values": [9.0, -1.0, -2.0, -3.0, -4.0]}})
+    with TestClient(create_app(settings), client=("127.0.0.1", 50000)) as c:
+        r = c.get("/experiments")
+        assert r.status_code == 200
+        assert "日付をずらした偽薬（一覧の対象外）" in r.text and "偽薬 1" in r.text
+        assert "（偽薬: 日付 −365 日）" in r.text and "1/5 ＋−−−−" in r.text
+        d = c.get("/experiments/2026-09-17T01-00-00_impact_ex_2018_shift365")
+        assert d.status_code == 200 and "偽薬" in d.text
 
 
 def test_unknown_and_traversing_run_ids_are_404(settings):

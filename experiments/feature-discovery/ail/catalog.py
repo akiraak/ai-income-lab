@@ -191,6 +191,8 @@ def _read_run(name: str) -> dict | None:
     for f in ("config", "inputs", "env"):
         p = os.path.join(d, f + ".json")
         doc[f] = json.load(open(p, encoding="utf-8")) if os.path.exists(p) else {}
+    # ⚠ **日付をずらした偽薬**（`_shift<S>`）。⚠ **試行ではなく対照なので台帳の行に入れない**
+    doc["shift_days"] = runs.shift_days_of(name, doc["config"])
     doc["summary"] = pd.read_csv(s, index_col=0)
     r = os.path.join(d, "result.csv")
     doc["result"] = pd.read_csv(r) if os.path.exists(r) else None
@@ -375,7 +377,14 @@ def trials() -> tuple[list[dict], list[dict], list[dict]]:
                          "銘柄": inputs.get("symbols"), "種": env.get("seed"),
                          "commit": env.get("git_commit"),
                          "指紋": (inputs.get("data_manifest") or {}).get("raw"),
-                         "先読み": "⚠ **あり**" if run["leak"] else "—", "出所": "runs/"})
+                         "先読み": "⚠ **あり**" if run["leak"] else "—",
+                         "出所": (f"runs/（⚠ **偽薬: 日付 −{run['shift_days']} 日**）"
+                                  if run["shift_days"] else "runs/"),
+                         "偽薬": run["shift_days"]})
+        if run["shift_days"]:
+            # ⚠ **偽薬は試行に数えず、台帳の行にも混ぜない。** ⚠ **鍵（手法 × 特徴量の層 …）が本物と同じなので、
+            # 混ぜると「最新の実行」として代表の行を乗っ取る**（2026-09-16。27 本回すと本物が見えなくなる）
+            continue
         all_rows += _run_trials(run)
     for decl in legacy_tables():
         all_rows += legacy_trials(decl)

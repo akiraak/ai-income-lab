@@ -2,6 +2,7 @@
 
     python3 -m cli.run --experiment own_only_h1
     python3 -m cli.run --experiment own_only_h1 --leak      # ⚠ 配線の検査（跳ね上がるはず）
+    python3 -m cli.run --experiment impact_ex_2018 --shift-days 365   # ⚠ 偽薬（台帳の試行に数えない）
 
 ⚠ **設計の要点は 3 つ**（rules.md 9 章）。
   1. ⚠ **特徴量の選別は訓練分割の内側だけで行う**（Ambroise-McLachlan 2002）
@@ -29,9 +30,10 @@ import ail.bootstrap  # noqa: F401
 warnings.filterwarnings("ignore")
 
 
-def load_panel(experiment: str, period: str, leak: bool) -> tuple[pd.DataFrame, str]:
+def load_panel(experiment: str, period: str, leak: bool,
+               shift_days: int = 0) -> tuple[pd.DataFrame, str]:
     path = os.path.join(store.DATA, "features",
-                        experiment + ("_leak" if leak else ""), f"{period}.parquet")
+                        runs.variant(experiment, leak, shift_days), f"{period}.parquet")
     if not os.path.exists(path):
         raise SystemExit(f"{os.path.relpath(path, store.ROOT)} が無い。先に `python3 -m cli.build` を回す")
     return pd.read_parquet(path), path
@@ -84,22 +86,31 @@ def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--experiment", required=True)
     ap.add_argument("--leak", action="store_true", help="⚠ 配線の検査（未来を混ぜた表を使う）")
+    ap.add_argument("--shift-days", type=int, default=0,
+                    help="⚠ 偽薬: ex_ の日付を過去へ N 日ずらした表を使う（先に cli.build に同じ値）")
     ap.add_argument("--sample", type=int, default=60000, help="行が多いとき間引く（0 で間引かない）")
     ap.add_argument("--layer", default="adjusted", help="記録に残すだけ（表は cli.build が作る）")
     args = ap.parse_args()
 
     exp = config.resolve_experiment(args.experiment)     # ⚠ ここで名前を全部解決する
     ds = exp["_dataset"]
-    panel, path = load_panel(args.experiment, ds["period"], args.leak)
+    panel, path = load_panel(args.experiment, ds["period"], args.leak, args.shift_days)
     feats = [c for c in panel.columns if c not in META_COLUMNS]
     exp.setdefault("horizon_min", 1440.0 if ds["period"] == "d" else float(exp["horizon"]))
 
-    name = args.experiment + ("_leak" if args.leak else "")
+    name = runs.variant(args.experiment, args.leak, args.shift_days)
+    meta = _features_meta(path)
+    if args.shift_days:
+        # ⚠ **表が本当にずらして作られたかを sidecar で確かめる。** ⚠ **食い違ったまま回すと、
+        # 本物の表が偽薬の名前で記録に残る**（逆も同じ）
+        if int((meta or {}).get("shift_days") or 0) != args.shift_days:
+            raise SystemExit(f"⚠ {os.path.basename(os.path.dirname(path))} は --shift-days "
+                             f"{args.shift_days} で作られていない（sidecar: {(meta or {}).get('shift_days')}）")
+        exp.setdefault("features", {})["ex_shift_days"] = int(args.shift_days)
     run = runs.Run(name, {k: v for k, v in exp.items() if not k.startswith("_")},
                    int(exp.get("validation", {}).get("seed", 0)))
     # ⚠ **層は表の隣の sidecar を正とする。** `--layer` は自己申告なので、
     # ⚠ **食い違ったらここで言う**（黙って通すと台帳の「データの層」が嘘になる）
-    meta = _features_meta(path)
     if meta and meta.get("layer") and meta["layer"] != args.layer:
         run.log(f"⚠ **--layer {args.layer} だが、表は層 {meta['layer']} から作られている**"
                 f"（{os.path.basename(path)}）。⚠ **sidecar のほうを記録に残す。**")
@@ -118,7 +129,9 @@ def main() -> None:
     layer = (meta or {}).get("layer") or args.layer
     run.log(f"実験 {args.experiment} / 層 {layer} / {ds['period']} 足")
     run.log(f"行 {len(panel):,} / 特徴量 {len(feats)}"
-            + (f"  ⚠ **わざとした先読みの列あり: {leaky}**" if leaky else ""))
+            + (f"  ⚠ **わざとした先読みの列あり: {leaky}**" if leaky else "")
+            + (f"  ⚠ **偽薬: ex_ の日付を過去へ {args.shift_days} 日ずらした表（台帳の試行に数えない）**"
+               if args.shift_days else ""))
 
     res = evaluate(panel, feats, exp, run)
     g = (res.groupby("手法")

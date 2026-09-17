@@ -271,6 +271,18 @@ def build() -> str:
         a("⚠ **先読みの検査の実行が `runs/` に無い。** `cli.run --leak` を回す。")
     a("")
 
+    # --- 5-2. 日付をずらした偽薬 ---
+    placebo = [r for r in d["runs"] if r.get("偽薬")]
+    if placebo:
+        shifts = sorted(int(r["偽薬"]) for r in placebo)
+        a("### 5-2. ⚠ 日付をずらした偽薬（台帳の対象外）")
+        a("")
+        a(f"⚠ **`ex_` の系列の日付だけを過去へずらした実行が {len(placebo)} 本ある**"
+          f"（ずらし幅 {shifts[0]:,}〜{shifts[-1]:,} 日）。⚠ **試行ではなく対照なので、§2 の行と試行数に入れない**"
+          "（鍵が本物と同じなので、混ぜると代表の行を乗っ取る）。§4 の出所に印を付けてある。")
+        a("読み方と判定は [daily-data-sources.md §15](../daily-data-sources.md)。")
+        a("")
+
     # --- 6. 限界 ---
     a("## 6. ⚠ この台帳で埋まらないもの")
     a("")

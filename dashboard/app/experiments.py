@@ -14,11 +14,25 @@ from __future__ import annotations
 
 import csv
 import json
+import re
 from pathlib import Path
 
 # 特徴量の層 → 検証の種類
 CROSS_LAYERS = ("cs", "rel", "ll")
 LAYER_LABEL = {"adjusted": "調整後", "raw": "調整前"}
+# ⚠ **日付をずらした偽薬**（実験側 `ail/runs.py` の `variant` が付ける末尾）。⚠ **本物と同じタイトルになるので、
+# 見分けないと同じ名前の行が一覧に何十本も並び、どれが本物か分からなくなる**（2026-09-16）
+_SHIFT = re.compile(r"_shift(\d+)$")
+
+
+def shift_days_of(name: str, config: dict) -> int:
+    """偽薬ならずらし幅（日）、本物なら 0。名前の末尾か config の `features.ex_shift_days` で見分ける。"""
+    m = _SHIFT.search(name)
+    try:
+        by_config = int(((config or {}).get("features") or {}).get("ex_shift_days") or 0)
+    except (TypeError, ValueError):
+        by_config = 0
+    return (int(m.group(1)) if m else 0) or by_config
 
 
 def _read_json(path: Path) -> dict:
@@ -108,15 +122,17 @@ def load_run(d: Path) -> dict | None:
     config, inputs = _read_json(d / "config.json"), _read_json(d / "inputs.json")
     env, ch = _read_json(d / "env.json"), _read_json(d / "checks.json")
     leak = bool(ch.get("leak")) or d.name.endswith("_leak")
+    shift = shift_days_of(d.name, config)
     best = ch.get("best") or {}
     folds, edge, dsr, breadth = (ch.get("folds"), ch.get("edge_vs_drift"),
                                  ch.get("dsr"), ch.get("breadth"))
     gran, bar = granularity(config)
     return {
         "run_id": d.name,
-        "title": title_of(config, inputs, leak),
-        "kind": kind_of(config, leak),
+        "title": title_of(config, inputs, leak) + (f"（偽薬: 日付 −{shift:,} 日）" if shift else ""),
+        "kind": "偽薬（日付ずらし）" if shift else kind_of(config, leak),
         "leak": leak,
+        "shift_days": shift,
         "gran": gran,
         "horizon": horizon(config, bar),
         "layer": (inputs.get("layer") or "—"),
@@ -173,19 +189,22 @@ def with_marks(run: dict) -> dict:
 
 
 def index(runs_dir: Path) -> dict:
-    """一覧。⚠ **スコアの降順。先読みの検査は別枠に出す**（混ぜると全部が嘘になる）。"""
+    """一覧。⚠ **スコアの降順。先読みの検査と偽薬は別枠に出す**（混ぜると全部が嘘になる）。"""
     runs = [with_marks(r) for r in load_all(runs_dir)]
-    real = [r for r in runs if not r["leak"]]
+    real = [r for r in runs if not r["leak"] and not r["shift_days"]]
     leak = [r for r in runs if r["leak"]]
+    placebo = [r for r in runs if r["shift_days"] and not r["leak"]]
     key = lambda r: (r["score"] is not None, r["score"] or 0.0)   # noqa: E731
     real.sort(key=key, reverse=True)
     leak.sort(key=key, reverse=True)
+    placebo.sort(key=key, reverse=True)
     kinds: dict[str, int] = {}
     for r in real:
         kinds[r["kind"]] = kinds.get(r["kind"], 0) + 1
     return {
         "runs": real,
         "leak_runs": leak,
+        "placebo_runs": placebo,
         "kinds": kinds,
         "total": len(real),
         "positive": sum(1 for r in real if (r["score"] or 0) > 0),

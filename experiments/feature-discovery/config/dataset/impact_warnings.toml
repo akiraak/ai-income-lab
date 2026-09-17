@@ -10,7 +10,9 @@ source = "iem"
 role = "本命"
 hypothesis = "⚠ 警報は被害より先に出るので、災害の影響を早く拾える（NCEI は 101 日遅れる）"
 ids = ["national", "category", "region", "region_category"]
-start = "2018-01-01"
+# ⚠ **2010〜2017 は 2026-09-16 に足した**（日付を過去へずらす偽薬が最大 7 年前の値を読む。
+# [plan](../../../../docs/plans/exog-shift-placebo.md)）。⚠ **丸 1 年の塊は保管庫から読むので、取るのは足した年と 2026 年だけ**
+start = "2010-01-01"
 end = "2026-09-09"
 crawl_delay = 120.0
 note = "⚠ 元データは NWS（米政府の公有）。IEM は保管庫。robots.txt の Crawl-delay: 120 を守る"

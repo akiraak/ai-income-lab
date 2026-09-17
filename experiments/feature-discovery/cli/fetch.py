@@ -4,6 +4,7 @@
     python3 -m cli.fetch --dataset min1 --symbols SPY,QQQ
     python3 -m cli.fetch --import-legacy data      # ⚠ 既にある CSV を raw/ へ移すだけ（取得しない）
     python3 -m cli.fetch --exog exog_daily         # ⚠ 外部の日次系列（為替・イールド・気象・地震）
+    python3 -m cli.fetch --exog impact_daily --source ncei_storm   # ⚠ 1 つの取得元だけ取り直す
 
 ⚠ **`raw/` は取ってきたまま。以後どのコードも書き換えない**（rules.md 1 章）。
 ⚠ 取得は tastytrade サンプルの venv で動かす（`ttclient` と `websockets` が要る）。
@@ -37,15 +38,19 @@ def _record(directory: str, layer: str, period: str, extra: dict) -> None:
     print(f"→ {os.path.relpath(path, store.ROOT)}")
 
 
-def fetch_exog(name: str) -> None:
+def fetch_exog(name: str, only_source: str | None = None) -> None:
     """外部の日次系列を取る。⚠ **足とは形が違うので `series/` に分けて置く**（contracts.py）。
 
     ⚠ **枠（本命 / 偽薬）は config が宣言する。** ⚠ **結果を見てから分類しない。**
+    ⚠ **`only_source` を渡すとその取得元だけを取る**（同じ dataset の他の系列を巻き込んで版を変えない）。
     """
     import pandas as pd          # ⚠ 取得用の最小 venv には無いので、ここで import する
 
     ds = config.dataset(name)
-    for block in ds.get("series", []):
+    blocks = [b for b in ds.get("series", []) if only_source in (None, b["source"])]
+    if not blocks:
+        raise SystemExit(f"⚠ {name} に取得元 {only_source} が無い")
+    for block in blocks:
         source = block["source"]
         fn = registry.resolve("source", source)
         kwargs = {k: v for k, v in block.items() if k not in ("source", "role", "ids", "note")}
@@ -101,13 +106,14 @@ def main() -> None:
                     help="⚠ 取得せず、既存の <DIR>/*_<period>.csv を raw/ へ移す")
     ap.add_argument("--exog", metavar="DATASET",
                     help="⚠ 外部の日次系列を取る（config/dataset/<名前>.toml の [[series]]）")
+    ap.add_argument("--source", help="⚠ --exog のうち、この取得元だけを取る")
     args = ap.parse_args()
 
     if args.import_legacy:
         import_legacy(args.import_legacy)
         return
     if args.exog:
-        fetch_exog(args.exog)
+        fetch_exog(args.exog, args.source)
         return
     if not args.dataset:
         raise SystemExit("--dataset か --import-legacy のどちらかが要る")

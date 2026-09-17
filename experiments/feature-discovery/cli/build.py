@@ -3,6 +3,7 @@
     python3 -m cli.build --experiment own_only_h1
     python3 -m cli.build --experiment cross_section_h1
     python3 -m cli.build --experiment own_only_h1 --leak     # ⚠ 配線の検査用（未来を混ぜる）
+    python3 -m cli.build --experiment impact_ex_2018 --shift-days 365   # ⚠ 偽薬（ex_ の日付を過去へずらす）
 
 ⚠ **入力は既定で `adjusted/`。** `--layer raw` は「ルール以前の数字」を再現するときだけ使う。
 """
@@ -17,7 +18,7 @@ import time
 import numpy as np
 import pandas as pd
 
-from ail import config, registry
+from ail import config, registry, runs
 from ail.contracts import META_COLUMNS
 from ail.data import store
 from ail.features import labels
@@ -28,8 +29,15 @@ ORDER = ("own", "cs", "rel", "ll", "ex", "im")   # ⚠ 列の並びを実行ご�
 
 
 def build(experiment: str, layer: str = "adjusted", leak: bool = False,
-          max_elapsed: float | None = None, out: str | None = None) -> pd.DataFrame:
+          max_elapsed: float | None = None, out: str | None = None,
+          shift_days: int = 0) -> pd.DataFrame:
     exp = config.resolve_experiment(experiment)
+    table = runs.variant(experiment, leak, shift_days)      # ⚠ 表の名前（下のループの name と別）
+    if shift_days:
+        # ⚠ **偽薬: `ex_` の日付だけを過去へずらす。** ⚠ **`ex_` の無い実験では何もずれないので止める**
+        if "ex" not in exp.get("feature_layers", []):
+            raise SystemExit(f"⚠ --shift-days は ex_ 層を使う実験だけ（{experiment} は ex を持たない）")
+        exp.setdefault("features", {})["ex_shift_days"] = int(shift_days)
     ds = exp["_dataset"]
     period, horizon = ds["period"], int(exp["horizon"])
     directory = (store.adjusted_dir(period) if layer == "adjusted"
@@ -105,19 +113,20 @@ def build(experiment: str, layer: str = "adjusted", leak: bool = False,
         df = df[df["y_elapsed_min"] <= max_elapsed]
     feats = [c for c in df.columns if c not in META_COLUMNS]
     print(f"銘柄 {len(panel)} / 行 {before:,} → 欠損と条件で {len(df):,}")
-    print(f"特徴量 {len(feats)} 本" + ("  ⚠ **わざとした先読みの列あり**" if leak else ""))
+    print(f"特徴量 {len(feats)} 本" + ("  ⚠ **わざとした先読みの列あり**" if leak else "")
+          + (f"  ⚠ **偽薬: ex_ の日付を過去へ {shift_days} 日ずらした**" if shift_days else ""))
     print(f"ラベル y の平均 {df['y'].mean():.3e} / 標準偏差 {df['y'].std():.3e} / "
           f"上がる割合 {df['y_sign'].mean():.4f}")
 
     if out is None:
-        out = os.path.join(store.DATA, "features", experiment + ("_leak" if leak else ""),
-                           f"{period}.parquet")
+        out = os.path.join(store.DATA, "features", table, f"{period}.parquet")
     os.makedirs(os.path.dirname(out), exist_ok=True)
     df.to_parquet(out, index=False)
 
     # ⚠ **どの層から作った表かを、表の隣に書く。** ⚠ `cli.run --layer` は自己申告なので、
     # ⚠ **食い違うと台帳の「データの層」の列がそのまま嘘になる**（`ail/catalog.py`）。
     meta = {"layer": layer, "experiment": experiment, "period": period, "leak": leak,
+            "shift_days": int(shift_days),
             "rows": int(len(df)), "features": len(feats),
             "built_at": time.strftime("%Y-%m-%dT%H-%M-%S")}
     with open(os.path.splitext(out)[0] + ".meta.json", "w", encoding="utf-8") as f:
@@ -132,11 +141,13 @@ def main() -> None:
     ap.add_argument("--layer", default="adjusted", choices=("adjusted", "raw"),
                     help="⚠ raw は「ルール以前の数字」を再現するときだけ")
     ap.add_argument("--leak", action="store_true", help="⚠ わざと未来を混ぜる（対照実験）")
+    ap.add_argument("--shift-days", type=int, default=0,
+                    help="⚠ 偽薬: ex_ の系列の日付を過去へ N 日ずらす（表の名前に _shift<N>）")
     ap.add_argument("--max-elapsed", type=float, default=None,
                     help="ラベルが跨いだ実時間の上限（分）。夜跨ぎを落とすのに使う")
     ap.add_argument("--out")
     args = ap.parse_args()
-    build(args.experiment, args.layer, args.leak, args.max_elapsed, args.out)
+    build(args.experiment, args.layer, args.leak, args.max_elapsed, args.out, args.shift_days)
 
 
 if __name__ == "__main__":

@@ -1,0 +1,57 @@
+# ⚠ **段 3 の続き**（2026-09-15）: ⚠ **対象 48 本を、その銘柄自身の履歴 ＋ 経済指標で当てる。**
+#
+# ⚠ **利用者の指示（2026-09-12）のうち「経済指標」の部分**（プラン `plans/midcap-exog.md`）。
+#    ⚠ **相手は `midcap_own.toml`（own だけ）で、違うのは特徴量の層だけ。**
+#    ⚠ **大型株（cs・ll）は入れない** — 2 つ動かすと、どちらが効いたか分からない。
+#
+# ⚠ **期待する効き方を先に書いた**（プラン §0-1）: ⚠ **`ex` は全銘柄で同じ値**なので断面の順位には効かない。
+#    ⚠ **効くとすれば「市場全体が下げる日に休む」**ので、見るのは乱択ゲートとの差（rules.md 14-6 b）。
+#    ⚠ **本命は偽薬を超えなかった**（daily-data-sources.md §9）ので期待は低い。
+#
+# ⚠ **`ex` の取得元は「本命」の枠だけ**（daily-data-sources.md §10-5）: ECB 為替 7 ／ 米財務省イールド 7 ／
+#    NCEI Storm Events 13 ／ EPU 1 ＝ 28 系列 × 2 変換 = 56 列。
+#    ⚠ **偽薬（気象・地震）は入れない** — 系列が 2026-09-01 で止まっており、引き継ぎ上限 7 日で
+#    ⚠ **表の尻が 1 週間短くなる**（期間が揃わない）。⚠ **偽薬の対照が無いことは限界として記録に書く。**
+#
+# ⚠ **物差しは 13 章のまま**（片道 2.5bp・対 B&H 上乗せ・θ 3 水準・形式 (A)）。
+# ⚠ **B&H は「対象 48 本の等加重」**なので、⚠ **us63 の実行とは数字を直接比べない**（13-8）。
+#
+# ⚠ **TOML の平の key はテーブル見出しより上に書く**（rules.md 10 章 規約 1）
+name = "midcap_ex"
+dataset = "midcap48_daily"
+horizon = 1
+cost_bp = 5.0
+
+# ⚠ **期間を `midcap_own` に揃える**（2018-06-27）。⚠ **揃えないと層の差か期間の差か分からない**
+start_date = "2018-06-27"
+
+feature_layers = ["own", "ex"]
+targets = "company"            # ⚠ **当てる相手は 48 本だけ**（材料 63 本は当てない）
+
+horizon_min = 1440.0
+bar_minutes = 1440.0
+
+selectors = ["全部使う（基準）", "乱択（基準）"]
+k = 16
+model = "Ridge"
+baselines = ["常に上（ドリフト）", "直前リターンの符号"]
+
+[trading]
+style = "threshold"
+thresholds = [50, 55, 60]      # ⚠ 事前固定。結果を見て動かさない（rules.md 13-3）
+form = "shared"                # (A) 銘柄共通 1 本
+
+[validation]
+split = "walk_forward_dates"
+folds = 5
+purge = true
+embargo_bars = 0
+seed = 0
+
+[features]
+# ⚠ **本命の 4 取得元だけ**（偽薬の noaa・usgs は入れない。上の注記）
+ex_sources = ["ecb", "treasury", "ncei_storm", "epu"]
+ex_lag_days = 1                # ⚠ NCEI Storm Events だけ 120 日（exog.py の既定表。公表が 101 日遅れる）
+ex_zero_fill = ["usgs", "ncei_storm"]   # ⚠ 行が無い日 = 0 件の日（前の値を引きずらない）
+ex_transforms = ["d1", "z20"]
+ex_max_stale_days = 7          # ⚠ 引き継ぎの上限。⚠ 伸ばさない（止まった系列を定数の列で隠さない）

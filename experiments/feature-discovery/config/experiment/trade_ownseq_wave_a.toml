@@ -1,0 +1,52 @@
+# ⚠ **台帳の空白 F5-4 ウェーブレット・スペクトル**（プラン `plans/ledger-blanks-six.md`）。
+#
+# ⚠ **掛ける先は `seq` 層（過去 60 営業日の対数リターンの窓）。** ⚠ **own 35 列にウェーブレットを
+#    掛けても意味が無い**ので、時系列分類器のために作った窓をそのまま使う（プラン §0-3 の 3）。
+# ⚠ **表は `trade_ownseq_ridge_a` のものを読む**（作り直さない。13-8）。
+#
+# ⚠ **水準は事前固定**: 基底 db4 ・ レベル 3 ・ 端は対称拡張（pywt の既定）。⚠ **この 1 通りだけ回す。**
+# ⚠ **基底と窓を振ると多重検定が増える**（カタログの注意書き）。振るなら回す前に数える（rules.md 14-9）。
+# ⚠ **生の窓 60 列は落として係数に置き換える** — 残すと同じ情報を 2 度渡すことになる（§0-3 の 4）。
+#
+# ⚠ **選別は「全部使う」1 本だけ**（`pca_1995.toml` と同じ理由）。⚠ **1 手法 × θ 3 水準 ＝ 3 試行。**
+#
+# ⚠ **TOML の平の key はテーブル見出しより上に書く**（rules.md 10 章 規約 1）
+name = "trade_ownseq_wave_a"
+dataset = "daily"
+horizon = 1
+cost_bp = 5.0
+start_date = "2018-01-31"      # ⚠ own_2018 と同じ（期間を揃える。rules.md 14-4）
+features_from = "trade_ownseq_ridge_a"   # ⚠ 時系列分類器の表（own ＋ seq）を読む
+
+feature_layers = ["own", "seq"]
+targets = "all"
+
+horizon_min = 1440.0
+bar_minutes = 1440.0
+
+# ⚠ **標本から学ぶ変換**（rules.md 3 章 B）。⚠ **窓 → ウェーブレット係数。own 35 列はそのまま残す**
+transform = "F5-4 ウェーブレット・スペクトル"
+
+selectors = ["全部使う（基準）"]   # ⚠ 変換の後は全列を使う（選別は処置ではない）
+k = 16
+
+model = "Ridge"
+baselines = ["常に上（ドリフト）", "直前リターンの符号"]
+
+[trading]
+style = "threshold"
+thresholds = [50, 55, 60]      # ⚠ 事前固定。結果を見て動かさない（rules.md 13-3）
+form = "shared"                # (A) 銘柄共通 1 本
+
+[validation]
+split = "walk_forward_dates"   # ⚠ fold の切れ目は日付で決める（rules.md 13-6 の 1）
+folds = 5
+purge = true
+embargo_bars = 0
+seed = 0
+
+[features]
+ex_lag_days = 1
+ex_zero_fill = ["usgs"]
+ex_transforms = ["d1", "z20"]
+ex_max_stale_days = 7

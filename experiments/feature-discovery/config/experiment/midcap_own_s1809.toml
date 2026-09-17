@@ -1,0 +1,41 @@
+# ⚠ **段 3 の続きの対照**（2026-09-15）: ⚠ **`midcap_ex` と 1 行も違わない表で、`own` だけを回す。**
+#
+# ⚠ **なぜ要るか**: `midcap_ex` の表は ⚠ **頭が 50 営業日ぶん落ちた**（2018-06-27 → 2018-09-10）。
+#    ⚠ **NCEI Storm Events の一部の系列が 2018-05 に始まり、公表の遅れ 120 日をずらすと
+#      最初に使える足が 2018-09-10 になる**ため（プラン `plans/midcap-exog.md` §0-4）。
+#    ⚠ **既存の `midcap_own`（2018-06-27 から）と比べると、層の差に期間の差が混ざる。**
+#    ⚠ **だから期間を揃えた対照をもう 1 本回す**（daily-data-sources.md §9-1 で同じことをした）。
+#
+# ⚠ **`midcap_own.toml` と `name`・`start_date` 以外は 1 key も違わない。**
+# ⚠ **期間を変えたので台帳では別の鍵になり、別の試行として数える**（rules.md 13-9 の 3）。
+#
+# ⚠ **TOML の平の key はテーブル見出しより上に書く**（rules.md 10 章 規約 1）
+name = "midcap_own_s1809"
+dataset = "midcap48_daily"
+horizon = 1
+cost_bp = 5.0
+
+start_date = "2018-09-10"      # ⚠ `midcap_ex` の表の開始日に合わせる（検算で行の一致を確かめる）
+
+feature_layers = ["own"]
+targets = "company"            # ⚠ **当てる相手は 48 本だけ**（材料 63 本は当てない）
+
+horizon_min = 1440.0
+bar_minutes = 1440.0
+
+selectors = ["全部使う（基準）", "乱択（基準）"]
+k = 16
+model = "Ridge"
+baselines = ["常に上（ドリフト）", "直前リターンの符号"]
+
+[trading]
+style = "threshold"
+thresholds = [50, 55, 60]      # ⚠ 事前固定。結果を見て動かさない（rules.md 13-3）
+form = "shared"                # (A) 銘柄共通 1 本
+
+[validation]
+split = "walk_forward_dates"
+folds = 5
+purge = true
+embargo_bars = 0
+seed = 0

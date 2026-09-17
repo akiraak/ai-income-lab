@@ -21,6 +21,9 @@ from ail.selectors import filter as _filter, wrapper, embedded  # noqa: F401
 # ⚠ **表現学習は `selector` ではなく `transform`**（列そのものを作り替える。
 # プラン `plans/selectors-small-four.md` §1-1）
 from ail.selectors import representation                        # noqa: F401
+# ⚠ **F4-3 tsfresh の総当たりも `transform`**（層にすると `catalog.implemented()` が見ない。
+# プラン `plans/archive/ledger-blanks-large-two.md` §1-1）。⚠ **窓は `seq` 層**
+from ail.features import tsfresh as _tsfresh                    # noqa: F401
 from ail.models import baselines, linear     # noqa: F401
 # ⚠ **モデルの軸**（plans/archive/gpu-models.md）: 勾配ブースティング・MLP・GAN 増強
 from ail.models import trees, deep, gan      # noqa: F401
@@ -32,4 +35,10 @@ from ail.detectors import pair as _pair      # noqa: F401
 # ⚠ **入力の窓は `seq` 層**（過去 60 営業日の `own_`）。⚠ **aeon は検知器の関数の中でだけ import する**
 from ail.features import seq                 # noqa: F401
 from ail.detectors import tsc as _tsc        # noqa: F401
+# ⚠ **系列モデル 1 本（PatchTST）**（plans/patchtst-threshold.md）。⚠ **窓は時系列分類器と同じ**。
+# ⚠ **モデル `PatchTST` は検知器 `S1 PatchTST（60日窓）` からしか呼べない**（窓の配列が要る）
+from ail.models import patchtst as _patchtst  # noqa: F401
+from ail.detectors import seqmodel as _seqmodel  # noqa: F401
+# ⚠ **進化的探索（記号回帰）**。⚠ **選抜は訓練分割の内側だけ**（plans/archive/evolutionary-search-runner.md）
+from ail.search import evolve as _evolve  # noqa: F401
 from ail.validation import splits            # noqa: F401

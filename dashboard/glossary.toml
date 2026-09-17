@@ -83,6 +83,12 @@ note = "台帳（ledger.md）の行を読むための単位。図解は units.md
   where = "§2 実行"
 
   [[section.term]]
+  name = "実行のキュー"
+  short = "実験を並べて回し続ける器。⚠ 本番 1 本に leak 対照を自動で並べ、済んだ実行は 2 度回さない。"
+  doc = "docs/specs/experiments/evolutionary-search.md"
+  where = "§4 器（継続実行）"
+
+  [[section.term]]
   name = "手法"
   short = "1 つの実行の中で比べた選別手法・基準線の 1 つ。実体は summary.csv の 1 行。"
   doc = "docs/specs/experiments/feature-discovery/units.md"
@@ -464,9 +470,39 @@ note = "台帳に並ぶ選別手法とモデルの名前。カタログは featu
 
   [[section.term]]
   name = "進化的探索"
-  short = "モデルの集団を対決させ、勝った特徴で次の世代を作る探索。⚠ 手法が増えるほど試行が増えて DSR は下がる。"
-  doc = "docs/specs/experiments/ts-trend-ai-survey.md"
-  where = "§6 系統 5 ／ §7 候補リスト"
+  short = "式やモデルの集団を対決させ、勝った特徴で次の世代を作る探索。⚠ 選抜の位置で数え方が変わる。"
+  doc = "docs/specs/experiments/feature-discovery/rules.md"
+  where = "§14-11 探索の選抜は訓練分割の内側に置く"
+
+  [[section.term]]
+  name = "GA（遺伝的アルゴリズム）"
+  short = "候補を集団で持ち、良いものを残して交叉と突然変異で次の世代を作る探索の総称。⚠ GAN とは別物。"
+  doc = "docs/specs/experiments/evolutionary-search.md"
+  where = "§0 何をやったか"
+
+  [[section.term]]
+  name = "記号回帰（F4-1）"
+  short = "式そのものを GA で進化させ、既存の列から新しい列を作る手法。⚠ 式の中の数値は訓練の内側で決まる。"
+  doc = "docs/specs/experiments/evolutionary-search.md"
+  where = "§2 探索は何を見つけたか"
+
+  [[section.term]]
+  name = "選抜の位置"
+  short = "探索の勝敗をどこで決めるか。⚠ 訓練の内側なら試行は代表だけ、検証 fold で決めると全個体が試行。"
+  doc = "docs/specs/experiments/feature-discovery/rules.md"
+  where = "§14-11"
+
+  [[section.term]]
+  name = "champion（代表）"
+  short = "探索が最後に出す 1 体。⚠ 検証 fold に出るのはこれだけで、試行に数えるのもこれだけ。"
+  doc = "docs/specs/experiments/evolutionary-search.md"
+  where = "§3 数え方"
+
+  [[section.term]]
+  name = "適合度（fitness）"
+  short = "探索が候補を比べる物差し。⚠ いまは訓練内 holdout の順位相関で、替えれば試行が増える。"
+  doc = "docs/specs/experiments/evolutionary-search.md"
+  where = "§2 探索は何を見つけたか"
 
   [[section.term]]
   name = "レジーム"

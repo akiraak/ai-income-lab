@@ -78,7 +78,7 @@ def evaluate(panel: pd.DataFrame, feats: list[str], exp: dict, run: runs.Run) ->
         Xte = pd.DataFrame(sc.transform(te[feats]), columns=feats)
         ytr = tr["y"].values
         # ⚠ **標本から学ぶ変換の 1 段**（3 章 B）。⚠ **config に `transform` が無ければ素通り**
-        Xtr, Xte, tdoc = prep.apply(exp, Xtr, Xte, ctx)
+        Xtr, Xte, tdoc = prep.apply(exp, Xtr, Xte, ctx, ytr)
         if tdoc is not None:
             run.fitted(f"transform_f{f}", tdoc)         # ⚠ 再現用。次の実行では読み込まない
         for name, fn in selectors.items():
@@ -175,7 +175,7 @@ def evaluate_trading(panel: pd.DataFrame, feats: list[str], exp: dict, run: runs
                 Xte = pd.DataFrame(sc.transform(te_s[feats]), columns=feats)
                 ytr = tr_s["y"].values
                 # ⚠ **(B) は銘柄ごとに fit する**ので、変換も銘柄ごとに fit し直す（3 章 B）
-                Xtr, Xte, tdoc = prep.apply(exp, Xtr, Xte, ctx)
+                Xtr, Xte, tdoc = prep.apply(exp, Xtr, Xte, ctx, ytr)
                 if tdoc is not None:
                     fitted_doc.setdefault("_transform", {})[str(s)] = tdoc
                 for name, fn in selectors.items():
@@ -196,7 +196,7 @@ def evaluate_trading(panel: pd.DataFrame, feats: list[str], exp: dict, run: runs
             Xte = pd.DataFrame(sc.transform(te[feats]), columns=feats)
             ytr = tr["y"].values
             # ⚠ **標本から学ぶ変換の 1 段**（3 章 B）。⚠ **config に `transform` が無ければ素通り**
-            Xtr, Xte, tdoc = prep.apply(exp, Xtr, Xte, ctx)
+            Xtr, Xte, tdoc = prep.apply(exp, Xtr, Xte, ctx, ytr)
             if tdoc is not None:
                 fitted_doc["_transform"] = tdoc
             for name, fn in selectors.items():

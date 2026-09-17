@@ -14,3 +14,13 @@ torch==2.14.0        # MLP・WGAN-GP（同 §1・§2）。既定 wheel は CUDA 
 # ⚠ **aeon 本体は requirements-nodeps.txt に分けて `--no-deps` で入れる**（あちらの注記）
 numba==0.67.0        # ⚠ numpy 2.4.2 を保てる版。aeon の宣言（numba<0.64）の外
 llvmlite==0.49.0     # numba の依存
+# ⚠ 台帳の空白 F5-4 ウェーブレット（plans/ledger-blanks-six.md）。⚠ **単体で入り、既存の版を 1 つも動かさない**
+# （2026-09-15 に `pip install --dry-run` で確認）。⚠ **F3-4 の shap・F3-6 の knockpy・F1-6 の dcor は入れない**
+# （順に LightGBM の pred_contrib ・ 自前の等相関構成 ・ 自前の距離相関で代替した。プラン §0-1）
+PyWavelets==1.10.0
+# ⚠ 台帳の空白 F4-3 tsfresh・F5-3 行列プロファイル（plans/archive/ledger-blanks-large-two.md）。
+# ⚠ **tsfresh は stumpy に依存する**ので 2 件が 1 回の install で揃う。⚠ **既存の固定版は 1 つも動かない**
+# （2026-09-16 に `pip install --dry-run` と 352 件 pass で確認）。依存で入るもの: statsmodels 0.15.0・patsy 1.0.3・
+# formulaic 1.2.2・interface_meta 2.0.1・tqdm 4.70.1。⚠ **tsfresh 自身の `matrix_profile` 計算子は `matrixprofile` が無く無効**（F5-3 と重ならない）
+tsfresh==0.21.2
+stumpy==1.14.1

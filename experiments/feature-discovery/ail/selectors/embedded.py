@@ -109,3 +109,101 @@ def sel_cmda(X, y, k, ctx):
         if len(keep) >= k:
             break
     return keep[:k]
+
+
+# ⚠ **木の水準は `ail/models/trees.py` の `LightGBM` と同じ**（プラン §0-2。振らない）。
+# ⚠ **早期打ち切りは使わない** — 選別は予測ではないので holdout を切らず、訓練分割を全部使う
+_LGBM_LEVELS = dict(num_leaves=31, learning_rate=0.05, min_child_samples=100,
+                    colsample_bytree=0.8, subsample=1.0, deterministic=True,
+                    force_row_wise=True, n_jobs=4, verbose=-1)
+
+
+@register("selector", "F3-4 SHAP")
+def sel_shap(X, y, k, ctx):
+    """⚠ **LightGBM の `pred_contrib`（厳密な TreeSHAP）で、平均 `|SHAP|` の上位 k 本。**
+
+    ⚠ **`shap` パッケージは入れない** — LightGBM 本体が同じ値を返す（プラン §0-1）。
+    ⚠ **返る列は「入力の列数 ＋ 1」**で、最後の 1 本は期待値（基準値）なので落とす。
+
+    ⚠ **SHAP は説明であって因果ではない**（Kumar ら 2020）。⚠ **「効いている列」ではなく
+    ⚠ **「そのモデルの予測をどれだけ動かしたか」**を測っている。⚠ **モデルが雑音を学べば、
+    その雑音の寄与が大きく出る。**
+    """
+    import lightgbm as lgb
+
+    m = lgb.LGBMRegressor(n_estimators=int(ctx.get("lgbm_estimators", 500)),
+                          random_state=ctx.get("seed", 0), **_LGBM_LEVELS)
+    m.fit(X, np.asarray(y, dtype=float))
+    contrib = np.asarray(m.predict(X, pred_contrib=True))[:, :X.shape[1]]
+    imp = np.abs(contrib).mean(axis=0)
+    return list(X.columns[np.argsort(-imp)[:min(int(k), X.shape[1])]])
+
+
+# ⚠ **目標の偽発見率。事前固定**（プラン §0-2。⚠ **結果を見て緩めない**）
+KNOCKOFF_Q = 0.1
+# ⚠ **Lasso の経路の粗さ**（F3-1b と同じ。⚠ 振らない）
+_KNOCKOFF_ALPHAS = 100
+
+
+def gaussian_knockoffs(X: np.ndarray, seed: int) -> np.ndarray:
+    """ガウス model-X の knockoff を等相関構成で作る（Candès ら 2018 の式）。
+
+        X̃ = X (I − Σ⁻¹ S) + E C,   S = diag(s),  s = min(1, 2 λ_min(Σ)),
+        CᵀC = 2S − S Σ⁻¹ S,  E ~ N(0, I)
+
+    ⚠ **Σ は訓練分割だけから推定する**（rules.md 3 章 B）。
+    ⚠ **「特徴量がガウス分布である」という仮定に乗っている** — own 35 列は裾が重いので、
+    ⚠ **仮定が外れれば偽発見率の保証も外れる**（記録の限界に書く）。
+    """
+    X = np.asarray(X, dtype=float)
+    n, p = X.shape
+    mu = X.mean(axis=0)
+    Xc = X - mu
+    sigma = np.cov(Xc, rowvar=False)
+    sigma = sigma + np.eye(p) * 1e-8                 # ⚠ 特異になりにくくする（数値の保険）
+    lam_min = float(np.linalg.eigvalsh(sigma).min())
+    s = np.full(p, min(1.0, 2.0 * max(lam_min, 0.0)) * float(np.mean(np.diag(sigma))))
+    S = np.diag(s)
+    inv = np.linalg.pinv(sigma)
+    mat = 2.0 * S - S @ inv @ S
+    w, V = np.linalg.eigh(mat)                       # ⚠ 数値誤差で微小な負が出るので切り上げる
+    C = V @ np.diag(np.sqrt(np.clip(w, 0.0, None))) @ V.T
+    # ⚠ **種は `seed` そのものではなく、形も混ぜた別の流れから引く**（2026-09-15 に踏んだ罠）。
+    # ⚠ **`default_rng(seed)` で引くと、同じ種で作った合成データと E がビット単位で一致し、
+    # ⚠ **偽物が本物のコピーになる**（対角の相関 0.99）。⚠ **そうなると枠は何も検出できない。**
+    E = np.random.default_rng(np.random.SeedSequence([int(seed), n, p, 0x6B6E6F66])).normal(size=(n, p))
+    return mu + Xc @ (np.eye(p) - inv @ S) + E @ C
+
+
+@register("selector", "F3-6 Model-X knockoffs")
+def sel_knockoffs(X, y, k, ctx):
+    """⚠ **偽の列（knockoff）を作って、本物がそれより強く選ばれた列だけを採る。**
+
+    統計量は Lasso の経路に入る早さ: `Z_j` ＝ その列の係数が最初に非ゼロになった α、
+    `W_j = Z_j − Z̃_j`。⚠ **knockoff+ のしきい値**
+
+        τ = min{ t > 0 : (1 + #{W ≤ −t}) / max(1, #{W ≥ t}) ≤ q }
+
+    を満たす最小の t を採り、`W_j ≥ τ` の列を返す（q = `KNOCKOFF_Q`）。
+
+    ⚠ **k を使わない**（本数は枠が決める。F1-5 検定+FDR・F2-3 Boruta と同じ）。
+    ⚠ **1 本も残らなければ `W` が最大の 1 本に落とす**（既存の約束。⚠ **黙って別の列は返さない** —
+    どちらになったかは選んだ本数として台帳に出る）。
+    """
+    Xv = np.asarray(X, dtype=float)
+    Xt = gaussian_knockoffs(Xv, int(ctx.get("seed", 0)))
+    aug = np.hstack([Xv, Xt])
+    alphas, coefs, _ = lasso_path(aug, np.asarray(y, dtype=float), n_alphas=_KNOCKOFF_ALPHAS)
+    nz = np.abs(coefs) > 0                           # (列, α)。⚠ α は強い順
+    first = np.where(nz.any(axis=1), alphas[np.argmax(nz, axis=1)], 0.0)
+    p = Xv.shape[1]
+    W = first[:p] - first[p:]
+    ts = np.unique(np.abs(W[W != 0]))
+    tau = None
+    for t in np.sort(ts):
+        fdp = (1 + int((W <= -t).sum())) / max(1, int((W >= t).sum()))
+        if fdp <= KNOCKOFF_Q:
+            tau = float(t)
+            break
+    keep = list(X.columns[W >= tau]) if tau is not None else []
+    return keep or list(X.columns[[int(np.argmax(W))]])

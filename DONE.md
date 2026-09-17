@@ -1,5 +1,16 @@
 # DONE
 
+- 2026-09-17 titan で `ex_` / `im_` の実験を回し直し、台帳を吐き直した — ⚠ **数字は再現し、DSR だけ下がった**
+  - ⚠ **記録: [daily-data-sources.md §15-5](docs/specs/experiments/daily-data-sources.md)** / 台帳: [ledger.md](docs/specs/experiments/feature-discovery/ledger.md)（代表行を 2026-09-17 の titan の実行に入れ替え）
+  - 派生元: 「割り当てなしの災害系列の改善を、日付をずらした偽薬 27 本と比べた」（マージで特徴量の計算が変わったため、判定に使う値を titan で取り直した）
+  - 回した 9 実行【実測】: `own_impact_2018` / `impact_ex_2018` / `impact_both_2018` / `impact_2018` / `impact_placebo_2018` / `real_2018` / `placebo_2018` / `exog_h1` / `exog_h1_leak`
+  - ⚠ **本物（`impact_ex_2018`）は Sx360 と完全一致**: 純利 ＋2.5903bp・上乗せ ＋2.8502bp・t 0.6423・fold 1/5 ＋−−−−。価格だけ（`own_impact_2018`）も −0.8726bp で一致
+  - ⚠ **違ったのは DSR だけ**（本物 0.4339 → **0.2533**、価格だけ 0.10 → **0.0376**）。⚠ **原因は `n_trials` がその機械の `runs/` を数えること**（Sx360 126 対 titan 604）＝ ⚠ **実行の少ない機械では DSR が甘く出る**。§15-3 の「DSR 0.43」を 0.25 に直した
+  - ⚠ **判定は動かない**（保留のまま。fold 1/5・t 0.64 で既存の検査を通らない）。採れる手法は 9 実行で 0 件
+  - ⚠ **＋2.59bp の中身**: F3-1 Lasso が `ex_` の列（`ex_WW_RGN_中西部_z20`）を選んだのは fold 1・2 だけで、正なのは fold 1（＋23.46bp）のみ。⚠ **fold 3–5 は `own_ret_1` に戻り全部負** ＝ 「1 つの fold で 1 本の列が当たった」以上のものではない
+  - ついでに【実測】: ⚠ **1 日先では `ex_` 層の寄与がゼロ** — `exog_h1`（85 列）と `placebo_2018`（57 列）の純利・上乗せ・t・DSR が完全一致（F3-1 Lasso が 5 fold とも `own_ret_1` の 1 本しか選ばない）
+  - 配線の検査: leak 対照 `exog_h1_leak` は 純利 ＋125.63bp・fold 5/5・t 17.87・的中率 0.9967 ＝ ⚠ **効きがあれば大きく鳴る状態で、本番側は負**
+
 - 2026-09-17 割り当てなしの災害系列（`ex_`）の改善を、日付をずらした偽薬 27 本と比べた — ⚠ **偽薬は超えたが保留のまま**
   - プラン: [docs/plans/archive/exog-shift-placebo.md](docs/plans/archive/exog-shift-placebo.md) / ⚠ **記録: [daily-data-sources.md §15](docs/specs/experiments/daily-data-sources.md)**
   - 派生元: 「社会にインパクトを与えそうなデータを増やす」の §13-4「次に試すなら (1) 新しい偽薬を併置する」

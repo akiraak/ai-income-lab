@@ -1,7 +1,8 @@
 """不変条件の検査。⚠ **取得と調整のたびに自動で通す**（rules.md 5 章）。
 
     時刻が単調増加 ／ 重複なし ／ `high >= max(open,close)` ／ `low <= min(open,close)` ／
-    価格 > 0 ／ 出来高 >= 0 ／ ⚠ NaN 番兵が残っていないこと ／ ⚠ 目盛りの断層が残っていないこと
+    価格 > 0 ／ 出来高 >= 0 ／ ⚠ NaN 番兵が残っていないこと ／ ⚠ 目盛りの断層が残っていないこと ／
+    ⚠ **長い空白**（ティッカーの使い回しで別の銘柄が繋がっている印。2026-09-17）
 
 ⚠ **検査は「止める（fatal）」と「数える（warn）」に分ける。**
 提供元の粗（OHLC の綻び 808 件）で全部止まると誰も回さなくなるので、
@@ -19,7 +20,12 @@ from ail.contracts import BAR_COLUMNS, SERIES_COLUMNS
 FATAL = ("time_not_monotonic", "time_duplicated", "nonpositive_price",
          "negative_volume", "nan_in_bars")
 # 数えるだけ（提供元の粗。件数を記録して先へ進む）
-WARN = ("ohlc_inconsistent", "zero_volume", "scale_break")
+WARN = ("ohlc_inconsistent", "zero_volume", "scale_break", "gap_over_30d")
+# ⚠ **休みが最も長いのは年末年始でも 4 日ほど**（日足）。⚠ **30 日を超える空白は、上場廃止・取引停止か、
+# ⚠ ティッカーの使い回しで別の銘柄が同じ名前で繋がっている印である**（2026-09-17 に実測: `FB` は
+# Facebook の 2014〜2022-06 と ProShares の ETF の 2025〜 が 1 本に繋がっていた。手元では `VXX` が該当し、
+# 2019-01-30 の満期と後継 ETN の 2019-05-02 のあいだに 92 日の空白がある）
+GAP_DAYS = 30
 
 
 def check_bars(df: pd.DataFrame, break_threshold: float = 0.25) -> dict[str, int]:
@@ -43,6 +49,8 @@ def check_bars(df: pd.DataFrame, break_threshold: float = 0.25) -> dict[str, int
         "zero_volume": int((v == 0).sum()),
         # ⚠ 調整の誤りが残っていないか。**調整後はここが 0 になるはず**（実際の暴落は除く）
         "scale_break": int((r.abs() > break_threshold).sum()),
+        # ⚠ **数えるだけ。** ⚠ **止めないのは、上場廃止や取引停止でも同じ形になるから**（中身は人が見る）
+        "gap_over_30d": int((t.diff().dropna() > GAP_DAYS * 86_400_000).sum()),
     }
 
 
@@ -62,6 +70,7 @@ def check_series(df: pd.DataFrame) -> dict[str, int]:
         "nan_in_bars": int(df[list(SERIES_COLUMNS)].isna().sum().sum()),
         # ⚠ 数えるだけ。⚠ **飛びは休日なので異常ではない**が、多すぎたら経路を疑う材料になる
         "gap_over_7d": int((t.diff().dropna() > 7 * 86_400_000).sum()),
+        "gap_over_30d": 0,          # ⚠ 系列では数えない（まばらな系列は空白が普通）
         "zero_volume": 0, "negative_volume": 0, "nonpositive_price": 0, "ohlc_inconsistent": 0,
         "scale_break": int((v.astype(float).diff().abs() > 0).sum() * 0),   # 系列では判定しない
     }

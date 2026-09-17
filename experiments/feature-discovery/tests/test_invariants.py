@@ -65,3 +65,21 @@ def test_fingerprint_changes_with_content():
     b.loc[10, "close"] *= 1.0001
     assert store.fingerprint(a)["sha256"] != store.fingerprint(b)["sha256"]
     assert store.fingerprint(a)["sha256"] == store.fingerprint(a.copy())["sha256"]
+
+
+# --- 長い空白（ティッカーの使い回し）— 2026-09-17 ------------------------
+
+def test_a_long_gap_is_counted_but_does_not_stop():
+    """⚠ **30 日を超える空白は、別の銘柄が同じティッカーで繋がっている印**（`FB` は Facebook ＋ ETF）。
+
+    ⚠ **止めない。** 上場廃止・取引停止でも同じ形になるので、⚠ **数えて人が見る**。
+    """
+    day = 86_400_000
+    t = [1_500_000_000_000 + i * day for i in range(5)]
+    t += [t[-1] + 92 * day + i * day for i in range(5)]     # ⚠ VXX と同じ 92 日の空白
+    df = pd.DataFrame({"time_ms": t, "open": 1.0, "high": 1.0, "low": 1.0, "close": 1.0,
+                       "volume": 1.0})
+    rep = check.check_bars(df)
+    assert rep["gap_over_30d"] == 1
+    assert not check.fatal_of(rep)
+    assert check.check_bars(df.iloc[:5])["gap_over_30d"] == 0

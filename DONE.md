@@ -1,5 +1,15 @@
 # DONE
 
+- 2026-09-17 上場廃止銘柄の日足が取れるかを確かめた（段 4）— ⚠ **配信からは出ない。台帳には残る**
+  - プラン: [docs/plans/archive/delisted-symbols.md](docs/plans/archive/delisted-symbols.md) / ⚠ **記録: [universe-widening.md §11](docs/specs/experiments/universe-widening.md)** / コード: `experiments/feature-discovery/cli/delisted.py`（⚠ **読み取りだけ**）
+  - 派生元: 「銘柄集合を広げる」の段 4（⚠ **生存バイアスを消せる唯一の道**）。⚠ **銘柄 12 本と判定の規則は回す前にプラン §2 で決めた**
+  - 結果【実測 2026-09-17】: ⚠ **廃止 10 本（`SIVB` `FRC` `TWTR` `ATVI` `VMW` `SPLK` `PXD` `XLNX` `CERN` `ABMD`）はすべて日足 0 本**。⚠ **対照の `AAPL` `SPY` は 3,013 本**（2014-09-22〜）なので「測れていない」ではない
+  - ⚠ **台帳（`/instruments/equities/{sym}`）には `active=False` で残る**（買収の 5 本は `listed-market` が `OTC` に付け替わっていた）＝ 廃止済みかどうかは API から分かる
+  - ⚠ **副産物: ティッカーの使い回しで 2 社の履歴が 1 本に繋がる** — `FB` は Facebook（2014〜2022-06・出来高 2,000 万株）と ProShares の ETF（2025〜・出来高 328〜1,442 株）が約 3 年の空白を挟んで 1 本になっていた
+  - ⚠ **手当て**: 足の検査に `gap_over_30d`（30 日を超える空白）を警告として足した（止めない）。⚠ **調整後 86 銘柄で該当は `VXX` 1 本だけ**（2019 年の ETN の満期と後継。⚠ **どの銘柄集合にも入っていないので既存の結果は無事**）
+  - 残したもの: 「段 4 の続き: point-in-time のデータの費用を試算する」（TODO。⚠ **金銭が発生するので提案・試算で止める**）
+  - ⚠ **資金は動かしていない**（2026-08-27 の方針）。⚠ **発注系には触れていない**（読み取りの API 呼び出しだけ ＝ CLAUDE.md の 2026-09-05 の例外）
+
 - 2026-09-16 まばらな 0 埋め系列の `z20` が古い値を引きずる穴を塞いだ（`ex_` / `im_` 層）— ⚠ **§9 と §13 の結論は変わらなかった**
   - プラン: [docs/plans/archive/exog-z20-stale.md](docs/plans/archive/exog-z20-stale.md) / ⚠ **記録: [daily-data-sources.md §14-2・§14-3](docs/specs/experiments/daily-data-sources.md)**（⚠ **2026-09-17 のマージで titan の §12-4〜§13 を本文にし、Sx360 の記録は §14 に整理した**）
   - 派生元: 「社会にインパクトを与えそうなデータを増やす」（同日完了）の §12-6

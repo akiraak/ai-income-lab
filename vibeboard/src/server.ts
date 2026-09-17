@@ -3,6 +3,7 @@ import fs from 'fs';
 import path from 'path';
 import { marked } from 'marked';
 import type { CategoryConfig, CustomTabConfig, VibeboardConfig } from './config';
+import { proxyToTab } from './ext';
 import { reclaimPort, removePidFile, writePidFile } from './portGuard';
 import { startSidecars, stopSidecars } from './sidecar';
 import { isOurHook } from './init';
@@ -19,9 +20,11 @@ import {
   listClaudeSessions,
   postToInbox,
 } from './tasks';
+import { ClaudeJobRunner, probeClaude, type AddJob } from './claudeJob';
 import {
   NOTE_MAX,
   appendNote,
+  buildAddTaskPrompt,
   buildCommitPrompt,
   buildExplainPrompt,
   buildPlanPrompt,
@@ -279,6 +282,25 @@ function isInsideRoot(child: string, root: string): boolean {
 
 export async function startServer(config: VibeboardConfig): Promise<void> {
   const app = express();
+
+  // customTab の中継（/ext/<name>/... → その customTab の baseUrl）。
+  // ⚠ **express.json() より前に置く**（POST の body をパースせず素のまま流すため）。
+  // 中継先は設定済みタブの baseUrl だけで、任意 URL への open proxy にはならない。
+  const customTabByName = new Map<string, CustomTabConfig>(
+    config.customTabs.map(t => [t.name, t])
+  );
+  app.all(['/ext/:name', '/ext/:name/*'], (req: Request, res: Response) => {
+    const nameParam = req.params.name;
+    const tab = customTabByName.get(typeof nameParam === 'string' ? nameParam : '');
+    if (!tab) {
+      res.status(404).type('text').send('unknown customTab');
+      return;
+    }
+    // クエリを含む生の残りパス。originalUrl は必ず /ext/<name> で始まる
+    const suffix = req.originalUrl.slice(`/ext/${tab.name}`.length);
+    proxyToTab(tab, suffix, req, res);
+  });
+
   // ファイル本文をまるごと JSON で往復させるため、MAX_SOURCE_BYTES (1MB) の中身が
   // エスケープで膨らんでも収まるだけの余裕を取る。実際の上限は source.ts 側で掛ける。
   app.use(express.json({ limit: '8mb' }));
@@ -1213,6 +1235,120 @@ export async function startServer(config: VibeboardConfig): Promise<void> {
     res.json({ success: true, data: {}, error: null });
   });
 
+  // --- タスク追加: バックグラウンドの claude -p に TODO.md を編集させる ---
+  // ⚠ 削除（サーバが直接書く）とも投函（セッションに任せる）とも別系統（docs/plans/vibeboard-task-add.md）。
+  // 許すツールは TODO.md の Edit だけ（claudeJob.ts）。追加ジョブどうしだけ直列で、投函とは独立に並行する。
+  const addRunner = new ClaudeJobRunner({
+    cwd: config.root,
+    todoAbsPath: path.resolve(config.root, 'TODO.md'),
+    model: config.taskAdd.model,
+    timeoutMs: config.taskAdd.timeoutSec * 1000,
+  });
+  // claude が PATH に居るか。最初に要ったときに 1 回だけ引いて持つ（居なければ UI がボタンを出さない）
+  let claudeAvailable: Promise<boolean> | null = null;
+  const isClaudeAvailable = (): Promise<boolean> => {
+    if (!claudeAvailable) claudeAvailable = probeClaude();
+    return claudeAvailable;
+  };
+  // prompt と output の生は返さない（output は失敗の error に尻尾として含める）
+  const publicAddJob = (j: AddJob) => ({
+    id: j.id,
+    text: j.needle,
+    parentId: j.parentId,
+    parentText: j.parentText,
+    state: j.state,
+    error: j.error && j.output ? `${j.error}\n--- claude の出力の尻尾 ---\n${j.output}` : j.error,
+    at: j.at,
+    startedAt: j.startedAt,
+    endedAt: j.endedAt,
+  });
+  const enqueueAdd = (text: string, parentId: string | null, res: Response): void => {
+    const src = readTodoSource();
+    if (!src.ok) {
+      res.status(src.status).json({ success: false, data: null, error: src.error });
+      return;
+    }
+    const tree = parseTodo(src.raw, { mdPath: 'TODO.md' });
+    let parentText: string | null = null;
+    if (parentId !== null) {
+      const ctx = findTaskById(tree, parentId);
+      if (!ctx) {
+        res.status(404).json({ success: false, data: null, error: 'その親タスクは TODO.md にありません' });
+        return;
+      }
+      parentText = ctx.node.text;
+    }
+    const prompt = buildAddTaskPrompt(tree, parentId, text);
+    if (prompt === null) {
+      res.status(400).json({ success: false, data: null, error: '文面が空です' });
+      return;
+    }
+    const job = addRunner.enqueue({
+      text,
+      needle: text.split('\n')[0].trim(),
+      parentId,
+      parentText,
+      prompt,
+    });
+    res.json({ success: true, data: { item: publicAddJob(job) }, error: null });
+  };
+
+  app.post('/api/tasks/add', wrap(async (req, res) => {
+    const body = req.body as { text?: unknown; parentId?: unknown } | undefined;
+    const text = sanitizeNote(body?.text);
+    if (!text) {
+      res.status(400).json({ success: false, data: null, error: '文面が空です' });
+      return;
+    }
+    if (text.length > NOTE_MAX) {
+      res.status(400).json({ success: false, data: null, error: `文面が長すぎます（${NOTE_MAX} 文字まで）` });
+      return;
+    }
+    if (!(await isClaudeAvailable())) {
+      res.status(503).json({ success: false, data: null, error: 'claude コマンドが見つかりません（vibeboard を動かしている環境の PATH に無い）' });
+      return;
+    }
+    const parentId = typeof body?.parentId === 'string' && body.parentId ? body.parentId : null;
+    enqueueAdd(text, parentId, res);
+  }));
+
+  app.get('/api/tasks/add-jobs', wrap(async (_req, res) => {
+    res.json({
+      success: true,
+      data: { available: await isClaudeAvailable(), items: addRunner.list().map(publicAddJob) },
+      error: null,
+    });
+  }));
+
+  // 終わったジョブ（成功 / 失敗）を一覧から消す
+  app.post('/api/tasks/add-dismiss', (req: Request, res: Response) => {
+    const body = req.body as { jobId?: unknown } | undefined;
+    const jobId = typeof body?.jobId === 'string' ? body.jobId : '';
+    if (!jobId || !addRunner.dismiss(jobId)) {
+      res.status(404).json({ success: false, data: null, error: 'そのジョブはありません（実行中は消せません）' });
+      return;
+    }
+    res.json({ success: true, data: {}, error: null });
+  });
+
+  // 失敗したジョブのやり直し。TODO.md が変わっているかもしれないので prompt は組み直す
+  app.post('/api/tasks/add-retry', wrap(async (req, res) => {
+    const body = req.body as { jobId?: unknown } | undefined;
+    const jobId = typeof body?.jobId === 'string' ? body.jobId : '';
+    const old = jobId ? addRunner.get(jobId) : undefined;
+    if (!old || old.state !== 'failed') {
+      res.status(404).json({ success: false, data: null, error: 'やり直せるジョブがありません' });
+      return;
+    }
+    if (!(await isClaudeAvailable())) {
+      res.status(503).json({ success: false, data: null, error: 'claude コマンドが見つかりません（vibeboard を動かしている環境の PATH に無い）' });
+      return;
+    }
+    // 古い失敗の行は消してから積み直す（残すと一覧が増えていくだけ）
+    addRunner.dismiss(old.id);
+    enqueueAdd(old.text, old.parentId, res);
+  }));
+
   // index.html はテンプレ置換しつつ返す（タイトル / クライアント設定の inject）
   // 配布物は `vibeboard/src/web/` に生のまま含まれる（tsconfig で除外、package.json の files で同梱）
   const webDir = path.join(__dirname, '..', 'src', 'web');
@@ -1227,14 +1363,14 @@ export async function startServer(config: VibeboardConfig): Promise<void> {
     path: toRootRel(c.path, config.root),
   }));
   const clientFiles = { label: config.files.label };
-  // customTabs は baseUrl ごとクライアントへ流す（クライアントが直接 fetch するため）。
-  // baseUrl はループバック前提なので秘匿対象ではない。
+  // customTabs はブラウザに baseUrl を配らず、同一オリジンの `/ext/<name>` を配る
+  // （本体が baseUrl へ中継する。リモート閲覧でもタブが動き、CORS も要らない）。
   // **command は渡さない**（起動はサーバ側の話で、ブラウザに配る理由が無い）。
-  const clientCustomTabs: Pick<CustomTabConfig, 'name' | 'label' | 'baseUrl'>[] =
+  const clientCustomTabs: { name: string; label: string; base: string }[] =
     config.customTabs.map(t => ({
       name: t.name,
       label: t.label,
-      baseUrl: t.baseUrl,
+      base: `/ext/${t.name}`,
     }));
   const renderIndexHtml = (): string => {
     const clientConfig = JSON.stringify({

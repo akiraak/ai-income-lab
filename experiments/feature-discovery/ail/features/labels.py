@@ -18,6 +18,12 @@ import pandas as pd
 
 LEAK_COLUMN = "LEAK_future_ret"
 
+# ⚠ **スケールのラベル**（[プラン §2-2](../../../../docs/plans/archive/downtrend-detection.md)）。
+# ⚠ **`y` とは役割が違う**: `y` は損益（1 日）、`y_fwd_{W}` は**学習の対象**（先 W 本の符号）。
+# ⚠ **説明変数に入れてはいけない**ので、接頭辞ごと `contracts.META_PREFIXES` で外す。
+SCALE_PREFIX = "y_fwd_"
+LEAK_SCALE_PREFIX = "LEAK_fwd_"
+
 
 def build_one(df: pd.DataFrame, horizon: int, leak: bool = False) -> pd.DataFrame:
     c = df["close"]
@@ -29,6 +35,26 @@ def build_one(df: pd.DataFrame, horizon: int, leak: bool = False) -> pd.DataFram
     if leak:
         y[LEAK_COLUMN] = fwd      # ⚠ わざとした先読み。配線の検査にだけ使う
     return y
+
+
+def build_scales(df: pd.DataFrame, windows, leak: bool = False) -> pd.DataFrame:
+    """スケールごとの**先 W 本の累積対数リターン**（学習の対象。⚠ **損益の `y` とは別物**）。
+
+    ⚠ **下げ幅（−10% など）は置かない。** 置くと窓のほかにもう 1 つ自由度が増える（rules.md 14-9）。
+    ⚠ **末尾 W 本は NaN のまま返す。** 落とすのは `cli/build.py` の `dropna` 1 か所に任せる
+    （ここで落とすと層ごとに行数がずれる。rules.md 8 章 規約 2 と同じ理屈）。
+
+    ⚠ **`--leak` のときは、スケールごとに答えそのものを 1 列足す。** 1 日先の `LEAK_future_ret` は
+    ⚠ **200 日先の符号をほとんど教えない**ので、それだけでは長いスケールの配線の検査にならない。
+    """
+    lc = np.log(df["close"])
+    out = pd.DataFrame(index=df.index)
+    for w in windows:
+        fwd = lc.shift(-int(w)) - lc          # ⚠ 未来を見てよいのはラベルだけ（rules.md 8 章）
+        out[f"{SCALE_PREFIX}{int(w)}"] = fwd
+        if leak:
+            out[f"{LEAK_SCALE_PREFIX}{int(w)}"] = fwd
+    return out
 
 
 def trim(frames: list[pd.DataFrame], horizon: int) -> list[pd.DataFrame]:

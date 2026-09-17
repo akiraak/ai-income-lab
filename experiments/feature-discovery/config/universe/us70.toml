@@ -1,0 +1,121 @@
+# 銘柄の集合。⚠ **選び方そのものが生存バイアスになる**（us63.toml と同じ限界）。
+#
+# ⚠ **`us74` から「先物を転がす ETF」4 本を外した集合**（2026-09-12）。⚠ **us63・us74 は書き換えていない。**
+#
+# ⚠ **規則（回す前に書いた）**: ⚠ **裏付けが先物で、期限が来るたび乗り換える仕組みの ETF を対象から外す。**
+#   ⚠ **これは商品の仕組みで引ける線であり、測った成績では引いていない**（rules.md の 14-9・§7-4 と同じ向き）。
+#   外すもの: USO・UNG・DBC（先物【公表値 2026-09-12】）／ UUP（ドル指数先物【推測】）
+#   残すもの: GLD・SLV（現物の地金【公表値 2026-09-12】）／ TLT・IEF・SHY・LQD・TIP（現物の債券【推測】）
+#
+# ⚠ **この規則は結果に都合よく働いていない**（そこが規則である証拠）:
+#   ⚠ **外れる 4 本のうち 2 本は当てた分が正**（UNG ＋3,515・USO ＋2,893bp）、
+#   ⚠ **1 本は負（DBC −372bp）・1 本はゼロ（UUP）**。⚠ **勝ち 2・負け 1・引き分け 1 を一緒に外している。**
+#
+# ⚠ **なぜ外すのか**: (1) ⚠ **片道 2.5bp が成り立つか疑わしい**（段 1 のプランで回す前に挙げた）
+#   (2) ⚠ **転がしの目減りで B&H が壊滅し、「対 B&H 上乗せ」の相手として意味が薄い**
+#   （⚠ **易しくなる分は測れて引いても残ったが**、それでも「買って持つ人がいない基準線」である。
+#    docs/specs/experiments/edge-drift-bias.md）
+name = "us70"
+description = "米国上場 70 銘柄（ETF 15 ＋ 会社 48 ＋ 現物裏付けの低相関 7）。us74 から先物型 4 本を外したもの"
+
+# ⚠ 既知の限界（rules.md 12 章と対）
+#   - 2026-09-08 時点で選んでいる = **当時知り得た情報ではない**（生存バイアス）
+#   - **上場廃止・凋落した銘柄が 1 つも入っていない**
+#   - ⚠ **ETF は会社株を含むので 74 系列は独立ではない**（SPY は残り 48 社を丸ごと含む）。⚠ **足した 11 本だけが株と独立な候補である**
+survivorship_bias = true
+selected_on = "2026-09-08"
+
+# ⚠ **2026-09-12 に足した 11 本**（利用者の決定 (a) = 売買の対象に加える）。
+# ⚠ **株ではないもの**（債券 5・商品 5・通貨 1）。狙いは実効系列数を伸ばすこと
+#    （株どうしは ρ=0.346 で頭打ち。docs/specs/experiments/daily-data-sources.md §7）。
+# ⚠ **GDX は含めない。** 金鉱株は相関 0.245 と低いが**資産クラスでは株**であり、
+#    ⚠ **測った相関で選ぶと全期間の情報で銘柄を選ぶことになる**（§7-4）。
+# ⚠ **開始が遅い**【実測 2026-09-12】: TLT/IEF/SHY/LQD 2002-07 / TIP 2003-12 / GLD 2004-11 /
+#    DBC 2006-02 / USO 2006-04 / SLV 2006-04 / UUP 2007-02 / UNG 2007-04。
+#    ⚠ **検証の始まり 2000-09-08 には 1 本も無いので、fold 1 はほぼ 63 本のままである。**
+# ⚠ **UNG・USO・DBC は回転が小さく片道 2.5bp が疑わしい**【推測】。⚠ **除かずに入れ、銘柄別 bp で個別に見る**
+#    （結果を見て除くと選別になる）。
+lowcorr_added = [
+  "TLT", "IEF", "SHY", "LQD", "TIP",
+  "GLD", "SLV",
+  ]
+
+[groups]
+# ⚠ ETF は会社ではなく詰め合わせ。断面の特徴量では「市場・セクターの代表」として使う
+etf = [
+  "SPY", "QQQ", "IWM", "DIA", "XLK", "XLF", "XLE", "XLV",
+  "XLI", "XLY", "XLP", "XLU", "XLB", "XLRE", "XLC",
+  # ⚠ **ここから下が 2026-09-12 に足した低相関の 11 本**（下の `lowcorr_added` と同じ並び）。
+  # ⚠ **`etf` に入れているのは `config.symbols_of` が `etf` と `company` しか読まないためで、
+  #    株の ETF と同じ性質だからではない。** 内訳は `lowcorr_added` で引く。
+  # ⚠ **`ll_leaders = "etf"` を使う実験でこの universe を指すと、先行銘柄に債券・商品が混ざる。**
+  "TLT", "IEF", "SHY", "LQD", "TIP",
+  "GLD", "SLV",
+  ]
+company = [
+  "AAPL", "MSFT", "NVDA", "AMZN", "GOOGL", "META", "TSLA", "AVGO",
+  "BRK/B", "JPM", "V", "MA", "UNH", "XOM", "JNJ", "WMT",
+  "PG", "HD", "COST", "ORCL", "CVX", "MRK", "ABBV", "KO",
+  "PEP", "BAC", "CRM", "AMD", "NFLX", "ADBE", "LLY", "TMO",
+  "ACN", "MCD", "CSCO", "ABT", "INTC", "QCOM", "TXN", "DIS",
+  "VZ", "T", "PFE", "NKE", "BA", "GS", "CAT", "HON"
+]
+
+
+[market_proxy]
+market = "SPY"      # rel_ 特徴量の市場代表
+sectors = { XLK = "技術", XLF = "金融", XLE = "エネルギー", XLV = "ヘルスケア", XLI = "資本財", XLY = "一般消費財", XLP = "生活必需品", XLU = "公益", XLB = "素材", XLRE = "不動産", XLC = "通信サービス" }
+
+# ⚠ **`rel_` のセクター相対で使う「会社 → セクター ETF」の対応。**
+#    ⚠ **ここに書き足すだけでセクター相対の特徴量が増える**（コードは触らない）。
+#    ⚠ **出典を持たない割り当ては【推測】**（2026-09-08 時点の主業種で振った）。
+#    正しくは各 ETF の構成銘柄一覧（SPDR の公表値）で確かめる。
+[sector_of]
+AAPL    = "XLK"
+MSFT    = "XLK"
+NVDA    = "XLK"
+AVGO    = "XLK"
+ORCL    = "XLK"
+CRM     = "XLK"
+AMD     = "XLK"
+ADBE    = "XLK"
+ACN     = "XLK"
+CSCO    = "XLK"
+INTC    = "XLK"
+QCOM    = "XLK"
+TXN     = "XLK"
+AMZN    = "XLY"
+TSLA    = "XLY"
+HD      = "XLY"
+MCD     = "XLY"
+NKE     = "XLY"
+GOOGL   = "XLC"
+META    = "XLC"
+NFLX    = "XLC"
+DIS     = "XLC"
+VZ      = "XLC"
+T       = "XLC"
+"BRK/B" = "XLF"
+JPM     = "XLF"
+V       = "XLF"
+MA      = "XLF"
+BAC     = "XLF"
+GS      = "XLF"
+UNH     = "XLV"
+JNJ     = "XLV"
+MRK     = "XLV"
+ABBV    = "XLV"
+LLY     = "XLV"
+TMO     = "XLV"
+ABT     = "XLV"
+PFE     = "XLV"
+XOM     = "XLE"
+CVX     = "XLE"
+WMT     = "XLP"
+PG      = "XLP"
+COST    = "XLP"
+KO      = "XLP"
+PEP     = "XLP"
+BA      = "XLI"
+CAT     = "XLI"
+HON     = "XLI"

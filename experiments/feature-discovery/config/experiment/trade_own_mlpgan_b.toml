@@ -1,0 +1,46 @@
+# ⚠ **モデルの軸の最後の空白を埋める 6 本のうちの 1 本**（プラン `plans/gan-threshold-trading.md`）。
+# ⚠ **このモデルは毎日往復ですら 1 度も回っていない**（実装だけあった）。⚠ **本 config が初回である。**
+# ⚠ **trade_own_mlp_b.toml と model 以外は完全に同じ**（表・fold・θ・選別・k・種・コスト）。
+#    ⚠ **違うのは増強の 1 段だけ**なので、差を「増強の差」として読める（rules.md 13-8）。
+#
+# ⚠ **GAN の形は 2026-09-09 に事前固定したもの**（WGAN-GP・300 epoch・幅 128・潜在 32・α = 100%）。
+#    ⚠ **振ると振った水準の数だけ n_trials が増える**ので振らない（docs/specs/experiments/gpu-models.md §4-2 の 1）。
+#    ⚠ **GAN は fold ごとに訓練分割の内側で fit する**（rules.md 3 章 B。ail/models/gan.py）。
+#
+# ⚠ **TOML の平の key はテーブル見出しより上に書く**（rules.md 10 章 規約 1）
+name = "trade_own_mlpgan_b"
+dataset = "daily"
+horizon = 1
+cost_bp = 5.0
+features_from = "own_2018"     # ⚠ 表は作り直さず own_2018 のものを読む（13-8。表の差を混ぜない）
+
+feature_layers = ["own"]
+targets = "all"
+
+horizon_min = 1440.0
+bar_minutes = 1440.0
+
+# ⚠ 選別は「全部使う」1 本に絞る（選別の優劣は決着済み。処置はモデル）。乱択は選別の基準線
+selectors = ["全部使う（基準）", "乱択（基準）"]
+k = 16
+
+model = "MLP+GAN増強"
+baselines = ["常に上（ドリフト）", "直前リターンの符号"]
+
+[trading]
+style = "threshold"
+thresholds = [50, 55, 60]      # ⚠ 事前固定。結果を見て動かさない（rules.md 13-3）
+form = "per_symbol"            # (B) 銘柄別 63 本（fit も較正も銘柄ごと）
+
+[validation]
+split = "walk_forward_dates"   # ⚠ fold の切れ目は日付で決める（rules.md 13-6 の 1）
+folds = 5
+purge = true
+embargo_bars = 0
+seed = 0
+
+[features]
+ex_lag_days = 1
+ex_zero_fill = ["usgs"]
+ex_transforms = ["d1", "z20"]
+ex_max_stale_days = 7

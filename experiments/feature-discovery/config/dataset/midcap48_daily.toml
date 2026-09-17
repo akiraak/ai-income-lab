@@ -1,0 +1,8 @@
+# 段 3 の日足（対象 48 ＋ 材料 63 ＝ 111 銘柄）。⚠ **取得元と上限は `daily` と同じ。**
+# ⚠ **`daily.toml` は書き換えていない。**
+name = "midcap48_daily"
+source = "tastytrade"
+period = "d"
+days = 12000
+universe = "midcap48"
+adjust = "split"

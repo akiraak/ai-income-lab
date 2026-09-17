@@ -1,0 +1,57 @@
+# ⚠ **台帳の空白を埋める「手間 小」の 4 件のうち、`selector` の 3 件**
+# （プラン `docs/plans/selectors-small-four.md`。rules.md 14-10 で「空白は積極的に埋める」）。
+#
+# ⚠ **`trade_own_1995_ridge_a.toml` との違いは `selectors` の行だけ。** 表・モデル・閾値・形式・
+# ⚠ **fold 数・種・コスト・k は全部同じにしてある**（13-8 の橋渡しの形）。
+# ⚠ **揃えないと、比べているのが選別の差か設定の差か分からなくなる。**
+#
+# ⚠ **回すと決めたのは結果を見る前**（14-10 規約 3）。⚠ **3 手法 × θ 3 水準 ＝ 9 試行として数える。**
+# ⚠ **門は診断なので `--ignore-gate` で回す**（14-10 規約 2。門前でも回し、回したものは全部数える）。
+#
+# ⚠ **「全部使う（基準）」と「乱択（基準）」は基準線で、n_trials に数えない**（13-9 の 4）。
+# ⚠ **この 2 本は `trade_own_1995_ridge_a` と鍵が同じなので台帳でまとまる** —
+# ⚠ **数字が 1 つでも食い違ったら配線を壊したということ**（検算に使う）。
+#
+# ⚠ **TOML の平の key はテーブル見出しより上に書く**（rules.md 10 章 規約 1）
+name = "sel_small4_1995"
+dataset = "daily"
+horizon = 1
+cost_bp = 5.0
+features_from = "own_1995"     # ⚠ 表は作り直さず own_1995 のものを読む（13-8。表の差を混ぜない）
+
+feature_layers = ["own"]
+targets = "all"
+
+horizon_min = 1440.0
+bar_minutes = 1440.0
+
+# ⚠ **処置は選別**（期間・モデル・検証方式は据え置き）。⚠ **F1-4 は k を使わない**（しきい値で決まる）
+selectors = [
+    "F2-2 RFE",
+    "F1-7 IC の安定性",
+    "F1-4 分散しきい値",
+    "全部使う（基準）",        # ⚠ 基準線。⚠ **これを超えられない選別は選ぶ意味が無い**
+    "乱択（基準）",            # ⚠ 基準線。⚠ **これに負ける選別は「選んでいない」のと同じ**
+]
+k = 16
+
+model = "Ridge"
+baselines = ["常に上（ドリフト）", "直前リターンの符号"]
+
+[trading]
+style = "threshold"
+thresholds = [50, 55, 60]      # ⚠ 事前固定。結果を見て動かさない（rules.md 13-3）
+form = "shared"                # (A) 銘柄共通 1 本
+
+[validation]
+split = "walk_forward_dates"   # ⚠ fold の切れ目は日付で決める（rules.md 13-6 の 1）
+folds = 5
+purge = true
+embargo_bars = 0
+seed = 0
+
+[features]
+ex_lag_days = 1
+ex_zero_fill = ["usgs"]
+ex_transforms = ["d1", "z20"]
+ex_max_stale_days = 7

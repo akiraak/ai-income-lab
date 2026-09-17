@@ -18,6 +18,7 @@
 
 from __future__ import annotations
 
+import functools
 import json
 import os
 import re
@@ -34,7 +35,10 @@ CONFIG = os.path.join(ROOT, "config")
 
 # 系統の見出し（spec §2 の `### F1. フィルタ型 — …（7）`）から読む
 _FAMILY_HEAD = re.compile(r"^###\s+(F\d)\.\s*([^—\-]+?)\s*[—\-]\s*.*?（(\d+)）\s*$")
-_ID = re.compile(r"^(F\d-\d+)\b")
+# ⚠ **末尾の小文字 1 字は「同じ手法の直した実装」**（2026-09-13 に `F3-1b` を足したときに許した）。
+# ⚠ **`\d+` のあとに `\b` だけだと `F3-1b` は 1 文字も一致しない**（`1` と `b` の間に境目が無いため）。
+# ⚠ **`[a-z]?` は貪欲なので `F3-1b` は `F3-1b` に、`F3-1` は `F3-1` に切れる**（取り違えない。tests/test_catalog.py）
+_ID = re.compile(r"^(F\d-\d+[a-z]?)\b")
 
 # ⚠ **spec の表は全角の記号を使う。** 取り違えると符号が反転する
 _SIGNS = {"＋": "+", "−": "-", "－": "-", "▲": "-", ",": ""}
@@ -125,15 +129,21 @@ def family_counts(spec: str = SPEC) -> dict[str, int]:
 # --- 実装（registry）----------------------------------------------------
 
 def implemented() -> dict[str, str]:
-    """カタログの ID → registry の名前。⚠ **名前の先頭の ID で突き合わせる。**"""
+    """カタログの ID → registry の名前。⚠ **名前の先頭の ID で突き合わせる。**
+
+    ⚠ **`transform` も見る**（2026-09-12）。F5 表現学習型は `selector` の契約に入らないので
+    種類が別（プラン `plans/selectors-small-four.md` §1-1）。⚠ **ここを見落とすと、回したのに
+    ⚠ **台帳 §3 では「未実施」のままになる** — ⚠ **空白の数え方が静かに狂う。**
+    """
     from ail import registry
     import ail.bootstrap  # noqa: F401  （@register は import されて初めて効く）
 
     out = {}
-    for name in registry.available("selector"):
-        m = _ID.match(name)
-        if m:
-            out[m.group(1)] = name
+    for kind in ("selector", "transform"):
+        for name in registry.available(kind):
+            m = _ID.match(name)
+            if m:
+                out[m.group(1)] = name
     return out
 
 
@@ -146,7 +156,38 @@ def baseline_names() -> set[str]:
     return {n for n in names if not _ID.match(n)}
 
 
+def detector_names() -> set[str]:
+    """検知器（買い% 1 本を返す手法。rules.md 14-1）。
+
+    ⚠ **カタログ 25 件の「選別手法」ではない**ので ID を持たないが、⚠ **基準線でもない。**
+    ⚠ **ID が無いだけで「基準線」に寄せると、台帳が「試した手法」を基準線として見せてしまう**
+    （数え方は `is_trial` が正本で、そちらは最初から手法として数えている）。
+    """
+    from ail import registry
+    import ail.bootstrap  # noqa: F401
+
+    return set(registry.available("detector"))
+
+
 # --- 試行（runs/ と 旧配線）---------------------------------------------
+
+def _symbols_of(run: dict) -> str:
+    """鍵に入れる**銘柄集合の大きさ**。⚠ **その実行が実際に読んだ本数**を正とする（`inputs.symbols`）。
+
+    ⚠ **鍵に入れるのは、銘柄集合の違う行が同じ鍵にまとまらないようにするため**（`_period_of` と同じ理由）。
+    ⚠ **まとまると「銘柄集合だけの差」として読めず、試行としても数えられない。**
+    ⚠ **食い違いが「再現の幅」の列に出て、配線の疑いと読み違える**（2026-09-12 に踏んだ:
+    us63 と us74 の実行が同じ鍵にまとまり、幅 756bp が再現の失敗のように見えた）。
+
+    ⚠ **いまの config からは引かない**（`dataset` → `universe` を後から当てるのは自己申告になる。
+    `_period_of` の 3 段目と同じ向き）。⚠ **記録の無い実行は「—」に寄せる。**
+
+    ⚠ **本数だけを鍵にしている**（銘柄の一覧ではない）。同じ本数で中身が違う集合は割れないが、
+    ⚠ **本数は実行が必ず記録しているのに対し、一覧は記録していない実行がある。**
+    """
+    n = (run.get("inputs") or {}).get("symbols")
+    return f"{int(n)}" if isinstance(n, (int, float)) and n else "—"
+
 
 def _granularity(config: dict) -> tuple[str, float]:
     """粒度の表示名と 1 本の分数。⚠ **`bar_minutes` を正とし、無ければ dataset 名から引く。**"""
@@ -185,15 +226,25 @@ def _read_run(name: str) -> dict | None:
     d = os.path.join(runs.RUNS, name)
     s = os.path.join(d, "summary.csv")
     c = os.path.join(d, "config.json")
-    if not (os.path.exists(s) and os.path.exists(c)):
+    if not os.path.exists(c):
         return None
     doc = {"実行": name, "leak": name.endswith("_leak")}
-    for f in ("config", "inputs", "env"):
+    for f in ("config", "inputs", "env", "checks"):
         p = os.path.join(d, f + ".json")
         doc[f] = json.load(open(p, encoding="utf-8")) if os.path.exists(p) else {}
     # ⚠ **日付をずらした偽薬**（`_shift<S>`）。⚠ **試行ではなく対照なので台帳の行に入れない**
     doc["shift_days"] = runs.shift_days_of(name, doc["config"])
-    doc["summary"] = pd.read_csv(s, index_col=0)
+    gate = doc["checks"].get("gate") or {}
+    if os.path.exists(s):
+        doc["summary"] = pd.read_csv(s, index_col=0)
+    elif gate.get("blocked") and not gate.get("forced"):
+        # ⚠ **全手法が門前の実行は summary を持たない**（検証を回していない）。
+        # ⚠ **台帳に「門前」で残すために拾う**（隠さない。rules.md 14-5）。
+        # ⚠ **`forced`（門前の手法も回した印。既定・`--ignore-gate`）で summary が無いのは「回したのに落ちた」**なので従来どおり読まない
+        # ⚠ 2026-09-14 から門は既定で止めない。**全手法が門前で summary が無いのは `--gate` で足切りした実行だけ**
+        doc["summary"] = pd.DataFrame()
+    else:
+        return None
     r = os.path.join(d, "result.csv")
     doc["result"] = pd.read_csv(r) if os.path.exists(r) else None
     return doc
@@ -206,24 +257,149 @@ def _layer_of(run: dict) -> str:
     return meta.get("layer") or inputs.get("layer") or "?"
 
 
+@functools.lru_cache(maxsize=None)
+def _table_period(rel_path: str) -> tuple[str | None, int]:
+    """表の実物から (最古の日, 行数) を読む。⚠ **無ければ (None, 0)。** パスごとにキャッシュする。"""
+    path = os.path.join(ROOT, rel_path)
+    if not os.path.exists(path):
+        return None, 0
+    ts = pd.read_parquet(path, columns=["ts"])["ts"]
+    if not len(ts):
+        return None, 0
+    return str(pd.to_datetime(ts.min()).date()), int(len(ts))
+
+
+def _period_of(run: dict) -> str:
+    """表の期間（開始日）。⚠ **その実行が実際に読んだ表の最古の日**を正とする（rules.md 14-4）。
+
+    ⚠ **鍵に入れるのは、開始日の違う表の行が同じ鍵にまとまらないようにするため**（まとまると
+    ⚠ **期間だけの差として読めず、試行としても数えられない。** まとめた食い違いが「再現の幅」の
+    ⚠ 列に出て、配線の疑いと読み違える）。出所は 3 段:
+
+      1. `inputs.panel_start`  — 実行が記録している（2026-09-11 以降の実行）
+      2. `features_meta.start` — 実行が持っている sidecar の写し
+      3. ⚠ **`features_file` が指す表の実物**（2026-09-12 の利用者決定で遡って埋めた）
+
+    ⚠ **3 は「行数が実行の記録と一致する」ときだけ使う。** 表は後から作り直されていることがあり
+    （実測: ある実行は 131,250 行を読んだが、いまの同名の表は 130,134 行）、
+    ⚠ **別の表の開始日を貼ってはいけない。** 合わなければ・表が消えていれば「—」。
+    ⚠ **config の `start_date` からは埋めない**: 表を借りる実行（`features_from`）には書いていないし、
+    いまの config を過去の実行に当てるのは**自己申告になる**（`--layer` と同じ形の事故）。
+    """
+    inputs = run.get("inputs", {})
+    meta = inputs.get("features_meta") or {}
+    if v := (inputs.get("panel_start") or meta.get("start")):
+        return str(v)
+    if not (rel := inputs.get("features_file")):
+        return "—"
+    start, rows = _table_period(rel)
+    recorded = meta.get("rows") or inputs.get("rows_before_sample")
+    if start is None or recorded is None or int(recorded) != rows:
+        return "—"
+    return start
+
+
+def _trading_of(cfg: dict) -> tuple[str, str]:
+    """(検証方式, 形式)。⚠ **旧実行は（毎日往復・共通）として読む**（rules.md 13-9 の 1）。"""
+    t = cfg.get("trading") or {}
+    if t.get("style") == "threshold":
+        return "閾値売買", ("銘柄別" if t.get("form") == "per_symbol" else "共通")
+    return "毎日往復", "共通"
+
+
+def _calibration_of(run: dict, style: str) -> str:
+    """鍵に入れる**較正の版**（rules.md 13-2 の 6）。
+
+    ⚠ **毎日往復は較正を通らない**（`sign(pred)` で張る）ので「—」。
+    ⚠ **閾値売買で記録が無い実行は「旧」** — 2026-09-12 より前の、⚠ **数値解が止まっていた較正である**
+    （[buy-pct-width-collapse.md](../../../docs/specs/experiments/buy-pct-width-collapse.md)）。
+    ⚠ **後から遡って埋めない**（`_period_of` の 3 段目と同じ向き。いまのコードを過去の実行に
+    当てるのは自己申告になる）。⚠ **旧行は再計算しない・消さない。回し直した分は別の鍵で数える。**
+    """
+    if style != "閾値売買":
+        return "—"
+    return str((run.get("checks") or {}).get("calibration") or "旧")
+
+
+def _edge_vs_bh(result: pd.DataFrame | None, method: str, th) -> tuple[float | None, str | None]:
+    """(対 B&H 上乗せの平均 bp, fold の符号)。⚠ **fold の符号は上乗せで見る**（rules.md 13-7）。"""
+    if result is None or "閾値" not in result or th is None:
+        return None, None
+    r = result[(result["手法"] == method) & (result["閾値"] == float(th))].sort_values("fold")
+    b = result[(result["手法"] == "基準 常に上（ドリフト）")
+               & (result["閾値"] == float(th))].sort_values("fold")
+    if r.empty or b.empty or len(r) != len(b):
+        return None, None
+    e = r["純利bp"].values - b["純利bp"].values
+    pat = "".join("＋" if v > 0 else "−" if v < 0 else "0" for v in e)
+    return float(e.mean()), f"{int((e > 0).sum())}/{len(e)} {pat}"
+
+
 def _run_trials(run: dict) -> list[dict]:
     cfg, inputs = run["config"], run.get("inputs", {})
     gran, bar_min = _granularity(cfg)
     layer = _layer_of(run)
+    period = _period_of(run)
     model = cfg.get("model", "Ridge")
+    style, form = _trading_of(cfg)
     rows = []
     for method, s in run["summary"].iterrows():
-        rows.append({
+        th = s.get("閾値") if style == "閾値売買" else None
+        row = {
             "手法名": str(method), "粒度": gran, "地平": _horizon(cfg.get("horizon", 0), bar_min),
             # ⚠ **「基準 」の行はモデルを使わない**（常に上・直前符号）。モデル別に割れないよう「—」
             "モデル": "—" if str(method).startswith("基準 ") else model,
-            "層": layer, "特徴量の層": " ".join(cfg.get("feature_layers", [])),
+            "層": layer, "期間": period, "銘柄": _symbols_of(run),
+            "特徴量の層": " ".join(cfg.get("feature_layers", [])),
             "対象": cfg.get("targets") or "all", "k": cfg.get("k"),
             "コストbp": cfg.get("cost_bp"), "本数": s.get("本数"), "的中率": s.get("的中率"),
             "IC": s.get("IC"), "粗利bp": s.get("粗利bp"), "純利bp": s.get("純利bp"),
-            "fold": _sign_pattern(run.get("result"), str(method)),
+            "fold": None if style == "閾値売買" else _sign_pattern(run.get("result"), str(method)),
+            "検証方式": style, "形式": form, "較正": _calibration_of(run, style),
+            "閾値": f"{float(th):g}" if th is not None else "—",
             "実行": run["実行"], "leak": run["leak"], "行": inputs.get("rows_before_sample"),
             "出所": "runs",
+        }
+        if style == "閾値売買":
+            # ⚠ 閾値ごとに行が割れるので、fold の符号も閾値ごとの上乗せで引き直す
+            edge, pat = _edge_vs_bh(run.get("result"), str(method), th)
+            row["上乗せbp"], row["上乗せfold"], row["fold"] = edge, pat, pat
+        rows.append(row)
+    rows += _gate_rows(run, gran, bar_min, layer, period, model, style, form)
+    return rows
+
+
+def _gate_rows(run: dict, gran: str, bar_min: float, layer: str, period: str,
+               model: str, style: str, form: str) -> list[dict]:
+    """門前の手法の行（rules.md 14-5）。⚠ **検証の数字を持たない**（回していないから）。
+
+    ⚠ **summary に載っている手法には作らない**: 門前でも回した手法（既定・`--ignore-gate`）は
+    普通の行になり、普通に試行として数える（rules.md 14-10 規約 2）。
+    ⚠ **門前の行が立つのは `--gate` で足切りした実行だけ**（2026-09-14 から門は既定で止めない）。
+    ⚠ **閾値は「—」**（どの閾値も回していない。1 手法 1 行で、試行にも数えない）。
+    """
+    gate = (run.get("checks") or {}).get("gate") or {}
+    # ⚠ `forced`（門前の手法も回した）実行に門前の行は作らない（回した実行なので、結果の行だけが正しい）
+    if style != "閾値売買" or not gate.get("blocked") or gate.get("forced"):
+        return []
+    cfg, inputs = run["config"], run.get("inputs", {})
+    ran = {str(m) for m in run["summary"].index} if len(run["summary"]) else set()
+    rows = []
+    for m in gate["blocked"]:
+        if str(m) in ran:
+            continue
+        g = (gate.get("methods") or {}).get(m, {})
+        rows.append({
+            "手法名": str(m), "粒度": gran, "地平": _horizon(cfg.get("horizon", 0), bar_min),
+            "モデル": model, "層": layer, "期間": period, "銘柄": _symbols_of(run),
+            "特徴量の層": " ".join(cfg.get("feature_layers", [])),
+            "対象": cfg.get("targets") or "all", "k": cfg.get("k"),
+            "コストbp": cfg.get("cost_bp"), "本数": None, "的中率": None, "IC": None,
+            "粗利bp": None, "純利bp": None, "fold": None,
+            "検証方式": style, "形式": form, "較正": _calibration_of(run, style),
+            "閾値": "—",
+            "実行": run["実行"], "leak": run["leak"], "行": inputs.get("rows_before_sample"),
+            "出所": "runs", "門前": {"auc": g.get("auc"), "width_pt": g.get("width_pt")},
         })
     return rows
 
@@ -269,14 +445,17 @@ def legacy_trials(decl: dict) -> list[dict]:
             "手法名": name, "粒度": decl.get("granularity", "?"),
             "地平": _horizon(float(decl.get("horizon", 0)), bar_min),
             "モデル": "—" if name.startswith("基準") else decl.get("model", "Ridge"),
-            "層": decl.get("layer", "?"), "特徴量の層": " ".join(decl.get("feature_layers", [])),
+            # ⚠ 旧配線の表は表の期間を残していない（「—」。後から埋めない）
+            "層": decl.get("layer", "?"), "期間": "—", "銘柄": "—",
+            "特徴量の層": " ".join(decl.get("feature_layers", [])),
             "対象": decl.get("targets", "all"), "k": decl.get("k"),
             "コストbp": decl.get("cost_bp"),
             **{k: (_num(cells[ix[k]]) if ix[k] is not None and ix[k] < len(cells) else None)
                for k in ("本数", "的中率", "IC")},
             "粗利bp": _num(cells[ix["粗利"]]) if ix["粗利"] is not None else None,
             "純利bp": _num(cells[ix["純利"]]),
-            "fold": None, "実行": decl["id"], "leak": False, "行": decl.get("rows"),
+            "fold": None, "検証方式": "毎日往復", "形式": "共通", "較正": "—", "閾値": "—",
+            "実行": decl["id"], "leak": False, "行": decl.get("rows"),
             "出所": "legacy",
         })
     return rows
@@ -285,6 +464,8 @@ def legacy_trials(decl: dict) -> list[dict]:
 # --- 判定 ---------------------------------------------------------------
 
 # ⚠ **判定は数字から機械的に決める**（プラン §2-4）。落とした理由は E8 の失敗の型で書く
+# ⚠ **閾値売買の行は対 B&H の上乗せで判定する**（rules.md 13-7。純利の符号では
+# 「買って持っただけ」と区別できない）
 JUDGE_RULES = [
     ("純利 > 0 かつ fold の符号が全部正", "採る", "—"),
     ("純利 > 0 だが fold の符号が割れる", "保留", "⚠ 平均だけ正（rules.md 11 章 規約 5）"),
@@ -292,6 +473,12 @@ JUDGE_RULES = [
     ("純利 ≤ 0 かつ 粗利 ≤ 0", "落とす", "**X2 ＋ X9** コスト以前に優位性が無い"),
     ("⚠ 日足 × データの層が raw", "保留", "⚠ **無効・要再測**（分割調整の誤り。§6-3）"),
     ("基準線の行", "基準", "⚠ 採否の対象ではない。手法はこれを超えて初めて意味がある"),
+    ("閾値売買: 門を通らない（訓練内 holdout の AUC ＜ 0.52 または 買い% 幅 ＜ 20 点）", "門前",
+     "⚠ **検証を回さない・n_trials に数えない**（rules.md 14-5）"),
+    ("閾値売買: 上乗せ > 0 かつ fold の上乗せ符号が全部正", "採る",
+     "⚠ DSR を通すまでは根拠「中」が上限（rules.md 13-7）"),
+    ("閾値売買: 上乗せ > 0 だが符号が割れる", "保留", "⚠ 平均だけ正（rules.md 13-7）"),
+    ("閾値売買: 上乗せ ≤ 0", "落とす", "⚠ **基準線以下 ＝ 何も学んでいない**（rules.md 13-7）"),
 ]
 
 
@@ -300,9 +487,13 @@ def judge(row: dict, baselines: set[str]) -> tuple[str, str]:
 
     ⚠ **「全部使う × Ridge 以外のモデル」は基準線ではなく手法として判定する**
     （モデルが処置。plans/archive/gpu-models.md §3-4。乱択・「基準 」の行は従来どおり基準線）。
+    ⚠ **閾値売買の行は別の表**（rules.md 13-7）: 判定の量が「対 B&H の上乗せ」に変わり、
+    「全部使う」も手法として判定する（検証方式が処置。13-9 の 4）。
     """
     invalid = row.get("粒度") == "日足" and row.get("層") == "raw"
     note = "⚠ **無効・要再測**（分割調整の誤り。§6-3）" if invalid else ""
+    if row.get("検証方式") == "閾値売買":
+        return _judge_trading(row, note)
     model_treated = (row["手法名"] == "全部使う（基準）"
                      and (row.get("モデル") or "Ridge") not in ("Ridge", "—"))
     if (canonical(row["手法名"])[1] in baselines or row["手法名"].startswith("基準 ")) \
@@ -325,11 +516,53 @@ def judge(row: dict, baselines: set[str]) -> tuple[str, str]:
     return "落とす", "**X2 ＋ X9** コスト以前に優位性が無い"
 
 
+def _judge_trading(row: dict, note: str) -> tuple[str, str]:
+    """閾値売買の判定（rules.md 13-7 の表）。⚠ **量は対 B&H の上乗せ**。
+
+    ⚠ **門前の行は別扱い**（rules.md 14-5）: 検証を回していないので数字の判定は掛けられない。
+    """
+    if g := row.get("門前"):
+        auc = "—" if g.get("auc") is None else f"{g['auc']:.3f}"
+        width = "—" if g.get("width_pt") is None else f"{g['width_pt']:.1f}"
+        return "門前", (f"⚠ **門を通らず、検証を回していない**（訓練内 holdout の AUC {auc}・"
+                        f"買い% 幅 {width} 点。水準は AUC ≥ 0.52・幅 ≥ 20 点で事前固定。"
+                        "n_trials に数えない — rules.md 14-5）")
+    name = row.get("手法名") or ""
+    if name.startswith("基準 ") or name == "乱択（基準）":
+        if "常に上" in name:
+            note = (note + " ／ " if note else "") + "⚠ 新方式では期初買い・期末売り（B&H）。上乗せの基準"
+        return "基準", note or "⚠ 採否の対象ではない"
+    if row.get("粒度") == "日足" and row.get("層") == "raw":
+        return "保留", note
+    edge = row.get("上乗せbp")
+    if edge is None:
+        return "保留", "対 B&H の上乗せが読めない"
+    fold = row.get("上乗せfold") or ""
+    if edge > 0:
+        if fold and fold.split("/")[0] == fold.split("/")[1].split(" ")[0]:
+            return "採る", (f"対 B&H 上乗せ {edge:+.2f}bp。"
+                            "⚠ DSR を通すまでは根拠「中」が上限（rules.md 13-7）")
+        return "保留", f"⚠ 上乗せの平均だけ正（{edge:+.2f}bp）。fold の符号が割れる（rules.md 13-7）"
+    return "落とす", (f"⚠ **基準線以下 ＝ 何も学んでいない**"
+                      f"（対 B&H 上乗せ {edge:+.2f}bp ≤ 0。rules.md 13-7）")
+
+
 # --- 台帳の行 -----------------------------------------------------------
 
-KEY = ("鍵", "モデル", "粒度", "地平", "特徴量の層", "層")   # ⚠ 利用者が決めた 1 行の粒度
+KEY = ("鍵", "モデル", "粒度", "地平", "特徴量の層", "層", "期間", "銘柄",
+       "検証方式", "形式", "較正", "閾値")   # ⚠ 利用者が決めた 1 行の粒度
 # ⚠ **モデルは 2026-09-09 に鍵へ足した**（plans/archive/gpu-models.md §3-2）。それまでは Ridge 1 本だったので
 # ⚠ **既存の行はどれも割れない**（旧実行はモデル未指定 = Ridge として読む）
+# ⚠ **検証方式・形式・閾値は 2026-09-10 に足した**（rules.md 13-9 の 1）。旧実行・旧配線は
+# ⚠ **（毎日往復・共通・—）として読む**ので、既存の行はどれも割れない
+# ⚠ **期間（表の開始日）は 2026-09-11 に足した**（rules.md 14-4 の 1995 表）。⚠ **記録の無い実行は
+# ⚠ **全部「—」に寄るので、既存の行はどれも割れない**（後から遡って埋めない。`_period_of`）
+# ⚠ **銘柄（実行が読んだ本数）は 2026-09-12 に足した**（11 章 規約 4 が「銘柄集合」を次元に挙げている）。
+# ⚠ **48 本の断面の実行と 63 本の実行が同じ鍵にまとまっていた**ので、⚠ **これは割れる = n_trials が増える。**
+# ⚠ **増えるのは厳しい側であり、数え落としを直したということである**（2026-09-11 の期間の追加と同じ形）
+# ⚠ **較正の版は 2026-09-12 に足した**（rules.md 13-2 の 6。Platt の数値解が止まっていた不具合の処置）。
+# ⚠ **既存の実行は `checks.calibration` を持たないので全部「旧」に寄り、行はどれも割れない。**
+# ⚠ **毎日往復は較正を通らないので「—」。** ⚠ **回し直した分は「std」で別の鍵になり、新しい試行として数える**
 
 
 def is_trial(row: dict) -> bool:
@@ -338,7 +571,16 @@ def is_trial(row: dict) -> bool:
     カタログ ID を持つ行（従来どおり）に加え、⚠ **モデルが処置の行**
     （「全部使う × Ridge 以外のモデル」）も数える（plans/archive/gpu-models.md §3-4）。
     乱択・「基準 」の行は従来どおり基準線として数えない。
+    ⚠ **閾値売買の行は閾値 1 水準ごとに 1 試行**（rules.md 13-9 の 3・4）。検証方式が処置なので
+    「全部使う × Ridge」も数える。基準線（B&H・直前符号・乱択）は数えない。
+    ⚠ **門前の行も数えない**（rules.md 14-5。検証 fold の結果で選別していないから。
+    後から回したら普通の行になって数える — 規律 3）。
     """
+    if row.get("検証方式") == "閾値売買":
+        name = row.get("手法名") or ""
+        if row.get("門前"):
+            return False
+        return not (name.startswith("基準 ") or name == "乱択（基準）")
     if row.get("ID"):
         return True
     return (row.get("鍵") == "全部使う（基準）"
@@ -404,7 +646,8 @@ def _collapse(rows: list[dict], tol: float = 0.1) -> list[dict]:
     """同じ鍵の行をまとめる。⚠ **食い違ったら黙って隠さず印を付ける**（rules.md 11 章 規約 7）。"""
     groups: dict[tuple, list[dict]] = {}
     for r in rows:
-        groups.setdefault(tuple(r[k] for k in KEY), []).append(r)
+        # ⚠ 鍵の列が無い行（手書きの検査用など）は None で寄せる。実運用の行は必ず全列を持つ
+        groups.setdefault(tuple(r.get(k) for k in KEY), []).append(r)
     out = []
     for key, g in groups.items():
         # ⚠ **代表は新配線の一番新しい実行。** 旧配線の表しか無いときだけそれを使う
@@ -428,15 +671,20 @@ def ledger() -> dict:
     cat = entries()
     impl = implemented()
     bases = baseline_names()
+    dets = detector_names()
     rows, leak, run_list = trials()
 
     by_id = {c["ID"]: c for c in cat}
     for r in rows + leak:
         c = by_id.get(r["ID"])
         r["手法"] = c["手法"] if c else r["鍵"]
-        r["系統"] = f"{c['系統']} {c['系統名']}" if c else "基準線"
-        r["実装"] = "✅" if (r["ID"] in impl or r["鍵"] in bases) else "⚠ 無"
+        # ⚠ **検知器はカタログ外の手法であって基準線ではない**（rules.md 14-1）
+        r["系統"] = (f"{c['系統']} {c['系統名']}" if c
+                     else "検知器" if r["鍵"] in dets else "基準線")
+        r["実装"] = "✅" if (r["ID"] in impl or r["鍵"] in bases or r["鍵"] in dets) else "⚠ 無"
         r["判定"], r["理由"] = judge(r, bases)
+    # ⚠ 判定が出そろってから「閉じる」注記を当てる（判定は変えない。rules.md 14 章）
+    _apply_closed(rows, closed_notes())
 
     tried = {r["ID"] for r in rows if r["ID"]}
     note = notes()
@@ -473,3 +721,52 @@ def notes(path: str | None = None) -> dict[str, dict]:
         doc = tomllib.load(f)
     return {k: (v if isinstance(v, dict) else {"next": str(v)})
             for k, v in doc.get("method", {}).items()}
+
+
+# --- 閉じる注記（rules.md 14 章） ----------------------------------------
+
+# `[[closed]]` の照合キー → 台帳の列名。⚠ **TOML の bare key は ASCII だけ**なのでここで写す
+_CLOSED_FIELDS = {"key": "鍵", "model": "モデル", "layers": "特徴量の層",
+                  "style": "検証方式", "threshold": "閾値", "layer": "層",
+                  "form": "形式", "granularity": "粒度", "period": "期間",
+                  # ⚠ **較正は 2026-09-13 に足した**（KEY に入っているのに照合できず、旧を閉じた
+                  # ⚠ **注記が std の行にも当たって「2 行に一致」で落ちた**）。⚠ **閉じるのは旧の行だけ** —
+                  # ⚠ **回し直した std の行は新しい試行なので、普通に判定させる**（rules.md 14-10 規約 2）
+                  "calibration": "較正"}
+
+
+def closed_notes(path: str | None = None) -> list[dict]:
+    """試行の行に付ける「閉じる」の注記（`[[closed]]`。rules.md 14 章）。
+
+    ⚠ **判定は変えない・行は消さない**（13-9 の 2）。理由列の末尾に注記を足すだけ。
+    処遇の決定と根拠は validation-power.md §6-2。
+    """
+    p = path or os.path.join(CONFIG, "catalog_notes.toml")
+    if not os.path.exists(p):
+        return []
+    with open(p, "rb") as f:
+        return tomllib.load(f).get("closed", [])
+
+
+def _apply_closed(rows: list[dict], closed: list[dict]) -> None:
+    """`[[closed]]` を台帳の行に当てる。⚠ **黙って空振りさせない。**
+
+    - 1 エントリは**ちょうど 1 行**に一致すること（0 件 = 書き間違い、2 件以上 = 照合の鍵が足りない）
+    - 一致した行の判定は**「保留」**であること（⚠ **閉じられるのは保留だけ。** 落とす行を閉じるのは設計ミス）
+    """
+    for c in closed:
+        cond = {_CLOSED_FIELDS[k]: v for k, v in c.items() if k in _CLOSED_FIELDS}
+        unknown = [k for k in c if k not in _CLOSED_FIELDS and k != "note"]
+        if unknown or not c.get("note") or not cond:
+            raise SystemExit(f"⚠ [[closed]] の書き方が違う: {c}"
+                             f"（照合キーは {sorted(_CLOSED_FIELDS)}、本文は note）")
+        hit = [r for r in rows if all(str(r.get(col)) == str(v) for col, v in cond.items())]
+        if len(hit) != 1:
+            raise SystemExit(f"⚠ [[closed]] {cond} が {len(hit)} 行に一致した"
+                             "（ちょうど 1 行に当たるまで照合の鍵を足す。書き間違いなら直す）")
+        r = hit[0]
+        if r.get("判定") != "保留":
+            raise SystemExit(f"⚠ [[closed]] {cond}: 判定が {r.get('判定')!r}"
+                             "（閉じられるのは保留だけ。rules.md 14 章）")
+        r["理由"] = (f"{r['理由']} ／ " if r.get("理由") else "") + str(c["note"])
+        r["閉じる"] = True

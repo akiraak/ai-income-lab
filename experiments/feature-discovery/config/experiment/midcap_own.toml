@@ -1,0 +1,40 @@
+# ⚠ **段 3 の対照**（2026-09-12）: ⚠ **対象 48 本を、その銘柄自身の履歴だけで当てる。**
+#
+# ⚠ **これは「大型株を材料に入れると効くか」を測るための片割れである。**
+#    ⚠ **相方は `midcap_cs.toml`（own ＋ cs ＋ ll）で、違うのは特徴量の層だけ。**
+#    ⚠ **2 つ動かすと、どちらが効いたか分からない**（13-2 規約 5 と同じ向き）。
+#
+# ⚠ **物差しは 13 章のまま**（片道 2.5bp・対 B&H 上乗せ・θ 3 水準・形式 (A)）。
+# ⚠ **B&H は「対象 48 本の等加重」**なので、⚠ **us63 の実行とは数字を直接比べない**（13-8）。
+name = "midcap_own"
+dataset = "midcap48_daily"
+horizon = 1
+cost_bp = 5.0
+
+# ⚠ **期間を `midcap_cs` に揃える**（2018-06-27。⚠ **断面は全銘柄が揃う時刻でしか作れない**）。
+# ⚠ **揃えないと、比べているのが「層の差」か「期間の差」か分からなくなる**
+#    （docs/specs/experiments/daily-data-sources.md §9-1 で同じことをした）。
+start_date = "2018-06-27"
+
+feature_layers = ["own"]
+targets = "company"            # ⚠ **当てる相手は 48 本だけ**（材料 63 本は当てない）
+
+horizon_min = 1440.0
+bar_minutes = 1440.0
+
+selectors = ["全部使う（基準）", "乱択（基準）"]
+k = 16
+model = "Ridge"
+baselines = ["常に上（ドリフト）", "直前リターンの符号"]
+
+[trading]
+style = "threshold"
+thresholds = [50, 55, 60]      # ⚠ 事前固定。結果を見て動かさない（rules.md 13-3）
+form = "shared"                # (A) 銘柄共通 1 本
+
+[validation]
+split = "walk_forward_dates"
+folds = 5
+purge = true
+embargo_bars = 0
+seed = 0

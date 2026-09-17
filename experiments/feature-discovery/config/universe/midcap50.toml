@@ -1,0 +1,29 @@
+# 段 3 の対象候補。⚠ **規則は取得の前に固定した**（docs/plans/archive/midcap-targets.md §1）。
+#
+# ⚠ **規則**: S&P 500 の構成銘柄のうち `us63` に含まれないものを、⚠ **ティッカーのアルファベット順**で
+#   先頭 50 本。⚠ **成績でも規模でも出来高でも選んでいない。**
+# 出典: List of S&P 500 companies（Wikipedia・2026-09-12 取得）
+#
+# ⚠ **さらに「2018-06 より前から日足が取れるもの」に限る**（断面は全銘柄が揃う期間でしか作れない）。
+#   ⚠ **この絞り込みは取得したあと機械的に当てる。** ⚠ **落ちた銘柄は記録に残す。**
+#
+# ⚠ **生存バイアスは us63 より深い**: いまの構成銘柄を過去に当てはめるので、
+#   ⚠ **当時 500 に入っていたが消えた会社は 1 本も入らない**（rules.md 12-1）。
+name = "midcap50"
+description = "S&P 500 のうち us63 に無い銘柄を、ティッカー順の先頭から 50 本（段 3 の対象候補）"
+survivorship_bias = true
+selected_on = "2026-09-12"
+
+[groups]
+company = [
+  "A", "ABNB", "ACGL", "ADI", "ADM", "ADP", "ADSK", "AEE", "AEP", "AES",
+  "AFL", "AIG", "AIZ", "AJG", "AKAM", "ALB", "ALGN", "ALL", "ALLE", "AMAT",
+  "AMCR", "AME", "AMGN", "AMP", "AMT", "ANET", "AON", "AOS", "APA", "APD",
+  "APH", "APO", "APP", "APTV", "ARE", "ARES", "ATO", "AVY", "AWK", "AXON",
+  "AXP", "AZO", "BALL", "BAX", "BBY", "BDX", "BEN", "BG", "BIIB", "BKNG"
+]
+etf = []
+
+[market_proxy]
+market = "SPY"
+sectors = {}

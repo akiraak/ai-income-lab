@@ -24,16 +24,23 @@ from sklearn.preprocessing import StandardScaler
 from ail import config, registry, runs
 from ail.contracts import META_COLUMNS
 from ail.data import store
-from ail.validation import checks, metrics
+from ail.validation import checks, metrics, prep
 import ail.bootstrap  # noqa: F401
 
 warnings.filterwarnings("ignore")
 
 
 def load_panel(experiment: str, period: str, leak: bool,
-               shift_days: int = 0) -> tuple[pd.DataFrame, str]:
+               source: str | None = None, shift_days: int = 0) -> tuple[pd.DataFrame, str]:
+    """`source`（config の `features_from`）があればその実験の表を読む。
+
+    ⚠ **橋渡しの追試は「同じ表」で回して初めて差を検証方式だけの差として読める**（rules.md 13-8）。
+    表を作り直すと（列の順・行の間引きが同じでも）比較に「表の差」が混ざりうる。
+    ⚠ **`shift_days` は日付をずらした偽薬の表**（`_shift<S>`。`cli.build --shift-days` が作る）。
+    """
+    src = source or experiment
     path = os.path.join(store.DATA, "features",
-                        runs.variant(experiment, leak, shift_days), f"{period}.parquet")
+                        runs.variant(src, leak, shift_days), f"{period}.parquet")
     if not os.path.exists(path):
         raise SystemExit(f"{os.path.relpath(path, store.ROOT)} が無い。先に `python3 -m cli.build` を回す")
     return pd.read_parquet(path), path
@@ -70,19 +77,240 @@ def evaluate(panel: pd.DataFrame, feats: list[str], exp: dict, run: runs.Run) ->
         Xtr = pd.DataFrame(sc.transform(tr[feats]), columns=feats)
         Xte = pd.DataFrame(sc.transform(te[feats]), columns=feats)
         ytr = tr["y"].values
+        # ⚠ **標本から学ぶ変換の 1 段**（3 章 B）。⚠ **config に `transform` が無ければ素通り**
+        Xtr, Xte, tdoc = prep.apply(exp, Xtr, Xte, ctx)
+        if tdoc is not None:
+            run.fitted(f"transform_f{f}", tdoc)         # ⚠ 再現用。次の実行では読み込まない
         for name, fn in selectors.items():
             cols = fn(Xtr, ytr, k, ctx)                 # ⚠ 選別は訓練の内側だけ
             p = model(Xtr[cols], ytr, Xte[cols], ctx)
-            out.append({"手法": name, "fold": f, "選んだ本数": len(cols),
+            lab = prep.label(exp, name)                 # ⚠ 変換名を手法名に混ぜる（台帳の ID）
+            out.append({"手法": lab, "fold": f, "選んだ本数": len(cols),
                         **metrics.score(p, yte, cost_bp)})
             # ⚠ **何を選んだかを残す。** ⚠ **偽薬を選んだ割合が、そのまま偽発見率の実測になる**
-            picked.extend({"手法": name, "fold": f, "列": c} for c in cols)
+            picked.extend({"手法": lab, "fold": f, "列": c} for c in cols)
         run.log(f"  fold {f}: 訓練 {len(tr):,} / 検証 {len(te):,}")
     run.selected(pd.DataFrame(picked))
     return pd.DataFrame(out)
 
 
-def main() -> None:
+def evaluate_trading(panel: pd.DataFrame, feats: list[str], exp: dict, run: runs.Run):
+    """閾値つき売買（rules.md 13 章）: 較正 → 閾値 → 状態機械 → 銘柄別 bp ＋ ポートフォリオ。
+
+    ⚠ **1 fold 1 fit を 3 閾値で使い回す**（13-3 の 5。閾値は予測の後ろにしか効かない）。
+    ⚠ **fold の切れ目は日付で 1 回決める**（13-6 の 1。形式 (A)(B) で同じ fold にするため）。
+    """
+    from ail.models import calibrate
+    from ail.validation import simulate as sim
+    from ail.validation import splits
+
+    t = exp["trading"]
+    thresholds = [float(x) for x in t.get("thresholds", (50.0, 55.0, 60.0))]
+    form = str(t.get("form", "shared"))
+    v = exp.get("validation", {})
+    k = int(exp.get("k", 8))
+    cost_bp = float(exp.get("cost_bp", 5.0))
+    horizon_min = float(exp["horizon_min"])
+    seed = int(v.get("seed", 0))
+    model = registry.resolve("model", exp.get("model", "Ridge"))
+    # ⚠ **検知器はモデルを自分で呼ぶ**（買い% まで自前で作る。rules.md 14-1）ので ctx に入れて渡す
+    ctx = {"seed": seed, "model": model, "k": k, **exp.get("model_args", {})}
+    selectors = registry.resolve_all("selector", exp.get("selectors", []))
+    detectors = registry.resolve_all("detector", exp.get("detectors", []))
+    baselines = registry.resolve_all("model", exp.get("baselines", []))
+
+    edges = splits.date_edges(panel["ts"], int(v.get("folds", 5)))
+    out: list[dict] = []
+    sym_out: list[dict] = []
+    picked: list[dict] = []
+    daily: dict[tuple[str, float], list[pd.Series]] = {}
+    # ⚠ **14-6 (b) の乱択ゲートと、エピソード表（14-8）が要る保有日率**。どちらも診断で、採否に使わない
+    extra: dict[str, dict[tuple[str, float], list[pd.Series]]] = {"hold": {}, "rand": {}}
+
+    for f, tr, te in splits.folds_by_dates(panel, edges, horizon_min,
+                                           int(v.get("embargo_bars", 0)),
+                                           float(exp.get("bar_minutes", 0.0))):
+        te = te.reset_index(drop=True)
+        y = te["y"].values
+        ts_te = pd.to_datetime(te["ts"])
+        groups = te.groupby("symbol").indices          # 銘柄 → 行位置（時刻順のまま）
+
+        buy: dict[str, np.ndarray] = {}
+        # ⚠ **出口%**（rules.md 16-1）。⚠ **None の手法は 100 − 入口% で回る ＝ 既存と完全一致**
+        exits: dict[str, np.ndarray | None] = {}
+        n_cols: dict[str, float] = {}
+        fitted_doc: dict[str, dict] = {}
+        # ⚠ 基準線は「買い% の定数指標」としてシミュレータを共有する（13-5。別実装を作らない）
+        for bname, bfn in baselines.items():
+            p = np.asarray(bfn(tr, te, feats, ctx), dtype=float)
+            buy[f"基準 {bname}"] = np.where(p > 0, 100.0, 0.0)
+            n_cols[f"基準 {bname}"] = 0.0
+
+        if detectors:
+            # ⚠ **検知器は買い% を直接返す**（rules.md 14-1 の出力の契約）。選別もモデルも中に隠れる。
+            # ⚠ **シミュレータから先は選別 × モデルの経路とまったく同じものを使う**（物差しを揃える）
+            for name, fn in detectors.items():
+                res = fn(tr, te, feats, ctx)
+                # ⚠ **3 つ返すのは出口% を別に持つ検知器**（rules.md 16-1。`ail/detectors/pair.py`）
+                bp, ep, doc = res if len(res) == 3 else (res[0], None, res[1])
+                buy[name] = np.asarray(bp, dtype=float)
+                exits[name] = None if ep is None else np.asarray(ep, dtype=float)
+                n_cols[name] = float(len(doc.get("columns", [])))
+                fitted_doc[name] = doc
+        elif form == "per_symbol":
+            # (B) 銘柄別: fit も較正も銘柄ごと（13-6 の 2）。fold の切れ目は上で決めた日付を共有
+            labels = {n: prep.label(exp, n) for n in selectors}   # ⚠ 変換名を混ぜた手法名
+            sel_sum: dict[str, float] = {l: 0.0 for l in labels.values()}
+            sel_cnt: dict[str, int] = {l: 0 for l in labels.values()}
+            for lab in labels.values():
+                buy[lab] = np.full(len(te), np.nan)
+            for s, idx in groups.items():
+                tr_s = tr[tr["symbol"] == s]
+                te_s = te.iloc[idx]
+                if len(tr_s) < 30:
+                    run.log(f"  ⚠ fold {f} {s}: 訓練 {len(tr_s)} 行しか無いので飛ばす")
+                    continue
+                sc = StandardScaler().fit(tr_s[feats])
+                Xtr = pd.DataFrame(sc.transform(tr_s[feats]), columns=feats)
+                Xte = pd.DataFrame(sc.transform(te_s[feats]), columns=feats)
+                ytr = tr_s["y"].values
+                # ⚠ **(B) は銘柄ごとに fit する**ので、変換も銘柄ごとに fit し直す（3 章 B）
+                Xtr, Xte, tdoc = prep.apply(exp, Xtr, Xte, ctx)
+                if tdoc is not None:
+                    fitted_doc.setdefault("_transform", {})[str(s)] = tdoc
+                for name, fn in selectors.items():
+                    lab = labels[name]
+                    cols = fn(Xtr, ytr, k, ctx)
+                    cal = calibrate.fit(model, Xtr[cols], ytr, ctx)
+                    pred = model(Xtr[cols], ytr, Xte[cols], ctx)
+                    buy[lab][idx] = cal.buy_pct(pred)
+                    sel_sum[lab] += len(cols)
+                    sel_cnt[lab] += 1
+                    fitted_doc.setdefault(lab, {})[str(s)] = cal.doc
+            for lab in labels.values():
+                n_cols[lab] = sel_sum[lab] / sel_cnt[lab] if sel_cnt[lab] else 0.0
+        else:
+            # (A) 共通 1 本: 63 銘柄をプールして 1 モデル（現行の形）
+            sc = StandardScaler().fit(tr[feats])
+            Xtr = pd.DataFrame(sc.transform(tr[feats]), columns=feats)
+            Xte = pd.DataFrame(sc.transform(te[feats]), columns=feats)
+            ytr = tr["y"].values
+            # ⚠ **標本から学ぶ変換の 1 段**（3 章 B）。⚠ **config に `transform` が無ければ素通り**
+            Xtr, Xte, tdoc = prep.apply(exp, Xtr, Xte, ctx)
+            if tdoc is not None:
+                fitted_doc["_transform"] = tdoc
+            for name, fn in selectors.items():
+                lab = prep.label(exp, name)             # ⚠ 変換名を手法名に混ぜる（台帳の ID）
+                cols = fn(Xtr, ytr, k, ctx)
+                cal = calibrate.fit(model, Xtr[cols], ytr, ctx)
+                pred = model(Xtr[cols], ytr, Xte[cols], ctx)
+                buy[lab] = cal.buy_pct(pred)
+                n_cols[lab] = float(len(cols))
+                fitted_doc[lab] = cal.doc
+                picked.extend({"手法": lab, "fold": f, "列": c} for c in cols)
+        run.fitted(f"calibration_f{f}", fitted_doc)     # ⚠ 再現用。次の実行では読み込まない（13-2 の 3）
+
+        for mname, bp in buy.items():
+            ex = exits.get(mname)                  # ⚠ None なら 100 − 入口%（rules.md 16-1 の 4）
+            ok = ~np.isnan(bp)
+            hit = float(np.mean((bp[ok] > 50.0) == (y[ok] > 0))) if ok.any() else 0.0
+            ic = (float(np.corrcoef(bp[ok], y[ok])[0, 1])
+                  if ok.any() and np.std(bp[ok]) > 0 else 0.0)
+            for th in thresholds:
+                nets: dict[str, pd.Series] = {}
+                grosses: dict[str, pd.Series] = {}
+                rands: dict[str, pd.Series] = {}
+                poss: dict[str, pd.Series] = {}
+                trades, pos_days, days, rand_trades = 0, 0, 0, 0
+                # ⚠ 乱択ゲートの種は config の種。⚠ **引く順は `groups` の並びで決まる**（再現する）
+                rng = np.random.default_rng(seed)
+                for s, idx in groups.items():
+                    if np.isnan(bp[idx]).any():        # 飛ばした銘柄（(B) で訓練が無い）
+                        continue
+                    if ex is not None and np.isnan(ex[idx]).any():
+                        continue                       # ⚠ 出口% が欠けた銘柄も同じく飛ばす
+                    r = sim.simulate(bp[idx], y[idx], th, cost_bp,
+                                     exit_pct=None if ex is None else ex[idx])
+                    rg = sim.shifted_gate(r["pos"], y[idx], cost_bp, rng)   # 14-6 の b
+                    key, stamp = str(s), ts_te.iloc[idx].values
+                    nets[key] = pd.Series(r["net_bp"], index=stamp)
+                    grosses[key] = pd.Series(r["gross_bp"], index=stamp)
+                    rands[key] = pd.Series(rg["net_bp"], index=stamp)
+                    poss[key] = pd.Series(r["pos"].astype(float), index=stamp)
+                    trades += r["trades"]
+                    rand_trades += rg["trades"]
+                    pos_days += int(r["pos"].sum())
+                    days += len(idx)
+                    sym_out.append({"手法": mname, "閾値": th, "fold": f, "銘柄": key,
+                                    "純利bp": round(float(r["net_bp"].sum()), 4),
+                                    "粗利bp": round(float(r["gross_bp"].sum()), 4),
+                                    "取引回数": r["trades"],
+                                    "保有日率": round(r["hold_ratio"], 4),
+                                    "見送り日数": r["skip_days"]})
+                if not nets:
+                    continue
+                port_net = sim.portfolio_daily(nets)
+                port_gross = sim.portfolio_daily(grosses)
+                port_rand = sim.portfolio_daily(rands)
+                daily.setdefault((mname, th), []).append(port_net)
+                extra["hold"].setdefault((mname, th), []).append(sim.portfolio_daily(poss))
+                extra["rand"].setdefault((mname, th), []).append(port_rand)
+                out.append({"手法": mname, "fold": f, "閾値": th,
+                            "選んだ本数": n_cols.get(mname, 0.0), "的中率": hit, "IC": ic,
+                            "粗利bp": float(port_gross.sum()), "純利bp": float(port_net.sum()),
+                            "取引回数": trades,
+                            "保有日率": pos_days / days if days else 0.0,
+                            "検証日数": int(len(port_net)),
+                            # ⚠ **基準線の診断**（14-6 b）。⚠ **採否には使わない**
+                            "乱択ゲート純利bp": float(port_rand.sum()),
+                            "乱択ゲート取引回数": rand_trades})
+        run.log(f"  fold {f}: 訓練 {len(tr):,} / 検証 {len(te):,}（{len(groups)} 銘柄）")
+
+    if picked:
+        run.selected(pd.DataFrame(picked))
+    res = pd.DataFrame(out)
+    summary = (res.groupby(["手法", "閾値"])
+                  .agg(本数=("選んだ本数", "mean"), 的中率=("的中率", "mean"), IC=("IC", "mean"),
+                       粗利bp=("粗利bp", "mean"), 純利bp=("純利bp", "mean"),
+                       取引回数=("取引回数", "mean"), 保有日率=("保有日率", "mean"),
+                       乱択ゲートbp=("乱択ゲート純利bp", "mean"),
+                       fold数=("fold", "size"))
+                  .reset_index().set_index("手法")
+                  .sort_values("純利bp", ascending=False).round(4))
+    return res, pd.DataFrame(sym_out), summary, daily, extra
+
+
+def apply_gate(exp: dict, gate_doc: dict, enforce: bool, run: runs.Run) -> dict | None:
+    """前置きの門を実験に適用する。
+
+    ⚠ **既定（`enforce=False`）は診断**（rules.md 14-10 規約 2）: 門の値は記録するだけで、
+    ⚠ **門前の手法も全部回す**。そのとき `forced` を付けるので、台帳では門前の行が立たず
+    **普通の試行として数えられる**（`--ignore-gate` はこの既定の別名）。
+
+    `enforce=True`（`--gate`）だけが従来の足切り（14-5 の経緯）: 全手法が門前なら None
+    （＝ 閾値売買を回さない）、一部だけなら門前の手法を外す。⚠ **14-10 規約 2 に反する使い方。**
+    """
+    blocked = list(gate_doc.get("blocked", []))
+    gate_doc["mode"] = "足切り" if enforce else "診断"
+    if not enforce:
+        if blocked:
+            gate_doc["forced"] = True
+            run.log("⚠ 門前の手法も回す: " + "、".join(blocked)
+                    + "（門は診断。回したものは全部数える。rules.md 14-10 規約 2）")
+        return exp
+    run.log("⚠ --gate: 門で足切りする（14-10 規約 2 に反する使い方。rules.md 14-5 の経緯）")
+    if not gate_doc.get("passed"):
+        run.log("⚠ **全手法が門前 ＝ 閾値売買を回さない**（台帳には「門前」で残す・"
+                "n_trials に数えない。rules.md 14-5）")
+        return None
+    if blocked:
+        run.log("⚠ 門前の手法は回さない: " + "、".join(blocked) + "（rules.md 14-5）")
+        key = "detectors" if exp.get("detectors") else "selectors"
+        return {**exp, key: [s for s in exp.get(key, []) if s not in blocked]}
+    return exp
+
+
+def _parser() -> argparse.ArgumentParser:
     ap = argparse.ArgumentParser()
     ap.add_argument("--experiment", required=True)
     ap.add_argument("--leak", action="store_true", help="⚠ 配線の検査（未来を混ぜた表を使う）")
@@ -90,11 +318,22 @@ def main() -> None:
                     help="⚠ 偽薬: ex_ の日付を過去へ N 日ずらした表を使う（先に cli.build に同じ値）")
     ap.add_argument("--sample", type=int, default=60000, help="行が多いとき間引く（0 で間引かない）")
     ap.add_argument("--layer", default="adjusted", help="記録に残すだけ（表は cli.build が作る）")
-    args = ap.parse_args()
+    g = ap.add_mutually_exclusive_group()
+    # ⚠ **既定は門で止めない**（rules.md 14-10 規約 2）。付け忘れで黙って 1 行も回らない罠を塞いだ（2026-09-14）
+    g.add_argument("--gate", action="store_true",
+                   help="⚠ 門で足切りする（全部門前なら回さない・一部なら外す）。14-10 規約 2 に反する使い方")
+    g.add_argument("--ignore-gate", action="store_true",
+                   help="既定と同じ（門は診断で全部回す）。過去の記録のコマンドのために残す別名")
+    return ap
+
+
+def main() -> None:
+    args = _parser().parse_args()
 
     exp = config.resolve_experiment(args.experiment)     # ⚠ ここで名前を全部解決する
     ds = exp["_dataset"]
-    panel, path = load_panel(args.experiment, ds["period"], args.leak, args.shift_days)
+    panel, path = load_panel(args.experiment, ds["period"], args.leak, exp.get("features_from"),
+                             args.shift_days)
     feats = [c for c in panel.columns if c not in META_COLUMNS]
     exp.setdefault("horizon_min", 1440.0 if ds["period"] == "d" else float(exp["horizon"]))
 
@@ -114,17 +353,26 @@ def main() -> None:
     if meta and meta.get("layer") and meta["layer"] != args.layer:
         run.log(f"⚠ **--layer {args.layer} だが、表は層 {meta['layer']} から作られている**"
                 f"（{os.path.basename(path)}）。⚠ **sidecar のほうを記録に残す。**")
+    # ⚠ **期間は「読んだ表」から取る**（sidecar の自己申告ではなく実物）。台帳の鍵の「期間」が
+    # ⚠ **これを正として読む**（rules.md 14-4。⚠ **無い実行は「—」で、後から埋めない**）
+    ts = pd.to_datetime(panel["ts"])
     run.inputs({"features_file": os.path.relpath(path, store.ROOT),
                 "layer": (meta or {}).get("layer") or args.layer,
                 "layer_declared": args.layer, "features_meta": meta,
+                "panel_start": str(ts.min().date()), "panel_end": str(ts.max().date()),
                 "rows_before_sample": int(len(panel)),
                 "features": len(feats), "symbols": int(panel["symbol"].nunique()),
                 "sample": args.sample,
                 "data_manifest": {p: _digest(p, ds["period"]) for p in ("raw", "adjusted")}})
 
+    trading = (exp.get("trading") or {}).get("style") == "threshold"
     full_panel = panel          # ⚠ **相関は間引く前で測る**（checks.py の注記）
     if args.sample and len(panel) > args.sample:
-        panel = panel.iloc[:: max(1, len(panel) // args.sample)]
+        if trading:
+            # ⚠ 状態機械は日次の連続した系列が前提。間引くと保有日が飛び、コストの数え方が壊れる
+            run.log("⚠ 閾値つき売買は間引かない（--sample は効かない。rules.md 13-4）")
+        else:
+            panel = panel.iloc[:: max(1, len(panel) // args.sample)]
     leaky = [c for c in feats if c.startswith("LEAK")]
     layer = (meta or {}).get("layer") or args.layer
     run.log(f"実験 {args.experiment} / 層 {layer} / {ds['period']} 足")
@@ -132,6 +380,45 @@ def main() -> None:
             + (f"  ⚠ **わざとした先読みの列あり: {leaky}**" if leaky else "")
             + (f"  ⚠ **偽薬: ex_ の日付を過去へ {args.shift_days} 日ずらした表（台帳の試行に数えない）**"
                if args.shift_days else ""))
+
+    if trading:
+        # ⚠ **門は先に測って checks に残す**（値を見てから回すかを決めない）。⚠ **既定では止めない**
+        # （rules.md 14-10 規約 2）。止めるのは `--gate` のときだけで、そのときは門の値だけ checks に残す
+        from ail.validation import gate
+        gate_doc = gate.evaluate_gate(panel, feats, exp, run)
+        gated_exp = apply_gate(exp, gate_doc, args.gate, run)
+        if gated_exp is None:
+            t = exp["trading"]
+            run.checks({"leak": args.leak, "style": "threshold",
+                        "form": str(t.get("form", "shared")),
+                        "cost_bp": float(exp.get("cost_bp", 5.0)),
+                        "thresholds": [float(x) for x in t.get("thresholds", (50.0, 55.0, 60.0))],
+                        "gate": gate_doc})
+            print(f"→ {os.path.relpath(run.close(), store.ROOT)}")
+            return
+        exp = gated_exp
+        res, per_sym, g, daily, extra = evaluate_trading(panel, feats, exp, run)
+        run.log("")
+        run.log(g.to_string())
+        run.log(f"\n⚠ 純利 = 売買した日だけ片道 {float(exp.get('cost_bp', 5.0)) / 2:g}bp を引いた後"
+                "（rules.md 13-4）。⚠ **採否は対 B&H の上乗せで測る**（13-7。純利の符号では"
+                "「買って持っただけ」と区別できない）。")
+        run.result(res, g)
+        run.per_symbol(per_sym)
+        # ⚠ **日次のポートフォリオ系列を残す。** これが無かったので、検出限界の検討は同じ config を
+        # ⚠ **回し直して系列を作り直すしかなかった**（validation-power.md §1）。エピソード表もここを読む
+        run.daily(daily, extra)
+        # ⚠ **`summary.csv` を書いたあとに数える。** 台帳はそれを読むので、この実行の行
+        # （検証方式が処置 ＝ 選別 × 閾値の数。門前の手法は selectors から外れている）は
+        # ⚠ **もう台帳に入っている。この実行ぶんを足さない**（13-9・14-5。足すと二重になる）
+        doc = checks.compute_trading(res, g, per_sym, daily, exp,
+                                     n_trials=checks.n_trials_now(),
+                                     leak=args.leak, panel=full_panel, extra=extra)
+        doc["gate"] = gate_doc                       # ⚠ 記録するだけ。採否には使わない（14-5）
+        run.checks(doc)
+        run.log(_checks_line_trading(doc))
+        print(f"→ {os.path.relpath(run.close(), store.ROOT)}")
+        return
 
     res = evaluate(panel, feats, exp, run)
     g = (res.groupby("手法")
@@ -144,15 +431,30 @@ def main() -> None:
     run.result(res, g)
 
     # ⚠ **検査はここで 1 度だけ計算して記録に残す**（管理画面は読むだけ。プラン §2）
-    # ⚠ **モデルが Ridge 以外なら「全部使う × モデル」も 1 試行**（plans/archive/gpu-models.md §3-4）
-    n_sel = len([x for x in exp.get("selectors", []) if not checks.is_baseline(x)])
-    if exp.get("model", "Ridge") != "Ridge" and "全部使う（基準）" in exp.get("selectors", []):
-        n_sel += 1
+    # ⚠ **`summary.csv`（上の `run.result`）を書いたあとに数える。** 台帳はそれを読むので、
+    # ⚠ **この実行の行はもう台帳に入っている。この実行ぶんを足さない**（足すと二重になる）
     doc = checks.compute(res, g, exp, panel=panel, full_panel=full_panel,
-                         n_trials=checks.n_trials_now(n_sel), leak=args.leak)
+                         n_trials=checks.n_trials_now(), leak=args.leak)
     run.checks(doc)
     run.log(_checks_line(doc))
     print(f"→ {os.path.relpath(run.close(), store.ROOT)}")
+
+
+def _checks_line_trading(doc: dict) -> str:
+    """⚠ **3 閾値とも 1 行に出す**（良かった閾値だけ報告しない。rules.md 13-3 の 3）。"""
+    parts = []
+    for th, e in (doc.get("by_threshold") or {}).items():
+        b, ed = e.get("best") or {}, e.get("edge_vs_bh") or {}
+        seg = f"θ={th}: 純利 {b.get('純利bp', 0.0):+.2f}bp"
+        if ed:
+            seg += f" 上乗せ {ed.get('mean_bp', 0.0):+.2f}bp"
+            if ed.get("t") is not None:
+                seg += f" t={ed['t']:.2f}"
+        seg += f" 取引 {b.get('取引回数', 0.0):.0f} 回/fold"
+        if d := e.get("dsr"):
+            seg += f" DSR {d['DSR']:.3f}"
+        parts.append(seg)
+    return ("検査: " + " ／ ".join(parts)) if parts else ""
 
 
 def _checks_line(doc: dict) -> str:

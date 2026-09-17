@@ -29,14 +29,22 @@ def test_day_is_the_vtec_begin_in_utc_not_the_last_message(monkeypatch):
 
 
 def test_a_scheduled_begin_days_ahead_counts_on_the_begin_day(monkeypatch):
-    """⚠ **川の洪水は数日前に予告される**（`TBW FL 2`: 9/11 に出て、始まりは 9/14 09:00Z）。"""
+    """⚠ **川の洪水は数日前に予告される**（`TBW FL 2`: 9/11 に出て、始まりは 9/14 09:00Z）。
+
+    ⚠ **日付けは `NEW` の VTEC の始まりの日**（発表の日ではない）。⚠ **`NEW` が窓に無ければ数えない**
+    （2026-09-17 のマージで titan の直し方に揃えた。`cli.crosscheck` は配信側の窓を 3 日前から取る）。
+    """
     page = {"features": [
-        feature("/O.EXT.KTBW.FL.W.0002.260914T0900Z-000000T0000Z/", "2026-09-11T21:33:00-04:00",
+        feature("/O.EXT.KTBW.FL.W.0002.260914T0900Z-000000T0000Z/", "2026-09-12T21:33:00-04:00",
+                ugc=("FLC057",)),
+        feature("/O.NEW.KTBW.FL.W.0002.260914T0900Z-260915T0000Z/", "2026-09-11T21:33:00-04:00",
                 ugc=("FLC057",)),
     ]}
     monkeypatch.setattr(nws, "_get", lambda url: page)
     ev = nws.events("a", "b")
     assert [e["day"] for e in ev.values()] == ["2026-09-14"]
+    page["features"] = page["features"][:1]          # NEW が窓の外
+    assert nws.events("a", "b") == {}
 
 
 def test_an_event_with_only_follow_ups_is_not_counted(monkeypatch):

@@ -18,13 +18,15 @@ import time
 import numpy as np
 import pandas as pd
 
-from ail import config, registry, runs
-from ail.contracts import META_COLUMNS
+from ail import config, contracts, registry, runs
 from ail.data import store
 from ail.features import labels
 import ail.bootstrap  # noqa: F401
 
-ORDER = ("own", "cs", "rel", "ll", "ex", "im")   # ⚠ 列の並びを実行ごとに変えない（cs は own に依存する）
+# ⚠ 列の並びを実行ごとに変えない（cs は own に依存する）
+# ⚠ **`trend` は `own` の直後**（同じ `own_` 接頭辞で、窓が長いだけ）
+# ⚠ **`seq` は `trend` の後**（過去 60 営業日のリターンの窓。時系列分類器の入力。⚠ **足しても既存の表の列の並びは変わらない**）
+ORDER = ("own", "trend", "seq", "cs", "rel", "ll", "ex", "im")
 # ⚠ **`ex` と `im` は価格に依存しない**（外部系列を貼るだけ）が、並びは固定する
 
 
@@ -49,6 +51,8 @@ def build(experiment: str, layer: str = "adjusted", leak: bool = False,
     if not panel:
         raise SystemExit(f"{directory} が空。先に cli.fetch / cli.adjust を回す")
 
+    # ⚠ **スケールのラベルは config に書いた実験だけが持つ**（既定は空 ＝ 既存の表は 1 列も増えない）
+    scales = [int(w) for w in exp.get("label_scales", [])]
     u = config.universe(ds["universe"])
     market, _sectors = config.market_proxy(ds["universe"])
     # ⚠ **`universe` を渡すのは `im_` 層のため**（config/exposure/<universe>.toml を引く）
@@ -89,6 +93,10 @@ def build(experiment: str, layer: str = "adjusted", leak: bool = False,
         order_used.append(s)
         cols = [bars[["ts", "close"]]] + [parts[l][s] for l in keep]
         cols.append(labels.build_one(bars, horizon, leak=leak))
+        # ⚠ **スケールのラベルは「学習の対象」で、損益の `y` とは別**（プラン §2-2）。
+        # ⚠ **末尾 W 本は NaN のまま。** 下の `dropna` が 1 か所で落とす（表の尻が W 本だけ短くなる）
+        if scales:
+            cols.append(labels.build_scales(bars, scales, leak=leak))
         x = pd.concat(labels.trim(cols, horizon), axis=1)
         x.insert(0, "symbol", s)
         frames.append(x)
@@ -111,8 +119,12 @@ def build(experiment: str, layer: str = "adjusted", leak: bool = False,
     df = df.replace([np.inf, -np.inf], np.nan).dropna()
     if max_elapsed is not None:
         df = df[df["y_elapsed_min"] <= max_elapsed]
-    feats = [c for c in df.columns if c not in META_COLUMNS]
+    feats = contracts.feature_columns(df)
     print(f"銘柄 {len(panel)} / 行 {before:,} → 欠損と条件で {len(df):,}")
+    for w in scales:
+        col = f"{labels.SCALE_PREFIX}{w}"
+        print(f"  スケールのラベル {col}: 上がる割合 {float((df[col] > 0).mean()):.4f}"
+              f"（⚠ 説明変数ではない）")
     print(f"特徴量 {len(feats)} 本" + ("  ⚠ **わざとした先読みの列あり**" if leak else "")
           + (f"  ⚠ **偽薬: ex_ の日付を過去へ {shift_days} 日ずらした**" if shift_days else ""))
     print(f"ラベル y の平均 {df['y'].mean():.3e} / 標準偏差 {df['y'].std():.3e} / "
@@ -125,9 +137,12 @@ def build(experiment: str, layer: str = "adjusted", leak: bool = False,
 
     # ⚠ **どの層から作った表かを、表の隣に書く。** ⚠ `cli.run --layer` は自己申告なので、
     # ⚠ **食い違うと台帳の「データの層」の列がそのまま嘘になる**（`ail/catalog.py`）。
+    # ⚠ **表の開始と終わりも隣に書く。** ⚠ **台帳の鍵の「期間」がこれを読む**（rules.md 14-4 の
+    # ⚠ 橋渡し対。2018 表と 1995 表が同じ鍵にまとまると、期間だけの差として読めない）
     meta = {"layer": layer, "experiment": experiment, "period": period, "leak": leak,
             "shift_days": int(shift_days),
-            "rows": int(len(df)), "features": len(feats),
+            "rows": int(len(df)), "features": len(feats), "label_scales": scales,
+            "start": str(df["ts"].min().date()), "end": str(df["ts"].max().date()),
             "built_at": time.strftime("%Y-%m-%dT%H-%M-%S")}
     with open(os.path.splitext(out)[0] + ".meta.json", "w", encoding="utf-8") as f:
         json.dump(meta, f, ensure_ascii=False, indent=2)

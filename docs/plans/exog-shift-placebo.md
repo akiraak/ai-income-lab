@@ -2,7 +2,9 @@
 
 作成: 2026-09-16 ／ 対象: `experiments/feature-discovery/`（`ail/features/exog.py`・`cli/build.py`・`cli/run.py`・`ail/catalog.py`）
 派生元: [daily-data-sources.md §13-4](../specs/experiments/daily-data-sources.md)（社会にインパクトを与えそうなデータ・2026-09-16 完了）
-関連: [rules.md](../specs/experiments/feature-discovery/rules.md) ／ 次の作業「台帳（`ledger.md`）を titan で吐き直す」（TODO）
+関連: [rules.md](../specs/experiments/feature-discovery/rules.md) ／ 次の作業「titan で `ex_` / `im_` を使う実験を回し直し、台帳を吐き直す」（TODO）
+
+> ⚠ **2026-09-17 の変更**: 作業の途中で ⚠ **origin/main に titan の 49 commit があり、Sx360 が古い土台で進めていた**ことが分かった。利用者の判断（titan を正に取り込む）でマージした。⚠ **`start_date` は titan に揃えて 2018-06-15**、⚠ **本物（`impact_ex_2018`）と価格だけ（`own_impact_2018`）もマージ後のコードで回し直してから偽薬と比べる**（§2-3 の「本物」の数字は 05-21 始まりの参考値で、判定には回し直した値を使う）。⚠ **§2-2 の本数・ずらし幅と §2-3 の規則は変えていない。**
 
 ## 1. 目的・背景
 
@@ -50,9 +52,9 @@ flowchart LR
 
 ### 2-3. ⚠ 比べる量と判定の規則（結果を見る前に決める）
 
-比べる相手はどれも ⚠ **価格だけ（`own_impact_2018`、`2026-09-16T22-23-56`）との差**。
+比べる相手はどれも ⚠ **価格だけ（`own_impact_2018`）との差**（⚠ **マージ後のコード・06-15 始まりで回し直した実行**）。
 
-| # | 量 | 本物【実測 2026-09-16】 |
+| # | 量 | 本物【実測 2026-09-16。05-21 始まり・参考】 |
 | ---: | --- | ---: |
 | 主 | ⚠ **列を使う 11 手法の「なし − 価格」の平均** | ＋4.36bp |
 | 副 1 | 最良の手法の純利 | ＋3.23bp |

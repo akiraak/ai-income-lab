@@ -1,0 +1,63 @@
+# ⚠ **選別の軸に残った空白 7 つを埋める**（プラン `plans/selectors-seven-threshold.md`）。
+# ⚠ **閾値売買で回した選別は 6 本だけ**（F1-4・F1-7・F2-2・F5-1・F3-3・F3-1）で、
+# ⚠ **この 7 本は毎日往復（own_2018 ほか。Ridge）にしか無かった。**
+#
+# ⚠ **trade_own_ridge_a.toml との違いは `selectors` の行（と name）だけ。** 表・モデル・閾値・形式・
+# ⚠ **fold 数・種・コスト・k・embargo は全部同じにしてある**（rules.md 13-8 の橋渡しの形）。
+# ⚠ 対になる LightGBM 版は trade_own_lgbm_sel7_a.toml（違いは model だけ）。
+#
+# ⚠ **形式は (A) 共通だけ**（プラン §0-2 の 2。先例 sel_lgbm_two・sel_small4_1995 と同じ）。
+# ⚠ **回すと決めたのは結果を見る前**（14-10 規約 3）。⚠ **7 手法 × θ 3 水準 ＝ 21 試行として数える。**
+#
+# ⚠ **「全部使う（基準）」と「乱択（基準）」は基準線で、n_trials に数えない**（13-9 の 4）。
+# ⚠ **この 2 本は `trade_own_ridge_a` と鍵が同じなので台帳でまとまる** —
+# ⚠ **数字が 1 つでも食い違ったら配線を壊したということ**（検算に使う）。
+#
+# ⚠ **TOML の平の key はテーブル見出しより上に書く**（rules.md 10 章 規約 1）
+name = "trade_own_ridge_sel7_a"
+dataset = "daily"
+horizon = 1
+cost_bp = 5.0
+features_from = "own_2018"     # ⚠ 表は作り直さず own_2018 のものを読む（13-8。表の差を混ぜない）
+
+feature_layers = ["own"]
+targets = "all"
+
+horizon_min = 1440.0
+bar_minutes = 1440.0
+
+# ⚠ **処置は選別**（表・モデル・形式・検証方式は据え置き）。
+# ⚠ **どれも「訓練分割の内側だけで選ぶ」ことが要件**（rules.md 3 章 B）。⚠ **破っていないかは leak 対照で見る**
+selectors = [
+    "F1-1 相関",               # |Pearson| の上位 k。⚠ F1-3 と材料が同じ
+    "F1-2 相互情報量",         # k 近傍の MI。⚠ 行が多いと重い
+    "F1-3 mRMR",               # 関連 − 冗長
+    "F1-5 検定+FDR",           # ⚠ k を使わない。⚠ 全部落ちたら 1 本に落ちる
+    "F2-3 Boruta",             # ⚠ k を使わない。⚠ 全部落ちたら 1 本に落ちる
+    "F3-2 木の重要度",         # RF の MDI
+    "F3-5 クラスタ化MDA",      # 相関のクラスタごとに壊す
+    "全部使う（基準）",        # ⚠ 基準線。⚠ **これを超えられない選別は選ぶ意味が無い**
+    "乱択（基準）",            # ⚠ 基準線。⚠ **これに負ける選別は「選んでいない」のと同じ**
+]
+k = 16
+
+model = "Ridge"
+baselines = ["常に上（ドリフト）", "直前リターンの符号"]
+
+[trading]
+style = "threshold"
+thresholds = [50, 55, 60]      # ⚠ 事前固定。結果を見て動かさない（rules.md 13-3）
+form = "shared"                # (A) 銘柄共通 1 本
+
+[validation]
+split = "walk_forward_dates"   # ⚠ fold の切れ目は日付で決める（rules.md 13-6 の 1）
+folds = 5
+purge = true
+embargo_bars = 0
+seed = 0
+
+[features]
+ex_lag_days = 1
+ex_zero_fill = ["usgs"]
+ex_transforms = ["d1", "z20"]
+ex_max_stale_days = 7

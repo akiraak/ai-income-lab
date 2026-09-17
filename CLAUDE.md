@@ -20,6 +20,10 @@ AI を使って収入を稼ぐ方法を体系化し、**机上で検証する**�
 - 収益化の手法を洗い出し、一次情報（公表単価・稼働率・規約・法令・税制）を当たって成立条件を詰める
 - 各手法について、初期コスト・投下時間・想定収入を【推測】として試算し、根拠となる出典を残す
 - 判断は「実行して収入が出たか」ではなく「**一次情報と試算が成立条件を満たすか**」で行う。満たさないものは理由を残して打ち切る
+- **2026-09-12: 机上の検証（`experiments/feature-discovery/` の実行）は、コストが低いので可能性が低くても積極的に回す。空白は積極的に埋める。**
+  - 「可能性が低いから回さない」は理由にならない。回さないのは「測れない」（[rules.md 14-2](docs/specs/experiments/feature-discovery/rules.md)）か規約に反するときだけ
+  - 理由と代償の数字は [rules.md 14-10](docs/specs/experiments/feature-discovery/rules.md)。⚠ **試行を増やしても採否は厳しくならない**（判定式に DSR は入らない）
+  - ⚠ **緩めないもの**: 回すと決めるのは結果を見る前 ／ 回したものは全部 `n_trials` に数える ／ leak 対照 ／ 1 実行 1 ディレクトリ
 - 収入・費用の【実測】は今後取得しない。過去に取得済みの【実測】（`docs/specs/experiments/i7-dataset.md` のパイロット等）はそのまま残す
   - 例外: **API の挙動**（認証の寿命・遅延・レート制限・往復時間）は 2026-09-05 から【実測】を取る（tastytrade の検証。上の例外を参照）
 
@@ -137,12 +141,15 @@ node vibeboard/dist/cli.js --root .
   プラン作成は `docs/plans/` のプランファイルと `TODO.md` へのリンク・子タスクだけを作らせる（実装はしない）。
   ボタンの上の **「追加の指示（任意）」** に書いた文面は、実行 / プラン作成 / 説明の文面の末尾に足して送る（空欄なら今までどおり。Ctrl+Enter で実行）。
   左ペインの上の「プロジェクト全体」に **commit & push** があり、タスクとは無関係に作業ツリーの変更をまとめてコミットして push させる（メッセージと `TODO.md` / `DONE.md` の整理はセッションが行う）。
+  **タスク追加**（「プロジェクト全体」）と**子タスク追加**（タスク詳細）は投函せず、vibeboard がバックグラウンドの
+  Claude Code（`claude -p`。許すツールは `TODO.md` の Edit だけ）を起こして `TODO.md` に足させる。1 行目が
+  タスクの文面（そのまま入る）、2 行目以降はメモ。成功判定は「`TODO.md` に文面が増えたか」の事後検査で、
+  モデル・制限時間は `vibeboard.config.json` の `taskAdd`（`model` / `timeoutSec`。既定は CLI の既定モデル・120 秒）。
   送り先は `claude agents` の一覧から選ぶ。セッションは起動時の hook（`vibeboard init` が `.claude/settings.json` に書く）で
   自分の受信口を vibeboard に登録し、vibeboard がそこへ文面を投函する。登録が無くても Linux なら `claude agents` の pid から
   受信口（`$XDG_RUNTIME_DIR/cc-socks/<pid>.sock`）を引いて投函する。hook が使えない環境では
   `node vibeboard/dist/cli.js listen --name <画面の名前>` を回す
 - ローカル開発専用（本番管理画面とは独立）
-- **titan で動かした vibeboard は tailnet から `http://titan-income-vibeboard`** で見る（Tailscale Services。titan の Windows 側 `tailscale serve --service=svc:titan-income-vibeboard --http=80 http://127.0.0.1:3010`、再起動をまたいで残る。Funnel なし。2026-09-10）。`ssh titan` で入って `./run-vibeboard.sh` を叩けば開く。⚠ **dashboard（3012）は serve に出さない**（serve 経由は全部ループバックに見え、発注の面が無認証で開く。外から見るなら `ssh -L 3013:127.0.0.1:3012 titan`）。⚠ **serve の外向きポートを 3010 にしない**（mirrored では Windows 側の listener が WSL の bind を塞ぎ、vibeboard が起動できなくなる）。経緯と切り分けは `docs/plans/archive/vibeboard-remote-view.md`
 - ポート変更は `--port` または `VIBEBOARD_PORT` 環境変数で指定可能
 - 本体の更新は `node vibeboard/dist/cli.js update --restart`（再 degit → `npm install` → `init` → 同じ root の vibeboard の起動し直し、を 1 コマンドで）
 
@@ -190,3 +197,11 @@ node vibeboard/dist/cli.js --root .
    - 親タスクを `DONE.md` に移動する
    - 対応するプランファイルは `docs/plans/archive/` に移動する
 <!-- vibeboard:end -->
+
+## vibeboard のこのプロジェクト固有の運用
+
+⚠ **この節はマーカーの外に置く**（`vibeboard update` / `init` はマーカー間を置換するので、中に書くと消える。2026-09-10 に一度消えた）。
+
+- **titan で動かした vibeboard は tailnet から `http://titan-income-vibeboard`** で見る（Tailscale Services。titan の Windows 側 `tailscale serve --service=svc:titan-income-vibeboard --http=80 http://127.0.0.1:3010`、再起動をまたいで残る。Funnel なし。2026-09-10）。`ssh titan` で入って `./run-vibeboard.sh` を叩けば開く。⚠ **dashboard（3012）は serve に出さない**（serve 経由は全部ループバックに見え、発注の面が無認証で開く。外から見るなら `ssh -L 3013:127.0.0.1:3012 titan`）。⚠ **serve の外向きポートを 3010 にしない**（mirrored では Windows 側の listener が WSL の bind を塞ぎ、vibeboard が起動できなくなる）。経緯と切り分けは `docs/plans/archive/vibeboard-remote-view.md`
+- **検証・データのタブ**（2026-09-10）: `vibeboard.config.json` の customTabs。中身は `dashboard/vibetab.py`（127.0.0.1:3015、標準ライブラリのみ。vibeboard の sidecar が `python3` で自動起動）が `experiments/feature-discovery/` の `runs/` と在庫を読んで出す。vibeboard 本体が `/ext/<name>` で中継する（upstream 改造）ので、`http://titan-income-vibeboard` 越しでもタブが動く。⚠ **customTabs の baseUrl に dashboard（3012）を指定しない**（中継後はループバック発に見え、ローカル面が開く）。プランは `docs/plans/archive/vibeboard-experiments-tabs.md`
+- **タスク追加 / 子タスク追加**（2026-09-11）: バックグラウンドの `claude -p` に TODO.md を編集させる（`vibeboard/src/claudeJob.ts`。詳細はマーカー内の Tasks の項）。✅ **2026-09-11 に akiraak/vibeboard 本体へ反映済み**（Ctrl+クリック修正も同時に反映。vendor と本体は一致しており `vibeboard update` を流してよい）。プランは `docs/plans/archive/vibeboard-task-add.md`

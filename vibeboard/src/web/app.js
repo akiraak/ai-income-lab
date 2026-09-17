@@ -17,7 +17,8 @@ const CATEGORY_DEFS = Array.isArray(VB_CONFIG.categories) && VB_CONFIG.categorie
       { name: 'specs', label: 'Specs', archive: false },
     ];
 const CATEGORY_BY_NAME = new Map(CATEGORY_DEFS.map(c => [c.name, c]));
-// customTabs はサーバ側で正規化済み（name/label/baseUrl）。未指定なら空配列。
+// customTabs はサーバ側で正規化済み（name/label/base）。base は同一オリジンの
+// `/ext/<name>`（サーバがプラグインの baseUrl へ中継する）。未指定なら空配列。
 const CUSTOM_TABS = Array.isArray(VB_CONFIG.customTabs) ? VB_CONFIG.customTabs : [];
 const CUSTOM_TAB_BY_NAME = new Map(CUSTOM_TABS.map(t => [t.name, t]));
 const FILES_LABEL = (VB_CONFIG.files && VB_CONFIG.files.label) || 'Files';
@@ -278,7 +279,10 @@ function decodePath(p) {
   return p.split('/').map(decodeURIComponent).join('/');
 }
 
-// 本文 (.md-content / TODO ツリー) 内の相対リンクのクリックを SPA の hash 遷移へ変換する。
+// 本文 (.md-content / TODO ツリー) 内の相対リンクを SPA の hash 遷移へ変換する。
+// 描画時に href 属性そのものを hash URL へ書き換える（rewriteRelativeDocLinks）。
+// クリック委譲だけだと修飾キー付き（Ctrl+クリック / 中クリック）が素通しになり、
+// ブラウザが相対 href のまま /rules.md を取りにいって Cannot GET になっていた（2026-09-11）。
 // 元の Markdown は無編集のまま（GitHub / VSCode プレビューの相対リンクを壊さない）。
 // 画像・音声等のメディアはサーバ側で /files に書き換え済み（先頭 /）なのでここでは扱わない。
 // **今開いているファイルの場所からの相対**で解決する（Files タブの TODO.md なら root から。
@@ -320,13 +324,29 @@ function resolveRelativeToDoc(rel) {
   return segs.length > 0 ? segs.join('/') : null;
 }
 
+// root 以下の相対リンクの href を hash URL へ書き換える（描画のたびに呼ぶ）。
+// 書き換えたリンクには data-doc-link を印に付ける（クリック委譲が同一 hash の再描画に使う）。
+function rewriteRelativeDocLinks(root) {
+  if (!root) return;
+  root.querySelectorAll('a[href]').forEach((a) => {
+    const targetHash = resolveDocLinkHash(a.getAttribute('href'));
+    if (!targetHash) return;
+    a.setAttribute('href', targetHash);
+    a.dataset.docLink = '1';
+  });
+}
+
 // contentArea（安定コンテナ。子は描画ごとに差し替え）に委譲クリックを 1 度だけ張る。
+// href は描画時に書き換え済みなので通常はデフォルトの hash 遷移で足りるが、
+// 今開いているファイルへのリンク（同一 hash。hashchange が発火しない）の再描画をここで拾う。
 function setupDocLinkInterception() {
   contentArea.addEventListener('click', (e) => {
     if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
     const a = e.target.closest('a');
     if (!a || !contentArea.contains(a)) return;
-    const targetHash = resolveDocLinkHash(a.getAttribute('href'));
+    const targetHash = a.dataset.docLink === '1'
+      ? a.getAttribute('href')
+      : resolveDocLinkHash(a.getAttribute('href'));
     if (!targetHash) return;
     e.preventDefault();
     if (location.hash === targetHash) handleRoute();
@@ -933,6 +953,7 @@ async function openDoc(tab, key) {
 
     pageTitle.textContent = key.split('/').pop();
     topbarSub.textContent = path;
+    topbarSub.title = path;
     contentArea.innerHTML = '';
     contentArea.appendChild(buildDocLayout());
 
@@ -1080,6 +1101,7 @@ async function renderDocPreviewBody() {
     const div = document.createElement('div');
     div.className = 'md-content';
     div.innerHTML = data.html;
+    rewriteRelativeDocLinks(div);
 
     const withToc = true;
     if (withToc) {
@@ -1145,6 +1167,7 @@ async function renderDocTreeBody() {
     if (typeof data.mtime === 'number') docState.mtime = data.mtime;
     body.innerHTML = '';
     body.appendChild(buildTodoTree(data));
+    rewriteRelativeDocLinks(body);
   } catch (err) {
     body.innerHTML = '';
     const div = document.createElement('div');
@@ -1710,6 +1733,7 @@ function renderDesign(category, filePath) {
   const meta = findFileMeta(category, filePath);
   pageTitle.textContent = meta ? meta.title : filename;
   topbarSub.textContent = `${category}/${filePath}`;
+  topbarSub.title = topbarSub.textContent;
 
   const wrap = document.createElement('div');
   wrap.className = 'design-frame-wrap';
@@ -1753,6 +1777,7 @@ function showEmpty() {
   clearTocObserver();
   pageTitle.textContent = 'ドキュメント';
   topbarSub.textContent = '';
+  topbarSub.title = '';
   contentArea.innerHTML = '<div class="empty-state">サイドバーからドキュメントを選択してください。</div>';
 }
 
@@ -2446,19 +2471,57 @@ async function sendCommitAndPush(btn) {
   }
 }
 function renderTasksGlobalBar() {
+  const wrap = document.createElement('div');
+  wrap.className = 'tasks-global-wrap';
   const bar = document.createElement('div');
   bar.className = 'tasks-global';
   const label = document.createElement('span');
   label.className = 'tasks-global-label';
   label.textContent = 'プロジェクト全体';
+  const btns = document.createElement('span');
+  btns.className = 'tasks-global-btns';
+  const addBtn = document.createElement('button');
+  addBtn.type = 'button';
+  addBtn.className = 'tasks-global-btn';
+  addBtn.textContent = 'タスク追加';
+  addBtn.title = 'バックグラウンドの Claude Code に頼んで、TODO.md にタスクを 1 件追加する（このセッションには投函しない）';
+  addBtn.hidden = addTaskAvailable === false;
+  addBtn.addEventListener('click', () => showAddTaskDialog(null, () => refreshJobs()));
   const btn = document.createElement('button');
   btn.type = 'button';
   btn.className = 'tasks-global-btn';
   btn.textContent = 'commit & push';
   btn.title = '作業ツリーの変更をまとめてコミットして push するよう、送り先のセッションに頼む（タスクとは無関係）';
   btn.addEventListener('click', () => sendCommitAndPush(btn));
-  bar.append(label, btn);
-  return bar;
+  btns.append(addBtn, btn);
+  bar.append(label, btns);
+  wrap.appendChild(bar);
+
+  // ジョブの状態。この欄が生きている間だけ 5 秒おきに取り直す（再描画で古い欄が消えたら止まる）
+  const jobsBox = document.createElement('div');
+  jobsBox.className = 'task-queue task-add-jobs';
+  jobsBox.hidden = true;
+  wrap.appendChild(jobsBox);
+  const refreshJobs = async () => {
+    let items;
+    try {
+      items = await fetchAddJobs();
+    } catch {
+      return;
+    }
+    addBtn.hidden = addTaskAvailable === false;
+    renderAddJobs(jobsBox, items, refreshJobs);
+  };
+  refreshJobs();
+  const timer = setInterval(() => {
+    if (!document.body.contains(wrap)) {
+      clearInterval(timer);
+      return;
+    }
+    if (document.hidden) return;
+    refreshJobs();
+  }, 5000);
+  return wrap;
 }
 function paintTasksSidebar(state) {
   sidebarNav.innerHTML = '';
@@ -2721,6 +2784,165 @@ async function renderTaskQueue(box, targetsById, onChange) {
   }
 }
 
+// --- タスク追加（バックグラウンドの claude -p）。⚠ 投函（queue）とは別系統で、並行して動く ---
+// サーバがヘッドレスの Claude Code を起こして TODO.md を編集させる。反映は TODO.md の
+// 変更を既存の watch/SSE が拾うので、ここでは状態（待ち / 実行中 / 追加した / 失敗）だけ出す。
+let addTaskAvailable = null; // null = 未確認（claude が PATH に居るか。サーバが 1 回だけ引く）
+// 完了の通知用: 前回見た状態（ジョブ id → state）。待ち / 実行中だったものが done になったら 1 回だけトースト
+const addJobsSeen = new Map();
+function notifyAddJobDone(items) {
+  for (const it of items) {
+    const prev = addJobsSeen.get(it.id);
+    if (it.state === 'done' && prev && prev !== 'done') {
+      showToast(`追加しました: ${it.text}`, 3000);
+    }
+    addJobsSeen.set(it.id, it.state);
+  }
+}
+async function fetchAddJobs() {
+  const data = await fetchJson('/api/tasks/add-jobs');
+  addTaskAvailable = !!data.available;
+  const items = Array.isArray(data.items) ? data.items : [];
+  notifyAddJobDone(items);
+  return items;
+}
+// ⚠ 出すのは「動いているもの」と「失敗」だけ。成功は出さない（ツリーの更新が結果そのもので、
+// 完了はトースト 1 回で知らせる）。何件実行しても欄が伸びていかないように、実行中 / 待ちは 1 行に集約する
+function renderAddJobs(box, items, onChange) {
+  box.innerHTML = '';
+  const active = items.filter(j => j.state === 'waiting' || j.state === 'running');
+  const failed = items.filter(j => j.state === 'failed');
+  if (active.length === 0 && failed.length === 0) {
+    box.hidden = true;
+    return;
+  }
+  box.hidden = false;
+  if (active.length > 0) {
+    const head = active.find(j => j.state === 'running') || active[0];
+    const rest = active.length - 1;
+    const row = mkEl('div', 'task-add-line');
+    row.appendChild(mkEl('span', `task-queue-state ${head.state === 'running' ? 'running' : 'waiting'}`,
+      head.state === 'running' ? '追加中' : '待ち'));
+    row.appendChild(mkEl('span', 'task-add-line-text',
+      `${head.text}${rest > 0 ? `（ほか ${rest} 件待ち）` : ''}`));
+    row.title = head.parentText ? `「${head.parentText}」の子に追加` : 'トップレベルに追加';
+    box.appendChild(row);
+  }
+  for (const it of failed) {
+    const row = mkEl('div', 'task-add-line');
+    row.appendChild(mkEl('span', 'task-queue-state failed', '失敗'));
+    row.appendChild(mkEl('span', 'task-add-line-text', it.text));
+    if (it.error) row.title = it.error; // 詳細はツールチップで
+    const retry = mkEl('button', null, 'やり直す');
+    const dism = mkEl('button', null, '消す');
+    for (const b of [retry, dism]) b.type = 'button';
+    retry.addEventListener('click', async () => {
+      retry.disabled = true;
+      try {
+        await postTasks('/api/tasks/add-retry', { jobId: it.id });
+      } catch (err) {
+        showToast(`やり直しに失敗しました: ${err.message}`);
+      }
+      onChange();
+    });
+    dism.addEventListener('click', async () => {
+      dism.disabled = true;
+      try {
+        await postTasks('/api/tasks/add-dismiss', { jobId: it.id });
+      } catch {
+        // 既に無ければそれでよい
+      }
+      onChange();
+    });
+    row.append(retry, dism);
+    box.appendChild(row);
+  }
+}
+async function submitAddTask(text, parentId) {
+  const body = { text };
+  if (parentId) body.parentId = parentId;
+  const data = await postTasks('/api/tasks/add', body);
+  return data.item;
+}
+
+// タスク追加のダイアログ。⚠ トップレベル（parent = null）と子タスク追加（parent = { id, text }）で共通。
+// 既存のモーダル（409 競合・差分と同じ .modal-overlay / .modal）に載せる。
+// モーダルは body 直下なのでツリーの SSE 再描画の影響を受けない。下書きは誤って閉じたときのために親単位で残す
+const addTaskDialogDrafts = new Map(); // parentId（トップレベルは ''）→ 文面
+function showAddTaskDialog(parent, onDone) {
+  const key = parent ? parent.id : '';
+  const overlay = mkEl('div', 'modal-overlay');
+  const modal = mkEl('div', 'modal');
+  modal.appendChild(mkEl('div', 'modal-title', parent ? `子タスク追加: 「${parent.text}」` : 'タスク追加'));
+
+  const body = mkEl('div', 'modal-body');
+  const input = mkEl('textarea', 'task-compose-input modal-add-input');
+  input.rows = 5;
+  input.maxLength = TASK_NOTE_MAX;
+  input.placeholder = parent
+    ? '1 行目: 子タスクの文面（そのまま TODO.md に入る）\n2 行目以降: 付けるメモ（任意。Ctrl+Enter で追加）'
+    : '1 行目: タスクの文面（そのまま TODO.md に入る）\n2 行目以降: タスクに付けるメモ（任意。Ctrl+Enter で追加）';
+  input.value = addTaskDialogDrafts.get(key) || '';
+  input.addEventListener('input', () => {
+    if (input.value.trim()) addTaskDialogDrafts.set(key, input.value);
+    else addTaskDialogDrafts.delete(key);
+  });
+  const note = mkEl('div', 'task-add-note', parent
+    ? 'バックグラウンドの Claude Code が、このタスクの子の末尾に足します（反映されるとツリーが更新されます）'
+    : 'バックグラウンドの Claude Code が置き場所を判断して TODO.md に足します（反映されるとツリーが更新されます）');
+  body.append(input, note);
+  modal.appendChild(body);
+
+  const actions = mkEl('div', 'modal-actions');
+  const cancel = mkEl('button', 'modal-btn', 'やめる');
+  const submit = mkEl('button', 'modal-btn modal-btn-primary', '追加する');
+  for (const b of [cancel, submit]) b.type = 'button';
+  actions.append(cancel, submit);
+  modal.appendChild(actions);
+  overlay.appendChild(modal);
+
+  const close = () => {
+    document.removeEventListener('keydown', onKey, true);
+    overlay.remove();
+  };
+  // Esc で閉じる。⚠ 外側クリックでは閉じない（入力途中の誤クリックで文面が消えるのを避ける）
+  const onKey = ev => {
+    if (ev.key === 'Escape') {
+      ev.preventDefault();
+      close();
+    }
+  };
+  document.addEventListener('keydown', onKey, true);
+  cancel.addEventListener('click', close);
+  const doSubmit = async () => {
+    const text = input.value.trim();
+    if (!text) {
+      showToast('タスクの文面を書いてください');
+      return;
+    }
+    submit.disabled = true;
+    try {
+      await submitAddTask(text, parent ? parent.id : null);
+      addTaskDialogDrafts.delete(key);
+      close();
+      showToast('バックグラウンドの Claude Code に頼みました（状態は「タスク追加の状態」に出ます）', 3000);
+      if (onDone) onDone();
+    } catch (err) {
+      showToast(`頼めませんでした: ${err.message}`, 5000);
+      submit.disabled = false;
+    }
+  };
+  submit.addEventListener('click', doSubmit);
+  input.addEventListener('keydown', ev => {
+    if ((ev.ctrlKey || ev.metaKey) && ev.key === 'Enter') {
+      ev.preventDefault();
+      doSubmit();
+    }
+  });
+  document.body.appendChild(overlay);
+  input.focus();
+}
+
 async function renderTaskView(id) {
   clearTocObserver();
   const state = tasksState.tree ? tasksState : await fetchTasksTree();
@@ -2732,7 +2954,10 @@ async function renderTaskView(id) {
   }
   const { node, parents } = entry;
   pageTitle.textContent = TASKS_LABEL;
-  topbarSub.textContent = node.text;
+  // ⚠ タスクの文面は topbar に出さない（本文の h1 に出ている。長い文面が最上部を占領していた。
+  //   利用者の指示 2026-09-11「この右上の部分は不要なので削除して」）
+  topbarSub.textContent = '';
+  topbarSub.title = '';
 
   const el = mkEl;
   const pane = el('div', 'task-pane');
@@ -2763,6 +2988,7 @@ async function renderTaskView(id) {
   noteLbl.htmlFor = 'task-note-input';
   const noteBox = el('textarea', 'task-compose-input');
   noteBox.id = 'task-note-input';
+  noteBox.title = '書いた文面は実行・プラン作成・説明の文面の末尾に足して送る（空欄なら今までどおり）。削除・子タスク追加には効かない';
   noteBox.rows = 3;
   noteBox.maxLength = TASK_NOTE_MAX;
   noteBox.placeholder = '例: Phase 6 だけやって。テストは走らせなくていい\n（空欄なら今までどおりの文面で送ります。Ctrl+Enter で実行）';
@@ -2782,23 +3008,51 @@ async function renderTaskView(id) {
 
   const rowBtn = el('div', 'task-row');
   const btnRun = el('button', 'primary', '実行');
+  btnRun.title = 'このタスクを送り先のセッションへ投函して実行させる（会話も承認もそのセッションの画面で進む）';
   const btnPlan = el('button', null, 'プラン作成');
+  btnPlan.title = 'docs/plans/ のプランファイルと、TODO.md へのリンク・子タスクだけを作らせる（実装はしない）';
   const btnExplain = el('button', null, '説明');
+  btnExplain.title = '何も変更せず、このタスクの意図・進め方・影響を説明させる';
+  const btnAddChild = el('button', null, '子タスク追加');
   const btnDelete = el('button', 'danger', '削除');
-  for (const b of [btnRun, btnPlan, btnExplain, btnDelete]) b.type = 'button';
-  rowBtn.append(btnRun, btnPlan, btnExplain, btnDelete);
+  btnDelete.title = 'TODO.md からこのタスクを消す（DONE.md には移さない）';
+  for (const b of [btnRun, btnPlan, btnExplain, btnAddChild, btnDelete]) b.type = 'button';
+  rowBtn.append(btnRun, btnPlan, btnExplain, btnAddChild, btnDelete);
   pane.appendChild(rowBtn);
 
+  // 子タスク追加。⚠ 投函ではなく、バックグラウンドの claude -p に TODO.md を編集させる。
+  // 入力はトップレベルの「タスク追加」と共通のダイアログ（showAddTaskDialog）
+  btnAddChild.title = 'バックグラウンドの Claude Code に頼んで、このタスクの子タスクを 1 件追加する（このタスクの実行とは無関係）';
+  btnAddChild.hidden = addTaskAvailable === false;
+
   const status = el('div', 'task-note', '');
-  const hint = el('div', 'task-note',
+  // 説明は 3 か所に分ける: 常時見えるのは 1 行だけ、ボタンごとの説明は各ボタンの title、
+  // 全文（従来の 6 文そのまま）は「?」で開いたときだけ。情報は捨てない
+  const HINT_FULL =
     '実行・プラン作成・説明は送り先のセッションへ投函します（会話も承認もそのセッションの画面で進む。待機中なら新しいターンが始まり、実行中なら合間に読まれる）。'
     + 'プラン作成は docs/plans/ のプランファイルと、TODO.md へのリンク・子タスクだけを作らせます（実装はしない）。'
     + '説明は変更せず内容を説明するだけ。削除は TODO.md からこのタスクを消します（DONE.md には移しません）。'
-    + '「追加の指示」に書いた文面は、実行・プラン作成・説明の文面の末尾に足して送ります（空欄なら今までどおり）。削除には効きません。'
-    + '送り先は claude agents の一覧と、起動時の hook（vibeboard init が書く）で登録されたセッション。hook が使えないときは、その画面で vibeboard listen --name <名前> を回すと listen として出ます。');
+    + '子タスク追加だけは投函せず、バックグラウンドの Claude Code に TODO.md を編集させます（送り先のセッションは使わない）。'
+    + '「追加の指示」に書いた文面は、実行・プラン作成・説明の文面の末尾に足して送ります（空欄なら今までどおり）。削除・子タスク追加には効きません。'
+    + '送り先は claude agents の一覧と、起動時の hook（vibeboard init が書く）で登録されたセッション。hook が使えないときは、その画面で vibeboard listen --name <名前> を回すと listen として出ます。';
+  const hint = el('div', 'task-note task-hint');
+  hint.appendChild(document.createTextNode(
+    '実行・プラン作成・説明は選んだセッションへ投函し、子タスク追加はバックグラウンドの Claude Code が処理します。'));
+  const hintToggle = el('button', 'task-hint-toggle', '?');
+  hintToggle.type = 'button';
+  hintToggle.title = '詳しい説明を開く';
+  hint.appendChild(hintToggle);
+  const hintFull = el('div', 'task-note task-hint-full', HINT_FULL);
+  hintFull.hidden = true;
+  hintToggle.addEventListener('click', () => {
+    hintFull.hidden = !hintFull.hidden;
+    hintToggle.title = hintFull.hidden ? '詳しい説明を開く' : '詳しい説明を閉じる';
+  });
   const queueBox = el('div', 'task-queue');
   queueBox.hidden = true;
-  pane.append(status, hint, queueBox);
+  const addJobsBox = el('div', 'task-queue task-add-jobs');
+  addJobsBox.hidden = true;
+  pane.append(status, hint, hintFull, queueBox, addJobsBox);
 
   contentArea.innerHTML = '';
   contentArea.appendChild(pane);
@@ -2808,8 +3062,17 @@ async function renderTaskView(id) {
     const targets = await loadTaskTargets(sel, note);
     if (targets) targetsById = new Map(targets.filter(t => t.kind === 'session').map(t => [t.id, t]));
     renderTaskQueue(queueBox, targetsById, refreshAll);
+    // このタスクあての子タスク追加ジョブだけをここに出す（全体は左のプロジェクト全体の欄）
+    try {
+      const items = (await fetchAddJobs()).filter(j => j.parentId === id);
+      btnAddChild.hidden = addTaskAvailable === false;
+      renderAddJobs(addJobsBox, items, refreshAll);
+    } catch {
+      // 取れなければ次の 5 秒で
+    }
   };
   refreshAll();
+  btnAddChild.addEventListener('click', () => showAddTaskDialog({ id, text: node.text }, refreshAll));
   // この画面を出している間だけ 5 秒おきに取り直す（別のタブへ移ったら止める）
   const timer = setInterval(() => {
     if (!document.body.contains(pane)) {
@@ -2820,7 +3083,7 @@ async function renderTaskView(id) {
     refreshAll();
   }, 5000);
 
-  const setBusy = on => { for (const b of [btnRun, btnPlan, btnExplain, btnDelete]) b.disabled = on; };
+  const setBusy = on => { for (const b of [btnRun, btnPlan, btnExplain, btnAddChild, btnDelete]) b.disabled = on; };
   const nameOf = sessionId => (targetsById.get(sessionId) || {}).name || String(sessionId || '').slice(0, 8);
   const send = async kind => {
     const verb = kind === 'explain' ? '説明を頼み' : kind === 'plan' ? 'プラン作成を頼み' : kind === 'commit' ? 'commit & push を頼み' : '渡し';
@@ -2888,7 +3151,7 @@ async function fetchCustomTabSidebar(name) {
   const tab = CUSTOM_TAB_BY_NAME.get(name);
   if (!tab) return { items: [], error: 'unknown tab' };
   try {
-    const res = await fetch(`${tab.baseUrl}/api/sidebar`, { cache: 'no-store' });
+    const res = await fetch(`${tab.base}/api/sidebar`, { cache: 'no-store' });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const json = await res.json();
     const items = Array.isArray(json && json.items) ? json.items : [];
@@ -2979,7 +3242,7 @@ async function renderCustomTabSidebar(name) {
 
 function buildCustomTabSrc(tab, itemId, bust) {
   const t = bust ? `&_t=${Date.now()}` : '';
-  return `${tab.baseUrl}/view?item=${encodeURIComponent(itemId)}${t}`;
+  return `${tab.base}/view?item=${encodeURIComponent(itemId)}${t}`;
 }
 
 function renderCustomTabView(name, itemId) {
@@ -2988,6 +3251,7 @@ function renderCustomTabView(name, itemId) {
   if (!tab) return;
   pageTitle.textContent = tab.label;
   topbarSub.textContent = itemId;
+  topbarSub.title = itemId;
 
   // 同じタブ・同じ id で再描画される場合は iframe を作り直さない
   if (
@@ -3029,7 +3293,7 @@ function ensureCustomTabSource(name) {
   if (!tab || typeof EventSource === 'undefined') return;
   let es;
   try {
-    es = new EventSource(`${tab.baseUrl}/api/watch`);
+    es = new EventSource(`${tab.base}/api/watch`);
   } catch {
     return;
   }

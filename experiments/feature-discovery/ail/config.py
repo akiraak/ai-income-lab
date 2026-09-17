@@ -69,6 +69,8 @@ def resolve_experiment(name: str) -> dict:
     exp["_dataset"] = ds
     exp["_symbols"] = symbols_of(ds["universe"])
     registry.resolve_all("selector", exp.get("selectors", []))
+    # ⚠ **検知器は選別 × モデルの代わりに買い% を直接出す**（rules.md 14-1）。名前はここで全部解決する
+    registry.resolve_all("detector", exp.get("detectors", []))
     registry.resolve_all("model", [exp.get("model", "Ridge")])
     registry.resolve_all("model", exp.get("baselines", []))
     registry.resolve_all("split", [exp.get("validation", {}).get("split", "walk_forward")])

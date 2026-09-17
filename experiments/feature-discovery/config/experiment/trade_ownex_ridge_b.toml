@@ -1,0 +1,47 @@
+# ⚠ **閾値つき売買の本命 4 本のうちの 1 本**（利用者の指示 ⑤。プラン trading-validation §Phase 3 の 5〜8）。
+# 入力 = own ＋ cs ＋ rel ＋ ex（横断 ＋ 外生。天気は noaa）。⚠ **ll_ は N² の列爆発、
+# im_ は偽薬と区別できず終了済みなので入れない。**
+#
+# ⚠ **表は trade_ownex_ridge_a のものを読む**（features_from。13-8。表の差を混ぜない）。
+# ⚠ **targets は company（48 社）**: ETF は rel_sec_* を持てず、混ぜると build が
+#    「列の集合が銘柄で違う」で止まる（2026-09-08 に踏んだ）。説明変数には 63 銘柄全部を使う
+#
+# ⚠ **TOML の平の key はテーブル見出しより上に書く**（rules.md 10 章 規約 1）
+name = "trade_ownex_ridge_b"
+dataset = "daily"
+horizon = 1
+cost_bp = 5.0
+features_from = "trade_ownex_ridge_a"  # ⚠ 表は trade_ownex_ridge_a が持ち主（作り直さない）
+
+feature_layers = ["own", "cs", "rel", "ex"]
+targets = "company"
+
+horizon_min = 1440.0
+bar_minutes = 1440.0
+
+# ⚠ 選別は「全部使う」1 本に絞る（選別の優劣は決着済み。処置は検証方式）。乱択は選別の基準線
+selectors = ["全部使う（基準）", "乱択（基準）"]
+k = 32
+
+model = "Ridge"
+baselines = ["常に上（ドリフト）", "直前リターンの符号"]
+
+[trading]
+style = "threshold"
+thresholds = [50, 55, 60]      # ⚠ 事前固定。結果を見て動かさない（rules.md 13-3）
+form = "per_symbol"                # (B) 銘柄別（fit も較正も銘柄ごと）
+
+[validation]
+split = "walk_forward_dates"   # ⚠ fold の切れ目は日付で決める（rules.md 13-6 の 1）
+folds = 5
+purge = true
+embargo_bars = 1               # ⚠ 断面は同じ足の他銘柄を見るので、境目を 1 本空ける
+seed = 0
+
+[features]
+beta_window = 60
+ex_lag_days = 1
+ex_sources = ["ecb", "treasury", "noaa", "usgs"]
+ex_zero_fill = ["usgs"]        # ⚠ 地震は「行が無い日 = 0 件」
+ex_transforms = ["d1", "z20"]  # ⚠ 水準は非定常なので入れない
+ex_max_stale_days = 7

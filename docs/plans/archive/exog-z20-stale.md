@@ -3,6 +3,7 @@
 作成: 2026-09-16 ／ 対象: `experiments/feature-discovery/ail/features/exog.py`
 完了: 2026-09-16 ／ ⚠ **結果は [記録 §14](../../specs/experiments/daily-data-sources.md)**（§9 と §13 の結論は変わらなかった。災害の 5 本は 2018-05-21 始まりに戻せた）
 派生元: [daily-data-sources.md §12-6](../../specs/experiments/daily-data-sources.md)（社会にインパクトを与えそうなデータ・2026-09-16 完了）
+⚠ **2026-09-17 に titan の 49 commit とマージした**（titan を正）。⚠ **記録の §12-6・§14 は [§14-2・§14-3](../../specs/experiments/daily-data-sources.md) に整理し直し、`start_date` は titan に揃えて 06-15 に戻した**
 関連: [rules.md](../../specs/experiments/feature-discovery/rules.md) ／ 次の作業「割り当てなしの災害系列の見かけの改善を、日付をずらした偽薬で確かめる」（TODO）
 
 ## 1. 目的・背景

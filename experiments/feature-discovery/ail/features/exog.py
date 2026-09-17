@@ -12,6 +12,7 @@
 | 2-2 | ⚠ **前の値を引き継ぐ日数に上限を置く（列ごと）** | ⚠ **上限が無いと、系列が止まっても古い値が永久に貼られ、定数の特徴量になる** |
 | 2-3 | ⚠ **0 埋めは取得元の範囲全体で行い、窓が定数の `z` は 0** | ⚠ **まばらな系列（災害・降水）で欠損が出て、前方埋めで古い値を引きずった**（2026-09-16） |
 | 3 | ⚠ **全銘柄で同じ値になる** | ⚠ **断面では銘柄を区別できない**（方向には効きうるが、相対の順位には効かない） |
+| 3-2 | ⚠ **窓の統計は窓ごとに直接計算する**（pandas の rolling を使わない） | ⚠ **rolling は足し引きで更新するので、桁の大きい値（被害額）の後に誤差が残り、同じ日の `z` が系列の始まりで変わる**（2026-09-17。取得を 2010 年へ広げただけで最大 0.6 動いた） |
 | 4 | ⚠ **偽薬として日付だけを過去へずらせる**（`ex_shift_days`） | ⚠ **効いたのが「その日に何が起きたか」か「列の形」かを分ける**（2026-09-16。負は未来の値になるので拒む） |
 
 ⚠ **前の値を使うのは先読みではない。** 「その時点で公表されている最新の値」であり、未来は入らない。
@@ -25,6 +26,7 @@ from __future__ import annotations
 
 import numpy as np
 import pandas as pd
+from numpy.lib.stride_tricks import sliding_window_view
 
 from ail.data import store
 from ail.registry import register
@@ -99,6 +101,26 @@ def load_series(sources=DEFAULT_SOURCES, zero_fill=DEFAULT_ZERO_FILL,
     return out, owner
 
 
+def _window_stats(v: np.ndarray, w: int) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    """直近 `w` 個の (平均, 標準偏差 ddof=1, 最大, 最小)。⚠ **窓ごとに直接計算する。**
+
+    ⚠ **pandas の `rolling` は窓を 1 つずつ足し引きして更新する。** ⚠ **被害額のように桁の大きい値
+    （最大 3.3×10¹⁰）が窓を出た後も丸めの誤差が残り、同じ日の値が「系列をいつから持っているか」で変わる**
+    （2026-09-17 に実測。NCEI を 2010 年から取り直しただけで湾岸の被害額の `z20` が最大 0.6 動いた。
+    ⚠ **直接計算なら差は 0**）。⚠ **窓に欠損があれば欠損**（rolling の既定 `min_periods = w` と同じ）。
+    """
+    n = len(v)
+    out = tuple(np.full(n, np.nan) for _ in range(4))
+    if n >= w:
+        win = sliding_window_view(v.astype(float), w)
+        with np.errstate(invalid="ignore", divide="ignore"):
+            out[0][w - 1:] = win.mean(axis=1)
+            out[1][w - 1:] = win.std(axis=1, ddof=1)
+            out[2][w - 1:] = win.max(axis=1)
+            out[3][w - 1:] = win.min(axis=1)
+    return out
+
+
 def transform(s: pd.Series, kinds=DEFAULT_TRANSFORMS) -> pd.DataFrame:
     """系列そのものではなく、⚠ **定常に近い形に直したもの**を特徴量にする。
 
@@ -113,13 +135,13 @@ def transform(s: pd.Series, kinds=DEFAULT_TRANSFORMS) -> pd.DataFrame:
             x["d1"] = s.diff()                       # 前日からの変化
         elif k.startswith("z"):
             w = int(k[1:])
-            roll = s.rolling(w)
-            m, sd = roll.mean(), roll.std()
-            z = (s - m) / sd.replace(0, np.nan)      # ⚠ 窓は当日で閉じる
+            m, sd, hi, lo = _window_stats(s.to_numpy(), w)      # ⚠ 窓は当日で閉じる
+            with np.errstate(invalid="ignore", divide="ignore"):
+                z = (s.to_numpy(dtype=float) - m) / np.where(sd == 0, np.nan, sd)
             # ⚠ **窓が全部同じ値なら 0（驚きなし）。** 分子の「値 − 平均」も 0 である。
             # ⚠ **欠損にすると as-of の前方埋めで古い値を引きずる**（2026-09-16 に実測。湾岸の熱帯の警報は
             # 足の 77.9%、LA 空港の降水は窓の 44.9%）。⚠ **比べるのは最大と最小の完全一致**（誤差の閾値を置かない）
-            x[k] = z.mask(roll.max() == roll.min(), 0.0)
+            x[k] = np.where(hi == lo, 0.0, z)
         elif k.startswith("r"):
             w = int(k[1:])
             x[k] = s.pct_change(w)

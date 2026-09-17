@@ -319,3 +319,32 @@ def test_a_zero_filled_series_that_stopped_is_warned(tmp_path, monkeypatch, caps
     exog.load_series(sources=("iem",), zero_fill=("iem",))
     out = capsys.readouterr().out
     assert "STOP" in out and "LIVE" not in out
+
+
+# --- 窓の計算が系列の始まりに依存しないこと（2026-09-17）----------------------
+
+def test_z_does_not_depend_on_where_the_series_starts():
+    """⚠ **pandas の rolling は窓を足し引きで更新する。** 桁の大きい値（被害額 3.3×10¹⁰）が窓を出た後も誤差が残り、
+    ⚠ **同じ日の `z20` が「系列をいつから持っているか」で変わる**（2010 始まりと 2018 始まりで最大 0.6【実測 2026-09-17】）。
+    ⚠ **取得の範囲を広げただけで特徴量が動くと、偽薬と本物を同じ表で比べられない。**
+    """
+    rng = np.random.default_rng(0)
+    idx = pd.date_range("2010-01-01", periods=3000, freq="D")
+    v = np.where(rng.random(3000) < 0.05, rng.lognormal(15, 3, 3000), 0.0)
+    v[100] = 3.3e10                                # 大災害 1 件（窓を出た後も誤差が残る）
+    s = pd.Series(v, index=idx)
+    late = s[s.index >= "2012-01-01"]
+    full = exog.transform(s, ("z20", "d1"))
+    part = exog.transform(late, ("z20", "d1"))
+    common = part.index[20:]
+    assert np.array_equal(full.loc[common, "z20"].values, part.loc[common, "z20"].values, equal_nan=True)
+
+
+def test_z_matches_the_textbook_formula_on_each_window():
+    s = pd.Series([1.0, 5.0, 2.0, 8.0, 3.0, 3.0, 3.0], index=pd.date_range("2020-01-01", periods=7, freq="D"))
+    z = exog.transform(s, ("z3",))["z3"]
+    for i in range(2, 7):
+        w = s.values[i - 2:i + 1]
+        want = 0.0 if w.max() == w.min() else (w[-1] - w.mean()) / w.std(ddof=1)
+        assert z.iloc[i] == pytest.approx(want, abs=1e-12)
+    assert z.iloc[:2].isna().all()

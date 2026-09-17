@@ -73,11 +73,45 @@ def _url(a: pd.Timestamp, b: pd.Timestamp) -> str:
             f"&year2={b.year}&month2={b.month}&day2={b.day}&hour2=0&minute2=0")
 
 
+def _stamp_path() -> str:
+    return os.path.join(store.DATA, "raw", "iem", ".last_request")
+
+
+def _wait_turn(delay: float = CRAWL_DELAY) -> float:
+    """⚠ **間隔はプロセスをまたいで守る。** 最後の要求の時刻を `raw/iem/.last_request` に残し、足りなければ待つ。
+
+    ⚠ **`fetch` の中の `time.sleep` は 1 回の実行の中しか見ていない。** ⚠ **2026-09-16 に、取得の直後に
+    `cli.crosscheck` を回して、前の要求から 53 秒で次の要求を出した**（`crawl_delay=0.0` で呼ぶため）。
+    ⚠ **引数の `crawl_delay` ではなく `CRAWL_DELAY` で待つ**（相手の指定であって呼び手が決めるものではない）。
+    """
+    try:
+        left = os.path.getmtime(_stamp_path()) + delay - time.time()
+    except OSError:
+        return 0.0
+    if left > 0:
+        print(f"    ⚠ IEM の Crawl-delay を守る: {left:.0f} 秒待つ", flush=True)
+        time.sleep(left)
+    return max(left, 0.0)
+
+
+def _stamp() -> None:
+    path = _stamp_path()
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "w", encoding="utf-8") as f:
+        f.write(time.strftime("%Y-%m-%dT%H:%M:%S%z") + "\n")
+
+
 def _rows(url: str, timeout: float = 900):
     """⚠ **流しながら読む。** ⚠ **1 年ぶんを丸ごとメモリに載せない**（80 万行になる）。"""
+    _wait_turn()
     req = urllib.request.Request(url, headers={"User-Agent": UA})
-    with urllib.request.urlopen(req, timeout=timeout) as resp:
-        yield from csv.DictReader(io.TextIOWrapper(resp, encoding="utf-8", errors="replace"))
+    _stamp()
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            yield from csv.DictReader(io.TextIOWrapper(resp, encoding="utf-8", errors="replace"))
+    finally:
+        # ⚠ **読み終わった時刻でも押す**（1 年ぶんは数分かかる。間隔は応答が終わってから数える）
+        _stamp()
 
 
 def _events_of(rows) -> dict[tuple, dict]:

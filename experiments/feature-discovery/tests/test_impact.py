@@ -2,7 +2,7 @@
 
 ⚠ **変わらないなら `ex_` と同じで、[§9-4](../../../docs/specs/experiments/daily-data-sources.md) と同じ結果になる**
 （市場全体の方向にしか効かず、銘柄の選択には効かない）。
-⚠ **落ちなければ意味が無い検査**は [plan §5](../../../docs/plans/impact-data.md) の 4 つ。
+⚠ **落ちなければ意味が無い検査**は [plan §5](../../../docs/plans/archive/impact-data.md) の 4 つ。
 """
 
 from __future__ import annotations

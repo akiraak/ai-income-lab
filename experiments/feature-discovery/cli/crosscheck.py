@@ -1,13 +1,14 @@
 """⚠ **検証で見た値と運用で見る値が同じかを確かめる。**
 
-    python3 -m cli.crosscheck --day 2026-09-07
+    python3 -m cli.crosscheck --day 2026-09-14
 
 ⚠ **検証は保管庫（IEM）、運用は配信（NWS の API）から取る**（[記録 §11-3](../../../docs/specs/experiments/daily-data-sources.md)）。
 ⚠ **2 経路を使うなら、同じ日を両方から取って突き合わせないと、
 検証の数字と運用の数字が別物になっていても気づけない。**
 
-⚠ **完全一致は期待しない。** ⚠ **NWS の API は 7〜14 日で消える**ので、
-⚠ **消えかけの日は API 側が欠ける**。⚠ **差がどちら向きかまで見て判断する。**
+⚠ **1〜2 日前の日なら事象の単位で一致する**【実測 2026-09-16。9/13〜9/15 の 118 事象が発表の時刻まで一致】。
+⚠ **NWS の API はメッセージを 7 日しか持たない**ので、⚠ **消えかけの日は API 側が欠ける**。
+⚠ **川の洪水（`FL`）は始まりの時刻が延長で動き、どちらの経路でも日がぶれる。** ⚠ **差がどちら向きかまで見て判断する。**
 """
 
 from __future__ import annotations
@@ -38,8 +39,12 @@ def _counts(out: dict[str, pd.DataFrame], day: str) -> dict[str, float]:
 def compare(day: str) -> dict:
     a = pd.Timestamp(day, tz="UTC")
     b = a + pd.Timedelta(days=1)
-    print(f"NWS の API（配信）を取る: {day}", flush=True)
-    api = _counts(nws.fetch(IDS, start=a.isoformat(), end=b.isoformat()), day)
+    # ⚠ **配信側は窓を前後に広げて取り、始まりの日で絞る。** ⚠ **その日に始まった事象の `NEW` は
+    # 前日以前に出ていることがある**（川の洪水は 3 日前に予告された。`TBW FL 2` 実測 2026-09-16）
+    lo = a - pd.Timedelta(days=3)
+    hi = min(b + pd.Timedelta(days=1), pd.Timestamp.now(tz="UTC"))
+    print(f"NWS の API（配信）を取る: {day}（窓 {lo.date()} 〜 {hi:%Y-%m-%d %H:%M}Z）", flush=True)
+    api = _counts(nws.fetch(IDS, start=lo.isoformat(), end=hi.isoformat()), day)
     print(f"IEM の保管庫（検証）を取る: {day}", flush=True)
     arc = _counts(iem.fetch(IDS, start=str(a.date()), end=str(b.date()), crawl_delay=0.0), day)
 
@@ -54,7 +59,9 @@ def compare(day: str) -> dict:
 
 def main() -> None:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--day", required=True, help="UTC の日（YYYY-MM-DD）。⚠ 7 日以内でないと API が空になる")
+    ap.add_argument("--day", required=True,
+                    help="UTC の日（YYYY-MM-DD）。⚠ 配信側は 3 日前から取るので、4 日以内の日が確実"
+                         "（API は 7〜14 日で消える）")
     ap.add_argument("--out", default=os.path.join(store.ROOT, "out"))
     args = ap.parse_args()
 

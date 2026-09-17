@@ -1,8 +1,9 @@
 # 社会にインパクトを与えそうなデータを増やす
 
 作成: 2026-09-09 ／ 対象: `experiments/feature-discovery/`
-派生元: [daily-data-sources.md §9](../specs/experiments/daily-data-sources.md)（**本命は偽薬を超えなかった**）
-関連: [rules.md](../specs/experiments/feature-discovery/rules.md) ／ [market-data-availability.md](../specs/market-data-availability.md)
+完了: 2026-09-16 ／ ⚠ **結果は [記録 §12-4〜§13](../../specs/experiments/daily-data-sources.md)**（割り当ては偽薬と区別できず、割り当てなしは保留）
+派生元: [daily-data-sources.md §9](../../specs/experiments/daily-data-sources.md)（**本命は偽薬を超えなかった**）
+関連: [rules.md](../../specs/experiments/feature-discovery/rules.md) ／ [market-data-availability.md](../../specs/market-data-availability.md)
 
 ## 1. 目的
 
@@ -17,7 +18,7 @@
 
 | # | 理由 |
 | ---: | --- |
-| 1 | ⚠ **結果を見てから枠を移すのは後付けである**（[§1 の決めごと 3](../specs/experiments/daily-data-sources.md)）。⚠ **[§9](../specs/experiments/daily-data-sources.md) で「気象・地震のほうが効いて見えたが雑音」と結論した直後に本命へ移すと、結論を自分で崩す** |
+| 1 | ⚠ **結果を見てから枠を移すのは後付けである**（[§1 の決めごと 3](../../specs/experiments/daily-data-sources.md)）。⚠ **[§9](../../specs/experiments/daily-data-sources.md) で「気象・地震のほうが効いて見えたが雑音」と結論した直後に本命へ移すと、結論を自分で崩す** |
 | 2 | ⚠ **移すと物差しを失う。** ⚠ **偽薬が無いと「本命が効いた」を検証できない**（それが §9 で効いた唯一の仕掛けだった） |
 
 ⚠ **新しく取るものを「本命」として足し、気象・地震は偽薬のまま基準線に置く。**
@@ -45,7 +46,7 @@ flowchart LR
 
 ## 3. 方針
 
-### 3-1. 取得の順番（[§2](../specs/experiments/daily-data-sources.md) と同じ）
+### 3-1. 取得の順番（[§2](../../specs/experiments/daily-data-sources.md) と同じ）
 
 ⚠ **「取れるか」より先に「取ってよいか」。** ⚠ **米政府の公有（NOAA・USGS・FAA・DOE）を優先する。**
 ⚠ **CC BY-NC は「非商用と言えるか」の判断待ちに引っかかるので、代替があるなら避ける。**

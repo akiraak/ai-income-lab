@@ -39,8 +39,9 @@ python3 -m venv .venv && ./.venv/bin/pip install -r requirements.txt
 
 # 検査
 ./.venv/bin/python -m cli.check --layer adjusted --period d
-# ⚠ **検証（IEM の保管庫）と運用（NWS の API）が同じ値か**。⚠ 7 日以内の日でしか測れない
-./.venv/bin/python -m cli.crosscheck --day 2026-09-07
+# ⚠ **検証（IEM の保管庫）と運用（NWS の API）が同じ値か**。⚠ API は 7 日しか持たないので 1〜4 日前の日で測る
+# ⚠ IEM への要求は raw/iem/.last_request を見て 120 秒空ける（プロセスをまたいで待つ）
+./.venv/bin/python -m cli.crosscheck --day 2026-09-15
 ./.venv/bin/python -m pytest -q tests           # 不変条件・調整の検算・先読み
 ```
 
@@ -97,7 +98,7 @@ def cmi(X, y, k, ctx):
 | `own_only_h1` | 35（`own_` のみ） | 431,759 | ⚠ **いままでの形（プーリング）。** 各行が自分の履歴しか見ない。対象は 63 銘柄 |
 | `cross_section_h1` | 134（own 35 ／ cs 26 ／ rel 13 ／ ll 60） | 96,769 | ⚠ **全銘柄を使って 1 銘柄を当てる形。** ⚠ **対象は会社株 48 本**（ETF 15 本は説明変数側）／ 行が減るのは⚠ **全 63 が揃うのが 2018-06 以降**だから |
 | `own_2018` ／ `real_2018` ／ `placebo_2018` | 35 ／ 63 ／ 57 | 135,962 | ⚠ **本命（為替・金利）が偽薬（気象・地震）を超えるか**（§9。⚠ **超えなかった**） |
-| `own_impact_2018` ／ `impact_ex_2018` ／ `impact_2018` ／ `impact_placebo_2018` | 35 ／ 59 ／ 47 ／ 47 | — | ⚠ **災害を銘柄へ割り当てると効くか。** ⚠ **偽薬は「割り当ての入れ替え」** |
+| `own_impact_2018` ／ `impact_ex_2018` ／ `impact_2018` ／ `impact_placebo_2018` ／ `impact_both_2018` | 35 ／ 59 ／ 47 ／ 47 ／ 59 | 131,250 | ⚠ **災害を銘柄へ割り当てると効くか。** ⚠ **偽薬は「割り当ての入れ替え」。** ⚠ **割り当ては偽薬と区別できず、割り当てなしは保留**（記録 §13） |
 
 ⚠ **`ll_leaders = "all"` にすると `ll_` が 60 → 248 列になる**（`config/experiment/cross_section_h1.toml`）。
 ⚠ **列を増やすほど多重検定になる**ので、FDR とデフレーテッド SR を対で通すこと（rules.md 11 章）。

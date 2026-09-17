@@ -56,6 +56,28 @@ def test_regional_series_count_each_state_once_per_event():
     assert out["WW_竜巻_湾岸"]["value"].tolist() == [1.0]
 
 
+def test_crawl_delay_is_kept_across_processes(tmp_path, monkeypatch):
+    """⚠ **別のプロセスが 53 秒前に要求していたら、残りの 67 秒を待つ**（2026-09-16 に踏んだ）。"""
+    import os
+    import time
+
+    stamp = tmp_path / ".last_request"
+    monkeypatch.setattr(iem, "_stamp_path", lambda: str(stamp))
+    slept = []
+    monkeypatch.setattr(iem.time, "sleep", slept.append)
+    assert iem._wait_turn() == 0.0 and slept == []          # 記録が無ければ待たない
+
+    now = time.time()
+    stamp.write_text("x")
+    os.utime(stamp, (now - 53, now - 53))
+    left = iem._wait_turn()
+    assert 66 <= left <= 67.5 and len(slept) == 1
+
+    os.utime(stamp, (now - 121, now - 121))
+    slept.clear()
+    assert iem._wait_turn() == 0.0 and slept == []
+
+
 def test_a_saved_year_round_trips(tmp_path):
     """⚠ **7 年目で応答が切れて 6 年ぶんを失った**（2026-09-09）。保管したものを読めば同じ結果になる。"""
     r = rows(["OUN,2019-05-20 12:35,,,,TO,C,W,1,NEW,TXC201,1,,,,,,False,,,,,,,,,2019"])

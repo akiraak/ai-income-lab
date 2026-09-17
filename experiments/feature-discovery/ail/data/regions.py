@@ -3,7 +3,7 @@
 ⚠ **NCEI Storm Events は州の「フルネーム」（`TEXAS`）、IEM の警報は UGC の「2 文字」（`TXC201` → `TX`）**
 で州を持つ。⚠ **書式が違うだけで同じ州である**ことを、ここで固定する。
 
-⚠ **地域は業種への割り当ての土台である**（[plan §2-2](../../../../docs/plans/impact-data.md)）。
+⚠ **地域は業種への割り当ての土台である**（[plan §2-2](../../../../docs/plans/archive/impact-data.md)）。
 ⚠ **地域を持たないデータは全銘柄で同じ値になり、[§9-4](../../../../docs/specs/experiments/daily-data-sources.md) と同じ結果になる。**
 """
 

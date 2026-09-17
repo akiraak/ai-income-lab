@@ -206,3 +206,70 @@ def test_sources_with_different_lags_are_both_present():
         m.load_series = orig
     assert list(out.columns) == ["ex_FAST_lvl", "ex_SLOW_lvl"]
     assert out["ex_FAST_lvl"].iloc[0] > out["ex_SLOW_lvl"].iloc[0]     # 遅い側は古い値
+
+
+# --- まばらな系列（0 の日が続く）— 2026-09-16 に塞いだ穴 ---------------------
+
+def test_z_of_a_window_with_no_variation_is_zero():
+    """⚠ **20 日すべて 0 の窓は「驚きなし」＝ 0。** 欠損にすると as-of の前方埋めで古い値を引きずる。
+
+    ⚠ **2026-09-16 に実データで踏んだ**（湾岸の熱帯の警報は足の 77.9% で古い `z20` を引きずっていた）。
+    """
+    s = pd.Series([0.0] * 10 + [3.0] + [0.0] * 30, index=pd.date_range("2020-01-01", periods=41, freq="D"))
+    z = exog.transform(s, ("z20",))["z20"]
+    assert z.iloc[:19].isna().all()               # ⚠ 20 本たまるまでは今までどおり出さない
+    assert z.iloc[19] < 0                         # 窓に 3.0 が入っている日は普通に計算する
+    assert (z.iloc[30:] == 0.0).all()             # ⚠ 3.0 が窓から抜けたら 0（欠損ではない）
+
+
+def test_a_column_that_went_missing_is_stale_even_if_another_column_has_values():
+    """⚠ **古さは列ごとに見る。** `d1` に値があっても、`z20` が欠損のまま日が経てば `z20` は欠損にする。
+
+    ⚠ **直す前は「どれかの列に値があるか」で見ていたので、`z20` の古い値が貼られ続けた。**
+    """
+    idx = pd.date_range("2020-01-01", periods=30, freq="D")
+    wide = pd.DataFrame({"d1": np.arange(30, dtype=float), "z20": [1.5] + [np.nan] * 29}, index=idx)
+    got = exog.asof_join(wide, bars(["2020-01-03", "2020-01-21"])["ts"], 1, 7)
+    assert list(got["d1"]) == [1.0, 19.0]
+    assert got["z20"].iloc[0] == 1.5              # 1 日前の値は使ってよい
+    assert np.isnan(got["z20"].iloc[1])           # ⚠ 19 日前の値は貼らない
+
+
+def _write(d, sid, days_values):
+    ms = [int(pd.Timestamp(x, tz="UTC").timestamp() * 1000) for x, _ in days_values]
+    body = "".join(f"{m},{v}\n" for m, (_, v) in zip(ms, days_values))
+    (d / f"{sid}.csv").write_text("time_ms,value\n" + body, encoding="utf-8")
+
+
+def test_zero_fill_spans_the_whole_source_not_each_series(tmp_path, monkeypatch):
+    """⚠ **取得は期間で行っているので、最初の事象より前も「0 件」である。**
+
+    ⚠ **2026-09-16 に踏んだ**: 湾岸の熱帯の警報は最初の事象が 2018-05-26 で、それより前が欠損になり、
+    災害の 5 本で行が揃わなかった。⚠ **末尾も同じ**（冬に 8 日途切れただけで最新の行が欠損になる）。
+    """
+    from ail.data import store
+    d = tmp_path / "raw" / "iem" / "series"
+    d.mkdir(parents=True)
+    _write(d, "WIDE", [("2020-01-01", 1), ("2020-01-10", 2)])
+    _write(d, "LATE", [("2020-01-04", 5), ("2020-01-06", 1)])
+    monkeypatch.setattr(store, "series_dir", lambda src: str(d))
+    got = exog.load_series(sources=("iem",), zero_fill=("iem",))[0]["LATE"]
+    assert got.index[0] == pd.Timestamp("2020-01-01") and got.index[-1] == pd.Timestamp("2020-01-10")
+    assert list(got.values) == [0, 0, 0, 5, 0, 1, 0, 0, 0, 0]
+
+
+def test_a_zero_filled_series_that_stopped_is_warned(tmp_path, monkeypatch, capsys):
+    """⚠ **0 で埋めると、系列が止まっても 0 に化けて気づけない。**
+
+    ⚠ **熱の警報は NWS がコードを `EH` → `XH` に替えて 2024-10 で止まっていた**（2026-09-16 に取り直し）。
+    ⚠ **末尾の 0 の連続が、その系列で過去最長の空白より長ければ警告する。**
+    """
+    from ail.data import store
+    d = tmp_path / "raw" / "iem" / "series"
+    d.mkdir(parents=True)
+    _write(d, "LIVE", [(f"2020-01-{k:02d}", 1) for k in range(1, 31, 2)])
+    _write(d, "STOP", [("2020-01-01", 1), ("2020-01-03", 1), ("2020-01-05", 1)])
+    monkeypatch.setattr(store, "series_dir", lambda src: str(d))
+    exog.load_series(sources=("iem",), zero_fill=("iem",))
+    out = capsys.readouterr().out
+    assert "STOP" in out and "LIVE" not in out

@@ -9,7 +9,8 @@
 | 1 | ⚠ **必ず 1 日以上ずらす** | ⚠ **「その日のデータ」が「その日に手に入る」とは限らない**（発表の遅れ） |
 | 1-2 | ⚠ **ずらし幅は取得元ごとに変える** | ⚠ **NCEI Storm Events は 101 日遅れて出る**（実測）。一律 1 日にすると先読みになる |
 | 2 | ⚠ **欠けた日の埋め方が系列で違う** | ⚠ **地震は「行が無い日 = 0 件の日」**。為替・金利は休場なので前の値が最新のまま |
-| 2-2 | ⚠ **前の値を引き継ぐ日数に上限を置く** | ⚠ **上限が無いと、系列が止まっても古い値が永久に貼られ、定数の特徴量になる** |
+| 2-2 | ⚠ **前の値を引き継ぐ日数に上限を置く（列ごと）** | ⚠ **上限が無いと、系列が止まっても古い値が永久に貼られ、定数の特徴量になる** |
+| 2-3 | ⚠ **0 埋めは取得元の範囲全体で行い、窓が定数の `z` は 0** | ⚠ **まばらな系列（災害・降水）で欠損が出て、前方埋めで古い値を引きずった**（2026-09-16） |
 | 3 | ⚠ **全銘柄で同じ値になる** | ⚠ **断面では銘柄を区別できない**（方向には効きうるが、相対の順位には効かない） |
 
 ⚠ **前の値を使うのは先読みではない。** 「その時点で公表されている最新の値」であり、未来は入らない。
@@ -65,19 +66,35 @@ def load_series(sources=DEFAULT_SOURCES, zero_fill=DEFAULT_ZERO_FILL,
     owner: dict[str, str] = {}
     for src in sources:
         d = store.series_dir(src)
-        ids = store.symbols_in(d)
-        if keep is not None:
-            ids = [i for i in ids if i in keep]
+        all_ids = store.symbols_in(d)
+        ids = [i for i in all_ids if keep is None or i in keep]
         if not ids:
             continue
         zero = src in tuple(zero_fill)
+        # ⚠ **0 埋めの範囲は取得元ごと**（`only` で絞る前の全系列から決める。絞り方で範囲を変えない）
+        loaded = {sid: _daily(sid, store.read_series(d, sid)) for sid in (all_ids if zero else ids)}
+        span = (pd.date_range(min(s.index.min() for s in loaded.values()),
+                              max(s.index.max() for s in loaded.values()), freq="D") if zero else None)
+        stopped = []
         for sid in ids:
-            s = _daily(sid, store.read_series(d, sid))
+            s = loaded[sid]
             if zero:
                 # ⚠ **行が無い日は 0 件。** ⚠ **前の値を引きずると、起きなかった日に前日の値が入る**
-                s = s.reindex(pd.date_range(s.index.min(), s.index.max(), freq="D")).fillna(0.0)
+                # ⚠ **最初の事象より前・最後の事象より後も 0 件である**（取得は期間で行っている）。
+                # ⚠ **2026-09-16 までは系列ごとの最初〜最後で埋めていた**ので、湾岸の熱帯の警報
+                # （最初の事象 2018-05-26）より前が欠損になり、災害の 5 本で行が揃わなかった
+                gaps = s.index.to_series().diff().dt.days.dropna()
+                tail = (span[-1] - s.index.max()).days
+                if tail > (gaps.max() if len(gaps) else 0):
+                    stopped.append(f"{sid}（最後 {s.index.max().date()}・{tail} 日）")
+                s = s.reindex(span).fillna(0.0)
             out[sid] = s
             owner[sid] = src
+        if stopped:
+            # ⚠ **末尾を 0 で埋めると、系列が止まっても 0 に化けて気づけない**（熱の `EH` → `XH` がそれだった）。
+            # ⚠ **末尾の 0 の連続が、その系列で過去最長の空白より長いものを知らせる**（止めはしない。まれな事象もある）
+            print(f"  ⚠ {src}: 過去最長の空白より長く 0 が続いている系列 {len(stopped)} 本 — "
+                  f"止まっていないか確かめる: {' ／ '.join(stopped)}", flush=True)
     return out, owner
 
 
@@ -95,8 +112,13 @@ def transform(s: pd.Series, kinds=DEFAULT_TRANSFORMS) -> pd.DataFrame:
             x["d1"] = s.diff()                       # 前日からの変化
         elif k.startswith("z"):
             w = int(k[1:])
-            m, sd = s.rolling(w).mean(), s.rolling(w).std()
-            x[k] = (s - m) / sd.replace(0, np.nan)   # ⚠ 窓は当日で閉じる
+            roll = s.rolling(w)
+            m, sd = roll.mean(), roll.std()
+            z = (s - m) / sd.replace(0, np.nan)      # ⚠ 窓は当日で閉じる
+            # ⚠ **窓が全部同じ値なら 0（驚きなし）。** 分子の「値 − 平均」も 0 である。
+            # ⚠ **欠損にすると as-of の前方埋めで古い値を引きずる**（2026-09-16 に実測。湾岸の熱帯の警報は
+            # 足の 77.9%、LA 空港の降水は窓の 44.9%）。⚠ **比べるのは最大と最小の完全一致**（誤差の閾値を置かない）
+            x[k] = z.mask(roll.max() == roll.min(), 0.0)
         elif k.startswith("r"):
             w = int(k[1:])
             x[k] = s.pct_change(w)
@@ -114,11 +136,14 @@ def asof_join(wide: pd.DataFrame, bar_ts, lag_days: int, max_stale_days: int) ->
     asof = idx - pd.Timedelta(days=lag_days)
     union = wide.index.union(asof)
     picked = wide.reindex(union).ffill().reindex(asof)
-    seen = pd.Series(union, index=union).where(
-        wide.notna().any(axis=1).reindex(union, fill_value=False))
-    stale = (pd.Series(asof, index=asof) - seen.ffill().reindex(asof)).dt.days > max_stale_days
-    picked[stale.values] = np.nan
-    return picked
+    # ⚠ **古さは列ごとに見る。** ⚠ **2026-09-16 までは「どれかの列に値があるか」で見ていた**ので、
+    # `d1` に値があるかぎり、欠損が続く `z20` の古い値が貼られ続けた
+    seen = pd.DataFrame(np.where(wide.notna().values, wide.index.values[:, None],
+                                 np.datetime64("NaT", "ns")),
+                        index=wide.index, columns=wide.columns)
+    last = seen.reindex(union).ffill().reindex(asof)
+    age = (asof.values[:, None] - last.values) / np.timedelta64(1, "D")
+    return picked.mask(age > max_stale_days)
 
 
 @register("feature", "ex")

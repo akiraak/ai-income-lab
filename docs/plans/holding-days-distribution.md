@@ -2,7 +2,7 @@
 
 作成: 2026-09-17 ／ 状態: プラン（未着手）
 対象: `experiments/feature-discovery/`（`ail/validation/simulate.py`・`cli/run.py`・`ail/validation/checks.py`・`ail/runs.py`）、`dashboard/vibetab.py`
-派生元: TODO「疑問に思ったことを登録し解決していく」の子タスク **「保有日数の中央値など分布が知りたい。保有日数の短い取引ほど手数料が重くなってくるので」**
+派生元: TODO「疑問に思ったことを登録し解決していく」の子タスク「保有日数の中央値など分布が知りたい。保有日数の短い取引ほど手数料が重くなってくるので」。⚠ **2026-09-17 に利用者の指示で独立タスク「保有日数の分布（中央値・分位点）を出し、保有が短い取引ほどコストが重いことを数字にする」になった**
 関連: [rules.md 13-4](../specs/experiments/feature-discovery/rules.md)（状態機械とコスト）／ [rules.md 15-7](../specs/experiments/feature-discovery/rules.md)（日次系列を残す）／ [dashboard.md §10-5](../specs/dashboard.md)（閾値売買の画面）
 
 ## 1. 目的・背景

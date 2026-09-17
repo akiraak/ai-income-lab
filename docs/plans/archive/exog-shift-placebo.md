@@ -1,8 +1,9 @@
 # 割り当てなしの災害系列（`ex_`）の改善を、日付をずらした偽薬で確かめる
 
-作成: 2026-09-16 ／ 対象: `experiments/feature-discovery/`（`ail/features/exog.py`・`cli/build.py`・`cli/run.py`・`ail/catalog.py`）
-派生元: [daily-data-sources.md §13-4](../specs/experiments/daily-data-sources.md)（社会にインパクトを与えそうなデータ・2026-09-16 完了）
-関連: [rules.md](../specs/experiments/feature-discovery/rules.md) ／ 次の作業「titan で `ex_` / `im_` を使う実験を回し直し、台帳を吐き直す」（TODO）
+作成: 2026-09-16 ／ **完了: 2026-09-17** ／ ⚠ **結果は [記録 §15](../../specs/experiments/daily-data-sources.md)**（本物は偽薬 27 本すべての上・p=0.036。⚠ **ただし fold 1 頼みで保留のまま**）
+対象: `experiments/feature-discovery/`（`ail/features/exog.py`・`cli/build.py`・`cli/run.py`・`ail/catalog.py`）
+派生元: [daily-data-sources.md §13-4](../../specs/experiments/daily-data-sources.md)（社会にインパクトを与えそうなデータ・2026-09-16 完了）
+関連: [rules.md](../../specs/experiments/feature-discovery/rules.md) ／ 次の作業「titan で `ex_` / `im_` を使う実験を回し直し、台帳を吐き直す」（TODO）
 
 > ⚠ **2026-09-17 の変更**: 作業の途中で ⚠ **origin/main に titan の 49 commit があり、Sx360 が古い土台で進めていた**ことが分かった。利用者の判断（titan を正に取り込む）でマージした。⚠ **`start_date` は titan に揃えて 2018-06-15**、⚠ **本物（`impact_ex_2018`）と価格だけ（`own_impact_2018`）もマージ後のコードで回し直してから偽薬と比べる**（§2-3 の「本物」の数字は 05-21 始まりの参考値で、判定には回し直した値を使う）。⚠ **§2-2 の本数・ずらし幅と §2-3 の規則は変えていない。**
 
@@ -86,7 +87,7 @@ flowchart LR
 | 1 | `ex_shift_days`（層）・`--shift-days`（`cli.build` / `cli.run`、名前に `_shift<S>`）・台帳で偽薬の実行を試行から外す | ⚠ **ずらした値が S 日前の値と一致するテスト、0 以下を拒むテスト、台帳に入らないテスト**が通る |
 | 2 | `impact_daily` の NCEI を 2010 年から、`impact_warnings` の IEM を 2010-01-01 から取り直す。退避した表と比べる | ⚠ **災害 5 本の表が 131,250 行・値まで一致**（違えば差を説明し、本物を回し直す） |
 | 3 | 27 本を build → run（1 本 約 6 分【推測】） | `runs/*_shift<S>` が 27 個。⚠ **行と（銘柄, 日）の鍵が本物と一致** |
-| 4 | §2-3 の量と p 値、fold ごとの形、選ばれた列を [daily-data-sources.md](../specs/experiments/daily-data-sources.md) §15 に書く | ⚠ **判定を §2-3 の規則どおりに書く** |
+| 4 | §2-3 の量と p 値、fold ごとの形、選ばれた列を [daily-data-sources.md](../../specs/experiments/daily-data-sources.md) §15 に書く | ⚠ **判定を §2-3 の規則どおりに書く** |
 
 ## 4. 影響範囲
 
@@ -97,7 +98,7 @@ flowchart LR
 | `ail/catalog.py` ／ `cli/report.py` | ⚠ **`_shift<S>` の実行は試行に数えず、台帳の行にも混ぜない**（鍵が「own ex」で本物と同じなので、混ぜると代表の行を乗っ取る）。実行の一覧には残す |
 | `data/raw/ncei_storm` ／ `data/raw/iem` | 2010〜2017 年が増える（git 管理外） |
 | `config/dataset/impact_daily.toml` ／ `impact_warnings.toml` | 年の範囲を 2010 年から |
-| `dashboard/app/experiments.py` ／ テンプレート | ⚠ **検証の画面でも偽薬を順位表から外し、別枠に出す**（実装中に足した。本物と同じタイトルで 27 本並ぶと本物が埋もれる）。仕様 [dashboard.md §10-1・§10-2](../specs/dashboard.md) |
+| `dashboard/app/experiments.py` ／ テンプレート | ⚠ **検証の画面でも偽薬を順位表から外し、別枠に出す**（実装中に足した。本物と同じタイトルで 27 本並ぶと本物が埋もれる）。仕様 [dashboard.md §10-1・§10-2](../../specs/dashboard.md) |
 | `cli/fetch.py` | `--source`（1 つの取得元だけを取り直す。⚠ **同じ dataset の EPU を巻き込んで版を変えない**） |
 | ⚠ **触らないもの** | `im_` 層、`own_` 等の層、`gpu_*` |
 

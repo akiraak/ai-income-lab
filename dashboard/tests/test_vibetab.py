@@ -556,3 +556,68 @@ def test_real_glossary_covers_the_words_that_block_reading():
     names = {t["name"] for s in vibetab.load_glossary() for t in s["term"]}
     for w in ("試行", "DSR（デフレーテッド SR）", "上乗せ", "門前", "ex_ / im_", "cert（sandbox）"):
         assert w in names
+
+
+# ---------------------------------------------------------------- ハード（dashboard.md §14）
+
+import hwstat  # noqa: E402
+
+XSS = "<script>alert(1)</script>"
+
+
+def canned_snapshot(prev):
+    """⚠ 本物の nvidia-smi・/proc を読まない。プロセスの名前に script を仕込んである。"""
+    snap = {"ts": 1789760902.0,
+            "gpu": {"ok": True, "error": None, "procs_error": None,
+                    "gpus": [{"index": 0, "name": "TEST GPU", "utilization.gpu": 34.0,
+                              "memory.used": 1294.0, "memory.total": 24564.0, "memory.pct": 5.3,
+                              "temperature.gpu": 49.0, "power.draw": 63.7, "power.limit": 480.0,
+                              "fan.speed": 31.0, "pstate": "P3", "throttle": []}],
+                    "procs": [{"pid": 1, "cmdline": XSS, "elapsed_s": 60, "rss_kb": 1024}]},
+            "cpu": {"total_pct": 40.0, "per_thread_pct": [50.0, 30.0], "threads": 2,
+                    "loadavg": [1.0, 1.0, 1.0]},
+            "mem": hwstat.parse_meminfo("MemTotal: 100 kB\nMemAvailable: 40 kB\n"),
+            "disks": [{"mount": "/", "total": 1000, "used": 990, "free": 10, "used_pct": 99.0}]}
+    return snap, {}
+
+
+@pytest.fixture()
+def hw_server(runs_dir, exp_dir):
+    sampler = hwstat.Sampler(read=canned_snapshot, interval_s=5.0)
+    srv = vibetab.ThreadingHTTPServer(
+        ("127.0.0.1", 0), vibetab.make_handler(runs_dir, vibetab.ExpPaths(exp_dir), sampler))
+    srv.daemon_threads = True
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    yield f"http://127.0.0.1:{srv.server_address[1]}", sampler
+    srv.shutdown()
+
+
+def test_hardware_routes(hw_server):
+    base, sampler = hw_server
+    assert not sampler.running                      # ⚠ handler を作っただけでは見張りは起きない
+    status, body = _get(f"{base}/hardware/api/sidebar")
+    assert status == 200 and [i["id"] for i in json.loads(body)["items"]] == ["now", "history"]
+    status, body = _get(f"{base}/hardware/api/snapshot")
+    snap = json.loads(body)
+    assert status == 200 and snap["gpu"]["gpus"][0]["name"] == "TEST GPU" and snap["interval_s"] == 5.0
+    status, body = _get(f"{base}/hardware/api/history")
+    hist = json.loads(body)
+    assert status == 200 and hist["points"][-1]["gpu_util"] == 34.0 and len(hist["series"]) == 6
+    assert _get(f"{base}/hardware/view?item=history")[0] == 200
+    assert _get(f"{base}/hardware/view?item=nai")[0] == 404
+    assert _get(f"{base}/hardware/api/nazo")[0] == 404
+    # ⚠ JSON の経路はハードだけ。他のタブに生えていない
+    assert _get(f"{base}/data/api/snapshot")[0] == 404
+    # 既存のタブは変わっていない
+    assert _get(f"{base}/experiments/view?item=overview")[0] == 200
+    assert _get(f"{base}/glossary/view?item=all")[0] == 200
+
+
+def test_hardware_view_embeds_data_without_raw_markup(hw_server):
+    base, _ = hw_server
+    status, body = _get(f"{base}/hardware/view?item=now")
+    assert status == 200 and 'id="hw-data"' in body and "TEST GPU" in body
+    # ⚠ プロセスの名前は他人が決められる文字列。生の <script> が HTML に出ない（XSS の入口を固定）
+    assert XSS not in body and "\\u003cscript>alert(1)" in body
+    # ⚠ 描く側は textContent だけ。innerHTML に連結しない
+    assert "innerHTML" not in body

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""vibeboard のカスタムタブ「検証」「データ」「用語」の中身を出す小さなサーバ。
+"""vibeboard のカスタムタブ「検証」「データ」「用語」「ハード」の中身を出す小さなサーバ。
 
 vibeboard 本体が `/ext/<name>/...` でこのサーバへ中継する（プラン:
 docs/plans/vibeboard-experiments-tabs.md）。読むものと読み方は管理画面と同じで、
@@ -10,6 +10,9 @@ docs/plans/vibeboard-experiments-tabs.md）。読むものと読み方は管理�
   - `/data/api/sidebar` ・ `/data/view?item=<節>` ・ `/data/api/watch`
   - `/glossary/api/sidebar` ・ `/glossary/view?item=<節|all>` ・ `/glossary/api/watch`
     （用語は `dashboard/glossary.toml` が正本。⚠ **説明をこのコードに持たない**）
+  - `/hardware/api/sidebar` ・ `/hardware/view?item=<now|history>` ・ `/hardware/api/watch`
+    ＋ `/hardware/api/snapshot` ・ `/hardware/api/history`（画面が自前で取りに来る JSON）
+    （読み手は `hwstat.py`、画面は `hwview.py`。⚠ **値を読むのは見張り 1 本**。dashboard.md §14）
 
 ⚠ **標準ライブラリだけで書く**（venv 不要。vibeboard の sidecar が `python3` で起こす）。
 ⚠ **bind は 127.0.0.1 固定**。外に出る経路は vibeboard の中継だけ。
@@ -32,6 +35,8 @@ DASHBOARD_DIR = Path(__file__).resolve().parent
 REPO_ROOT = DASHBOARD_DIR.parent
 sys.path.insert(0, str(DASHBOARD_DIR))
 
+import hwstat  # noqa: E402
+import hwview  # noqa: E402
 from app import experiments, inventory  # noqa: E402
 
 DEFAULT_PORT = 3015
@@ -116,7 +121,7 @@ def fmt(v, digits: int = 2) -> str:
     return esc(v)
 
 
-def page(title: str, body: str) -> str:
+def page(title: str, body: str, extra_css: str = "") -> str:
     """view の HTML を 1 枚に組む。⚠ 外部リソースなし・CSS は同梱。"""
     return f"""<!doctype html>
 <html lang="ja"><head><meta charset="utf-8">
@@ -137,7 +142,7 @@ def page(title: str, body: str) -> str:
  details {{ margin: 4px 0; }}
  summary {{ cursor: pointer; }}
  code {{ font-size: 12px; }}
-</style></head>
+{extra_css}</style></head>
 <body>
 {body}
 </body></html>"""
@@ -802,6 +807,22 @@ def glossary_html(item: str, path: Path | None = None) -> str | None:
     return page(title, "\n".join(body))
 
 
+# ---------------------------------------------------------------- ハード（hwstat / hwview）
+
+
+def hw_sidebar() -> dict:
+    return {"items": [{"id": i, "label": label} for i, label in hwview.ITEMS]}
+
+
+def hw_html(item: str, sampler: hwstat.Sampler) -> str | None:
+    """⚠ 値は JSON で埋め込み、描くのは画面の script（hwview.py）。ここは枠を組むだけ。"""
+    if item == "now":
+        return page("ハードの利用状況", hwview.now_body(sampler.latest()), hwview.CSS)
+    if item == "history":
+        return page("この 1 時間", hwview.history_body(sampler.history()), hwview.CSS)
+    return None
+
+
 # ---------------------------------------------------------------- 変更の見張り（SSE）
 
 
@@ -854,11 +875,16 @@ def glossary_fingerprint(path: Path | None = None) -> dict[str, float]:
 # ---------------------------------------------------------------- HTTP
 
 
-def make_handler(runs_dir: Path, paths: ExpPaths):
+def make_handler(runs_dir: Path, paths: ExpPaths, sampler: hwstat.Sampler | None = None):
+    # ⚠ ここでは見張りを起こさない（起こすのは main()）。止まっている Sampler は要求のたびにその場で読む
+    sampler = sampler or hwstat.Sampler()
+
     class Handler(BaseHTTPRequestHandler):
         protocol_version = "HTTP/1.1"
 
         def log_message(self, fmt_, *args):  # 1 行ログ（vibeboard 側で [name] が付く）
+            if "/hardware/api/" in (getattr(self, "path", "") or ""):
+                return                    # 画面が数秒おきに取りに来る。ログを埋めない
             sys.stdout.write(f"{self.address_string()} {fmt_ % args}\n")
             sys.stdout.flush()
 
@@ -881,7 +907,7 @@ def make_handler(runs_dir: Path, paths: ExpPaths):
             if url.path == "/":
                 self._send(200, "text/plain; charset=utf-8", "vibetab ok\n")
                 return
-            if tab not in ("experiments", "data", "glossary"):
+            if tab not in ("experiments", "data", "glossary", "hardware"):
                 self._send(404, "text/plain; charset=utf-8", "not found\n")
                 return
             if rest == "":
@@ -889,7 +915,8 @@ def make_handler(runs_dir: Path, paths: ExpPaths):
             elif rest == "api/sidebar":
                 sidebar = {"experiments": lambda: exp_sidebar(runs_dir),
                            "data": lambda: data_sidebar(paths),
-                           "glossary": glossary_sidebar}[tab]()
+                           "glossary": glossary_sidebar,
+                           "hardware": hw_sidebar}[tab]()
                 self._send(200, "application/json; charset=utf-8",
                            json.dumps(sidebar, ensure_ascii=False))
             elif rest == "view":
@@ -898,6 +925,8 @@ def make_handler(runs_dir: Path, paths: ExpPaths):
                     body = exp_overview_html(runs_dir) if item == "overview" else exp_run_html(runs_dir, item)
                 elif tab == "glossary":
                     body = glossary_html(item)
+                elif tab == "hardware":
+                    body = hw_html(item, sampler)
                 else:
                     body = data_section_html(paths, item)
                 if body is None:
@@ -906,6 +935,9 @@ def make_handler(runs_dir: Path, paths: ExpPaths):
                     self._send(200, "text/html; charset=utf-8", body)
             elif rest == "api/watch":
                 self._watch(tab)
+            elif tab == "hardware" and rest in ("api/snapshot", "api/history"):
+                obj = sampler.latest() if rest == "api/snapshot" else sampler.history()
+                self._send(200, "application/json; charset=utf-8", json.dumps(obj, ensure_ascii=False))
             else:
                 self._send(404, "text/plain; charset=utf-8", "not found\n")
 
@@ -914,9 +946,11 @@ def make_handler(runs_dir: Path, paths: ExpPaths):
             self.send_header("Content-Type", "text/event-stream; charset=utf-8")
             self.send_header("Cache-Control", "no-store")
             self.end_headers()
+            # ハードは画面が自前で取りに来る（README の契約の「自前更新」）。ここは繋がるだけで何も投げない
             take = {"experiments": lambda: exp_fingerprint(runs_dir),
                     "data": lambda: data_fingerprint(paths),
-                    "glossary": glossary_fingerprint}[tab]
+                    "glossary": glossary_fingerprint,
+                    "hardware": dict}[tab]
             last = take()
             last_ping = time.monotonic()
             try:
@@ -965,14 +999,16 @@ def main(argv: list[str] | None = None) -> None:
 
     runs_dir = Path(args.runs_dir).resolve()
     paths = ExpPaths(Path(args.exp_dir).resolve())
+    sampler = hwstat.Sampler()
     try:
-        srv = ThreadingHTTPServer(("127.0.0.1", args.port), make_handler(runs_dir, paths))
+        srv = ThreadingHTTPServer(("127.0.0.1", args.port), make_handler(runs_dir, paths, sampler))
     except OSError as e:
         # sidecar は起動前に baseUrl を叩くが、直後の 2 本目とは競走になり得る。
         # 二重起動は静かに引く（先に居るほうが正）
         print(f"[vibetab] port {args.port} を bind できない（{e}）。先に居るものに任せて終了する")
         return
     srv.daemon_threads = True
+    sampler.start()                       # ⚠ bind できた後で起こす（二重起動で引くほうは読まない）
     print(f"[vibetab] listening on http://127.0.0.1:{args.port} "
           f"(runs={runs_dir}, exp={paths.exp_dir})")
     try:

@@ -146,4 +146,16 @@
   利用者の指示（2026-09-16）。着手時にプランを作る
   ⚠ **外部サービスにコードを渡す**ので、git 管理外の資格情報・記録（`.env`・`out/` など）を含めない
 
-  ⚠ vibeboard は vendor（`vibeboard/`）で、本体は akiraak/vibeboard。⚠ **vendor だけ直すと `vibeboard update` で消える**ので、本体に反映してから vendor を更新する（2026-09-11 のタスク追加と同じ経路）
+- [ ] vibeboard に GPU を含んだハードの利用状況のページを追加 [plan](docs/plans/vibeboard-hardware-tab.md)
+  利用者の指示（2026-09-18）。着手時にプランを作る
+  出すもの（案）: GPU（使用率・メモリ・温度・電力・ファン）／ CPU（load average・スレッド別の使用率）／ メモリと swap ／ ディスク（`/` と `/mnt/c`。【実測 2026-09-18】`C:` は 1.8T / 1.9T ＝ 99%・残り 33G）／ GPU を使っているプロセス
+  方針（案）: 検証・データのタブと同じ customTabs に 1 枚足す（`dashboard/vibetab.py`・127.0.0.1:3015・標準ライブラリのみ）。GPU は `nvidia-smi --query-gpu=… --format=csv,noheader,nounits` を subprocess で読み、CPU・メモリ・ディスクは `/proc/loadavg`・`/proc/stat`・`/proc/meminfo`・`shutil.disk_usage` で読む（⚠ **psutil / pynvml は入っていない**ので足さない）。⚠ **customTabs の baseUrl に dashboard（3012）を指定しない**（CLAUDE.md）
+  ⚠ **WSL2 の制限**【実測 2026-09-18】: `nvidia-smi` の**プロセス別 GPU メモリは `N/A`**（PID と名前だけ出る。合計の `memory.used` は読める）／ `sensors` は無く **CPU 温度は読めない**（GPU の温度は読める）。出せないものは欄を作らず「WSL2 では読めない」と 1 行書く
+  着手時に決める: 更新の間隔（ポーリング or SSE）／ 履歴を持つか（持つなら置き場と保持期間。持たなければ今の値だけ）／ `nvidia-smi` が無い・失敗したときの表示
+  ⚠ vibeboard は vendor（`vibeboard/`）で、本体は akiraak/vibeboard。⚠ **vendor だけ直すと `vibeboard update` で消える**ので、本体に手を入れるなら本体に反映してから vendor を更新する（2026-09-11 のタスク追加と同じ経路）。customTabs で済めば本体は触らない
+  関連: [vibeboard-experiments-tabs.md](docs/plans/archive/vibeboard-experiments-tabs.md)
+  - [x] Phase 0: 仕様を書く（`docs/specs/dashboard.md` §14「ハードの画面」。`nvidia-smi` の列名を実機で確かめて固定する）
+  - [x] Phase 1: 読み手 `dashboard/hwstat.py`（parse の純関数 ＋ `read_snapshot`。失敗の 3 通り・消えた PID・cmdline の伏せ字。テストは GPU に頼らない）
+  - [~] Phase 2: タブ `/hardware`（見張りのスレッド 1 本・`api/snapshot`・自前更新の画面・`vibeboard.config.json`・sidecar の入れ直し・tailnet 越しの確認）
+    2026-09-18: 実装とテスト（pytest 25 件）・別ポート（3016）での実機確認・明暗の画面の目視まで済み。⚠ **残るのは利用者が `./run-vibeboard.sh` を入れ直して**（vibeboard は設定を起動時にしか読まない。3010 は Claude が触らなかった）、`/#hardware/now` をブラウザと `http://titan-income-vibeboard` 越しで見ること。済んだら親を `DONE.md` へ、プランを archive へ移し、`dashboard.md` §14 のプランへのリンクを archive 側に直す。CLAUDE.md に足す 1 行の案はプラン §7
+  - [x] Phase 3: この 1 時間の履歴（メモリ上の輪 720 点・折れ線 6 本。⚠ ディスクに書かない）

@@ -223,6 +223,80 @@ flowchart LR
   API["tastytrade の API<br/>（監視ループ）"] --> G1
 ```
 
+#### 2-1. 棚卸しの結果 — 機能 31 行【コードから読んだ 2026-09-18、`main.py`・`templates/`・`access.py`】
+
+⚠ **面**は `require_local()` の有無で決まる（`/ops` と `/dev` の系統だけがローカル面。`/ops/halt` は両面）。
+⚠ **場面**は Phase 1 の番号（1 日次の確認・2 停止・3 口座と接続の監視・4 本番 1 株の立会い・5 停止の解除・6 記録と判定・7 手動の注文・8 開発・9 検証とデータ）。
+⚠ **参照元**はいま生きている文書・テスト・コードだけ（アーカイブのプランは経緯なので数えない）。記号: C ＝ CLAUDE.md ／ R ＝ `dashboard/README.md` ／ S ＝ `docs/specs/dashboard.md` ／ P ＝ 実売買のプラン ／ A ＝ `tastytrade-api-sample.md` ／ L ＝ `live-trading.md` ／ V ＝ `dashboard/vibetab.py` の import ／ T ＝ `dashboard/tests/`
+
+| # | 画面 | 機能 | 経路 | 面 | 材料 | 参照元 | 場面 |
+| ---: | --- | --- | --- | --- | --- | --- | --- |
+| 1 | 監視 | 環境ごとの認証（残り秒数・scope・refresh の成否） | `GET /`・`GET /api/state` | 両面 | API（監視ループ） | C・R・S §1・T `test_app` | 3・4 |
+| 2 | 監視 | 口座・残高・買付余力・建玉 | 同上 | 両面 | 同上 | 同上 | 3・4 |
+| 3 | 監視 | 働いている注文の一覧 | 同上 | 両面 | 同上 | 同上 | 3・4 |
+| 4 | 監視 | 働いている注文を 1 件取り消すボタン | `POST /ops/cancel`（監視パネルから） | ⚠ ローカル（ボタンもローカル面にだけ出る） | API | S §1（⚠ 経路を名指しするテストは無い） | 2・4 |
+| 5 | 監視 | 現在値と遅延（prod の気配・DXLink） | `GET /` | 両面 | API | S §1 | 3 |
+| 6 | 監視 | 口座ストリーマ・DXLink の接続・切断と再接続 | `GET /` | 両面 | API | S §1 | 3 |
+| 7 | 監視 | 認証の再試行（3 回続けて失敗して止めた後） | `POST /ops/retry-auth` | ローカル | API | ⚠ 名指しする文書・テストは無い | 3 |
+| 8 | 監視 | 監視の事象（refresh・切断・429 など直近 30 件） | `GET /`・`GET /api/events` | 両面 | 事象（`data/monitor/*.jsonl`） | S §1・§4・T `test_app` | 3・6（観点 A の材料） |
+| 9 | 監視 | 5 秒ごとの部分更新 | `GET /?partial=1`（`app.js`） | 両面 | — | S §1 | 3 |
+| 10 | 記録 | 実行記録の一覧 | `GET /records`・`GET /api/records` | 両面 | サンプルの記録（`tastytrade-api-sample/out/`） | C・R・S §1・T `test_app` | 6 |
+| 11 | 記録 | 1 実行の詳細（手順ごと・同じ環境の他の実行） | `GET /records/{run_id}` | 両面 | 同上 | 同上 | 6 |
+| 12 | 記録 | 実行間の差分（所要 ms・状態遷移の時刻の B − A） | `GET /records/diff` | 両面 | 同上 | S §1・T `test_app` | 6 |
+| 13 | 判定 | 6 観点 × 会場の自動判定 | `GET /judge`・`GET /api/judge` | 両面 | サンプルの記録 ＋ 監視の事象 | C・R・S §1・§5・⚠ P Phase 0 の 1・A §1・T `test_app`・`test_demo` | 6 |
+| 14 | 検証 | 検証の順位表（最良手法の純利 bp と検査） | `GET /experiments`・`GET /api/experiments` | 両面 | `AIL_RUNS_DIR` | C・S §10・⚠ V・T `test_experiments` | 9 |
+| 15 | 検証 | 1 検証の詳細 | `GET /experiments/{run_id}` | 両面 | 同上 | 同上 | 9 |
+| 16 | データ | データの在庫 | `GET /data`・`GET /api/data` | 両面 | `AIL_EXP_DIR` | S §11・⚠ V・T `test_inventory`・`test_app` | 9 |
+| 17 | 実売買 | トレーダーの表（予算・銘柄・モデル・合成・θ・株数・建玉・損益・最終日） | `GET /live`・`GET /api/live` | 両面 | `AIL_LIVE_DIR`（執行器の記録） | P Phase 4・S §13・T `test_live` | 1 |
+| 18 | 実売買 | 執行の差（差 1〜4 のカード 5 枚。⚠ 全トレーダーまとめた値） | `GET /live` | 両面 | 同上 | 同上 | 1 |
+| 19 | 実売買 | 最新の日（合図・注文・内部移転・残高） | `GET /live` | 両面 | 同上 | 同上 | 1 |
+| 20 | 実売買 | 日次（直近 20 日。⚠ 全トレーダーまとめた 1 日 1 行） | `GET /live` | 両面 | 同上 | 同上 | 1 |
+| 21 | 操作 | 停止ボタン（`HALT` ＋ 働いている注文を全部取消） | `POST /ops/halt`（ヘッダと `/ops`） | 両面 | `HALT`・API | C・P・S §1・L §0-5・T `test_app` | 2（固定） |
+| 22 | 操作 | 停止の解除 | `POST /ops/resume` | ローカル | `HALT` | R・T `test_app` | 5（固定） |
+| 23 | 操作 | 手動の dry-run（cert ／ prod。prod は鍵つき） | `POST /ops/dry-run` | ローカル | API | C・R・S §1・T `test_app` | 7 |
+| 24 | 操作 | 手動の発注（cert ／ prod。prod は鍵 ＋ 確認文） | `POST /ops/submit` | ローカル | API | 同上 | 7 |
+| 25 | 操作 | 手動の取消（id 指定） | `POST /ops/cancel` | ローカル | API | S §1 | 7 |
+| 26 | 操作 | 後片付け（その環境の働いている注文を全部取消） | `POST /ops/cleanup` | ローカル | API | S §1 | 7 |
+| 27 | 操作 | 操作の画面と履歴（直近 30 件） | `GET /ops` | ローカル | 操作の履歴（`data/ops/history.jsonl`） | C・R・S §1・T `test_app` | 5・7 |
+| 28 | 開発 | 開発の画面・モックの起動と停止 | `GET /dev`・`POST /dev/mock/start`・`POST /dev/mock/stop` | ローカル | `mock_server.py` | C・R・S §1・T `test_app` | 8 |
+| 29 | 開発 | `selftest.sh` の実行 | `POST /dev/selftest` | ローカル | `selftest.sh` | 同上 | 8 |
+| 30 | 開発 | `sample.py` の手順の実行 | `POST /dev/run` | ローカル | `sample.py` | 同上 | 8 |
+| 31 | 開発 | ジョブの出力の逐次表示・停止 | `GET /dev/jobs/{job_id}`・`POST /dev/jobs/{job_id}/stop` | ローカル | ジョブ（`data/jobs/`） | S §1 | 8 |
+
+#### 2-2. 経路を持たない共通の部品
+
+| 部品 | 置き場 | 何のため | 場面 |
+| --- | --- | --- | --- |
+| ヘッダ（ナビ・環境バッジと scope・面の表示・停止ボタン） | `base.html` | 全画面 | 2（固定） |
+| 停止中の赤い帯・デモの帯・通知の帯 | `base.html` | 全画面 | 2（固定） |
+| 監視ループ（環境ごとに REST の認証 refresh・口座・建玉・注文・気配、口座ストリーマ、DXLink） | `app/monitor.py` | 1〜9・`/ops`・判定の観点 A | 3・6 |
+| 監視の事象の記録 | `data/monitor/*.jsonl` | 8・13（⚠ 観点 A は g3plus の監視ループが埋める） | 3・6 |
+| 面の検査（loopback ／ LAN ／ Cloudflare Access の JWT） | `app/access.py` | 全経路 | 固定 |
+| 秘密のマスク（`Redactor`） | `app/masking.py` | 全応答 | 固定 |
+| セキュリティヘッダ（CSP・`no-store`） | `app/main.py:132` | 全応答。⚠ **グラフの作り方に効く**（1-7） | 固定 |
+| デモ（モックの自動起動・`data/demo/`） | `app/main.py`・`app/config.py` | 鍵なしで全画面を動かす（S §6-2・T `test_demo`） | — |
+| 部分更新の JS | `app/static/app.js` | 監視 5 秒・ジョブの出力 | 3・8 |
+| ⚠ **vibeboard のタブが使う部品** | `app/experiments.py`・`app/inventory.py` | ⚠ **`dashboard/vibetab.py` が import している** | 9 |
+
+#### 2-3. 照合（テスト方針のとおり）
+
+| 照合 | 結果 |
+| --- | --- |
+| 経路（`@app.get` ／ `@app.post`） | ⚠ **31 本すべてが 2-1 のどこかの行に出る**（機械で照合。下の注） |
+| テンプレート 15 本 | `base`（2-2）・`index` ／ `monitor_panel`（1〜9）・`records`（10）・`record`（11）・`diff`（12）・`judge`（13）・`experiments`（14）・`experiment`（15）・`data`（16）・`live`（17〜20）・`ops`（21〜27）・`dev`（28〜30）・`job` ／ `job_panel`（31）＝ 15 本 |
+| JSON（`/api/*`） | 7 本（`state`・`events`・`records`・`judge`・`experiments`・`data`・`live`）＝ 1・8・10・13・14・16・17 の行 |
+
+注: 2-1 の表から `` `GET …` `` ／ `` `POST …` `` を抜き出し、`main.py` の `@app.get(…)` ／ `@app.post(…)` の一覧と突き合わせた（`/?partial=1` は `GET /` と同じ経路）。
+
+#### 2-4. Phase 3 への引継ぎ — 棚卸しで見えたこと
+
+- ⚠ **場面が混ざっている経路がある**: `POST /ops/cancel` は監視パネルの「1 件取消」（場面 2・4）と `/ops` の手動の取消（場面 7）の両方が使う。`GET /ops` は停止の解除（場面 5・固定）と手動の注文（場面 7）を同じ画面に載せている。⚠ **場面 7 を外すときも、この 2 つは丸ごと消せない**
+- ⚠ **`/ops/dry-run`・`/ops/submit` は prod も通る**（鍵 ＋ 確認文があるとき）。⚠ **本番の手動発注ができる画面はここだけ**。鍵の 3 段そのものは `ttclient` にあり、画面を外しても消えない
+- ⚠ **検証・データの画面を外しても、`app/experiments.py`・`app/inventory.py` は残す**（vibeboard のタブが import している）
+- ⚠ **判定（13）を外すのは観点 A を見届けた後**（P Phase 0 の 1 が名指ししている。1-4 の期限つき）
+- 主な使い方（1-6）に対して、いまある実売買の機能は 17〜20 の 4 行だけで、⚠ **そのうち 18・20 は全トレーダーをまとめた値**
+- 名指しする文書もテストも無い経路がある（7 認証の再試行・26 後片付け・28〜29 のモックと selftest）。⚠ **外すときに直す参照元が少ない＝外しやすいが、テストが経路を固定していない**
+
 ### Phase 3: 突き合わせて、決定表の下書きを作る
 
 Phase 1 の場面 × Phase 2 の機能を突き合わせ、1 機能 1 行の決定表にする。
@@ -278,7 +352,7 @@ flowchart LR
 ## Phase / Step
 
 1. ✅ Phase 1: 使う場面を書き出す（2026-09-18。残る場面 5 つ・期限つき 1 つ・外す候補 3 つ。⚠ 主な使い方は各トレーダーの行動と実績と比較。⚠ 見せ方は分かりやすさ重視・グラフも使う。1-4〜1-7）
-2. ⬜ Phase 2: いまある機能を棚卸しする（旧「現在の機能を列挙して、必要・不要を決める」を統合。経路 31 本と照合）
+2. ✅ Phase 2: いまある機能を棚卸しする（2026-09-18。機能 31 行 ＋ 共通の部品 10。経路 31 本・テンプレート 15 本・JSON 7 本と照合。2-1〜2-4）
 3. ⬜ Phase 3: 突き合わせて、決定表の下書きを作る（見立て・理由・参照元）
 4. ⬜ Phase 4: 利用者が決め、本プランと `dashboard.md` §1 に記録する
 

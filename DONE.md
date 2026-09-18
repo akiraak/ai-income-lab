@@ -7,7 +7,7 @@
   - ⚠ **落とし穴 3 つ**（CLAUDE.md に書いた）: cert は市場時間でも `Session offline` で拒否することがある（25 分後に通った）／ `/orders/live` は終わった注文も混ざる ／ 気配の遅延は `Date` で補正した `delay_corrected_s` を使う
   - Phase 5（09-08）: 記録 §1 の 6 観点・訂正候補 15 件・未実測 4 件、overview §4/§6 と CLAUDE.md へ反映。判定は管理画面 `/judge` が記録から自動で組む
   - 着金（09-16・`--step probe`）: `cash-balance` 0.0 → 1000.0・`pending-cash` → 0.0。⚠ `cash-available-to-withdraw` は 0.0 のまま・買付余力は着金で増えていない（着金前から与信済み）・着金日は特定できない
-  - 残したもの: 観点 A（監視で自動）／ 429 が出る水準 ／ 約定価格と気配の差（本番の発注が要る）→ ⚠ **「予想モデル 3 本 … 実際に売買して記録を残す」の Phase 0・5 で埋める**
+  - 残したもの: 観点 A（監視で自動）／ 429 が出る水準 ／ 約定価格と気配の差（本番の発注が要る）→ ⚠ **「トレーダー 3 人 … 実際に売買して記録を残す」の Phase 0・5 で埋める**
 
 - 2026-09-17 保有日数の分布（中央値・分位点）を出し、保有が短い取引ほどコストが重いことを数字にした — ⚠ **二山（1〜2 日 と fold 持ち切り）。代表構成では取引の 28% が保有 2 日以下で全コストの 28% を払い、保有日の 0.7% しか持たない**
   - プラン: [docs/plans/archive/holding-days-distribution.md](docs/plans/archive/holding-days-distribution.md) / ⚠ **答え: [holding-days.md](docs/specs/experiments/feature-discovery/holding-days.md)**

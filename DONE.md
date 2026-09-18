@@ -1,4 +1,14 @@
 # DONE
+- 2026-09-17 tastytrade で、実際の API 取引のサンプルプログラムを動かした（2026-09-04〜09-16）— ⚠ **6 観点のうち 5 つが ✅、残る A（営業日を 2 日跨ぐ交換）は g3plus の監視で埋まる見込み。着金 $1,000 まで確認し、本番で 1 株（Phase 6）は次のタスクへ取り込んだ**
+  - プラン: [docs/plans/archive/tastytrade-api-sample.md](docs/plans/archive/tastytrade-api-sample.md) / ⚠ **記録: [tastytrade-api-sample.md](docs/specs/experiments/tastytrade-api-sample.md)**
+  - 対象は判定「高」・株 $0・API プレミアム $0・常駐プロセス不要の tastytrade 1 社（moomoo・IBKR は 2026-09-04 に外した。再開条件はプラン §1-2）。方針は (c)（sandbox ＋ 本口座 ＋ 入金 ＋ 本番で 1 株。2026-09-05・利用者）。⚠ **CLAUDE.md の 1 つ目の例外**
+  - Phase 0〜1（09-05）: OAuth パネルは実装済み・公式 SDK は archived で OpenAPI 直叩き・venv / JSONL / cert と prod の取り違え防止 / モックの自己検査（`selftest.sh`）
+  - Phase 2〜4（09-05・09-08 の市場時間）: 認証 900 秒で失効（「954 秒」は `exp − iat` の読み違い）・refresh は 3 日後も使える ／ 手順 4・5 は sandbox で `final_Cancelled`・`buy_Filled/sell_Filled`（SPY 1 株 $766.47）／ 気配の遅延はサーバの時計で −0.12 秒（⚠ WSL2 の時計では測れない）／ 60 回/分で 429 なし・中央値 133.9 ms ／ 口座ストリーマ ack 123 ms
+  - ⚠ **落とし穴 3 つ**（CLAUDE.md に書いた）: cert は市場時間でも `Session offline` で拒否することがある（25 分後に通った）／ `/orders/live` は終わった注文も混ざる ／ 気配の遅延は `Date` で補正した `delay_corrected_s` を使う
+  - Phase 5（09-08）: 記録 §1 の 6 観点・訂正候補 15 件・未実測 4 件、overview §4/§6 と CLAUDE.md へ反映。判定は管理画面 `/judge` が記録から自動で組む
+  - 着金（09-16・`--step probe`）: `cash-balance` 0.0 → 1000.0・`pending-cash` → 0.0。⚠ `cash-available-to-withdraw` は 0.0 のまま・買付余力は着金で増えていない（着金前から与信済み）・着金日は特定できない
+  - 残したもの: 観点 A（監視で自動）／ 429 が出る水準 ／ 約定価格と気配の差（本番の発注が要る）→ ⚠ **「予想モデル 3 本 … 実際に売買して記録を残す」の Phase 0・5 で埋める**
+
 - 2026-09-17 保有日数の分布（中央値・分位点）を出し、保有が短い取引ほどコストが重いことを数字にした — ⚠ **二山（1〜2 日 と fold 持ち切り）。代表構成では取引の 28% が保有 2 日以下で全コストの 28% を払い、保有日の 0.7% しか持たない**
   - プラン: [docs/plans/archive/holding-days-distribution.md](docs/plans/archive/holding-days-distribution.md) / ⚠ **答え: [holding-days.md](docs/specs/experiments/feature-discovery/holding-days.md)**
   - 派生元: 「疑問に思ったことを登録し解決していく」の子（利用者の指示 2026-09-17 で独立）。親「閾値売買の記録を広げる 4 本」の子
@@ -368,7 +378,7 @@
   - 利用者の指示（2026-09-13）: **TODO で不要なものがないかチェックする** → 5 件を提示し、⚠ **利用者が 3 件を落とすと裁定**（⚠ **「出来高を `trend` 層に足す」は残すと決めた**）
   - **落とした 1: 「vibeboard の「用語」タブを利用者の画面で確かめる」** — ⚠ **Claude 側に実行できる作業が残っていなかった**。✅ **サーバ側は 9/12 に確認済み**（3 タブとも 200・リンク 87 本・404 の原因だった古い sidecar も入れ直し済み）で、⚠ **残りはブラウザの再読み込みだけ**。⚠ **画面で何か欠けていたら新しいタスクとして起こす**
   - **落とした 2: 「moomoo・IBKR の実検証」** — ⚠ **方針と衝突したまま置かれていた**: [CLAUDE.md](CLAUDE.md) の 2026-09-05 例外は ⚠ **tastytrade 1 社にしか掛かっていない**のに、Phase 1・2 の中身（Gateway / OpenD が Linux ヘッドレスで動くか・2 要素が無人運転を止めるか）は ⚠ **口座開設と常駐実行を伴う実検証**である
-    - ⚠ **打ち切りではない。** 再開条件は [plan §1-2](docs/plans/tastytrade-api-sample.md) に、費用は [trading-fee-comparison.md §4](docs/specs/trading-fee-comparison.md) に、規約の穴（⚠ **moomoo の Web 規約 robot 禁止 R1**）は [trading-api-availability.md](docs/specs/trading-api-availability.md) に残っている。⚠ **文書は 1 行も消していない**
+    - ⚠ **打ち切りではない。** 再開条件は [plan §1-2](docs/plans/archive/tastytrade-api-sample.md) に、費用は [trading-fee-comparison.md §4](docs/specs/trading-fee-comparison.md) に、規約の穴（⚠ **moomoo の Web 規約 robot 禁止 R1**）は [trading-api-availability.md](docs/specs/trading-api-availability.md) に残っている。⚠ **文書は 1 行も消していない**
     - ⚠ **いま再開する理由が無い**: tastytrade は 6 観点のうち 5 つ ✅（残る A は監視で埋まる）
   - **落とした 3: 台帳タスクの重複行** — 「手間「中」の 6 件を回す」は ⚠ **直下の 6 行（F3-4・F3-6・F1-6・F2-1・F4-4・F5-4）と同じもの**で、しかも兄弟として並んでいた（親子ですらない）。⚠ **注記は 6 行の側にも同じ文が入っていたので情報は落ちていない**
   - **直した数字 3 つ**（⚠ **どれも台帳の現在値に合わせただけ**）

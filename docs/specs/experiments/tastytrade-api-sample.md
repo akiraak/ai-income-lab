@@ -1,6 +1,6 @@
 # tastytrade API 取引サンプル — 実測と判定
 
-実施日: 2026-09-05〜（進行中） / プラン: [docs/plans/tastytrade-api-sample.md](../../plans/tastytrade-api-sample.md)
+実施日: 2026-09-05〜09-16（⚠ **2026-09-17 に閉じた。本番で 1 株は [live-trading-three-models.md](../../plans/live-trading-three-models.md) の Phase 5 へ**） / プラン: [docs/plans/archive/tastytrade-api-sample.md](../../plans/archive/tastytrade-api-sample.md)
 コード: [experiments/tastytrade-api-sample/](../../../experiments/tastytrade-api-sample/)
 方針: **選択肢 (c)**（sandbox ＋ 本口座 ＋ 入金 ＋ 本番で 1 株）を 2026-09-05 に利用者が選択。
 CLAUDE.md にこの 1 手法だけの例外として追記した。**口座開設・入金・本番発注を実行するのは利用者**で、
@@ -16,7 +16,7 @@ Claude は手順とコードを示すところまで。
 | 1 | 環境と記録形式 | ✅ 完了（2026-09-05）。モックに対して 6 手順が通ることを確認 |
 | 2〜4 | 認証・REST・ストリーミングの【実測】 | ✅ **2026-09-08 の市場時間に完了**（§0-4）。気配の遅延・ストリーミング・レート制限・失効 900 秒・refresh の 3 日後再利用・**発注の往復**（⚠ 1 度目は `Session offline` で拒否、25 分後に成功） |
 | 5 | 記録と判定 | ✅ 完了（2026-09-08）。本書 §1 の 6 観点、管理画面の自動判定、overview §4・CLAUDE.md への反映 |
-| 6 | 本番で 1 株 | ⏸ 方針 (c)。利用者が入金と発注を行う |
+| 6 | 本番で 1 株 | ➡ **2026-09-17 に「予想モデル 3 本 … 実際に売買して記録を残す」（[プラン](../../plans/live-trading-three-models.md)）の Phase 5 へ取り込んだ**。利用者が発注を行う点は変わらない |
 
 ## 0. 実測 1 — 入金前の本番口座で気配は取れる（2026-09-05 14:09 ET）
 

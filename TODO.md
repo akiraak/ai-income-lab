@@ -114,33 +114,22 @@
     関連: [daily-data-sources.md](docs/specs/experiments/daily-data-sources.md)
   - [ ] データに曜日を含めたものを検証する
 
-- [ ] tastytrade で、実際の API 取引のサンプルプログラムを動かす [plan](docs/plans/tastytrade-api-sample.md)
-  - 対象は [docs/specs/service-trust-assessment.md](docs/specs/service-trust-assessment.md) の判定「高」で、[docs/specs/trading-fee-comparison.md](docs/specs/trading-fee-comparison.md) §4 で株 $0・API プレミアム $0、常駐プロセス不要の tastytrade 1 社。moomoo・IBKR は 2026-09-04 に対象から外した（再開条件はプラン §1-2）
-  - 動かす範囲: 認証 → 口座照会 → 現在値 → 指値・取消 → 約定・反対売買 → ストリーミング、の 6 手順を cert（sandbox）環境で
-  - **2026-09-05: 方針は (c)（sandbox ＋ 本口座 ＋ 入金 ＋ 本番で 1 株）に決定**。CLAUDE.md にこの 1 手法だけの例外として追記済み。⚠ 口座開設・入金・本番発注を実行するのは利用者（Claude は手順とコードまで）
-  - ✅ 2026-09-05: sandbox（$100,000）と本口座の資格情報が揃い、`.env` に設定済み。**待ちは市場時間だけ**
-  - [x] Phase 0: 方針の決定と cert 環境の入口の確認（OAuth パネルは実装済みと確認。公式 SDK は archived で OpenAPI 直叩きに決定。入金なしの quote token と米国内承認日数は未解決のまま残す）
-  - [x] Phase 1: 環境と記録形式（venv・JSONL・`.env` と `.gitignore`・cert / prod の取り違え防止・モックによる自己検査）
-  - [x] Phase 2: 認証（OAuth2。cert・prod とも交換できた。`expires_in` 900 / JWT 954 秒）
-  - [x] Phase 3: REST の 4 手順（2026-09-08 に手順 5 の約定・建玉・反対売買まで本物の cert で通した）
-  - [x] Phase 4: ストリーミングとレート制限（口座ストリーマ・DXLink・429 ＋ 認証寿命 900 秒の実測まで済み）
-  - [x] **9/8（火）の市場時間に回した**（[記録 §0-4](docs/specs/experiments/tastytrade-api-sample.md)）— **6 観点のうち 5 つが ✅**。残るは A（営業日を 2 日跨ぐ交換）だけ
-    - [x] `--step cleanup` → `--step 4` / `--step 5`: ✅ **通った**（14:52〜14:53 ET。`final_Cancelled` と `buy_Filled/sell_Filled`、SPY 1 株を $766.47 で建てて解消）。⚠ **その 25 分前は `Session offline` で拒否された**（同時刻の `market-time` は `Open`、余力 $200,000）。一時的な状態がある
-    - [x] `--step 3` で気配の遅延: ✅ **サーバの時計で −0.12 秒**（12 回の中央値。ばらつき 0.24 秒）。⚠ こちらの時計では −1.14〜+0.65 秒と 1.8 秒揺れる（**WSL2 の時計**）。`sample.py` が `delay_corrected_s` を記録し、判定 C はそちらを優先するようにした。DXLink 229 イベント
-    - [x] `--step 6 --seconds 60`: ✅ ack 123 ms、60 秒で 5 メッセージ（Order 通知 2）
-    - [x] `--step rate`: ✅ 60 回/分・30 連射とも 429 なし、中央値 133.9 ms
-    - [x] `--step 1 --verify-expiry`: ✅ **920 秒待って 401** → **900 秒で失効**。⚠ 「954 秒」は `exp − iat` の読み違いだった（`iat` は grant 作成時刻の固定値。2 本のトークンで同じ値）
-    - [x] 9/5 に取った refresh token がそのまま使えるか / cert の 24 時間リセット: ✅ **どちらも残った**（同じ口座・残高は $100,000 にリセット）
-    - [x] ⚠ `Session offline` は**一時的**と確認（25 分後に成功）。自動売買では「注文の中身が悪い」と読まず時間をおいて再送する設計が要る
-  - [x] Phase 5: 記録と判定（2026-09-08。[記録](docs/specs/experiments/tastytrade-api-sample.md) の 6 観点・訂正候補 15 件・未実測 4 件、overview §4/§6 と CLAUDE.md への反映）
-    - ⚠ 観点 A だけ ⏳。g3plus の管理画面が sandbox に繋いで監視を回しているので、**翌営業日に自動で ✅ になる**。9/9 に `/judge` を見る
-  - [x] **着金の確認（$1,000 / SoFi → tastytrade、2026-09-05 送金指示）**
-    ✅ **2026-09-16 に `--step probe` で着金を確認した**（[記録 §0-5](docs/specs/experiments/tastytrade-api-sample.md)）: `cash-balance` 0.0 → **1000.0**・`pending-cash` 1000.0 → **0.0**。⚠ **`cash-available-to-withdraw` はまだ 0.0**（引き出し保留は続いている）。⚠ **買付余力は着金で増えていない**（1000.0 のまま ＝ 着金前から与信済み）。⚠ **着金日は特定できない**（9/5 と 9/16 の間に残高の記録が無い）
-    - 着いたら `sample.py --step probe` をもう 1 回回し、着金前（[記録 §0](docs/specs/experiments/tastytrade-api-sample.md)）との差分を取る
-    - 見るもの: `cash-balance` が 0.0 → 1000.0 になるか、`pending-cash` が消えるか、`cash-available-to-withdraw` がいつ立つか（＝ ACH の保留期間の実測）、`available-trading-funds` が 0.0 のままか
-    - ⚠ 着金前の状態はもう測れない。⚠ 9/7 は Labor Day のため、着金は 9/8（火）以降の見込み
-  - [ ] Phase 6（方針 (c)）: 本番口座で 1 株（入金と発注は利用者が行う）
-    - ⚠ 2026-09-05 の dry-run で **着金前でも 1 株は通る**ことが分かっている（買付余力 1000.0 が効き、`available-trading-funds` 0.0 は効かない）。着金を待つ必要は無い
+- [ ] 予想モデル 3 本に予算を割り振り、tastytrade の本口座で実際に売買して記録を残す（実売買の仕組み） [plan](docs/plans/live-trading-three-models.md)
+  利用者の指示（2026-09-17）: **実際に売買を行う仕組みを実装します。予想モデルを３つほど用意してそれぞれに予算を割り振り実際の取引をしてデータを検証できる形で残します**
+  派生元: 「tastytrade で、実際の API 取引のサンプルプログラムを動かす」（2026-09-17 に [DONE.md](DONE.md) へ。残っていた Phase 6「本番で 1 株」はここの Phase 5 の最初の段に取り込んだ）
+  ⚠ **2026-08-27 の方針の 2 つ目の例外**（CLAUDE.md に 2026-09-17 追記）。⚠ **本番の鍵を入れて執行器を起動するのは利用者**。Claude はコードと手順まで（鍵を `.env` に書かない・本番で起動しない）
+  ⚠ **判定するのは執行の差と無人運転であって「儲かったか」ではない**（プラン §2-3。日次 σ 50bp 級【実測】に対し上乗せは 0.1bp/日 級【推測】で、1 年回しても t ≈ 0.03）。収入は【実測】として残すが、それで手法を採らない
+  ⚠ **$1,000 では 63 銘柄の等加重を整数株で再現できない**（1 枠 $300 → 1 銘柄 $4.76）。端株（`Notional Market`【記憶・未確認】）の可否を Phase 0 の本番 dry-run で確かめ、落ちたら銘柄を事前固定で絞る（プラン §2-2）
+  ⚠ **先に指摘するもの**: wash sale（3 枠が同じ銘柄を売買すると口座合算で起きる）／ 現金口座の受渡し待ち（T+1）／ 非表示利用の申告の扱いは未確認（プラン §4）
+  - [ ] Phase 0: 決めごとと本番の読み取り・dry-run（観点 A の確認・`probe`・端株と注文種別の dry-run・3 モデル／予算／銘柄／時刻／停止条件／判定の閾値を `docs/specs/experiments/live-trading.md` §0 に書き、利用者の確認を取る）
+    推奨: M1 `trade_own_ridge_a` θ=50 ／ M2 `trade_ownex_lgbm_a` θ=55 ／ M3 `trade_ownseq_ridge_a` T3 QUANT θ=50 ／ 対照 B&H は紙上だけ ／ 予算 $300 × 3 ＋ 予備 $100 ／ 執行は 15:50 ET の気配で合図・15:55 に成行（プラン §2-1〜§2-4）
+  - [ ] Phase 1: 「今日の買い%」の経路（`cli/predict.py --asof`。`evaluate_trading` と同じ関数群で訓練 ＝ 昨日まで・検証 ＝ 今日の 63 行。既定経路は 1 ビットも変えない・先読みテスト・決定性）
+  - [ ] Phase 2: 執行器 `experiments/live-trading/`（状態機械・枠の上限・dry-run → 発注 → 約定確認 → 取消・再送・記録は `Masker` 経由。モックで 20 日 → sandbox で市場時間に 1 日）
+  - [ ] Phase 3: 紙上の対照（同じ合図を公式終値・片道 2.5bp で回し、差 1〜4 を `daily.csv` に 1 日 1 行 × 3 枠）
+  - [ ] Phase 4: 管理画面 `/live`（読むだけ・公開面でも見える。停止は既存の `/ops/halt`。`dashboard.md` §13）
+  - [ ] Phase 5: 本番投入（**利用者が行う**。最小額で 1 発注 ＝ 旧 Phase 6 → 3 枠を予算どおりに。Claude は手順書とチェックリストまで）
+    - ⚠ 2026-09-05 の dry-run で **着金前でも 1 株は通る**ことが分かっている（買付余力 1000.0 が効く）。2026-09-16 に着金済み
+  - [ ] Phase 6: 20 営業日の記録と判定（`live-trading.md`。続ける・止める・予算を変えるは利用者。モデルの入れ替えは新しい試行として n_trials に足す）
 
 - [ ] 既存の仕組みをCodex GPT6 Astraに分析と評価をさせる
   利用者の指示（2026-09-16）。着手時にプランを作る

@@ -866,9 +866,94 @@ def step_prod_dry_run(rec: record.Recorder, cfg: dict) -> None:
         row["result"] = f"1株={'通る' if one['accepted'] else '弾かれる'}/10株={'通る' if ten['accepted'] else '弾かれる'}"
 
 
+def step_prod_dry_run_types(rec: record.Recorder, cfg: dict) -> None:
+    """本番で注文種別と株数の刻みを dry-run だけで確かめる（実売買の Phase 0 手順 3。2026-09-17）。
+
+    知りたいのは 4 つ: (1) `Notional Market`（金額指定の端株）が API から出せるか
+    (2) 小数の `quantity` が通るか (3) `Market` 1 株が通るか (4) MOC 相当の注文種別があるか。
+    ⚠ dry-run は何もルーティングしない。⚠ 拒否のエラー文（`error.errors[]`）が「使える種別の一覧」を
+    含むことがあるので、そのまま記録に残す。
+    """
+    with rec.step(10, "本番 dry-run（端株・小数株・成行・MOC 相当の注文種別）", env="prod") as row:
+        client = Client(
+            env="prod",
+            allow_prod_orders=False,
+            allow_prod_dry_run=True,
+            rest_base=cfg.get("TT_PROD_REST_BASE") or None,
+        )
+        rec.mask.add(cfg["TT_PROD_CLIENT_SECRET"], "<prod_client_secret:masked>")
+        rec.mask.add(cfg["TT_PROD_REFRESH_TOKEN"], "<prod_refresh_token:masked>")
+        client.authenticate(
+            client_secret=cfg["TT_PROD_CLIENT_SECRET"],
+            refresh_token=cfg["TT_PROD_REFRESH_TOKEN"],
+            client_id=cfg.get("TT_PROD_CLIENT_ID") or None,
+        )
+        rec.mask.add(client.token.access_token, "<prod_access_token:masked>")
+        account_number = field(client.list_accounts()[0], "account-number")
+        rec.mask.add_account(account_number)
+
+        try:
+            session = client.get_market_session()
+            market = {"state": field(session, "state")}
+        except ApiError as exc:
+            market = {"error": f"{exc.status} {exc.code}"}
+        quote = client.get_quote(SYMBOL)
+        reference = float(field(quote, "bid") or field(quote, "last") or 0)
+        low_price = f"{max(1.0, reference * 0.8):.2f}"
+
+        build = client.build_equity_order
+        cases = [
+            ("notional_market_5usd", "Notional Market $5.00（金額指定の端株）", build(SYMBOL, None, order_type="Notional Market", value="5.00")),
+            ("limit_fractional_0.01", "指値 0.01 株（小数の quantity）", build(SYMBOL, "0.01", order_type="Limit", price=low_price)),
+            ("market_fractional_0.01", "成行 0.01 株", build(SYMBOL, "0.01", order_type="Market")),
+            ("market_1", "成行 1 株", build(SYMBOL, 1, order_type="Market")),
+            ("market_on_close_1", "MOC 相当（order-type 'Market On Close'【未確認】）", build(SYMBOL, 1, order_type="Market On Close")),
+            ("limit_1_low", "指値 1 株（気配の 8 割。対照）", build(SYMBOL, 1, order_type="Limit", price=low_price)),
+        ]
+        results = []
+        for key, label, order in cases:
+            case = {"key": key, "label": label, "order": {k: v for k, v in order.items() if k != "external-identifier"}}
+            try:
+                dry = client.dry_run_order(account_number, order)
+                bpe = dry.get("buying-power-effect") or {}
+                fee = dry.get("fee-calculation") or {}
+                case.update(
+                    {
+                        "accepted": True,
+                        "order_status": field(dry.get("order", {}), "status"),
+                        "order_echo": record.excerpt({k: v for k, v in (dry.get("order") or {}).items() if k in ("order-type", "size", "value", "value-effect", "price", "legs")}),
+                        "change-in-buying-power": field(bpe, "change-in-buying-power"),
+                        "new-buying-power": field(bpe, "new-buying-power"),
+                        "total-fees": field(fee, "total-fees"),
+                        "warnings": record.excerpt(dry.get("warnings")),
+                        "errors": record.excerpt(dry.get("errors")),
+                    }
+                )
+            except ApiError as exc:
+                case.update(
+                    {
+                        "accepted": False,
+                        "status": exc.status,
+                        "code": exc.code,
+                        "message": exc.message[:300],
+                        "body": record.excerpt(exc.body, limit=12),
+                    }
+                )
+            results.append(case)
+            time.sleep(0.5)
+
+        row["detail"] = {
+            "note": "dry-run のみ。注文は一切ルーティングしていない",
+            "market_session": market,
+            "reference_quote": {"bid": field(quote, "bid"), "ask": field(quote, "ask"), "last": field(quote, "last")},
+            "cases": results,
+        }
+        row["result"] = "/".join(f"{c['key']}={'通る' if c['accepted'] else '弾かれる'}" for c in results)
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="tastytrade API サンプル（6 手順）")
-    parser.add_argument("--step", default="all", help="all / 1..6 / 5limit / cleanup / rate / probe / dryrun（カンマ区切り可）")
+    parser.add_argument("--step", default="all", help="all / 1..6 / 5limit / cleanup / rate / probe / dryrun / dryrun2（注文種別・端株の dry-run）（カンマ区切り可）")
     parser.add_argument("--env", default=None, choices=["cert", "prod"], help="既定は .env の TT_ENV、無ければ cert")
     parser.add_argument("--seconds", type=float, default=60.0, help="手順 6 の受信時間")
     parser.add_argument("--verify-expiry", action="store_true", help="手順 1 のあと 15 分待って 401 を確認する")
@@ -898,12 +983,12 @@ def main() -> int:
         return 3
 
     # probe / dryrun は本番の資格情報だけで動く（sandbox の準備を待たずに入金前の窓を押さえるため）
-    if steps in (["probe"], ["dryrun"], ["probe", "dryrun"], ["dryrun", "probe"]):
+    if steps and set(steps) <= {"probe", "dryrun", "dryrun2"}:
         missing = [k for k in ("TT_PROD_CLIENT_SECRET", "TT_PROD_REFRESH_TOKEN") if not cfg.get(k)]
         if missing:
             print(f"エラー: {', '.join(missing)} が無い。.env に本番の資格情報を入れる", file=sys.stderr)
             return 2
-        if "dryrun" in steps and not args.allow_prod_dry_run:
+        if ({"dryrun", "dryrun2"} & set(steps)) and not args.allow_prod_dry_run:
             print("エラー: 本番の dry-run には --allow-prod-dry-run が要る", file=sys.stderr)
             return 2
         rec = record.Recorder(OUT_DIR, venue="tastytrade", env="prod", mock=is_mock)
@@ -913,6 +998,8 @@ def main() -> int:
             for step in steps:
                 if step == "probe":
                     step_prod_probe(rec, cfg, seconds=args.seconds if args.seconds < 60 else 15.0)
+                elif step == "dryrun2":
+                    step_prod_dry_run_types(rec, cfg)
                 else:
                     step_prod_dry_run(rec, cfg)
         except (ApiError, ProductionGuard, OSError) as exc:

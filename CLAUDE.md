@@ -124,6 +124,21 @@ python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
   - **`/accounts/{n}/orders/live` は「その日の注文」**で、Filled / Cancelled / Rejected も混ざる。働いている注文は `Received / Routed / In Flight / Live / Contingent` で絞る
   - **気配の遅延は開発機（WSL2）の時計では測れない**（±1 秒揺れて負にもなる）。同じ応答の `Date` で補正した `delay_corrected_s` を使う
 
+### experiments/live-trading（実売買の執行器。2026-09-17 の 2 つ目の例外）
+
+```bash
+cd experiments/live-trading
+../feature-discovery/.venv/bin/python -m pytest -q tests      # 合成規則・状態機械・予算・鍵・HALT・再送
+./mockrun.sh                                                  # モックで 20 営業日（記録に mock: true）
+../tastytrade-api-sample/.venv/bin/python run_day.py --traders test_a --mode dry-run --ignore-window   # cert で dry-run
+```
+
+- トレーダーは `config/traders/<名前>.toml`（予算・銘柄集合・モデルの一覧・合成規則・θ・`sizing`）。モデルの `kind` は `fixed` / `file`（試験用。`test = true` が要る）/ `experiment`（`predict.jsonl`。Phase 1 の後）
+- ⚠ **実際に動かすトレーダーの属性はまだ設定しない**（2026-09-17 の利用者決定）。試験用の `test_a`（固定の合図・1 銘柄・最小額）で配線と本番の 1 発注を先に通す
+- 記録は `out/<日付>/*.jsonl`（`Masker` 経由・git 管理外）、状態は `state/<名前>.json`。`--mode submit` 以外は状態を書かない
+- 本番の鍵は `ttclient.Client` の 3 段そのまま。発注は `TT_ALLOW_PROD_ORDERS=1` ＋ `--i-know-this-is-real-money`。⚠ **鍵を入れて起動するのは利用者**。`HALT` は管理画面の停止ボタンと同じファイル
+- 決めごと・手順書・記録は `docs/specs/experiments/live-trading.md`
+
 ## Git 運用ルール
 
 - **作業ブランチは作らず、常に `main` 上で直接作業・コミットする**（個人プロジェクトのため、レビュー用のブランチ分岐は不要）

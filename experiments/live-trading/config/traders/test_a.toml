@@ -1,0 +1,15 @@
+# 試験用トレーダー（プラン §0-1）。実売買のテスト（本番で最小額の 1 発注 → 翌営業日に手仕舞い）に使う。
+# ⚠ 実際に動かすトレーダーの属性はまだ設定しない（2026-09-17 の利用者決定）。これは配線を確かめるための 1 人。
+name = "test_a"
+test = true                         # 記録に test: true が付き、判定（Phase 6）に混ぜない
+budget_usd = 30.0                   # 1 銘柄 1 株ぶん（T ≈ $25.6【実測 2026-09-17 の日足】）＋ 端数
+symbols = ["T"]                     # us63 で株価が最も低い銘柄（整数株で最小額にするため）
+combine = "asis"
+threshold = 50.0
+sizing = "shares"                   # 端株（Notional Market）が dryrun2 で通ったら "notional" に変えて $5 で試す
+note = "固定の合図を CSV から読む。日付ごとに 買い / 出口 を手で書く"
+
+[[models]]
+kind = "file"
+name = "manual"
+path = "../signals/test_a.csv"

@@ -151,6 +151,7 @@ def create_app(settings: Settings | None = None, start_monitors: bool = True) ->
     from .devtools import DevError, DevTools
     from . import experiments as exp
     from . import inventory as inv
+    from . import live as lv
     from .judge import judge as run_judge
     from .masking import Redactor
     from .monitor import EventLog, Monitors
@@ -244,6 +245,7 @@ def create_app(settings: Settings | None = None, start_monitors: bool = True) ->
             # ⚠ 検証・データの画面はデモの対象外（実験側のファイルをそのまま読む）ので、出所を出し分ける
             "runs_dir": str(settings.runs_dir),
             "exp_dir": str(settings.exp_dir),
+            "live_dir": str(settings.live_dir),
             "dev_available": dev is not None,
             "demo": settings.demo,
         }
@@ -351,6 +353,17 @@ def create_app(settings: Settings | None = None, start_monitors: bool = True) ->
     @app.get("/api/data")
     async def api_data(request: Request):
         return JSONResponse(redactor(inv.index(settings)))
+
+    # ---------------------------------------------------------------- 実売買
+    # ⚠ **読むだけ。発注は画面から出さない**（公開面にも出す）。停止は既存の /ops/halt（§13）
+
+    @app.get("/live", response_class=HTMLResponse)
+    async def live_page(request: Request):
+        return render(request, "live.html", page="live", lv=lv.index(settings.live_dir))
+
+    @app.get("/api/live")
+    async def api_live(request: Request):
+        return JSONResponse(redactor(lv.index(settings.live_dir)))
 
     @app.get("/api/judge")
     async def api_judge(request: Request):

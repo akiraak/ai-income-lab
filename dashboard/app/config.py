@@ -52,6 +52,7 @@ class Settings:
     sample_dir: Path
     runs_dir: Path
     exp_dir: Path
+    live_dir: Path
     sample_python: str
     symbol: str
     poll_seconds: float
@@ -203,6 +204,10 @@ def load_settings(environ: dict | None = None) -> Settings:
     exp_dir = Path(env.get("AIL_EXP_DIR")
                    or REPO_ROOT / "experiments" / "feature-discovery").resolve()
 
+    # 実売買の執行器（/live）が読むディレクトリ（config/traders・state/<env>・out/<日付>）。⚠ **無くてよい**（空でも 200）
+    live_dir = Path(env.get("AIL_LIVE_DIR")
+                    or REPO_ROOT / "experiments" / "live-trading").resolve()
+
     venv_python = sample_dir / ".venv" / "bin" / "python"
     sample_python = env.get("AIL_SAMPLE_PYTHON") or (str(venv_python) if venv_python.exists() else sys.executable)
 
@@ -234,6 +239,7 @@ def load_settings(environ: dict | None = None) -> Settings:
         sample_dir=sample_dir,
         runs_dir=runs_dir,
         exp_dir=exp_dir,
+        live_dir=live_dir,
         sample_python=sample_python,
         symbol=(env.get("AIL_SYMBOL") or "SPY").upper(),
         poll_seconds=float(env.get("AIL_POLL_SECONDS") or 30),

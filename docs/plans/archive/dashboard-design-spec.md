@@ -4,8 +4,8 @@
 
 ## 目的・背景
 
-`/live`（実売買の画面）は機能仕様（[dashboard.md §13](../specs/dashboard.md)）と実装が済んだが、**見た目の決めごとの正本が仕様書に無い**。
-黒ベースの規約は、アーカイブしたプラン（[dashboard-dark-design.md](archive/dashboard-dark-design.md)）と `app/static/app.css` の冒頭コメントにしか書かれていない。
+`/live`（実売買の画面）は機能仕様（[dashboard.md §13](../../specs/dashboard.md)）と実装が済んだが、**見た目の決めごとの正本が仕様書に無い**。
+黒ベースの規約は、アーカイブしたプラン（[dashboard-dark-design.md](dashboard-dark-design.md)）と `app/static/app.css` の冒頭コメントにしか書かれていない。
 このため `/live` は「他の画面のクラスを借りて書いた」だけで、どの色が何を意味するか・どのクラスを使うかを仕様から引けない。
 あわせて `/live` は一度も実物を目で見ていない（テストは 200 と秘密の不在だけ）。
 
@@ -53,10 +53,17 @@ flowchart LR
 ## Step
 
 1. ✅ 撮影用の記録を作る（`mockrun.sh` に `KEEP_DIR`。2026-09-18 titan）
-2. 🔶 デモ起動して `/live` を撮り、崩れを直す（崩れ 3 つは直して目で確認済み。⚠ **高さ 1800 で撮り直して `assets/` に置くのが残り**）
-3. ⬜ `dashboard.md` §15 デザイン規約を書く（未着手）
-4. ⬜ §13 に画像を貼り、`TODO.md` ／ 更新履歴 ／ `live-trading/README.md`（`KEEP_DIR`）を直す
+2. ✅ デモ起動して `/live` を撮り、崩れを直す（崩れ 3 つは titan で直した。⚠ **Sx360 で高さ 1800 で撮り直し、`assets/dashboard-live.png` に置いた**。日次の最後の行とフッタまで写り、✅・❌ も写った）
+3. ✅ `dashboard.md` §15 デザイン規約を書いた（15-1 面と文字 ／ 15-2 色の 2 系統 ／ 15-3 数字と表 ／ 15-4 `/live` のクラスと差 1 の色分け）。アーカイブの `dashboard-dark-design.md` に「正本は §15」と書いた
+4. ✅ §13-5 に画像と撮り方を貼り、`TODO.md` ／ `DONE.md` ／ 更新履歴 ／ `live-trading/README.md`（`KEEP_DIR`）を直した
 
 ## 引継ぎ（2026-09-18）
 
-titan で Step 2 の途中まで進め、**Sx360 で続ける**（利用者の指示）。直した崩れ・撮り方・踏んだ落とし穴・titan に残っているプロセスは `TODO.md` の Phase 4 の子タスク 2 本の下に書いた。⚠ 撮影用の記録と画像は titan のスクラッチにしか無いので、Sx360 で `KEEP_DIR` から作り直す。
+titan で Step 2 の途中まで進め、**Sx360 で続けた**（利用者の指示）。Sx360 で Step 2 の残りと Step 3・4 を済ませた。
+
+## 結果（2026-09-18）
+
+- dashboard の pytest **140 件 pass**（撮影用のデモを止めてから流して 6 秒）
+- `./mockrun.sh`（`KEEP_DIR` なし）は「すべて通った」で、`out/` に何も残らない（既定の動作は変わっていない）
+- 撮り直した画像では、titan で直した崩れ 3 つがどれも直ったままだった。⚠ **新しく直したところは無い**
+- 気付いたこと（直していない）: 予測モデルの列は種類と名前が別の行に折れる（`mock_b` の「CSV ／ script_b1 ／ CSV ／ script_b2」）。読めるので崩れには数えなかった

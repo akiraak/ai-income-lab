@@ -1,4 +1,12 @@
 # DONE
+- 2026-09-18 管理画面のデザイン規約を仕様書に移し、`/live` を撮って見た目を確かめた（実売買 Phase 4 の子タスク 2 本）[plan](docs/plans/archive/dashboard-design-spec.md)
+  - 利用者の指示（2026-09-18）。titan で撮って崩れ 3 つを直すところまで進め、引継ぎを受けて Sx360 で仕上げた
+  - ⚠ **正本は [dashboard.md §15](docs/specs/dashboard.md)**（面の段・色の 2 系統・数字と表・`/live` のクラスと差 1 の色分け）。⚠ **値は `app.css` の変数名で書いた**（色コードを二重管理しない）。アーカイブのプラン `dashboard-dark-design.md` には「正本は §15」と書いた
+  - 直した崩れ（titan）: 差 1 中央値の二進の端数を 0.01bp に丸める ／ 「執行の差」を `kv` から `exp-cards` の 5 枚へ（⚠ `kv` は監視の見出し専用の inline-flex）／ 短い列は `td.nw`、注文と日次の表は `orders` で折り返さない
+  - 画面: `docs/plans/assets/dashboard-live.png`（1280×1800。⚠ **写っている数字はモックの値**）を §13-5 に貼り、撮り方と落とし穴（高さ 1800・デモを止めてから pytest・絵文字フォント）も書いた。Sx360 は絵文字フォントがあり ✅・❌ がそのまま写った
+  - `mockrun.sh` の `KEEP_DIR` を `experiments/live-trading/README.md` に書いた
+  - 確認: dashboard の pytest 140 件 pass（デモを止めてから 6 秒）／ `./mockrun.sh`（`KEEP_DIR` なし）は「すべて通った」で `out/` に何も残らない
+
 - 2026-09-18 vibeboard に GPU を含んだハードの利用状況のページ（「ハード」タブ）を足した [plan](docs/plans/archive/vibeboard-hardware-tab.md)
   - 利用者の指示（2026-09-18）。⚠ **vibeboard 本体は改造していない**（このプロジェクト専用。customTabs の 4 本目）。仕様は [dashboard.md §14](docs/specs/dashboard.md)
   - 読み手 `dashboard/hwstat.py`（標準ライブラリのみ）: `nvidia-smi`（固定の引数・shell なし）と `/proc`・`shutil.disk_usage`。⚠ **WSL2 では GPU のプロセス名とプロセス別メモリが取れない**【実測】ので、PID から `/proc/<pid>/cmdline` を引く（160 字で切り、秘密らしい引数は伏せる ＝ tailnet の閲覧者にも見えるため）。読めないもの（CPU 温度・プロセス別 GPU メモリ・Windows 側のプロセス）は欄を作らず画面に書く

@@ -459,6 +459,24 @@ flowchart LR
 - 「儲かったか」の判定。損益は出すが色を付けない（判定は執行の差と無人運転だけ）
 - 執行器の起動。画面からは動かさない（titan の timer ／ cron。`live-trading.md` §0-5）
 
+### 13-5. 画面（2026-09-18、幅 1280px）
+
+⚠ **写っている数字はモックの値で、【実測】ではない**（執行器の `mockrun.sh` の 20 営業日。約定は `--fill-noise 0.003` で気配から散らしたもの。記録の全行に `mock: true`、トレーダーは試験用の `mock_a` ／ `mock_b` ／ `test_a`）。見るのは配置・折り返し・色の付き方（§15-4）。
+
+![実売買](../plans/assets/dashboard-live.png)
+
+撮り方（撮影用の記録はリポジトリの `out/` に混ぜない。3012 は触らない）:
+
+```bash
+cd experiments/live-trading && KEEP_DIR=<作業用の場所> ./mockrun.sh
+cd dashboard && AIL_DEMO=1 AIL_PORT=3019 AIL_LIVE_DIR=<同じ場所> .venv/bin/python -m app.main
+chrome-headless-shell --headless --window-size=1280,1800 --screenshot=dashboard-live.png http://127.0.0.1:3019/live
+```
+
+- ⚠ **高さは 1800**（1720 では日次の最後の 1 行が切れた）
+- ⚠ **撮り終えたらデモを止めてから pytest を流す**（デモがモックのポート 8765〜8767 を掴み、デモのテストと取り合って極端に遅くなる）
+- ✅・❌・🧪 が □ で写るのは撮影機に絵文字フォントが無いとき（titan は無い。Sx360 は `fonts-noto-color-emoji` があり、そのまま写る）
+
 ## 14. ハードの画面（2026-09-18）
 
 vibeboard の**ハード**タブ（`/ext/hardware`）。検証が何時間も使う機械（titan ＝ WSL2 ＋ RTX 3090 Ti ＋ 32 スレッド）の
@@ -538,6 +556,94 @@ python3 dashboard/vibetab.py --port 3016               # http://127.0.0.1:3016/h
 python3 dashboard/hwstat.py                            # 読み手だけを 1 回（JSON を標準出力へ）
 ```
 
+## 15. デザイン規約（2026-09-18）
+
+⚠ **管理画面の見た目の決めごとの正本は本節である。** 黒ベースに作り直した経緯と当時の 5 画面は [dashboard-dark-design.md](../plans/archive/dashboard-dark-design.md) に残す（経緯であって正本ではない）。
+⚠ **値は `app/static/app.css` の変数名で書く**（色コードを本節に写さない。食い違ったらコードが正で、本節の変数名を直す）。
+
+> この図の主張: ⚠ **色は「環境」と「状態」の 2 系統だけで、互いに流用しない。** それ以外の区別は枠や影ではなく、面の明るさの段で付ける。
+
+```mermaid
+flowchart LR
+  subgraph layers["面の明るさの段"]
+    BG["--bg<br/>地"] --> SF["--surface<br/>帯・環境ブロック"] --> RS["--raised<br/>カード"]
+  end
+  ENV["環境の色<br/>--cert / --prod / --mock"] --> E1["左の帯・バッジ<br/>停止ボタン"]
+  ST["状態の色<br/>--ok / --warn / --ng ＋ 灰"] --> S1["チップ・セル・数字の色"]
+```
+
+### 15-1. 面と文字
+
+| 変数 | 用途 |
+| --- | --- |
+| `--bg` | 画面の地・上部の帯。`code` ／ `pre` の地も同じ段 |
+| `--surface` | 環境の帯（`.envbar`）・環境ブロック（`.env`） |
+| `--raised` | カード（`.card`）・スクロール枠の固定見出し |
+| `--hover` | 行のホバー・灰のチップ |
+| `--line` ／ `--line-strong` | 罫線 ／ 強い罫線（ボタン・入力の枠・環境ブロックの帯の既定） |
+| `--ink` ／ `--muted` ／ `--sub` | 文字 ／ 薄い文字（表の見出し・補足） ／ さらに薄い文字（フッタ・版） |
+| `--accent` ／ `--accent-bg` | リンク・選択中のナビ・`/experiments` の最良の行 ／ 主ボタン。⚠ **状態の意味を持たせない**（青は「押せる」「選ばれている」だけ） |
+| `--mono` | 等幅（`code`・口座の項目名・事象名） |
+
+### 15-2. 色の 2 系統
+
+| 系統 | 変数 | 部品（クラス） | 意味 |
+| --- | --- | --- | --- |
+| 環境 | `--cert`（`--cert-bg`） | `.badge-cert`・`.env-cert`（左の帯 4px ＋ 見出しの地） | sandbox（cert） |
+| 環境 | `--prod`（`--prod-bg`） | `.badge-prod`・`.env-prod`・`.btn-danger`（■ 停止） | 本番（実弾）。⚠ **停止ボタンも同じ赤** |
+| 環境 | `--mock`（`--mock-bg`） | `.badge-mock`（MOCK ／ TEST）・`.demobar` | 実物ではない（接続先を差し替えた記録・デモ・試験用のトレーダー） |
+| 状態 | `--ok`（`--ok-bg` ／ `--ok-ink`） | `.st-*` のチップ・`.cell-ok`・`.ok` | 良い・通った・つながっている |
+| 状態 | `--warn`（同） | `.cell-warn`・`.warn`・`.note`・`.flash`・`.badge-gate`（門前） | 注意・途中 |
+| 状態 | `--ng`（同） | `.cell-ng`・`.ng`・`.danger` | 悪い・失敗・停止条件 |
+| 状態 | 灰（`--hover`・`.cell-na` の薄い白） | `.st-off` ／ `.st-Cancelled` ／ `.st-done`・`.cell-na` | 該当なし・取消・対象外 |
+
+1. ⚠ **環境の色を状態に使わない。状態の色を環境に使わない。** `--prod` と `--ng` はどちらも赤だが別の変数で、意味が違う（prod ＝ どこに繋がっているか、ng ＝ 結果が悪い）
+2. 状態の色は **半透明の地（`-bg`）＋ 明るい文字（`-ink`）** で使う。塗りつぶすのは環境のバッジと停止ボタンだけ
+3. 門前（`.badge-gate`）は琥珀。⚠ **紫（MOCK・配線の検査）と取り違えない**
+4. 損益の色: ⚠ **`/live` の損益には色を付けない**（§13-4。判定は執行の差と無人運転）。`/experiments` のスコアは正を `--ok-ink`、負を `--muted` にする（⚠ 負を赤にしない）
+
+### 15-3. 数字と表
+
+| 項目 | 決め | クラス |
+| --- | --- | --- |
+| 等幅数字 | 数字は `tabular-nums` で桁を揃える | `.num`・`td.num`・`.kvt`・`.exp-cards .v` |
+| 右寄せ | 数量・価格・bp・件数は右寄せ | `td.num` ／ `th.num` |
+| 折り返し（表全体） | 1 行 1 件で横に読む表（注文・日次）は折り返さない | `table.orders` |
+| 折り返し（列だけ） | 短い値の列（予算・合成・株数・損益・最終日）だけ止める | `td.nw` ／ `th.nw` |
+| 横にはみ出す表 | 折り返さない表は横スクロールの枠に入れる | `.scroll-x` |
+| 縦に伸びる一覧 | 通知・事象は高さ 240px の枠でスクロールし、見出しを固定する | `.scroll` |
+| 数字のカード | 項目名（小さい大文字）・値（24px）・補足の 3 段 | `.exp-cards .card` の `.k` ／ `.v` ／ `.small` |
+| 見出しの中の項目 | 監視の環境ブロックの見出しの中だけで使う（inline-flex） | `.kv`。⚠ **表やカードの中で使わない**（§15-4） |
+
+### 15-4. `/live` が使うクラスと差 1 の色分け
+
+⚠ **差 1 の閾値の正本は [プラン §2-4](../plans/live-trading-three-models.md) の表（[live-trading.md §0-2](experiments/live-trading.md) の「判定の閾値」が参照するもの）。本節は「どのクラスに写すか」だけを書く。**
+
+| 部品 | クラス | 規則 |
+| --- | --- | --- |
+| トレーダーの表 | `table.exp`（`.scroll-x` の中）・短い列は `td.nw` | 試験用は `.badge-mock`「TEST」 |
+| 建玉の env | `.badge-cert` ／ `.badge-prod` | env ごとに 1 行 |
+| 含み損が予算の 20% 超 | `b.ng`「⚠ 含み損 …（停止条件）」 | 損益そのものには色を付けない（§15-2 の 4） |
+| 執行の差（5 枚） | `.exp-cards` | ⚠ **`kv` はやめた**（inline-flex なので、`/live` では項目名と値がくっついて崩れた。2026-09-18 に撮って確認） |
+| 差 1 のカード | `.v.ok` ／ `.v.warn` ／ `.v.ng` | 下の表。値が無ければ色なし |
+| 差 2・差 3 のカード | `.v.muted`「—」 | まだ埋まらない（§13-4） |
+| 差 4 のカード | 問題のあった日が 1 日以上なら `.v.ng` | |
+| 注文のカード | 問題が 1 件以上なら `.ng` | |
+| 最新の日の見出し | env のバッジ ＋ `.badge-mock`（MOCK ／ TEST） | |
+| 合図の表 | `table.exp.small` | 色なし |
+| 注文の表 | `table.exp.small.orders`（折り返さない） | 状態のセルは `cell-*`。対応は `live.py` の `STATUS_CLASS`（Filled → ok ／ Cancelled・Expired・guarded・halted → warn ／ Rejected・error・not_submitted → ng ／ dry-run・planned → na） |
+| 日次の表 | `table.exp.small.orders` | 約定: 全部約定 `cell-ok` ／ 一部 `cell-warn` ／ 注文なし `cell-na`。問題: 1 件以上 `cell-ng` ／ 0 件 `cell-na`。差 1 中央値: 下の表 |
+
+| 差 1 の中央値 m（bp。⚠ 正 ＝ 不利） | カード（`.v`） | 日次のセル |
+| --- | --- | --- |
+| m ≤ 5 | `ok`（✅） | `cell-ok` |
+| 5 ＜ m ≤ 10 | `warn`（⚠） | `cell-warn` |
+| m ＞ 10 | `ng`（❌） | `cell-ng` |
+| 無い（約定が無い日） | 色なし（「—」） | `cell-na` |
+
+- ⚠ **色を付けるのは中央値だけ**（1 件ごとの差 1 と日次の「差 1 最大」には付けない）。判定の閾値が中央値に対するものだから
+- ⚠ **閾値の 5 と 10 は `live.html` に直に書いてある**（カードと日次のセルの 2 箇所）。変えるときは プラン §2-4 → §13-2 → `live.html` の順に直す
+
 ## 9. 更新履歴
 
 - 2026-09-05: 初版（Phase 1〜4 の実装、デプロイ契約）
@@ -549,3 +655,4 @@ python3 dashboard/hwstat.py                            # 読み手だけを 1 �
 - 2026-09-18: **実売買の画面**（§13）。`/live` にトレーダー別の予算・モデル・建玉・損益と、執行の差（差 1〜4）の直近 20 営業日を出す。執行器（`experiments/live-trading/`）の記録を写すだけで、画面で計算するのは差 1 の bp だけ。両面で読める・POST は無い。pytest 7 件
 - 2026-09-12: **用語の画面**（§12）。vibeboard に「用語」タブを足し、8 分野 87 語の索引を出す。⚠ **正本は `dashboard/glossary.toml`** で、画面は写し。語からその定義がある spec へ `target="_top"` のリンクで飛ぶ（⚠ **節へは飛べないので節は文字で併記**）。⚠ **リンク先の実在はテストが固定する**。プランは [docs/plans/archive/vibeboard-glossary.md](../plans/archive/vibeboard-glossary.md)
 - 2026-09-18: **ハードの画面**（§14）。vibeboard に「ハード」タブを足し、GPU（`nvidia-smi`）・CPU・メモリ・ディスクのいまの状態と、この 1 時間の折れ線 6 枚を出す。⚠ **値を読むのは sidecar の見張り 1 本**で、画面は JSON を自前で取りに来る（iframe を作り直さない）。⚠ **vibeboard 本体は改造していない**。読み手は `dashboard/hwstat.py`・画面は `dashboard/hwview.py`（`app/` の外）。pytest 25 件（読み手 23 ＋ HTTP 2）
+- 2026-09-18: **デザイン規約**（§15）。黒ベースの決めごとをアーカイブしたプランから移し、正本を本節にした（⚠ 値は `app.css` の変数名で書く。コードが正）。`/live` を撮って崩れ 3 つを直し（差 1 中央値の二進の端数を 0.01bp に丸める・「執行の差」を `kv` から `exp-cards` の 5 枚へ・短い列と注文 ／ 日次の表を折り返さない）、画面を §13-5 に貼った。`/live` のクラスと差 1 の色分けは §15-4。プランは [docs/plans/archive/dashboard-design-spec.md](../plans/archive/dashboard-design-spec.md)

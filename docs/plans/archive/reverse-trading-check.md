@@ -4,12 +4,14 @@
 対象: `experiments/feature-discovery/`（`ail/validation/simulate.py`・`cli/run.py`・`ail/validation/checks.py`・`tests/`）、`docs/specs/experiments/feature-discovery/`
 派生元: TODO「疑問に思ったことを登録し解決していく」の子タスク「売りの時に買い、買いの時に売りという逆の売買したときの数値を確認する」。⚠ **2026-09-17 に利用者の指示で独立タスク「逆の売買の数値を確認し、通常と逆の 2 つの損益から評価軸を作れるか検討する」になった**（評価軸の問いは §1-5）
 関連: [rules.md 13-4](../specs/experiments/feature-discovery/rules.md)（0/1 の状態機械・買い専用）／ [13-5](../specs/experiments/feature-discovery/rules.md)（B&H 基準線）／ [13-7](../specs/experiments/feature-discovery/rules.md)（対 B&H 上乗せ）／ [14-3](../specs/experiments/feature-discovery/rules.md)（診断列は採否に使わない）／ [14-6・15-6](../specs/experiments/feature-discovery/rules.md)（同じ保有日率の乱択ゲート）／ [16-1](../specs/experiments/feature-discovery/rules.md)（入口% と出口%）／ 姉妹プラン [holding-days-distribution.md](holding-days-distribution.md)
+親タスク（2026-09-17）: TODO「閾値売買の記録を広げる 4 本（保有日数の分布・逆売買の診断・出来高の入力・`ex_` / `im_` の回し直し）を、配線の順序を決めて回す」。⚠ **順序は 保有日数の Phase 2 → 本プランの Phase 2 → 回し直し 1 回（2 つの Phase 3 を兼ねる。子タスク「代表 1 構成 ＋ leak 対照を 1 回だけ回し直す」）**。§2-3 の 2 で足す逆売買の `simulate` 呼び出しは、保有日数の Phase 2 の後なら戻り値に `hold_days` が自動で付く。§4 の「既定経路の不変」テストは保有日数の Phase 2 で作ったものを流用する
 
 ## 1. 目的・背景
 
 ### 1-1. 疑問
 
 手法の合図を**逆に読んだら**どうなるか。「買い」で手仕舞い、「売り」で建てる。
+⚠ **利用者の訂正（2026-09-17）: 問いは「逆にすれば勝つか」ではなく「逆売買の数値をモデルの評価に使えるか」。** 下の「素朴には…勝つのではないか」は Claude の読みで、答えの文書（[reverse-trading.md §0](../../specs/experiments/feature-discovery/reverse-trading.md)）は評価の問いを主にして書き直した。
 素朴には「手法が B&H に負けているなら、逆にすれば勝つのではないか」という問いである。
 
 ### 1-2. 「逆」の定義 — この枠では 1 つに決まる

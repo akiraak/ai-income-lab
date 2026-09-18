@@ -26,7 +26,8 @@ import ail.bootstrap  # noqa: F401
 # ⚠ 列の並びを実行ごとに変えない（cs は own に依存する）
 # ⚠ **`trend` は `own` の直後**（同じ `own_` 接頭辞で、窓が長いだけ）
 # ⚠ **`seq` は `trend` の後**（過去 60 営業日のリターンの窓。時系列分類器の入力。⚠ **足しても既存の表の列の並びは変わらない**）
-ORDER = ("own", "trend", "seq", "cs", "rel", "ll", "ex", "im")
+# ⚠ **`trendvol` は `trend` の直後**（出来高の長い窓。同じ `own_trend{W}_` の接頭辞。⚠ **config に書いたときだけ入る**）
+ORDER = ("own", "trend", "trendvol", "seq", "cs", "rel", "ll", "ex", "im")
 # ⚠ **`ex` と `im` は価格に依存しない**（外部系列を貼るだけ）が、並びは固定する
 
 

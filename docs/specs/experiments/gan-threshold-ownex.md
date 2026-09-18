@@ -329,3 +329,9 @@ flowchart LR
 
 ⚠ **本タスクは検出限界を改善しない。** fold 約 340 日 × 5 では上乗せ t は 1 前後までしか出ない
 （[validation-power.md](feature-discovery/validation-power.md)）。⚠ **MLP+ (A) θ=55 の −69.93bp（t −0.35）は「勝っていない」であって「引き分けを検出した」ではない。**
+
+## 8. ⚠ 2026-09-17 — `ex_` 層の修正後に 24 本を同じ鍵で回し直している
+
+⚠ **本書の 36 行は `ex_` 層の穴 2 つ（[daily-data-sources.md §14-2](daily-data-sources.md)）を塞ぐ前のコードの数字である。**
+2026-09-17 に、コードを凍結した worktree（HEAD `696cf7b`）から 24 本（本番 12 ＋ leak 12）を手間の小さい順に回し直している（約 30 時間・GPU。[daily-data-sources.md §16-4](daily-data-sources.md)）。
+⚠ **最初に終わった `trade_ownex_ridgegan16k_a` は純利が最大 453bp 動いた**（θ=50 上乗せ −479 → −585・落とすのまま）。⚠ **終わったら差分表と、36 行の判定が変わったかをここに追記する**（同じ鍵なので n_trials は動かない）。

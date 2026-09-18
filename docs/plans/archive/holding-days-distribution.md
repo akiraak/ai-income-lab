@@ -4,6 +4,7 @@
 対象: `experiments/feature-discovery/`（`ail/validation/simulate.py`・`cli/run.py`・`ail/validation/checks.py`・`ail/runs.py`）、`dashboard/vibetab.py`
 派生元: TODO「疑問に思ったことを登録し解決していく」の子タスク「保有日数の中央値など分布が知りたい。保有日数の短い取引ほど手数料が重くなってくるので」。⚠ **2026-09-17 に利用者の指示で独立タスク「保有日数の分布（中央値・分位点）を出し、保有が短い取引ほどコストが重いことを数字にする」になった**
 関連: [rules.md 13-4](../specs/experiments/feature-discovery/rules.md)（状態機械とコスト）／ [rules.md 15-7](../specs/experiments/feature-discovery/rules.md)（日次系列を残す）／ [dashboard.md §10-5](../specs/dashboard.md)（閾値売買の画面）
+親タスク（2026-09-17）: TODO「閾値売買の記録を広げる 4 本（保有日数の分布・逆売買の診断・出来高の入力・`ex_` / `im_` の回し直し）を、配線の順序を決めて回す」。⚠ **順序は 本プランの Phase 2 → 逆売買の Phase 2 → 回し直し 1 回（2 つの Phase 3 を兼ねる。子タスク「代表 1 構成 ＋ leak 対照を 1 回だけ回し直す」）**。2 つの Phase 2 は同じ `cli/run.py` / `checks.py` / テスト 3 本を触るので同時に開かない。「既定経路の不変」の指紋テスト（§4）は本プランで作り、逆売買と出来高が流用する
 
 ## 1. 目的・背景
 

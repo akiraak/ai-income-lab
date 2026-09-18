@@ -181,7 +181,7 @@ def test_evaluate_trading_runs_two_output_detectors(run):
         rows = res[res["手法"] == n]
         assert (rows["保有日率"].between(0.0, 1.0)).all()
         assert set(rows["閾値"]) == {50.0, 55.0, 60.0}   # ⚠ 3 水準とも残す（13-3 の 3）
-    assert set(extra) == {"hold", "rand"}                # 乱択ゲートの診断も付く（14-6 b）
+    {"hold", "rand", "rev", "holds"} <= set(extra)   # ⚠ 2026-09-17 に rev / holds が増えた（13-4 の 6・14-3）"rand"}                # 乱択ゲートの診断も付く（14-6 b）
 
 
 def test_leak_makes_the_edge_jump_for_pairs(run):

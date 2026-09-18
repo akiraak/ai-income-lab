@@ -132,7 +132,8 @@ def test_random_gate_diagnostic_is_recorded_and_not_used_for_judgement(run):
     exp = _exp(_detector_names(WINDOWS))
     res, per_sym, summary, daily, extra = evaluate_trading(p, _feats(p), exp, run)
     assert "乱択ゲート純利bp" in res.columns
-    assert set(extra) == {"hold", "rand"}
+    # ⚠ 2026-09-17 に `rev`（逆売買の日次系列）と `holds`（1 取引 1 行の表）が増えた（rules.md 13-4 の 6・14-3）
+    assert {"hold", "rand", "rev", "holds"} <= set(extra)
     doc = checks.compute_trading(res, summary, per_sym, daily, exp, n_trials=70, extra=extra)
     for e in doc["by_threshold"].values():
         rg = e["random_gate"]

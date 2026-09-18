@@ -1,4 +1,29 @@
 # DONE
+- 2026-09-17 保有日数の分布（中央値・分位点）を出し、保有が短い取引ほどコストが重いことを数字にした — ⚠ **二山（1〜2 日 と fold 持ち切り）。代表構成では取引の 28% が保有 2 日以下で全コストの 28% を払い、保有日の 0.7% しか持たない**
+  - プラン: [docs/plans/archive/holding-days-distribution.md](docs/plans/archive/holding-days-distribution.md) / ⚠ **答え: [holding-days.md](docs/specs/experiments/feature-discovery/holding-days.md)**
+  - 派生元: 「疑問に思ったことを登録し解決していく」の子（利用者の指示 2026-09-17 で独立）。親「閾値売買の記録を広げる 4 本」の子
+  - Phase 1（読むだけ・151 実行）: 銘柄 × fold の平均保有日数は p75 が fold 長（360 ／ 1,267 日）に貼り付く ＝ 1/4 以上が B&H への退化。⚠ **平均 ≤ 2 日の行（12.8%）が全コストの 28.8%**。`cost_bp` を倍にしても平均純利は 6% しか動かない（算術）
+  - Phase 2: `simulate()` に `hold_days` / `entry_idx` / `forced_close`、`holds.csv`（1 取引 1 行）、`per_symbol.csv` 末尾 3 列、`checks.json` の `holding`、vibetab / dashboard の列「保有日数 中央値（p25–p75）」。⚠ **既定経路の指紋テスト**（列を足す前のコード `696cf7b` で取った fixture）を作り、rules.md 13-4 の 6・15-7 の 4・dashboard.md §10-5 に追記
+  - Phase 3（`trade_ownseq_ridge_a` ＋ leak、19 分 ＋ 18 分）: ⚠ **既存列は旧実行と最大差 0.0**（1 ビットも変えていない）。T3 QUANT θ=50: 中央値 7 日（2–19）・保有 1 日 21%・強制清算 13.5%。⚠ **Phase 1 の近似は二山の手法で 50 倍外れる**（360 日 対 7 日）
+  - 答えないこと: `cost_bp` で採否を変える ／ 保有日数で取引を選別する（後知恵の出口規則）。規制費の料率は公式ページから取れず【推測】のまま
+
+- 2026-09-17 逆の売買（売りの合図で建て・買いの合図で手仕舞う）の数値を確認し、モデルの評価に使えるか検討した — ⚠ **逆の数値は元から恒等式で決まり、評価に新しい情報を足さない。使えるのは (1) 配線の検査（leak で対称に跳ね下がる）と (2) S ＝ 粗利 − 保有日率 × B&H 粗利（選日の腕。乱択ゲートの期待値）の 2 つで、どちらも診断**
+  - ⚠ 問いは「逆にすれば勝つか」ではなく「評価に使えるか」（利用者の訂正 2026-09-17）。勝つかは副産物で、元の純利がほぼ 0 以下のときだけ（921 件で 28 件）
+  - プラン: [docs/plans/archive/reverse-trading-check.md](docs/plans/archive/reverse-trading-check.md) / ⚠ **答え: [reverse-trading.md](docs/specs/experiments/feature-discovery/reverse-trading.md)**
+  - 恒等式（θ ≥ 50）: 逆の上乗せ ＝ −元の純利 − 2 × 元のコスト ＋ 5bp − δ（δ ∈ {−5, 0, 5}）− 最初の合図までの B&H 粗利。補集合の吸収状態をテストで縛った（`tests/test_trading.py`）
+  - Phase 1（921 件）: 逆の上乗せが正は 28 件（3%）で、元の純利が ＋2bp 以下のときだけ。leak 858 件は −13,353bp に跳ね下がる（配線の検査になる）
+  - Phase 2: `result.csv` に `逆売買純利bp` / `逆売買取引回数`、`per_symbol.csv` に `逆売買純利bp`、`checks.json` に `reverse`（恒等式との差つき）と `selection_edge`（S）。rules.md 14-3 に (3)(4) を追記。画面には出さない
+  - Phase 3（代表構成の実測）: θ=50 で恒等式が 3bp 以内で合う。⚠ **θ ≥ 55 では 700〜1,700bp ずれる**（取引が 1 銘柄 1 fold に 1 回前後で、最初の合図までの区間が fold の大部分）。S > 0 で上乗せ < 0 の形（T3 QUANT）＝「腕はあるが買って持つほうが儲かる」
+  - 答えないこと: 逆を手法として採る（後知恵）／ 空売り版を回す（13-4 規約 2）／ 逆・S を採否に使う
+
+- 2026-09-17 代表 1 構成 ＋ leak 対照を 1 回だけ回し直した（2 つの Phase 3 を兼ねる） — `trade_ownseq_ridge_a`（結果を見る前に決めた。台帳で 09-15 以降の `trade_*` の最上位 T3 QUANT θ=50 保留）。`summary.csv` / `per_symbol.csv` / `checks.json` の既存の値は旧実行と最大差 0.0。同じ鍵なので n_trials は動かない。キュー `config/queue/holding_reverse_rep.toml`
+
+- 2026-09-17 出来高を `trend` 層の隣に足して回した（裁定 B: 1 日ラベルの閾値売買の対） — ⚠ **6 行とも落とす。処置 − 対照 の上乗せは fold 3/5・2/5・3/5 で揃わず、価格だけの入力の軸を閉じた**
+  - プラン: [docs/plans/archive/volume-trend-input.md](docs/plans/archive/volume-trend-input.md) / ⚠ **記録: [volume-trend-input.md](docs/specs/experiments/volume-trend-input.md)**（調査 [volume-trend-ml.md §7](docs/specs/experiments/volume-trend-ml.md) の続き）
+  - 裁定 B は Claude が利用者の規約（14-10 規約 1）から結果を見る前に決めた: A（検知器）は「測れない」、C（見送る）は規約が退ける。⚠ 利用者が A も残したいなら ＋12 の別の試行として後から足す
+  - `trendvol` 層（`ail/features/trendvol.py`。出来高 4 列 × 窓 20/60/200・`own_trend{W}_v*`・テスト 6 件）、rules.md 15-2 規約 2-2。`trend` 層と既定の表は 1 ビットも変えない
+  - 表 `owntrend_1995`（53 列・422,941 行）／ `owntrendvol_1995`（65 列・422,740 行。⚠ 201 行は `updown` の NaN で落ちる）、実験 `trade_owntrend{,vol}_1995_ridge_a`（違う key は 3 つだけ）。実行 4 本 1.4 分・表 2.9 分
+  - 結果: 対照 θ=50 上乗せ −250bp（＋＋−−＋）／ 処置 −112bp（同）。差 ＋138 / −103 / ＋122。門は 2 本とも門前（診断で回した）。leak は 2 本とも ＋78,666bp・5/5。n_trials 607 → 613
 
 - 2026-09-17 割り当てなしの災害系列（`ex_`）の改善を、日付をずらした偽薬 27 本と比べた — ⚠ **偽薬は超えたが保留のまま**
   - プラン: [docs/plans/archive/exog-shift-placebo.md](docs/plans/archive/exog-shift-placebo.md) / ⚠ **記録: [daily-data-sources.md §15](docs/specs/experiments/daily-data-sources.md)**

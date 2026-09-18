@@ -1,0 +1,18 @@
+# ⚠ **出来高を `trend` 層の隣に足して回す対**（プラン `plans/archive/volume-trend-input.md` §2-2。裁定 B。TODO の Phase 2）。
+#
+# ⚠ **表を先に作る**: `cli.build --experiment owntrend_1995`（＋ `--leak`）と `owntrendvol_1995`（＋ `--leak`）。
+# ⚠ **本番 1 本につき `--leak` 対照が自動で 1 本並ぶ**（`leak = true`。入力を増やすと配線の穴も増える）。
+#
+# ⚠ **事前登録**（回す前に決めた。結果を見て動かさない）: 本番 2 ＋ leak 2 ＝ 4 実行 ／
+# ⚠ **n_trials 604 → 610（＋6 ＝ 全部使う × Ridge × θ 3 水準 × 2 本）** ／ 判定は対 B&H 上乗せの符号（13-7）。
+# ⚠ **回す理由は「効くはず」ではなく「価格だけの入力の軸を閉じるため」**（14-10 規約 3）。⚠ **良い数字が出たらまず疑う**。
+# ⚠ **読み方も先に固定**（プラン §2-3）: 処置 − 対照 の上乗せ（θ ごと・fold ごとの符号）。処置が対照を fold 5/5 で
+# 超えなければ「価格だけの入力の軸を閉じる」。超えたら乱択ゲートと leak 対照を通してから「保留」。
+#
+# ⚠ **順は対照（価格だけ）→ 処置**。⚠ **台帳はここでは吐かない**（Phase 3 で 1 回吐き、604 → 610 を検算する）。
+experiments = ["trade_owntrend_1995_ridge_a", "trade_owntrendvol_1995_ridge_a"]
+
+leak = true
+ledger = false
+max_failures = 3
+time_budget_s = 3600     # ⚠ 実行は 1 本 数秒〜1 分【実測 trade_own_1995_ridge_a 6 秒】

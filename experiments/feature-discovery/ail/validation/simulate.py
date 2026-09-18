@@ -27,6 +27,10 @@ def simulate(buy_pct, y, threshold: float, cost_bp: float = 5.0, exit_pct=None) 
     ⚠ **`exit_pct` を省くと 100 − 入口%**（＝ 1 出力の契約。既存の行はこちらで再現する）。
     戻り値: net_bp（日次純利 bp）・gross_bp・pos（0/1）・trades（建てた回数）・
     hold_ratio（保有日率）・skip_days（見送り日数）・cost_bp_total（払ったコスト bp）。
+    ⚠ **2026-09-17 に 3 鍵を足した**（rules.md 13-4 の 6。⚠ **既存の鍵の計算経路は 1 ビットも変えない**）:
+    hold_days（1 取引ごとの保有日数の list。足 t で建て t+k で手仕舞えば k。`sum == pos.sum()`・`len == trades`）・
+    entry_idx（建てた足の添字の list。`hold_days` と同じ長さ）・
+    forced_close（末尾で保有中のまま強制清算したか。True なら `hold_days[-1]` は右側で打ち切られた観測）。
     """
     if threshold < 50.0:
         raise ValueError(f"θ = {threshold} は受けない。⚠ **θ は 50% 以上だけ**（rules.md 13-3 の 2。"
@@ -44,24 +48,36 @@ def simulate(buy_pct, y, threshold: float, cost_bp: float = 5.0, exit_pct=None) 
     pos = np.zeros(n, dtype=int)
     net = np.zeros(n)
     p, trades, cost_total = 0, 0, 0.0
+    # ⚠ **1 取引ごとの保有日数**（13-4 の 6）。⚠ **記録するだけで、上の net / pos / trades には触らない**
+    hold_days: list[int] = []
+    entry_idx: list[int] = []
+    opened = -1
     for t in range(n):
         traded = False
         if p == 0 and b[t] > threshold:             # 建てる（⚠ 未保有のときだけ入口% を読む）
             p, traded, trades = 1, True, trades + 1
+            opened = t
         elif p == 1 and e[t] > threshold:           # 手仕舞う（⚠ 保有中のときだけ出口% を読む）
             p, traded = 0, True
+            hold_days.append(t - opened)            # pos は opened〜t−1 が 1 ＝ t − opened 日
+            entry_idx.append(opened)
         # ⚠ 未保有で売り指標が立っても何もしない（買い専用。13-4 の 2）
         pos[t] = p
         net[t] = p * yy[t] * 1e4 - (half if traded else 0.0)
         if traded:
             cost_total += half
+    forced = False
     if p == 1:                                     # ⚠ fold 末尾の強制清算（13-4 の 4）
         net[-1] -= half
         cost_total += half
+        hold_days.append(n - opened)               # ⚠ 右側で打ち切られた観測（opened〜n−1 が 1）
+        entry_idx.append(opened)
+        forced = True
     gross = pos * yy * 1e4
     return {"net_bp": net, "gross_bp": gross, "pos": pos, "trades": trades,
             "hold_ratio": float(pos.mean()) if n else 0.0,
-            "skip_days": int((pos == 0).sum()), "cost_bp_total": float(cost_total)}
+            "skip_days": int((pos == 0).sum()), "cost_bp_total": float(cost_total),
+            "hold_days": hold_days, "entry_idx": entry_idx, "forced_close": forced}
 
 
 def shifted_gate(pos, y, threshold_free_cost: float, rng) -> dict:

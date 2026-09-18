@@ -193,6 +193,16 @@ def _passes(run: dict) -> bool:
     return all(marks.get(k) == "✅" for k in SCORE_MARKS)
 
 
+def holding_cell(h) -> str:
+    """保有日数の列（`checks.json` の `by_threshold[θ].holding` の写し）。⚠ **画面で数え直さない。** 無ければ「—」。"""
+    if not h or h.get("中央値") is None:
+        return "—"
+    cell = f"{h['中央値']:.0f}"
+    if h.get("p25") is not None and h.get("p75") is not None:
+        cell += f"（{h['p25']:.0f}–{h['p75']:.0f}）"
+    return cell
+
+
 def _bp(v) -> str:
     return "—" if v is None else f"{v:+.2f}"
 
@@ -489,16 +499,19 @@ def exp_run_html(runs_dir: Path, run_id: str) -> str | None:
                 (f"{ed.get('positive')}/{ed.get('folds')} {esc(ed.get('pattern') or '')}" if ed else "—"),
                 fmt((e.get("dsr") or {}).get("DSR"), 3),
                 fmt(b.get("取引回数"), 0), fmt(b.get("保有日率")),
+                holding_cell(e.get("holding")),
                 (f"{ps.get('中央値bp', 0):+.2f} ／ 勝ち {ps.get('勝ち銘柄')}/{ps.get('銘柄数')}"
                  if ps else "—"),
             ])
         body.append(table(["θ", "最良手法", "純利bp", "B&H 純利", "上乗せ", "上乗せ fold",
-                           "DSR", "取引/fold", "保有日率", "銘柄別 bp"], rows,
-                          {2, 3, 4, 6, 7, 8}))
+                           "DSR", "取引/fold", "保有日率", "保有日数 中央値（p25–p75）", "銘柄別 bp"],
+                          rows, {2, 3, 4, 6, 7, 8, 9}))
         body.append("<p class='meta'>⚠ 閾値は事前固定（rules.md 13-3。良かった閾値だけ報告しない）。"
                     "fold の符号は対 B&H の上乗せで見る（13-7）。「θ が高いほど良い」は"
                     "「取引しないだけ」の可能性があるので取引回数を必ず横に読む（13-10）。"
-                    "銘柄別 bp は成果物（per_symbol.csv）で採否には使わない。</p>")
+                    "銘柄別 bp は成果物（per_symbol.csv）で採否には使わない。"
+                    "保有日数は 1 取引ごとの分布（holds.csv）の写しで、強制清算を含む。"
+                    "旧実行には無いので「—」（13-4 の 6。採否には使わない）。</p>")
     body.append("<h2>手法ごとの成績（summary.csv）</h2>")
     if threshold:
         rows = [[esc(s["手法"]), fmt(s.get("閾値"), 0), fmt(s["本数"], 0), fmt(s["的中率"], 3),

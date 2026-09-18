@@ -9,6 +9,7 @@
       checks.json    ⚠ fold の符号・上乗せ・実効標本数・デフレーテッド SR（管理画面が読む）
       selected.csv   ⚠ 手法が fold ごとに選んだ列（偽薬を選んだ割合の実測に使う）
       per_symbol.csv ⚠ 銘柄別の純利 bp（閾値つき売買だけ。成果物であって採否には使わない）
+      holds.csv      ⚠ 1 取引 1 行の保有日数（閾値つき売買だけ。rules.md 13-4 の 6・15-7 の 4。採否には使わない）
       daily.csv      ⚠ 日次のポートフォリオ系列（純利・保有日率・乱択ゲート。エピソード表の素）
       log.txt        画面に出したものと同じ
       fitted/        ⚠ 標本から学んだ係数（再現用。⚠ **次の実行では読み込まない**）
@@ -136,6 +137,8 @@ class Run:
         """
         rows = []
         for kind, table in (("純利bp", net), *(extra or {}).items()):
+            if not isinstance(table, dict):
+                continue                          # ⚠ `extra["holds"]` は表（DataFrame）で、日次系列ではない
             for (method, th), parts in (table or {}).items():
                 if not parts:
                     continue
@@ -145,6 +148,11 @@ class Run:
         if rows:
             pd.concat(rows, ignore_index=True).to_csv(
                 os.path.join(self.dir, "daily.csv"), index=False)
+
+    def holds(self, df) -> None:
+        """⚠ **1 取引 1 行の保有日数**（rules.md 13-4 の 6）。⚠ **成果物であって採否には使わない**（`per_symbol.csv` と同じ扱い）。"""
+        if df is not None and len(df):
+            df.to_csv(os.path.join(self.dir, "holds.csv"), index=False)
 
     def per_symbol(self, df: pd.DataFrame) -> None:
         """⚠ **銘柄別 bp は成果物**（rules.md 13-7。利用者の求める出力）。⚠ **採否には使わない。**"""

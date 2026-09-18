@@ -197,6 +197,36 @@ def test_exp_run_html(runs_dir):
     assert "全部使う（基準）" in body       # summary.csv の写し
 
 
+def test_exp_run_html_holding_days_column(runs_dir):
+    """閾値売買の詳細に「保有日数 中央値（p25–p75）」の列が出る。⚠ **checks.json の写し**で、鍵が無い θ は「—」。"""
+    d = runs_dir / "2026-09-10T10-00-00_trade_own_ridge_a"
+    d.mkdir()
+    (d / "summary.csv").write_text(
+        "手法,閾値,本数,的中率,IC,粗利bp,純利bp,取引回数,保有日率,fold数\n"
+        "全部使う（基準）,50.0,35,0.52,0.03,13.0,10.0,60,0.5,5\n", encoding="utf-8")
+    (d / "config.json").write_text(json.dumps(
+        {"dataset": "daily", "horizon": 1, "k": 16, "cost_bp": 5.0, "feature_layers": ["own"],
+         "trading": {"style": "threshold", "thresholds": [50, 55, 60], "form": "shared"}}), encoding="utf-8")
+    (d / "inputs.json").write_text(json.dumps({"layer": "adjusted", "features": 35, "symbols": 63}), encoding="utf-8")
+    (d / "env.json").write_text(json.dumps({"seed": 0, "git_commit": "abc1234"}), encoding="utf-8")
+    def th(net, holding=None):
+        e = {"best": {"method": "全部使う（基準）", "純利bp": net, "取引回数": 60.0, "保有日率": 0.5},
+             "edge_vs_bh": {"pattern": "＋＋−＋＋", "positive": 4, "folds": 5, "mean_bp": 1.0, "t": 1.2},
+             "bh_純利bp": net - 1.0}
+        if holding:
+            e["holding"] = holding
+        return e
+    by = {"50": th(10.0, {"取引数": 900, "中央値": 4.0, "p25": 2.0, "p75": 12.0}), "55": th(9.0), "60": th(8.0)}
+    (d / "checks.json").write_text(json.dumps({
+        "leak": False, "style": "threshold", "form": "shared", "thresholds": [50.0, 55.0, 60.0],
+        "by_threshold": by, "best": {**by["50"]["best"], "閾値": 50.0}, "folds": {"positive": 4, "folds": 5},
+        "edge_vs_bh": by["50"]["edge_vs_bh"]}, ensure_ascii=False), encoding="utf-8")
+    body = vibetab.exp_run_html(runs_dir, "2026-09-10T10-00-00_trade_own_ridge_a")
+    assert "保有日数 中央値（p25–p75）" in body
+    assert "4（2–12）" in body
+    assert vibetab.holding_cell(None) == "—" and vibetab.holding_cell({"中央値": 2.0}) == "2"
+
+
 def test_exp_run_html_rejects_unknown_and_traversal(runs_dir):
     assert vibetab.exp_run_html(runs_dir, "nai") is None
     assert vibetab.exp_run_html(runs_dir, "../secret") is None

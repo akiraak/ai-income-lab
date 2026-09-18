@@ -784,19 +784,9 @@ threshold = "50"
 symbols = "63"
 note = "⚠ **閉じる（2026-09-16・中身を確かめた）**: 5 fold のうち 4 fold が「全部持つ」か「全部休む」に倒れ、⚠ **平均を正にしたのは fold 2 の ＋589.93bp の 1 本だけ**（[tsc-threshold.md §2](../tsc-threshold.md)）【実測】"
 
-[[closed]]
-key = "全部使う（基準）"
-model = "LightGBM"
-layer = "adjusted"
-period = "2018-01-31"
-granularity = "日足"
-layers = "own cs rel ex"
-style = "閾値売買"
-form = "共通"
-calibration = "std"
-threshold = "50"
-symbols = "48"
-note = "⚠ **閉じる（2026-09-16・代表済み）**: θ 3 水準で符号が揃わないことが記録で実測済み（[midcap-targets §4](../midcap-targets.md)・[mlp-threshold-trading §8](../mlp-threshold-trading.md)）。⚠ **再測は ＋3 試行を払って同じ検出限界の下で同じ答えを得るだけ**"
+# ⚠ **2026-09-17 に外した**: 全部使う × LightGBM × own cs rel ex × 閾値売買 共通 std θ=50（48 銘柄）の「閉じる（2026-09-16・代表済み）」。
+# `ex_` 層の修正（z20。commit 127b694・b4e6dc6）後に同じ鍵で回し直したら、θ=50 の対 B&H 上乗せが ＋68.68bp → −65.05bp に動いて
+# ⚠ **判定が「保留」→「落とす」に変わった**（閉じられるのは保留だけ）。経緯は daily-data-sources.md §16。⚠ **判定の列は台帳が決め、ここでは変えない**
 
 [[closed]]
 key = "全部使う（基準）"

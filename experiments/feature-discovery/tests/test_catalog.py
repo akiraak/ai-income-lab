@@ -461,7 +461,9 @@ def test_real_closed_entries_each_hit_exactly_one_held_row():
     d = catalog.ledger()                      # ⚠ 中で _apply_closed が走る（合わなければ止まる）
     closed = [r for r in d["rows"] if r.get("閉じる")]
     # ⚠ **2026-09-16 に 62 件足した**（保留の処遇。plans/ledger-hold-disposition.md）。16 ＋ 62 ＝ 78
-    assert len(closed) == len(catalog.closed_notes()) == 78
+    # ⚠ 78 → 77（2026-09-17）: LightGBM × own cs rel ex × θ=50 の「閉じる」は、`ex_` の修正後の回し直しで判定が
+    # 保留 → 落とす に変わったので外した（daily-data-sources.md §16-1 の 3）
+    assert len(closed) == len(catalog.closed_notes()) == 77
     assert all(r["判定"] == "保留" for r in closed)
 
 

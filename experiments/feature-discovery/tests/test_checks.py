@@ -186,3 +186,47 @@ def test_n_trials_now_refuses_an_extra():
     """⚠ **同じ間違いを書けなくする。** 「この実行ぶん」を渡す引数はもう無い。"""
     with pytest.raises(TypeError):
         checks.n_trials_now(3)
+
+
+# --- 保有日数・逆売買・選日の上乗せ（2026-09-17。⚠ どれも診断で、採否には使わない） ---------------
+
+def test_holding_summary_matches_a_hand_calculation():
+    holds = pd.DataFrame({"手法": ["A"] * 6 + ["B"], "閾値": [50.0] * 7,
+                          "fold": 1, "銘柄": "X", "建てた日": "2021-01-01",
+                          "保有日数": [1, 2, 2, 5, 10, 40, 3],
+                          "強制清算": [False, False, False, False, False, True, False]})
+    h = checks._holding(holds, "A", 50.0)
+    assert h["取引数"] == 6 and h["中央値"] == 3.5 and h["p25"] == 2.0 and h["p75"] == 8.75
+    assert h["保有1日の割合"] == pytest.approx(1 / 6, abs=1e-4) and h["保有2日以下の割合"] == pytest.approx(0.5)
+    assert h["強制清算の割合"] == pytest.approx(1 / 6, abs=1e-4) and h["中央値_強制清算除く"] == 2.0
+    assert "採否" in h["注記"]
+    assert checks._holding(holds, "C", 50.0) is None            # 取引 0 回は鍵を省く
+    assert checks._holding(None, "A", 50.0) is None
+
+
+def test_selection_edge_is_gross_minus_exposure_times_bh():
+    res = pd.DataFrame([
+        {"手法": "M", "fold": f, "閾値": 50.0, "粗利bp": g, "純利bp": g - 10.0, "保有日率": 0.5}
+        for f, g in enumerate([60.0, 40.0, 50.0, 70.0, 30.0], 1)] + [
+        {"手法": checks.DRIFT, "fold": f, "閾値": 50.0, "粗利bp": 100.0, "純利bp": 95.0, "保有日率": 1.0}
+        for f in range(1, 6)])
+    s = checks._selection_edge(res, "M", 50.0)
+    assert s["values"] == [10.0, -10.0, 0.0, 20.0, -20.0]      # 粗利 − 0.5 × 100
+    assert s["mean_bp"] == 0.0 and s["positive"] == 2 and s["保有日率"] == 0.5
+    assert checks._selection_edge(res, "Z", 50.0) is None
+
+
+def test_reverse_summary_reports_the_identity_gap():
+    rows = []
+    for f in range(1, 6):
+        rows.append({"手法": "M", "fold": f, "閾値": 50.0, "粗利bp": 30.0, "純利bp": 20.0,
+                     "逆売買純利bp": 60.0, "逆売買取引回数": 4})
+        rows.append({"手法": checks.DRIFT, "fold": f, "閾値": 50.0, "粗利bp": 100.0, "純利bp": 95.0,
+                     "逆売買純利bp": -5.0, "逆売買取引回数": 0})
+    res = pd.DataFrame(rows)
+    r = checks._reverse(res, pd.DataFrame(), "M", 50.0, 5.0)
+    assert r["純利bp"] == 60.0 and r["取引回数"] == 4.0
+    assert r["edge_vs_bh"]["mean_bp"] == -35.0                    # 60 − 95
+    assert r["恒等式の上乗せbp"] == -35.0                          # −20 − 2 × 10 ＋ 5
+    assert r["恒等式との差bp"] == 0.0
+    assert checks._reverse(res.drop(columns=["逆売買純利bp"]), pd.DataFrame(), "M", 50.0, 5.0) is None

@@ -1,0 +1,46 @@
+# ⚠ **出来高の対の「処置」の側**（プラン `plans/archive/volume-trend-input.md` §2-2。相手は `trade_owntrend_1995_ridge_a`）。
+#
+# ⚠ **`trade_owntrend_1995_ridge_a.toml` との違いは `features_from`（表）と `feature_layers`（＋ `trendvol`）だけ。**
+# モデル・選別・閾値・形式・fold 数・種・コストは全部同じにしてある。
+# ⚠ **対の 2 本は `feature_layers`・`features_from`・`name` 以外 1 key も違わない**ことを回す前に tomllib で照合する。
+#
+# ⚠ **回す理由は「効くはず」ではなく「価格だけの入力の軸を閉じるため」**（14-10 規約 3）。
+# ⚠ **事前登録**: 全部使う × Ridge × θ 3 水準 ＝ 3 試行（対で ＋6。604 → 610）。乱択・B&H・直前符号・leak は数えない。
+#
+# ⚠ **TOML の平の key はテーブル見出しより上に書く**（rules.md 10 章 規約 1）
+name = "trade_owntrendvol_1995_ridge_a"
+dataset = "daily"
+horizon = 1
+cost_bp = 5.0
+features_from = "owntrendvol_1995"   # ⚠ 表は作り直さず owntrendvol_1995 のものを読む（13-8）
+
+feature_layers = ["own", "trend", "trendvol"]
+targets = "all"
+
+horizon_min = 1440.0
+bar_minutes = 1440.0
+
+# ⚠ 選別は「全部使う」1 本に絞る（選別の優劣は決着済み。処置は入力）。乱択は選別の基準線
+selectors = ["全部使う（基準）", "乱択（基準）"]
+k = 16
+
+model = "Ridge"
+baselines = ["常に上（ドリフト）", "直前リターンの符号"]
+
+[trading]
+style = "threshold"
+thresholds = [50, 55, 60]      # ⚠ 事前固定。結果を見て動かさない（rules.md 13-3）
+form = "shared"                # (A) 銘柄共通 1 本
+
+[validation]
+split = "walk_forward_dates"   # ⚠ fold の切れ目は日付で決める（rules.md 13-6 の 1）
+folds = 5
+purge = true
+embargo_bars = 0
+seed = 0
+
+[features]
+ex_lag_days = 1
+ex_zero_fill = ["usgs"]
+ex_transforms = ["d1", "z20"]
+ex_max_stale_days = 7

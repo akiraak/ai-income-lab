@@ -252,8 +252,14 @@ def _th_entry(th, net):
                            "勝ち銘柄": 40}}
 
 
+HOLDING = {"取引数": 1200, "中央値": 3.0, "p10": 1.0, "p25": 2.0, "p75": 9.0, "p90": 31.0,
+           "保有1日の割合": 0.21, "保有2日以下の割合": 0.4, "強制清算の割合": 0.05,
+           "中央値_強制清算除く": 3.0, "注記": "⚠ 成果物。採否には使わない"}
+
+
 def trade_checks():
     by = {"50": _th_entry(50, 10.0), "55": _th_entry(55, 12.0), "60": _th_entry(60, 8.0)}
+    by["55"]["holding"] = HOLDING            # ⚠ 保有日数は 1 水準にだけ付ける（他は旧実行と同じ「—」）
     return {"leak": False, "style": "threshold", "form": "shared", "cost_bp": 5.0,
             "thresholds": [50.0, 55.0, 60.0], "by_threshold": by,
             "best": {**by["55"]["best"], "閾値": 55.0},
@@ -316,6 +322,10 @@ def test_trading_detail_page_shows_all_three_thresholds(settings):
         assert "対 B&amp;H の上乗せ" in d.text
         assert "40/63" in d.text                     # 銘柄別の勝ち銘柄（成果物の要約）
         assert "θ=55%" in d.text                     # 最良の閾値
+        # ⚠ 保有日数の列は checks.json の写し（holding がある θ=55 だけ数字、他は「—」）
+        assert "保有日数 中央値（p25–p75）" in d.text
+        assert "3（2–9）" in d.text
+        assert d.text.count("3（2–9）") == 1
 
 
 # --- 前置きの門（rules.md 14-5） ----------------------------------------

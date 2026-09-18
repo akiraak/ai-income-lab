@@ -64,7 +64,10 @@
     - [x] Phase 4: 台帳を吐き直し（n_trials 604 のまま・判定列が変わらないことを検算）、`daily-data-sources.md` §16 に旧→新の差分表と結論の変化の有無を書く（✅ 2026-09-17。n_trials 604 → 607（`midcap_ex` の新しい鍵）→ 613（出来高）。判定が変わった 2 行と理由を §16-5 に書いた。⚠ **GAN 24 本が終わったら §16-4 の追記のあとにもう 1 回吐く**）
 
     - [ ] GAN 24 本が終わったら、§16-4 と [gan-threshold-ownex.md §8](docs/specs/experiments/gan-threshold-ownex.md) に旧→新の差分表（36 行の判定が変わったか）を書き、台帳を吐き直し、worktree `/home/ubuntu/ail-exim-wt` を `git worktree remove` する
-      依存: 「Phase 3: GAN × ownex 24 本を queue で回すか裁定し、回すなら手間の小さい順に回す（約 30 時間 GPU【実測の合計】。⚠ Claude の推奨は「回す」）」。進み具合は `runs/queue/exim_rerun_gan.json`（2026-09-17 18:05 時点で 12/24 本の 7 本目）
+      依存: 「Phase 3: GAN × ownex 24 本を queue で回すか裁定し、回すなら手間の小さい順に回す（約 30 時間 GPU【実測の合計】。⚠ Claude の推奨は「回す」）」。進み具合は `runs/queue/exim_rerun_gan.json`（2026-09-17 18:30 時点で 6/24 済み・7 本目 `trade_ownex_ridgegan_a` が 17:59 から。見込みは 09-19 の朝）
+      ✅ **2026-09-17 18:30: 済んだ 6 本（16k (a) 3 対）の差分表は §16-4 と gan-threshold-ownex.md §8 に書いた**（9 行とも落とすのまま・差は 453〜691bp・leak は跳ねたまま）
+      ⚠ **キューが終わると監視スクリプトが自動で出す**（`setsid nohup` で切り離し済み・pid は `pgrep -af exim_gan_after`）: `/tmp/claude-1000/-home-ubuntu-ai-income-lab/108bae9e-763a-4d81-8733-2ae2840a1eac/scratchpad/` の `exim_compare_final.csv`（旧→新の差分・`exim_compare.py` で再計算できる）・`ledger_draft.md`（`cli.report --catalog` の下書き。⚠ **本体の `ledger.md` には写していない**）・`exim_gan_after.log`
+      残る手順: (1) `exim_gan_after.log` で 24/24 done を確かめる (2) `exim_compare_final.txt` の (d) 18 本を §16-4 と §8 の表に足し、36 行の判定の変化を書く (3) `ledger_draft.md` を検算（n_trials 613 のまま・判定列の差分が GAN の行だけか）して `ledger.md` に写す（`SystemExit` なら `catalog_notes.toml` の閉じる注記） (4) `git worktree remove /home/ubuntu/ail-exim-wt` (5) 親タスクを DONE へ・プラン `exim-rerun-titan.md` を archive へ
 - [ ] 検証タブのスコアを比べられる形にする（fold の長さと検証方式で単位が違う。着手時にプランを作る）
   派生元: 「下降トレンドの検知の検証」（✅ 2026-09-12 完了。[downtrend-detection.md](docs/specs/experiments/downtrend-detection.md)）。1995 表の実行を足したときに気づいた
   ⚠ **問題は 2 つある。** どちらも画面のスコア（最良手法の純利 bp・降順。[dashboard.md §10-2](docs/specs/dashboard.md)）にだけ効く

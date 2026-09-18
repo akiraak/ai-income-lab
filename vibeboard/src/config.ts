@@ -13,6 +13,7 @@ export interface CategoryConfig {
 export interface FilesConfig {
   label: string;
   // ツリーからも読み書きからも外す名前。パスのどのセグメントに現れても対象。
+  // 既定（.git / node_modules）は常に含む。設定の exclude はそこに足すだけ
   exclude: string[];
 }
 
@@ -53,10 +54,25 @@ interface ParsedArgs {
   rest: string[];
 }
 
+// 既定のカテゴリ。設定ファイルの categories に書いても消えない（消すのは `hidden: true` だけ）
 const DEFAULT_CATEGORIES: CategoryConfig[] = [
   { name: 'plans', label: 'Plans', path: 'docs/plans', archive: true },
   { name: 'specs', label: 'Specs', path: 'docs/specs', archive: false },
 ];
+
+/** plans のタブが無い（hidden）ときのプランの置き場所 */
+export const DEFAULT_PLANS_DIR = 'docs/plans';
+
+/**
+ * 「プラン作成」の文面・画面の説明・CLAUDE.md の定型文に入れるプランの置き場所
+ * （root 相対・`/` 区切り）。設定した plans の path に従い、plans を hidden にしていれば既定に戻す
+ * （タブを隠していてもプランを作る場面はある）。
+ */
+export function plansDirOf(config: Pick<VibeboardConfig, 'root' | 'categories'>): string {
+  const plans = config.categories.find(c => c.name === 'plans');
+  if (!plans) return DEFAULT_PLANS_DIR;
+  return path.relative(config.root, plans.path).split(path.sep).join('/') || '.';
+}
 
 // UI 側で固定のスラッグを持つタブ。カテゴリ名にも customTab 名にも使えない
 const RESERVED_CATEGORY_NAMES = new Set(['todo', 'files', 'tasks']);
@@ -160,19 +176,59 @@ function ensureUnderRoot(absPath: string, root: string, label: string): void {
   }
 }
 
+// 設定ファイルの categories の 1 要素。書かれなかったフィールドは undefined のまま持ち、
+// 既定のカテゴリを上書きするときに「書いたものだけ差し替える」のに使う
+interface CategoryEntry {
+  index: number;
+  name: string;
+  hidden: boolean;
+  label?: string;
+  path?: string;
+  archive?: boolean;
+}
+
+// categories は既定（plans / specs）への**差分**として読む:
+// - 既定と同じ name → 書いたフィールドだけ上書き / 既定に無い name → タブを足す
+// - `hidden: true` → そのタブを出さない（既定を消す唯一の方法）
+// - 並びは書いた順。書かれていない既定は、既定の順で 1 つ前の既定の直後（無ければ先頭）に入る
 function normalizeCategories(raw: unknown, root: string): CategoryConfig[] {
-  if (raw === undefined) {
-    // デフォルトは相対パスで持っているので root に紐づけて絶対化する
-    return DEFAULT_CATEGORIES.map(c => ({ ...c, path: path.resolve(root, c.path) }));
-  }
-  if (!Array.isArray(raw)) {
+  const list = raw === undefined ? [] : raw;
+  if (!Array.isArray(list)) {
     throw new Error('categories は配列である必要があります');
   }
-  if (raw.length === 0) {
-    throw new Error('categories を空にはできません (省略すればデフォルトが使われます)');
+  const entries = readCategoryEntries(list);
+  const byName = new Map(entries.map(e => [e.name, e]));
+
+  const order = entries.map(e => e.name);
+  let prev: string | null = null;
+  for (const def of DEFAULT_CATEGORIES) {
+    if (!byName.has(def.name)) {
+      order.splice(prev === null ? 0 : order.indexOf(prev) + 1, 0, def.name);
+    }
+    prev = def.name;
   }
-  const seen = new Set<string>();
+
   const out: CategoryConfig[] = [];
+  for (const name of order) {
+    const e = byName.get(name);
+    if (e?.hidden) continue;
+    const def = DEFAULT_CATEGORIES.find(d => d.name === name);
+    const rawPath = e?.path ?? def?.path ?? `docs/${name}`;
+    const absPath = path.isAbsolute(rawPath) ? rawPath : path.resolve(root, rawPath);
+    ensureUnderRoot(absPath, root, e ? `categories[${e.index}].path` : `既定のカテゴリ ${name} の path`);
+    out.push({
+      name,
+      label: e?.label ?? def?.label ?? name,
+      path: absPath,
+      archive: e?.archive ?? def?.archive ?? false,
+    });
+  }
+  return out;
+}
+
+function readCategoryEntries(raw: unknown[]): CategoryEntry[] {
+  const seen = new Set<string>();
+  const out: CategoryEntry[] = [];
   for (let i = 0; i < raw.length; i++) {
     const entry = raw[i];
     if (!entry || typeof entry !== 'object' || Array.isArray(entry)) {
@@ -191,12 +247,17 @@ function normalizeCategories(raw: unknown, root: string): CategoryConfig[] {
       throw new Error(`categories[${i}].name が重複しています: ${name}`);
     }
     seen.add(name);
-    const label = typeof e.label === 'string' && e.label.trim() ? e.label.trim() : name;
-    const rawPath = typeof e.path === 'string' && e.path.trim() ? e.path.trim() : `docs/${name}`;
-    const absPath = path.isAbsolute(rawPath) ? rawPath : path.resolve(root, rawPath);
-    ensureUnderRoot(absPath, root, `categories[${i}].path`);
-    const archive = typeof e.archive === 'boolean' ? e.archive : false;
-    out.push({ name, label, path: absPath, archive });
+    if (e.hidden !== undefined && typeof e.hidden !== 'boolean') {
+      throw new Error(`categories[${i}].hidden は true / false で指定してください: ${String(e.hidden)}`);
+    }
+    out.push({
+      index: i,
+      name,
+      hidden: e.hidden === true,
+      label: typeof e.label === 'string' && e.label.trim() ? e.label.trim() : undefined,
+      path: typeof e.path === 'string' && e.path.trim() ? e.path.trim() : undefined,
+      archive: typeof e.archive === 'boolean' ? e.archive : undefined,
+    });
   }
   return out;
 }
@@ -216,7 +277,9 @@ function normalizeFiles(raw: unknown): FilesConfig {
   if (!Array.isArray(e.exclude)) {
     throw new Error('files.exclude は配列である必要があります');
   }
-  const exclude: string[] = [];
+  // 既定は書いても書かなくても外さない。除外は読み書きの防壁でもあるので、
+  // 書き写し忘れで .git が画面から編集できるようになるのを防ぐ（外す手段はあえて作らない）
+  const exclude: string[] = [...DEFAULT_EXCLUDES];
   for (let i = 0; i < e.exclude.length; i++) {
     const v = e.exclude[i];
     if (typeof v !== 'string' || !v.trim()) {
@@ -227,7 +290,7 @@ function normalizeFiles(raw: unknown): FilesConfig {
     if (FORBIDDEN_PATH_CHARS.test(name) || name === '.' || name === '..') {
       throw new Error(`files.exclude[${i}] にはパス区切りを含められません: ${name}`);
     }
-    exclude.push(name);
+    if (!exclude.includes(name)) exclude.push(name);
   }
   return { label, exclude };
 }

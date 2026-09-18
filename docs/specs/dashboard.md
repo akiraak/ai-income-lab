@@ -463,7 +463,7 @@ flowchart LR
 
 vibeboard の**ハード**タブ（`/ext/hardware`）。検証が何時間も使う機械（titan ＝ WSL2 ＋ RTX 3090 Ti ＋ 32 スレッド）の
 ⚠ **いまの状態の写し**を出す。⚠ **監視システムではない**（通知・警報・長期の記録は持たない）
-（プラン: [docs/plans/vibeboard-hardware-tab.md](../plans/vibeboard-hardware-tab.md)）。
+（プラン: [docs/plans/archive/vibeboard-hardware-tab.md](../plans/archive/vibeboard-hardware-tab.md)）。
 
 ⚠ **この画面は管理画面（3012）には無い。** `vibetab.py` の 4 本目のタブで、§10〜§12 と同じく
 **vibeboard 本体が `/ext/<name>` で中継する**。⚠ **vibeboard 本体は改造していない**（このプロジェクト専用）。

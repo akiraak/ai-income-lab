@@ -32,7 +32,7 @@ tailnet 越しに vibeboard（`http://titan-income-vibeboard`）を見ている�
 
 ## 2. 対応方針
 
-検証・データ・用語のタブと同じ作り（[vibeboard-experiments-tabs.md](archive/vibeboard-experiments-tabs.md)）に 4 枚目を足す。
+検証・データ・用語のタブと同じ作り（[vibeboard-experiments-tabs.md](vibeboard-experiments-tabs.md)）に 4 枚目を足す。
 ⚠ **vibeboard 本体（`vibeboard/`・akiraak/vibeboard）は触らない。** 触るのは `vibeboard.config.json` と `dashboard/` の下だけ。
 
 > この図の主張: ⚠ **値を読むのは sidecar の中の見張り 1 本だけ。** 画面は写しを取りに来るだけで、見る人が増えても `nvidia-smi` を叩く回数は変わらない。
@@ -116,7 +116,7 @@ sequenceDiagram
 ⚠ **CLAUDE.md は触らない**（別セッションからの依頼でプロジェクトの決めごとは変えない）。
 「vibeboard のこのプロジェクト固有の運用」の節に 1 行足すかどうかは、Phase 2 の後に利用者が判断する（案は Phase 2 の Step に書く）。
 
-⚠ **踏みやすい罠**（[dashboard.md §12-3](../specs/dashboard.md)）: `vibetab.py` を直しても、⚠ **3015 に古い sidecar が居座っていると新しいものは上がらない**（タブに「接続できません: HTTP 404」）。ポートから引いて落とし、入れ直す。⚠ **3010 には触らない。**
+⚠ **踏みやすい罠**（[dashboard.md §12-3](../../specs/dashboard.md)）: `vibetab.py` を直しても、⚠ **3015 に古い sidecar が居座っていると新しいものは上がらない**（タブに「接続できません: HTTP 404」）。ポートから引いて落とし、入れ直す。⚠ **3010 には触らない。**
 
 ## 4. テスト方針
 
@@ -190,11 +190,11 @@ flowchart LR
 
 ## 7. 実施の記録（2026-09-18）
 
-利用者の指示「進めて」で Phase 0〜3 を実装した。⚠ **残るのは利用者が vibeboard を入れ直して、ブラウザと tailnet 越しで見ること**だけ。
+利用者の指示「進めて」で Phase 0〜3 を実装した。✅ **vibeboard を入れ直した後の表示は利用者が確認し、2026-09-18 に閉じた**（`DONE.md`）。
 
 | Phase | 結果 |
 | --- | --- |
-| 0 | [dashboard.md §14](../specs/dashboard.md) を書いた。列名は実機で確かめた: ドライバ 610.62 は `clocks_throttle_reasons.*`（旧名）と `clocks_event_reasons.*`（新名）の両方を受ける【実測】→ 旧名で引く。`temperature.gpu.tlimit` は `[N/A]` なので使わない |
+| 0 | [dashboard.md §14](../../specs/dashboard.md) を書いた。列名は実機で確かめた: ドライバ 610.62 は `clocks_throttle_reasons.*`（旧名）と `clocks_event_reasons.*`（新名）の両方を受ける【実測】→ 旧名で引く。`temperature.gpu.tlimit` は `[N/A]` なので使わない |
 | 1 | `dashboard/hwstat.py` ＋ `tests/test_hwstat.py` 23 件。実機で 1 回読んで値を確かめた（GPU・プロセスの cmdline・スレッド別 CPU） |
 | 2 | `vibetab.py` に `/hardware` の経路、`vibeboard.config.json` に `hardware`。HTTP のテスト 2 件（⚠ 生の `<script>` が HTML に出ない・`innerHTML` を使っていない を固定）。全体 140 件が通った（397 秒。遅いのは既存の `test_experiments.py`・`test_live.py`） |
 | 3 | 輪 720 点 ＋ `history` の折れ線 6 枚 ＋ 表。dataviz の skill の検査（系列色 `#2a78d6` / `#3987e5` が明・暗とも全項目 PASS）を通し、明・暗の画面を headless で撮って目で見た |
@@ -212,7 +212,7 @@ flowchart LR
 | 見張りの代償は 1 コアの約 2%（プランでは約 1%） | `nvidia-smi` を 1 回ではなく 2 本（GPU の値 ＋ プロセスの PID）起こす【実測 0.058 秒 × 2 ÷ 5 秒からの計算】 |
 | 確認は **別ポート（3016）にもう 1 本立てて**行い、3010・3015 には触らなかった（プランでは sidecar を入れ直す） | ⚠ **vibeboard は `vibeboard.config.json` を起動時にしか読まない**ので、sidecar だけ入れ替えてもタブは出ない。3010 は利用者が起こしているもので、止めると見ている画面と Tasks の受信口の登録が切れる |
 
-⚠ **利用者に残る手順**: `./run-vibeboard.sh` を入れ直す（sidecar は子なので一緒に入れ替わる。3015 に古いものが居座ったら [dashboard.md §12-3](../specs/dashboard.md)）→
+⚠ **利用者に残る手順**: `./run-vibeboard.sh` を入れ直す（sidecar は子なので一緒に入れ替わる。3015 に古いものが居座ったら [dashboard.md §12-3](../../specs/dashboard.md)）→
 `http://127.0.0.1:3010/#hardware/now` と `http://titan-income-vibeboard/#hardware/now` で数字が 5 秒おきに動くのを見る。
 CLAUDE.md の「vibeboard のこのプロジェクト固有の運用」に足す 1 行の案:
 

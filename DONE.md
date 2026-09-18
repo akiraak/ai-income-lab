@@ -1,4 +1,12 @@
 # DONE
+- 2026-09-18 vibeboard に GPU を含んだハードの利用状況のページ（「ハード」タブ）を足した [plan](docs/plans/archive/vibeboard-hardware-tab.md)
+  - 利用者の指示（2026-09-18）。⚠ **vibeboard 本体は改造していない**（このプロジェクト専用。customTabs の 4 本目）。仕様は [dashboard.md §14](docs/specs/dashboard.md)
+  - 読み手 `dashboard/hwstat.py`（標準ライブラリのみ）: `nvidia-smi`（固定の引数・shell なし）と `/proc`・`shutil.disk_usage`。⚠ **WSL2 では GPU のプロセス名とプロセス別メモリが取れない**【実測】ので、PID から `/proc/<pid>/cmdline` を引く（160 字で切り、秘密らしい引数は伏せる ＝ tailnet の閲覧者にも見えるため）。読めないもの（CPU 温度・プロセス別 GPU メモリ・Windows 側のプロセス）は欄を作らず画面に書く
+  - ⚠ **値を読むのは sidecar の見張り 1 本**（5 秒おき・`AIL_HW_INTERVAL_S`。`nvidia-smi` 0.058 秒【実測】× 2 本 ÷ 5 秒 ≒ 1 コアの約 2%）。履歴はメモリ上の輪 720 点（1 時間）だけで、ディスクに書かない
+  - 画面 `dashboard/hwview.py`: 「いまの状態」（タイルとメーター・スレッド別の縦棒）と「この 1 時間」（1 系列 1 枚の折れ線 6 枚 ＋ 表。乗せた時刻の値を 6 枚同時に出す）。JSON を埋めて script が `textContent` だけで描き、`api/snapshot`・`api/history` を自前で取りに来る（iframe を作り直さない）。色を付ける閾値は作らず、GPU は絞りの理由を写す。例外はディスク 90% 以上の警告（⚠ 【推測】の目安）
+  - 確認: pytest 25 件を追加（読み手 23 ＋ HTTP 2。⚠ 生の `<script>` が HTML に出ない・`innerHTML` を使っていない を固定）・全体 140 件 pass。別ポート（3016）で実機の値と明暗の画面を目視。✅ **vibeboard を入れ直した後の表示は利用者が確認済み**（2026-09-18）
+  - ⚠ 気付いたこと: **`C:` が 98%（残り約 33GiB）**【実測 2026-09-18】。このタブで見えるようになっただけで、掃除は別の話
+
 - 2026-09-18 vibeboard の Tasks・Plans・Specs・Files に検索機能を入れた [plan](docs/plans/archive/vibeboard-search.md)
   - 利用者の指示（2026-09-18）。追加の指示で Tasks だけでなく 4 タブに入れた
   - サーバ: `vibeboard/src/search.ts`（パス ＋ 本文。空白区切りは AND・大文字小文字は区別しない・行数は「語が全部そろった行」・1MB 超と二進は本文を見ない・上限 200 件）と `GET /api/search/:category`。テスト 8 本（`test/search.test.js`）

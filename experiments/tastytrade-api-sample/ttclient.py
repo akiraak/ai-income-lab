@@ -221,38 +221,46 @@ class Client:
     @staticmethod
     def build_equity_order(
         symbol: str,
-        quantity: int,
+        quantity: int | float | str | None,
         action: str = "Buy to Open",
         order_type: str = "Limit",
         price: str | None = None,
         time_in_force: str = "Day",
         external_identifier: str | None = None,
+        value: str | None = None,
+        source: str = "ai-income-lab/tastytrade-api-sample",
     ) -> dict:
         """株 1 銘柄・1 レッグの注文 JSON。
 
         指値は price と price-effect が要る。成行は付けない（OpenAPI orders.json）。
         external-identifier は再送時に自分の注文を見つけるための識別子（API は重複排除しない）。
+        ⚠ `Notional Market`（金額指定。2026-09-17 に足した。【記憶・未確認】— 本番の dry-run で確かめる）は
+        `value` と `value-effect` を持ち、レッグに `quantity` を付けない。
         """
+        leg = {"instrument-type": "Equity", "symbol": symbol, "action": action}
+        if order_type == "Notional Market":
+            if value is None:
+                raise ValueError("Notional Market には value（金額）が要る")
+        else:
+            if quantity is None:
+                raise ValueError("quantity が要る（Notional Market 以外）")
+            leg["quantity"] = str(quantity)
         order = {
             "time-in-force": time_in_force,
             "order-type": order_type,
-            "source": "ai-income-lab/tastytrade-api-sample",
+            "source": source,
             "automated-source": True,
             "external-identifier": external_identifier or f"ail-{uuid.uuid4().hex[:16]}",
-            "legs": [
-                {
-                    "instrument-type": "Equity",
-                    "symbol": symbol,
-                    "quantity": str(quantity),
-                    "action": action,
-                }
-            ],
+            "legs": [leg],
         }
         if order_type in ("Limit", "Stop Limit"):
             if price is None:
                 raise ValueError("指値には price が要る")
             order["price"] = price
             order["price-effect"] = "Debit" if action.startswith("Buy") else "Credit"
+        if order_type == "Notional Market":
+            order["value"] = value
+            order["value-effect"] = "Debit" if action.startswith("Buy") else "Credit"
         return order
 
     def dry_run_order(self, account_number: str, order: dict) -> dict:

@@ -1,0 +1,39 @@
+# ⚠ **出来高の対の「価格だけ」の側の表**（プラン `plans/archive/volume-trend-input.md` §2-2。相手は `owntrendvol_1995`）。
+#
+# ⚠ **`own_1995.toml` に `trend` 層を足しただけ**（層・粒度・地平・k・種・コストは同じ）。
+# ⚠ **`own_1995` とは期間が違う** — `own_trend200_*` の助走 200 本で表の頭が 1995-08-31 始まりになる【実測。台帳の trend_* 行】。
+# だから `trade_own_1995_ridge_a` は参考にしかならず、⚠ **対の相手はこの表から作る `trade_owntrend_1995_ridge_a`**。
+#
+# ⚠ **`trend_scales_1995` とも違う**: あちらは `label_scales`（先 W 日のラベル）を持ち、表の尻が 200 本削れる。
+# ⚠ **この表は 1 日ラベルだけ**（閾値売買の経路。出口が立つ）。
+#
+# ⚠ **開始日は手で選ばない**（14-9）。⚠ **TOML の平の key はテーブル見出しより上に書く**（rules.md 10 章 規約 1）
+name = "owntrend_1995"
+dataset = "daily"
+horizon = 1
+cost_bp = 5.0
+
+feature_layers = ["own", "trend"]
+targets = "all"
+
+horizon_min = 1440.0
+bar_minutes = 1440.0
+
+selectors = ["全部使う（基準）", "乱択（基準）"]
+k = 16
+
+model = "Ridge"
+baselines = ["常に上（ドリフト）", "直前リターンの符号"]
+
+[validation]
+split = "walk_forward"
+folds = 5
+purge = true
+embargo_bars = 0
+seed = 0
+
+[features]
+ex_lag_days = 1
+ex_zero_fill = ["usgs"]
+ex_transforms = ["d1", "z20"]
+ex_max_stale_days = 7

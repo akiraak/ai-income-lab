@@ -254,6 +254,88 @@ def _episodes(bh_parts, method_parts, hold_parts, min_drop_bp: float = 1000.0) -
             "注記": "⚠ 成果物（rules.md 14-8）。⚠ **実効標本はエピソードの回数なので検定に使わない**"}
 
 
+def _holding(holds, method: str, th: float) -> dict | None:
+    """⚠ **1 取引ごとの保有日数の要約**（rules.md 13-4 の 6）。⚠ **成果物・診断であって採否には使わない。**
+
+    強制清算（fold 末尾で切れた取引）は右側で打ち切られた観測なので、含む値と除いた中央値を並べる
+    （保有日率 ≈ 1 の手法は「fold 長 × 1 取引」になり、混ぜると中央値が fold 長になる）。
+    取引が 0 回なら None（計算できないものは省く）。
+    """
+    if holds is None or not len(holds):
+        return None
+    h = holds[(holds["手法"] == method) & (holds["閾値"] == th)]
+    if not len(h):
+        return None
+    d = h["保有日数"].to_numpy(dtype=float)
+    fc = h["強制清算"].to_numpy(dtype=bool)
+    q = lambda p: round(float(np.quantile(d, p)), 2)   # noqa: E731
+    out = {"取引数": int(len(d)), "中央値": round(float(np.median(d)), 2),
+           "p10": q(0.10), "p25": q(0.25), "p75": q(0.75), "p90": q(0.90),
+           "保有1日の割合": round(float((d <= 1).mean()), 4),
+           "保有2日以下の割合": round(float((d <= 2).mean()), 4),
+           "強制清算の割合": round(float(fc.mean()), 4),
+           "注記": "⚠ 成果物・診断（rules.md 13-4 の 6）。⚠ **採否には使わない**。強制清算は右側で打ち切られた観測"}
+    if (~fc).any():
+        out["中央値_強制清算除く"] = round(float(np.median(d[~fc])), 2)
+    return out
+
+
+def _reverse(result: pd.DataFrame, per_symbol: pd.DataFrame, method: str, th: float,
+             cost_bp: float) -> dict | None:
+    """⚠ **逆売買（入口% ↔ 出口%）の診断**（rules.md 14-3 の (3)）。⚠ **採否に使わない・試行に数えない。**
+
+    θ ≥ 50 では逆は元の補集合なので、逆の対 B&H 上乗せ ＝ −元の純利 − 2 × 元のコスト ＋ cost_bp（恒等式。
+    reverse-trading.md §1-3）。実測との差（`恒等式との差bp`）は「最初の合図までの区間」と「強制清算の帰属」の分。
+    """
+    r_th = result[result["閾値"] == th]
+    if "逆売買純利bp" not in r_th.columns:
+        return None
+    rev = r_th.pivot(index="fold", columns="手法", values="逆売買純利bp")
+    net = r_th.pivot(index="fold", columns="手法", values="純利bp")
+    gross = r_th.pivot(index="fold", columns="手法", values="粗利bp")
+    if method not in rev or DRIFT not in net:
+        return None
+    rv, bh = rev[method].sort_index(), net[DRIFT].sort_index()
+    edge = rv - bh
+    cost = (gross[method] - net[method]).sort_index()
+    ident = (-net[method].sort_index() - 2.0 * cost + cost_bp)      # 恒等式による逆の上乗せ
+    t = _t(edge)
+    out = {"純利bp": round(float(rv.mean()), 4), "取引回数": None,
+           "edge_vs_bh": {**_sign_row(edge), "mean_bp": round(float(edge.mean()), 4),
+                          "t": (round(t, 4) if t is not None else None)},
+           "恒等式の上乗せbp": round(float(ident.mean()), 4),
+           "恒等式との差bp": round(float((edge - ident).mean()), 4),
+           "注記": "⚠ 診断列（rules.md 14-3）。採否には使わない・試行に数えない。逆 ＝ 元の補集合（θ ≥ 50）"}
+    if "逆売買取引回数" in r_th.columns:
+        tr = r_th.pivot(index="fold", columns="手法", values="逆売買取引回数")
+        if method in tr:
+            out["取引回数"] = round(float(tr[method].mean()), 1)
+    return out
+
+
+def _selection_edge(result: pd.DataFrame, method: str, th: float) -> dict | None:
+    """⚠ **選日の上乗せ S ＝ 粗利 − 保有日率 × B&H 粗利**（rules.md 14-3 の (4)）。⚠ **採否には使わない。**
+
+    露出（保有日率）を揃えたときの「日の選び方」の上乗せ。⚠ **14-6 (b) の乱択ゲートの期待値を乱数なしで
+    厳密に出したもの**（乱択ゲートの実測は 1 回の乱数の引きを含む）。逆売買では −S になる（配線の検査）。
+    13-7 の物差し（対 B&H 上乗せ）は「露出を減らして逃したドリフト」も手法の責任として数えるが S はそれを免除する。
+    """
+    if "保有日率" not in result.columns or "粗利bp" not in result.columns:
+        return None                                    # 旧い形の result（合成の検査など）では省く
+    r_th = result[result["閾値"] == th]
+    gross = r_th.pivot(index="fold", columns="手法", values="粗利bp")
+    hold = r_th.pivot(index="fold", columns="手法", values="保有日率")
+    if method not in gross or DRIFT not in gross or method not in hold:
+        return None
+    s = (gross[method] - hold[method] * gross[DRIFT]).sort_index()
+    t = _t(s)
+    return {**_sign_row(s), "mean_bp": round(float(s.mean()), 4),
+            "t": (round(t, 4) if t is not None else None),
+            "保有日率": round(float(hold[method].mean()), 4),
+            "注記": "⚠ 診断列（rules.md 14-3）。採否には使わない。S ＝ 粗利 − 保有日率 × B&H 粗利 ＝ 乱択ゲートの期待値。"
+                    "S > 0 で上乗せ < 0 なら「腕はあるが、買って持つほうが儲かる」"}
+
+
 def best_method_trading(methods) -> str | None:
     """新方式の最良手法。⚠ **「基準 」と乱択だけを除く**（「全部使う」は検証方式が処置なので手法。13-9）。"""
     rows = [str(m) for m in methods
@@ -316,6 +398,13 @@ def compute_trading(result: pd.DataFrame, summary: pd.DataFrame, per_symbol: pd.
         if (ep := _episodes(daily.get((DRIFT, th)), daily.get((name, th)),
                             (ex.get("hold") or {}).get((name, th)))) is not None:
             entry["episodes"] = ep
+        # ⚠ **2026-09-17 に足した診断 3 つ**（13-4 の 6・14-3 の (3)(4)）。⚠ **どれも採否には使わない**
+        if (hd := _holding(ex.get("holds"), name, th)) is not None:
+            entry["holding"] = hd
+        if (rv := _reverse(result, per_symbol, name, th, doc["cost_bp"])) is not None:
+            entry["reverse"] = rv
+        if (se := _selection_edge(result, name, th)) is not None:
+            entry["selection_edge"] = se
         series = pd.concat(daily.get((name, th), [pd.Series(dtype=float)]))
         if len(series) >= 3 and float(series.std()) > 0 and n_trials and n_trials >= 2:
             sr = float(series.mean() / series.std())
@@ -344,7 +433,7 @@ def compute_trading(result: pd.DataFrame, summary: pd.DataFrame, per_symbol: pd.
         top = max(by, key=lambda k: by[k]["best"]["純利bp"])
         doc["best"] = {**by[top]["best"], "閾値": float(top)}
         for key in ("edge_vs_bh", "bh_純利bp", "dsr", "per_symbol", "edge_bins",
-                    "random_gate", "episodes"):
+                    "random_gate", "episodes", "holding", "reverse", "selection_edge"):
             if key in by[top]:
                 doc[key] = by[top][key]
         if "edge_vs_bh" in by[top]:

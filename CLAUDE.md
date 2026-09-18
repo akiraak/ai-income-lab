@@ -7,13 +7,21 @@ AI を使って収入を稼ぐ方法を体系化し、**机上で検証する**�
 **2026-08-27 に方針を変更した。実際に資金・機材を動かす実行（購入・口座開設・出品・登録・リリース）は行わない。**
 一次情報の調査と試算にもとづいて「その手法が成立するか / 自分の条件で採れるか」を判定するところまでを成果物とする。
 
-**2026-09-05 に tastytrade の API 検証だけ例外を設けた（[プラン §3](docs/plans/tastytrade-api-sample.md) の選択肢 (c)）。**
+**2026-09-05 に tastytrade の API 検証だけ例外を設けた（[プラン §3](docs/plans/archive/tastytrade-api-sample.md) の選択肢 (c)）。**
 この 1 手法に限り、sandbox ユーザーの作成・本口座の開設・入金・本番での 1 株の発注まで行う。ただし、
 
 - **口座開設・入金・本番発注を実行するのは利用者**。Claude は手順とコードを示すところまでで、実行しない
 - 実測するのは **API の挙動**（認証の寿命・遅延・レート制限・往復時間・約定価格と気配の差）。
   収入・費用の【実測】を取りにいくものではない
 - 他の手法には広げない。同じことをしたくなったら、その手法ごとにここへ追記する
+
+**2026-09-17 に 2 つ目の例外を設けた（[プラン](docs/plans/live-trading-three-models.md)。利用者の指示）。**
+tastytrade の本口座で、**トレーダー（Trader）3 人に予算を割り振って毎日売買し、執行の差を記録する**。トレーダーは擬人化した執行の単位で、予算・銘柄集合・**1 本以上の予測モデル**・合成規則・閾値を持つ（プラン §2-1）。ただし、
+
+- **本番の鍵を入れて執行器を起動するのは利用者**。Claude はコードと手順まで（鍵を `.env` に書かない・本番で起動しない）
+- 判定するのは **執行の差（合図時の気配・約定・終値）と無人運転の成立**。「儲かったか」で手法を採らない（数週間では統計的に判定できない）
+- 鍵の 3 段・`HALT`・停止ボタンは API 検証のものをそのまま使う。取消の鍵で発注は開かない
+- 予算の上限は事前に書き（`docs/specs/experiments/live-trading.md` §0）、執行器がそれを超える買いを拒む
 
 ## 進め方
 
@@ -26,6 +34,7 @@ AI を使って収入を稼ぐ方法を体系化し、**机上で検証する**�
   - ⚠ **緩めないもの**: 回すと決めるのは結果を見る前 ／ 回したものは全部 `n_trials` に数える ／ leak 対照 ／ 1 実行 1 ディレクトリ
 - 収入・費用の【実測】は今後取得しない。過去に取得済みの【実測】（`docs/specs/experiments/i7-dataset.md` のパイロット等）はそのまま残す
   - 例外: **API の挙動**（認証の寿命・遅延・レート制限・往復時間）は 2026-09-05 から【実測】を取る（tastytrade の検証。上の例外を参照）
+  - 例外: **実売買の執行の差とトレーダー別の損益**は 2026-09-17 の 2 つ目の例外で【実測】を取る。⚠ **損益で手法を採らない**（上の例外を参照）
 
 ## Claude への依頼方針
 
@@ -54,7 +63,7 @@ AI を使って収入を稼ぐ方法を体系化し、**机上で検証する**�
 - `docs/plans/` — 作業プラン（完了したものは `docs/plans/archive/` へ）
 - `docs/specs/` — 成果物となる仕様・体系
 - `docs/specs/experiments/` — 検証タスクごとの調査結果・試算・判定の記録（1 手法 1 ファイル）
-- `experiments/` — 調査用コード（1 手法 1 ディレクトリ）。2026-08-27 の方針変更以降は新規追加の予定なし
+- `experiments/` — 調査用コード（1 手法 1 ディレクトリ）。2026-08-27 の方針変更以降は新規追加の予定なし（例外: `experiments/live-trading/`。2026-09-17 の 2 つ目の例外の執行器）
 - `dashboard/` — **売買システムの管理画面**（実運用の監視 ＋ 開発時の検証）。仕様は `docs/specs/dashboard.md`
 - `vibeboard/` — 開発管理画面（vendor 済み）。`docs/` と `TODO.md` を見るためのもので、`dashboard/` とは別物
 
@@ -114,6 +123,21 @@ python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
   - **cert は市場時間内でも `Session offline` で注文を拒否することがある**（同時刻の `market-time` は `Open`）。25 分後には通った。拒否を「注文の中身が悪い」と読まず、時間をおいて再送する
   - **`/accounts/{n}/orders/live` は「その日の注文」**で、Filled / Cancelled / Rejected も混ざる。働いている注文は `Received / Routed / In Flight / Live / Contingent` で絞る
   - **気配の遅延は開発機（WSL2）の時計では測れない**（±1 秒揺れて負にもなる）。同じ応答の `Date` で補正した `delay_corrected_s` を使う
+
+### experiments/live-trading（実売買の執行器。2026-09-17 の 2 つ目の例外）
+
+```bash
+cd experiments/live-trading
+../feature-discovery/.venv/bin/python -m pytest -q tests      # 合成規則・状態機械・予算・鍵・HALT・再送
+./mockrun.sh                                                  # モックで 20 営業日（記録に mock: true）
+../tastytrade-api-sample/.venv/bin/python run_day.py --traders test_a --mode dry-run --ignore-window   # cert で dry-run
+```
+
+- トレーダーは `config/traders/<名前>.toml`（予算・銘柄集合・モデルの一覧・合成規則・θ・`sizing`）。モデルの `kind` は `fixed` / `file`（試験用。`test = true` が要る）/ `experiment`（`predict.jsonl`。Phase 1 の後）
+- ⚠ **実際に動かすトレーダーの属性はまだ設定しない**（2026-09-17 の利用者決定）。試験用の `test_a`（固定の合図・1 銘柄・最小額）で配線と本番の 1 発注を先に通す
+- 記録は `out/<日付>/*.jsonl`（`Masker` 経由・git 管理外）、状態は `state/<env>/<名前>.json`。`--mode submit` 以外は状態を書かない
+- 本番の鍵は `ttclient.Client` の 3 段そのまま。発注は `TT_ALLOW_PROD_ORDERS=1` ＋ `--i-know-this-is-real-money`。⚠ **鍵を入れて起動するのは利用者**。`HALT` は管理画面の停止ボタンと同じファイル
+- 決めごと・手順書・記録は `docs/specs/experiments/live-trading.md`
 
 ## Git 運用ルール
 
@@ -204,4 +228,6 @@ node vibeboard/dist/cli.js --root .
 
 - **titan で動かした vibeboard は tailnet から `http://titan-income-vibeboard`** で見る（Tailscale Services。titan の Windows 側 `tailscale serve --service=svc:titan-income-vibeboard --http=80 http://127.0.0.1:3010`、再起動をまたいで残る。Funnel なし。2026-09-10）。`ssh titan` で入って `./run-vibeboard.sh` を叩けば開く。⚠ **dashboard（3012）は serve に出さない**（serve 経由は全部ループバックに見え、発注の面が無認証で開く。外から見るなら `ssh -L 3013:127.0.0.1:3012 titan`）。⚠ **serve の外向きポートを 3010 にしない**（mirrored では Windows 側の listener が WSL の bind を塞ぎ、vibeboard が起動できなくなる）。経緯と切り分けは `docs/plans/archive/vibeboard-remote-view.md`
 - **検証・データのタブ**（2026-09-10）: `vibeboard.config.json` の customTabs。中身は `dashboard/vibetab.py`（127.0.0.1:3015、標準ライブラリのみ。vibeboard の sidecar が `python3` で自動起動）が `experiments/feature-discovery/` の `runs/` と在庫を読んで出す。vibeboard 本体が `/ext/<name>` で中継する（upstream 改造）ので、`http://titan-income-vibeboard` 越しでもタブが動く。⚠ **customTabs の baseUrl に dashboard（3012）を指定しない**（中継後はループバック発に見え、ローカル面が開く）。プランは `docs/plans/archive/vibeboard-experiments-tabs.md`
+- **ハードのタブ**（2026-09-18）: customTabs の 4 本目（`hardware`）。中身は同じ `dashboard/vibetab.py` の `/hardware`（読み手 `dashboard/hwstat.py`・画面 `dashboard/hwview.py`。標準ライブラリのみ）が `nvidia-smi` と `/proc` を読み、GPU・CPU・メモリ・ディスクの「いまの状態」と「この 1 時間」を出す。⚠ **vibeboard 本体は改造していない**（このプロジェクト専用。`dashboard/app/` の外なので g3plus にも載らない）。⚠ **値を読むのは sidecar の見張り 1 本**（5 秒おき。`AIL_HW_INTERVAL_S`）で、画面は `api/snapshot`・`api/history` を自前で取りに来る。履歴はメモリ上の 1 時間だけ（sidecar を入れ直すと消える）。⚠ **WSL2 ではプロセス別の GPU メモリ・CPU 温度は読めない**。⚠ **読むだけ。このサーバに「操作」を足さない**（tailnet の閲覧者にも見える）。仕様は `docs/specs/dashboard.md` §14、プランは `docs/plans/archive/vibeboard-hardware-tab.md`
+- **サイドバーの検索**（2026-09-18）: Tasks・Plans・Specs・Files の左ペイン上端の箱で絞り込む。文書のタブはサーバがパスと本文を探し（`GET /api/search/:category?q=`。空白区切りは AND・大文字小文字は区別しない・1MB 超と二進は本文を見ない）、Tasks は手元の木を文面・メモ・親の文面で絞る。結果は平らな一覧で、Escape で消すとツリーに戻る。✅ **akiraak/vibeboard 本体へ反映済み**（vendor と本体は一致）。プランは `docs/plans/archive/vibeboard-search.md`
 - **タスク追加 / 子タスク追加**（2026-09-11）: バックグラウンドの `claude -p` に TODO.md を編集させる（`vibeboard/src/claudeJob.ts`。詳細はマーカー内の Tasks の項）。✅ **2026-09-11 に akiraak/vibeboard 本体へ反映済み**（Ctrl+クリック修正も同時に反映。vendor と本体は一致しており `vibeboard update` を流してよい）。プランは `docs/plans/archive/vibeboard-task-add.md`

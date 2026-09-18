@@ -3,7 +3,9 @@ import fs from 'fs';
 import path from 'path';
 import { marked } from 'marked';
 import type { CategoryConfig, CustomTabConfig, VibeboardConfig } from './config';
+import { plansDirOf } from './config';
 import { proxyToTab } from './ext';
+import { searchFiles } from './search';
 import { reclaimPort, removePidFile, writePidFile } from './portGuard';
 import { startSidecars, stopSidecars } from './sidecar';
 import { isOurHook } from './init';
@@ -727,6 +729,25 @@ export async function startServer(config: VibeboardConfig): Promise<void> {
     });
   });
 
+  // サイドバーの検索（Plans / Specs / Files）。パスと本文を文字列で絞り込む（search.ts の規則）。
+  // :category はカテゴリ名か 'files'。q が空なら空の一覧
+  app.get('/api/search/:category', (req: Request, res: Response) => {
+    const name = req.params.category as string;
+    const q = typeof req.query.q === 'string' ? req.query.q : '';
+    if (name === 'files') {
+      const data = searchFiles(config.root, q, { exts: null, excludes: config.files.exclude, skipDotfiles: false });
+      res.json({ success: true, data, error: null });
+      return;
+    }
+    const cat = categoryByName.get(name);
+    if (!cat) {
+      res.status(400).json({ success: false, data: null, error: '不正なカテゴリです' });
+      return;
+    }
+    const data = searchFiles(cat.path, q, { exts: ['.md', '.html'], skipDotfiles: true });
+    res.json({ success: true, data, error: null });
+  });
+
   // プロジェクト全体のファイルツリー（Files タブ）
   app.get('/api/tree', (_req: Request, res: Response) => {
     const tree = listAllTree(config.root, config.files.exclude);
@@ -1127,7 +1148,9 @@ export async function startServer(config: VibeboardConfig): Promise<void> {
       const tree = parseTodo(src.raw, { mdPath: 'TODO.md' });
       const ctx = findTaskById(tree, id);
       const builders: Record<Exclude<TaskKind, 'commit'>, (t: typeof tree, i: string) => string | null> = {
-        run: buildPrompt, explain: buildExplainPrompt, plan: buildPlanPrompt,
+        run: buildPrompt,
+        explain: buildExplainPrompt,
+        plan: (t, i) => buildPlanPrompt(t, i, plansDirOf(config)),
       };
       const prompt = builders[kind](tree, id);
       if (!ctx || prompt === null) {
@@ -1373,6 +1396,8 @@ export async function startServer(config: VibeboardConfig): Promise<void> {
       categories: clientCategories,
       files: clientFiles,
       customTabs: clientCustomTabs,
+      // 「プラン作成」の説明文に出すプランの置き場所（文面と同じ plansDirOf）
+      plansDir: plansDirOf(config),
     });
     return indexHtmlRaw
       .replace(/__VIBEBOARD_TITLE__/g, escapeHtml(config.title))

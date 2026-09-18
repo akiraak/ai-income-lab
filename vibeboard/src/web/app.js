@@ -10,13 +10,18 @@ const TASKS_LABEL = 'Tasks';
 
 // サーバから注入された設定。`__VIBEBOARD__` には categories / files / customTabs も含まれる。
 const VB_CONFIG = (typeof window !== 'undefined' && window.__VIBEBOARD__) || {};
-const CATEGORY_DEFS = Array.isArray(VB_CONFIG.categories) && VB_CONFIG.categories.length > 0
+// 既定の plans / specs を補うのはサーバ（config.ts）の役目。届いた配列は空でもそのまま使う
+// （全部を hidden にした設定で、画面だけに Plans / Specs が出ないように）。
+// 下の既定は注入そのものが無いとき（サーバを通さずに開いたとき）の保険
+const CATEGORY_DEFS = Array.isArray(VB_CONFIG.categories)
   ? VB_CONFIG.categories
   : [
       { name: 'plans', label: 'Plans', archive: true },
       { name: 'specs', label: 'Specs', archive: false },
     ];
 const CATEGORY_BY_NAME = new Map(CATEGORY_DEFS.map(c => [c.name, c]));
+// 「プラン作成」でプランを作らせる場所。サーバが文面に入れるのと同じ値（config.ts の plansDirOf）
+const PLANS_DIR = typeof VB_CONFIG.plansDir === 'string' && VB_CONFIG.plansDir ? VB_CONFIG.plansDir : 'docs/plans';
 // customTabs はサーバ側で正規化済み（name/label/base）。base は同一オリジンの
 // `/ext/<name>`（サーバがプラグインの baseUrl へ中継する）。未指定なら空配列。
 const CUSTOM_TABS = Array.isArray(VB_CONFIG.customTabs) ? VB_CONFIG.customTabs : [];
@@ -44,6 +49,7 @@ const DEFAULT_SORT_STATE = { key: 'mtime', mtimeDir: 'desc', nameDir: 'asc' };
 
 const sidebarNav = document.getElementById('sidebar-nav');
 const sidebarSort = document.getElementById('sidebar-sort');
+const sidebarSearch = document.getElementById('sidebar-search');
 const contentArea = document.getElementById('content-area');
 const pageTitle = document.getElementById('page-title');
 const topbarSub = document.getElementById('topbar-sub');
@@ -480,6 +486,129 @@ function renderDir(category, dir, parentPath, depth) {
   return block;
 }
 
+// ---------------------------------------------------------------- サイドバーの検索
+// Tasks・カテゴリ（Plans / Specs）・Files で出す。customTab には出さない。
+// 文書のタブはサーバ（/api/search/:category。パス ＋ 本文）、Tasks は手元の木を絞る。
+// 検索語はタブごとにメモリに持つ（再読み込みで消える）。空ならいつものツリー。
+const searchQuery = {};
+const SEARCH_DEBOUNCE_MS = 250;
+let searchTimer = null;
+let searchSeq = 0;
+
+function searchTerms(q) {
+  return String(q || '').split(/\s+/).map(s => s.trim().toLowerCase()).filter(Boolean);
+}
+
+function searchMatchesAll(terms, haystacks) {
+  const lower = haystacks.map(h => String(h || '').toLowerCase());
+  return terms.every(t => lower.some(h => h.includes(t)));
+}
+
+function searchSupported(category) {
+  return category === TASKS_TAB || category === FILES_TAB || CATEGORY_BY_NAME.has(category);
+}
+
+function currentSearch() {
+  return (searchQuery[activeCategory] || '').trim();
+}
+
+function renderSidebarSearch() {
+  if (!sidebarSearch) return;
+  if (!searchSupported(activeCategory)) {
+    sidebarSearch.hidden = true;
+    sidebarSearch.innerHTML = '';
+    delete sidebarSearch.dataset.category;
+    return;
+  }
+  sidebarSearch.hidden = false;
+  // 入力中に描き直すとカーソルが飛ぶので、タブが変わったときだけ箱を作り直す
+  if (sidebarSearch.dataset.category === activeCategory) {
+    const input = sidebarSearch.querySelector('input');
+    if (input && input.value !== (searchQuery[activeCategory] || '')) input.value = searchQuery[activeCategory] || '';
+    return;
+  }
+  sidebarSearch.dataset.category = activeCategory;
+  sidebarSearch.innerHTML = '';
+  const input = document.createElement('input');
+  input.type = 'search';
+  input.className = 'sidebar-search-input';
+  input.placeholder = activeCategory === TASKS_TAB ? 'タスクを検索（文面・メモ）' : '検索（パス・本文）';
+  input.setAttribute('aria-label', input.placeholder);
+  input.value = searchQuery[activeCategory] || '';
+  input.autocomplete = 'off';
+  input.addEventListener('input', () => {
+    searchQuery[activeCategory] = input.value;
+    if (searchTimer) clearTimeout(searchTimer);
+    searchTimer = setTimeout(() => { searchTimer = null; renderSidebar(); }, SEARCH_DEBOUNCE_MS);
+  });
+  input.addEventListener('keydown', e => {
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      input.value = '';
+      searchQuery[activeCategory] = '';
+      if (searchTimer) { clearTimeout(searchTimer); searchTimer = null; }
+      renderSidebar();
+    } else if (e.key === 'Enter') {
+      // 先頭の結果を開く
+      const first = sidebarNav.querySelector('.nav-item');
+      if (first && first.getAttribute('href')) { e.preventDefault(); location.hash = first.getAttribute('href'); }
+    }
+  });
+  sidebarSearch.appendChild(input);
+}
+
+function renderSearchCount(n, label) {
+  const el = document.createElement('div');
+  el.className = 'search-count';
+  el.textContent = n === 0 ? `一致なし（${label}）` : `${n} 件（${label}）`;
+  return el;
+}
+
+// 文書のタブ: サーバの結果を平らな一覧で出す（ツリーは触らない）
+async function renderDocSearchResults(category, q) {
+  const seq = ++searchSeq;
+  sidebarNav.innerHTML = '<div class="loading-text">検索中...</div>';
+  let hits;
+  try {
+    hits = await fetchJson(`/api/search/${encodeURIComponent(category)}?q=${encodeURIComponent(q)}`);
+  } catch (err) {
+    if (seq !== searchSeq || activeCategory !== category) return;
+    sidebarNav.innerHTML = '';
+    const el = document.createElement('div');
+    el.className = 'error-text';
+    el.textContent = err && err.message ? err.message : String(err);
+    sidebarNav.appendChild(el);
+    return;
+  }
+  if (seq !== searchSeq || activeCategory !== category || currentSearch() !== q) return;
+  sidebarNav.innerHTML = '';
+  sidebarNav.appendChild(renderSearchCount(hits.length, q));
+  const frag = document.createDocumentFragment();
+  for (const h of hits) {
+    const a = document.createElement('a');
+    a.className = 'nav-item search-hit';
+    a.href = `#${category}/${encodePath(h.path)}`;
+    a.dataset.category = category;
+    a.dataset.path = h.path;
+    const title = document.createElement('div');
+    title.textContent = h.title || h.name;
+    a.appendChild(title);
+    const pathEl = document.createElement('div');
+    pathEl.className = 'nav-item-file search-hit-path';
+    pathEl.textContent = h.path + (h.lines ? `　${h.lines} 行`: '');
+    a.appendChild(pathEl);
+    if (h.snippet) {
+      const sn = document.createElement('div');
+      sn.className = 'search-hit-snippet';
+      sn.textContent = h.snippet;
+      a.appendChild(sn);
+    }
+    frag.appendChild(a);
+  }
+  sidebarNav.appendChild(frag);
+  refreshActiveHighlight();
+}
+
 // サイドバー上端の行。左にソート切替トグル、右に「+ 新規」。
 // 通常カテゴリと Files のときだけ表示し、Tasks では hidden にする。
 // ソートはアクティブキーに ↑/↓ を併記。アクティブを再クリックすると方向を反転、
@@ -551,6 +680,7 @@ function renderSidebarHeader() {
 
 function renderSidebar() {
   renderSidebarHeader();
+  renderSidebarSearch();
 
   if (activeCategory === TASKS_TAB) {
     renderTasksSidebar();
@@ -559,6 +689,12 @@ function renderSidebar() {
 
   if (CUSTOM_TAB_BY_NAME.has(activeCategory)) {
     renderCustomTabSidebar(activeCategory);
+    return;
+  }
+
+  const q = currentSearch();
+  if (q) {
+    renderDocSearchResults(activeCategory, q);
     return;
   }
 
@@ -2541,6 +2677,8 @@ function paintTasksSidebar(state) {
     sidebarNav.appendChild(el);
     return null;
   }
+  const terms = searchTerms(searchQuery[TASKS_TAB]);
+  if (terms.length > 0) return paintTasksSearch(entries, terms);
   const parsed = parseHash();
   const selectedId = parsed && parsed.category === TASKS_TAB ? parsed.filePath : null;
   const ancestors = new Set(selectedId ? taskAncestorIds(state.tree, selectedId) : []);
@@ -2615,6 +2753,46 @@ function paintTasksSidebar(state) {
   refreshActiveHighlight();
   return entries;
 }
+// 検索語があるときの Tasks: 文面・メモ・親の文面で絞り、平らに並べる（親の列を 2 行目に）。
+// 済んだタスクは一覧と同じく出さない
+function paintTasksSearch(entries, terms) {
+  const hits = entries.filter(e => taskVisible(e.node)
+    && searchMatchesAll(terms, [e.node.text, ...(e.node.notes || []), ...e.parents]));
+  sidebarNav.appendChild(renderSearchCount(hits.length, terms.join(' ')));
+  const ul = document.createElement('ul');
+  ul.className = 'tasks-tree tasks-search';
+  for (const e of hits) {
+    const node = e.node;
+    const li = document.createElement('li');
+    const a = document.createElement('a');
+    a.className = 'nav-item tasks-item tasks-top search-hit'
+      + (node.state === 'active' ? ' tasks-active' : node.state === 'cancelled' ? ' tasks-cancelled' : '');
+    a.href = `#${TASKS_TAB}/${encodeURIComponent(node.id)}`;
+    a.dataset.category = TASKS_TAB;
+    a.dataset.path = node.id;
+    a.title = node.text;
+    const lead = document.createElement('span');
+    lead.className = 'tasks-st';
+    lead.textContent = taskGlyph(node);
+    const text = document.createElement('span');
+    text.className = 'tasks-text';
+    text.textContent = node.text;
+    a.append(lead, text);
+    li.appendChild(a);
+    if (e.parents.length > 0) {
+      const trail = document.createElement('div');
+      trail.className = 'search-hit-path';
+      trail.textContent = e.parents.join(' › ');
+      trail.title = trail.textContent;
+      li.appendChild(trail);
+    }
+    ul.appendChild(li);
+  }
+  sidebarNav.appendChild(ul);
+  refreshActiveHighlight();
+  return hits.length > 0 ? hits : null;
+}
+
 async function renderTasksSidebar() {
   sidebarNav.innerHTML = '<div class="loading-text">読み込み中...</div>';
   const state = await fetchTasksTree();
@@ -3010,7 +3188,7 @@ async function renderTaskView(id) {
   const btnRun = el('button', 'primary', '実行');
   btnRun.title = 'このタスクを送り先のセッションへ投函して実行させる（会話も承認もそのセッションの画面で進む）';
   const btnPlan = el('button', null, 'プラン作成');
-  btnPlan.title = 'docs/plans/ のプランファイルと、TODO.md へのリンク・子タスクだけを作らせる（実装はしない）';
+  btnPlan.title = `${PLANS_DIR}/ のプランファイルと、TODO.md へのリンク・子タスクだけを作らせる（実装はしない）`;
   const btnExplain = el('button', null, '説明');
   btnExplain.title = '何も変更せず、このタスクの意図・進め方・影響を説明させる';
   const btnAddChild = el('button', null, '子タスク追加');
@@ -3030,7 +3208,7 @@ async function renderTaskView(id) {
   // 全文（従来の 6 文そのまま）は「?」で開いたときだけ。情報は捨てない
   const HINT_FULL =
     '実行・プラン作成・説明は送り先のセッションへ投函します（会話も承認もそのセッションの画面で進む。待機中なら新しいターンが始まり、実行中なら合間に読まれる）。'
-    + 'プラン作成は docs/plans/ のプランファイルと、TODO.md へのリンク・子タスクだけを作らせます（実装はしない）。'
+    + `プラン作成は ${PLANS_DIR}/ のプランファイルと、TODO.md へのリンク・子タスクだけを作らせます（実装はしない）。`
     + '説明は変更せず内容を説明するだけ。削除は TODO.md からこのタスクを消します（DONE.md には移しません）。'
     + '子タスク追加だけは投函せず、バックグラウンドの Claude Code に TODO.md を編集させます（送り先のセッションは使わない）。'
     + '「追加の指示」に書いた文面は、実行・プラン作成・説明の文面の末尾に足して送ります（空欄なら今までどおり）。削除・子タスク追加には効きません。'

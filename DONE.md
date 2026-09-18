@@ -1,4 +1,54 @@
 # DONE
+- 2026-09-18 vibeboard に GPU を含んだハードの利用状況のページ（「ハード」タブ）を足した [plan](docs/plans/archive/vibeboard-hardware-tab.md)
+  - 利用者の指示（2026-09-18）。⚠ **vibeboard 本体は改造していない**（このプロジェクト専用。customTabs の 4 本目）。仕様は [dashboard.md §14](docs/specs/dashboard.md)
+  - 読み手 `dashboard/hwstat.py`（標準ライブラリのみ）: `nvidia-smi`（固定の引数・shell なし）と `/proc`・`shutil.disk_usage`。⚠ **WSL2 では GPU のプロセス名とプロセス別メモリが取れない**【実測】ので、PID から `/proc/<pid>/cmdline` を引く（160 字で切り、秘密らしい引数は伏せる ＝ tailnet の閲覧者にも見えるため）。読めないもの（CPU 温度・プロセス別 GPU メモリ・Windows 側のプロセス）は欄を作らず画面に書く
+  - ⚠ **値を読むのは sidecar の見張り 1 本**（5 秒おき・`AIL_HW_INTERVAL_S`。`nvidia-smi` 0.058 秒【実測】× 2 本 ÷ 5 秒 ≒ 1 コアの約 2%）。履歴はメモリ上の輪 720 点（1 時間）だけで、ディスクに書かない
+  - 画面 `dashboard/hwview.py`: 「いまの状態」（タイルとメーター・スレッド別の縦棒）と「この 1 時間」（1 系列 1 枚の折れ線 6 枚 ＋ 表。乗せた時刻の値を 6 枚同時に出す）。JSON を埋めて script が `textContent` だけで描き、`api/snapshot`・`api/history` を自前で取りに来る（iframe を作り直さない）。色を付ける閾値は作らず、GPU は絞りの理由を写す。例外はディスク 90% 以上の警告（⚠ 【推測】の目安）
+  - 確認: pytest 25 件を追加（読み手 23 ＋ HTTP 2。⚠ 生の `<script>` が HTML に出ない・`innerHTML` を使っていない を固定）・全体 140 件 pass。別ポート（3016）で実機の値と明暗の画面を目視。✅ **vibeboard を入れ直した後の表示は利用者が確認済み**（2026-09-18）
+  - ⚠ 気付いたこと: **`C:` が 98%（残り約 33GiB）**【実測 2026-09-18】。このタブで見えるようになっただけで、掃除は別の話
+
+- 2026-09-18 vibeboard の Tasks・Plans・Specs・Files に検索機能を入れた [plan](docs/plans/archive/vibeboard-search.md)
+  - 利用者の指示（2026-09-18）。追加の指示で Tasks だけでなく 4 タブに入れた
+  - サーバ: `vibeboard/src/search.ts`（パス ＋ 本文。空白区切りは AND・大文字小文字は区別しない・行数は「語が全部そろった行」・1MB 超と二進は本文を見ない・上限 200 件）と `GET /api/search/:category`。テスト 8 本（`test/search.test.js`）
+  - 画面: サイドバー上端の検索箱（`#sidebar-search`）。文書のタブはサーバの結果を平らな一覧（タイトル・パス・一致した行）、Tasks は手元の木を文面・メモ・親の文面で絞る。250ms のデバウンス・Escape で消す・Enter で先頭を開く。customTab には出さない
+  - 確認: `npm test` 77 本 pass（vendor・本体とも）。ヘッドレス Chrome（CDP）で 4 タブを実際に引いた【実測】: Tasks「トレーダー」12 件 ／ Specs「差 1 live」10 件 ／ Files「HALT」42 件・約 1 秒（13GB の作業ツリー。⚠ 最初は 3.4 秒で、大きいファイルを stat だけで飛ばすよう直した）／ Plans「vibeboard」29 件。Escape でツリーに戻る
+  - akiraak/vibeboard 本体へ同じ差分を push。vendor と本体の src / test は `diff -rq` で一致。⚠ **動いている vibeboard（3010）は再起動しないと `/api/search` が無い**（app.js は生で配信されるので箱だけ先に出る）
+
+- 2026-09-17 tastytrade で、実際の API 取引のサンプルプログラムを動かした（2026-09-04〜09-16）— ⚠ **6 観点のうち 5 つが ✅、残る A（営業日を 2 日跨ぐ交換）は g3plus の監視で埋まる見込み。着金 $1,000 まで確認し、本番で 1 株（Phase 6）は次のタスクへ取り込んだ**
+  - プラン: [docs/plans/archive/tastytrade-api-sample.md](docs/plans/archive/tastytrade-api-sample.md) / ⚠ **記録: [tastytrade-api-sample.md](docs/specs/experiments/tastytrade-api-sample.md)**
+  - 対象は判定「高」・株 $0・API プレミアム $0・常駐プロセス不要の tastytrade 1 社（moomoo・IBKR は 2026-09-04 に外した。再開条件はプラン §1-2）。方針は (c)（sandbox ＋ 本口座 ＋ 入金 ＋ 本番で 1 株。2026-09-05・利用者）。⚠ **CLAUDE.md の 1 つ目の例外**
+  - Phase 0〜1（09-05）: OAuth パネルは実装済み・公式 SDK は archived で OpenAPI 直叩き・venv / JSONL / cert と prod の取り違え防止 / モックの自己検査（`selftest.sh`）
+  - Phase 2〜4（09-05・09-08 の市場時間）: 認証 900 秒で失効（「954 秒」は `exp − iat` の読み違い）・refresh は 3 日後も使える ／ 手順 4・5 は sandbox で `final_Cancelled`・`buy_Filled/sell_Filled`（SPY 1 株 $766.47）／ 気配の遅延はサーバの時計で −0.12 秒（⚠ WSL2 の時計では測れない）／ 60 回/分で 429 なし・中央値 133.9 ms ／ 口座ストリーマ ack 123 ms
+  - ⚠ **落とし穴 3 つ**（CLAUDE.md に書いた）: cert は市場時間でも `Session offline` で拒否することがある（25 分後に通った）／ `/orders/live` は終わった注文も混ざる ／ 気配の遅延は `Date` で補正した `delay_corrected_s` を使う
+  - Phase 5（09-08）: 記録 §1 の 6 観点・訂正候補 15 件・未実測 4 件、overview §4/§6 と CLAUDE.md へ反映。判定は管理画面 `/judge` が記録から自動で組む
+  - 着金（09-16・`--step probe`）: `cash-balance` 0.0 → 1000.0・`pending-cash` → 0.0。⚠ `cash-available-to-withdraw` は 0.0 のまま・買付余力は着金で増えていない（着金前から与信済み）・着金日は特定できない
+  - 残したもの: 観点 A（監視で自動）／ 429 が出る水準 ／ 約定価格と気配の差（本番の発注が要る）→ ⚠ **「トレーダー 3 人 … 実際に売買して記録を残す」の Phase 0・5 で埋める**
+
+- 2026-09-17 保有日数の分布（中央値・分位点）を出し、保有が短い取引ほどコストが重いことを数字にした — ⚠ **二山（1〜2 日 と fold 持ち切り）。代表構成では取引の 28% が保有 2 日以下で全コストの 28% を払い、保有日の 0.7% しか持たない**
+  - プラン: [docs/plans/archive/holding-days-distribution.md](docs/plans/archive/holding-days-distribution.md) / ⚠ **答え: [holding-days.md](docs/specs/experiments/feature-discovery/holding-days.md)**
+  - 派生元: 「疑問に思ったことを登録し解決していく」の子（利用者の指示 2026-09-17 で独立）。親「閾値売買の記録を広げる 4 本」の子
+  - Phase 1（読むだけ・151 実行）: 銘柄 × fold の平均保有日数は p75 が fold 長（360 ／ 1,267 日）に貼り付く ＝ 1/4 以上が B&H への退化。⚠ **平均 ≤ 2 日の行（12.8%）が全コストの 28.8%**。`cost_bp` を倍にしても平均純利は 6% しか動かない（算術）
+  - Phase 2: `simulate()` に `hold_days` / `entry_idx` / `forced_close`、`holds.csv`（1 取引 1 行）、`per_symbol.csv` 末尾 3 列、`checks.json` の `holding`、vibetab / dashboard の列「保有日数 中央値（p25–p75）」。⚠ **既定経路の指紋テスト**（列を足す前のコード `696cf7b` で取った fixture）を作り、rules.md 13-4 の 6・15-7 の 4・dashboard.md §10-5 に追記
+  - Phase 3（`trade_ownseq_ridge_a` ＋ leak、19 分 ＋ 18 分）: ⚠ **既存列は旧実行と最大差 0.0**（1 ビットも変えていない）。T3 QUANT θ=50: 中央値 7 日（2–19）・保有 1 日 21%・強制清算 13.5%。⚠ **Phase 1 の近似は二山の手法で 50 倍外れる**（360 日 対 7 日）
+  - 答えないこと: `cost_bp` で採否を変える ／ 保有日数で取引を選別する（後知恵の出口規則）。規制費の料率は公式ページから取れず【推測】のまま
+
+- 2026-09-17 逆の売買（売りの合図で建て・買いの合図で手仕舞う）の数値を確認し、モデルの評価に使えるか検討した — ⚠ **逆の数値は元から恒等式で決まり、評価に新しい情報を足さない。使えるのは (1) 配線の検査（leak で対称に跳ね下がる）と (2) S ＝ 粗利 − 保有日率 × B&H 粗利（選日の腕。乱択ゲートの期待値）の 2 つで、どちらも診断**
+  - ⚠ 問いは「逆にすれば勝つか」ではなく「評価に使えるか」（利用者の訂正 2026-09-17）。勝つかは副産物で、元の純利がほぼ 0 以下のときだけ（921 件で 28 件）
+  - プラン: [docs/plans/archive/reverse-trading-check.md](docs/plans/archive/reverse-trading-check.md) / ⚠ **答え: [reverse-trading.md](docs/specs/experiments/feature-discovery/reverse-trading.md)**
+  - 恒等式（θ ≥ 50）: 逆の上乗せ ＝ −元の純利 − 2 × 元のコスト ＋ 5bp − δ（δ ∈ {−5, 0, 5}）− 最初の合図までの B&H 粗利。補集合の吸収状態をテストで縛った（`tests/test_trading.py`）
+  - Phase 1（921 件）: 逆の上乗せが正は 28 件（3%）で、元の純利が ＋2bp 以下のときだけ。leak 858 件は −13,353bp に跳ね下がる（配線の検査になる）
+  - Phase 2: `result.csv` に `逆売買純利bp` / `逆売買取引回数`、`per_symbol.csv` に `逆売買純利bp`、`checks.json` に `reverse`（恒等式との差つき）と `selection_edge`（S）。rules.md 14-3 に (3)(4) を追記。画面には出さない
+  - Phase 3（代表構成の実測）: θ=50 で恒等式が 3bp 以内で合う。⚠ **θ ≥ 55 では 700〜1,700bp ずれる**（取引が 1 銘柄 1 fold に 1 回前後で、最初の合図までの区間が fold の大部分）。S > 0 で上乗せ < 0 の形（T3 QUANT）＝「腕はあるが買って持つほうが儲かる」
+  - 答えないこと: 逆を手法として採る（後知恵）／ 空売り版を回す（13-4 規約 2）／ 逆・S を採否に使う
+
+- 2026-09-17 代表 1 構成 ＋ leak 対照を 1 回だけ回し直した（2 つの Phase 3 を兼ねる） — `trade_ownseq_ridge_a`（結果を見る前に決めた。台帳で 09-15 以降の `trade_*` の最上位 T3 QUANT θ=50 保留）。`summary.csv` / `per_symbol.csv` / `checks.json` の既存の値は旧実行と最大差 0.0。同じ鍵なので n_trials は動かない。キュー `config/queue/holding_reverse_rep.toml`
+
+- 2026-09-17 出来高を `trend` 層の隣に足して回した（裁定 B: 1 日ラベルの閾値売買の対） — ⚠ **6 行とも落とす。処置 − 対照 の上乗せは fold 3/5・2/5・3/5 で揃わず、価格だけの入力の軸を閉じた**
+  - プラン: [docs/plans/archive/volume-trend-input.md](docs/plans/archive/volume-trend-input.md) / ⚠ **記録: [volume-trend-input.md](docs/specs/experiments/volume-trend-input.md)**（調査 [volume-trend-ml.md §7](docs/specs/experiments/volume-trend-ml.md) の続き）
+  - 裁定 B は Claude が利用者の規約（14-10 規約 1）から結果を見る前に決めた: A（検知器）は「測れない」、C（見送る）は規約が退ける。⚠ 利用者が A も残したいなら ＋12 の別の試行として後から足す
+  - `trendvol` 層（`ail/features/trendvol.py`。出来高 4 列 × 窓 20/60/200・`own_trend{W}_v*`・テスト 6 件）、rules.md 15-2 規約 2-2。`trend` 層と既定の表は 1 ビットも変えない
+  - 表 `owntrend_1995`（53 列・422,941 行）／ `owntrendvol_1995`（65 列・422,740 行。⚠ 201 行は `updown` の NaN で落ちる）、実験 `trade_owntrend{,vol}_1995_ridge_a`（違う key は 3 つだけ）。実行 4 本 1.4 分・表 2.9 分
+  - 結果: 対照 θ=50 上乗せ −250bp（＋＋−−＋）／ 処置 −112bp（同）。差 ＋138 / −103 / ＋122。門は 2 本とも門前（診断で回した）。leak は 2 本とも ＋78,666bp・5/5。n_trials 607 → 613
 
 - 2026-09-17 titan で `ex_` / `im_` の実験を回し直し、台帳を吐き直した — ⚠ **数字は再現し、DSR だけ下がった**
   - ⚠ **記録: [daily-data-sources.md §15-5](docs/specs/experiments/daily-data-sources.md)** / 台帳: [ledger.md](docs/specs/experiments/feature-discovery/ledger.md)（代表行を 2026-09-17 の titan の実行に入れ替え）
@@ -354,7 +404,7 @@
   - 利用者の指示（2026-09-13）: **TODO で不要なものがないかチェックする** → 5 件を提示し、⚠ **利用者が 3 件を落とすと裁定**（⚠ **「出来高を `trend` 層に足す」は残すと決めた**）
   - **落とした 1: 「vibeboard の「用語」タブを利用者の画面で確かめる」** — ⚠ **Claude 側に実行できる作業が残っていなかった**。✅ **サーバ側は 9/12 に確認済み**（3 タブとも 200・リンク 87 本・404 の原因だった古い sidecar も入れ直し済み）で、⚠ **残りはブラウザの再読み込みだけ**。⚠ **画面で何か欠けていたら新しいタスクとして起こす**
   - **落とした 2: 「moomoo・IBKR の実検証」** — ⚠ **方針と衝突したまま置かれていた**: [CLAUDE.md](CLAUDE.md) の 2026-09-05 例外は ⚠ **tastytrade 1 社にしか掛かっていない**のに、Phase 1・2 の中身（Gateway / OpenD が Linux ヘッドレスで動くか・2 要素が無人運転を止めるか）は ⚠ **口座開設と常駐実行を伴う実検証**である
-    - ⚠ **打ち切りではない。** 再開条件は [plan §1-2](docs/plans/tastytrade-api-sample.md) に、費用は [trading-fee-comparison.md §4](docs/specs/trading-fee-comparison.md) に、規約の穴（⚠ **moomoo の Web 規約 robot 禁止 R1**）は [trading-api-availability.md](docs/specs/trading-api-availability.md) に残っている。⚠ **文書は 1 行も消していない**
+    - ⚠ **打ち切りではない。** 再開条件は [plan §1-2](docs/plans/archive/tastytrade-api-sample.md) に、費用は [trading-fee-comparison.md §4](docs/specs/trading-fee-comparison.md) に、規約の穴（⚠ **moomoo の Web 規約 robot 禁止 R1**）は [trading-api-availability.md](docs/specs/trading-api-availability.md) に残っている。⚠ **文書は 1 行も消していない**
     - ⚠ **いま再開する理由が無い**: tastytrade は 6 観点のうち 5 つ ✅（残る A は監視で埋まる）
   - **落とした 3: 台帳タスクの重複行** — 「手間「中」の 6 件を回す」は ⚠ **直下の 6 行（F3-4・F3-6・F1-6・F2-1・F4-4・F5-4）と同じもの**で、しかも兄弟として並んでいた（親子ですらない）。⚠ **注記は 6 行の側にも同じ文が入っていたので情報は落ちていない**
   - **直した数字 3 つ**（⚠ **どれも台帳の現在値に合わせただけ**）

@@ -130,7 +130,7 @@
 <h3>閾値ごとの成績（3 水準とも載せる）</h3>
 <table class="exp">
 <tr><th>θ</th><th>最良手法</th><th>純利 bp</th><th>B&amp;H 純利</th><th>上乗せ</th><th>上乗せ fold</th>
-    <th>DSR</th><th>取引/fold</th><th>保有日率</th><th>銘柄別 中央値</th><th>四分位</th><th>勝ち銘柄</th></tr>
+    <th>DSR</th><th>取引/fold</th><th>保有日率</th><th>保有日数 中央値（p25–p75）</th><th>銘柄別 中央値</th><th>四分位</th><th>勝ち銘柄</th></tr>
 {% for th, e in run.by_threshold.items() %}
 <tr>
   <td><b>{{ th }}%</b></td>
@@ -143,6 +143,7 @@
   <td>{{ '%.4f'|format(e.dsr.DSR) if e.dsr else '—' }}</td>
   <td>{{ '%.0f'|format(e.best.取引回数) if e.best.取引回数 is defined else '—' }}</td>
   <td>{{ '%.2f'|format(e.best.保有日率) if e.best.保有日率 is defined else '—' }}</td>
+  <td>{% if e.holding and e.holding.中央値 is defined %}{{ '%.0f'|format(e.holding.中央値) }}（{{ '%.0f'|format(e.holding.p25) }}–{{ '%.0f'|format(e.holding.p75) }}）{% else %}—{% endif %}</td>
   <td>{% if e.per_symbol %}{{ '%+.2f'|format(e.per_symbol.中央値bp) }}{% else %}—{% endif %}</td>
   <td>{% if e.per_symbol %}[{{ '%+.2f'|format(e.per_symbol.四分位bp[0]) }}, {{ '%+.2f'|format(e.per_symbol.四分位bp[1]) }}]{% else %}—{% endif %}</td>
   <td>{% if e.per_symbol %}{{ e.per_symbol.勝ち銘柄 }}/{{ e.per_symbol.銘柄数 }}{% else %}—{% endif %}</td>
@@ -151,7 +152,8 @@
 </table>
 <p class="muted small">⚠ 閾値は事前固定の 3 水準で、<b>良かった閾値だけを報告しない</b>（rules.md 13-3）。
   ⚠ 「θ が高いほど良い」は「取引しない＝コストを払わないだけ」の可能性があるので、取引回数を必ず横に読む（13-10）。
-  銘柄別 bp は成果物（per_symbol.csv）で、<b>採否には使わない</b>（13-7）。数字は checks.json の写し。</p>
+  銘柄別 bp は成果物（per_symbol.csv）で、<b>採否には使わない</b>（13-7）。
+  保有日数は 1 取引ごとの分布（holds.csv）の写しで強制清算を含む。旧実行には無いので「—」（13-4 の 6。<b>採否には使わない</b>）。数字は checks.json の写し。</p>
 {% endif %}
 
 <h3>手法ごとの成績</h3>

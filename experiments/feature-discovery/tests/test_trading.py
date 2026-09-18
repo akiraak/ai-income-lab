@@ -422,3 +422,111 @@ def test_compute_trading_carries_edge_bins_and_breadth():
     assert doc2["breadth"]["系列数"] == 3
     assert 1.0 <= doc2["breadth"]["実効系列数"] <= 3.0
     assert doc2["by_threshold"]["50"]["dsr"]["n_obs"] == 50   # ⚠ n_obs は検証日数のまま
+
+
+# --- 1 取引ごとの保有日数（rules.md 13-4 の 6。プラン holding-days-distribution §4） -------------
+
+def test_hold_days_sum_to_position_days_and_count_trades():
+    """`sum(hold_days) == pos.sum()`・`len(hold_days) == trades`。⚠ **既存の鍵の計算には触っていない。**"""
+    rng = np.random.default_rng(3)
+    b = rng.uniform(0, 100, 400)
+    y = rng.normal(0, 0.01, 400)
+    for th in (50.0, 55.0, 60.0):
+        r = simulate(b, y, th)
+        assert sum(r["hold_days"]) == int(r["pos"].sum())
+        assert len(r["hold_days"]) == r["trades"] == len(r["entry_idx"])
+        assert all(k >= 1 for k in r["hold_days"])
+        # 建てた足の添字は pos が 0 → 1 に変わる位置
+        assert r["entry_idx"] == [t for t in range(400) if r["pos"][t] == 1 and (t == 0 or r["pos"][t - 1] == 0)]
+
+
+def test_open_then_close_next_day_is_one_day():
+    """足 t で建て t+1 で手仕舞うと **1 日**（pos は t だけ 1）。"""
+    r = simulate([60, 40, 50, 50], [0.0, 0.0, 0.0, 0.0], threshold=55.0)   # 日 0 建て、日 1 売り% 60 で手仕舞い
+    assert r["hold_days"] == [1] and r["entry_idx"] == [0] and r["forced_close"] is False
+    assert list(r["pos"]) == [1, 0, 0, 0]
+
+
+def test_forced_close_marks_the_last_trade_and_counts_to_the_end():
+    """末尾で保有中なら最後の要素が末尾までの日数で、`forced_close` が立つ。"""
+    r = simulate([100, 50, 50, 50, 50], [0.0] * 5, threshold=50.0)
+    assert r["forced_close"] is True and r["hold_days"] == [5] and r["trades"] == 1
+    r2 = simulate([60, 50, 40, 60, 50], [0.0] * 5, threshold=55.0)    # 建て → 手仕舞い → 建て → 末尾
+    assert r2["hold_days"] == [2, 2] and r2["forced_close"] is True and r2["entry_idx"] == [0, 3]
+
+
+def test_hold_days_are_the_same_through_the_exit_pct_path():
+    """`exit_pct` を渡す経路（rules.md 16-1）でも同じ保有日数が出る（省くと 100 − 入口% と一致）。"""
+    rng = np.random.default_rng(5)
+    b = rng.uniform(0, 100, 300)
+    y = rng.normal(0, 0.01, 300)
+    a = simulate(b, y, 55.0)
+    c = simulate(b, y, 55.0, exit_pct=100.0 - b)
+    assert a["hold_days"] == c["hold_days"] and a["forced_close"] == c["forced_close"]
+
+
+def test_shifted_gate_keeps_the_total_hold_days():
+    """⚠ **乱択ゲートは保有日数を保つ**（14-6 b）。巡回シフトの継ぎ目で本数だけ ±1 まで。"""
+    from ail.validation.simulate import shifted_gate
+    rng = np.random.default_rng(7)
+    b = rng.uniform(0, 100, 500)
+    y = rng.normal(0, 0.01, 500)
+    r = simulate(b, y, 55.0)
+    g = shifted_gate(r["pos"], y, 5.0, np.random.default_rng(1))
+    assert sum(g["hold_days"]) == sum(r["hold_days"])
+    assert abs(len(g["hold_days"]) - len(r["hold_days"])) <= 1
+
+
+# --- 逆売買は補集合（rules.md 14-3 の (3)。プラン reverse-trading-check §2-3） ----------------
+
+def _complement_pair(b, y, th, exit_pct=None):
+    e = (100.0 - np.asarray(b)) if exit_pct is None else np.asarray(exit_pct)
+    fwd = simulate(b, y, th, 5.0, exit_pct=exit_pct)
+    rev = simulate(e, y, th, 5.0, exit_pct=np.asarray(b))
+    return fwd, rev
+
+
+@pytest.mark.parametrize("th", [50.0, 55.0, 60.0])
+def test_reverse_is_the_complement_after_the_first_signal(th):
+    """⚠ **最初の合図の日以降、逆のポジションは 1 − 元**。売買日も同じで、取引回数は ±1 以内。"""
+    rng = np.random.default_rng(11)
+    b = rng.uniform(0, 100, 600)
+    y = rng.normal(0.0002, 0.01, 600)
+    fwd, rev = _complement_pair(b, y, th)
+    first = next((t for t in range(600) if fwd["pos"][t] == 1 or rev["pos"][t] == 1), None)
+    assert first is not None
+    assert (fwd["pos"][:first] == 0).all() and (rev["pos"][:first] == 0).all()
+    assert np.array_equal(rev["pos"][first:], 1 - fwd["pos"][first:])
+    assert abs(fwd["trades"] - rev["trades"]) <= 1
+    # 売買日（コストを払った日）は同じ集合
+    days_f = {t for t in range(600) if abs(fwd["net_bp"][t] - fwd["gross_bp"][t]) > 0}
+    days_r = {t for t in range(600) if abs(rev["net_bp"][t] - rev["gross_bp"][t]) > 0}
+    # ⚠ 最初の建て（片方だけ払う）と末尾の強制清算（Long の側だけ払う）を除けば、売買日は同じ集合
+    assert days_f - {first, 599} == days_r - {first, 599}
+
+
+def test_reverse_identity_gross_and_cost():
+    """⚠ **逆の粗利 ＝ B&H 粗利 − 元の粗利**（最初の合図以降）、逆のコスト − 元のコスト ∈ {−5, 0, ＋5}。
+
+    最初の建て（2.5）と強制清算（2.5）が同じ側に付けば 5、別の側なら 0（reverse-trading.md §1-3）。
+    """
+    rng = np.random.default_rng(13)
+    b = rng.uniform(0, 100, 500)
+    y = rng.normal(0.0002, 0.01, 500)
+    fwd, rev = _complement_pair(b, y, 55.0)
+    first = next(t for t in range(500) if fwd["pos"][t] == 1 or rev["pos"][t] == 1)
+    bh_gross = float((y[first:] * 1e4).sum())
+    assert float(rev["gross_bp"][first:].sum()) == pytest.approx(bh_gross - float(fwd["gross_bp"][first:].sum()))
+    assert rev["cost_bp_total"] - fwd["cost_bp_total"] in (-5.0, 0.0, 5.0)
+
+
+def test_reverse_with_two_outputs_settles_into_the_complement():
+    """2 出力の契約（`exit_pct` あり）で **同じ日に入口% と出口% が両方 θ を超える**系列でも、遅れて補集合に落ち着く。"""
+    rng = np.random.default_rng(17)
+    b = rng.uniform(0, 100, 400)
+    e = np.where(rng.uniform(0, 1, 400) < 0.3, 90.0, rng.uniform(0, 100, 400))   # 出口% が独立に立つ
+    y = rng.normal(0, 0.01, 400)
+    fwd, rev = _complement_pair(b, y, 55.0, exit_pct=e)
+    both = fwd["pos"] + rev["pos"]
+    # ⚠ 2 つが同時に Long になる日があってもよいが、末尾では補集合に落ち着いている
+    assert both[-50:].max() <= 1 and (both[-50:] == 1).mean() > 0.5

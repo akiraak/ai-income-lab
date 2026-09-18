@@ -30,6 +30,9 @@ STATE = {
     "order_seq": itertools.count(1),
     "events": [],          # 口座ストリーマに流す通知
     "market_data": False,  # False なら cert と同じく 502
+    "fill_noise": 0.0,  # >0 なら成行を「気配 × (1 ± noise)」で約定させる（実売買のモック。既定は sandbox と同じ $1）
+    "quote": 560.11,  # 気配の中心（--fill-noise のときは日ごとにここも揺らす）
+    "rng": None,
     "rate_limit_after": 0,  # >0 ならその回数を超えた照会に 429
     "request_count": 0,
     "dxlink_url": "ws://127.0.0.1:8767",
@@ -69,6 +72,8 @@ def make_order(body: dict, status: str) -> dict:
         "price": body.get("price"),
         "price-effect": body.get("price-effect"),
         "size": leg.get("quantity"),
+        "value": body.get("value"),
+        "value-effect": body.get("value-effect"),
         "underlying-symbol": leg["symbol"],
         "underlying-instrument-type": leg["instrument-type"],
         "status": status,
@@ -93,7 +98,7 @@ def make_order(body: dict, status: str) -> dict:
 
 def fills_immediately(body: dict) -> bool:
     """sandbox の規則: 成行は常に $1 で約定、$3 未満の指値は即約定、$3 以上は Live のまま。"""
-    if body.get("order-type") == "Market":
+    if body.get("order-type") in ("Market", "Notional Market"):
         return True
     try:
         return float(body.get("price", "0")) < 3.0
@@ -118,8 +123,21 @@ def advance(order_id: int) -> None:
                 order = STATE["orders"].get(order_id)
                 if not order or order["status"] != "Live":
                     return
-                price = "1.00" if order["order-type"] == "Market" else order.get("price")
                 leg = order["legs"][0]
+                if order["order-type"] in ("Market", "Notional Market"):
+                    if STATE["fill_noise"] > 0:
+                        # 実売買のモック: 気配 × (1 ± noise)。買いは高く・売りは安く寄る（スプレッドの半分に相当）
+                        rng = STATE["rng"]
+                        drift = rng.uniform(0, STATE["fill_noise"]) if leg["action"].startswith("Buy") else -rng.uniform(0, STATE["fill_noise"])
+                        price = f"{STATE['quote'] * (1 + drift):.2f}"
+                    else:
+                        price = "1.00"
+                else:
+                    price = order.get("price")
+                if order["order-type"] == "Notional Market":
+                    # 金額指定: 数量 = 金額 ÷ 約定価格（小数）
+                    leg["quantity"] = f"{float(order['value']) / float(price):.4f}"
+                    order["size"] = leg["quantity"]
                 leg["remaining-quantity"] = "0"
                 leg["fills"] = [
                     {
@@ -131,9 +149,10 @@ def advance(order_id: int) -> None:
                 ]
                 order["status"] = "Filled"
                 order["cancellable"] = False
-                symbol, qty = leg["symbol"], int(float(leg["quantity"]))
+                symbol, qty = leg["symbol"], float(leg["quantity"])
                 signed = qty if leg["action"].startswith("Buy") else -qty
-                STATE["positions"][symbol] = STATE["positions"].get(symbol, 0) + signed
+                total = round(STATE["positions"].get(symbol, 0) + signed, 6)
+                STATE["positions"][symbol] = int(total) if total == int(total) else total
                 STATE["events"].append({"type": "Order", "data": dict(order), "timestamp": now_ms()})
 
     threading.Thread(target=run, daemon=True).start()
@@ -197,6 +216,12 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         path = urlparse(self.path).path
+        if path == "/_mock/quote":
+            # 実売買のモック専用: 「翌営業日」の気配に進める（認証なし。テストの台本が叩く）
+            body = self._body()
+            with LOCK:
+                STATE["quote"] = float(body.get("quote", STATE["quote"]))
+            return self._send(200, {"quote": STATE["quote"]})
         if path == "/oauth/token":
             if not self._check_headers(need_auth=False):
                 return
@@ -217,8 +242,17 @@ class Handler(BaseHTTPRequestHandler):
             body = self._body()
             dry_run = len(parts) == 4 and parts[3] == "dry-run"
             leg = body["legs"][0]
-            price = 1.0 if body.get("order-type") == "Market" else float(body.get("price", 0))
-            qty = float(leg.get("quantity", 1))
+            # 本番の API が持つ注文種別の写し（【記憶・未確認】。dryrun2 の記録で直す）
+            if body.get("order-type") not in ("Limit", "Market", "Stop", "Stop Limit", "Notional Market"):
+                return self._error(422, "invalid_order_type", f"order-type {body.get('order-type')!r} は無い（Limit / Market / Stop / Stop Limit / Notional Market）")
+            if body.get("order-type") == "Notional Market":
+                if "quantity" in leg or not body.get("value"):
+                    return self._error(422, "invalid_notional_order", "Notional Market は value を持ち、レッグに quantity を付けない")
+                price = STATE["quote"] if STATE["fill_noise"] > 0 else 1.0
+                qty = float(body["value"]) / price
+            else:
+                price = (STATE["quote"] if STATE["fill_noise"] > 0 else 1.0) if body.get("order-type") == "Market" else float(body.get("price", 0))
+                qty = float(leg.get("quantity", 1))
             effect = {
                 "change-in-buying-power": f"{price * qty:.2f}",
                 "change-in-buying-power-effect": "Debit" if leg["action"].startswith("Buy") else "Credit",
@@ -391,10 +425,10 @@ class Handler(BaseHTTPRequestHandler):
                             {
                                 "symbol": symbol,
                                 "instrument-type": "Equity",
-                                "bid": "560.10",
-                                "ask": "560.12",
-                                "mid": "560.11",
-                                "last": "560.11",
+                                "bid": f"{STATE['quote'] - 0.01:.2f}",
+                                "ask": f"{STATE['quote'] + 0.01:.2f}",
+                                "mid": f"{STATE['quote']:.2f}",
+                                "last": f"{STATE['quote']:.2f}",
                                 "bid-size": "300",
                                 "ask-size": "200",
                                 "is-trading-halted": False,
@@ -524,7 +558,12 @@ def main() -> None:
     parser.add_argument("--dxlink-port", type=int, default=8767)
     parser.add_argument("--market-data", action="store_true", help="本番のように気配を返す（既定は cert と同じ 502）")
     parser.add_argument("--rate-limit-after", type=int, default=0, help="この回数を超えた GET に 429 を返す")
+    parser.add_argument("--fill-noise", type=float, default=0.0, help="成行を気配 × (1 ± noise) で約定させる（実売買のモック。0 なら sandbox と同じ $1）")
+    parser.add_argument("--seed", type=int, default=0, help="--fill-noise の乱数の種")
     args = parser.parse_args()
+    import random
+    STATE["fill_noise"] = args.fill_noise
+    STATE["rng"] = random.Random(args.seed)
 
     STATE["market_data"] = args.market_data
     STATE["rate_limit_after"] = args.rate_limit_after

@@ -80,6 +80,7 @@ def settings(tmp_path):
         sample_dir=SAMPLE_DIR,
         runs_dir=tmp_path / "runs",
         exp_dir=tmp_path / "feature-discovery",
+        live_dir=tmp_path / "live-trading",
         sample_python=sys.executable,
         symbol="SPY",
         poll_seconds=30,

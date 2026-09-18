@@ -18,6 +18,11 @@
       "name": "glossary",
       "label": "用語",
       "baseUrl": "http://127.0.0.1:3015/glossary"
+    },
+    {
+      "name": "hardware",
+      "label": "ハード",
+      "baseUrl": "http://127.0.0.1:3015/hardware"
     }
   ]
 }

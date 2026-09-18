@@ -3,7 +3,7 @@
 作成日: 2026-09-04（同日に 3 社 → tastytrade 1 社へ絞った）。
 対象: tastytrade（[service-trust-assessment.md](../specs/service-trust-assessment.md) で判定「高」、[trading-fee-comparison.md](../specs/trading-fee-comparison.md) §4 で株 $0・API プレミアム $0、[trading-api-availability.md](../specs/trading-api-availability.md) §6-2 で 51 件中 44 件が通る）。
 
-## 0. 決定と進捗（2026-09-05 追記）
+## 0. 決定と進捗（2026-09-05 追記。⚠ **2026-09-17 に archive へ。Phase 0〜5 と着金は済み、Phase 6 は [live-trading-three-models.md](../live-trading-three-models.md) の Phase 5 へ**）
 
 **方針は選択肢 (c)（sandbox ＋ 本口座 ＋ 入金 ＋ 本番で 1 株）を利用者が選択した。**
 CLAUDE.md にこの 1 手法だけの例外として追記済み。⚠ 口座開設・入金・本番発注を実行するのは利用者で、

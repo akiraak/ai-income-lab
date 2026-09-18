@@ -1,0 +1,22 @@
+# ⚠ **`ex_` 層の計算が変わった（z20 の穴と rolling の誤差。commit 127b694・b4e6dc6）ので、GAN 増強 × ownex の 24 本を
+# 同じ鍵で回し直すキュー**（プラン `plans/exim-rerun-titan.md` §2-3 の Phase 3）。
+#
+# ⚠ **表は Phase 2 で作り直した `trade_ownex_ridge_a`（＋ leak）を読む**（features_from。作り直さない）。
+# ⚠ **本番 1 本につき `--leak` 対照が自動で 1 本並ぶ**（`leak = true`。rules.md 14-10 規約 6）。
+#
+# ⚠ **事前登録**（回す前に決めた）: 同じ鍵の再実行なので **n_trials は 604 のまま**。
+# ⚠ **順は手間の小さい順**（14-10 規約 4）: 16k (a) 25 分 → gan (a) 3.5 時間 → 16k (b) 3 時間 → gan (b) 4.7 時間【実測】。
+#
+# ⚠ **台帳はこのキューでは吐き直さない**（`ledger = false`）。⚠ **コードを凍結した worktree（HEAD 696cf7b）から回す**ので、
+# 台帳を吐くと worktree 側の ledger.md に書いてしまう。全部終わったら本体で `cli.report --catalog` を 1 回流す。
+#
+# ⚠ **打ち切りは 3 つとも書く**（14-9）。約 30 時間 GPU【実測の合計】。上限は 48 時間。
+experiments = ["trade_ownex_ridgegan16k_a", "trade_ownex_lgbmgan16k_a", "trade_ownex_mlpgan16k_a",
+               "trade_ownex_ridgegan_a", "trade_ownex_lgbmgan_a", "trade_ownex_mlpgan_a",
+               "trade_ownex_ridgegan16k_b", "trade_ownex_lgbmgan16k_b", "trade_ownex_mlpgan16k_b",
+               "trade_ownex_ridgegan_b", "trade_ownex_lgbmgan_b", "trade_ownex_mlpgan_b"]
+
+leak = true              # ⚠ 配線の穴に気づく唯一の手。切らない
+ledger = false           # ⚠ worktree から回すので、台帳は終わってから本体で 1 回吐く（上の注記）
+max_failures = 3         # ⚠ 連続で失敗したら止める（直してから同じコマンドで再開する）
+time_budget_s = 172800   # ⚠ キュー全体の時間の上限（48 時間。見積り 30 時間の 1.6 倍）

@@ -131,3 +131,66 @@ def test_calibration_coefficients_are_recorded(run, tmp_path):
     doc = json.load(open(os.path.join(d, files[0]), encoding="utf-8"))
     cal = doc["全部使う（基準）"]
     assert set(cal) == {"a", "b", "source"} and cal["source"] in ("holdout", "train", "constant")
+
+
+# --- 既定経路の不変（rules.md 14-4 規約 2。プラン holding-days-distribution §4） ------------------
+
+@pytest.mark.parametrize("form", ["shared", "per_symbol"])
+def test_default_path_fingerprint_is_unchanged(run, form):
+    """⚠ **保有日数・逆売買の列を足しても、既存の出力は 1 ビットも変わらない。**
+
+    指紋は 2026-09-17 に列を足す前のコード（commit 696cf7b）で取った `tests/fixtures/trading_fingerprint.json`。
+    ⚠ **同じ機械で取った指紋**（数値は 6 桁に丸めて比べる）。⚠ **合わなければ配線を疑う** — 直すのは指紋ではなく配線。
+    """
+    import json
+    import os
+    from tests import _fingerprint as fp
+    want = json.load(open(os.path.join(os.path.dirname(__file__), "fixtures",
+                                       "trading_fingerprint.json"), encoding="utf-8"))[form]
+    got = fp.fingerprint(run, form)
+    for key in ("per_symbol", "result", "summary", "checks"):
+        assert got[key] == want[key], (form, key, got["sample"], want["sample"])
+
+
+def test_holds_csv_has_one_row_per_trade_and_matches_per_symbol(run):
+    """holds.csv は 1 取引 1 行。手法 × θ × fold × 銘柄で数えると `per_symbol.csv` の取引回数と一致する。"""
+    import os
+    panel = _panel()
+    res, per_sym, summary, daily, extra = evaluate_trading(panel, _feats(panel), _exp(), run)
+    holds = extra["holds"]
+    assert set(holds.columns) == {"手法", "閾値", "fold", "銘柄", "建てた日", "保有日数", "強制清算"}
+    n = holds.groupby(["手法", "閾値", "fold", "銘柄"]).size().rename("n").reset_index()
+    m = per_sym.merge(n, on=["手法", "閾値", "fold", "銘柄"], how="left").fillna({"n": 0})
+    assert (m["取引回数"] == m["n"]).all()
+    # 保有日数の要約列（末尾に足した 3 列）も holds から出した値と一致
+    med = holds.groupby(["手法", "閾値", "fold", "銘柄"])["保有日数"].median().rename("m").reset_index()
+    mm = per_sym.merge(med, on=["手法", "閾値", "fold", "銘柄"], how="inner")
+    assert np.allclose(mm["保有日数中央値"], mm["m"])
+    # 強制清算は 銘柄 × fold × 手法 × θ ごとに最大 1 回
+    assert holds.groupby(["手法", "閾値", "fold", "銘柄"])["強制清算"].sum().max() <= 1
+    # B&H は毎 fold 1 取引・全部強制清算
+    bh = holds[holds["手法"] == "基準 常に上（ドリフト）"]
+    assert (bh["強制清算"]).all() and len(bh) == 3 * 5 * 3
+    run.holds(holds)
+    assert os.path.exists(os.path.join(run.dir, "holds.csv"))
+
+
+def test_reverse_columns_follow_the_identity(run):
+    """`逆売買純利bp` は恒等式（逆の上乗せ ≈ −元の純利 − 2 × コスト ＋ 5）に fold 平均で近い。⚠ **既存列は動かない。**"""
+    panel = _panel()
+    res, per_sym, summary, daily, extra = evaluate_trading(panel, _feats(panel), _exp(), run)
+    assert {"逆売買純利bp", "逆売買取引回数"} <= set(res.columns)
+    assert "逆売買純利bp" in per_sym.columns
+    r50 = res[res["閾値"] == 50.0].pivot(index="fold", columns="手法")
+    m = "全部使う（基準）"
+    bh = r50["純利bp"]["基準 常に上（ドリフト）"]
+    edge_rev = r50["逆売買純利bp"][m] - bh
+    ident = -r50["純利bp"][m] - 2.0 * (r50["粗利bp"][m] - r50["純利bp"][m]) + 5.0
+    # 最初の合図までの区間と強制清算の帰属の分だけずれる（1 fold 160 日・3 銘柄の合成表では数 bp）
+    assert abs(float((edge_rev - ident).mean())) < 50.0
+    doc = checks.compute_trading(res, summary, per_sym, daily, _exp(), n_trials=70, extra=extra)
+    e = doc["by_threshold"]["50"]
+    assert "reverse" in e and "selection_edge" in e and "holding" in e
+    assert e["reverse"]["edge_vs_bh"]["folds"] == 5 and "採否" in e["reverse"]["注記"]
+    # S の逆は −S: 逆売買の粗利 − 逆の保有日率 × B&H 粗利 ＝ −S（最初の合図以降。fold 平均で近い）
+    assert e["selection_edge"]["folds"] == 5

@@ -3,7 +3,7 @@
 tastytrade の Open API を **6 手順**（認証 → 口座照会 → 現在値 → 指値・取消 → 約定・反対売買 → ストリーミング）で
 動かし、無人運転の設計に効く 6 観点を【実測】として JSON Lines に記録する。
 
-プラン: [docs/plans/tastytrade-api-sample.md](../../docs/plans/tastytrade-api-sample.md) ／
+プラン: [docs/plans/archive/tastytrade-api-sample.md](../../docs/plans/archive/tastytrade-api-sample.md) ／
 記録先: [docs/specs/experiments/tastytrade-api-sample.md](../../docs/specs/experiments/tastytrade-api-sample.md)
 
 > ⚠ **金銭が動く操作は利用者が行う。** このコードは既定で sandbox（cert）にしか繋がらず、

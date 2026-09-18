@@ -1,0 +1,22 @@
+# ⚠ **`ex_` 層の計算が変わった（z20 の穴と rolling の誤差。commit 127b694・b4e6dc6）ので、同じ鍵で回し直すキュー**
+# （プラン `plans/exim-rerun-titan.md` §2-3 の Phase 2。閾値売買 × 素のモデル 12 本 ＋ 中型株 2 本）。
+#
+# ⚠ **表を先に作り直す**（`cli.build --experiment trade_ownex_ridge_a` と `midcap_ex`、それぞれ `--leak` も）。
+# ⚠ **cli.run は表を読むだけ**なので、表を作り直さずに回すと直す前の数字がそのまま出る。
+#
+# ⚠ **本番 1 本につき `--leak` 対照が自動で 1 本並ぶ**（`leak = true`。rules.md 14-10 規約 6）。
+#
+# ⚠ **事前登録**（回す前に決めた）: 同じ鍵の再実行なので **n_trials は 604 のまま**（台帳の行は増えない）。
+# 台帳の「再現」欄に `2 実行・幅 Xbp` が出るのは修正の差であって配線の失敗ではない（記録 §16 に理由を書く）。
+#
+# ⚠ **打ち切りは 3 つとも書く**（14-9）。計算時間は 5 秒〜3 分/本【実測】で、14 本の合計は約 10 分。
+experiments = ["trade_ownex_ridge_a", "trade_ownex_ridge_b",
+               "trade_ownex_lgbm_a", "trade_ownex_lgbm_b",
+               "trade_ownex_mlp_a", "trade_ownex_mlp_b",
+               "midcap_ex"]
+
+leak = true              # ⚠ 配線の穴に気づく唯一の手。切らない
+ledger = false           # ⚠ 2026-09-17 17:10 に true → false。再実行で判定が変わった行に「閉じる」注記が当たって台帳生成が止まり、
+                         #    キューが 2 度死んだ（lgbm_a の後）。残りは台帳を吐かずに回し、Phase 4 で 1 回吐く
+max_failures = 3         # ⚠ 連続で失敗したら止める（直してから同じコマンドで再開する）
+time_budget_s = 3600     # ⚠ キュー全体の時間の上限（1 時間。見積り 10 分の 6 倍）

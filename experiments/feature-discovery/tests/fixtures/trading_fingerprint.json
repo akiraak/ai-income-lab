@@ -1,0 +1,42 @@
+{
+  "taken_at": "2026-09-17",
+  "commit": "696cf7b",
+  "shared": {
+    "per_symbol": "ce450580634d72e1",
+    "result": "71953d886b117a6b",
+    "summary": "fd0a525e9aa06ea3",
+    "checks": "f4d6e5998fc8577d",
+    "sample": {
+      "per_symbol_rows": 180,
+      "純利bp_sum": -408.806,
+      "best_50": {
+        "method": "全部使う（基準）",
+        "純利bp": -140.6759,
+        "粗利bp": -9.3426,
+        "的中率": 0.499,
+        "本数": 2.0,
+        "取引回数": 78.8,
+        "保有日率": 0.3238
+      }
+    }
+  },
+  "per_symbol": {
+    "per_symbol": "90515fde55153c0e",
+    "result": "2af8a59682ecae6d",
+    "summary": "3f1ced73dc791a82",
+    "checks": "f60a257ce5aec266",
+    "sample": {
+      "per_symbol_rows": 180,
+      "純利bp_sum": -7650.7562,
+      "best_50": {
+        "method": "全部使う（基準）",
+        "純利bp": -86.8213,
+        "粗利bp": 34.512,
+        "的中率": 0.4996,
+        "本数": 2.0,
+        "取引回数": 72.8,
+        "保有日率": 0.4096
+      }
+    }
+  }
+}

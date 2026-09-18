@@ -1,0 +1,16 @@
+# モックのトレーダー B。A と同じ銘柄を逆向きに売買する日を作り、内部移転と合算を確かめる。金額指定（notional）
+name = "mock_b"
+test = true
+budget_usd = 300.0
+symbols = ["SPY", "QQQ", "IWM"]
+combine = "mean"
+threshold = 55.0
+sizing = "notional"
+[[models]]
+kind = "file"
+name = "script_b1"
+path = "../signals/mock_b1.csv"
+[[models]]
+kind = "file"
+name = "script_b2"
+path = "../signals/mock_b2.csv"

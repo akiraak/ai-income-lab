@@ -1,0 +1,12 @@
+# モックで 20 営業日を通すためのトレーダー A（Phase 2 の 5）。SPY を 1 日おきに建てて手仕舞う
+name = "mock_a"
+test = true
+budget_usd = 400.0
+symbols = ["SPY", "QQQ"]
+combine = "asis"
+threshold = 50.0
+sizing = "shares"
+[[models]]
+kind = "file"
+name = "script_a"
+path = "../signals/mock_a.csv"

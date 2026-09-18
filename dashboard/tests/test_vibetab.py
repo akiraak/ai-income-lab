@@ -197,6 +197,36 @@ def test_exp_run_html(runs_dir):
     assert "全部使う（基準）" in body       # summary.csv の写し
 
 
+def test_exp_run_html_holding_days_column(runs_dir):
+    """閾値売買の詳細に「保有日数 中央値（p25–p75）」の列が出る。⚠ **checks.json の写し**で、鍵が無い θ は「—」。"""
+    d = runs_dir / "2026-09-10T10-00-00_trade_own_ridge_a"
+    d.mkdir()
+    (d / "summary.csv").write_text(
+        "手法,閾値,本数,的中率,IC,粗利bp,純利bp,取引回数,保有日率,fold数\n"
+        "全部使う（基準）,50.0,35,0.52,0.03,13.0,10.0,60,0.5,5\n", encoding="utf-8")
+    (d / "config.json").write_text(json.dumps(
+        {"dataset": "daily", "horizon": 1, "k": 16, "cost_bp": 5.0, "feature_layers": ["own"],
+         "trading": {"style": "threshold", "thresholds": [50, 55, 60], "form": "shared"}}), encoding="utf-8")
+    (d / "inputs.json").write_text(json.dumps({"layer": "adjusted", "features": 35, "symbols": 63}), encoding="utf-8")
+    (d / "env.json").write_text(json.dumps({"seed": 0, "git_commit": "abc1234"}), encoding="utf-8")
+    def th(net, holding=None):
+        e = {"best": {"method": "全部使う（基準）", "純利bp": net, "取引回数": 60.0, "保有日率": 0.5},
+             "edge_vs_bh": {"pattern": "＋＋−＋＋", "positive": 4, "folds": 5, "mean_bp": 1.0, "t": 1.2},
+             "bh_純利bp": net - 1.0}
+        if holding:
+            e["holding"] = holding
+        return e
+    by = {"50": th(10.0, {"取引数": 900, "中央値": 4.0, "p25": 2.0, "p75": 12.0}), "55": th(9.0), "60": th(8.0)}
+    (d / "checks.json").write_text(json.dumps({
+        "leak": False, "style": "threshold", "form": "shared", "thresholds": [50.0, 55.0, 60.0],
+        "by_threshold": by, "best": {**by["50"]["best"], "閾値": 50.0}, "folds": {"positive": 4, "folds": 5},
+        "edge_vs_bh": by["50"]["edge_vs_bh"]}, ensure_ascii=False), encoding="utf-8")
+    body = vibetab.exp_run_html(runs_dir, "2026-09-10T10-00-00_trade_own_ridge_a")
+    assert "保有日数 中央値（p25–p75）" in body
+    assert "4（2–12）" in body
+    assert vibetab.holding_cell(None) == "—" and vibetab.holding_cell({"中央値": 2.0}) == "2"
+
+
 def test_exp_run_html_rejects_unknown_and_traversal(runs_dir):
     assert vibetab.exp_run_html(runs_dir, "nai") is None
     assert vibetab.exp_run_html(runs_dir, "../secret") is None
@@ -526,3 +556,68 @@ def test_real_glossary_covers_the_words_that_block_reading():
     names = {t["name"] for s in vibetab.load_glossary() for t in s["term"]}
     for w in ("試行", "DSR（デフレーテッド SR）", "上乗せ", "門前", "ex_ / im_", "cert（sandbox）"):
         assert w in names
+
+
+# ---------------------------------------------------------------- ハード（dashboard.md §14）
+
+import hwstat  # noqa: E402
+
+XSS = "<script>alert(1)</script>"
+
+
+def canned_snapshot(prev):
+    """⚠ 本物の nvidia-smi・/proc を読まない。プロセスの名前に script を仕込んである。"""
+    snap = {"ts": 1789760902.0,
+            "gpu": {"ok": True, "error": None, "procs_error": None,
+                    "gpus": [{"index": 0, "name": "TEST GPU", "utilization.gpu": 34.0,
+                              "memory.used": 1294.0, "memory.total": 24564.0, "memory.pct": 5.3,
+                              "temperature.gpu": 49.0, "power.draw": 63.7, "power.limit": 480.0,
+                              "fan.speed": 31.0, "pstate": "P3", "throttle": []}],
+                    "procs": [{"pid": 1, "cmdline": XSS, "elapsed_s": 60, "rss_kb": 1024}]},
+            "cpu": {"total_pct": 40.0, "per_thread_pct": [50.0, 30.0], "threads": 2,
+                    "loadavg": [1.0, 1.0, 1.0]},
+            "mem": hwstat.parse_meminfo("MemTotal: 100 kB\nMemAvailable: 40 kB\n"),
+            "disks": [{"mount": "/", "total": 1000, "used": 990, "free": 10, "used_pct": 99.0}]}
+    return snap, {}
+
+
+@pytest.fixture()
+def hw_server(runs_dir, exp_dir):
+    sampler = hwstat.Sampler(read=canned_snapshot, interval_s=5.0)
+    srv = vibetab.ThreadingHTTPServer(
+        ("127.0.0.1", 0), vibetab.make_handler(runs_dir, vibetab.ExpPaths(exp_dir), sampler))
+    srv.daemon_threads = True
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    yield f"http://127.0.0.1:{srv.server_address[1]}", sampler
+    srv.shutdown()
+
+
+def test_hardware_routes(hw_server):
+    base, sampler = hw_server
+    assert not sampler.running                      # ⚠ handler を作っただけでは見張りは起きない
+    status, body = _get(f"{base}/hardware/api/sidebar")
+    assert status == 200 and [i["id"] for i in json.loads(body)["items"]] == ["now", "history"]
+    status, body = _get(f"{base}/hardware/api/snapshot")
+    snap = json.loads(body)
+    assert status == 200 and snap["gpu"]["gpus"][0]["name"] == "TEST GPU" and snap["interval_s"] == 5.0
+    status, body = _get(f"{base}/hardware/api/history")
+    hist = json.loads(body)
+    assert status == 200 and hist["points"][-1]["gpu_util"] == 34.0 and len(hist["series"]) == 6
+    assert _get(f"{base}/hardware/view?item=history")[0] == 200
+    assert _get(f"{base}/hardware/view?item=nai")[0] == 404
+    assert _get(f"{base}/hardware/api/nazo")[0] == 404
+    # ⚠ JSON の経路はハードだけ。他のタブに生えていない
+    assert _get(f"{base}/data/api/snapshot")[0] == 404
+    # 既存のタブは変わっていない
+    assert _get(f"{base}/experiments/view?item=overview")[0] == 200
+    assert _get(f"{base}/glossary/view?item=all")[0] == 200
+
+
+def test_hardware_view_embeds_data_without_raw_markup(hw_server):
+    base, _ = hw_server
+    status, body = _get(f"{base}/hardware/view?item=now")
+    assert status == 200 and 'id="hw-data"' in body and "TEST GPU" in body
+    # ⚠ プロセスの名前は他人が決められる文字列。生の <script> が HTML に出ない（XSS の入口を固定）
+    assert XSS not in body and "\\u003cscript>alert(1)" in body
+    # ⚠ 描く側は textContent だけ。innerHTML に連結しない
+    assert "innerHTML" not in body

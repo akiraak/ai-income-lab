@@ -125,7 +125,9 @@ def evaluate_trading(panel: pd.DataFrame, feats: list[str], exp: dict, run: runs
     picked: list[dict] = []
     daily: dict[tuple[str, float], list[pd.Series]] = {}
     # ⚠ **14-6 (b) の乱択ゲートと、エピソード表（14-8）が要る保有日率**。どちらも診断で、採否に使わない
-    extra: dict[str, dict[tuple[str, float], list[pd.Series]]] = {"hold": {}, "rand": {}}
+    extra: dict = {"hold": {}, "rand": {}}
+    # ⚠ **1 取引 1 行の保有日数**（13-4 の 6）。⚠ **成果物であって採否には使わない**。`extra["holds"]` で持ち出す
+    holds_out: list[dict] = []
 
     for f, tr, te in splits.folds_by_dates(panel, edges, horizon_min,
                                            int(v.get("embargo_bars", 0)),
@@ -221,7 +223,8 @@ def evaluate_trading(panel: pd.DataFrame, feats: list[str], exp: dict, run: runs
                 grosses: dict[str, pd.Series] = {}
                 rands: dict[str, pd.Series] = {}
                 poss: dict[str, pd.Series] = {}
-                trades, pos_days, days, rand_trades = 0, 0, 0, 0
+                revs: dict[str, pd.Series] = {}
+                trades, pos_days, days, rand_trades, rev_trades = 0, 0, 0, 0, 0
                 # ⚠ 乱択ゲートの種は config の種。⚠ **引く順は `groups` の並びで決まる**（再現する）
                 rng = np.random.default_rng(seed)
                 for s, idx in groups.items():
@@ -232,29 +235,50 @@ def evaluate_trading(panel: pd.DataFrame, feats: list[str], exp: dict, run: runs
                     r = sim.simulate(bp[idx], y[idx], th, cost_bp,
                                      exit_pct=None if ex is None else ex[idx])
                     rg = sim.shifted_gate(r["pos"], y[idx], cost_bp, rng)   # 14-6 の b
+                    # ⚠ **逆売買**（rules.md 14-3 の (3)。診断列・採否に使わない・試行に数えない）:
+                    # ⚠ **入口% と出口% を入れ替えて同じ状態機械を回すだけ**（`simulate` 本体は触らない）。
+                    # θ ≥ 50 では元の売買の補集合になる（reverse-trading.md §1）
+                    rv = sim.simulate(ex[idx] if ex is not None else 100.0 - bp[idx], y[idx], th, cost_bp,
+                                      exit_pct=bp[idx])
                     key, stamp = str(s), ts_te.iloc[idx].values
                     nets[key] = pd.Series(r["net_bp"], index=stamp)
                     grosses[key] = pd.Series(r["gross_bp"], index=stamp)
                     rands[key] = pd.Series(rg["net_bp"], index=stamp)
                     poss[key] = pd.Series(r["pos"].astype(float), index=stamp)
+                    revs[key] = pd.Series(rv["net_bp"], index=stamp)
                     trades += r["trades"]
                     rand_trades += rg["trades"]
+                    rev_trades += rv["trades"]
                     pos_days += int(r["pos"].sum())
                     days += len(idx)
+                    hd = r["hold_days"]
                     sym_out.append({"手法": mname, "閾値": th, "fold": f, "銘柄": key,
                                     "純利bp": round(float(r["net_bp"].sum()), 4),
                                     "粗利bp": round(float(r["gross_bp"].sum()), 4),
                                     "取引回数": r["trades"],
                                     "保有日率": round(r["hold_ratio"], 4),
-                                    "見送り日数": r["skip_days"]})
+                                    "見送り日数": r["skip_days"],
+                                    # ⚠ 以下は 2026-09-17 に末尾へ足した列（既存列の値は変えない）
+                                    "保有日数中央値": float(np.median(hd)) if hd else np.nan,
+                                    "保有日数最短": int(min(hd)) if hd else np.nan,
+                                    "保有日数最長": int(max(hd)) if hd else np.nan,
+                                    "逆売買純利bp": round(float(rv["net_bp"].sum()), 4)})
+                    # ⚠ **1 取引 1 行**（holds.csv）。強制清算は最後の 1 取引だけ（13-4 の 4）
+                    for i, (k_days, e_idx) in enumerate(zip(hd, r["entry_idx"])):
+                        holds_out.append({"手法": mname, "閾値": th, "fold": f, "銘柄": key,
+                                          "建てた日": str(pd.Timestamp(stamp[e_idx]).date()),
+                                          "保有日数": int(k_days),
+                                          "強制清算": bool(r["forced_close"] and i == len(hd) - 1)})
                 if not nets:
                     continue
                 port_net = sim.portfolio_daily(nets)
                 port_gross = sim.portfolio_daily(grosses)
                 port_rand = sim.portfolio_daily(rands)
+                port_rev = sim.portfolio_daily(revs)
                 daily.setdefault((mname, th), []).append(port_net)
                 extra["hold"].setdefault((mname, th), []).append(sim.portfolio_daily(poss))
                 extra["rand"].setdefault((mname, th), []).append(port_rand)
+                extra.setdefault("rev", {}).setdefault((mname, th), []).append(port_rev)
                 out.append({"手法": mname, "fold": f, "閾値": th,
                             "選んだ本数": n_cols.get(mname, 0.0), "的中率": hit, "IC": ic,
                             "粗利bp": float(port_gross.sum()), "純利bp": float(port_net.sum()),
@@ -263,11 +287,15 @@ def evaluate_trading(panel: pd.DataFrame, feats: list[str], exp: dict, run: runs
                             "検証日数": int(len(port_net)),
                             # ⚠ **基準線の診断**（14-6 b）。⚠ **採否には使わない**
                             "乱択ゲート純利bp": float(port_rand.sum()),
-                            "乱択ゲート取引回数": rand_trades})
+                            "乱択ゲート取引回数": rand_trades,
+                            # ⚠ **逆売買の診断列**（14-3 の (3)）。⚠ **採否に使わない・試行に数えない**
+                            "逆売買純利bp": float(port_rev.sum()),
+                            "逆売買取引回数": rev_trades})
         run.log(f"  fold {f}: 訓練 {len(tr):,} / 検証 {len(te):,}（{len(groups)} 銘柄）")
 
     if picked:
         run.selected(pd.DataFrame(picked))
+    extra["holds"] = pd.DataFrame(holds_out)        # ⚠ 成果物。`run.holds` と `checks` が読む
     res = pd.DataFrame(out)
     summary = (res.groupby(["手法", "閾値"])
                   .agg(本数=("選んだ本数", "mean"), 的中率=("的中率", "mean"), IC=("IC", "mean"),
@@ -405,6 +433,7 @@ def main() -> None:
                 "「買って持っただけ」と区別できない）。")
         run.result(res, g)
         run.per_symbol(per_sym)
+        run.holds(extra.get("holds"))              # ⚠ 1 取引 1 行の保有日数（13-4 の 6。採否には使わない）
         # ⚠ **日次のポートフォリオ系列を残す。** これが無かったので、検出限界の検討は同じ config を
         # ⚠ **回し直して系列を作り直すしかなかった**（validation-power.md §1）。エピソード表もここを読む
         run.daily(daily, extra)

@@ -15,7 +15,7 @@ cd experiments/live-trading
 | --- | --- |
 | `trader.py` | トレーダーの定義（`config/traders/<名前>.toml`）と合成規則（そのまま／平均／多数決／全員一致） |
 | `signals.py` | 各モデルの買い% ／ 出口% を集めてトレーダーごとに合成。モデルの `kind` は `fixed` / `file`（試験用）/ `experiment`（`predict.jsonl`。Phase 1 の後） |
-| `state.py` | トレーダー × 銘柄の 0 ／ 1・持ち分・取得単価・受渡し待ち（`state/<名前>.json`） |
+| `state.py` | トレーダー × 銘柄の 0 ／ 1・持ち分・取得単価・受渡し待ち（`state/<env>/<名前>.json`） |
 | `plan.py` | 状態機械 → 株数 → **予算の上限** → 銘柄ごとに全員ぶんを合算（A の売り × B の買いは内部移転） |
 | `execute.py` | dry-run → 発注 → 約定確認 → 取消。`Session offline` は再送。鍵は `ttclient.Client` の 3 段そのまま |
 | `ledger.py` | トレーダー別の損益 1 日 1 行（⚠ 損益で手法を採らない） |

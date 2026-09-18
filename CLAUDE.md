@@ -135,7 +135,7 @@ cd experiments/live-trading
 
 - トレーダーは `config/traders/<名前>.toml`（予算・銘柄集合・モデルの一覧・合成規則・θ・`sizing`）。モデルの `kind` は `fixed` / `file`（試験用。`test = true` が要る）/ `experiment`（`predict.jsonl`。Phase 1 の後）
 - ⚠ **実際に動かすトレーダーの属性はまだ設定しない**（2026-09-17 の利用者決定）。試験用の `test_a`（固定の合図・1 銘柄・最小額）で配線と本番の 1 発注を先に通す
-- 記録は `out/<日付>/*.jsonl`（`Masker` 経由・git 管理外）、状態は `state/<名前>.json`。`--mode submit` 以外は状態を書かない
+- 記録は `out/<日付>/*.jsonl`（`Masker` 経由・git 管理外）、状態は `state/<env>/<名前>.json`。`--mode submit` 以外は状態を書かない
 - 本番の鍵は `ttclient.Client` の 3 段そのまま。発注は `TT_ALLOW_PROD_ORDERS=1` ＋ `--i-know-this-is-real-money`。⚠ **鍵を入れて起動するのは利用者**。`HALT` は管理画面の停止ボタンと同じファイル
 - 決めごと・手順書・記録は `docs/specs/experiments/live-trading.md`
 

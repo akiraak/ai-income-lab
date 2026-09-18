@@ -106,7 +106,7 @@ def main() -> int:
     ap.add_argument("--ignore-window", action="store_true", help="15:45〜16:05 ET の外でも動かす（テスト・モック用）")
     ap.add_argument("--predict", default=None, help="experiment モデルが読む predict.jsonl（既定 out/<日付>/predict.jsonl）")
     ap.add_argument("--out-dir", default=os.environ.get("LT_OUT_DIR") or os.path.join(HERE, "out"))
-    ap.add_argument("--state-dir", default=os.environ.get("LT_STATE_DIR") or os.path.join(HERE, "state"))
+    ap.add_argument("--state-dir", default=None, help="既定は state/<env>/（cert と prod の台帳を混ぜない）")
     ap.add_argument("--traders-dir", default=os.environ.get("LT_TRADERS_DIR") or os.path.join(HERE, "config", "traders"))
     ap.add_argument("--allow-prod-dry-run", action="store_true")
     ap.add_argument("--i-know-this-is-real-money", action="store_true", help="本番で発注を許す（TT_ALLOW_PROD_ORDERS=1 も要る）")
@@ -125,6 +125,7 @@ def main() -> int:
     sample_out = os.environ.get("TT_OUT_DIR") or os.path.join(SAMPLE_DIR, "out")
     halt_file = os.environ.get("TT_HALT_FILE") or os.path.join(sample_out, "HALT")
     date = args.date or now_et().strftime("%Y-%m-%d")
+    state_dir = args.state_dir or os.environ.get("LT_STATE_DIR") or os.path.join(HERE, "state", env)
     run_id = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
 
     traders = load_traders([t.strip() for t in args.traders.split(",") if t.strip()], args.traders_dir)
@@ -154,7 +155,7 @@ def main() -> int:
         return 4
     rec.write("events", meta)
 
-    states = {t.name: load_state(args.state_dir, t.name) for t in traders}
+    states = {t.name: load_state(state_dir, t.name) for t in traders}
 
     # ---- 1. 認証・口座・建玉・残高
     try:
@@ -256,7 +257,7 @@ def main() -> int:
                 states[f["trader"]].apply_sell(f["symbol"], f["shares"], f["price"], date)
         for t in traders:
             states[t.name].last_date = date
-            save_state(args.state_dir, states[t.name])
+            save_state(state_dir, states[t.name])
         try:
             rec.write("balances", {"when": "after", "balances": record.excerpt(client.get_balances(account), limit=40)})
             after = client.list_positions(account)

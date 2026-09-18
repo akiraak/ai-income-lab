@@ -96,7 +96,7 @@ TT_ALLOW_PROD_ORDERS=1 $PY run_day.py --traders test_a --env prod --mode submit 
 
 - [ ] `orders.jsonl` の `final_status` が `Filled`・`fills[].price` と `quote_at_signal.mid` の差（bp）
 - [ ] `positions.jsonl` の `after` に T 1 株（買う日）／ 無し（手仕舞う日）
-- [ ] `state/test_a.json` の `holdings`・`realized_usd` が口座と一致
+- [ ] `state/prod/test_a.json` の `holdings`・`realized_usd` が口座と一致
 - [ ] `events.jsonl` に `retry` ／ `halted` ／ `over_budget` が無いか（あれば理由を §1 に書く）
 - [ ] `grep -r "<口座番号の下 4 桁>" out/` が空（秘密が出ていない）
 - [ ] 何かおかしければ管理画面の停止ボタン（`HALT` ＋ 全取消）。執行器は次の起動で `HALT` を見て発注しない

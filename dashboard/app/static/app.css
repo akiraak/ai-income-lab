@@ -85,6 +85,7 @@ table.kvt th { width:52%; text-transform:none; letter-spacing:0; font-family:var
 table.kvt td { text-align:right; }
 table.small { font-size:12px; } table.small td, table.small th { padding:3px 6px; }
 table.orders th, table.orders td { white-space:nowrap; }
+td.nw, th.nw { white-space:nowrap; }
 .scroll { max-height:240px; overflow:auto; border:1px solid var(--line); border-radius:4px; }
 .scroll-x { overflow-x:auto; }
 .scroll table { width:100%; } .scroll th { position:sticky; top:0; background:var(--raised); }

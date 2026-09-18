@@ -126,6 +126,8 @@ def test_diff1_is_positive_when_buy_fills_above_mid(settings):
     assert d["summary"]["diff1_n"] == 1 and d["summary"]["orders"] == 2 and d["summary"]["bad"] == 1
     sell = {"side": "sell", "quote_at_signal": {"mid": 100.0}, "fills": [{"price": 99.0, "shares": 1}]}
     assert lv._diff1_bp(sell) == [100.0]
+    # 偶数個の中央値は平均なので二進の端数が出る（17.23 と 18.0 → 17.615000000000002）。画面に出す前に 0.01bp へ丸める
+    assert lv._median([17.23, 18.0]) == 17.62 and lv._median([]) is None
 
 
 def test_recent_days_are_newest_first_and_flag_test_and_problems(settings):

@@ -23,15 +23,15 @@
 {% for t in lv.traders %}
 <tr>
   <td><b>{{ t.name }}</b>{% if t.test %} <span class="badge badge-mock">TEST</span>{% endif %}<div class="small muted">{{ t.note }}</div></td>
-  <td class="num">${{ '%.2f'|format(t.budget_usd) }}</td>
+  <td class="num nw">${{ '%.2f'|format(t.budget_usd) }}</td>
   <td class="small">{% if t.universe %}{{ t.universe }}{% else %}{{ t.symbols|join(' ') }}{% endif %}{% if t.n_symbols %} <span class="muted">({{ t.n_symbols }})</span>{% endif %}</td>
   <td class="small">{% for m in t.models %}<div>{{ m.kind_label }} <b>{{ m.name }}</b>{% if m.kind == 'fixed' %} 買い {{ m.buy }} ／ 出口 {{ m.exit }}{% endif %}</div>{% endfor %}</td>
-  <td class="small">{{ t.combine_label }}</td>
+  <td class="small nw">{{ t.combine_label }}</td>
   <td class="num">{{ t.threshold }}</td>
-  <td class="small">{{ t.sizing_label }}</td>
+  <td class="small nw">{{ t.sizing_label }}</td>
   <td class="small">{% for env, s in t.states.items() %}<div><span class="badge badge-{{ env }}">{{ env|upper }}</span> {% for sym, h in s.holdings.items() %}{{ sym }} {{ h.shares }} @ {{ '%.2f'|format(h.avg_price) }}{{ ' · ' if not loop.last }}{% else %}<span class="muted">なし</span>{% endfor %}</div>{% else %}<span class="muted">—</span>{% endfor %}</td>
-  <td class="small num">{% for env, l in t.ledger.items() %}<div>{{ env }}: ${{ l.cost_in_use_usd }} ／ ${{ l.realized_usd }} ／ ${{ l.unrealized_usd }}{% if l.drawdown_pct_of_budget is not none and l.drawdown_pct_of_budget > 20 %} <b class="ng">⚠ 含み損 {{ l.drawdown_pct_of_budget }}% ＞ 20%（停止条件）</b>{% endif %}</div>{% else %}<span class="muted">—</span>{% endfor %}</td>
-  <td class="small muted">{% for env, s in t.states.items() %}{{ s.last_date or '—' }}{{ ' · ' if not loop.last }}{% else %}—{% endfor %}</td>
+  <td class="small num nw">{% for env, l in t.ledger.items() %}<div>{{ env }}: ${{ l.cost_in_use_usd }} ／ ${{ l.realized_usd }} ／ ${{ l.unrealized_usd }}{% if l.drawdown_pct_of_budget is not none and l.drawdown_pct_of_budget > 20 %} <b class="ng">⚠ 含み損 {{ l.drawdown_pct_of_budget }}% ＞ 20%（停止条件）</b>{% endif %}</div>{% else %}<span class="muted">—</span>{% endfor %}</td>
+  <td class="small muted nw">{% for env, s in t.states.items() %}{{ s.last_date or '—' }}{{ ' · ' if not loop.last }}{% else %}—{% endfor %}</td>
 </tr>
 {% endfor %}
 </table>
@@ -39,12 +39,34 @@
 
 {# ---------------- 直近の要約 ---------------- #}
 <h3>執行の差 <span class="muted small">直近 {{ lv.summary.days }} 日 · 実売買（本番・submit）の日 {{ lv.summary.real_days }}</span></h3>
-<div class="kv">
-  <div><span class="muted">差 1 気配 → 約定</span><b>{% if lv.summary.diff1_median_bp is not none %}中央値 {{ lv.summary.diff1_median_bp }}bp{% else %}—{% endif %}</b><span class="muted small"> n={{ lv.summary.diff1_n }}（正 ＝ 不利。✅ ≤ 5 ／ ⚠ 5〜10 ／ ❌ ＞ 10）</span></div>
-  <div><span class="muted">差 2 実コスト</span><b class="muted">dry-run の手数料の写し（注文の表）</b></div>
-  <div><span class="muted">差 3 紙上 − 実物</span><b class="muted">Phase 3（紙上の対照）の後で埋まる</b></div>
-  <div><span class="muted">差 4 無人運転</span><b>問題のあった日 {{ lv.summary.problem_days }} ／ 再送 {{ lv.summary.retries }} 回</b><span class="muted small">（✅ 人手 0 回）</span></div>
-  <div><span class="muted">注文</span><b>{{ lv.summary.orders }} 件 · 約定 {{ lv.summary.filled }} · 問題 {{ lv.summary.bad }}</b></div>
+{# 差 1 の色は中央値にだけ付ける（閾値の正本は live-trading.md §0-2。クラスの対応は dashboard.md §15-4） #}
+{% set m = lv.summary.diff1_median_bp %}
+<div class="exp-cards">
+  <div class="card">
+    <div class="k">差 1 気配 → 約定</div>
+    <div class="v {{ '' if m is none else ('ok' if m <= 5 else ('warn' if m <= 10 else 'ng')) }}">{% if m is not none %}{{ m }} bp{% else %}—{% endif %}</div>
+    <div class="small muted">中央値 · n={{ lv.summary.diff1_n }} · 正 ＝ 不利（✅ ≤ 5 ／ ⚠ 5〜10 ／ ❌ ＞ 10）</div>
+  </div>
+  <div class="card">
+    <div class="k">差 2 実コスト</div>
+    <div class="v muted">—</div>
+    <div class="small muted">dry-run の手数料の写し（注文の表）</div>
+  </div>
+  <div class="card">
+    <div class="k">差 3 紙上 − 実物</div>
+    <div class="v muted">—</div>
+    <div class="small muted">Phase 3（紙上の対照）の後で埋まる</div>
+  </div>
+  <div class="card">
+    <div class="k">差 4 無人運転</div>
+    <div class="v {{ 'ng' if lv.summary.problem_days else '' }}">{{ lv.summary.problem_days }} 日</div>
+    <div class="small muted">問題のあった日 · 再送 {{ lv.summary.retries }} 回（✅ 人手 0 回）</div>
+  </div>
+  <div class="card">
+    <div class="k">注文</div>
+    <div class="v">{{ lv.summary.orders }} 件</div>
+    <div class="small muted">約定 {{ lv.summary.filled }} · <span class="{{ 'ng' if lv.summary.bad else '' }}">問題 {{ lv.summary.bad }}</span></div>
+  </div>
 </div>
 
 {# ---------------- 今日 ---------------- #}
@@ -63,7 +85,7 @@
 
 <h4>注文 <span class="muted small">{{ d.n_orders }} 件 · 約定 {{ d.n_filled }} · 内部移転 {{ d.transfers|length }}</span></h4>
 {% if d.orders %}
-<div class="scroll-x"><table class="exp small">
+<div class="scroll-x"><table class="exp small orders">
 <tr><th>銘柄</th><th>売買</th><th>数量 ／ 金額</th><th>誰の分</th><th>合図時の気配</th><th>約定</th><th>差 1 bp</th><th>状態</th><th>試行</th><th>手数料（dry-run）</th><th>所要</th><th>エラー</th></tr>
 {% for o in d.orders %}
 <tr>
@@ -90,7 +112,7 @@
 {# ---------------- 直近 20 日 ---------------- #}
 <h3>日次 <span class="muted small">1 日 1 行（新しい順）</span></h3>
 {% if lv.recent %}
-<div class="scroll-x"><table class="exp small">
+<div class="scroll-x"><table class="exp small orders">
 <tr><th>日付</th><th>env / mode</th><th>合図</th><th>注文</th><th>約定</th><th>問題</th><th>再送</th><th>差 1 中央値 bp</th><th>差 1 最大</th><th>見送り</th><th>事象</th></tr>
 {% for dd in lv.recent %}
 <tr>

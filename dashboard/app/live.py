@@ -59,7 +59,8 @@ def _median(xs: list[float]) -> float | None:
         return None
     s = sorted(xs)
     n = len(s)
-    return s[n // 2] if n % 2 else (s[n // 2 - 1] + s[n // 2]) / 2
+    # ⚠ 偶数個のときの平均は二進の端数が出る（17.615000000000002）。差 1 は 0.01bp まで（`_diff1_bp` と同じ桁）
+    return round(s[n // 2] if n % 2 else (s[n // 2 - 1] + s[n // 2]) / 2, 2)
 
 
 # ---------------------------------------------------------------- トレーダー

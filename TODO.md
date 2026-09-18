@@ -135,9 +135,17 @@
   - [~] Phase 4: 管理画面 `/live`（読むだけ・公開面でも見える。停止は既存の `/ops/halt`。`dashboard.md` §13）
     2026-09-18: 設計（§13）と実装（`dashboard/app/live.py`・`templates/live.html`・`/live`・`/api/live`・テスト 7 本）を書いた。利用者の指示「計算処理している間に進めたい」で属性の決定を待たずに前倒し。⚠ **残るのは Phase 3 の後に差 3（紙上 − 実物）と B&H の列を足すこと**
     - [x] 機能仕様: `/live` の中身・正本の対応・面・デモ・埋まらないもの（[dashboard.md §13](docs/specs/dashboard.md)。✅ 2026-09-18）
-    - [ ] デザイン仕様: 黒ベースの規約（配色 2 系統・環境の帯とバッジ・状態の色・等幅数字・表の折り返し）を [dashboard-dark-design.md](docs/plans/archive/dashboard-dark-design.md) から `dashboard.md` に「デザイン規約」の節として移し、`/live` が使うクラス（`exp` 表・`cell-ok/warn/ng`・`kv`・TEST バッジ）と差 1 の色分けの規則をそこに書く
+    - [~] デザイン仕様: 黒ベースの規約（配色 2 系統・環境の帯とバッジ・状態の色・等幅数字・表の折り返し）を [dashboard-dark-design.md](docs/plans/archive/dashboard-dark-design.md) から `dashboard.md` に「デザイン規約」の節として移し、`/live` が使うクラス（`exp` 表・`cell-ok/warn/ng`・`kv`・TEST バッジ）と差 1 の色分けの規則をそこに書く [plan](docs/plans/dashboard-design-spec.md)
       利用者の指示（2026-09-18）。⚠ **いまデザインの決めごとはアーカイブしたプランにしか無く、仕様書の側に正本が無い**
-    - [ ] `/live` のスクリーンショット（デモ起動 ＋ 執行器のモックの記録で撮る）を `docs/plans/assets/` に置き、§13 に貼って見た目を確認する
+      引継ぎ（2026-09-18。titan → **Sx360 で続ける**。利用者の指示）: ⚠ **`dashboard.md` §15 はまだ 1 行も書いていない**（未着手。プランの Step 3）。決めたのは置き場と書き方だけ ＝ §15 を新設（§9 更新履歴は末尾のまま）・⚠ **色は `app.css` の変数名で書く**（色コードを二重管理しない。コードが正）・差 1 の閾値の正本は `live-trading.md` §0-2 で、§15 は「どのクラスに写すか」だけ
+      引継ぎ: §15 に書く `/live` のクラスは**撮って直した後のもの** ＝ `exp` 表・`exp-cards`（「執行の差」の 5 枚。⚠ **`kv` はやめた**。`kv` は監視の見出し用の inline-flex で、`/live` では項目名と値がくっついて崩れた）・`cell-ok/warn/ng/na`（日次の約定・問題・差 1 中央値）・`.v.ok/warn/ng`（差 1 の中央値のカード）・`orders`（注文と日次の表は折り返さない）・`td.nw`（新設。トレーダーの表の短い列）・`badge-mock`（TEST ／ MOCK）・`badge-cert/prod`。⚠ **このタスクの文面の「`kv`」は古い**
+    - [~] `/live` のスクリーンショット（デモ起動 ＋ 執行器のモックの記録で撮る）を `docs/plans/assets/` に置き、§13 に貼って見た目を確認する [plan](docs/plans/dashboard-design-spec.md)
+      引継ぎ（2026-09-18。titan → **Sx360 で続ける**）: ⚠ **画像はまだ `docs/plans/assets/` に置いていない・§13 にも貼っていない**。titan で 2 回撮って崩れ 3 つを直したところまで（⚠ **未コミット**。`live.py`・`live.html`・`app.css`・`test_live.py`・`mockrun.sh`・プラン・この `TODO.md`。⚠ **Sx360 で続ける前に titan から commit & push が要る**）
+      引継ぎ — 直した崩れ: (1) 差 1 の中央値に二進の端数（`17.615000000000002bp`）→ `live.py` の `_median` を 0.01bp に丸めた（テスト 1 行）／ (2)「執行の差」が 1 行に詰まって項目名と値がくっつく → `exp-cards` の 5 枚に組み直し、差 1 の中央値に ok/warn/ng の色 ／ (3) 合成・株数・最終日・予算・損益の列が折り返す → `td.nw`、注文と日次の表に `orders`。2 枚目で 3 つとも直ったのを目で確認済み。dashboard の pytest は 45 個の点が全部通過（⚠ 末尾の集計行は取りこぼした。Sx360 で流し直す）
+      引継ぎ — 撮り方（⚠ **撮影用の記録と画像は titan のスクラッチにしか無い ＝ Sx360 で作り直す**）: `cd experiments/live-trading && KEEP_DIR=<作業用の場所> ./mockrun.sh`（`KEEP_DIR` は今回足した。指定しなければ今までどおり消す。20 営業日・注文 28 件・「すべて通った」）→ `cd dashboard && AIL_DEMO=1 AIL_PORT=3019 AIL_LIVE_DIR=<同じ場所> .venv/bin/python -m app.main` → headless の chromium で `--window-size=1280,1800 --screenshot=`（⚠ **高さ 1720 では日次の最後の 1 行が切れた**）→ `docs/plans/assets/dashboard-live.png`
+      引継ぎ — ⚠ 踏んだ落とし穴 2 つ: **デモで起動したままだと dashboard の pytest が極端に遅くなる**（デモがモックのポート 8765〜8767 を掴み、デモのテストと取り合う。⚠ **撮影用のプロセスを止めてからテストを流す**）／ **✅・❌・🧪 が □ で写る**のは画面ではなく撮影機に絵文字フォントが無いため（titan は `fc-list` に emoji が 0 件。GitHub ／ jsDelivr からの取得は 404 で失敗し、`~/.fonts` は片付けた。Sx360 に `fonts-noto-color-emoji` があればそのまま写る。無ければ入れるかは利用者が決める）
+      引継ぎ — ⚠ **titan に撮影用のプロセスが残っている**（3019 の管理画面デモ ＋ 8765〜8767 のモック。止める操作は利用者が差し止めたので触っていない。⚠ **残したままだと titan の dashboard の pytest が遅くなる**。止めるならポートから pid を引く）
+      引継ぎ — 残り: 高さを直して撮り直す → `assets/` に置く → §13 に貼る → §15 を書く → `dashboard.md` §9 更新履歴と `experiments/live-trading/README.md` に `KEEP_DIR` の 1 行 → `./mockrun.sh`（`KEEP_DIR` なし）が今までどおり通るのを確かめる → プランを archive へ
     - [ ] 差 3（紙上 − 実物）と B&H の列を足す（依存: 「Phase 3: 紙上の対照」）
   - [ ] Phase 5-2: 3 人を予算どおりに本番投入（**利用者が行う**。複数モデルのトレーダーを足すならその後）
   - [ ] Phase 6: 20 営業日の記録と判定（`live-trading.md`。続ける・止める・予算を変えるは利用者。モデルや合成規則の入れ替えは新しい試行として n_trials に足す）

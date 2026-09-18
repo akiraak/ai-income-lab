@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # モックで 20 営業日を通す（プラン Phase 2 の 5）。
 #   ./mockrun.sh            # 2 人（mock_a: 整数株 / mock_b: 金額指定・平均合成）を 2026-10-01〜10-28 の 20 営業日
+#   KEEP_DIR=/tmp/lt ./mockrun.sh   # 終了時に config/・state/cert/・out/ を写す（管理画面 /live を AIL_LIVE_DIR=/tmp/lt で見る用）
 # ⚠ 通るのは配線だけで、tastytrade の挙動の【実測】にはならない（記録に mock: true が付く）。
 set -uo pipefail
 cd "$(dirname "$0")"
@@ -9,7 +10,14 @@ PORT=${PORT:-8865}
 WORK=$(mktemp -d)
 FAIL=0
 fail() { echo "  NG: $1"; FAIL=1; }
-cleanup() { [ -n "${MOCK_PID:-}" ] && kill "$MOCK_PID" 2>/dev/null; rm -rf "$WORK"; }
+# KEEP_DIR（任意）: 管理画面が読む形（config/traders・state/<env>・out/<日付>）で記録を残す。⚠ 指定しなければ今までどおり消す
+keep() {
+  [ -n "${KEEP_DIR:-}" ] && [ -d "$WORK/out" ] || return 0
+  mkdir -p "$KEEP_DIR/state/cert" "$KEEP_DIR/config"
+  cp -r "$WORK/out" "$KEEP_DIR/" && cp "$WORK"/state/*.json "$KEEP_DIR/state/cert/" && cp -r config/traders "$KEEP_DIR/config/"
+  echo "記録を残した: $KEEP_DIR"
+}
+cleanup() { [ -n "${MOCK_PID:-}" ] && kill "$MOCK_PID" 2>/dev/null; keep; rm -rf "$WORK"; }
 trap cleanup EXIT
 
 $PY ../tastytrade-api-sample/mock_server.py --port "$PORT" --ws-port $((PORT+1)) --dxlink-port $((PORT+2)) --market-data --fill-noise 0.003 --seed 0 > "$WORK/mock.log" 2>&1 &

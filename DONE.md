@@ -1,4 +1,11 @@
 # DONE
+- 2026-09-18 vibeboard の Tasks・Plans・Specs・Files に検索機能を入れた [plan](docs/plans/archive/vibeboard-search.md)
+  - 利用者の指示（2026-09-18）。追加の指示で Tasks だけでなく 4 タブに入れた
+  - サーバ: `vibeboard/src/search.ts`（パス ＋ 本文。空白区切りは AND・大文字小文字は区別しない・行数は「語が全部そろった行」・1MB 超と二進は本文を見ない・上限 200 件）と `GET /api/search/:category`。テスト 8 本（`test/search.test.js`）
+  - 画面: サイドバー上端の検索箱（`#sidebar-search`）。文書のタブはサーバの結果を平らな一覧（タイトル・パス・一致した行）、Tasks は手元の木を文面・メモ・親の文面で絞る。250ms のデバウンス・Escape で消す・Enter で先頭を開く。customTab には出さない
+  - 確認: `npm test` 77 本 pass（vendor・本体とも）。ヘッドレス Chrome（CDP）で 4 タブを実際に引いた【実測】: Tasks「トレーダー」12 件 ／ Specs「差 1 live」10 件 ／ Files「HALT」42 件・約 1 秒（13GB の作業ツリー。⚠ 最初は 3.4 秒で、大きいファイルを stat だけで飛ばすよう直した）／ Plans「vibeboard」29 件。Escape でツリーに戻る
+  - akiraak/vibeboard 本体へ同じ差分を push。vendor と本体の src / test は `diff -rq` で一致。⚠ **動いている vibeboard（3010）は再起動しないと `/api/search` が無い**（app.js は生で配信されるので箱だけ先に出る）
+
 - 2026-09-17 tastytrade で、実際の API 取引のサンプルプログラムを動かした（2026-09-04〜09-16）— ⚠ **6 観点のうち 5 つが ✅、残る A（営業日を 2 日跨ぐ交換）は g3plus の監視で埋まる見込み。着金 $1,000 まで確認し、本番で 1 株（Phase 6）は次のタスクへ取り込んだ**
   - プラン: [docs/plans/archive/tastytrade-api-sample.md](docs/plans/archive/tastytrade-api-sample.md) / ⚠ **記録: [tastytrade-api-sample.md](docs/specs/experiments/tastytrade-api-sample.md)**
   - 対象は判定「高」・株 $0・API プレミアム $0・常駐プロセス不要の tastytrade 1 社（moomoo・IBKR は 2026-09-04 に外した。再開条件はプラン §1-2）。方針は (c)（sandbox ＋ 本口座 ＋ 入金 ＋ 本番で 1 株。2026-09-05・利用者）。⚠ **CLAUDE.md の 1 つ目の例外**

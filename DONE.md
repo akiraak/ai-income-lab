@@ -1,4 +1,13 @@
 # DONE
+- 2026-09-18 管理画面: 外すと決めた 11 行（検証・データ・手動の注文・開発）と 1 件取消の経路を消した [plan](docs/plans/archive/dashboard-remove-dropped.md)
+  - 利用者の指示「おススメ順でやって」。決定は 2026-09-18 に利用者が確定済み（[dashboard-required-features.md](docs/plans/archive/dashboard-required-features.md) 3-1・4-1・4-2）。作り直しでは左ペインから外しただけだった
+  - 消したもの: 経路 16 本（`/experiments`・`/experiments/{id}`・`/api/experiments`・`/data`・`/api/data`・`/ops/dry-run`・`submit`・`cancel`・`cleanup`・`/dev` 以下 7 本）／ テンプレート 6 枚 ／ `Ops.build_order`・`dry_run`・`submit`・`cancel`・`cleanup`・確認文と注文の選択肢 ／ `DevTools.run_selftest` ／ `app.js` の `data-stop-when` ／ 設定 `allow_prod_orders` ／ 画面のテスト
+  - ⚠ **管理画面に発注の経路は無くなった**: `ops.py` が作るクライアントは取消の鍵（`allow_prod_cancel`）しか開けない（テストで固定）。発注は執行器 `run_day.py` と CLI だけ。実売買の 1 発注（Phase 5-1）は執行器で行うので手順書に影響なし
+  - 残した部品: `app/experiments.py`・`app/inventory.py` と単体テスト（vibeboard のタブが import）／ `devtools.MockServer`・`run_step`（デモの種まき）／ 停止・解除・認証の再試行・操作の履歴 ／ 記録と判定（観点 A を見届けるまで）
+  - ついでに: 停止の途中で `OpsError` が出ても落ちないよう `halt` の except に足した（HALT は先に書けている）
+  - 確認【実測】: pytest 145 件（消した経路がローカル面でも 404 ／ 405・`/ops` に注文のフォームが無い・取消の鍵だけ、を足した。画面のテスト 10 本を削除）／ デモで起動してブラウザ確認 ＝ 停止 2 か所の確認ダイアログ・外した 3 画面が 404・CSP 違反 0 件・サーバに届いた POST 0 件 ／ vibeboard のタブのテスト（`test_vibetab.py`）は通ったまま
+  - 文書: `CLAUDE.md`（管理画面の節）・`dashboard/README.md`・`.env.example`・[dashboard.md](docs/specs/dashboard.md) §1・§3（権限の図と鍵の表）・§10・§11 の冒頭・更新履歴。⚠ **g3plus は未デプロイ**
+
 - 2026-09-18 E17・E18: 1 日に何度も売買するときの規制と wash sale を一次情報で確かめた [plan](docs/plans/archive/intraday-trading-rules.md)
   - 利用者の指示「そっちで進められるのをやって」。実売買を 4 役に分け直す決めごとの E（規制・税）の 2 本。⚠ 机上の調査だけ（口座にも執行器にも触れていない）。成果物は [live-trading.md §0-6](docs/specs/experiments/live-trading.md)
   - **E17-a Pattern Day Trader は 2026-06-04 に廃止されていた**【公表値】（FINRA Regulatory Notice 26-10・SEC 承認 2026-04-14。PDT の指定・$25,000・day-trading buying power を削除し、信用口座の日中証拠金の基準に置換）。tastytrade は day-1 で実装済み、⚠ **現金口座は元から対象外で、T+1 と good faith violation の規則が残る**と明記 → ✅ 同日の往復の回数に規制の上限は無い。プラン §4 の PDT の行に追記した

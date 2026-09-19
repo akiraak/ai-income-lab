@@ -9,10 +9,8 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-from fastapi.testclient import TestClient
 
 from app import experiments as exp
-from app.main import create_app
 from tests.conftest import write_experiment
 
 POOL = {"name": "own_only_h1", "dataset": "daily", "horizon": 1, "cost_bp": 5.0,
@@ -150,85 +148,10 @@ def test_missing_checks_are_reported_not_guessed(tmp_path):
 
 # --- 画面 ---------------------------------------------------------------
 
-def test_page_renders_with_no_runs_at_all(settings):
-    """⚠ **`runs/` は git 管理外。** 別環境で空でも落とさない。"""
-    with TestClient(create_app(settings, start_monitors=False), client=("127.0.0.1", 50000)) as c:
-        r = c.get("/experiments")
-        assert r.status_code == 200 and "検証の記録が無い" in r.text
-
-
-def test_page_and_detail_render(settings):
-    write_experiment(settings.runs_dir, "2026-09-08T10-00-00_cross_section_h1", config=CROSS,
-                     inputs={"layer": "adjusted", "features": 134, "symbols": 48,
-                             "rows_before_sample": 96769},
-                     summary=rows(2.30),
-                     checks={"best": {"method": "F1-2 相互情報量", "純利bp": 2.30, "粗利bp": 7.3,
-                                      "的中率": 0.5076, "IC": 0.0519, "本数": 32.0},
-                             "folds": {"positive": 2, "folds": 5, "pattern": "＋−−＋−",
-                                       "values": [19.5, -5.0, -1.5, 0.7, -2.2]},
-                             "edge_vs_drift": {"t": 0.71, "mean_bp": 2.55, "positive": 3,
-                                               "folds": 5, "pattern": "＋＋−＋−",
-                                               "values": [15.8, 1.5, -2.9, 3.0, -4.5]},
-                             "breadth": {"系列数": 48, "実効系列数": 6.47, "t値の割引": 0.367,
-                                         "パネルの時刻": 1901, "検証の行": 80641,
-                                         "実効観測数": 10870},
-                             "drift_粗利bp": 4.7489,
-                             "dsr": {"DSR": 0.9276, "n_trials": 36, "n_obs": 10870}})
-    with TestClient(create_app(settings, start_monitors=False), client=("127.0.0.1", 50000)) as c:
-        r = c.get("/experiments")
-        assert r.status_code == 200
-        assert "断面・日足・1 日先・調整後" in r.text and "+2.30" in r.text
-        assert "2/5" in r.text                      # fold の符号が出ている
-        d = c.get("/experiments/2026-09-08T10-00-00_cross_section_h1")
-        assert d.status_code == 200 and "6.47" in d.text and "0.9276" in d.text
-        # ⚠ 上乗せの相手（「常に上」自身の粗利）も出す。無いと上乗せの意味が読めない
-        assert "「常に上」自身の粗利 +4.75bp" in d.text
-        j = c.get("/api/experiments")
-        assert j.status_code == 200 and j.json()["runs"][0]["score"] == 2.30
-
-
-def test_placebo_section_and_badge_render(settings):
-    cfg = {**POOL, "name": "impact_ex_2018", "feature_layers": ["own", "ex"]}
-    write_experiment(settings.runs_dir, "2026-09-17T01-00-00_impact_ex_2018_shift365", config=cfg,
-                     inputs={"layer": "adjusted"}, summary=rows(-1.25),
-                     checks={"best": {"method": "F3-3 並べ替え(MDA)", "純利bp": -1.25, "粗利bp": 3.75,
-                                      "的中率": 0.50, "IC": 0.01, "本数": 16.0},
-                             "folds": {"positive": 1, "folds": 5, "pattern": "＋−−−−",
-                                       "values": [9.0, -1.0, -2.0, -3.0, -4.0]}})
-    with TestClient(create_app(settings, start_monitors=False), client=("127.0.0.1", 50000)) as c:
-        r = c.get("/experiments")
-        assert r.status_code == 200
-        assert "日付をずらした偽薬（一覧の対象外）" in r.text and "偽薬 1" in r.text
-        assert "（偽薬: 日付 −365 日）" in r.text and "1/5 ＋−−−−" in r.text
-        d = c.get("/experiments/2026-09-17T01-00-00_impact_ex_2018_shift365")
-        assert d.status_code == 200 and "偽薬" in d.text
-
-
-def test_unknown_and_traversing_run_ids_are_404(settings):
-    with TestClient(create_app(settings, start_monitors=False), client=("127.0.0.1", 50000)) as c:
-        assert c.get("/experiments/nope").status_code == 404
-        assert c.get("/experiments/..%2F..%2Fetc").status_code in (404, 400)
-
-
 def test_one_rejects_path_traversal(tmp_path):
     assert exp.one(tmp_path, "../secrets") is None
     assert exp.one(tmp_path, ".hidden") is None
     assert exp.one(tmp_path, "") is None
-
-
-def test_demo_banner_says_the_validation_screen_is_not_mock(settings):
-    """⚠ **デモの帯は「モックのデータ」と書く。** 検証の数字は本物なので、そのままだと嘘になる。"""
-    settings.demo = True
-    write_experiment(settings.runs_dir, "2026-09-08T10-00-00_cross_section_h1", config=CROSS,
-                     inputs={"layer": "adjusted"}, summary=rows(2.30),
-                     checks={"best": {"method": "F1-2 相互情報量", "純利bp": 2.30, "粗利bp": 7.3,
-                                      "的中率": 0.5, "IC": 0.05, "本数": 32.0}})
-    with TestClient(create_app(settings, start_monitors=False), client=("127.0.0.1", 50000)) as c:
-        e = c.get("/experiments").text
-        assert "デモ" in e and "この「検証」の画面はデモの対象外" in e
-        assert str(settings.runs_dir) in e          # 出所は runs/ を出す
-        # ⚠ 他の画面では今までどおり（余計な断りを出さない）
-        assert "この「検証」の画面はデモの対象外" not in c.get("/records").text
 
 
 # --- 閾値つき売買（rules.md 13 章） --------------------------------------
@@ -306,26 +229,6 @@ def test_trading_summary_keeps_the_threshold_columns(tmp_path):
     r = exp.index(tmp_path)["runs"][0]
     row = r["summary"][0]
     assert row["閾値"] == 50.0 and row["取引回数"] == 60.0 and row["保有日率"] == 0.5
-
-
-def test_trading_detail_page_shows_all_three_thresholds(settings):
-    """⚠ **3 閾値とも画面に出す**（rules.md 13-3。checks.json の写しを出すだけ）。"""
-    write_trading_experiment(settings.runs_dir, "2026-09-10T10-00-00_trade_own_ridge_a")
-    with TestClient(create_app(settings, start_monitors=False), client=("127.0.0.1", 50000)) as c:
-        r = c.get("/experiments")
-        assert r.status_code == 200 and "閾値売買・共通" in r.text
-        d = c.get("/experiments/2026-09-10T10-00-00_trade_own_ridge_a")
-        assert d.status_code == 200
-        assert "閾値ごとの成績" in d.text
-        for th in ("50%", "55%", "60%"):
-            assert th in d.text
-        assert "対 B&amp;H の上乗せ" in d.text
-        assert "40/63" in d.text                     # 銘柄別の勝ち銘柄（成果物の要約）
-        assert "θ=55%" in d.text                     # 最良の閾値
-        # ⚠ 保有日数の列は checks.json の写し（holding がある θ=55 だけ数字、他は「—」）
-        assert "保有日数 中央値（p25–p75）" in d.text
-        assert "3（2–9）" in d.text
-        assert d.text.count("3（2–9）") == 1
 
 
 # --- 前置きの門（rules.md 14-5） ----------------------------------------
@@ -423,33 +326,3 @@ def test_partially_gated_run_stays_in_the_list_with_its_score(tmp_path):
     assert r["marks"]["上乗せ"] == "✅"                  # 判定の列は今までどおり
 
 
-def test_gated_run_shows_up_on_the_pages_with_the_gate_values(settings):
-    write_gated_experiment(settings.runs_dir, "2026-09-11T11-00-00_trade_own_lgbm_a")
-    with TestClient(create_app(settings, start_monitors=False), client=("127.0.0.1", 50000)) as c:
-        r = c.get("/experiments")
-        assert r.status_code == 200
-        assert "門前" in r.text and "2026-09-11T11-00-00_trade_own_lgbm_a" in r.text
-        assert "0.503" in r.text and "3.2" in r.text        # 門の 2 値
-        assert "≥ 0.52" in r.text and "≥ 20 点" in r.text    # 事前固定の水準（写し）
-        assert "n_trials" in r.text                         # 数えないことを画面に書く
-        d = c.get("/experiments/2026-09-11T11-00-00_trado")  # 無い実行は 404 のまま
-        assert d.status_code == 404
-        d = c.get("/experiments/2026-09-11T11-00-00_trade_own_lgbm_a")
-        assert d.status_code == 200
-        assert "回していない" in d.text and "前置きの門" in d.text
-        assert "閾値売買・共通" in d.text                    # 条件は出す
-        j = c.get("/api/experiments")
-        assert j.status_code == 200 and len(j.json()["gated_runs"]) == 1
-
-
-def test_partially_gated_detail_page_names_the_methods_not_run(settings):
-    d = write_trading_experiment(settings.runs_dir, "2026-09-11T10-00-00_trade_own_ridge_a")
-    ch = json.loads((d / "checks.json").read_text(encoding="utf-8"))
-    ch["gate"] = gate_doc(blocked=("F3-1 Lasso",), passed=("全部使う（基準）",))
-    (d / "checks.json").write_text(json.dumps(ch, ensure_ascii=False), encoding="utf-8")
-    with TestClient(create_app(settings, start_monitors=False), client=("127.0.0.1", 50000)) as c:
-        t = c.get("/experiments/2026-09-11T10-00-00_trade_own_ridge_a").text
-        assert "門前の手法が 1 件" in t and "F3-1 Lasso" in t
-        assert "前置きの門" in t and "通過" in t             # 通った手法も並べる
-        # ⚠ 一覧では今までどおりスコアの行に出る（別表には出さない）
-        assert "+12.00" in c.get("/experiments").text

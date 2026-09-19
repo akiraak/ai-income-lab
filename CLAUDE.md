@@ -81,12 +81,12 @@ cp .env.example .env                                   # AIL_AUTH_MODE=local（�
 ```
 
 - `experiments/tastytrade-api-sample/` の `ttclient.py` / `record.py` を import し、記録（`out/*.jsonl`）をそのまま読む。資格情報もサンプルの `.env` を読む
-- 画面（2026-09-18 に作り直した。デザイン 3「数字とグラフが主役」・ナビは左ペイン）: **概要（`/`。監視の帯・大きな数字・損益の推移・執行の差・トレーダーの段）**・全体の詳細（`/overall`。日次・注文の履歴・口座と接続）・トレーダーの詳細（`/traders/<name>`）・記録と差分（`/records`）・6 観点の自動判定（`/judge`。観点 A まで）・操作（`/ops`）。`/live` は `/` へ転送。**操作はローカル面だけ**。⚠ 検証（`/experiments`）・データ（`/data`）・開発（`/dev`）は左ペインから外した（外すと決めた。削除は別タスク）。⚠ **紙上の損益・差 3 は仮データ**（印つき。`/api/live` には出さない）。休場日は NYSE の暦（`experiments/tastytrade-api-sample/nyse_calendar.py`。執行器の窓と共有。⚠ **年に 1 度、次の年を足す**。載っていない年だけ「仮」に戻る）。図は `app/charts.py`（サーバで組む SVG）。仕様は `docs/specs/dashboard.md` §13・§15
-- **検証の画面**は `experiments/feature-discovery/runs/` を**読むだけ**（`AIL_RUNS_DIR`）。**スコアは最良手法（基準線を除く）の純利 bp** で、fold の符号・上乗せ t・実効標本数・デフレーテッド SR を横に並べる。⚠ **検査は実験側が `checks.json` に書いたものを読むだけ**（管理画面に pandas / scipy を入れない）。仕様は `docs/specs/dashboard.md` §10
+- 画面（2026-09-18 に作り直した。デザイン 3「数字とグラフが主役」・ナビは左ペイン）: **概要（`/`。監視の帯・大きな数字・損益の推移・執行の差・トレーダーの段）**・全体の詳細（`/overall`。日次・注文の履歴・口座と接続）・トレーダーの詳細（`/traders/<name>`）・記録と差分（`/records`）・6 観点の自動判定（`/judge`。観点 A まで）・操作（`/ops`。**停止 ／ 解除と履歴だけ**）。`/live` は `/` へ転送。**操作はローカル面だけ**。⚠ **検証（`/experiments`）・データ（`/data`）・手動の注文（dry-run ／ 発注 ／ 取消 ／ 後片付け）・開発（`/dev`）は 2026-09-18 に経路ごと消した** ＝ ⚠ **管理画面に発注の経路は無い**（発注は執行器と CLI だけ。`ops.py` のクライアントは取消の鍵しか開けない）。残した部品: `app/experiments.py`・`app/inventory.py`（vibeboard のタブが import）・`devtools` の `MockServer`・`run_step`（デモ）。⚠ **紙上の損益・差 3 は仮データ**（印つき。`/api/live` には出さない）。休場日は NYSE の暦（`experiments/tastytrade-api-sample/nyse_calendar.py`。執行器の窓と共有。⚠ **年に 1 度、次の年を足す**。載っていない年だけ「仮」に戻る）。図は `app/charts.py`（サーバで組む SVG）。仕様は `docs/specs/dashboard.md` §13・§15
+- **検証の部品**（`app/experiments.py`。画面は vibeboard の検証タブ。管理画面の `/experiments` は 2026-09-18 に消した）は `experiments/feature-discovery/runs/` を**読むだけ**（`AIL_RUNS_DIR`）。**スコアは最良手法（基準線を除く）の純利 bp** で、fold の符号・上乗せ t・実効標本数・デフレーテッド SR を横に並べる。⚠ **検査は実験側が `checks.json` に書いたものを読むだけ**（管理画面に pandas / scipy を入れない）。仕様は `docs/specs/dashboard.md` §10
 - **鍵なしでも動く（デモ）**: 資格情報が無いか `AIL_DEMO=1` なら、起動時にモックサーバを立てて全画面にモックのデータを出す（帯に「デモ」）。データは `data/demo/` に分ける。仕様 §6-2。実売買の画面は執行器のモックの記録（`dashboard/demo/live/`）を読む（`AIL_LIVE_DIR` を指定したときはそれ）
 - 面は `AIL_AUTH_MODE`: `loopback`（既定）/ `local`（＋ LAN）/ `cloudflare`（公開面。Access の JWT を全リクエストで検証。**監視と停止だけ**）
 - **停止ボタン** ＝ 記録ディレクトリに `HALT` を書き、働いている注文を全部取り消す。`sample.py` も `HALT` があると発注系の手順を拒否する
-- 本番の鍵はサンプルと同じ 3 段（dry-run `TT_ALLOW_PROD_DRY_RUN=1` / 取消 `allow_prod_cancel` / 発注 `TT_ALLOW_PROD_ORDERS=1` ＋ 確認文）。**取消の鍵で発注は開かない**
+- 本番の鍵はサンプルと同じ 3 段（dry-run `TT_ALLOW_PROD_DRY_RUN=1` / 取消 `allow_prod_cancel` / 発注 `TT_ALLOW_PROD_ORDERS=1` ＋ 確認文）。**取消の鍵で発注は開かない**。⚠ **管理画面が使うのは取消の鍵（停止ボタン）だけ**（2026-09-18。dry-run と発注の鍵は執行器と `sample.py` のもの）
 - 秘密（client secret・トークン・口座番号）はブラウザに送らない。全応答が `Redactor` を通る
 - g3plus に載せる契約は `docs/specs/dashboard.md` §7。デプロイ設定・公開ホスト名・Access は **g3plus-ops（private）側にだけ書く**
 - 起動は `dashboard/run.sh`、または**プロジェクト直下の `run-server.sh`**（⚠ **既にポートを掴んでいるプロセスを止めてから起動する**）。⚠ **プロセスは名前ではなくポートから引く**（`pgrep -f` のパターンは自分自身のコマンドラインにも当たるため）。⚠ **vibeboard（3010）は触らない**

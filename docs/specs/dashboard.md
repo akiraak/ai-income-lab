@@ -18,12 +18,11 @@
 | **トレーダーの詳細** | `/traders/<name>` | 両方 | 損益の推移（実物 ＋ 紙上 ⚠ 仮データ）・差 1 の推移・行動のマス目（銘柄 × 日）・注文の履歴・設定 |
 | 記録 | `/records`、`/records/<run_id>`、`/records/diff?a=&b=` | 両方 | 実行記録（JSONL）の一覧・1 実行の詳細（手順ごとの detail）・**実行間の差分**（所要 ms と状態遷移の時刻を項目ごとに並べ、B − A を出す） |
 | 判定 | `/judge` | 両方 | **6 観点 × 会場**の表を記録から自動生成。根拠の run_id と手順つき。モックの記録は除外 |
-| **検証** | `/experiments`、`/experiments/<run_id>` | 両方 | **特徴量の発見手法の検証**を、種類ごとのタイトルと**比較できるスコア**で並べる（§10）。⚠ **先読みの対照実験は一覧から外して別枠に出す** |
-| **データ** | `/data` | 両方 | **実験（feature-discovery）が保持しているデータの在庫**（§11）。層・取得元・枠（本命 ／ 偽薬）・系列数・行数・期間・ずらし幅・規約の判定・割り当て |
 | 実売買 | `/live` | 両方 | ⚠ **`/` へ転送**（2026-09-18 に概要へ移した。プランや手順書が名指ししているので経路だけ残す） |
-| 操作 | `/ops` | ローカルのみ | 停止 / 解除、cert の dry-run → 発注 → 取消 → 後片付け、prod の 2 段ロック、操作の履歴 |
-| 開発 | `/dev`、`/dev/jobs/<id>` | ローカルのみ | モックの起動・停止、`selftest.sh` の実行、手順を選んで `sample.py` を実行（出力を逐次表示） |
-| JSON | `/api/state`、`/api/records`、`/api/judge`、`/api/experiments`、`/api/data`、`/api/live`、`/api/events` | 両方 | 画面と同じ内容（マスク済み）。読み取りだけ |
+| 操作 | `/ops` | ローカルのみ | **停止 ／ 解除と操作の履歴だけ**（2026-09-18 に手動の注文 ＝ dry-run・発注・取消・後片付けを外した。§9）。認証の再試行（`POST /ops/retry-auth`）は全体の詳細から |
+| JSON | `/api/state`、`/api/records`、`/api/judge`、`/api/live`、`/api/events` | 両方 | 画面と同じ内容（マスク済み）。読み取りだけ |
+
+⚠ **2026-09-18 に外した画面**（決定は [dashboard-required-features.md](../plans/archive/dashboard-required-features.md) 3-1・4-1・4-2。経路ごと無い ＝ ローカル面でも 404）: 検証（`/experiments`）・データ（`/data`）＝ vibeboard のタブで見る（§10・§11 は部品 `app/experiments.py`・`app/inventory.py` と vibeboard のタブの仕様として読む）／ 手動の注文（`/ops/dry-run`・`submit`・`cancel`・`cleanup`）／ 開発（`/dev/*`。部品 `devtools.MockServer`・`run_step` はデモが使うので残る。`selftest.sh` はターミナルで回す）。
 
 ⚠ **ナビは左ペイン**（2026-09-18。§15-6）: 見る（概要・全体の詳細）／ トレーダー（設定の順・系列の色の点）／ API 検証（観点 A まで。記録・判定）／ ローカル面だけ（操作）。⚠ **検証・データ・開発は左ペインに出さない**（外すと決めた。経路とコードの削除は別タスク）。
 右の上には常に **環境バッジ（CERT 緑 / PROD 赤 / MOCK 紫）と scope**、**停止ボタン**が出る（面は左ペインの下）。停止中は赤い帯が全画面に出る。
@@ -32,16 +31,16 @@
 
 ## 2. 権限の設計
 
-> この図の主張: 権限は 4 段で、公開面は 2 段目（読む・止める）で止まる。発注の経路は公開面には存在しない（404）。
+> この図の主張: 権限は 4 段で、公開面は 2 段目（読む・止める）で止まる。⚠ **発注の経路は管理画面のどの面にも存在しない**（2026-09-18 に手動の注文を外した。発注するのは執行器と CLI だけ）。
 
 ```mermaid
 flowchart TB
   T0["0 読む<br/>監視・記録・判定"] --> T1["1 止める<br/>HALT ＋ 全取消"]
-  T1 --> T2["2 動かす（cert）<br/>解除・発注・取消・開発"]
-  T2 --> T3["3 動かす（prod）<br/>dry-run ／ 発注"]
+  T1 --> T2["2 解除<br/>（停止を解く）"]
+  T2 --> T3["3 発注<br/>⚠ 管理画面には無い（執行器と CLI）"]
   P["公開面<br/>AIL_AUTH_MODE=cloudflare"] -.->|ここまで| T1
   L["ローカル面<br/>loopback ／ local"] -.->|ここまで| T2
-  K["TT_ALLOW_PROD_DRY_RUN=1<br/>TT_ALLOW_PROD_ORDERS=1<br/>＋ 確認文の入力"] -.->|さらに要る| T3
+  K["執行器 run_day.py ／ sample.py<br/>TT_ALLOW_PROD_ORDERS=1 ＋ 確認の引数"] -.->|ここだけ| T3
 ```
 
 | `AIL_AUTH_MODE` | 通す接続元 | 認証 | 面 |
@@ -64,14 +63,11 @@ flowchart TB
 
 ### 本番の鍵（`ttclient.py` と同じ 3 段）
 
-| 操作 | cert | prod |
+| 操作 | 管理画面 | 鍵 |
 | --- | --- | --- |
-| dry-run | 可 | `TT_ALLOW_PROD_DRY_RUN=1` |
-| 取消 | 可 | `allow_prod_cancel`（停止ボタンと取消ボタンが使う。**この鍵で発注は開かない**。2026-09-05 に `ttclient.py` へ追加） |
-| 発注 | 可（dry-run を必ず先に通す） | `TT_ALLOW_PROD_ORDERS=1` **＋ 確認文 `i-know-this-is-real-money` の入力** ＋ 停止中でない |
-
-画面から本番に出せる注文は 1〜10 株の株式 1 レッグだけ。Phase 6（本番で 1 株）は利用者が CLI で行う前提で、
-画面の開発機能は prod に対して `probe` と `dryrun` しか通さない。
+| dry-run | ⚠ **画面からは出せない**（2026-09-18 に外した）。部品 `devtools.run_step`（デモの種まき）だけが prod の `probe`・`dryrun` を通せる | `TT_ALLOW_PROD_DRY_RUN=1` |
+| 取消 | ✅ **停止ボタン（働いている注文を全部取消）だけ** | `allow_prod_cancel`（**この鍵で発注は開かない**。2026-09-05 に `ttclient.py` へ追加）。⚠ **`ops.py` が作るクライアントはこの鍵しか開けない**（テストで固定） |
+| 発注 | ⚠ **管理画面には無い** | 執行器（`experiments/live-trading/run_day.py`）と `sample.py` が `TT_ALLOW_PROD_ORDERS=1` ＋ `--i-know-this-is-real-money` で開ける。管理画面の設定は `TT_ALLOW_PROD_ORDERS` を読まない |
 
 ## 3. 秘密の扱い
 
@@ -193,6 +189,8 @@ g3plus-ops 側の `ail-dashboard/`（Dockerfile・compose・手順書）はこ�
 
 ## 10. 検証の画面（2026-09-08）
 
+⚠ **2026-09-18 に管理画面の `/experiments` は外した**。この節は、vibeboard の検証タブ（`dashboard/vibetab.py`）と、それが import する部品 `app/experiments.py` の仕様として読む（スコアの規約・検査の写し方は同じ）。
+
 ⚠ **`/judge` は「tastytrade の API が使えるか」の判定、`/experiments` は「分析手法の検証」で別物。**
 材料も別で、こちらは `experiments/feature-discovery/runs/` を読む。
 
@@ -311,6 +309,8 @@ flowchart TB
 vibeboard の検証タブ（`vibetab.py`）も同じ写しを出す（目次の「⚠ 門前」・まとめの件数と表・実行ページの門の節）。
 
 ## 11. データの画面（2026-09-09）
+
+⚠ **2026-09-18 に管理画面の `/data` は外した**。この節は、vibeboard のデータタブと部品 `app/inventory.py` の仕様として読む。
 
 実験（`experiments/feature-discovery/`）が**何をどれだけ持っているか**を 1 画面にする
 （プラン: [docs/plans/archive/dashboard-data-inventory.md](../plans/archive/dashboard-data-inventory.md)）。
@@ -759,3 +759,4 @@ flowchart LR
 - 2026-09-18: **確認ダイアログとインラインの style を直した**（§15-9）。`onsubmit="return confirm(…)"` 5 か所が CSP（`script-src 'self'`）に止められ、停止・解除・発注・後片付けが確かめずに送られていた → `data-confirm` ＋ `app.js`。インラインの `style=` 9 か所は `app.css` のクラスへ。⚠ CSP は緩めていない。ブラウザで 3 つの form（概要の停止・操作の停止・後片付け）が「出る ／ 断ると送られない ／ 受けると送られる」・CSP 違反 0 件【実測】。**pytest の 487 秒も直した**（146 件で 7.7 秒。§13-5。監視を要らないテスト 16 本が監視を起こしていた。`conftest.py` に番人）。⚠ **g3plus は未デプロイ**（停止ボタンは公開面にもある）。プランは [dashboard-pytest-speed-and-confirm.md](../plans/archive/dashboard-pytest-speed-and-confirm.md)
 - 2026-09-18: **休場日の暦を入れた**（§15-8「営業日の暦」）。起動しなかった日の「平日＝営業日」の仮を外し、NYSE の公表（2026〜2028 年）を `experiments/tastytrade-api-sample/nyse_calendar.py` に持った。読み手 `market_calendar.py` は管理画面（起動しなかった日・判定の営業日と市場時間）と執行器（執行の窓）が共有する。⚠ 暦の外の年だけ「仮」の印に戻る。pytest 151 件。プランは [nyse-calendar.md](../plans/archive/nyse-calendar.md)
 - 2026-09-18: **銘柄の集合の一覧表**（§11-1）。vibeboard のデータタブの概要の先頭に、集合を横に比べる表と重複を除いた合計を出した（利用者の指示 2026-09-17）。4 つの正本（universe・dataset・experiment の config と調整後の manifest）を写して組む ＝ 集合や足を増やすと表が自動で変わる。実データで和集合 136・日足あり 136・1 分足あり 63【実測】（手で数えた 2026-09-17 の値と一致）。pytest 154 件。プランは [universe-table.md](../plans/archive/universe-table.md)
+- 2026-09-18: **外すと決めた 11 行 ＋ 1 件取消を消した**（§1・§3）。検証（`/experiments`）・データ（`/data`）・手動の注文（`/ops/dry-run`・`submit`・`cancel`・`cleanup`）・開発（`/dev/*`）の経路・テンプレート 6 枚・画面のテストを削除。⚠ **管理画面に発注の経路は無くなった**（`ops.py` のクライアントは取消の鍵だけ。設定も `TT_ALLOW_PROD_ORDERS` を読まない）。残した部品: `app/experiments.py`・`app/inventory.py`（vibeboard のタブ）・`devtools.MockServer`・`run_step`（デモ）。停止 ／ 解除 ／ 履歴 ／ 記録と判定はそのまま。pytest 145 件・ブラウザで停止 2 か所の確認ダイアログと CSP 違反 0 件・外した画面が 404【実測】。⚠ g3plus は未デプロイ。プランは [dashboard-remove-dropped.md](../plans/archive/dashboard-remove-dropped.md)

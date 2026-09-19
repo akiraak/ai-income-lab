@@ -136,10 +136,6 @@ class Settings:
     def allow_prod_dry_run(self) -> bool:
         return self.tt.get("TT_ALLOW_PROD_DRY_RUN") == "1"
 
-    @property
-    def allow_prod_orders(self) -> bool:
-        return self.tt.get("TT_ALLOW_PROD_ORDERS") == "1"
-
     def credentials(self, env: str) -> dict | None:
         """env（cert / prod）に使う資格情報。無ければ None（その環境は監視しない）。
 

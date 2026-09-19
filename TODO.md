@@ -154,10 +154,6 @@
       2026-09-18 の実装で仮データを入れた（利用者の指示「データが無いものは仮データを入れ、後で実装する」）。仮の中身は `dashboard/app/live.py` の `PAPER_PLACEHOLDER_BP_PER_DAY`（実物に 1 営業日あたり 2bp を足した線）。印は `.chip.placeholder`・点線（dashboard.md §15-8）
       本物: 実売買の Phase 3 の `daily.csv`（トレーダー別・日次の紙上の純利と差 3）を `board()` で読み、トレーダーの詳細の点線と概要・詳細の差 3 に写す。⚠ 仮データが `/api/live` に出ないテストは残し、本物は出す
       依存: 「Phase 3: 紙上の対照（同じ合図を公式終値・片道 2.5bp で回し、差 1〜4 を `daily.csv` に 1 日 1 行 × 3 人）」
-    - [ ] 外すと決めた 11 行（検証・データ・手動の注文・開発）の経路・テンプレート・テストを消す
-      2026-09-18 の実装では左ペインから外しただけ（経路とコードはまだある）。決定は [dashboard-required-features.md](docs/plans/archive/dashboard-required-features.md) 3-1・4-1
-      ⚠ 残すもの: `app/experiments.py`・`app/inventory.py`（vibeboard のタブが import）／ デモが使う `devtools` の `MockServer`・`run_step` ／ 停止と解除（`/ops/halt`・`/ops/resume`）と操作の履歴 ／ 記録と判定は観点 A を見届けるまで
-      ⚠ 直すもの: CLAUDE.md の管理画面の節・`dashboard/README.md`・dashboard.md §1・§7（検証とデータの画面の行）・§10・§11・テスト（`test_experiments`・`test_inventory`・`test_devtools`・`test_app` の該当）。`POST /ops/cancel` も外せる（1 件取消を外したので使う画面が無い）
     - [ ] 管理画面に i マークを付けて、ヘルプを表示する
       利用者の指示（2026-09-18）。着手時にプランを作る（どの項目に付けるか・文面の置き場・出し方）
       ⚠ CSP（`script-src 'self'; style-src 'self'`）の内で作る: インラインのスクリプトと style は使えない（`<details>`・`title`・`app/static/app.js` なら通る）

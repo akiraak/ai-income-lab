@@ -1,7 +1,8 @@
 """管理画面の本体（FastAPI）。
 
-画面: 監視（/）・記録（/records）・判定（/judge）・検証（/experiments）・データ（/data）・操作（/ops、ローカル面）・開発（/dev、ローカル面）。
-公開面（AIL_AUTH_MODE=cloudflare）では /ops と /dev は 404 を返し、POST は停止（/ops/halt）だけ受ける。
+画面: 概要（/）・全体の詳細（/overall）・トレーダーの詳細（/traders/<name>）・記録（/records）・判定（/judge）・操作（/ops、ローカル面。停止と解除だけ）。
+⚠ 検証・データ・手動の注文・開発の画面は 2026-09-18 に外した（検証とデータは vibeboard のタブ。部品 `experiments.py`・`inventory.py`・`devtools.py` は残る）。
+公開面（AIL_AUTH_MODE=cloudflare）では /ops は 404 を返し、POST は停止（/ops/halt）だけ受ける。
 すべての応答は Redactor を通す（秘密をブラウザに送らない）。
 """
 
@@ -149,13 +150,11 @@ def create_app(settings: Settings | None = None, start_monitors: bool = True) ->
 
     from .access import AccessGuard
     from .devtools import DevError, DevTools
-    from . import experiments as exp
-    from . import inventory as inv
     from . import live as lv
     from .judge import judge as run_judge
     from .masking import Redactor
     from .monitor import EventLog, Monitors
-    from .ops import ACTIONS, CONFIRM_PHRASE, ORDER_TYPES, Ops, OpsError
+    from .ops import Ops
     from .records import diff_runs, find_run, load_runs
 
     redactor = Redactor()
@@ -257,8 +256,6 @@ def create_app(settings: Settings | None = None, start_monitors: bool = True) ->
             "symbol": settings.symbol,
             "records_dir": str(settings.records_dir),
             # ⚠ 検証・データの画面はデモの対象外（実験側のファイルをそのまま読む）ので、出所を出し分ける
-            "runs_dir": str(settings.runs_dir),
-            "exp_dir": str(settings.exp_dir),
             "live_dir": str(settings.live_dir),
             "dev_available": dev is not None,
             "demo": settings.demo,
@@ -359,36 +356,6 @@ def create_app(settings: Settings | None = None, start_monitors: bool = True) ->
         result = run_judge(runs, events.load(), include_mock=settings.demo)
         return render(request, "judge.html", page="judge", judge=result)
 
-    # ---------------------------------------------------------------- 検証
-    # ⚠ **読むだけなので公開面にも出す。** 検査は実験側が checks.json に書いたものをそのまま使う
-
-    @app.get("/experiments", response_class=HTMLResponse)
-    async def experiments_page(request: Request):
-        return render(request, "experiments.html", page="experiments",
-                      ex=exp.index(settings.runs_dir))
-
-    @app.get("/experiments/{run_id}", response_class=HTMLResponse)
-    async def experiment_page(request: Request, run_id: str):
-        run = exp.one(settings.runs_dir, run_id)
-        if run is None:
-            raise HTTPException(status_code=404, detail="その検証は無い")
-        return render(request, "experiment.html", page="experiments", run=run)
-
-    @app.get("/api/experiments")
-    async def api_experiments(request: Request):
-        return JSONResponse(redactor(exp.index(settings.runs_dir)))
-
-    # ---------------------------------------------------------------- データ
-    # ⚠ **読むだけなので公開面にも出す。** 数字は実験側の manifest / config の写し（§11）
-
-    @app.get("/data", response_class=HTMLResponse)
-    async def data_page(request: Request):
-        return render(request, "data.html", page="data", inv=inv.index(settings))
-
-    @app.get("/api/data")
-    async def api_data(request: Request):
-        return JSONResponse(redactor(inv.index(settings)))
-
     # ---------------------------------------------------------------- 実売買
     # ⚠ **読むだけ。発注は画面から出さない**（公開面にも出す）。停止は既存の /ops/halt（§13）
 
@@ -423,19 +390,7 @@ def create_app(settings: Settings | None = None, start_monitors: bool = True) ->
     @app.get("/ops", response_class=HTMLResponse)
     async def ops_page(request: Request):
         require_local()
-        return render(
-            request,
-            "ops.html",
-            page="ops",
-            monitors=monitors.snapshot(),
-            history=ops.history(30),
-            actions=ACTIONS,
-            order_types=ORDER_TYPES,
-            confirm_phrase=CONFIRM_PHRASE,
-            allow_prod_dry_run=settings.allow_prod_dry_run,
-            allow_prod_orders=settings.allow_prod_orders,
-            result=None,
-        )
+        return render(request, "ops.html", page="ops", history=ops.history(30))
 
     @app.post("/ops/resume")
     async def ops_resume(request: Request):
@@ -453,119 +408,6 @@ def create_app(settings: Settings | None = None, start_monitors: bool = True) ->
             raise HTTPException(404)
         mon.retry_auth()
         return redirect("/overall", f"{mon.env} の認証を再試行する（次の周期）")
-
-    async def _op(request: Request, fn, *args):
-        try:
-            return await asyncio.to_thread(fn, *args), None
-        except OpsError as exc:
-            return None, str(exc)
-        except Exception as exc:  # ApiError など
-            return None, f"{type(exc).__name__}: {str(exc)[:300]}"
-
-    @app.post("/ops/dry-run", response_class=HTMLResponse)
-    async def ops_dry_run(request: Request):
-        require_local()
-        form = await form_of(request)
-        result, error = await _op(request, ops.dry_run, form.get("env", "cert"), form, actor(request))
-        return render(
-            request, "ops.html", page="ops", monitors=monitors.snapshot(), history=ops.history(30), actions=ACTIONS, order_types=ORDER_TYPES,
-            confirm_phrase=CONFIRM_PHRASE, allow_prod_dry_run=settings.allow_prod_dry_run, allow_prod_orders=settings.allow_prod_orders,
-            result={"kind": "dry-run", "data": result, "error": error, "form": form},
-        )
-
-    @app.post("/ops/submit")
-    async def ops_submit(request: Request):
-        require_local()
-        form = await form_of(request)
-        result, error = await _op(request, ops.submit, form.get("env", "cert"), form, actor(request), form.get("confirm", ""))
-        if error:
-            return redirect("/ops", f"発注できなかった: {error}")
-        o = result["submitted"]
-        return redirect("/ops", f"{result['env']} に発注した: id {o.get('id')} / {o.get('status')}")
-
-    @app.post("/ops/cancel")
-    async def ops_cancel(request: Request):
-        require_local()
-        form = await form_of(request)
-        result, error = await _op(request, ops.cancel, form.get("env", "cert"), form.get("order_id", ""), actor(request))
-        if error:
-            return redirect(form.get("back") or "/ops", f"取消できなかった: {error}")
-        return redirect(form.get("back") or "/ops", f"取消した: id {result['order']['id']} / {result['order']['status']}")
-
-    @app.post("/ops/cleanup")
-    async def ops_cleanup(request: Request):
-        require_local()
-        form = await form_of(request)
-        result, error = await _op(request, ops.cleanup, form.get("env", "cert"), actor(request))
-        if error:
-            return redirect("/ops", f"後片付けできなかった: {error}")
-        return redirect("/ops", f"{result['env']} の働いている注文 {result['working']} 件を取り消した")
-
-    # ---------------- 開発（ローカル面）
-
-    @app.get("/dev", response_class=HTMLResponse)
-    async def dev_page(request: Request):
-        require_local()
-        return render(request, "dev.html", page="dev", dev=dev.status(), prod_available=monitors.get("prod") is not None)
-
-    @app.post("/dev/mock/start")
-    async def dev_mock_start(request: Request):
-        require_local()
-        await form_of(request)
-        try:
-            await asyncio.to_thread(dev.mock.start, True)
-        except DevError as exc:
-            return redirect("/dev", f"モックを起動できなかった: {exc}")
-        return redirect("/dev", "モックを起動した")
-
-    @app.post("/dev/mock/stop")
-    async def dev_mock_stop(request: Request):
-        require_local()
-        await form_of(request)
-        await asyncio.to_thread(dev.mock.stop)
-        return redirect("/dev", "モックを止めた")
-
-    @app.post("/dev/selftest")
-    async def dev_selftest(request: Request):
-        require_local()
-        await form_of(request)
-        try:
-            job = dev.run_selftest()
-        except DevError as exc:
-            return redirect("/dev", str(exc))
-        return redirect(f"/dev/jobs/{job.id}")
-
-    @app.post("/dev/run")
-    async def dev_run(request: Request):
-        require_local()
-        form = await form_of(request)
-        try:
-            seconds = float(form.get("seconds") or 15)
-        except ValueError:
-            seconds = 15.0
-        try:
-            job = dev.run_step(form.get("env", "cert"), form.get("step", "1"), seconds, form.get("use_mock") == "1", form.get("verify_expiry") == "1")
-        except DevError as exc:
-            return redirect("/dev", str(exc))
-        return redirect(f"/dev/jobs/{job.id}")
-
-    @app.get("/dev/jobs/{job_id}", response_class=HTMLResponse)
-    async def dev_job(request: Request, job_id: str):
-        require_local()
-        job = dev.jobs.get(job_id)
-        if not job:
-            raise HTTPException(404)
-        ctx = {"page": "dev", "job": job.brief(), "lines": job.lines[-2000:]}
-        if request.query_params.get("partial"):
-            return render(request, "job_panel.html", **ctx)
-        return render(request, "job.html", **ctx)
-
-    @app.post("/dev/jobs/{job_id}/stop")
-    async def dev_job_stop(request: Request, job_id: str):
-        require_local()
-        await form_of(request)
-        dev.jobs.stop(job_id)
-        return redirect(f"/dev/jobs/{job_id}", "停止を要求した")
 
     @app.exception_handler(HTTPException)
     async def http_error(request: Request, exc: HTTPException):

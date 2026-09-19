@@ -50,7 +50,7 @@ def assert_clean(text: str, where: str):
 
 
 def test_pages_render_without_secrets(client):
-    for path in ["/", "/?partial=strip", "/overall", "/overall?partial=monitor", "/records", "/records/20260908T140000Z", "/records/diff?a=20260908T140000Z&b=20260909T140000Z", "/judge", "/data", "/ops", "/dev", "/api/state", "/api/records", "/api/judge", "/api/data", "/api/events"]:
+    for path in ["/", "/?partial=strip", "/overall", "/overall?partial=monitor", "/records", "/records/20260908T140000Z", "/records/diff?a=20260908T140000Z&b=20260909T140000Z", "/judge", "/ops", "/api/state", "/api/records", "/api/judge", "/api/events"]:
         r = client.get(path)
         assert r.status_code == 200, path
         assert_clean(r.text, path)
@@ -86,33 +86,32 @@ def test_halt_writes_flag_and_resume(client, settings):
     assert "停止した" in client.get(r.headers["location"]).text
     # 取消は API に届く前に接続エラーになる（TT_REST_BASE が閉じたポート）が、HALT 自体は書かれている
     assert "停止中（HALT）" in client.get("/").text
-    # 停止中は発注が拒否される
-    r = client.post("/ops/submit", data={"csrf": csrf, "env": "cert", "symbol": "SPY", "quantity": "1", "action": "Buy to Open", "order_type": "Limit", "price": "10"}, follow_redirects=False)
-    assert "%E5%81%9C%E6%AD%A2%E4%B8%AD" in r.headers["location"]  # 「停止中」
+    # ⚠ 停止中に発注を拒否するのは執行器とサンプル（同じ HALT を見る）。管理画面に発注の経路は無い（test_dropped_routes_are_gone）
     r = client.post("/ops/resume", data={"csrf": csrf}, follow_redirects=False)
     assert r.status_code == 303 and not settings.halt_file.exists()
     hist = client.app.state.ops.history()
     assert [h["kind"] for h in hist] == ["resume", "halt"]
 
 
-def test_order_validation(client):
+def test_dropped_routes_are_gone(client):
+    """2026-09-18 に外した 11 行 ＋ 1 件取消（検証・データ・手動の注文・開発）は、ローカル面でも経路ごと無い。"""
     csrf = client.cookies.get("ail_csrf")
-    r = client.post("/ops/dry-run", data={"csrf": csrf, "env": "cert", "symbol": "SPY", "quantity": "50", "action": "Buy to Open", "order_type": "Limit", "price": "10"})
-    assert r.status_code == 200 and "1〜10" in r.text
-    r = client.post("/ops/dry-run", data={"csrf": csrf, "env": "cert", "symbol": "SPY", "quantity": "1", "action": "Buy to Open", "order_type": "Limit", "price": ""})
-    assert "指値には価格が要る" in r.text
-    r = client.post("/ops/dry-run", data={"csrf": csrf, "env": "prod", "symbol": "SPY", "quantity": "1", "action": "Buy to Open", "order_type": "Limit", "price": "1"})
-    assert "prod の資格情報が設定されていない" in r.text
+    for path in ["/experiments", "/experiments/x", "/api/experiments", "/data", "/api/data", "/dev", "/dev/jobs/x"]:
+        assert client.get(path).status_code == 404, path
+    for path in ["/ops/dry-run", "/ops/submit", "/ops/cancel", "/ops/cleanup", "/dev/mock/start", "/dev/mock/stop", "/dev/selftest", "/dev/run", "/dev/jobs/x/stop"]:
+        r = client.post(path, data={"csrf": csrf, "env": "cert", "symbol": "SPY", "quantity": "1", "action": "Buy to Open", "order_type": "Market"}, follow_redirects=False)
+        assert r.status_code in (404, 405), path
+    ops = client.get("/ops").text
+    assert "停止 / 解除" in ops and "操作の履歴" in ops
+    for gone in ("dry-run（何も", "この内容で発注", "後片付け（全取消）", 'name="order_type"', "/ops/submit", "/ops/cleanup", "/ops/cancel"):
+        assert gone not in ops, gone
 
 
-def test_dev_step_guards(client):
-    csrf = client.cookies.get("ail_csrf")
-    r = client.post("/dev/run", data={"csrf": csrf, "env": "prod", "step": "4", "seconds": "5"}, follow_redirects=False)
-    assert "probe" in __import__("urllib.parse").parse.unquote(r.headers["location"])
-    r = client.post("/dev/run", data={"csrf": csrf, "env": "cert", "step": "rm -rf", "seconds": "5"}, follow_redirects=False)
-    assert "%E4%B8%8D%E6%AD%A3" in r.headers["location"]  # 「不正」
-    r = client.post("/dev/run", data={"csrf": csrf, "env": "cert", "step": "4", "seconds": "5", "use_mock": "1"}, follow_redirects=False)
-    assert "%E3%83%A2%E3%83%83%E3%82%AF" in r.headers["location"]  # 「モック」が動いていない
+def test_dashboard_cannot_open_order_keys(client):
+    """⚠ 管理画面が作るクライアントは取消の鍵だけ（発注と dry-run の鍵は渡さない）。"""
+    c = client.app.state.ops._client("cert")
+    assert c.allow_prod_cancel is True and c.allow_prod_orders is False and c.allow_prod_dry_run is False
+    assert not hasattr(client.app.state.settings, "allow_prod_orders")
 
 
 def test_public_face_hides_ops_and_dev(settings):
@@ -181,16 +180,12 @@ def test_templates_have_no_inline_handlers_or_styles():
 def test_rendered_pages_have_no_inline_and_forms_ask_before_sending(client):
     csp = client.get("/").headers["content-security-policy"]
     assert "script-src 'self'" in csp and "style-src 'self'" in csp and "unsafe-inline" not in csp
-    for path in ["/", "/overall", "/records", "/records/20260908T140000Z", "/records/diff?a=20260908T140000Z&b=20260909T140000Z", "/judge", "/ops", "/dev"]:
+    for path in ["/", "/overall", "/records", "/records/20260908T140000Z", "/records/diff?a=20260908T140000Z&b=20260909T140000Z", "/judge", "/ops"]:
         assert not INLINE.search(client.get(path).text), path
     # 停止（全画面の右上と /ops）・後片付け（prod があるときだけ）は data-confirm を持つ
     assert re.search(r'<form[^>]*action="/ops/halt"[^>]*data-confirm="停止する', client.get("/").text)
     assert re.search(r'<form[^>]*action="/ops/halt"[^>]*data-confirm="停止する', client.get("/ops").text)
-    # dry-run の結果に出る発注の form
     csrf = client.cookies.get("ail_csrf")
-    src = (DASH / "app" / "templates" / "ops.html").read_text(encoding="utf-8")
-    for action in ["/ops/resume", "/ops/halt", "/ops/submit", "/ops/cleanup"]:
-        assert re.search(rf'<form[^>]*action="{action}"[^>]*data-confirm="', src), action
     # 停止中は解除の form が確認つきで出る
     client.post("/ops/halt", data={"csrf": csrf}, follow_redirects=False)
     assert re.search(r'<form[^>]*action="/ops/resume"[^>]*data-confirm="停止を解除する', client.get("/ops").text)

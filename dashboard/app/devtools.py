@@ -1,11 +1,10 @@
-"""開発時の検証（プラン §2-5。ローカル面だけ）。
+"""デモの部品（モックサーバと `sample.py` の手順の実行）。⚠ **開発の画面（/dev）は 2026-09-18 に外した**。
 
-- モックサーバ（mock_server.py）の起動・停止・ログ
-- selftest.sh の実行と結果表示
-- 手順を選んで sample.py を実行し、標準出力をその場で流す。記録は TT_OUT_DIR で管理画面の記録先に落ちる
+- `MockServer`: `mock_server.py` の起動・停止。デモ（資格情報なし ／ `AIL_DEMO=1`）が起動時に立てる
+- `DevTools.run_step`: `sample.py` の手順をジョブとして流す。デモが記録の種まき（6 手順）に使う
 
 ⚠ prod で通せるのは probe と dryrun だけ（TT_PROD_* を使う読み取り系）。`--i-know-this-is-real-money` は
-この画面からは絶対に付けない（本番発注は利用者が CLI で行う）。
+ここからは絶対に付けない（本番発注は利用者が CLI で行う）。`selftest.sh` はターミナルで回す。
 """
 
 from __future__ import annotations
@@ -42,7 +41,6 @@ STEP_MENU = [
     ("probe", "本番の読み取りプローブ（TT_PROD_* のみ使用）"),
     ("dryrun", "本番の dry-run（TT_ALLOW_PROD_DRY_RUN=1 が要る）"),
 ]
-SELFTEST_PORTS = (8775, 8776, 8777)
 
 
 class DevError(Exception):
@@ -252,12 +250,6 @@ class DevTools:
         for k in ("TT_ENV", "TT_ALLOW_PROD_ORDERS", "TT_ALLOW_PROD_DRY_RUN"):
             env.pop(k, None)
         return env
-
-    def run_selftest(self) -> Job:
-        env = self._base_env()
-        env.pop("TT_OUT_DIR", None)  # selftest は sample/out の増分を見る
-        env.update(PORT=str(SELFTEST_PORTS[0]), WS_PORT=str(SELFTEST_PORTS[1]), DX_PORT=str(SELFTEST_PORTS[2]))
-        return self.jobs.start("selftest", ["bash", "./selftest.sh"], self.settings.sample_dir, env, note="モックに 6 手順 ＋ ガード ＋ HALT")
 
     def run_step(self, env_name: str, step: str, seconds: float, use_mock: bool, verify_expiry: bool = False) -> Job:
         step = step.strip()

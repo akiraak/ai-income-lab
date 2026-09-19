@@ -24,7 +24,7 @@ cp .env.example .env          # AIL_AUTH_MODE=local（WSL2 → Windows のブラ
 | --- | --- | --- |
 | `loopback`（既定） | ループバック | 全部 |
 | `local` | ループバック ＋ RFC1918 | 全部（ヘッダに「認証なし」と出る） |
-| `cloudflare` | Cloudflare Access の JWT を全リクエストで検証 | **監視・記録・判定の閲覧と停止だけ**。`/ops` と `/dev` は 404 |
+| `cloudflare` | Cloudflare Access の JWT を全リクエストで検証 | **監視・記録・判定の閲覧と停止だけ**。`/ops` は 404 |
 
 停止ボタン ＝ `HALT` フラグ（記録ディレクトリ）＋ 働いている注文の全取消。`sample.py` もフラグがあると発注系を拒否する。
 
@@ -33,8 +33,9 @@ cp .env.example .env          # AIL_AUTH_MODE=local（WSL2 → Windows のブラ
 - `/` 監視: 認証の残り時間と scope・口座・建玉・注文・現在値・websocket 2 本の状態・エラー（5 秒ごとに更新）
 - `/records` 記録: 一覧 → 詳細 → 実行間の差分（所要 ms と状態遷移の揺れ）
 - `/judge` 判定: 6 観点 × 会場を記録から自動生成（モックは除外）
-- `/ops` 操作（ローカル）: 停止 / 解除、dry-run → 発注 → 取消 → 後片付け。prod は 2 段ロック ＋ 確認文
-- `/dev` 開発（ローカル）: モックの起動、`selftest.sh`、手順の実行
+- `/ops` 操作（ローカル）: 停止 / 解除と操作の履歴だけ
+
+⚠ 2026-09-18 に消した画面: 検証（`/experiments`）・データ（`/data`）＝ vibeboard のタブで見る ／ 手動の注文（dry-run・発注・取消・後片付け）＝ 管理画面に発注の経路は無い（発注は執行器 `experiments/live-trading/run_day.py` と CLI）／ 開発（`/dev`）＝ `selftest.sh` はターミナルで回す。部品（`app/experiments.py`・`app/inventory.py`・`app/devtools.py` の `MockServer`・`run_step`）は vibeboard とデモが使うので残っている
 
 ## テスト
 

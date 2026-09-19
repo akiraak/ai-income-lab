@@ -9,10 +9,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from fastapi.testclient import TestClient
 
 from app import inventory as inv
-from app.main import create_app
 
 # 2018-01-01 / 2026-09-01 (UTC) の ms
 MS_2018 = 1514764800000
@@ -262,13 +260,9 @@ def test_exposure_is_listed_with_hindsight(settings):
 # --- 無くても落ちない -----------------------------------------------------
 
 def test_missing_exp_dir_is_ok(settings):
-    """⚠ **g3plus には実験ディレクトリを COPY しない。** 無くても 200。"""
+    """⚠ **実験ディレクトリが無い環境でも落とさない**（空として返す。画面は vibeboard のデータタブ ＝ `test_vibetab.py`）。"""
     d = inv.index(settings)
     assert d["empty"] is True
-    with TestClient(create_app(settings, start_monitors=False), client=("127.0.0.1", 50000)) as c:
-        r = c.get("/data")
-        assert r.status_code == 200 and "実験のデータが無い" in r.text
-        assert c.get("/api/data").status_code == 200
 
 
 def test_broken_files_are_skipped(settings):
@@ -279,13 +273,3 @@ def test_broken_files_are_skipped(settings):
     assert len(d["bars"]) == 2 and d["sources"] == []
     storm = [e for e in d["external"] if e["source"] == "ncei_storm"][0]
     assert storm["lag_days"] is None                     # 宣言が読めないときは「—」で出す（0 で埋めない）
-
-
-def test_page_renders_the_inventory(settings):
-    build_exp_dir(settings.exp_dir)
-    with TestClient(create_app(settings, start_monitors=False), client=("127.0.0.1", 50000)) as c:
-        text = c.get("/data").text
-        assert "調整後" in text and "NCEI Storm Events" in text
-        assert "120 日" in text                          # ずらし幅
-        assert "【推測】" in text and "後知恵" in text     # 割り当ての限界を画面に明示
-        assert "config と manifest で枠が食い違う" in text

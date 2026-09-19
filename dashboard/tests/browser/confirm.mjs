@@ -6,6 +6,8 @@
 //
 // ⚠ **POST はブラウザ側で止める**（route で受けて偽の応答を返す）。「受けると送られる」を見ても HALT は書かれない。
 // 見るもの: (1) ダイアログが出る (2) 断ると送られない (3) 受けると送られる (4) CSP 違反 0 件
+// ⚠ 2026-09-18 に手動の注文と開発の画面を外したので、確認つきの form は停止（全画面の右上・/ops）と解除（停止中の /ops）だけ。
+// (5) 外した経路（/experiments・/data・/dev）が 404 を返す
 import { createRequire } from "node:module";
 
 const require = createRequire((process.env.PW_DIR || process.cwd()) + "/");
@@ -45,10 +47,9 @@ async function tryForm(path, selector, label) {
 
 await tryForm("/", 'form[action="/ops/halt"]', "概要の右上の停止");
 await tryForm("/ops", 'section form[action="/ops/halt"]', "操作の停止");
-await tryForm("/ops", 'form[action="/ops/cleanup"]', "操作の後片付け");
 
 // CSP 違反（インラインの style ／ スクリプト）が 1 件も無いこと
-for (const path of ["/", "/overall", "/records", "/judge", "/ops", "/dev"]) {
+for (const path of ["/", "/overall", "/records", "/judge", "/ops"]) {
   await page.goto(base + path, { waitUntil: "load" });
   await page.waitForTimeout(200);
 }
@@ -58,6 +59,10 @@ if (ids.length) {
   await page.goto(`${base}/records/${ids[0]}`, { waitUntil: "load" });
   if (ids.length > 1) await page.goto(`${base}/records/diff?a=${ids[1]}&b=${ids[0]}`, { waitUntil: "load" });
   await page.waitForTimeout(200);
+}
+for (const path of ["/experiments", "/data", "/dev"]) {
+  const r = await page.goto(base + path, { waitUntil: "load" });
+  check(`外した画面 ${path} は 404`, r.status() === 404, String(r.status()));
 }
 check("CSP 違反 0 件", violations.length === 0, violations.join("\n"));
 

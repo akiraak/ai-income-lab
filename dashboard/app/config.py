@@ -104,6 +104,10 @@ class Settings:
         return self.exp_dir / "config" / "exposure"
 
     @property
+    def experiment_config_dir(self) -> Path:
+        return self.exp_dir / "config" / "experiment"
+
+    @property
     def universe_config_dir(self) -> Path:
         return self.exp_dir / "config" / "universe"
 

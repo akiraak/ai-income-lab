@@ -1,4 +1,12 @@
 # DONE
+- 2026-09-18 予想に使える銘柄集合の一覧表を vibeboard のデータタブの先頭に出した [plan](docs/plans/archive/universe-table.md)
+  - 利用者の指示（2026-09-17）。着手は「そっちで進められるのをやって」（2026-09-18）。置き場は着手時に決めた ＝ **データタブの概要の先頭**（タブを開いて最初に見える）と「銘柄の集合」の節の先頭（検証タブは実行の一覧で、集合の在庫とは軸が違う）
+  - 列: 集合 ／ 対象の銘柄と内訳（会社株・ETF）／ その他（実質は株の ETF・材料）／ 日足あり ／ 1 分足あり ／ データセット ／ 実験の設定（`targets` 別）／ 選定日 ＋ **重複を除いた合計**
+  - 正本は 4 つ（`config/universe`・`config/dataset`・`config/experiment`・調整後の manifest）で、画面は写すだけ（`inventory.universe_table`）。⚠ **足の有無は manifest の銘柄名との突き合わせ**（CSV を開かない）。集合や足を増やすと表が自動で変わる
+  - ⚠ **着手して分かったこと**: midcap48 は材料 63 本を `groups.etf` に置いている（`ll_leaders = "etf"` が先行銘柄として読むため）。`etf` ＋ `company` をそのまま数えると対象が 111 本に見えるので、⚠ **`inputs_*` で材料と宣言された銘柄は対象から除く**ことにした（48 本）。⚠ **実験はさらに `targets`（all ／ company）で絞る**ので、実験の設定の本数を `targets` 別に出した（us63: all 55 ／ company 21）
+  - 確認【実測】: 別ポート（3025）で vibetab を立てて実データで描画 ＝ 和集合 136・日足あり 136・1 分足あり 63（2026-09-17 に手で数えた値と一致）。pytest 154 件（＋3）。⚠ `vibetab.ExpPaths` に `experiment_config_dir` が無く、足さないとタブが落ちるところだった（テストで固定）
+  - ⚠ **動いている vibeboard のタブにはまだ出ない**: sidecar（3015）は vibeboard が起こした子で、落としても起こし直されない（`vibeboard/src/sidecar.ts`）。`./run-vibeboard.sh` で vibeboard を入れ直すと出る（⚠ Claude は 3010 に触っていない）
+
 - 2026-09-18 休場日の暦を入れた（管理画面の「平日＝営業日」の仮を外した） [plan](docs/plans/archive/nyse-calendar.md)
   - 利用者の指示「そっちで進められるのをやって」（GAN × ownex のキューが回っている間に、裁定も GPU も要らないものから）
   - 暦: 【公表値】NYSE "Holidays & Trading Hours"（https://www.nyse.com/markets/hours-calendars 。取得 2026-09-18）の 2026〜2028 年 ＝ 休場 29 日（10・10・9。⚠ 2028-01-01 は土曜で振替なし）と半日立会 5 日（13:00 ET 引け）。`experiments/tastytrade-api-sample/nyse_calendar.py` ＋ 読み手 `market_calendar.py`（標準ライブラリだけ。管理画面も執行器もここを import 済みなので共有の場所にした）

@@ -26,6 +26,8 @@ LAYER_LABEL = {"raw": "調整前", "adjusted": "調整後"}
 # universe の groups のキー → 画面の種別。⚠ **どの銘柄がどのグループかは config の宣言が正**
 KIND_LABEL = {"company": "会社株", "etf": "ETF", "equity_like": "ETF（実質は株）"}
 KIND_UNKNOWN = "分類なし"
+TARGET_GROUPS = ("etf", "company")   # 売買の対象になるグループ（実験側の `ail.config.symbols_of` と同じ順）
+INPUTS_PREFIX = "inputs_"            # universe の「材料」のキー（例: `inputs_us63`）
 # manifest の totals のうち「行数」以外は検査の引っかかり。0 でないものだけ画面に出す
 NOT_ISSUES = ("rows",)
 
@@ -97,12 +99,74 @@ def load_universes(config_dir: Path) -> list[dict]:
             continue
         groups = {k: list(v) for k, v in (conf.get("groups") or {}).items()
                   if isinstance(v, list) and v}
+        # 材料（売買の対象ではないが特徴量に使う銘柄。例: midcap48 の `inputs_us63`）。⚠ 宣言のキーをそのまま写す
+        inputs = {k: list(v) for k, v in conf.items()
+                  if k.startswith(INPUTS_PREFIX) and isinstance(v, list) and v}
         out.append({"name": conf.get("name") or path.stem,
                     "description": conf.get("description"),
                     "selected_on": conf.get("selected_on"),
                     "survivorship_bias": bool(conf.get("survivorship_bias")),
-                    "groups": groups})
+                    "groups": groups, "inputs": inputs})
     return out
+
+
+def load_experiment_datasets(config_dir: Path) -> dict[str, dict[str, int]]:
+    """`config/experiment/*.toml` が指す dataset ごとの、実験の設定の本数（`targets` 別）。⚠ 宣言を数えるだけ（実行の数ではない）。"""
+    count: dict[str, dict[str, int]] = {}
+    if not config_dir.is_dir():
+        return count
+    for path in sorted(config_dir.glob("*.toml")):
+        conf = _read_toml(path)
+        ds = conf.get("dataset")
+        if isinstance(ds, str):
+            by = count.setdefault(ds, {})
+            key = str(conf.get("targets") or "all")
+            by[key] = by.get(key, 0) + 1
+    return count
+
+
+def universe_table(universes: list[dict], datasets: list[dict], bars: list[dict],
+                   experiments: dict[str, int]) -> dict:
+    """銘柄の集合を横に比べる表（集合 × 売買の対象 × 足の有無 × 使われ方）と、重複を除いた合計。
+
+    ⚠ **対象の銘柄は `etf` ＋ `company`**（実験側の `ail.config.symbols_of` と同じ）から、材料（`inputs_*`）と宣言された
+       ものを除いたもの。`equity_like` も対象に数えない。⚠ **実験はこの中からさらに `targets`（all ／ company）で絞る**。
+    ⚠ **足の有無は調整後の manifest の銘柄名と突き合わせる**（CSV を開かない・ディレクトリを数えない）。
+    """
+    have = {p: {s["name"] for m in bars if m["layer"] == "adjusted" and m["period"] == p for s in m["series"]}
+            for p in ("d", "m")}
+    rows, everything = [], set()
+    for u in universes:
+        # ⚠ 材料（`inputs_*`）と宣言された銘柄は、groups に入っていても対象に数えない
+        #   （midcap48 は先行銘柄として読ませるために材料 63 本を `etf` に置いている）
+        inputs = {s for v in u.get("inputs", {}).values() for s in v}
+        by_group = {g: [s for s in u["groups"].get(g, []) if s not in inputs] for g in TARGET_GROUPS}
+        targets = [s for g in TARGET_GROUPS for s in by_group[g]]
+        others = {**{g: v for g, v in u["groups"].items() if g not in TARGET_GROUPS}, **u.get("inputs", {})}
+        members = set(targets) | {s for v in others.values() for s in v}
+        everything |= members
+        used_by = [d["name"] for d in datasets if d.get("universe") == u["name"]]
+        by_targets: dict[str, int] = {}
+        for d in used_by:
+            for k, n in experiments.get(d, {}).items():
+                by_targets[k] = by_targets.get(k, 0) + n
+        rows.append({
+            "name": u["name"], "description": u["description"], "selected_on": u["selected_on"],
+            "targets": len(targets),
+            "breakdown": [(KIND_LABEL.get(g, g), len(by_group[g])) for g in TARGET_GROUPS if by_group[g]],
+            "others": [(f"材料（{g[len(INPUTS_PREFIX):]}）" if g.startswith(INPUTS_PREFIX) else KIND_LABEL.get(g, g), len(v))
+                       for g, v in others.items()],
+            "members": len(members),
+            "with_d": len(members & have["d"]), "with_m": len(members & have["m"]),
+            "missing_d": sorted(set(targets) - have["d"]),
+            "datasets": used_by,
+            "experiments": sum(by_targets.values()),
+            "experiments_by_targets": sorted(by_targets.items()),
+        })
+    return {"rows": rows,
+            "total": {"members": len(everything), "with_d": len(everything & have["d"]), "with_m": len(everything & have["m"]),
+                      "bars_d": len(have["d"]), "bars_m": len(have["m"]),
+                      "unlisted_d": sorted(have["d"] - everything)}}
 
 
 def kind_map(universes: list[dict]) -> dict[str, str]:
@@ -300,6 +364,8 @@ def index(settings) -> dict:
         "leak_features": [f for f in features if f["leak"]],
         "sources": source_rows,
         "universes": universes,
+        "universe_table": universe_table(universes, datasets, bars,
+                                         load_experiment_datasets(settings.experiment_config_dir)),
         "exposures": exposures,
         "external_roles": role_count,
         "total_rows": sum(m["rows"] or 0 for m in manifests),

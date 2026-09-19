@@ -90,6 +90,10 @@ class ExpPaths:
         return self.exp_dir / "config" / "universe"
 
     @property
+    def experiment_config_dir(self) -> Path:
+        return self.exp_dir / "config" / "experiment"
+
+    @property
     def sources_config(self) -> Path:
         return self.exp_dir / "config" / "sources.toml"
 
@@ -583,6 +587,47 @@ def _series_details(series: list[dict], with_kind: bool = True) -> str:
             + table(["系列", "行", "期間"], rows, {1}) + "</details>")
 
 
+def _universe_table_html(inv: dict) -> str:
+    """銘柄の集合の一覧表（集合 × 売買の対象 × 足の有無 × 使われ方 ＋ 重複を除いた合計）。⚠ 中身は `inventory.universe_table` の写し。"""
+    ut = inv.get("universe_table") or {}
+    if not ut.get("rows"):
+        return ""
+    rows = []
+    for r in ut["rows"]:
+        breakdown = " ／ ".join(f"{esc(k)} {n}" for k, n in r["breakdown"]) or "—"
+        others = " ／ ".join(f"{esc(k)} {n}" for k, n in r["others"]) or "—"
+        d = f"{r['with_d']} / {r['members']}"
+        by_t = " ／ ".join(f"targets={esc(k)} {n}" for k, n in r["experiments_by_targets"])
+        if r["missing_d"]:
+            d = (f"<span class='warn'>⚠ {d}</span><div class='meta'>対象のうち日足なし: "
+                 f"{esc(' '.join(r['missing_d'][:12]))}{' …' if len(r['missing_d']) > 12 else ''}</div>")
+        rows.append([f"<b>{esc(r['name'])}</b><div class='meta'>{esc(r['description'] or '')}</div>",
+                     f"<b>{r['targets']}</b><div class='meta'>{breakdown}</div>", others, d,
+                     f"{r['with_m']} / {r['members']}",
+                     esc(" ".join(r["datasets"]) or "—"),
+                     fmt(r["experiments"], 0) + (f"<div class='meta'>{by_t}</div>" if by_t else ""),
+                     esc(r["selected_on"] or "—")])
+    t = ut["total"]
+    rows.append(["<b>重複を除いた合計</b><div class='meta'>全集合の全グループ ＋ 材料の和集合</div>",
+                 f"<b>{t['members']}</b>", "—", f"<b>{t['with_d']}</b> / {t['members']}",
+                 f"<b>{t['with_m']}</b> / {t['members']}", "—", "—", "—"])
+    note = ("<p class='meta'>対象の銘柄 ＝ universe の <code>etf</code> ＋ <code>company</code>（実験側の <code>symbols_of</code> と同じ）から、"
+            "材料（<code>inputs_*</code>）と宣言されたものを除いたもの。"
+            "⚠ 実験はこの中からさらに <code>targets</code> で絞る（all ＝ 全部 ／ company ＝ 会社株だけ。右の列の内訳）。"
+            "「その他」は対象に数えない（相関を測っただけの ETF・特徴量の材料）。"
+            "足あり ＝ 調整後の manifest（data/manifests/adjusted_d.json ／ adjusted_m.json）に銘柄名があるもの ／ 集合の全銘柄。"
+            "データセットは config/dataset、実験の設定は config/experiment の宣言を数えたもの（実行の数ではない）。"
+            "⚠ 本数を増やしても実効系列数は伸びにくい（同じ市場の株は相関が高い。rules.md 12 章）。"
+            "⚠ どの集合も選定日の時点で存在する銘柄から選んでいる（生存バイアス）。")
+    if t["unlisted_d"]:
+        note += (f" ⚠ 日足はあるがどの集合にも無い銘柄 {len(t['unlisted_d'])} 本: "
+                 f"<code>{esc(' '.join(t['unlisted_d'][:20]))}</code>")
+    note += "</p>"
+    return ("<h2>予想に使える銘柄の集合</h2>"
+            + table(["集合", "対象の銘柄", "その他（対象外）", "日足あり", "1 分足あり", "データセット", "実験の設定", "選定日"],
+                    rows, num_cols={1, 3, 4, 6}) + note)
+
+
 def data_section_html(paths: ExpPaths, section: str) -> str | None:
     inv = inventory.index(paths)
     label = dict(DATA_SECTIONS).get(section)
@@ -594,6 +639,8 @@ def data_section_html(paths: ExpPaths, section: str) -> str | None:
         return page(label, "\n".join(body))
 
     if section == "overview":
+        body.append(_universe_table_html(inv))   # タブを開いて最初に見える場所（利用者の指示 2026-09-17）
+        body.append("<h2>在庫の概要</h2>")
         body.append("<p class='meta'><b>この画面は読むだけ。</b>系列数・行数・期間は取得時に実験側が書いた"
                     " manifest（data/manifests/*.json）の値をそのまま出す（CSV を開いて数え直さない）。"
                     "枠（本命 ／ 偽薬）と仮説は config/dataset/*.toml の宣言の写しで、結果を見て分類し直さない。"
@@ -678,6 +725,7 @@ def data_section_html(paths: ExpPaths, section: str) -> str | None:
                     "⚠ 「要判断」で採っていない取得元（FRED・Open-Meteo・SILSO）はデータを持っていないので"
                     "この表に無い（daily-data-sources.md §2・§4 が正本）。</p>")
     elif section == "universes":
+        body.append(_universe_table_html(inv))
         for u in inv["universes"]:
             body.append(f"<h2>{esc(u['name'])}</h2>")
             body.append(kv_table([
@@ -689,6 +737,9 @@ def data_section_html(paths: ExpPaths, section: str) -> str | None:
             for group, symbols in u["groups"].items():
                 label_g = inventory.KIND_LABEL.get(group, group)
                 body.append(f"<details><summary>{esc(label_g)} {len(symbols)} 銘柄</summary>"
+                            f"<p><code>{esc(' '.join(symbols))}</code></p></details>")
+            for key, symbols in (u.get("inputs") or {}).items():
+                body.append(f"<details><summary>材料（{esc(key)}）{len(symbols)} 銘柄 — 売買の対象ではない</summary>"
                             f"<p><code>{esc(' '.join(symbols))}</code></p></details>")
     elif section == "exposures":
         for x in inv["exposures"]:

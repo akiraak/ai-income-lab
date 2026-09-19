@@ -349,6 +349,15 @@ def test_data_exposures_note_and_channels(exp_dir):
     assert "im_scramble" in body                       # 脚注（偽薬 ＝ 割り当ての入れ替え）
 
 
+def test_data_overview_starts_with_the_universe_table(exp_dir):
+    """タブを開いて最初に見える場所（概要の先頭）に、銘柄の集合の一覧表を出す。「銘柄の集合」の節の先頭にも出す。"""
+    paths = vibetab.ExpPaths(exp_dir)
+    body = vibetab.data_section_html(paths, "overview")
+    assert body.index("予想に使える銘柄の集合") < body.index("在庫の概要")
+    assert "重複を除いた合計" in body and "us63" in body and "symbols_of" in body
+    assert "予想に使える銘柄の集合" in vibetab.data_section_html(paths, "universes")
+
+
 def test_data_bars_features_universes_notes(exp_dir):
     paths = vibetab.ExpPaths(exp_dir)
     bars = vibetab.data_section_html(paths, "bars")

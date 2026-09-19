@@ -164,6 +164,58 @@ def test_universes_are_listed_with_their_limits(settings):
     assert u["groups"] == {"etf": ["AAA"], "company": ["BBB"]}
 
 
+def _add_universe_fixtures(exp_dir: Path) -> None:
+    """集合をもう 1 つ（材料つき・実質は株つき）、dataset 2 本、実験の設定 3 本を足す。"""
+    cfg = exp_dir / "config"
+    (cfg / "universe" / "mid.toml").write_text(
+        'name = "mid"\nselected_on = "2026-09-12"\nsurvivorship_bias = true\n'
+        'inputs_us63 = ["AAA", "BBB"]\n'
+        '[groups]\netf = ["AAA", "BBB"]\ncompany = ["BRK/B", "ZZZ"]\nequity_like = ["EEE"]\n', encoding="utf-8")
+    (cfg / "dataset" / "daily.toml").write_text('name = "daily"\nperiod = "d"\nuniverse = "us63"\n', encoding="utf-8")
+    (cfg / "dataset" / "mid_daily.toml").write_text('name = "mid_daily"\nperiod = "d"\nuniverse = "mid"\n', encoding="utf-8")
+    (cfg / "experiment").mkdir(parents=True)
+    for name, ds, targets in (("a", "daily", "all"), ("b", "daily", "company"), ("c", "mid_daily", "company")):
+        (cfg / "experiment" / f"{name}.toml").write_text(f'name = "{name}"\ndataset = "{ds}"\ntargets = "{targets}"\n', encoding="utf-8")
+    # 調整後の日足に BRK/B を足す（ZZZ・EEE は足が無いまま）。1 分足は AAA だけ
+    m = exp_dir / "data" / "manifests" / "adjusted_d.json"
+    data = json.loads(m.read_text(encoding="utf-8"))
+    data["series"]["BRK/B"] = {"rows": 1, "oldest_ms": MS_2018, "newest_ms": MS_2026}
+    m.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
+    one = manifest(layer="adjusted", period="m")
+    one["series"] = {"AAA": one["series"]["AAA"]}
+    (exp_dir / "data" / "manifests" / "adjusted_m.json").write_text(json.dumps(one, ensure_ascii=False), encoding="utf-8")
+
+
+def test_universe_table_mirrors_config_and_manifests(settings):
+    """銘柄の集合の一覧表。⚠ **対象 ＝ etf ＋ company から材料（`inputs_*`）を除いたもの**・足の有無は調整後の manifest の
+    銘柄名との突き合わせ・重複を除いた合計・実験の設定は config の宣言の数（`targets` 別）。"""
+    build_exp_dir(settings.exp_dir)
+    _add_universe_fixtures(settings.exp_dir)
+    ut = inv.index(settings)["universe_table"]
+    rows = {r["name"]: r for r in ut["rows"]}
+    us, mid = rows["us63"], rows["mid"]
+    assert us["targets"] == 2 and us["breakdown"] == [("ETF", 1), ("会社株", 1)] and us["others"] == []
+    assert (us["with_d"], us["with_m"], us["members"]) == (2, 1, 2) and us["missing_d"] == []
+    assert us["datasets"] == ["daily"] and us["experiments"] == 2
+    assert us["experiments_by_targets"] == [("all", 1), ("company", 1)]
+    # mid: etf の 2 本は材料と宣言されているので対象に数えない。equity_like も対象外
+    assert mid["targets"] == 2 and mid["breakdown"] == [("会社株", 2)]
+    assert mid["others"] == [("ETF（実質は株）", 1), ("材料（us63）", 2)]
+    assert mid["members"] == 5 and mid["with_d"] == 3 and mid["missing_d"] == ["ZZZ"]      # AAA・BBB・BRK/B に日足
+    assert mid["experiments_by_targets"] == [("company", 1)]
+    # 重複を除いた合計: AAA・BBB は 2 つの集合にあるが 1 本ずつ
+    assert ut["total"] == {"members": 5, "with_d": 3, "with_m": 1, "bars_d": 3, "bars_m": 1, "unlisted_d": []}
+
+
+def test_universe_table_says_when_bars_belong_to_no_universe(settings):
+    build_exp_dir(settings.exp_dir)
+    m = settings.exp_dir / "data" / "manifests" / "adjusted_d.json"
+    data = json.loads(m.read_text(encoding="utf-8"))
+    data["series"]["QQQ"] = {"rows": 1, "oldest_ms": MS_2018, "newest_ms": MS_2026}
+    m.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
+    assert inv.index(settings)["universe_table"]["total"]["unlisted_d"] == ["QQQ"]
+
+
 def test_role_and_hypothesis_are_mirrored_from_config(settings):
     """⚠ **枠は config の宣言が正。** manifest と食い違ったら黙って選ばず、⚠ を立てて見せる。"""
     build_exp_dir(settings.exp_dir)

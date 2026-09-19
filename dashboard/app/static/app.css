@@ -262,3 +262,8 @@ svg .c-t-ng { fill: var(--ng-ink); font-size: 10px; font-weight: 600; }
 .key .k-hold { background: var(--hold-1); } .key .k-buy { background: var(--series-1); } .key .k-none { background: var(--cell-none); border: 1px solid var(--line); }
 .key .k-skip { background: var(--cell-skip); } .key .k-nostart { background: var(--ng-bg); }
 tr.row-missing td { background: var(--ng-bg); color: var(--ng-ink); }
+
+/* ---- 余白・枠の小さなクラス。⚠ templates に style="…" を書かない（CSP の style-src 'self' に止められる。§15-9） */
+.mt-12 { margin-top: 12px; } .mb-10 { margin-bottom: 10px; }
+.card-thick { border-width: 2px; }
+th.w-40 { width: 40%; }

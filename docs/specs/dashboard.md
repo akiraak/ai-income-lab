@@ -491,9 +491,9 @@ cd dashboard && AIL_DEMO=1 AIL_PORT=3019 .venv/bin/python -m app.main     # デ�
 # playwright（node）で幅 1280・fullPage。5 秒ごとの部分更新を 1 回通してから撮る
 ```
 
-- ⚠ **撮り終えたらデモを止めてから pytest を流す**（デモがモックのポート 8765〜8767 を掴み、デモのテストと取り合って極端に遅くなる）
+- ✅ **titan で pytest が極端に遅かった（144 件で 487 秒【実測 2026-09-18】）のは直した（146 件で 7.7 秒【実測】）**。デモのせいではなかった（当初の「デモがポートを取り合う」は誤り）。原因【実測】: titan の WSL2 は `networkingMode=mirrored` で、⚠ **閉じたループバックのポートへの接続が拒否されずタイムアウトする**（`127.0.0.1:9` へ繋ぐと `timed out`）。監視を要らないテスト 16 本が `create_app(settings)` のまま `TestClient` を開いて監視を起こし、`TT_REST_BASE=http://127.0.0.1:1` への認証で `ttclient` の 30 秒を 1 本ずつ待ち切っていた。直し方: 16 本を `start_monitors=False` にし、⚠ **`tests/conftest.py` に番人を置いた（テストで監視を起こすと落ちる）**。停止のテストだけは取消を実際に送るので、テストの client の待ちを 0.5 秒にした（操作のクライアントは待ち時間を監視のものから借りる。⚠ **`ttclient` の既定 30 秒 ＝ 実運用の値は変えていない**）
 - ✅・❌・🧪 が □ で写るのは撮影機に絵文字フォントが無いとき（titan は無い。Sx360 は `fonts-noto-color-emoji` があり、そのまま写る）
-- ⚠ 2026-09-18 の撮影で、デモの 3 画面（概要・全体の詳細・トレーダーの詳細）と判定は CSP 違反 0 件【実測】。⚠ **操作（`/ops`）にはインラインの style が 4 か所あり、CSP 違反が出る**（前から。確認ダイアログの不具合のタスクで直す）
+- ✅ **CSP 違反は全画面で 0 件【実測 2026-09-18】**（概要・全体の詳細・記録・判定・操作・開発。`tests/browser/confirm.mjs`）。当初は操作（`/ops`）ほかにインラインの style が 9 か所・確認ダイアログの `onsubmit` が 5 か所あり、CSP に止められていた（§15-9 で直した）
 
 ## 14. ハードの画面（2026-09-18）
 
@@ -697,6 +697,32 @@ flowchart LR
 ⚠ **仮データは `/api/live` に出さない**（`board()` だけが持つ。テストで固定）。⚠ 本物に差し替えたら印を外す。
 
 
+### 15-9. インラインを書かない（2026-09-18）
+
+**主張: CSP は緩めない。スクリプトは `app.js`、見た目は `app.css` に置き、templates には属性で意図だけを書く。**
+
+CSP は `script-src 'self'; style-src 'self'`（`app/main.py` の `SecurityHeaders`）。⚠ **templates に `on*="…"` や `style="…"` を書くと、ブラウザが黙って止める**（画面は崩れず、エラーはコンソールにしか出ない）。2026-09-18 までは確認ダイアログ 5 か所（停止 × 2・解除・発注・後片付け）が `onsubmit="return confirm(…)"` で書かれており、⚠ **押すと確かめずに送られていた**。
+
+```mermaid
+flowchart LR
+  B["button を押す"] --> E["form の submit"]
+  E --> J["app.js: data-confirm があるか"]
+  J -->|"なし"| G["そのまま送る"]
+  J -->|"あり"| D["confirm(文面)"]
+  D -->|"OK"| G
+  D -->|"キャンセル"| X["送らない"]
+```
+
+| 書きたいもの | 書き方 |
+| --- | --- |
+| 送る前に確かめる | form に `data-confirm="文面"`（`app.js` が `document` の `submit` で捕まえる。⚠ 部分更新で差し替わった form にも効く） |
+| 余白・枠・幅 | `app.css` のクラス（`.mt-12`・`.mb-10`・`.card-thick`・`th.w-40`。足りなければクラスを足す） |
+| グラフ | サーバで組む SVG（§15-5。属性だけで描く。`style=` を使わない） |
+
+- ⚠ **確認ダイアログは 2 つ目の歯止め**（押し間違いを防ぐ）。1 つ目はサーバ側（CSRF・面の規則・本番の発注の確認文）で、こちらは変えていない
+- テスト: pytest が templates の全ファイルと描画した画面を走査し、インラインが 1 つでもあれば落ちる（`test_app.py`）。ブラウザでの動き（出る ／ 断ると送られない ／ 受けると送られる ／ CSP 違反 0 件）は `tests/browser/confirm.mjs`（playwright・node。⚠ **pytest には入れない** ＝ dashboard の依存に playwright を足さない。⚠ **POST はブラウザ側で止める**ので `HALT` は書かれない）
+
+
 ## 9. 更新履歴
 
 - 2026-09-05: 初版（Phase 1〜4 の実装、デプロイ契約）
@@ -710,3 +736,5 @@ flowchart LR
 - 2026-09-18: **ハードの画面**（§14）。vibeboard に「ハード」タブを足し、GPU（`nvidia-smi`）・CPU・メモリ・ディスクのいまの状態と、この 1 時間の折れ線 6 枚を出す。⚠ **値を読むのは sidecar の見張り 1 本**で、画面は JSON を自前で取りに来る（iframe を作り直さない）。⚠ **vibeboard 本体は改造していない**。読み手は `dashboard/hwstat.py`・画面は `dashboard/hwview.py`（`app/` の外）。pytest 25 件（読み手 23 ＋ HTTP 2）
 - 2026-09-18: **デザイン規約**（§15）。黒ベースの決めごとをアーカイブしたプランから移し、正本を本節にした（⚠ 値は `app.css` の変数名で書く。コードが正）。`/live` を撮って崩れ 3 つを直し（差 1 中央値の二進の端数を 0.01bp に丸める・「執行の差」を `kv` から `exp-cards` の 5 枚へ・短い列と注文 ／ 日次の表を折り返さない）、画面を §13-5 に貼った。`/live` のクラスと差 1 の色分けは §15-4。プランは [docs/plans/archive/dashboard-design-spec.md](../plans/archive/dashboard-design-spec.md)
 - 2026-09-18: **画面を作り直した**（§1・§13・§15-4〜15-8）。入口を概要（`/`。監視の帯・大きな数字・損益の推移・執行の差・トレーダーの段）にし、`/overall`（全体の詳細: 日次・注文の履歴・口座と接続）と `/traders/<name>`（トレーダーの詳細）を足した。`/live` は `/` へ転送。ナビは左ペイン。見た目はデザイン 3「数字とグラフが主役」。図は `app/charts.py`（サーバで組む SVG）、データは `live.board()`。⚠ **紙上の損益・差 3・休場日の暦は仮データ**（印を付け、`/api/live` に出さない）。デモは執行器のモックの記録を読む。監視の 1 件取消のボタンを外した。pytest 144 件（新しい画面・転送・仮データの印・起動しなかった日・公開面・デモの記録）。プランは [dashboard-design-implement.md](../plans/dashboard-design-implement.md)
+- 2026-09-18: **g3plus を `809104f` に更新した**（前回は `eec106c`・2026-09-10。titan から `ssh -i ~/.ssh/id_rsa_nopass g3plus` で pull → `docker compose build` → `up -d`。前のイメージは `ail-dashboard-ail-dashboard:prev` に残した）。確認【実測】: healthy ／ コンテナ内で `/`・`/overall`・`/records`・`/judge`・`/api/live`・`/api/state` が 200、`/live` は `/` へ 302、`/ops` は 404（公開面）／ docker network 越しの JWT なしは 403 ／ 監視は cert に再接続（refresh 1 回成功・エラー 0）。⚠ 実売買の部分は契約（§7）どおり空
+- 2026-09-18: **確認ダイアログとインラインの style を直した**（§15-9）。`onsubmit="return confirm(…)"` 5 か所が CSP（`script-src 'self'`）に止められ、停止・解除・発注・後片付けが確かめずに送られていた → `data-confirm` ＋ `app.js`。インラインの `style=` 9 か所は `app.css` のクラスへ。⚠ CSP は緩めていない。ブラウザで 3 つの form（概要の停止・操作の停止・後片付け）が「出る ／ 断ると送られない ／ 受けると送られる」・CSP 違反 0 件【実測】。**pytest の 487 秒も直した**（146 件で 7.7 秒。§13-5。監視を要らないテスト 16 本が監視を起こしていた。`conftest.py` に番人）。⚠ **g3plus は未デプロイ**（停止ボタンは公開面にもある）。プランは [dashboard-pytest-speed-and-confirm.md](../plans/archive/dashboard-pytest-speed-and-confirm.md)

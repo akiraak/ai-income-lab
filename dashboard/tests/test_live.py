@@ -143,7 +143,7 @@ def test_recent_days_are_newest_first_and_flag_test_and_problems(settings):
 def test_missing_live_dir_is_ok(settings):
     assert lv.index(settings.live_dir)["empty"]
     assert lv.board(settings.live_dir)["empty"]
-    with TestClient(create_app(settings), client=("127.0.0.1", 50000)) as c:
+    with TestClient(create_app(settings, start_monitors=False), client=("127.0.0.1", 50000)) as c:
         r = c.get("/")
         assert r.status_code == 200 and "定義も記録も無い" in r.text
         assert c.get("/overall").status_code == 200
@@ -152,14 +152,14 @@ def test_missing_live_dir_is_ok(settings):
 
 def test_live_redirects_to_overview(settings):
     """2026-09-18: 実売買の画面は概要（/）に移した。/live は名指しされているので転送で残す。"""
-    with TestClient(create_app(settings), client=("127.0.0.1", 50000)) as c:
+    with TestClient(create_app(settings, start_monitors=False), client=("127.0.0.1", 50000)) as c:
         r = c.get("/live", follow_redirects=False)
         assert r.status_code == 302 and r.headers["location"] == "/"
 
 
 def test_pages_render_and_have_no_secrets(settings):
     build_live_dir(settings.live_dir)
-    with TestClient(create_app(settings), client=("127.0.0.1", 50000)) as c:
+    with TestClient(create_app(settings, start_monitors=False), client=("127.0.0.1", 50000)) as c:
         home = c.get("/")
         assert home.status_code == 200
         assert "test_a" in home.text and "2026-09-18" in home.text
@@ -183,7 +183,7 @@ def test_placeholders_are_marked_and_not_in_api(settings):
     build_live_dir(settings.live_dir)
     b = lv.board(settings.live_dir)
     assert b["placeholder"]["paper"] and b["traders"][0]["paper_pct"]
-    with TestClient(create_app(settings), client=("127.0.0.1", 50000)) as c:
+    with TestClient(create_app(settings, start_monitors=False), client=("127.0.0.1", 50000)) as c:
         assert "仮データ" in c.get("/").text
         tr = c.get("/traders/test_a").text
         assert "仮データ" in tr and "紙上" in tr
@@ -199,7 +199,7 @@ def test_missing_weekday_is_shown_as_not_started(settings):
     b = lv.board(settings.live_dir)
     assert b["missing"] == ["2026-09-16"]                 # 09-15・09-17・09-18 はある
     assert [c["a"] for c in b["traders"][0]["grid"]["T"]][1] == "nostart"
-    with TestClient(create_app(settings), client=("127.0.0.1", 50000)) as c:
+    with TestClient(create_app(settings, start_monitors=False), client=("127.0.0.1", 50000)) as c:
         assert "起動なし" in c.get("/overall").text
 
 
@@ -208,7 +208,7 @@ def test_public_face_can_read_but_not_post(settings):
     build_live_dir(settings.live_dir)
     settings.auth_mode = "cloudflare"
     settings.cf_team, settings.cf_aud, settings.cf_email = "team", "aud", "a@example.com"
-    with TestClient(create_app(settings), client=("127.0.0.1", 50000)) as c:
+    with TestClient(create_app(settings, start_monitors=False), client=("127.0.0.1", 50000)) as c:
         for path in ("/", "/overall", "/traders/test_a", "/api/live"):
             assert c.get(path).status_code == 200, path
             assert c.post(path).status_code == 405, path

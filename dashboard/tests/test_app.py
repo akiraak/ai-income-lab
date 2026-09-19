@@ -1,12 +1,16 @@
 """画面と JSON の応答に秘密が出ないこと、面ごとの経路、CSRF、停止ボタン。監視ループは起動しない。"""
 
 import json
+import re
+from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
 
 from app.main import create_app
 from tests.conftest import FAKE_ACCOUNT, FAKE_REFRESH, FAKE_SECRET, good_run, write_run
+
+DASH = Path(__file__).resolve().parents[1]
 
 FAKE_ACCESS = "eyJhbGciOiJSUzI1NiJ9.eyJzdWIiOiJmYWtlIiwiZXhwIjo5OTk5OTk5OTk5fQ.c2lnbmF0dXJlLWZha2UtZmFrZQ"
 
@@ -21,6 +25,9 @@ def client(settings):
     from ttclient import Token
 
     mon.client.token = Token(access_token=FAKE_ACCESS, expires_in=900, obtained_at=1.0, scope="read trade openid")
+    # ⚠ 停止のテストは取消を閉じたポート（TT_REST_BASE）へ実際に送る。WSL2（mirrored）は拒否を返さず無応答なので、
+    # テストの client だけ待ちを短くする（⚠ ttclient の既定 30 秒 ＝ 実運用の値は変えない）
+    mon.client.timeout = 0.5
     app.state.redactor.secret(FAKE_ACCESS, "<access_token:masked>")
     mon.account_number = FAKE_ACCOUNT
     label = app.state.redactor.account(FAKE_ACCOUNT)
@@ -153,3 +160,40 @@ def test_working_orders_exclude_finished(settings, monkeypatch):
     assert all(o["status"] in WORKING_STATUSES for o in snap["live_orders"])
     assert snap["orders_today"]["total"] == 4
     assert snap["orders_today"]["by_status"] == {"Live": 1, "Filled": 1, "Rejected": 1, "Cancelled": 1}
+
+
+# ---------------------------------------------------------------- CSP とインライン（2026-09-18）
+# CSP は script-src 'self'; style-src 'self'。templates に on*="…" や style="…" を書くとブラウザが黙って止める
+# （確認ダイアログが出ずに送られた）。⚠ ブラウザでの動き（出る・断ると送られない）は tests/browser/confirm.mjs で見る。
+
+INLINE = re.compile(r"""\s(on[a-z]+|style)\s*=\s*["']""", re.I)
+
+
+def test_templates_have_no_inline_handlers_or_styles():
+    hits = []
+    for path in sorted((DASH / "app" / "templates").glob("*.html")):
+        for n, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+            if INLINE.search(line) or "<style" in line.lower() or re.search(r"<script(?![^>]*\bsrc=)", line, re.I):
+                hits.append(f"{path.name}:{n}: {line.strip()[:80]}")
+    assert not hits, "templates にインラインのスクリプト ／ style がある（CSP に止められる。app.js ／ app.css へ）:\n" + "\n".join(hits)
+
+
+def test_rendered_pages_have_no_inline_and_forms_ask_before_sending(client):
+    csp = client.get("/").headers["content-security-policy"]
+    assert "script-src 'self'" in csp and "style-src 'self'" in csp and "unsafe-inline" not in csp
+    for path in ["/", "/overall", "/records", "/records/20260908T140000Z", "/records/diff?a=20260908T140000Z&b=20260909T140000Z", "/judge", "/ops", "/dev"]:
+        assert not INLINE.search(client.get(path).text), path
+    # 停止（全画面の右上と /ops）・後片付け（prod があるときだけ）は data-confirm を持つ
+    assert re.search(r'<form[^>]*action="/ops/halt"[^>]*data-confirm="停止する', client.get("/").text)
+    assert re.search(r'<form[^>]*action="/ops/halt"[^>]*data-confirm="停止する', client.get("/ops").text)
+    # dry-run の結果に出る発注の form
+    csrf = client.cookies.get("ail_csrf")
+    src = (DASH / "app" / "templates" / "ops.html").read_text(encoding="utf-8")
+    for action in ["/ops/resume", "/ops/halt", "/ops/submit", "/ops/cleanup"]:
+        assert re.search(rf'<form[^>]*action="{action}"[^>]*data-confirm="', src), action
+    # 停止中は解除の form が確認つきで出る
+    client.post("/ops/halt", data={"csrf": csrf}, follow_redirects=False)
+    assert re.search(r'<form[^>]*action="/ops/resume"[^>]*data-confirm="停止を解除する', client.get("/ops").text)
+    # 確かめるのは app.js（'self' なので CSP を通る）
+    js = client.get("/static/app.js").text
+    assert "data-confirm" in js and "preventDefault" in js and '"submit"' in js

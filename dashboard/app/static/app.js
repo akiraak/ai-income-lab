@@ -20,3 +20,15 @@
     timer = setInterval(tick, interval);
   });
 })();
+
+// 確認ダイアログ: data-confirm="<文面>" を持つ form は、送る前に confirm() で確かめる。断ったら送らない。
+// ⚠ templates に onsubmit="…" を書かない（CSP の script-src 'self' に止められ、確かめずに送られる。2026-09-18）。
+// ⚠ form ごとではなく document で捕まえる（部分更新で差し替わった要素の中の form にも効く）。
+(function () {
+  document.addEventListener("submit", function (ev) {
+    var form = ev.target;
+    if (!form || !form.getAttribute) { return; }
+    var text = form.getAttribute("data-confirm");
+    if (text && !window.confirm(text)) { ev.preventDefault(); }
+  });
+})();

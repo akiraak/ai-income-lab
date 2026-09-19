@@ -152,7 +152,7 @@ def test_missing_checks_are_reported_not_guessed(tmp_path):
 
 def test_page_renders_with_no_runs_at_all(settings):
     """⚠ **`runs/` は git 管理外。** 別環境で空でも落とさない。"""
-    with TestClient(create_app(settings), client=("127.0.0.1", 50000)) as c:
+    with TestClient(create_app(settings, start_monitors=False), client=("127.0.0.1", 50000)) as c:
         r = c.get("/experiments")
         assert r.status_code == 200 and "検証の記録が無い" in r.text
 
@@ -174,7 +174,7 @@ def test_page_and_detail_render(settings):
                                          "実効観測数": 10870},
                              "drift_粗利bp": 4.7489,
                              "dsr": {"DSR": 0.9276, "n_trials": 36, "n_obs": 10870}})
-    with TestClient(create_app(settings), client=("127.0.0.1", 50000)) as c:
+    with TestClient(create_app(settings, start_monitors=False), client=("127.0.0.1", 50000)) as c:
         r = c.get("/experiments")
         assert r.status_code == 200
         assert "断面・日足・1 日先・調整後" in r.text and "+2.30" in r.text
@@ -195,7 +195,7 @@ def test_placebo_section_and_badge_render(settings):
                                       "的中率": 0.50, "IC": 0.01, "本数": 16.0},
                              "folds": {"positive": 1, "folds": 5, "pattern": "＋−−−−",
                                        "values": [9.0, -1.0, -2.0, -3.0, -4.0]}})
-    with TestClient(create_app(settings), client=("127.0.0.1", 50000)) as c:
+    with TestClient(create_app(settings, start_monitors=False), client=("127.0.0.1", 50000)) as c:
         r = c.get("/experiments")
         assert r.status_code == 200
         assert "日付をずらした偽薬（一覧の対象外）" in r.text and "偽薬 1" in r.text
@@ -205,7 +205,7 @@ def test_placebo_section_and_badge_render(settings):
 
 
 def test_unknown_and_traversing_run_ids_are_404(settings):
-    with TestClient(create_app(settings), client=("127.0.0.1", 50000)) as c:
+    with TestClient(create_app(settings, start_monitors=False), client=("127.0.0.1", 50000)) as c:
         assert c.get("/experiments/nope").status_code == 404
         assert c.get("/experiments/..%2F..%2Fetc").status_code in (404, 400)
 
@@ -223,7 +223,7 @@ def test_demo_banner_says_the_validation_screen_is_not_mock(settings):
                      inputs={"layer": "adjusted"}, summary=rows(2.30),
                      checks={"best": {"method": "F1-2 相互情報量", "純利bp": 2.30, "粗利bp": 7.3,
                                       "的中率": 0.5, "IC": 0.05, "本数": 32.0}})
-    with TestClient(create_app(settings), client=("127.0.0.1", 50000)) as c:
+    with TestClient(create_app(settings, start_monitors=False), client=("127.0.0.1", 50000)) as c:
         e = c.get("/experiments").text
         assert "デモ" in e and "この「検証」の画面はデモの対象外" in e
         assert str(settings.runs_dir) in e          # 出所は runs/ を出す
@@ -311,7 +311,7 @@ def test_trading_summary_keeps_the_threshold_columns(tmp_path):
 def test_trading_detail_page_shows_all_three_thresholds(settings):
     """⚠ **3 閾値とも画面に出す**（rules.md 13-3。checks.json の写しを出すだけ）。"""
     write_trading_experiment(settings.runs_dir, "2026-09-10T10-00-00_trade_own_ridge_a")
-    with TestClient(create_app(settings), client=("127.0.0.1", 50000)) as c:
+    with TestClient(create_app(settings, start_monitors=False), client=("127.0.0.1", 50000)) as c:
         r = c.get("/experiments")
         assert r.status_code == 200 and "閾値売買・共通" in r.text
         d = c.get("/experiments/2026-09-10T10-00-00_trade_own_ridge_a")
@@ -425,7 +425,7 @@ def test_partially_gated_run_stays_in_the_list_with_its_score(tmp_path):
 
 def test_gated_run_shows_up_on_the_pages_with_the_gate_values(settings):
     write_gated_experiment(settings.runs_dir, "2026-09-11T11-00-00_trade_own_lgbm_a")
-    with TestClient(create_app(settings), client=("127.0.0.1", 50000)) as c:
+    with TestClient(create_app(settings, start_monitors=False), client=("127.0.0.1", 50000)) as c:
         r = c.get("/experiments")
         assert r.status_code == 200
         assert "門前" in r.text and "2026-09-11T11-00-00_trade_own_lgbm_a" in r.text
@@ -447,7 +447,7 @@ def test_partially_gated_detail_page_names_the_methods_not_run(settings):
     ch = json.loads((d / "checks.json").read_text(encoding="utf-8"))
     ch["gate"] = gate_doc(blocked=("F3-1 Lasso",), passed=("全部使う（基準）",))
     (d / "checks.json").write_text(json.dumps(ch, ensure_ascii=False), encoding="utf-8")
-    with TestClient(create_app(settings), client=("127.0.0.1", 50000)) as c:
+    with TestClient(create_app(settings, start_monitors=False), client=("127.0.0.1", 50000)) as c:
         t = c.get("/experiments/2026-09-11T10-00-00_trade_own_ridge_a").text
         assert "門前の手法が 1 件" in t and "F3-1 Lasso" in t
         assert "前置きの門" in t and "通過" in t             # 通った手法も並べる

@@ -43,7 +43,7 @@
     <span class="muted">資格情報が無いので監視する環境が無い（TT_* / TT_PROD_* を設定する）</span>
   {% endfor %}
   <span class="grow"></span>
-  <form method="post" action="/ops/halt" class="inline" onsubmit="return confirm('停止する: HALT を書き、働いている注文を全部取り消す。よいか？')">
+  <form method="post" action="/ops/halt" class="inline" data-confirm="停止する: HALT を書き、働いている注文を全部取り消す。よいか？">
     <input type="hidden" name="csrf" value="{{ csrf }}">
     <button class="btn btn-danger" {% if halt.halted %}disabled{% endif %}>■ 停止</button>
   </form>

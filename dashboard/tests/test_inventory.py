@@ -213,7 +213,7 @@ def test_missing_exp_dir_is_ok(settings):
     """⚠ **g3plus には実験ディレクトリを COPY しない。** 無くても 200。"""
     d = inv.index(settings)
     assert d["empty"] is True
-    with TestClient(create_app(settings), client=("127.0.0.1", 50000)) as c:
+    with TestClient(create_app(settings, start_monitors=False), client=("127.0.0.1", 50000)) as c:
         r = c.get("/data")
         assert r.status_code == 200 and "実験のデータが無い" in r.text
         assert c.get("/api/data").status_code == 200
@@ -231,7 +231,7 @@ def test_broken_files_are_skipped(settings):
 
 def test_page_renders_the_inventory(settings):
     build_exp_dir(settings.exp_dir)
-    with TestClient(create_app(settings), client=("127.0.0.1", 50000)) as c:
+    with TestClient(create_app(settings, start_monitors=False), client=("127.0.0.1", 50000)) as c:
         text = c.get("/data").text
         assert "調整後" in text and "NCEI Storm Events" in text
         assert "120 日" in text                          # ずらし幅

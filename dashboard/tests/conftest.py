@@ -64,6 +64,23 @@ def write_run(records_dir: Path, rows):
     return path
 
 
+@pytest.fixture(autouse=True)
+def _no_monitors_in_tests(monkeypatch):
+    """テストで監視を起こさせない番人。`create_app(settings)` のまま `TestClient` を開くと落ちる。
+
+    ⚠ **監視は `TT_REST_BASE=http://127.0.0.1:1` へ認証しに行く**。ふつうの Linux は即 `ConnectionRefused` だが、
+    WSL2（mirrored）は閉じたループバックのポートが無応答で、`ttclient` の 30 秒を 1 本ずつ待ち切る
+    （2026-09-18 に 16 本 × 30 秒 ＝ 487 秒【実測】）。監視の状態を見たいテストは `start_monitors=False` のまま
+    `app.state.monitors.get(env)` に直に入れる（`test_app.py` の形）。
+    """
+    from app.monitor import Monitors
+
+    async def _refuse(self):
+        raise AssertionError("テストで監視を起こさない: create_app(settings, start_monitors=False) にする（conftest.py の番人）")
+
+    monkeypatch.setattr(Monitors, "start", _refuse)
+
+
 @pytest.fixture
 def settings(tmp_path):
     data = tmp_path / "data"

@@ -114,6 +114,7 @@ class Ops:
             allow_prod_orders=orders and self.settings.allow_prod_orders,
             rest_base=mon.creds.get("rest_base"),
             account_streamer=mon.creds.get("account_streamer"),
+            timeout=mon.client.timeout,  # 待ち時間も監視のものを借りる（既定は ttclient の 30 秒のまま。テストだけ短くできる）
         )
         client.token = mon.client.token
         return client

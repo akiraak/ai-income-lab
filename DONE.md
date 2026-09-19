@@ -1,4 +1,22 @@
 # DONE
+- 2026-09-18 管理画面の pytest の 487 秒と、CSP で止まっていた確認ダイアログを直した [plan](docs/plans/archive/dashboard-pytest-speed-and-confirm.md)
+  - 利用者の指示「2 → 1 の順で進めて」（GAN × ownex のキューが回っている間に進められるタスクとして挙げた 2 番と 1 番。`dashboard/` の中で完結し、キューには触れていない）
+  - **pytest: 144 件 487 秒 → 146 件 7.7 秒【実測】**。数えた結果、⚠ **監視を実際に起こして通すテストは 1 本も無かった**（`test_app.py`・`test_demo.py` は `start_monitors=False` のまま監視の状態を直に入れる形）。監視を要らない 16 本（`test_experiments` 8・`test_inventory` 2・`test_live` 6）が `create_app(settings)` のまま `TestClient` を開いて監視を起こし、WSL2（mirrored）の無応答のポートで 30 秒ずつ待っていた（16 × 30 ≒ 480 秒）
+  - 直し方: 16 本を `start_monitors=False` に ／ `tests/conftest.py` に番人（テストで `Monitors.start` が呼ばれたら落ちる。落ちることも確かめた）／ 停止のテストは取消を閉じたポートへ実際に送るので、テストの client の待ちを 0.5 秒に（`app/ops.py` の操作のクライアントが待ち時間を監視のものから借りるようにした。⚠ **`ttclient` の既定 30 秒 ＝ 実運用の値は変えていない**）
+  - **確認ダイアログ**: `onsubmit="return confirm(…)"` 5 か所（`base.html` 停止・`ops.html` 解除 ／ 停止 ／ 発注 ／ 後片付け）→ `data-confirm="…"` ＋ `app/static/app.js`（`document` の `submit` で捕まえる ＝ 部分更新で差し替わった form にも効く）。インラインの `style=` 9 か所（`ops.html` 4・`diff.html` 2・`record.html` 1・`dev.html` 2）→ `app.css` のクラス（`.mt-12`・`.mb-10`・`.card-thick`・`th.w-40`）。⚠ **CSP は緩めていない**。サーバ側の歯止め（CSRF・面の規則・本番の発注の確認文）も変えていない
+  - 確認【実測】: playwright（デモ・ポート 3019・POST はブラウザ側で止めた ＝ サーバに届いた POST は 0 件・`HALT` は書かれていない）で、概要の停止・操作の停止・後片付けの 3 つとも「ダイアログが出る ／ 断ると送られない ／ 受けると送られる」、CSP 違反 0 件（概要・全体の詳細・記録・判定・操作・開発）。スクリプトは `dashboard/tests/browser/confirm.mjs` に残した（⚠ pytest には入れていない ＝ dashboard の依存に playwright を足さない）。pytest は templates と描画した画面にインラインが 1 つでもあれば落ちる（＋2 件）
+  - ⚠ ブラウザで見ていないもの: 解除・発注の form（停止中 ／ dry-run の後にだけ出る。pytest で `data-confirm` があることは固定）と差分の画面（デモの記録が 1 本しかない。pytest でインラインが無いことは固定）
+  - ⚠ **g3plus は未デプロイ**（停止ボタンは公開面にもあるので、公開面ではまだ確かめずに送られる。デプロイは利用者の指示を待つ）
+  - 仕様: [dashboard.md §15-9](docs/specs/dashboard.md)「インラインを書かない」・§13-5
+
+- 2026-09-18 作り直した管理画面を g3plus にデプロイした（`eec106c` → `809104f`）
+  - 利用者の指示「デプロイして」。先に「デプロイ経路があるか。g3plus から消した気がする」を調べた → ⚠ **消えていなかった**（コンテナ `ail-dashboard` は Up 8 日・healthy・`AIL_AUTH_MODE=cloudflare`、clone と `~/g3plus-ops/ail-dashboard/` の Dockerfile ／ compose も残っていた）。2026-09-10 に消したのは「g3plus で検証・データを見せる」案の `runs/` の写しで、コンテナではない
+  - 経路【実測】: titan から `ssh -i ~/.ssh/id_rsa_nopass g3plus`（10.0.1.10・`ubuntu`）。⚠ 既定の鍵では `Permission denied`、`~/.ssh/config` に g3plus の項目は無い。⚠ g3plus の `~/g3plus-ops` は git 管理ではなく、手順書（`docs/workflows/ail-dashboard.md`）も g3plus の上には無い（titan にも g3plus-ops の clone は無い）
+  - 手順: いまのイメージに `:prev` を付ける → clone で `git pull --ff-only` → `docker compose build` → `up -d`。戻すときは `:prev` を `:latest` に付け直して `up -d`
+  - 確認【実測】: デプロイ前に titan で pytest 144 件 pass ／ g3plus で healthy ／ コンテナ内で `/`・`/overall`・`/records`・`/judge`・`/api/live`・`/api/state`・`/experiments`・`/data` が 200、`/live` は `/` へ 302、`/ops` は 404（公開面なので出ない）／ docker network 越し（cloudflared と同じ経路）の JWT なしは 403 ／ 監視は cert に再接続（refresh 1 回成功・エラー 0）
+  - ⚠ 変わったこと: 公開面の `/` が監視から概要になった。g3plus には執行器の記録を置いていないので実売買の部分は空（契約 §7 どおり。届ける経路は F21 で未定）
+  - ⚠ 見つけたこと【実測】: titan の pytest が 487 秒かかるのはデモのせいではなく、WSL2（mirrored）で閉じたループバックのポートへの接続がタイムアウトするため（[dashboard.md §13-5](docs/specs/dashboard.md) の誤った 1 行を直し、TODO にタスクを足した）
+
 - 2026-09-18 決めた構成とデザインを管理画面に実装した（デザイン 3「数字とグラフが主役」・トレーダーは 1 人 1 段・ナビは左ペイン・日次は「全体の詳細」）[plan](docs/plans/archive/dashboard-design-implement.md)
   - 利用者の指示: デザインを反映する。データが無いものは仮データを入れ、後で実装するためのタスクを管理画面のタスクに残す
   - 画面: `/` 概要（監視の帯 5 秒更新・大きな数字は全トレーダーの損益 1 つ・損益の推移・執行の差・トレーダーの段）／ `/overall` 全体の詳細（日次・注文の履歴・口座と接続）／ `/traders/<name>` トレーダーの詳細 ／ `/live` は `/` へ転送 ／ 左ペイン（見る・トレーダー・API 検証・ローカル面だけ）。検証・データ・開発は左ペインから外した（削除は別タスク）。監視の 1 件取消のボタンを外した

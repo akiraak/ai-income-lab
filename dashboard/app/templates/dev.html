@@ -21,7 +21,7 @@
 </section>
 </div>
 
-<section class="card" style="margin-top:12px">
+<section class="card mt-12">
   <h3>手順を実行する（sample.py）</h3>
   <form method="post" action="/dev/run" class="stack">
     <input type="hidden" name="csrf" value="{{ csrf }}">
@@ -35,7 +35,7 @@
   <p class="muted small">記録は {{ records_dir }} に落ちる（TT_OUT_DIR）。停止中（HALT）は発注系の手順が拒否される。⚠ 本物の cert に対する認証失敗を繰り返すと IP が約 8 時間ブロックされる。</p>
 </section>
 
-<section class="card" style="margin-top:12px">
+<section class="card mt-12">
   <h3>ジョブ</h3>
   {% if dev.jobs %}
   <table class="small"><tr><th>id</th><th>種類</th><th>内容</th><th>状態</th><th>開始</th><th>終了</th></tr>

@@ -40,6 +40,7 @@ cp .env.example .env          # AIL_AUTH_MODE=local（WSL2 → Windows のブラ
 
 ```bash
 .venv/bin/python -m pytest -q tests      # 面の判定・JWT・記録と判定・秘密が応答に出ないこと・停止
+PW_DIR=<playwright を入れた場所> node tests/browser/confirm.mjs http://127.0.0.1:3019   # 確認ダイアログと CSP 違反 0 件（デモで起動して流す。dashboard.md §15-9）
 ```
 
 モックに対して全部を動かすには、`experiments/tastytrade-api-sample/mock_server.py --market-data` を立て、

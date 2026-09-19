@@ -16,18 +16,6 @@
     ✅ 2026-09-10 完了。成果物: [ts-trend-ai-survey.md](docs/specs/experiments/ts-trend-ai-survey.md)。5 系統に整理し、候補リスト（§7）を作成。金融の一次評価 2 本が「汎用基盤モデルは対ランダムウォークの利得が小さくまばら」で §9 と同じ形
   ✅ **モデルの軸は 2026-09-15 に一旦閉じた**（利用者の指示: **親タスクを残しつつ一旦このタスクを終わらせて他を進める**）。子「DL / 進化的探索の手法を増やして検証を回す」は [DONE.md](DONE.md) へ移した（優先 2・3 とも「落とす」）
   ⚠ **残る優先 1（進化的ファクター探索の基盤）は下の「進化的探索の実行を継続して回せる仕組み」が器である**（[ts-trend-ai-survey.md §7](docs/specs/experiments/ts-trend-ai-survey.md) の総括）
-  - [ ] ChatGPT からの GAN 案の実装（条件付き GAN による株価シナリオ予測） [plan](docs/plans/cgan-scenario-forecast.md)
-    利用者の指示（2026-09-10）: **ChatGPTからのGAN案の実装**（指示書が長いので全文はプランに収載）
-    ⚠ ここの「GAN」は ML 用語どおりの**条件付き GAN（WGAN-GP）を予測器として使う**案。親タスクの「GAN ＝ 進化的探索」とも、2026-09-09 に落とした**データ増強** GAN（[gpu-models.md §4](docs/specs/experiments/gpu-models.md)）とも別物（プラン §0-1 に整理）
-    中身: 直前 60 営業日を条件に次の 5 営業日の日次対数リターンを 1,000 本生成し、上昇確率・予測区間・下落リスクを推定。主指標は 5 日累積リターン分布の CRPS。履歴ベース再標本化・軽量モデル・既存モデルの 3 種と同条件で比較
-    ⚠ 採用・収益性を前提にしない。ベースラインに負けても、検証を完了し結果を明示すればタスクとしては完了（プラン §9）
-    関連: 「DL / 進化的探索の手法を増やして検証を回す」
-    - [ ] Phase 0: 設計決定（統合位置・対象銘柄・既存 `gan.py` の再利用可否・設定の分離）
-    - [ ] Phase 1: データと特徴量（予測時点で利用可能な値だけ・scaler は学習区間内 fit）＋ リーク防止テスト
-    - [ ] Phase 2: 条件付き WGAN-GP の実装（学習・checkpoint 選択・モード崩壊の検出）
-    - [ ] Phase 3: 時間順分割・walk-forward と比較対象 3 種。最終テストの前に採用基準を記録
-    - [ ] Phase 4: 評価指標（CRPS・Brier・被覆率）と予測出力（JSON・分位点・校正図・予測区間図）
-    - [ ] Phase 5: 再現性の確認と評価レポート（比較表・期間・seed 別結果・採用判断）
   - [ ] 進化的探索を他のモデル・経路に広げる（⚠ **「既存のモデル全てに当てはめる」は計算量で成立しない**。意味が 2 つに分かれる）
     派生元: 利用者の質問（2026-09-16）: **遺伝的アルゴリズムは既存のモデル全てに当てはめることはできる？**
     ⚠ **(a) GA が作った列を食わせる ＝ ✅ ほぼ全部に当てはまる**: モデル 9 本（Ridge・LightGBM・MLP ＋ GAN 増強 6 種）は config の `model =` を 1 行替えるだけ（GA は `transform` ＝ モデルの前段なので非依存）
@@ -42,32 +30,6 @@
     - [ ] 検知器に「変換済みの列を受け取る」口を足すか決める（⚠ **出力の契約 14-1 の変更**。設計から。半日〜1 日【推測】）
     - [ ] モデルの構造・ハイパラを進化させるか決める（⚠ **軽いモデルだけ**。⚠ **[13-6 規約 3](docs/specs/experiments/feature-discovery/rules.md)「ハイパーパラメータは動かさない」と 14-11 の書き換えが先**）
 
-- [ ] 閾値売買の記録を広げる 4 本（保有日数の分布・逆売買の診断・出来高の入力・`ex_` / `im_` の回し直し）を、配線の順序を決めて回す
-  利用者の指示（2026-09-17）: 3 つを 1 つの親の子にし、それぞれの依存関係を確かめてから進める。同日、`ex_` / `im_` の回し直しも子にし、それと出来高のプランを作った
-  ✅ **2026-09-17 に 4 本のうち 3 本と `ex_` / `im_` の Phase 1・2・4 が済んだ**（[DONE.md](DONE.md)）。⚠ **残るのは GAN × ownex 24 本の回し直し（GPU・約 30 時間・実行中）とその追記だけ**
-  - 順序は決めたとおりに回した: `ex_` 14 本（表を作り直してから）→ 保有日数 Phase 2 → 逆売買 Phase 2 → 代表構成 1 回（2 つの Phase 3 を兼ねた）→ 答えの文書 2 本 → 出来高の対。指紋テスト（`tests/test_trading_run.py`・`tests/_fingerprint.py`）は列を足す前のコード `696cf7b` で取り、3 本とも通ったまま
-  - n_trials: 604 → **613**（`midcap_ex` の期間が 09-10 → 06-27 に揃って新しい鍵 ＋3 ／ 出来高の対 ＋6）。保有日数・逆売買・代表構成・`ex_` 14 本は ＋0。判定が変わったのは `trade_ownex_lgbm_a` の θ=50（保留 → 落とす）と θ=55（落とす → 保留）の 2 行だけ（[daily-data-sources.md §16](docs/specs/experiments/daily-data-sources.md)）
-  - titan で `ex_` / `im_` を使う実験を回し直し、台帳を吐き直す（マージで特徴量の計算が変わったため）[plan](docs/plans/exim-rerun-titan.md)
-    派生元: 「割り当てなしの災害系列の改善を、日付をずらした偽薬で確かめる」（2026-09-17 完了。[記録 §15](docs/specs/experiments/daily-data-sources.md)）
-    ⚠ **2026-09-17 に Sx360 で回した 29 実行（本物・価格だけ・偽薬 27）も、この回し直しの対象ではない**（偽薬は台帳の対象外・本物は titan で回し直す）
-    ⚠ **titan の台帳の災害 5 本（2026-09-10）と §9 の 3 本（2026-09-09）は、z20 の穴と rolling の誤差を直す前のコードの数字**
-    ⚠ **回し直すのは titan で**（Sx360 の `runs/` には `gpu_*`・閾値売買などの実行が無く、台帳を吐くと行が大きく消える）。⚠ **titan の `git pull` を先に**
-    ⚠ **Sx360 の実行（`runs/2026-09-16T*`・偽薬の `*_shift*`）は titan へ持っていかない**（06-15 始まりの本物は titan で回し直す。偽薬は台帳の対象外）
-    ⚠ **titan の災害データは 2018 年からしか無い**（本物を回すだけなら足りる。偽薬を titan で回すなら `cli.fetch --exog impact_daily --source ncei_storm` と `impact_warnings --source iem` で 2010 年から取る）
-    ⚠ **`ssh titan` は `SSH_AUTH_SOCK=~/.ssh/agent.sock ssh-add ~/.ssh/titan-ed25519` が要る**（パスフレーズの入力は利用者）
-    ⚠ **2026-09-17 に分かったこと**（プラン §1-2・§1-3）: 災害 5 本 ＋ §9 の 3 本は ✅ **12:48〜12:53 に titan で回し直し済み**（commit `1b539d1`。純利の差は最大 1.28bp・記録と台帳は未反映）。⚠ **`ex` 層を使う実行は他に 38 本ある**（`trade_ownex_*` 素のモデル 12・`midcap_ex` 2・GAN × ownex 24）
-    依存: なし（`runs/` と文書だけを触る）。⚠ **回すのは作業ツリーがきれいな commit で**（保有日数・逆売買の Phase 2 を編集している間は回さない）。台帳の吐き直しは「代表 1 構成 ＋ leak 対照を 1 回だけ回し直す（2 つの Phase 3 を兼ねる）」の後に回すと 1 回で済む（順不同でも壊れない）
-    - [x] Phase 1: 12:48〜12:53 の 8 実行を検算して記録する（commit・行・列・指紋・純利の差。⚠ 回さない）（✅ 2026-09-17。8 本とも行・列・銘柄・開始日が一致、純利の差 ≤ 1.28bp、結論は動かない。§16-2）
-    - [x] Phase 2: `trade_ownex_{ridge,lgbm,mlp}_{a,b}` と `midcap_ex`（＋ leak）14 本を queue で回す（約 10 分【実測の合計】）（✅ 2026-09-17 16:50〜17:20。⚠ **表を先に作り直す手順が要った**（`cli.run` は表を読むだけ）。差は最大 136bp（LightGBM）・405bp（`midcap_ex`。期間が動いた）。⚠ キューが台帳生成の `SystemExit`（保留 → 落とすに変わった行の「閉じる」注記）で 2 度止まり、`lgbm_a` が 2 回回った（数字は同一）。§16-1・§16-3）
-    - [~] Phase 3: GAN × ownex 24 本を queue で回すか裁定し、回すなら手間の小さい順に回す（約 30 時間 GPU【実測の合計】。⚠ Claude の推奨は「回す」）
-      ✅ **裁定（2026-09-17・結果を見る前）: 回す**（14-10 規約 1。同じ鍵なので n_trials は動かない）。⚠ **コードを凍結した worktree（`/home/ubuntu/ail-exim-wt`・HEAD `696cf7b`・data/runs/.venv は本体へのシンボリックリンク）から `config/queue/exim_rerun_gan.toml` を回す**（本体で保有日数・逆売買の Phase 2 を編集しても、途中の実行にコードの差が混ざらないため）。`ledger = false`（終わってから本体で 1 回吐く）。起動は Phase 2 のキューの直後に自動（scratchpad の `exim_phase3_gan.sh`）
-    - [x] Phase 4: 台帳を吐き直し（n_trials 604 のまま・判定列が変わらないことを検算）、`daily-data-sources.md` §16 に旧→新の差分表と結論の変化の有無を書く（✅ 2026-09-17。n_trials 604 → 607（`midcap_ex` の新しい鍵）→ 613（出来高）。判定が変わった 2 行と理由を §16-5 に書いた。⚠ **GAN 24 本が終わったら §16-4 の追記のあとにもう 1 回吐く**）
-
-    - [ ] GAN 24 本が終わったら、§16-4 と [gan-threshold-ownex.md §8](docs/specs/experiments/gan-threshold-ownex.md) に旧→新の差分表（36 行の判定が変わったか）を書き、台帳を吐き直し、worktree `/home/ubuntu/ail-exim-wt` を `git worktree remove` する
-      依存: 「Phase 3: GAN × ownex 24 本を queue で回すか裁定し、回すなら手間の小さい順に回す（約 30 時間 GPU【実測の合計】。⚠ Claude の推奨は「回す」）」。進み具合は `runs/queue/exim_rerun_gan.json`（2026-09-17 18:30 時点で 6/24 済み・7 本目 `trade_ownex_ridgegan_a` が 17:59 から。見込みは 09-19 の朝）
-      ✅ **2026-09-17 18:30: 済んだ 6 本（16k (a) 3 対）の差分表は §16-4 と gan-threshold-ownex.md §8 に書いた**（9 行とも落とすのまま・差は 453〜691bp・leak は跳ねたまま）
-      ⚠ **キューが終わると監視スクリプトが自動で出す**（`setsid nohup` で切り離し済み・pid は `pgrep -af exim_gan_after`）: `/tmp/claude-1000/-home-ubuntu-ai-income-lab/108bae9e-763a-4d81-8733-2ae2840a1eac/scratchpad/` の `exim_compare_final.csv`（旧→新の差分・`exim_compare.py` で再計算できる）・`ledger_draft.md`（`cli.report --catalog` の下書き。⚠ **本体の `ledger.md` には写していない**）・`exim_gan_after.log`
-      残る手順: (1) `exim_gan_after.log` で 24/24 done を確かめる (2) `exim_compare_final.txt` の (d) 18 本を §16-4 と §8 の表に足し、36 行の判定の変化を書く (3) `ledger_draft.md` を検算（n_trials 613 のまま・判定列の差分が GAN の行だけか）して `ledger.md` に写す（`SystemExit` なら `catalog_notes.toml` の閉じる注記） (4) `git worktree remove /home/ubuntu/ail-exim-wt` (5) 親タスクを DONE へ・プラン `exim-rerun-titan.md` を archive へ
 - [ ] 検証タブのスコアを比べられる形にする（fold の長さと検証方式で単位が違う。着手時にプランを作る）
   派生元: 「下降トレンドの検知の検証」（✅ 2026-09-12 完了。[downtrend-detection.md](docs/specs/experiments/downtrend-detection.md)）。1995 表の実行を足したときに気づいた
   ⚠ **問題は 2 つある。** どちらも画面のスコア（最良手法の純利 bp・降順。[dashboard.md §10-2](docs/specs/dashboard.md)）にだけ効く
@@ -113,10 +75,6 @@
     ⚠ **終了しないタスク**（完了にしない・`DONE.md` に移さない）。既存の層に無いデータを考え続けるための常設タスク
     思いついたデータ源は、この下に子タスクとして足し、採る・採らないの判断と根拠（規約・遅延・銘柄を区別できるか）を残す
     関連: [daily-data-sources.md](docs/specs/experiments/daily-data-sources.md)
-  - [~] データに曜日を含めたものを検証する [plan](docs/plans/weekday-feature.md)
-    - [x] Phase 1: 準備（`cal` 層 ＋ テスト・表 2 つ ＋ leak・設定 5 本 ＋ キュー・事前登録）（✅ 2026-09-18。[事前登録](docs/specs/experiments/weekday-feature.md) §1 ＝ n_trials ＋9・表の行数は基準の表と一致・pytest 414 件）
-    - [ ] Phase 2: キュー `weekday` を回し、台帳を吐き、橋渡し対・leak 対照・診断を記録に書く
-      依存: 「GAN 24 本が終わったら、§16-4 と [gan-threshold-ownex.md §8](docs/specs/experiments/gan-threshold-ownex.md) に旧→新の差分表（36 行の判定が変わったか）を書き、台帳を吐き直し、worktree `/home/ubuntu/ail-exim-wt` を `git worktree remove` する」（⚠ 先に回すと「n_trials 613 のまま」の検算が濁る）
 
 - [ ] トレーダー 3 人（それぞれ予算と 1 本以上の予測モデルを持つ）に予算を割り振り、tastytrade の本口座で実際に売買して記録を残す（実売買の仕組み） [plan](docs/plans/live-trading-three-models.md)
   利用者の指示（2026-09-17）: **実際に売買を行う仕組みを実装します。予想モデルを３つほど用意してそれぞれに予算を割り振り実際の取引をしてデータを検証できる形で残します**
@@ -154,8 +112,11 @@
       2026-09-18 の実装で仮データを入れた（利用者の指示「データが無いものは仮データを入れ、後で実装する」）。仮の中身は `dashboard/app/live.py` の `PAPER_PLACEHOLDER_BP_PER_DAY`（実物に 1 営業日あたり 2bp を足した線）。印は `.chip.placeholder`・点線（dashboard.md §15-8）
       本物: 実売買の Phase 3 の `daily.csv`（トレーダー別・日次の紙上の純利と差 3）を `board()` で読み、トレーダーの詳細の点線と概要・詳細の差 3 に写す。⚠ 仮データが `/api/live` に出ないテストは残し、本物は出す
       依存: 「Phase 3: 紙上の対照（同じ合図を公式終値・片道 2.5bp で回し、差 1〜4 を `daily.csv` に 1 日 1 行 × 3 人）」
-    - [ ] 管理画面に i マークを付けて、ヘルプを表示する
+    - [~] 管理画面に i マークを付けて、ヘルプを表示する [plan](docs/plans/dashboard-help-icons.md)
       利用者の指示（2026-09-18）。着手時にプランを作る（どの項目に付けるか・文面の置き場・出し方）
+      2026-09-18: 実装した（`app/helptext.py`・templates 12 本・`app.css`／`app.js`・pytest 157 件・ブラウザの検査 25 項目 OK・CSP 違反 0 件【実測】）。⚠ **文面の正本は `dashboard/glossary.toml`**（用語タブと同じ 1 本。2 節 26 語を足して 122 語）。仕様と手順は [dashboard.md §15-10](docs/specs/dashboard.md)。見た目は `docs/plans/assets/dashboard-help.png`
+      ⚠ **残るのは利用者**: 見た目と文面（足した 26 語）の確認 ／ g3plus-ops の Dockerfile に `COPY dashboard/glossary.toml`（dashboard.md §7。追従までは g3plus で i マークが出ず、フッタに注意が出る）
+      ⚠ 確認が済んだら `DONE.md` へ移し、プランを archive へ（そのとき dashboard.md §15-10 と更新履歴のプランへのリンクを `archive/` に直す）。⚠ 足した語のうち 2 語の `doc` が `docs/plans/live-trading-three-models.md` を指すので、そのプランを archive に移すときは `glossary.toml` のパスも直す（`test_vibetab.py` のリンク先検査が落ちて気づく）
       ⚠ CSP（`script-src 'self'; style-src 'self'`）の内で作る: インラインのスクリプトと style は使えない（`<details>`・`title`・`app/static/app.js` なら通る）
       関連: [dashboard.md §12 用語の画面](docs/specs/dashboard.md)（`dashboard/glossary.toml` に 87 語の定義がある。文面の正本にできるか確かめる）
   - [ ] 実売買を 4 役（予測・売買判断・実際の売買・ビュワー）に分け直すために決めること

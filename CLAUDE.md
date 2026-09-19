@@ -88,6 +88,7 @@ cp .env.example .env                                   # AIL_AUTH_MODE=local（�
 - **停止ボタン** ＝ 記録ディレクトリに `HALT` を書き、働いている注文を全部取り消す。`sample.py` も `HALT` があると発注系の手順を拒否する
 - 本番の鍵はサンプルと同じ 3 段（dry-run `TT_ALLOW_PROD_DRY_RUN=1` / 取消 `allow_prod_cancel` / 発注 `TT_ALLOW_PROD_ORDERS=1` ＋ 確認文）。**取消の鍵で発注は開かない**。⚠ **管理画面が使うのは取消の鍵（停止ボタン）だけ**（2026-09-18。dry-run と発注の鍵は執行器と `sample.py` のもの）
 - 秘密（client secret・トークン・口座番号）はブラウザに送らない。全応答が `Redactor` を通る
+- **i マークのヘルプ**（2026-09-18）: 見出しの横に `{{ info("語") }}`。⚠ **文面の正本は `dashboard/glossary.toml`**（vibeboard の用語タブと同じ 1 本。説明を templates や Python に書かない）。`<details>` ＋ `app.js`（CSP の内）。⚠ **`<p>`・`.scroll-x`・左ペイン・停止ボタンの横には置かない**。語を消す・改名すると `tests/test_help.py` が落ちる。仕様と手順は `docs/specs/dashboard.md` §15-10
 - g3plus に載せる契約は `docs/specs/dashboard.md` §7。デプロイ設定・公開ホスト名・Access は **g3plus-ops（private）側にだけ書く**
 - 起動は `dashboard/run.sh`、または**プロジェクト直下の `run-server.sh`**（⚠ **既にポートを掴んでいるプロセスを止めてから起動する**）。⚠ **プロセスは名前ではなくポートから引く**（`pgrep -f` のパターンは自分自身のコマンドラインにも当たるため）。⚠ **vibeboard（3010）は触らない**
 - vibeboard との棲み分け: vibeboard はこのリポジトリの文書とタスクを見る**開発用**、dashboard は tastytrade の口座と記録を見る**運用用**。ポートも別（3010 / 3012）
@@ -124,6 +125,19 @@ python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
   - **cert は市場時間内でも `Session offline` で注文を拒否することがある**（同時刻の `market-time` は `Open`）。25 分後には通った。拒否を「注文の中身が悪い」と読まず、時間をおいて再送する
   - **`/accounts/{n}/orders/live` は「その日の注文」**で、Filled / Cancelled / Rejected も混ざる。働いている注文は `Received / Routed / In Flight / Live / Contingent` で絞る
   - **気配の遅延は開発機（WSL2）の時計では測れない**（±1 秒揺れて負にもなる）。同じ応答の `Date` で補正した `delay_corrected_s` を使う
+
+### experiments/feature-discovery の `cli.scenario`（条件付き GAN のシナリオ予測。2026-09-19 に「落とす」）
+
+```bash
+cd experiments/feature-discovery
+.venv/bin/python -m cli.scenario run --config cgan_spy            # 5 fold × 種 3 を学習 → 評価 → 判定（GPU で約 15 分【実測】）
+.venv/bin/python -m cli.scenario_report --run runs/<実行> --out ../../docs/specs/experiments/assets   # 表・再現の確認・図（SVG）
+.venv/bin/python -m cli.scenario predict --run runs/<実行> --latest   # 保存した重みから予測（JSON）
+```
+
+- ⚠ **`cli.run`・台帳とは別の物差し**（過去 60 日を条件に次の 5 日の分布を 1,000 本生成 → CRPS）。実行は `runs/<時刻>_scn_<名前>/` に残すが `summary.csv` を書かないので、台帳・検証タブには出ない。**台帳の n_trials は動かさず、試した構成は記録の §0-3 に数える**
+- ハイパラ・分割・採用基準は `config/scenario/cgan_spy.toml` に事前固定（テストが写しを持つ）。⚠ **結果を見てから動かして回し直さない**（テストの 5 塊は既に 1 度見た）。変えるなら新しい構成として先に登録する
+- 記録と判定は `docs/specs/experiments/cgan-scenario.md`（cGAN 0.01210 ／ 履歴ベース 0.01195 ／ 軽量モデル 0.01146。CRPS は低いほどよい）
 
 ### experiments/live-trading（実売買の執行器。2026-09-17 の 2 つ目の例外）
 

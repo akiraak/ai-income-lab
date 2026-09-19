@@ -3,6 +3,7 @@
     config/universe/<名前>.toml    銘柄の集合
     config/dataset/<名前>.toml     粒度・期間・調整
     config/experiment/<名前>.toml  1 実験 1 ファイル
+    config/scenario/<名前>.toml    シナリオ予測（分布 → CRPS。`cli.run` とは別の入口）
 
 ⚠ **名前の打ち間違いは実行時まで分からない**ので、`resolve_experiment` が
 ⚠ **走り出す前に選別手法・モデル・分割の名前を全部 registry で解決する**（解決できなければ即止める）。
@@ -36,6 +37,11 @@ def dataset(name: str) -> dict:
 
 def experiment(name: str) -> dict:
     return _load("experiment", name)
+
+
+def scenario(name: str) -> dict:
+    """⚠ **シナリオ予測（分布 → CRPS）の設定。** `cli.run` の実験とは物差しが違うので置き場を分ける。"""
+    return _load("scenario", name)
 
 
 def exposure(name: str) -> dict:

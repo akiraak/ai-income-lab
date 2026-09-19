@@ -1,16 +1,16 @@
 # titan で `ex_` / `im_` を使う実験を回し直し、台帳を吐き直す
 
-作成: 2026-09-17 ／ 状態: プラン（Phase 1 は着手可。⚠ **8 実行は既に回っている**）
+作成: 2026-09-17 ／ 状態: ✅ **完了（2026-09-19）**。Phase 1〜4 と (d) GAN × ownex 24 本の追記・台帳の吐き直し・worktree の片付けまで済み。結果は [daily-data-sources.md §16](../../specs/experiments/daily-data-sources.md)
 対象: `experiments/feature-discovery/runs/`・`runs/queue/`・`docs/specs/experiments/daily-data-sources.md`・`docs/specs/experiments/feature-discovery/ledger.md`（生成物）
-派生元: TODO「割り当てなしの災害系列の改善を、日付をずらした偽薬で確かめる」（2026-09-17 完了。[記録 §15](../specs/experiments/daily-data-sources.md)）
+派生元: TODO「割り当てなしの災害系列の改善を、日付をずらした偽薬で確かめる」（2026-09-17 完了。[記録 §15](../../specs/experiments/daily-data-sources.md)）
 親タスク（2026-09-17）: TODO「閾値売買の記録を広げる 4 本（保有日数の分布・逆売買の診断・出来高の入力・`ex_` / `im_` の回し直し）を、配線の順序を決めて回す」
-関連: [daily-data-sources.md §14-2・§14-3](../specs/experiments/daily-data-sources.md)（塞いだ穴と Sx360 での測り直し）／ [archive/exog-z20-stale.md](archive/exog-z20-stale.md)／ [rules.md 14-4 規約 2](../specs/experiments/feature-discovery/rules.md)（名前を変えないなら 1 ビットも変えない）／ [ledger-role.md](../specs/experiments/feature-discovery/ledger-role.md)
+関連: [daily-data-sources.md §14-2・§14-3](../../specs/experiments/daily-data-sources.md)（塞いだ穴と Sx360 での測り直し）／ [archive/exog-z20-stale.md](exog-z20-stale.md)／ [rules.md 14-4 規約 2](../../specs/experiments/feature-discovery/rules.md)（名前を変えないなら 1 ビットも変えない）／ [ledger-role.md](../../specs/experiments/feature-discovery/ledger-role.md)
 
 ## 1. 目的・背景
 
 ### 1-1. なぜ回し直すのか
 
-`ex_` / `im_` 層の計算が 2026-09-16〜17 に 2 回変わった（[§14-2](../specs/experiments/daily-data-sources.md)）:
+`ex_` / `im_` 層の計算が 2026-09-16〜17 に 2 回変わった（[§14-2](../../specs/experiments/daily-data-sources.md)）:
 
 | commit | 直したもの | 影響する層 |
 | --- | --- | --- |
@@ -60,7 +60,7 @@ flowchart LR
 | `impact_both_2018` | 1.28 | 0.6 |
 | `impact_placebo_2018` | 0.41 | 0.6 |
 
-⚠ **§9・§13 の結論（本命は偽薬を超えない／割り当ては効かない／割り当てなしは保留）が動く大きさではない**（Sx360 の測り直し [§14-3](../specs/experiments/daily-data-sources.md) と同じ向き）。
+⚠ **§9・§13 の結論（本命は偽薬を超えない／割り当ては効かない／割り当てなしは保留）が動く大きさではない**（Sx360 の測り直し [§14-3](../../specs/experiments/daily-data-sources.md) と同じ向き）。
 ⚠ **ただし台帳の「再現」欄は幅 0.1bp を超えると `⚠ 2 実行・幅 Xbp` を出す**（`_collapse` の `tol`）。⚠ **これは配線の失敗ではなく修正の差**なので、記録に理由を書いて残す（§2-4）。
 
 ## 2. 対応方針
@@ -74,7 +74,7 @@ flowchart LR
 | **Phase 3** | (d) GAN × ownex 24 本を queue で回す（⚠ **利用者の裁定つき**） | 24 | ⚠ **約 30 時間（GPU・無人）**【実測の合計】 |
 | **Phase 4** | 台帳を吐き直し、記録 §16 に差分表を書く | 0 | 数分 |
 
-⚠ **回すのは作業ツリーがきれいな commit で**（`env.json` の `git_commit` が実際のコードを指すこと。[rules.md 0 章](../specs/experiments/feature-discovery/rules.md)）。⚠ **姉妹タスクの Phase 2（`cli/run.py` / `checks.py` の編集）が開いている間は回さない**（編集前か、コミット後）。
+⚠ **回すのは作業ツリーがきれいな commit で**（`env.json` の `git_commit` が実際のコードを指すこと。[rules.md 0 章](../../specs/experiments/feature-discovery/rules.md)）。⚠ **姉妹タスクの Phase 2（`cli/run.py` / `checks.py` の編集）が開いている間は回さない**（編集前か、コミット後）。
 
 ### 2-2. Phase 1 — (a) の検算と記録
 
@@ -96,7 +96,7 @@ flowchart LR
 | 2 | `trade_ownex_ridge_a` `_b`・`trade_ownex_lgbm_a` `_b`・`trade_ownex_mlp_a` `_b`・`midcap_ex` | ⚠ `midcap_ex` は `dataset = midcap48_daily`・`ex_sources` 4 本。他と表が違うので同じ queue でも別の表を作る |
 | 3 | `trade_ownex_{ridge,lgbm,mlp}gan_{a,b}`・`trade_ownex_{ridge,lgbm,mlp}gan16k_{a,b}` | ⚠ **(b) 形式 × batch 1,024 が 1 本 3.5〜4.8 時間**。`AIL_TORCH_DEVICE` は 3090 Ti。⚠ **順は手間の小さい順**（16k (a) 25 分 → gan (a) 3.5 時間 → 16k (b) 3 時間 → gan (b) 4.7 時間） |
 
-⚠ **Phase 3 を回すかは利用者の裁定**。回す理由は [14-10 規約 1](../specs/experiments/feature-discovery/rules.md)（費用は無人の GPU 時間だけで、人手は queue の config 1 つ）。回さない理由は「(a) で差が 1.3bp 以下と分かっており、[gan-threshold-ownex.md](../specs/experiments/gan-threshold-ownex.md) の 36 行『落とす』が動く見込みが無い」。⚠ **Claude の推奨は「回す」**（代表の数字を現行コードに揃える目的は GAN の行にも同じに当てはまり、回さないと台帳に「直す前の数字が代表の行」が 36 行残る）。⚠ **回さないと決めたら、§16 にその旨と 36 行の所在を書く**。
+⚠ **Phase 3 を回すかは利用者の裁定**。回す理由は [14-10 規約 1](../../specs/experiments/feature-discovery/rules.md)（費用は無人の GPU 時間だけで、人手は queue の config 1 つ）。回さない理由は「(a) で差が 1.3bp 以下と分かっており、[gan-threshold-ownex.md](../../specs/experiments/gan-threshold-ownex.md) の 36 行『落とす』が動く見込みが無い」。⚠ **Claude の推奨は「回す」**（代表の数字を現行コードに揃える目的は GAN の行にも同じに当てはまり、回さないと台帳に「直す前の数字が代表の行」が 36 行残る）。⚠ **回さないと決めたら、§16 にその旨と 36 行の所在を書く**。
 
 > この図の主張: queue は `cli.run` を外から 1 本ずつ起動するだけで、⚠ **実験コードには触らない**。
 
@@ -116,14 +116,14 @@ flowchart LR
 1. 台帳を吐き直す（README の手順。`cli.report --catalog > docs/specs/experiments/feature-discovery/ledger.md`）
 2. 検算: ⚠ **`n_trials` は 604 のまま**（同じ鍵の再実行は行を増やさない）／ 手法の判定列が 1 行も変わらない（⚠ 変わったら §16 に理由を書く）／ 回し直した鍵の「再現」欄が `2 実行・幅 Xbp`（X は Phase 2・3 の実測）
 3. `daily-data-sources.md` に **§16「titan で回し直した後の数字」** を足す: (a)(b)(c)(d) の旧→新の差分表（純利・上乗せ・fold の符号）、§9-2 / §9-3 / §13-2 / §13-3 / §14-3 の結論が変わったか、台帳の「幅」の理由。⚠ **§9・§13 の表は書き換えない**（当時の数字として残し、§16 から参照する）
-4. GAN を回したら [gan-threshold-ownex.md](../specs/experiments/gan-threshold-ownex.md) の末尾に 1 節（36 行の判定が変わったか）
+4. GAN を回したら [gan-threshold-ownex.md](../../specs/experiments/gan-threshold-ownex.md) の末尾に 1 節（36 行の判定が変わったか）
 5. TODO の子タスクを `DONE.md` へ
 
 ## 3. 影響範囲
 
 | 場所 | 変更 | 既存の数字への影響 |
 | --- | --- | :-: |
-| `runs/` | 実行ディレクトリが 14〜38 本増える | なし（旧実行は消さない。[14-10 規約 5](../specs/experiments/feature-discovery/rules.md)） |
+| `runs/` | 実行ディレクトリが 14〜38 本増える | なし（旧実行は消さない。[14-10 規約 5](../../specs/experiments/feature-discovery/rules.md)） |
 | `runs/queue/*.json` | queue の config 2 つ | — |
 | `ledger.md` | 生成し直し（代表・再現の欄・生成日） | ⚠ **`n_trials` と判定列は変わらない見込み**（変わったら記録する） |
 | `daily-data-sources.md` | §16 を追記 | 既存の節は書き換えない |

@@ -31,7 +31,7 @@ flowchart LR
 | Phase | 中身 | 状態 |
 | --- | --- | --- |
 | 1 | `cal` 層 ＋ テスト ／ 表 2 つ（＋ leak）を作り、行数が基準の表と一致することを確かめる ／ 設定 5 本 ＋ キュー ／ 事前登録（`docs/specs/experiments/weekday-feature.md` §1） | ✅ 2026-09-18 |
-| 2 | キュー `weekday` を回す → 台帳を吐く → 橋渡し対・leak 対照・曜日別の診断を記録に書く | GAN の後始末の後 |
+| 2 | キュー `weekday` を回す → 台帳を吐く → 橋渡し対・leak 対照・曜日別の診断を記録に書く | ✅ 2026-09-19（[記録 §3](../../specs/experiments/weekday-feature.md)。n_trials 613 → 622） |
 
 ## 4. 影響範囲
 

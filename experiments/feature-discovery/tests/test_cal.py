@@ -1,4 +1,4 @@
-"""`cal` 層（暦の列。[プラン](../../../docs/plans/weekday-feature.md)）。
+"""`cal` 層（暦の列。[プラン](../../../docs/plans/archive/weekday-feature.md)）。
 
 ⚠ **落としたいのは 4 つ**: 行数と並びが入力と同じ ／ 先読みが無い（末尾を切っても前の値が変わらない）／
 曜日の one-hot が日付どおり ／ config に書かない表には 1 列も入らない（`build.ORDER` の最後・接頭辞 `cal_`）。

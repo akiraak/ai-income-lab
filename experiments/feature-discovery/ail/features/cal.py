@@ -1,5 +1,5 @@
 """`cal` 層 — ⚠ **暦の列（曜日 ＋ 前の足からの日数）**。利用者の指示（2026-09-17）「データに曜日を含めたものを検証する」
-（[プラン](../../../../docs/plans/weekday-feature.md)）。
+（[プラン](../../../../docs/plans/archive/weekday-feature.md)）。
 
 ⚠ **config の `feature_layers` に書いたときだけ表に入る**（既定の表は 1 ビットも変わらない）。
 ⚠ **接頭辞は `cal_`**（`own_` にしない: 値は全銘柄で同じで、その銘柄の履歴から作っていない。`contracts.FEATURE_PREFIXES`）。

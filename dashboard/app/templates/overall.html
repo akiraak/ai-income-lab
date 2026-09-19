@@ -8,6 +8,7 @@
 <div class="sec"><h2>日次</h2><span class="muted small">全トレーダーまとめて 1 日 1 行（新しい順）· 起動しなかった日も行を出す（{% if b.placeholder.calendar %}<span class="chip placeholder">仮</span> 休場日の暦の外 ＝ 平日をすべて営業日とみなす{% else %}NYSE の休場日を除く。暦は {{ b.calendar.last_covered }} まで{% endif %}）</span></div>
 {% if b.calendar.expiring %}<p class="rule">⚠ 休場日の暦が {{ b.calendar.last_covered }} で切れる（残り {{ b.calendar.days_left }} 日）。NYSE の公表（{{ b.calendar.source }}）から次の年を <code>nyse_calendar.py</code> に足す。切れた後は平日をすべて営業日とみなす</p>{% endif %}
 {% if b.bd %}
+<div class="helprow">この表の言葉: <span>合図{{ info("合図") }}</span><span>内部移転{{ info("内部移転") }}</span><span>問題{{ info("問題（注文）") }}</span><span>再送{{ info("再送") }}</span><span>差 1{{ info("差 1（執行価格）") }}</span><span>見送り{{ info("見送り") }}</span><span>起動なし{{ info("起動しなかった日") }}</span><span>執行の窓{{ info("執行の窓") }}</span></div>
 <div class="panel"><div class="scroll-x"><table class="small orders">
 <tr><th>日付</th><th>env / mode</th><th class="num">起動</th><th class="num">合図</th><th class="num">注文</th><th class="num">約定</th><th class="num">内部移転</th><th class="num">問題</th><th class="num">再送</th><th class="num">差 1 中央値 bp</th><th class="num">差 1 最大</th><th class="num">見送り</th><th>事象</th></tr>
 {% set by_date = {} %}{% for dd in b.days %}{% set _ = by_date.update({dd.date: dd}) %}{% endfor %}
@@ -40,7 +41,7 @@
 <div class="sec"><h2>注文の履歴</h2><span class="muted small">全トレーダー · 新しい順 · 内部移転を含む</span></div>
 {% include "orders_history.html" %}
 
-<div class="sec" id="monitor"><h2>口座と接続</h2><span class="muted small">認証・口座・建玉・働いている注文・現在値・接続・監視のイベント（5 秒ごとに更新）</span></div>
+<div class="sec" id="monitor"><h2>口座と接続{{ info("access token / refresh token") }}</h2><span class="muted small">認証・口座・建玉・働いている注文・現在値・接続・監視のイベント（5 秒ごとに更新）</span></div>
 <div id="monitor-panel" data-poll="/overall?partial=monitor" data-interval="5000">
 {% include "monitor_panel.html" %}
 </div>

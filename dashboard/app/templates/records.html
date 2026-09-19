@@ -1,12 +1,13 @@
 {% extends "base.html" %}
 {% block content %}
-<h2>実行記録 <span class="muted small">{{ runs|length }} 件 · {{ records_dir }}</span></h2>
+<h2>実行記録{{ info("API 検証の記録") }} <span class="muted small">{{ runs|length }} 件 · {{ records_dir }}</span></h2>
 {% if runs|length >= 2 %}
 <form method="get" action="/records/diff" class="inline">
   差分: <select name="a">{% for r in runs %}<option value="{{ r.run_id }}" {% if loop.index == 2 %}selected{% endif %}>{{ r.run_id }} ({{ r.env }}{% if r.mock %}, mock{% endif %})</option>{% endfor %}</select>
   → <select name="b">{% for r in runs %}<option value="{{ r.run_id }}" {% if loop.index == 1 %}selected{% endif %}>{{ r.run_id }} ({{ r.env }}{% if r.mock %}, mock{% endif %})</option>{% endfor %}</select>
   <button class="btn btn-small">比べる</button>
 </form>
+{{ info("記録の差分") }}
 {% endif %}
 <table>
 <tr><th>開始</th><th>run_id</th><th>会場</th><th>環境</th><th>手順</th><th>結果</th><th class="num">所要</th></tr>

@@ -1,5 +1,6 @@
 {# 注文の履歴（新しい順・内部移転を含む）。who が空なら全トレーダー、名前ならそのトレーダーの分だけ #}
 {% set rows = [] %}
+<div class="helprow">この表の言葉: <span>差 1{{ info("差 1（執行価格）") }}</span><span>内部移転{{ info("内部移転") }}</span><span>試行（再送）{{ info("再送") }}</span><span>状態とエラー{{ info("問題（注文）") }}</span></div>
 <div class="panel"><div class="scroll-x"><table class="small orders">
 <tr><th>日付</th><th>銘柄</th><th>売買</th><th class="num">数量</th><th class="num">合図時の mid</th><th class="num">約定</th><th class="num">差 1 bp</th><th>状態</th><th>{{ '誰の分' if not who else '' }}</th><th class="num">試行</th><th class="num">所要</th><th>エラー</th></tr>
 {% for dd in b.days|reverse %}

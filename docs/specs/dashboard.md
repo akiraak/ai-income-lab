@@ -160,7 +160,7 @@ g3plus-ops 側の `ail-dashboard/`（Dockerfile・compose・手順書）はこ�
 | 項目 | 値 |
 | --- | --- |
 | ベース | `python:3.12-slim`。ネイティブビルドなし（依存は `dashboard/requirements.txt` の 7 つ。`cryptography` は wheel） |
-| build context | リポジトリの clone（public なので `git clone` → `git pull`）。COPY するのは `dashboard/app/`・`dashboard/requirements.txt`・`experiments/tastytrade-api-sample/*.py` と `*.sh` |
+| build context | リポジトリの clone（public なので `git clone` → `git pull`）。COPY するのは `dashboard/app/`・`dashboard/requirements.txt`・⚠ **`dashboard/glossary.toml`**（2026-09-18 に追加。i マークの文面の正本。§15-10。⚠ **g3plus-ops 側の追従が要る** ＝ 追従までは i マークが出ず、フッタに「用語の正本が読めない」と出る）・`experiments/tastytrade-api-sample/*.py` と `*.sh` |
 | 起動 | `cd /app/dashboard && python -m app.main`（uvicorn。`AIL_BIND=0.0.0.0`、`AIL_PORT=3012`） |
 | ポート | **3012**。`ports:` でホスト公開しない（到達できるのは同じ docker network の cloudflared だけ） |
 | 必須 env | `AIL_AUTH_MODE`（公開時 `cloudflare` ＋ `CF_ACCESS_TEAM` / `CF_ACCESS_AUD` / `CF_ACCESS_EMAIL`）、監視したい環境の資格情報（`TT_PROD_*` は **read スコープの grant を別に切って渡す**のが既定。cert の `TT_*` は任意） |
@@ -369,6 +369,7 @@ vibeboard の**用語**タブ（`/ext/glossary`）。⚠ **索引であって解
 ```mermaid
 flowchart LR
   T["dashboard/glossary.toml<br/>⚠ 用語の正本"] --> V["vibetab.py<br/>/glossary"]
+  T --> H["app/helptext.py<br/>管理画面の i マーク（§15-10）"]
   V --> TAB["vibeboard の「用語」タブ<br/>節ごとの表"]
   TAB -->|"リンク（target=_top）"| DOC["Specs / Plans / Files タブ<br/>⚠ 定義の正本"]
 ```
@@ -377,7 +378,7 @@ flowchart LR
 
 | # | 規約 | ⚠ 理由 |
 | ---: | --- | --- |
-| 1 | ⚠ **用語の正本は `dashboard/glossary.toml`**（`tomllib`。画面は写し） | ⚠ **説明を Python に埋めない。** §10-2 の「画面は読むだけ」と同じ立て方 |
+| 1 | ⚠ **用語の正本は `dashboard/glossary.toml`**（`tomllib`。画面は写し。⚠ **読み手は 2 つ**: 用語タブ ＋ 管理画面の i マーク。2026-09-18） | ⚠ **説明を Python に埋めない。** §10-2 の「画面は読むだけ」と同じ立て方 |
 | 2 | ⚠ **1 語 1〜2 行。詳しい定義を書かない**（テストが長さを固定する） | 定義が 2 か所にあると必ず食い違う。⚠ **食い違ったらリンク先が勝つ** |
 | 3 | ⚠ **動く数字を書かない**（試行数・DSR の値・行数） | ⚠ **数字は動く。** 用語表に残ると嘘になる。数字は検証タブ（§10）と spec が持つ |
 | 4 | リンクは vibeboard の hash URL（`/#specs/…`・`/#plans/…`・`/#files/…`）へ `target="_top"` | ⚠ **同じ画面の中で定義まで辿れる**。⚠ **節（§）へは飛べない**ので、節は文字で横に置く |
@@ -392,7 +393,8 @@ flowchart LR
 | `/glossary/view?item=<節 id\|all>` | 節の表（用語・意味・詳しく）。知らない id は 404 |
 | `/glossary/api/watch` | `glossary.toml` の mtime を見て、編集したらタブが自分で追いつく |
 
-分野は 8 つ（進め方 ／ 検証の単位と台帳 ／ 統計の検査 ／ 閾値つき売買 ／ データ ／ 手法とモデル ／ 口座と API ／ 収入の体系）。
+分野は 10（進め方 ／ 検証の単位と台帳 ／ 統計の検査 ／ 閾値つき売買 ／ データ ／ 手法とモデル ／ 口座と API ／ 収入の体系 ／ ⚠ **実売買 ／ 管理画面（監視と記録）** ＝ 2026-09-18 に i マーク用に足した 2 つ）。
+⚠ **語の `name` は管理画面の templates が鍵として指している**（§15-10）。名前を変える・消すときは `dashboard/tests/test_help.py` が赤くなるので、templates の `info("…")` も一緒に直す。
 ⚠ **語を足すのは TOML だけ**で、画面もサイドバーも追従する。
 
 ### 12-3. ⚠ sidecar は vibeboard を再起動しても入れ替わらない（2026-09-12 に踏んだ）
@@ -742,6 +744,42 @@ flowchart LR
 - テスト: pytest が templates の全ファイルと描画した画面を走査し、インラインが 1 つでもあれば落ちる（`test_app.py`）。ブラウザでの動き（出る ／ 断ると送られない ／ 受けると送られる ／ CSP 違反 0 件）は `tests/browser/confirm.mjs`（playwright・node。⚠ **pytest には入れない** ＝ dashboard の依存に playwright を足さない。⚠ **POST はブラウザ側で止める**ので `HALT` は書かれない）
 
 
+### 15-10. i マークのヘルプ（2026-09-18。利用者の指示「i マークを付けて、ヘルプを表示する」）
+
+**主張: 説明の正本は `dashboard/glossary.toml` 1 本のまま。templates は語の名前で指すだけで、用語タブ（§12）と同じ文面が出る。**（プラン: [dashboard-help-icons.md](../plans/dashboard-help-icons.md)）
+
+```mermaid
+flowchart LR
+  T["dashboard/glossary.toml<br/>⚠ 文面の正本"] --> H["app/helptext.py<br/>HelpBook（mtime で読み直す）"]
+  H --> J["Jinja の関数<br/>info(語)"]
+  J --> P["details.help ＋ summary<br/>（サーバが組む）"]
+  P --> C["app.css: 見た目"]
+  P --> S["app.js: 閉じ方と置き場所"]
+  K["tests/test_help.py"] -.->|"語が TOML にあるか"| T
+```
+
+| 決め | 中身 |
+| --- | --- |
+| 書き方 | 見出しの横に `{{ info("語") }}`。語は `glossary.toml` の `name` そのまま。⚠ **説明を templates や Python に書かない**（§12-1 の規約 1） |
+| 部品 | `<details class="help">` ＋ `<summary aria-label="「語」の説明">`（丸に i。`.help-i`）。吹き出し `.help-pop`（`role="note"`）は 語（`.help-t`）・1〜2 行（`.help-b`）・「詳しく: 文書のパス ＋ 節」（`.help-d`。⚠ **文字だけ。リンクにしない** ＝ 管理画面から vibeboard の hash URL へは飛べない。面が別） |
+| 開く ／ 閉じる | ⚠ **`<details>` の素の動き**（スクリプト無しでも開く。Tab で届き Enter ／ Space で開く）。`app.js` は足し算だけ: 1 つだけ開く ／ 外を押すか Escape で閉じ、Escape は `summary` に戻る ／ 右端・下端を越えたら `.help-left` ・`.help-up` で倒す（⚠ `style` は書かない）／ ⚠ **開いている間はその枠の部分更新（`data-poll`）を飛ばす** |
+| 色 | 丸は `--line-strong` ／ `--muted`、触れたとき・開いているときだけ `--accent`（「押せる」の色。§15-1）。吹き出しの地は `--hover`。⚠ **状態・環境の色を使わない** |
+| 置く場所 | 数字や用語の見出し（大きな数字・タイル・パネルと節の見出し）。表の列は、表の上の「この表の言葉」の行（`.helprow`）にまとめる |
+| ⚠ 置かない場所 | **`<p>` の中**（`<details>` の開始タグは `<p>` を閉じる ＝ 崩れる。テストで固定）／ **横スクロールの枠（`.scroll-x`）と左ペイン（`.side`）の中**（吹き出しが切れる）／ **停止ボタンの横**（押し間違いの元。HALT の説明は停止中の帯と `/ops` に置く） |
+| 語が無い | 実行時は 500 にしない（⚠ 停止ボタンのある画面をヘルプの不備で落とさない）: 「i?」（`.help-missing`）＋ 警告ログ。⚠ **静かに欠けないのはテストの側**（templates の `info("…")` を全部拾い、実物の TOML に無ければ落ちる） |
+| TOML が読めない | i マークを出さず（空の吹き出しを出さない）、フッタに「⚠ 用語の正本（glossary.toml）が読めない」。場所は `AIL_GLOSSARY_FILE` で変えられる（既定は `dashboard/glossary.toml`。コンテナでは §7 の COPY が要る） |
+| 秘密 | 文面は公開面でも見える。⚠ **口座番号・トークン・公開ホスト名を用語に書かない**（口座番号とトークンの形はテストが見張る）。文面は `Redactor.text` を通してから出す |
+
+**手順 — 新しい数字の見出しを足したら**（⚠ 手順が無いと見出しだけ増えて説明が付かない）:
+
+1. `glossary.toml` に語があるか見る。無ければ足す（1 語 1〜2 行・90 字以内・動く数字を書かない・`doc` は実在する文書。§12-1）
+2. 見出しの横に `{{ info("語") }}` を書く（⚠ `<p>`・`.scroll-x`・`.side` の中に置かない）
+3. `cd dashboard && .venv/bin/python -m pytest -q tests/test_help.py tests/test_vibetab.py`（語の実在・長さ・リンク先・`<p>` の中に無いこと）
+4. 見た目を変えたらブラウザでも見る: `tests/browser/help.mjs`（playwright・node。⚠ pytest には入れない。§15-9 と同じ）。用語タブ（vibeboard）は TOML の mtime を見て自分で追いつく（sidecar の入れ直しは要らない）
+
+![概要の i マーク（デモ・幅 1280px）](../plans/assets/dashboard-help.png)
+
+
 ## 9. 更新履歴
 
 - 2026-09-05: 初版（Phase 1〜4 の実装、デプロイ契約）
@@ -760,3 +798,4 @@ flowchart LR
 - 2026-09-18: **休場日の暦を入れた**（§15-8「営業日の暦」）。起動しなかった日の「平日＝営業日」の仮を外し、NYSE の公表（2026〜2028 年）を `experiments/tastytrade-api-sample/nyse_calendar.py` に持った。読み手 `market_calendar.py` は管理画面（起動しなかった日・判定の営業日と市場時間）と執行器（執行の窓）が共有する。⚠ 暦の外の年だけ「仮」の印に戻る。pytest 151 件。プランは [nyse-calendar.md](../plans/archive/nyse-calendar.md)
 - 2026-09-18: **銘柄の集合の一覧表**（§11-1）。vibeboard のデータタブの概要の先頭に、集合を横に比べる表と重複を除いた合計を出した（利用者の指示 2026-09-17）。4 つの正本（universe・dataset・experiment の config と調整後の manifest）を写して組む ＝ 集合や足を増やすと表が自動で変わる。実データで和集合 136・日足あり 136・1 分足あり 63【実測】（手で数えた 2026-09-17 の値と一致）。pytest 154 件。プランは [universe-table.md](../plans/archive/universe-table.md)
 - 2026-09-18: **外すと決めた 11 行 ＋ 1 件取消を消した**（§1・§3）。検証（`/experiments`）・データ（`/data`）・手動の注文（`/ops/dry-run`・`submit`・`cancel`・`cleanup`）・開発（`/dev/*`）の経路・テンプレート 6 枚・画面のテストを削除。⚠ **管理画面に発注の経路は無くなった**（`ops.py` のクライアントは取消の鍵だけ。設定も `TT_ALLOW_PROD_ORDERS` を読まない）。残した部品: `app/experiments.py`・`app/inventory.py`（vibeboard のタブ）・`devtools.MockServer`・`run_step`（デモ）。停止 ／ 解除 ／ 履歴 ／ 記録と判定はそのまま。pytest 145 件・ブラウザで停止 2 か所の確認ダイアログと CSP 違反 0 件・外した画面が 404【実測】。⚠ g3plus は未デプロイ。プランは [dashboard-remove-dropped.md](../plans/archive/dashboard-remove-dropped.md)
+- 2026-09-18: **i マークのヘルプ**（§15-10）。見出しの横の i を押すと 1〜2 行の説明と「詳しく」の文書名が出る。⚠ **文面の正本は `dashboard/glossary.toml`**（用語タブと同じ 1 本。節「実売買」「管理画面（監視と記録）」26 語を足した）で、templates は `info("語")` と名前で指すだけ。`<details>` の素の動き ＋ `app.js` の足し算（CSP はそのまま・違反 0 件【実測】）。⚠ **デプロイ契約（§7）の COPY に `dashboard/glossary.toml` を足した**（g3plus-ops の追従が要る）。pytest 157 件（`test_help.py` 12 件を追加）・ブラウザの検査 `tests/browser/help.mjs` 25 項目

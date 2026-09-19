@@ -13,7 +13,7 @@
   <span>接続 <b>{% if s.state == 'connected' and (dx.state == 'connected' or dx.state == 'n/a') %}✅ 接続中{% else %}⚠ 切断あり{% endif %}</b></span><span class="sep"></span>
   <span>口座 <b>{% if p.balances and p.balances['cash-balance'] %}${{ '{:,.0f}'.format(p.balances['cash-balance']|float) }}{% else %}—{% endif %}</b></span><span class="sep"></span>
   {% endif %}
-  <span>働いている注文 <b>{{ n_working }}</b></span><span class="sep"></span>
-  <span>事象 <b>{{ events|length }}</b></span>
+  <span>働いている注文 <b>{{ n_working }}</b>{{ info("働いている注文") }}</span><span class="sep"></span>
+  <span>事象 <b>{{ events|length }}</b>{{ info("監視のイベント") }}</span>
   <span class="grow"></span><a href="/overall#monitor" class="small">口座と接続の詳細 →</a>
 </div>

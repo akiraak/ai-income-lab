@@ -3,7 +3,7 @@
 <h2>操作 <span class="muted small">ローカル面だけ。公開面ではこのページは存在しない</span></h2>
 
 <section class="card">
-  <h3>停止 / 解除</h3>
+  <h3>停止 / 解除{{ info("HALT（停止ボタン）") }}{{ info("3 段の鍵") }}</h3>
   {% if halt.halted %}
   <div class="danger">⛔ 停止中（HALT）{{ halt.since|pt }} · {{ halt.actor }} {{ halt.reason or '' }}。<code>sample.py</code> の発注系の手順もこのフラグで止まる。</div>
   <form method="post" action="/ops/resume" class="inline" data-confirm="停止を解除する。発注系が再び通るようになる。よいか？"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn btn-primary">解除（再開）</button></form>
@@ -19,7 +19,7 @@
 <p class="muted small">手動の注文（dry-run ／ 発注 ／ 取消 ／ 後片付け）は 2026-09-18 に外した。止めるのは全トレーダーをまとめて（停止）。働いている注文は <a href="/overall">全体の詳細</a> に出る。</p>
 
 <section class="card mt-12">
-  <h3>操作の履歴 <span class="muted small">ops/history.jsonl</span></h3>
+  <h3>操作の履歴{{ info("操作の履歴") }} <span class="muted small">ops/history.jsonl</span></h3>
   {% if history %}
   <table class="small"><tr><th>時刻</th><th>種類</th><th>env</th><th>誰が</th><th>内容</th></tr>
   {% for h in history %}<tr><td>{{ h.at|pt }}</td><td>{{ h.kind }}</td><td>{{ h.env }}</td><td>{{ h.actor }}</td><td><details><summary>detail</summary><pre>{{ h.detail|tojson_pretty }}</pre></details></td></tr>{% endfor %}

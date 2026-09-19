@@ -44,7 +44,7 @@
     </div>
 
     <div class="card">
-      <h3>働いている注文 <span class="muted small">{{ m.live_orders|length }}{% if m.orders_today and m.orders_today.total %} · 本日の注文 {{ m.orders_today.total }}（{% for st, n in m.orders_today.by_status.items() %}{{ st }} {{ n }}{% if not loop.last %} / {% endif %}{% endfor %}）{% endif %}</span></h3>
+      <h3>働いている注文{{ info("働いている注文") }} <span class="muted small">{{ m.live_orders|length }}{% if m.orders_today and m.orders_today.total %} · 本日の注文 {{ m.orders_today.total }}（{% for st, n in m.orders_today.by_status.items() %}{{ st }} {{ n }}{% if not loop.last %} / {% endif %}{% endfor %}）{% endif %}</span></h3>
       {% if m.live_orders %}
       <div class="scroll-x"><table class="orders small"><tr><th>id</th><th>状態</th><th>銘柄</th><th>売買</th><th class="num">数量</th><th>種別</th><th class="num">価格</th><th>受付</th></tr>
       {% for o in m.live_orders %}
@@ -56,7 +56,7 @@
     </div>
 
     <div class="card">
-      <h3>現在値 <span class="muted small">{{ m.quote.symbol }}</span></h3>
+      <h3>現在値{{ info("気配の遅延") }} <span class="muted small">{{ m.quote.symbol }}</span></h3>
       {% set q = m.quote %}
       {% if q.state == 'ok' %}
       <table class="kvt">
@@ -79,7 +79,7 @@
     </div>
 
     <div class="card">
-      <h3>口座ストリーマ <span class="st st-{{ m.account_stream.state }}">{{ m.account_stream.state }}</span></h3>
+      <h3>口座ストリーマ{{ info("口座ストリーマ / DXLink") }} <span class="st st-{{ m.account_stream.state }}">{{ m.account_stream.state }}</span></h3>
       {% set s = m.account_stream %}
       <div class="muted small">接続 {{ s.connected_at|pt }} · 最終受信 {{ s.last_message_at|ago }} · 受信 {{ s.message_count }}（Order 通知 {{ s.order_notifications }}）· 切断 {{ s.disconnects }} / 再接続 {{ s.reconnects }}</div>
       {% if s.last_error %}<div class="warn small">{{ s.last_error }}</div>{% endif %}
@@ -103,7 +103,7 @@
 {% endfor %}
 
 <section class="card wide">
-  <h3>監視のイベント <span class="muted small">refresh の成否・接続・切断・429（monitor/*.jsonl。観点 A の材料）</span></h3>
+  <h3>監視のイベント{{ info("監視のイベント") }} <span class="muted small">refresh の成否・接続・切断・429（monitor/*.jsonl。観点 A の材料）</span></h3>
   {% if events %}
   <table class="small"><tr><th>時刻</th><th>env</th><th>種類</th><th>内容</th></tr>
   {% for e in events %}<tr><td>{{ e.at|pt }}</td><td>{{ e.env }}</td><td><span class="ev ev-{{ e.kind }}">{{ e.kind }}</span></td><td><code>{{ e.detail|tojson_pretty|truncate(200) }}</code></td></tr>{% endfor %}

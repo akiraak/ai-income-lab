@@ -11,6 +11,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import os
 import secrets
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
@@ -219,6 +220,12 @@ def create_app(settings: Settings | None = None, start_monitors: bool = True) ->
 
     templates.env.globals.update(charts=charts, pct=lambda v: charts.fmt_pct(_num_or_none(v)),
                                  usd=lambda v: charts.fmt_usd(_num_or_none(v)))
+    # i マークのヘルプ（§15-10）。文面の正本は dashboard/glossary.toml（用語タブと同じ 1 本）。templates は info("語") と名前で指すだけ
+    from .helptext import HelpBook
+
+    helpbook = HelpBook(Path(os.environ["AIL_GLOSSARY_FILE"]) if os.environ.get("AIL_GLOSSARY_FILE") else None, clean=redactor.text)
+    app.state.helpbook = helpbook
+    templates.env.globals.update(info=helpbook.mark)
 
     # 外側ほど先に評価される: AccessGuard → SecurityHeaders → ルート
     app.add_middleware(SecurityHeaders, csrf=csrf)
@@ -259,6 +266,7 @@ def create_app(settings: Settings | None = None, start_monitors: bool = True) ->
             "live_dir": str(settings.live_dir),
             "dev_available": dev is not None,
             "demo": settings.demo,
+            "help_ok": helpbook.available(),
         }
         base.update(ctx)
         return templates.TemplateResponse(request, name, redactor(base))

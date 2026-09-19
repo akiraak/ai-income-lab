@@ -267,3 +267,25 @@ tr.row-missing td { background: var(--ng-bg); color: var(--ng-ink); }
 .mt-12 { margin-top: 12px; } .mb-10 { margin-bottom: 10px; }
 .card-thick { border-width: 2px; }
 th.w-40 { width: 40%; }
+
+/* i マークのヘルプ（dashboard.md §15-10。2026-09-18）。文面は glossary.toml、組むのは app/helptext.py。
+   開く・閉じるは <details> の素の動き（スクリプト不要・Tab → Enter）。app.js は閉じ方と置き場所だけを足す。
+   ⚠ 色は「押せる」の --accent だけ（状態・環境の色を使わない）。見出しの大文字化・字間・太さを吹き出しの中で戻す。 */
+details.help { display: inline-block; position: relative; vertical-align: baseline; margin: 0 2px 0 5px; text-transform: none; letter-spacing: 0; }
+details.help > summary { list-style: none; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; border-radius: 50%; font-size: 0; }
+details.help > summary::-webkit-details-marker { display: none; }
+details.help > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.help-i { display: inline-flex; align-items: center; justify-content: center; width: 15px; height: 15px; border-radius: 50%; border: 1px solid var(--line-strong);
+  color: var(--muted); font: italic 600 10px/1 Georgia, "Times New Roman", serif; }
+details.help > summary:hover .help-i, details.help[open] .help-i { color: var(--accent); border-color: var(--accent); }
+.help-pop { position: absolute; z-index: 40; top: calc(100% + 6px); left: -8px; width: 300px; max-width: 80vw; display: flex; flex-direction: column; gap: 4px;
+  background: var(--hover); border: 1px solid var(--line-strong); border-radius: 6px; padding: 9px 11px;
+  color: var(--ink); font: 400 12px/1.6 -apple-system, "Segoe UI", "Hiragino Sans", "Noto Sans JP", sans-serif; text-align: left; white-space: normal; cursor: default; }
+details.help.help-left .help-pop { left: auto; right: -8px; }
+details.help.help-up .help-pop { top: auto; bottom: calc(100% + 6px); }
+.help-t { font-weight: 600; font-size: 12px; }
+.help-d { color: var(--muted); font-size: 11px; word-break: break-all; }
+.help-missing { display: inline-block; margin-left: 5px; padding: 0 4px; border: 1px dashed var(--ng); border-radius: 3px; color: var(--ng-ink); font-size: 10px; }
+.helprow { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; color: var(--muted); font-size: 12px; margin: 2px 0 6px; }
+span.helprow { display: inline-flex; margin: 0; }
+.helprow > span { display: inline-flex; align-items: center; white-space: nowrap; }

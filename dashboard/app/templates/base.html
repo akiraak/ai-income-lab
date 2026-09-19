@@ -52,13 +52,13 @@
 <div class="demobar">🧪 <b>デモ</b> — 資格情報が無い（または <code>AIL_DEMO=1</code>）ので、手元のモックサーバのデータを表示している。tastytrade には繋いでいない。記録・監視ログは <code>data/demo/</code> に分けて置く{% if page in ('overview', 'overall') or page.startswith('trader:') %} — 実売買（トレーダー）は<b>執行器のモックの記録</b>（<code>{{ live_dir }}</code>）を読んでいる{% endif %}</div>
 {% endif %}
 {% if halt.halted %}
-<div class="haltbar">⛔ <b>停止中（HALT）</b> {{ halt.since|pt }} · {{ halt.actor }} {% if halt.reason %}· {{ halt.reason }}{% endif %} — 発注系はすべて拒否される{% if face == 'local' %}。解除は <a href="/ops">操作</a> から{% endif %}</div>
+<div class="haltbar">⛔ <b>停止中（HALT）</b> {{ halt.since|pt }} · {{ halt.actor }} {% if halt.reason %}· {{ halt.reason }}{% endif %} — 発注系はすべて拒否される{% if face == 'local' %}。解除は <a href="/ops">操作</a> から{% endif %}{{ info("HALT（停止ボタン）") }}</div>
 {% endif %}
 {% if flash %}<div class="flash">{{ flash }}</div>{% endif %}
 <main>
 {% block content %}{% endblock %}
 </main>
-<footer class="foot"><span>{{ now|pt }} / {{ now|et }}</span><span class="muted">{% if page in ('overview', 'overall') or page.startswith('trader:') %}実売買: {{ live_dir }}{% else %}記録: {{ records_dir }}{% endif %}</span></footer>
+<footer class="foot"><span>{{ now|pt }} / {{ now|et }}</span><span class="muted">{{ "公開面" if face == "public" else "ローカル面" }}（{{ auth_mode }}）{{ info("面（loopback / local / cloudflare）") }}</span>{% if not help_ok %}<span class="warn small">⚠ 用語の正本（glossary.toml）が読めない ＝ i マークのヘルプなし</span>{% endif %}<span class="muted">{% if page in ('overview', 'overall') or page.startswith('trader:') %}実売買: {{ live_dir }}{% else %}記録: {{ records_dir }}{% endif %}</span></footer>
 </div>
 </div>
 <script src="/static/app.js"></script>

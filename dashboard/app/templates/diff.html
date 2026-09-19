@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% block content %}
-<h2><a href="/records">記録</a> › 差分</h2>
+<h2><a href="/records">記録</a> › 差分{{ info("記録の差分") }}</h2>
 <table>
 <tr><th></th><th>A</th><th>B</th></tr>
 <tr><th>run</th><td><a href="/records/{{ a.run_id }}">{{ a.run_id }}</a> <span class="badge badge-{{ a.env }}">{{ a.env }}</span>{% if a.mock %} <span class="badge badge-mock">MOCK</span>{% endif %}</td><td><a href="/records/{{ b.run_id }}">{{ b.run_id }}</a> <span class="badge badge-{{ b.env }}">{{ b.env }}</span>{% if b.mock %} <span class="badge badge-mock">MOCK</span>{% endif %}</td></tr>

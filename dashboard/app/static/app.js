@@ -7,6 +7,7 @@
     function tick() {
       if (document.hidden) { return; }
       if (document.activeElement && el.contains(document.activeElement) && document.activeElement.tagName === "INPUT") { return; }
+      if (el.querySelector("details.help[open]")) { return; }  // 開いているヘルプを差し替えで閉じない（§15-10）
       fetch(url, { credentials: "same-origin", cache: "no-store" })
         .then(function (r) { if (!r.ok) { throw new Error(r.status); } return r.text(); })
         .then(function (html) {
@@ -27,5 +28,36 @@
     if (!form || !form.getAttribute) { return; }
     var text = form.getAttribute("data-confirm");
     if (text && !window.confirm(text)) { ev.preventDefault(); }
+  });
+})();
+
+// i マークのヘルプ（§15-10）: 開く・閉じるは <details class="help"> の素の動き（スクリプト無しでも開く。Tab → Enter ／ Space）。
+// ここは足し算だけ: 1 つだけ開く ／ 外を押すか Escape で閉じる ／ 右端 ／ 下端を越えたら左 ／ 上に倒す（.help-left ／ .help-up。style は書かない）。
+// ⚠ document で捕まえる（部分更新で差し替わった要素にも効く）。toggle は泡立たないので capture で取る。
+(function () {
+  function closeAll(except) {
+    document.querySelectorAll("details.help[open]").forEach(function (d) { if (d !== except) { d.removeAttribute("open"); } });
+  }
+  document.addEventListener("toggle", function (ev) {
+    var d = ev.target;
+    if (!d || !d.classList || !d.classList.contains("help") || !d.open) { return; }
+    closeAll(d);
+    d.classList.remove("help-left", "help-up");
+    var pop = d.querySelector(".help-pop");
+    if (!pop) { return; }
+    var r = pop.getBoundingClientRect();
+    if (r.right > document.documentElement.clientWidth - 8) { d.classList.add("help-left"); }
+    if (r.bottom > document.documentElement.clientHeight - 8 && r.top - r.height > 60) { d.classList.add("help-up"); }
+  }, true);
+  document.addEventListener("click", function (ev) {
+    if (!ev.target.closest || !ev.target.closest("details.help")) { closeAll(null); }
+  });
+  document.addEventListener("keydown", function (ev) {
+    if (ev.key !== "Escape") { return; }
+    var d = document.querySelector("details.help[open]");
+    if (!d) { return; }
+    d.removeAttribute("open");
+    var s = d.querySelector("summary");
+    if (s) { s.focus(); }
   });
 })();

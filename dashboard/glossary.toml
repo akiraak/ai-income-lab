@@ -621,3 +621,169 @@ note = "稼ぎ方を分類する 3 軸と、手法につける記号。"
   short = "最初の入金までの期間と、要る元手の段。どちらも体系の中での取り決めで、相場ではない。"
   doc = "docs/specs/overview.md"
   where = "§5 記号の早見表"
+
+[[section]]
+id = "live"
+label = "実売買（トレーダーと執行の差）"
+note = "管理画面の概要・全体の詳細・トレーダーの詳細に出る語。管理画面の i マークもここを読む。"
+
+  [[section.term]]
+  name = "トレーダー"
+  short = "予算・銘柄集合・1 本以上の予測モデル・合成規則・θ を持つ売買判断の単位。擬人化した呼び名で、口座は 1 つ。"
+  doc = "docs/specs/experiments/live-trading.md"
+  where = "§0-1 トレーダーの定義"
+
+  [[section.term]]
+  name = "試験用トレーダー（TEST）"
+  short = "固定の合図で配線を確かめるためのトレーダー。記録に印が付き、判定には混ぜない。"
+  doc = "docs/specs/experiments/live-trading.md"
+  where = "§0-1 トレーダーの定義"
+
+  [[section.term]]
+  name = "予算（トレーダーの持ち金）"
+  short = "トレーダーごとの固定の枠。空き ＝ 予算 − 建玉の取得原価 − 受渡し待ちの代金。損益は空きに入れない。"
+  doc = "docs/specs/experiments/live-trading.md"
+  where = "§0-1 トレーダーのお金と持ち株"
+
+  [[section.term]]
+  name = "建玉"
+  short = "いま持っている株（銘柄・株数・取得単価）。トレーダーごとに分けて持ち、他のトレーダーの株は売れない。"
+  doc = "docs/specs/experiments/live-trading.md"
+  where = "§0-1 トレーダーのお金と持ち株"
+
+  [[section.term]]
+  name = "損益（実現 ＋ 含み）"
+  short = "売って確定した損益と、持ち株をいまの値段で評価した損益の和。予算に対する % で出す。⚠ これで手法を採らない。"
+  doc = "docs/specs/dashboard.md"
+  where = "§13-1・§13-4"
+
+  [[section.term]]
+  name = "紙上の損益"
+  short = "同じ合図を公式終値と決めたコストで回したときの損益。実物と比べるための対照で、口座のお金は動かない。"
+  doc = "docs/plans/live-trading-three-models.md"
+  where = "§1 4 つの差"
+
+  [[section.term]]
+  name = "合図"
+  short = "トレーダーが銘柄ごとに出す買い% ／ 出口%（モデルの出力を合成規則でまとめた後の値）。θ と比べて売買を決める。"
+  doc = "docs/specs/dashboard.md"
+  where = "§13-1 何をどこから写すか"
+
+  [[section.term]]
+  name = "合成規則"
+  short = "複数のモデルの出力を 1 つの合図にまとめる規則（そのまま ／ 平均 ／ 多数決 ／ 全員一致）。事前に固定する。"
+  doc = "docs/specs/experiments/live-trading.md"
+  where = "§0-1 トレーダーの定義"
+
+  [[section.term]]
+  name = "差 1（執行価格）"
+  short = "合図を出したときの気配（mid）から約定までの値段のずれ。bp で出し、正 ＝ 不利。判定は中央値で見る。"
+  doc = "docs/specs/dashboard.md"
+  where = "§13-2 画面で計算する唯一の数字"
+
+  [[section.term]]
+  name = "差 2（実コスト）"
+  short = "手数料と規制費。いまは dry-run が返す手数料の写しで、実際の規制費は口座の取引履歴でしか確定しない。"
+  doc = "docs/specs/dashboard.md"
+  where = "§13-1・§13-2"
+
+  [[section.term]]
+  name = "差 3（紙上 − 実物）"
+  short = "紙上の損益と口座の損益の差（日次・トレーダー別）。紙上の対照ができるまでは仮データを出している。"
+  doc = "docs/specs/dashboard.md"
+  where = "§13-4・§15-8"
+
+  [[section.term]]
+  name = "差 4（無人運転）"
+  short = "拒否・再送・認証の失効が、人手なしにその日の窓の中で片付いたか。問題のあった日と再送の回数で見る。"
+  doc = "docs/plans/live-trading-three-models.md"
+  where = "§1 4 つの差"
+
+  [[section.term]]
+  name = "内部移転"
+  short = "同じ回に A の売りと B の買いが同じ銘柄のとき、口座に注文を出さず A の株を B に渡すこと。口座には出ない。"
+  doc = "docs/specs/experiments/live-trading.md"
+  where = "§0-1 トレーダーのお金と持ち株"
+
+  [[section.term]]
+  name = "見送り"
+  short = "自分の予算の空きが足りず、注文を出す前にやめた買い。エラーではなく事象として記録する。"
+  doc = "docs/specs/experiments/live-trading.md"
+  where = "§0-1 トレーダーのお金と持ち株"
+
+  [[section.term]]
+  name = "問題（注文）"
+  short = "口座に断られた・エラーで終わった・発注されなかった注文の数。約定が無いので持ち株と損益は変わらない。"
+  doc = "docs/specs/experiments/live-trading.md"
+  where = "§0-1 口座に断られた買い"
+
+  [[section.term]]
+  name = "再送"
+  short = "一時的な拒否（Session offline・5xx）のときだけ、重複を確かめてから同じ注文を送り直すこと。"
+  doc = "docs/specs/experiments/live-trading.md"
+  where = "§0-2 再送"
+
+  [[section.term]]
+  name = "執行の窓"
+  short = "発注してよい時間帯。窓の外・休場日・半日立会の日は執行器が発注せず、理由を事象に残す。"
+  doc = "docs/specs/experiments/live-trading.md"
+  where = "§0-2 執行の窓"
+
+  [[section.term]]
+  name = "起動しなかった日"
+  short = "NYSE の営業日なのに執行器の記録が無い日。timer ／ cron が動かなかった疑いで、無人運転の判定に効く。"
+  doc = "docs/specs/dashboard.md"
+  where = "§13・§15-8 営業日の暦"
+
+  [[section.term]]
+  name = "含み損の停止条件"
+  short = "含み損が予算の決めた割合を超えたら発注をやめて持ち越す決めごと。⚠ 自動では止めない（止めるのは人）。"
+  doc = "docs/specs/experiments/live-trading.md"
+  where = "§0-2 停止"
+
+  [[section.term]]
+  name = "行動のマス目"
+  short = "銘柄 × 営業日で、保有・買・売・見送り・動きなし・起動なしを 1 マスずつ示す図。色は良し悪しではない。"
+  doc = "docs/specs/dashboard.md"
+  where = "§15-4 実売買の画面のクラス"
+
+  [[section.term]]
+  name = "仮データ"
+  short = "本物の数字がまだ無い項目に入れた作り物の値。紫の破線の印と点線で示し、API には出さない。"
+  doc = "docs/specs/dashboard.md"
+  where = "§15-8 仮データの印"
+
+[[section]]
+id = "screen"
+label = "管理画面（監視と記録）"
+note = "管理画面の口座と接続・記録・判定・操作に出る語。管理画面の i マークもここを読む。"
+
+  [[section.term]]
+  name = "働いている注文"
+  short = "まだ約定も取消もされていない注文。「その日の注文」の一覧には済んだものも混ざるので、状態で絞る。"
+  doc = "docs/specs/experiments/tastytrade-api-sample.md"
+  where = "§0-4 /orders/live は「本日の注文」"
+
+  [[section.term]]
+  name = "監視のイベント"
+  short = "監視ループが残す出来事（refresh の成否・接続・切断・429）。観点 A（認証の寿命）の材料。"
+  doc = "docs/specs/dashboard.md"
+  where = "§4 監視ループ"
+
+  [[section.term]]
+  name = "API 検証の記録"
+  short = "sample.py を 1 回流した記録（手順ごとに 1 行）。トークンと口座番号はマスクしてから書く。"
+  doc = "docs/specs/experiments/tastytrade-api-sample.md"
+  where = "§3 記録形式"
+
+  [[section.term]]
+  name = "記録の差分"
+  short = "2 つの記録の同じ手順を並べ、所要や状態遷移の時刻が回ごとにどれだけ揺れたか（B − A）を見る。"
+  doc = "docs/specs/dashboard.md"
+  where = "§1 画面"
+
+  [[section.term]]
+  name = "操作の履歴"
+  short = "停止・解除などの操作を、誰がいつ行ったかと結果つきで残した記録。ローカル面だけで見られる。"
+  doc = "docs/specs/dashboard.md"
+  where = "§2 権限の設計"

@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% block content %}
-<h2><a href="/records">記録</a> › {{ run.run_id }} <span class="badge badge-{{ run.env }}">{{ run.env }}</span>{% if run.mock %} <span class="badge badge-mock">MOCK</span>{% endif %}</h2>
+<h2><a href="/records">記録</a> › {{ run.run_id }} <span class="badge badge-{{ run.env }}">{{ run.env }}</span>{% if run.mock %} <span class="badge badge-mock">MOCK</span>{% endif %}{{ info("API 検証の記録") }}</h2>
 <p class="muted small">{{ run.venue }} · {{ run.started_at.utc|pt }} / {{ run.started_at.utc|et }} · {{ run.ok_count }}/{{ run.step_count }} ok · {{ (run.elapsed_ms/1000)|round(1) }} 秒 · <code>{{ run.file }}</code>
 {% if siblings %} · 差分: {% for s in siblings %}<a href="/records/diff?a={{ s.run_id }}&b={{ run.run_id }}">{{ s.run_id }}</a> {% endfor %}{% endif %}</p>
 {% for row in rows %}

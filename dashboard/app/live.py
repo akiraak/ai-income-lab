@@ -235,3 +235,126 @@ def index(live_dir: Path, days: int = DAYS) -> dict:
         "summary": summary,
         "days": days,
     }
+
+
+# ---------------------------------------------------------------- 概要とトレーダーの詳細（2026-09-18。dashboard.md §13・§15）
+
+ACT_LABEL = {"buy": "買い", "sell": "売り", "hold": "保有", "skip": "見送り", "none": "動きなし", "nostart": "起動なし"}
+SKIP_KINDS = ("too_small", "over_budget", "over_day_cap", "no_quote")
+N_SERIES = 3          # 系列の色の数（§15-2。状態・環境・アクセントと取り違えない条件では 3 色まで）
+PAPER_PLACEHOLDER_BP_PER_DAY = 2.0   # ⚠ 仮データ（紙上の損益）の傾き。本物は実売買の Phase 3（紙上の対照）の後
+
+
+def business_days(first: str, last: str) -> list[str]:
+    """⚠ 仮: 平日をすべて営業日とみなす（休場日の暦がまだ無い。TODO「休場日の暦を入れる」）。"""
+    from datetime import date as _date, timedelta
+    d, end, out = _date.fromisoformat(first), _date.fromisoformat(last), []
+    while d <= end:
+        if d.weekday() < 5:
+            out.append(d.isoformat())
+        d += timedelta(days=1)
+    return out
+
+
+def board(live_dir: Path, days: int = DAYS) -> dict:
+    """概要・全体の詳細・トレーダーの詳細が使う形。トレーダー別の推移（損益・行動のマス目・差 1）と起動しなかった日。
+
+    ⚠ 仮データ（紙上の損益・差 3）は `placeholder` の印を付けて返す。`/api/live` には出さない。
+    """
+    tr = traders(live_dir)
+    ds = dates(live_dir)[:days][::-1]          # 古い順の直近 days 日
+    dd = {d: day(live_dir, d) for d in ds}
+    bd = business_days(ds[0], ds[-1]) if ds else []
+    missing = [d for d in bd if d not in dd]
+    for i, t in enumerate(tr):
+        name = t["name"]
+        t["cls"] = f"s{i % N_SERIES + 1}"
+        t["dash"] = i >= N_SERIES             # 4 人目からは線の形で分ける（§15-2）
+        ledger = {d: r for d in ds for r in dd[d]["ledger"] if r.get("trader") == name}
+        t["pnl_usd"] = [round(ledger[d].get("realized_usd", 0) + ledger[d].get("unrealized_usd", 0), 2) if d in ledger else None for d in bd]
+        t["pnl_pct"] = [round(v / t["budget_usd"] * 100, 4) if v is not None and t["budget_usd"] else None for v in t["pnl_usd"]]
+        t["last"] = next((ledger[d] for d in reversed(ds) if d in ledger), {})
+        # ⚠ 仮データ: 紙上の損益 ＝ 実物の損益に 1 営業日あたり 2bp（予算に対して）を足した線。本物ではない
+        k = 0
+        paper = []
+        for v in t["pnl_pct"]:
+            if v is None:
+                paper.append(None)
+                continue
+            k += 1
+            paper.append(round(v + PAPER_PLACEHOLDER_BP_PER_DAY / 100 * k, 4))
+        t["paper_pct"] = paper
+        grid: dict[str, list[dict]] = {s: [] for s in t["symbols"]}
+        diff1: list[list] = []
+        n_orders = n_filled = n_transfers = 0
+        for d in bd:
+            day_ = dd.get(d)
+            for s in t["symbols"]:
+                if day_ is None:
+                    grid[s].append({"a": "nostart", "tip": f"{d} {s}: 起動なし（営業日なのに執行器の記録が無い）"})
+                    continue
+                sig = next((x for x in day_["signals"] if x.get("trader") == name and x.get("symbol") == s), None)
+                sig_t = f"（合図 買い {sig.get('buy', 0):.0f} ／ 出口 {sig.get('exit', 0):.0f}）" if sig else ""
+                act, detail = "none", ""
+                for o in day_["orders"]:
+                    part = next((p for p in o.get("parts") or [] if p.get("trader") == name), None)
+                    if part and o.get("symbol") == s and o.get("fills_qty"):
+                        act = "buy" if o.get("side") == "buy" else "sell"
+                        detail = f"{part.get('shares')} 株 @ {o['fill_price']:.2f}"
+                for x in day_["transfers"]:
+                    if x.get("symbol") == s and name in (x.get("buyer"), x.get("seller")):
+                        act = "buy" if x.get("buyer") == name else "sell"
+                        other = x.get("seller") if act == "buy" else x.get("buyer")
+                        detail = f"{x.get('shares')} 株 @ {x.get('price')}（内部移転。相手 {other}）"
+                skips = [e.get("kind") for e in day_["events"] if e.get("kind") in SKIP_KINDS and e.get("trader") == name and e.get("symbol") == s]
+                if act == "none" and skips:
+                    act, detail = "skip", skips[0]
+                if act == "none" and s in ((ledger.get(d) or {}).get("holdings") or {}):
+                    act = "hold"
+                grid[s].append({"a": act, "tip": f"{d} {s}: {ACT_LABEL[act]} {detail}{sig_t}".strip()})
+            if day_ is None:
+                continue
+            for o in day_["orders"]:
+                if name in o["traders"]:
+                    n_orders += 1
+                    n_filled += 1 if o.get("final_status") == "Filled" else 0
+                    diff1 += [[d, v] for v in o["diff1_bp"]]
+            n_transfers += sum(1 for x in day_["transfers"] if name in (x.get("buyer"), x.get("seller")))
+        t["grid"] = grid
+        t["diff1"] = diff1
+        t["diff1_median"] = _median([v for _, v in diff1])
+        t["n_orders"], t["n_filled"], t["n_transfers"] = n_orders, n_filled, n_transfers
+        t["today"] = [[s, grid[s][-1]["a"]] for s in t["symbols"] if grid[s]]
+        t["today_text"] = " · ".join(f"{s} {ACT_LABEL[a]}" for s, a in t["today"] if a != "none") or "動きなし"
+        t["holdings_text"] = " · ".join(f'{s} {v.get("shares", 0):g} @ {float(v.get("avg_price", 0)):.2f}'
+                                        for s, v in ((t["last"] or {}).get("holdings") or {}).items()) or "なし"
+        t["pnl_now_usd"] = next((v for v in reversed(t["pnl_usd"]) if v is not None), None)
+        t["pnl_now_pct"] = next((v for v in reversed(t["pnl_pct"]) if v is not None), None)
+    active = [t for t in tr if t["pnl_now_usd"] is not None]
+    budget = sum(t["budget_usd"] for t in active)
+    total = sum(t["pnl_now_usd"] for t in active) if active else None
+    all_diff1 = [v for d in ds for o in dd[d]["orders"] for v in o["diff1_bp"]]
+    return {
+        "live_dir": str(live_dir),
+        "empty": not tr and not ds,
+        "traders": tr,
+        "configured": [t for t in tr if not t["test"]],
+        "test_traders": [t for t in tr if t["test"]],
+        "bd": bd,
+        "missing": missing,
+        "dates": ds,
+        "days": [dd[d] for d in ds],
+        "latest": dd[ds[-1]] if ds else None,
+        "total": {"pnl_usd": total, "budget_usd": budget, "pnl_pct": (total / budget * 100) if total is not None and budget else None,
+                  "n_traders": len(active)},
+        "summary": {
+            "orders": sum(dd[d]["n_orders"] for d in ds), "filled": sum(dd[d]["n_filled"] for d in ds),
+            "bad": sum(dd[d]["n_bad"] for d in ds), "retries": sum(dd[d]["retries"] for d in ds),
+            "problem_days": sum(1 for d in ds if dd[d]["problems"] or dd[d]["n_bad"]),
+            "transfers": sum(len(dd[d]["transfers"]) for d in ds),
+            "diff1_median_bp": _median(all_diff1), "diff1_n": len(all_diff1),
+            "fees_usd": round(sum(float(t["last"].get("fees_usd", 0) or 0) for t in tr), 4),
+        },
+        # ⚠ 仮データの印（画面はこれを見てバッジを出す）
+        "placeholder": {"paper": True, "diff3_bp_per_day": PAPER_PLACEHOLDER_BP_PER_DAY, "calendar": True},
+    }

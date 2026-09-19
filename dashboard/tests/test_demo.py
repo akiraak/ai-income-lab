@@ -79,3 +79,16 @@ def test_no_demo_excludes_mock_records(tmp_path):
         assert "デモ" not in c.get("/").text
         api = c.get("/api/judge").json()
         assert api["demo"] is False and api["excluded_mock_runs"] == 1 and api["real_runs"] == 0
+
+
+def test_demo_reads_mock_executor_records_unless_live_dir_given(tmp_path):
+    """2026-09-18: デモでは概要・トレーダーの画面も見えるよう、執行器のモックの記録（dashboard/demo/live）を読む。"""
+    s = load_settings(_environ(tmp_path))
+    assert s.demo and s.live_dir.parts[-2:] == ("demo", "live")
+    other = tmp_path / "mine"
+    assert load_settings(_environ(tmp_path, AIL_LIVE_DIR=str(other))).live_dir == other.resolve()
+    s.ensure_dirs()
+    with TestClient(create_app(s, start_monitors=False), client=("127.0.0.1", 50000)) as c:
+        home = c.get("/").text
+        assert "mock_a" in home and "mock_c" in home and "起動なし" in home
+        assert c.get("/traders/mock_b").status_code == 200

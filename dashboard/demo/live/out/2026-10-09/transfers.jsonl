@@ -1,0 +1,1 @@
+{"date": "2026-10-09", "env": "cert", "run_id": "20260919T011824Z", "symbol": "IWM", "seller": "mock_c", "buyer": "mock_b", "shares": 1.0, "price": 99.65, "note": "内部移転。口座には出ない（差 3 のコスト 0）", "mock": true}

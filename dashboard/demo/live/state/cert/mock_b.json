@@ -1,0 +1,192 @@
+{
+ "name": "mock_b",
+ "holdings": {},
+ "realized_usd": -1.7392430000000174,
+ "fees_usd": 0.0,
+ "pending_settlement": [
+  {
+   "date": "2026-10-07",
+   "amount": 99.25414400000001
+  },
+  {
+   "date": "2026-10-12",
+   "amount": 98.593914
+  },
+  {
+   "date": "2026-10-15",
+   "amount": 100.000298
+  },
+  {
+   "date": "2026-10-20",
+   "amount": 100.85159599999999
+  },
+  {
+   "date": "2026-10-22",
+   "amount": 101.202975
+  },
+  {
+   "date": "2026-10-23",
+   "amount": 99.56076
+  },
+  {
+   "date": "2026-10-28",
+   "amount": 98.783672
+  }
+ ],
+ "last_date": "2026-10-28",
+ "history": [
+  {
+   "date": "2026-10-05",
+   "symbol": "SPY",
+   "side": "buy",
+   "shares": 0.9878,
+   "price": 101.23,
+   "fee": 0.0,
+   "note": ""
+  },
+  {
+   "date": "2026-10-07",
+   "symbol": "SPY",
+   "side": "sell",
+   "shares": 0.9878,
+   "price": 100.48,
+   "fee": 0.0,
+   "note": ""
+  },
+  {
+   "date": "2026-10-08",
+   "symbol": "SPY",
+   "side": "buy",
+   "shares": 0.9962,
+   "price": 100.38,
+   "fee": 0.0,
+   "note": ""
+  },
+  {
+   "date": "2026-10-09",
+   "symbol": "IWM",
+   "side": "buy",
+   "shares": 1.0,
+   "price": 99.65,
+   "fee": 0.0,
+   "note": "internal"
+  },
+  {
+   "date": "2026-10-09",
+   "symbol": "IWM",
+   "side": "buy",
+   "shares": 0.0035,
+   "price": 99.82,
+   "fee": 0.0,
+   "note": ""
+  },
+  {
+   "date": "2026-10-12",
+   "symbol": "SPY",
+   "side": "sell",
+   "shares": 0.9962,
+   "price": 98.97,
+   "fee": 0.0,
+   "note": ""
+  },
+  {
+   "date": "2026-10-13",
+   "symbol": "SPY",
+   "side": "buy",
+   "shares": 1.0,
+   "price": 99.02000000000001,
+   "fee": 0.0,
+   "note": "internal"
+  },
+  {
+   "date": "2026-10-13",
+   "symbol": "SPY",
+   "side": "buy",
+   "shares": 0.0099,
+   "price": 99.1,
+   "fee": 0.0,
+   "note": ""
+  },
+  {
+   "date": "2026-10-15",
+   "symbol": "SPY",
+   "side": "sell",
+   "shares": 1.0099,
+   "price": 99.02,
+   "fee": 0.0,
+   "note": ""
+  },
+  {
+   "date": "2026-10-16",
+   "symbol": "SPY",
+   "side": "buy",
+   "shares": 1.0,
+   "price": 99.72,
+   "fee": 0.0,
+   "note": "internal"
+  },
+  {
+   "date": "2026-10-16",
+   "symbol": "SPY",
+   "side": "buy",
+   "shares": 0.0028,
+   "price": 100.01,
+   "fee": 0.0,
+   "note": ""
+  },
+  {
+   "date": "2026-10-20",
+   "symbol": "SPY",
+   "side": "sell",
+   "shares": 1.0028,
+   "price": 100.57,
+   "fee": 0.0,
+   "note": ""
+  },
+  {
+   "date": "2026-10-21",
+   "symbol": "SPY",
+   "side": "buy",
+   "shares": 0.988,
+   "price": 101.21,
+   "fee": 0.0,
+   "note": ""
+  },
+  {
+   "date": "2026-10-22",
+   "symbol": "IWM",
+   "side": "sell",
+   "shares": 1.0035,
+   "price": 100.85,
+   "fee": 0.0,
+   "note": ""
+  },
+  {
+   "date": "2026-10-23",
+   "symbol": "SPY",
+   "side": "sell",
+   "shares": 0.988,
+   "price": 100.77,
+   "fee": 0.0,
+   "note": ""
+  },
+  {
+   "date": "2026-10-26",
+   "symbol": "SPY",
+   "side": "buy",
+   "shares": 0.9946,
+   "price": 100.54,
+   "fee": 0.0,
+   "note": ""
+  },
+  {
+   "date": "2026-10-28",
+   "symbol": "SPY",
+   "side": "sell",
+   "shares": 0.9946,
+   "price": 99.32,
+   "fee": 0.0,
+   "note": ""
+  }
+ ]
+}

@@ -1,0 +1,19 @@
+{# 監視の帯（§15-7）。概要の上に 1 本。5 秒ごとに /?partial=strip で差し替える。詳しくは「全体の詳細」の口座と接続 #}
+<div class="strip">
+  {% for env, m in monitors.items() %}
+  {% set a = m.auth %}
+  <span><span class="badge badge-{{ env }}">{{ env|upper }}</span> <b>{% if a.ok %}✅ 認証中{% elif a.suspended %}❌ 認証停止中{% else %}⚠ 未認証{% endif %}</b>{% if a.remaining_s is not none %} 残り {{ a.remaining_s|int }} 秒{% endif %}</span>
+  <span class="sep"></span>
+  {% else %}
+  <span class="muted">監視する環境が無い</span><span class="sep"></span>
+  {% endfor %}
+  {% set p = monitors.get('prod') or monitors.get('cert') %}
+  {% if p %}
+  {% set s = p.account_stream %}{% set dx = p.dxlink %}
+  <span>接続 <b>{% if s.state == 'connected' and (dx.state == 'connected' or dx.state == 'n/a') %}✅ 接続中{% else %}⚠ 切断あり{% endif %}</b></span><span class="sep"></span>
+  <span>口座 <b>{% if p.balances and p.balances['cash-balance'] %}${{ '{:,.0f}'.format(p.balances['cash-balance']|float) }}{% else %}—{% endif %}</b></span><span class="sep"></span>
+  {% endif %}
+  <span>働いている注文 <b>{{ n_working }}</b></span><span class="sep"></span>
+  <span>事象 <b>{{ events|length }}</b></span>
+  <span class="grow"></span><a href="/overall#monitor" class="small">口座と接続の詳細 →</a>
+</div>

@@ -1,0 +1,2 @@
+{"date": "2026-10-01", "env": "cert", "run_id": "20260919T011812Z", "when": "before", "positions": [], "mock": true}
+{"date": "2026-10-01", "env": "cert", "run_id": "20260919T011812Z", "when": "after", "positions": [{"symbol": "SPY", "quantity": "1", "quantity-direction": "Long", "average-open-price": "1.0"}], "mock": true}

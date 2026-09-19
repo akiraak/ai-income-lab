@@ -1,0 +1,176 @@
+{
+ "name": "mock_a",
+ "holdings": {
+  "QQQ": {
+   "shares": 2.0,
+   "avg_price": 99.11,
+   "opened": "2026-10-14"
+  },
+  "SPY": {
+   "shares": 2.0,
+   "avg_price": 100.21,
+   "opened": "2026-10-27"
+  }
+ },
+ "realized_usd": -2.8400000000000034,
+ "fees_usd": 0.0,
+ "pending_settlement": [
+  {
+   "date": "2026-10-05",
+   "amount": 100.87
+  },
+  {
+   "date": "2026-10-08",
+   "amount": 100.05
+  },
+  {
+   "date": "2026-10-13",
+   "amount": 99.02000000000001
+  },
+  {
+   "date": "2026-10-13",
+   "amount": 98.8
+  },
+  {
+   "date": "2026-10-16",
+   "amount": 99.72
+  },
+  {
+   "date": "2026-10-16",
+   "amount": 99.48
+  },
+  {
+   "date": "2026-10-26",
+   "amount": 100.23
+  }
+ ],
+ "last_date": "2026-10-28",
+ "history": [
+  {
+   "date": "2026-10-01",
+   "symbol": "SPY",
+   "side": "buy",
+   "shares": 1.0,
+   "price": 100.73,
+   "fee": 0.0,
+   "note": ""
+  },
+  {
+   "date": "2026-10-05",
+   "symbol": "SPY",
+   "side": "sell",
+   "shares": 1.0,
+   "price": 100.87,
+   "fee": 0.0,
+   "note": ""
+  },
+  {
+   "date": "2026-10-06",
+   "symbol": "SPY",
+   "side": "buy",
+   "shares": 1.0,
+   "price": 101.06,
+   "fee": 0.0,
+   "note": ""
+  },
+  {
+   "date": "2026-10-08",
+   "symbol": "SPY",
+   "side": "sell",
+   "shares": 1.0,
+   "price": 100.05,
+   "fee": 0.0,
+   "note": ""
+  },
+  {
+   "date": "2026-10-09",
+   "symbol": "SPY",
+   "side": "buy",
+   "shares": 2.0,
+   "price": 99.79,
+   "fee": 0.0,
+   "note": ""
+  },
+  {
+   "date": "2026-10-13",
+   "symbol": "SPY",
+   "side": "sell",
+   "shares": 1.0,
+   "price": 99.02000000000001,
+   "fee": 0.0,
+   "note": "internal"
+  },
+  {
+   "date": "2026-10-13",
+   "symbol": "SPY",
+   "side": "sell",
+   "shares": 1.0,
+   "price": 98.8,
+   "fee": 0.0,
+   "note": ""
+  },
+  {
+   "date": "2026-10-14",
+   "symbol": "SPY",
+   "side": "buy",
+   "shares": 2.0,
+   "price": 99.22,
+   "fee": 0.0,
+   "note": ""
+  },
+  {
+   "date": "2026-10-14",
+   "symbol": "QQQ",
+   "side": "buy",
+   "shares": 2.0,
+   "price": 99.11,
+   "fee": 0.0,
+   "note": ""
+  },
+  {
+   "date": "2026-10-16",
+   "symbol": "SPY",
+   "side": "sell",
+   "shares": 1.0,
+   "price": 99.72,
+   "fee": 0.0,
+   "note": "internal"
+  },
+  {
+   "date": "2026-10-16",
+   "symbol": "SPY",
+   "side": "sell",
+   "shares": 1.0,
+   "price": 99.48,
+   "fee": 0.0,
+   "note": ""
+  },
+  {
+   "date": "2026-10-22",
+   "symbol": "SPY",
+   "side": "buy",
+   "shares": 1.0,
+   "price": 101.2,
+   "fee": 0.0,
+   "note": ""
+  },
+  {
+   "date": "2026-10-26",
+   "symbol": "SPY",
+   "side": "sell",
+   "shares": 1.0,
+   "price": 100.23,
+   "fee": 0.0,
+   "note": ""
+  },
+  {
+   "date": "2026-10-27",
+   "symbol": "SPY",
+   "side": "buy",
+   "shares": 2.0,
+   "price": 100.21,
+   "fee": 0.0,
+   "note": ""
+  }
+ ]
+}

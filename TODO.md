@@ -144,6 +144,7 @@
     2026-09-18 に見つけた【実測】: 停止ボタンを押すと確認ダイアログが出ず、そのまま `POST /ops/halt` に進む（テストでは送信をブラウザ側で止めた。`HALT` は書いていない）。ブラウザのエラー「Executing inline event handler violates … 'script-src 'self''」
     原因: templates の `onsubmit="return confirm(...)"` 5 か所（`base.html` の停止・`ops.html` の解除 ／ 停止 ／ 発注 ／ 後片付け）が、CSP（`script-src 'self'`）でインラインのスクリプトとして止められる。⚠ 本番の発注は確認文の入力が別にあるので、確認なしで実弾が出るわけではない
     直し方の見立て: 確認の文面を `data-confirm` 属性に移し、`app/static/app.js`（`'self'` なので通る）で `submit` を捕まえて `confirm()` する。テストは playwright で「ダイアログが出る ／ 断ると送られない」を固定する
+    2026-09-18 に見つけた【実測】: ⚠ **インラインの style も CSP に止められている**（`ops.html` 4 か所・`diff.html` 2・`record.html` 1・`dev.html` 2。余白や枠の太さだけで動作には効かない）。一緒に `app.css` のクラスへ移す
     関連: 「Phase 5-1: 実売買のテスト（**利用者が行う**。試験用トレーダー `test_a` で本番に最小額の 1 発注 → 翌営業日に手仕舞い。Claude は手順書とチェックリストまで）」（手順書で停止ボタンを押せる状態にしておく）
   - [ ] 管理画面（`dashboard/`）全体を設計しなおす
     利用者の指示（2026-09-18）。着手時にプランを作る（見直す範囲 ＝ 画面の構成・導線・見た目のどこまでかは、プランで利用者と決める）
@@ -151,12 +152,17 @@
     関連: [dashboard.md](docs/specs/dashboard.md)（画面は §1・§10〜§13、デザイン規約は §15）
     関連: 「Phase 4: 管理画面 `/live`（読むだけ・公開面でも見える。停止は既存の `/ops/halt`。`dashboard.md` §13）」
     利用者の方針（2026-09-18）: ⚠ **分かりやすさ重視・グラフも使う**。主な使い方は**各トレーダーの行動と実績と、その比較**（[プラン 1-6・1-7](docs/plans/archive/dashboard-required-features.md)）
-    - [ ] 決めた構成とデザインを管理画面に実装する（デザイン 3「数字とグラフが主役」・トレーダーは 1 人 1 段・ナビは左ペイン・日次は「全体の詳細」）
-      2026-09-18 に「管理画面に必要な機能を決める」で決めた（[決定](docs/plans/archive/dashboard-required-features.md)）。見本は `docs/plans/assets/dashboard-patterns/design-3-numbers/`（vibeboard の Plans で開ける）。着手時にプランを作る
-      中身: 残す 15 行（監視・実売買・停止と解除・操作の履歴）＋ 足す 7 行（N1〜N7）／ 外す 11 行（検証・データ・手動の注文・開発。⚠ `app/experiments.py`・`app/inventory.py` と、デモが使う `devtools` の部品は残す）／ 記録と判定は観点 A を見届けるまで残す
-      ⚠ `dashboard.md` §15 に足すもの: 系列の色（黒い地の 3 色）・監視の帯・大きな数字・左ペイン。⚠ g3plus に載るので §7 のデプロイ契約も見直す
-      決まっていないもの: 公開面への記録の届け方（F21）・4 役の動きを画面に出すか（F23）・4 役の名前（A1。画面の呼び名に効く）
-      関連: 「管理画面の確認ダイアログ（停止・解除・発注・後片付け）が CSP で止まっていて、押すと確かめずに送られるのを直す」
+    - [ ] 紙上の損益と差 3 を本物にする（いまは仮データ。本物に差し替えたら仮の印を外す）
+      2026-09-18 の実装で仮データを入れた（利用者の指示「データが無いものは仮データを入れ、後で実装する」）。仮の中身は `dashboard/app/live.py` の `PAPER_PLACEHOLDER_BP_PER_DAY`（実物に 1 営業日あたり 2bp を足した線）。印は `.chip.placeholder`・点線（dashboard.md §15-8）
+      本物: 実売買の Phase 3 の `daily.csv`（トレーダー別・日次の紙上の純利と差 3）を `board()` で読み、トレーダーの詳細の点線と概要・詳細の差 3 に写す。⚠ 仮データが `/api/live` に出ないテストは残し、本物は出す
+      依存: 「Phase 3: 紙上の対照（同じ合図を公式終値・片道 2.5bp で回し、差 1〜4 を `daily.csv` に 1 日 1 行 × 3 人）」
+    - [ ] 休場日の暦を入れる（起動しなかった日の「平日＝営業日」の仮を外す）
+      2026-09-18 の実装で仮にした（`dashboard/app/live.py` の `business_days`。印は「仮 休場日の暦なし」）。NYSE の休場日を一次情報から持つ（執行器の timer ／ cron の起動日と同じ暦を使う）
+      関連: 「D16: 毎日自動で起動する仕組み（titan の timer ／ cron）。まだ入れていない」
+    - [ ] 外すと決めた 11 行（検証・データ・手動の注文・開発）の経路・テンプレート・テストを消す
+      2026-09-18 の実装では左ペインから外しただけ（経路とコードはまだある）。決定は [dashboard-required-features.md](docs/plans/archive/dashboard-required-features.md) 3-1・4-1
+      ⚠ 残すもの: `app/experiments.py`・`app/inventory.py`（vibeboard のタブが import）／ デモが使う `devtools` の `MockServer`・`run_step` ／ 停止と解除（`/ops/halt`・`/ops/resume`）と操作の履歴 ／ 記録と判定は観点 A を見届けるまで
+      ⚠ 直すもの: CLAUDE.md の管理画面の節・`dashboard/README.md`・dashboard.md §1・§7（検証とデータの画面の行）・§10・§11・テスト（`test_experiments`・`test_inventory`・`test_devtools`・`test_app` の該当）。`POST /ops/cancel` も外せる（1 件取消を外したので使う画面が無い）
   - [ ] 実売買を 4 役（予測・売買判断・実際の売買・ビュワー）に分け直すために決めること
     利用者の指示（2026-09-18）: 機能が限定すぎるので 4 つに分ける ＝ 予測（⚠ **モデルの作成・更新を含む**。1 日に何回動くかはモデルのルール次第）／ 売買判断（モデルの更新に合わせて、いつ何を売買するかを決める。予測と同じでもよい）／ 実際の売買 ／ ビュワー
     決まったこと（2026-09-18）: 1 日に何回売買するかはトレーダーの判断（CLAUDE.md の 2 つ目の例外を修正）／ 持ち株と持ち金はトレーダーごと・他のトレーダーの株は売れない・持ち金は固定の予算枠・口座全体の歯止めは置かず、口座に断られた買いはエラーとして記録（[live-trading.md §0-1](docs/specs/experiments/live-trading.md)）

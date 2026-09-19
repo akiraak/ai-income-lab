@@ -139,3 +139,126 @@ table.exp tr.best td { background:rgba(88,166,255,.07); }
 .exp-cards .card .v { font-size:24px; font-variant-numeric:tabular-nums; margin:4px 0 2px; }
 table.exp-kv th { width:auto; white-space:nowrap; text-transform:none; letter-spacing:0; font-size:11px; }
 table.exp-kv td { font-variant-numeric:tabular-nums; }
+
+/* ================================================================ 2026-09-18 デザイン 3「数字とグラフが主役」（dashboard.md §15-5〜§15-7）
+   見本は docs/plans/assets/dashboard-patterns/design-3-numbers/。⚠ インラインの style を使わない（幾何は SVG の属性、色はクラス） */
+:root {
+  /* 系列の色（トレーダー。§15-2）。⚠ 状態・環境・アクセントと取り違えない色相から選び、dataviz の検算で全項目 PASS（面 #181c25）。
+     ⚠ この条件で見分けられるのは 3 色まで → 4 人目からは線の形（.dash）を足す。⚠ 名前を必ず添える（凡例・端のラベル・段の見出し） */
+  --series-1: #21a3bc;  /* 水色 */
+  --series-2: #6b6cd0;  /* 藍 */
+  --series-3: #b15d6b;  /* くすんだ薔薇 */
+  --grid-line: #232834;
+  --cell-none: #10131a; --cell-skip: #262b36;
+  --hold-1: rgba(33,163,188,.30); --hold-2: rgba(107,108,208,.32); --hold-3: rgba(177,93,107,.34);
+}
+
+/* ---- 左ペイン（§15-6） */
+.shell { display: grid; grid-template-columns: 210px minmax(0, 1fr); min-height: 100vh; }
+.side { position: sticky; top: 0; height: 100vh; overflow-y: auto; background: var(--surface); border-right: 1px solid var(--line);
+        display: flex; flex-direction: column; padding: 14px 10px; gap: 10px; }
+.side .brand { font-weight: 700; font-size: 15px; padding: 0 8px 6px; line-height: 1.3; }
+.side .brand .muted { font-weight: 400; } .side .brand .ver { font-weight: 400; font-size: 11px; color: var(--sub); }
+.side-nav { display: flex; flex-direction: column; gap: 2px; }
+.side-nav .grp { color: var(--sub); font-size: 11px; letter-spacing: .05em; margin: 12px 8px 4px; }
+.side-nav a { display: flex; align-items: center; gap: 8px; padding: 6px 10px; border-radius: 6px; color: var(--ink); font-size: 13px; }
+.side-nav a:hover { background: var(--hover); text-decoration: none; }
+.side-nav a.on { background: var(--hover); box-shadow: inset 3px 0 0 var(--accent); font-weight: 600; }
+.side-empty { padding: 4px 10px; }
+.side-foot { margin-top: auto; padding: 8px; display: flex; flex-direction: column; gap: 4px; }
+.side-foot .pill { display: inline-block; white-space: normal; border-radius: 8px; font-size: 11px; line-height: 1.4; padding: 3px 8px; }
+.maincol { min-width: 0; }
+.maincol main { max-width: none; }
+
+/* ---- 見出し・節 */
+.sec { margin: 18px 0 8px; display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.sec h2 { margin: 0; }
+.rule { color: var(--muted); font-size: 12px; margin: 0 0 10px; }
+.backs { display: flex; gap: 14px; font-size: 12px; margin-bottom: 6px; }
+.panel { background: var(--surface); border-radius: 6px; padding: 12px 14px; min-width: 0; }
+.panel h3 { margin: 0 0 4px; font-size: 14px; display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+.panel h3 .small { color: var(--muted); font-weight: 400; }
+.panel + .panel { margin-top: 12px; }
+
+/* ---- 監視の帯（§15-7。タイル 6 枚を 1 本に畳む）と大きな数字（1 画面に 1 つだけ） */
+.strip { display: flex; flex-wrap: wrap; gap: 8px 18px; align-items: center; padding: 8px 14px; background: var(--surface);
+         border: 1px solid var(--line); border-radius: 6px; font-size: 12px; color: var(--muted); }
+.strip b { color: var(--ink); font-weight: 600; }
+.strip .sep { width: 1px; height: 14px; background: var(--line-strong); }
+.hero-row { display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; gap: 12px; margin-top: 12px; }
+.hero, .stat { border-left: 2px solid var(--line-strong); padding: 4px 16px; min-width: 0; }
+.hero .k, .stat .k { color: var(--muted); font-size: 12px; }
+.hero .v { font-size: 52px; font-weight: 600; line-height: 1.1; margin: 4px 0; }
+.hero .s, .stat .s { color: var(--muted); font-size: 12px; }
+.stat .v { font-size: 30px; font-weight: 600; line-height: 1.2; margin: 4px 0; }
+.charts-2 { display: grid; grid-template-columns: 3fr 2fr; gap: 12px; margin-top: 12px; }
+.charts-2 .panel + .panel { margin-top: 0; }
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; }
+.tile { background: var(--surface); border-radius: 6px; padding: 10px 12px; min-width: 0; }
+.tile .k { color: var(--muted); font-size: 11px; letter-spacing: .04em; }
+.tile .v { font-size: 18px; font-weight: 600; margin: 2px 0; }
+.tile .v.small { font-size: 14px; }
+.tile .s { color: var(--muted); font-size: 11px; }
+.dgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 12px; }
+.dgrid .wide { grid-column: 1 / -1; }
+.dgrid .panel + .panel { margin-top: 0; }
+
+/* ---- 凡例・チップ（⚠ 色だけにしない: 記号と数字と名前を必ず添える） */
+.legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12px; color: var(--ink); margin: 2px 0 6px; }
+.legend .item { display: inline-flex; align-items: center; gap: 6px; }
+.sw { display: inline-block; width: 12px; height: 3px; border-radius: 2px; }
+.sw.dot { width: 10px; height: 10px; border-radius: 50%; }
+.sw.dash { background: repeating-linear-gradient(90deg, var(--muted) 0 4px, transparent 4px 7px) !important; }
+.sw.s1 { background: var(--series-1); } .sw.s2 { background: var(--series-2); } .sw.s3 { background: var(--series-3); }
+.chip { display: inline-block; padding: 0 7px; border-radius: 3px; font-size: 12px; font-weight: 600; border: 1px solid transparent; white-space: nowrap; }
+.chip.ok { background: var(--ok-bg); color: var(--ok-ink); border-color: rgba(63,185,80,.35); }
+.chip.warn { background: var(--warn-bg); color: var(--warn-ink); border-color: rgba(210,153,34,.35); }
+.chip.ng { background: var(--ng-bg); color: var(--ng-ink); border-color: rgba(248,81,73,.35); }
+.chip.na { background: var(--hover); color: var(--muted); border-color: var(--line-strong); }
+/* ⚠ 仮データ（本物の数字ではない）の印。紫（MOCK と同じ「実物ではない」）の枠 */
+.chip.placeholder, .badge-placeholder { background: var(--mock-bg); color: #d2b8ff; border: 1px dashed rgba(163,113,247,.7); }
+
+/* ---- SVG の部品（§15-5） */
+svg.chart { display: block; width: 100%; height: auto; }
+svg .grid { stroke: var(--grid-line); stroke-width: 1; }
+svg .axis { stroke: var(--line-strong); stroke-width: 1; }
+svg .zero { stroke: var(--sub); stroke-width: 1; }
+svg .tick { fill: var(--muted); font-size: 10px; }
+svg .lab { fill: var(--ink); font-size: 11px; }
+svg .lab-m { fill: var(--muted); font-size: 11px; }
+svg .ln { fill: none; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+svg .s1 .ln { stroke: var(--series-1); } svg .s2 .ln { stroke: var(--series-2); } svg .s3 .ln { stroke: var(--series-3); }
+svg .dash .ln { stroke-dasharray: 5 4; }
+svg .dt { stroke: var(--surface); stroke-width: 2; }
+svg .dt.s1 { fill: var(--series-1); } svg .dt.s2 { fill: var(--series-2); } svg .dt.s3 { fill: var(--series-3); }
+svg .hit { fill: transparent; }
+svg .hit:hover { fill: rgba(255,255,255,.04); }
+svg .miss { fill: var(--ng-bg); }
+svg .miss-t { fill: var(--ng-ink); font-size: 10px; }
+svg .band-ok { fill: var(--ok-bg); } svg .band-warn { fill: var(--warn-bg); } svg .band-ng { fill: var(--ng-bg); }
+svg .band-t { fill: var(--muted); font-size: 10px; }
+/* 行動のマス目。⚠ 状態の色は使わない（買い・売りは良い悪いではない） */
+svg .c-none { fill: var(--cell-none); }
+svg .c-hold.s1 { fill: var(--hold-1); } svg .c-hold.s2 { fill: var(--hold-2); } svg .c-hold.s3 { fill: var(--hold-3); }
+svg .c-buy.s1, svg .c-sell.s1 { fill: var(--series-1); } svg .c-buy.s2, svg .c-sell.s2 { fill: var(--series-2); } svg .c-buy.s3, svg .c-sell.s3 { fill: var(--series-3); }
+svg .c-skip { fill: var(--cell-skip); }
+svg .c-nostart { fill: var(--ng-bg); }
+svg .c-t { fill: #fff; font-size: 10px; font-weight: 600; }
+svg .c-t-m { fill: var(--muted); font-size: 10px; }
+svg .c-t-ng { fill: var(--ng-ink); font-size: 10px; font-weight: 600; }
+
+/* ---- トレーダーの段（1 人 1 段。時間の軸を段どうしで揃える） */
+.lanes { display: flex; flex-direction: column; gap: 10px; }
+.lane { display: grid; grid-template-columns: 230px minmax(0, 1fr); gap: 12px; background: var(--surface); border-radius: 6px; padding: 10px 12px; border-left: 4px solid var(--line-strong); }
+.lane.bl-s1 { border-left-color: var(--series-1); } .lane.bl-s2 { border-left-color: var(--series-2); } .lane.bl-s3 { border-left-color: var(--series-3); }
+.lane .info { display: flex; flex-direction: column; gap: 4px; font-size: 12px; }
+.lane .info .big { font-size: 34px; font-weight: 600; line-height: 1.15; }
+.lane .info .k { color: var(--muted); }
+.tr-name { display: inline-flex; align-items: center; gap: 8px; font-weight: 600; }
+.tr-name a { color: var(--ink); }
+.keyrow { display: flex; gap: 14px; flex-wrap: wrap; font-size: 11px; color: var(--muted); margin-top: 6px; }
+.key { display: inline-flex; align-items: center; gap: 5px; }
+.key i { display: inline-block; width: 12px; height: 12px; border-radius: 2px; }
+.key .k-hold { background: var(--hold-1); } .key .k-buy { background: var(--series-1); } .key .k-none { background: var(--cell-none); border: 1px solid var(--line); }
+.key .k-skip { background: var(--cell-skip); } .key .k-nostart { background: var(--ng-bg); }
+tr.row-missing td { background: var(--ng-bg); color: var(--ng-ink); }

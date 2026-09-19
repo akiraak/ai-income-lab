@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block title %}全体の詳細 · ai-income-lab{% endblock %}
+{% block content %}
+{# 全体の詳細（dashboard.md §13。2026-09-18）: 日次（概要から移した）・注文の履歴（全トレーダー）・口座と接続（5 秒更新）。見本の順。⚠ 読むだけ #}
+<div class="backs"><a href="/">← 概要</a></div>
+<div class="sec"><h2>全体の詳細</h2><span class="muted small">全トレーダーまとめて{% if b.bd %} · 直近 {{ b.bd|length }} 営業日（{{ b.bd[0] }}〜{{ b.bd[-1] }}）{% endif %}</span></div>
+
+<div class="sec"><h2>日次</h2><span class="muted small">全トレーダーまとめて 1 日 1 行（新しい順）· 起動しなかった日も行を出す（<span class="chip placeholder">仮</span> 休場日の暦なし）</span></div>
+{% if b.bd %}
+<div class="panel"><div class="scroll-x"><table class="small orders">
+<tr><th>日付</th><th>env / mode</th><th class="num">起動</th><th class="num">合図</th><th class="num">注文</th><th class="num">約定</th><th class="num">内部移転</th><th class="num">問題</th><th class="num">再送</th><th class="num">差 1 中央値 bp</th><th class="num">差 1 最大</th><th class="num">見送り</th><th>事象</th></tr>
+{% set by_date = {} %}{% for dd in b.days %}{% set _ = by_date.update({dd.date: dd}) %}{% endfor %}
+{% for d in b.bd|reverse %}
+{% set dd = by_date.get(d) %}
+{% if dd is none %}
+<tr class="row-missing"><td><b>{{ d }}</b></td><td colspan="12">⚠ 起動なし — 営業日なのに執行器の記録が無い（timer ／ cron が動かなかった？）</td></tr>
+{% else %}
+{% set m = dd.diff1_median_bp %}
+<tr>
+  <td><b>{{ dd.date }}</b>{% if dd.mock %} <span class="badge badge-mock">MOCK</span>{% endif %}{% if dd.test %} <span class="badge badge-mock">TEST</span>{% endif %}</td>
+  <td class="small">{{ dd.envs|join(' ') }} / {{ dd.modes|join(' ') or '—' }}</td>
+  <td class="num">{{ dd.runs }}</td>
+  <td class="num">{{ dd.signals|length }}</td>
+  <td class="num">{{ dd.n_orders }}</td>
+  <td class="num cell-{{ 'ok' if dd.n_orders and dd.n_filled == dd.n_orders else ('na' if not dd.n_orders else 'warn') }}">{{ dd.n_filled }}</td>
+  <td class="num">{{ dd.transfers|length }}</td>
+  <td class="num cell-{{ 'ng' if dd.n_bad else 'na' }}">{{ dd.n_bad }}</td>
+  <td class="num">{{ dd.retries }}</td>
+  <td class="num cell-{{ 'na' if m is none else ('ok' if m <= 5 else ('warn' if m <= 10 else 'ng')) }}">{{ m if m is not none else '—' }}</td>
+  <td class="num">{{ dd.diff1_max_bp if dd.diff1_max_bp is not none else '—' }}</td>
+  <td class="num">{{ dd.skipped }}</td>
+  <td class="small muted">{% for e in dd.problems %}{{ e.kind }}{{ ' · ' if not loop.last }}{% else %}—{% endfor %}</td>
+</tr>
+{% endif %}
+{% endfor %}
+</table></div></div>
+{% else %}<p class="muted small">日次の記録が無い（<code>{{ b.live_dir }}</code>）。</p>{% endif %}
+
+<div class="sec"><h2>注文の履歴</h2><span class="muted small">全トレーダー · 新しい順 · 内部移転を含む</span></div>
+{% include "orders_history.html" %}
+
+<div class="sec" id="monitor"><h2>口座と接続</h2><span class="muted small">認証・口座・建玉・働いている注文・現在値・接続・監視のイベント（5 秒ごとに更新）</span></div>
+<div id="monitor-panel" data-poll="/overall?partial=monitor" data-interval="5000">
+{% include "monitor_panel.html" %}
+</div>
+{% endblock %}

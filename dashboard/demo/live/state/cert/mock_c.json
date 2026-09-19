@@ -1,0 +1,77 @@
+{
+ "name": "mock_c",
+ "holdings": {},
+ "realized_usd": -2.1199999999999903,
+ "fees_usd": 0.0,
+ "pending_settlement": [
+  {
+   "date": "2026-10-09",
+   "amount": 99.65
+  },
+  {
+   "date": "2026-10-16",
+   "amount": 99.45
+  },
+  {
+   "date": "2026-10-26",
+   "amount": 100.13
+  }
+ ],
+ "last_date": "2026-10-28",
+ "history": [
+  {
+   "date": "2026-10-05",
+   "symbol": "IWM",
+   "side": "buy",
+   "shares": 1.0,
+   "price": 101.08,
+   "fee": 0.0,
+   "note": ""
+  },
+  {
+   "date": "2026-10-09",
+   "symbol": "IWM",
+   "side": "sell",
+   "shares": 1.0,
+   "price": 99.65,
+   "fee": 0.0,
+   "note": "internal"
+  },
+  {
+   "date": "2026-10-12",
+   "symbol": "QQQ",
+   "side": "buy",
+   "shares": 1.0,
+   "price": 99.39,
+   "fee": 0.0,
+   "note": ""
+  },
+  {
+   "date": "2026-10-16",
+   "symbol": "QQQ",
+   "side": "sell",
+   "shares": 1.0,
+   "price": 99.45,
+   "fee": 0.0,
+   "note": ""
+  },
+  {
+   "date": "2026-10-20",
+   "symbol": "IWM",
+   "side": "buy",
+   "shares": 1.0,
+   "price": 100.88,
+   "fee": 0.0,
+   "note": ""
+  },
+  {
+   "date": "2026-10-26",
+   "symbol": "IWM",
+   "side": "sell",
+   "shares": 1.0,
+   "price": 100.13,
+   "fee": 0.0,
+   "note": ""
+  }
+ ]
+}

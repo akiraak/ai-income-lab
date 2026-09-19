@@ -212,6 +212,14 @@ def create_app(settings: Settings | None = None, start_monitors: bool = True) ->
 
     templates = Jinja2Templates(directory=str(HERE / "templates"))
     templates.env.filters.update(pt=fmt_pt, et=fmt_et, ago=fmt_ago, secs=fmt_secs, num=fmt_num, tojson_pretty=fmt_json)
+    # 概要・トレーダーの詳細のグラフ（サーバで組む SVG。dashboard.md §15-5）。⚠ テンプレートの中で、Redactor を通した後のデータから描く
+    from . import charts
+
+    def _num_or_none(v):
+        return v if isinstance(v, (int, float)) and not isinstance(v, bool) else None
+
+    templates.env.globals.update(charts=charts, pct=lambda v: charts.fmt_pct(_num_or_none(v)),
+                                 usd=lambda v: charts.fmt_usd(_num_or_none(v)))
 
     # 外側ほど先に評価される: AccessGuard → SecurityHeaders → ルート
     app.add_middleware(SecurityHeaders, csrf=csrf)
@@ -229,8 +237,14 @@ def create_app(settings: Settings | None = None, start_monitors: bool = True) ->
     def actor(request: Request) -> str:
         return str(getattr(request.state, "user", None) or getattr(request.state, "client_ip", "") or "unknown")
 
+    def nav_traders() -> list[dict]:
+        # 左ペインのトレーダー（設定の順。色は系列の順。§15-6）
+        return [{"name": t["name"], "cls": f"s{i % lv.N_SERIES + 1}", "test": t["test"]} for i, t in enumerate(lv.traders(settings.live_dir))]
+
     def render(request: Request, name: str, **ctx):
         base = {
+            "page": "",
+            "nav_traders": nav_traders(),
             "face": settings.face,
             "auth_mode": settings.auth_mode,
             "user": getattr(request.state, "user", None),
@@ -271,13 +285,34 @@ def create_app(settings: Settings | None = None, start_monitors: bool = True) ->
 
     # ---------------- 監視
 
-    @app.get("/", response_class=HTMLResponse)
-    async def index(request: Request):
+    def monitor_ctx() -> dict:
         snap = monitors.snapshot()
-        ctx = {"monitors": snap, "events": events.tail(30), "page": "monitor"}
-        if request.query_params.get("partial"):
-            return render(request, "monitor_panel.html", **ctx)
-        return render(request, "index.html", **ctx)
+        n_working = sum(len(m.get("live_orders") or []) for m in snap.values())
+        return {"monitors": snap, "events": events.tail(30), "n_working": n_working}
+
+    # ⚠ 概要・全体の詳細・トレーダーの詳細は読むだけ（両面）。発注は画面から出さない。停止は既存の /ops/halt（§13）
+
+    @app.get("/", response_class=HTMLResponse)
+    async def overview(request: Request):
+        ctx = monitor_ctx()
+        if request.query_params.get("partial") == "strip":
+            return render(request, "strip_panel.html", page="overview", **ctx)
+        return render(request, "overview.html", page="overview", b=lv.board(settings.live_dir), **ctx)
+
+    @app.get("/overall", response_class=HTMLResponse)
+    async def overall(request: Request):
+        ctx = monitor_ctx()
+        if request.query_params.get("partial") == "monitor":
+            return render(request, "monitor_panel.html", page="overall", **ctx)
+        return render(request, "overall.html", page="overall", b=lv.board(settings.live_dir), **ctx)
+
+    @app.get("/traders/{name}", response_class=HTMLResponse)
+    async def trader_page(request: Request, name: str):
+        b = lv.board(settings.live_dir)
+        t = next((x for x in b["traders"] if x["name"] == name), None)
+        if t is None:
+            raise HTTPException(404, "そのトレーダーは無い")
+        return render(request, "trader.html", page=f"trader:{name}", b=b, t=t)
 
     @app.get("/api/state")
     async def api_state(request: Request):
@@ -357,9 +392,10 @@ def create_app(settings: Settings | None = None, start_monitors: bool = True) ->
     # ---------------------------------------------------------------- 実売買
     # ⚠ **読むだけ。発注は画面から出さない**（公開面にも出す）。停止は既存の /ops/halt（§13）
 
-    @app.get("/live", response_class=HTMLResponse)
+    @app.get("/live")
     async def live_page(request: Request):
-        return render(request, "live.html", page="live", lv=lv.index(settings.live_dir))
+        # 2026-09-18: 実売買の画面は概要（/）に移した。プランや手順書が /live を名指ししているので経路は残して転送する
+        return RedirectResponse("/", status_code=302)
 
     @app.get("/api/live")
     async def api_live(request: Request):
@@ -416,7 +452,7 @@ def create_app(settings: Settings | None = None, start_monitors: bool = True) ->
         if not mon:
             raise HTTPException(404)
         mon.retry_auth()
-        return redirect("/", f"{mon.env} の認証を再試行する（次の周期）")
+        return redirect("/overall", f"{mon.env} の認証を再試行する（次の周期）")
 
     async def _op(request: Request, fn, *args):
         try:

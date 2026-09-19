@@ -226,6 +226,10 @@ def load_settings(environ: dict | None = None) -> Settings:
         # デモのデータ（記録・監視ログ・ジョブ・操作履歴）は本物と混ぜない
         data_dir = data_dir / "demo"
         records_dir = Path(env.get("AIL_RECORDS_DIR") or data_dir / "records").resolve()
+        # 2026-09-18: 概要・トレーダーの画面もデモで見えるように、執行器のモックの記録（3 人 × 20 営業日。mock: true）を読む。
+        # ⚠ AIL_LIVE_DIR を指定したときはそれを読む。g3plus には dashboard/demo/ を COPY しないので、そこでは空のまま（§7）
+        if not env.get("AIL_LIVE_DIR"):
+            live_dir = (DASHBOARD_DIR / "demo" / "live").resolve()
 
     settings = Settings(
         auth_mode=auth_mode,

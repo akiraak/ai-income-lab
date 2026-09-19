@@ -1,0 +1,12 @@
+# モック（パターンの撮影用。スクラッチだけに置く）。IWM と QQQ を数日ずつ持つ
+name = "mock_c"
+test = true
+budget_usd = 300.0
+symbols = ["IWM", "QQQ"]
+combine = "asis"
+threshold = 50.0
+sizing = "shares"
+[[models]]
+kind = "file"
+name = "script_c"
+path = "../signals/mock_c.csv"

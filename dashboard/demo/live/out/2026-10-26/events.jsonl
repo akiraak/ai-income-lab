@@ -1,0 +1,6 @@
+{"date": "2026-10-26", "env": "cert", "run_id": "20260919T011853Z", "kind": "start", "mode": "submit", "traders": ["mock_a", "mock_b", "mock_c"], "test": true, "halt_file": "/tmp/claude-1000/-home-ubuntu-ai-income-lab/9d3299dc-4057-4096-9251-bc8c77648c4e/scratchpad/lt3/work.zymA/HALT", "now_et": "2026-09-18T21:18:53-04:00", "sdk": {"python": "3.12.3", "requests": "2.32.5", "websockets": "15.0.1", "sdk": "none (REST/websocket を直接叩く)"}, "mock": true}
+{"date": "2026-10-26", "env": "cert", "run_id": "20260919T011853Z", "kind": "hold", "trader": "mock_a", "symbol": "QQQ", "buy_pct": 0.0, "exit_pct": 0.0, "mock": true}
+{"date": "2026-10-26", "env": "cert", "run_id": "20260919T011853Z", "kind": "skip", "trader": "mock_b", "symbol": "QQQ", "buy_pct": 20.0, "exit_pct": 20.0, "mock": true}
+{"date": "2026-10-26", "env": "cert", "run_id": "20260919T011853Z", "kind": "skip", "trader": "mock_b", "symbol": "IWM", "buy_pct": 20.0, "exit_pct": 20.0, "mock": true}
+{"date": "2026-10-26", "env": "cert", "run_id": "20260919T011853Z", "kind": "skip", "trader": "mock_c", "symbol": "QQQ", "buy_pct": 0.0, "exit_pct": 0.0, "mock": true}
+{"date": "2026-10-26", "env": "cert", "run_id": "20260919T011853Z", "kind": "end", "orders": 3, "bad": 0, "fills": 3, "mock": true}

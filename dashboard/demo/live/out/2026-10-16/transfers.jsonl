@@ -1,0 +1,1 @@
+{"date": "2026-10-16", "env": "cert", "run_id": "20260919T011839Z", "symbol": "SPY", "seller": "mock_a", "buyer": "mock_b", "shares": 1.0, "price": 99.72, "note": "内部移転。口座には出ない（差 3 のコスト 0）", "mock": true}

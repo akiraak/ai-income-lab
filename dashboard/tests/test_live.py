@@ -142,30 +142,73 @@ def test_recent_days_are_newest_first_and_flag_test_and_problems(settings):
 
 def test_missing_live_dir_is_ok(settings):
     assert lv.index(settings.live_dir)["empty"]
+    assert lv.board(settings.live_dir)["empty"]
     with TestClient(create_app(settings), client=("127.0.0.1", 50000)) as c:
-        r = c.get("/live")
+        r = c.get("/")
         assert r.status_code == 200 and "定義も記録も無い" in r.text
+        assert c.get("/overall").status_code == 200
         assert c.get("/api/live").status_code == 200
 
 
-def test_page_renders_and_has_no_secrets(settings):
+def test_live_redirects_to_overview(settings):
+    """2026-09-18: 実売買の画面は概要（/）に移した。/live は名指しされているので転送で残す。"""
+    with TestClient(create_app(settings), client=("127.0.0.1", 50000)) as c:
+        r = c.get("/live", follow_redirects=False)
+        assert r.status_code == 302 and r.headers["location"] == "/"
+
+
+def test_pages_render_and_have_no_secrets(settings):
     build_live_dir(settings.live_dir)
     with TestClient(create_app(settings), client=("127.0.0.1", 50000)) as c:
-        r = c.get("/live")
-        assert r.status_code == 200
-        assert "test_a" in r.text and "2026-09-18" in r.text and "Filled" in r.text
-        assert "属性はまだ設定していない" in r.text        # 実際に動かすトレーダーが 0 人
-        assert "5WT" not in r.text and "eyJ" not in r.text
+        home = c.get("/")
+        assert home.status_code == 200
+        assert "test_a" in home.text and "2026-09-18" in home.text
+        assert "属性はまだ設定していない" in home.text        # 実際に動かすトレーダーが 0 人
+        assert 'href="/traders/test_a"' in home.text        # 左ペインと段からトレーダーの詳細へ
+        overall = c.get("/overall")
+        assert overall.status_code == 200 and "Filled" in overall.text and "preflight_check_failure" in overall.text
+        tr = c.get("/traders/test_a")
+        assert tr.status_code == 200 and "Filled" in tr.text
+        for r in (home, overall, tr):
+            assert "5WT" not in r.text and "eyJ" not in r.text
+            # ⚠ 足した画面にインラインのスクリプトを入れない（CSP。停止ボタンの onsubmit は別タスクで直す）
+            assert "<script>" not in r.text
+        assert c.get("/traders/nobody").status_code == 404
         j = c.get("/api/live").json()
         assert j["summary"]["filled"] == 1
 
 
+def test_placeholders_are_marked_and_not_in_api(settings):
+    """⚠ 仮データ（紙上の損益・差 3・休場日の暦）は画面で印を付け、/api/live には出さない（本物と取り違えない）。"""
+    build_live_dir(settings.live_dir)
+    b = lv.board(settings.live_dir)
+    assert b["placeholder"]["paper"] and b["traders"][0]["paper_pct"]
+    with TestClient(create_app(settings), client=("127.0.0.1", 50000)) as c:
+        assert "仮データ" in c.get("/").text
+        tr = c.get("/traders/test_a").text
+        assert "仮データ" in tr and "紙上" in tr
+        api = c.get("/api/live").text
+        assert "paper" not in api and "仮データ" not in api
+
+
+def test_missing_weekday_is_shown_as_not_started(settings):
+    """N7: 営業日なのに執行器の記録が無い日を出す（⚠ 休場日の暦はまだ無いので平日＝営業日とみなす）。"""
+    build_live_dir(settings.live_dir)
+    base = {"date": "2026-09-15", "env": "cert", "run_id": "20260915T195500Z"}
+    _jsonl(settings.live_dir / "out" / "2026-09-15" / "events.jsonl", [{**base, "kind": "start", "mode": "dry-run", "traders": ["test_a"], "test": True}])
+    b = lv.board(settings.live_dir)
+    assert b["missing"] == ["2026-09-16"]                 # 09-15・09-17・09-18 はある
+    assert [c["a"] for c in b["traders"][0]["grid"]["T"]][1] == "nostart"
+    with TestClient(create_app(settings), client=("127.0.0.1", 50000)) as c:
+        assert "起動なし" in c.get("/overall").text
+
+
 def test_public_face_can_read_but_not_post(settings):
-    """公開面（cloudflare。ループバックは JWT 免除）でも /live は読める。発注の経路は無い（POST は 405）。"""
+    """公開面（cloudflare。ループバックは JWT 免除）でも概要・全体の詳細・トレーダーの詳細は読める。発注の経路は無い（POST は 405）。"""
     build_live_dir(settings.live_dir)
     settings.auth_mode = "cloudflare"
     settings.cf_team, settings.cf_aud, settings.cf_email = "team", "aud", "a@example.com"
     with TestClient(create_app(settings), client=("127.0.0.1", 50000)) as c:
-        assert c.get("/live").status_code == 200
-        assert c.post("/live").status_code == 405
-        assert c.post("/api/live").status_code == 405
+        for path in ("/", "/overall", "/traders/test_a", "/api/live"):
+            assert c.get(path).status_code == 200, path
+            assert c.post(path).status_code == 405, path

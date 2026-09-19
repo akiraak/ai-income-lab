@@ -81,9 +81,9 @@ cp .env.example .env                                   # AIL_AUTH_MODE=local（�
 ```
 
 - `experiments/tastytrade-api-sample/` の `ttclient.py` / `record.py` を import し、記録（`out/*.jsonl`）をそのまま読む。資格情報もサンプルの `.env` を読む
-- 画面: 監視（`/`）・記録と差分（`/records`）・6 観点の自動判定（`/judge`）・**検証（`/experiments`）**・操作（`/ops`）・開発（`/dev`）。**操作と開発はローカル面だけ**
+- 画面（2026-09-18 に作り直した。デザイン 3「数字とグラフが主役」・ナビは左ペイン）: **概要（`/`。監視の帯・大きな数字・損益の推移・執行の差・トレーダーの段）**・全体の詳細（`/overall`。日次・注文の履歴・口座と接続）・トレーダーの詳細（`/traders/<name>`）・記録と差分（`/records`）・6 観点の自動判定（`/judge`。観点 A まで）・操作（`/ops`）。`/live` は `/` へ転送。**操作はローカル面だけ**。⚠ 検証（`/experiments`）・データ（`/data`）・開発（`/dev`）は左ペインから外した（外すと決めた。削除は別タスク）。⚠ **紙上の損益・差 3・休場日の暦は仮データ**（印つき。`/api/live` には出さない）。図は `app/charts.py`（サーバで組む SVG）。仕様は `docs/specs/dashboard.md` §13・§15
 - **検証の画面**は `experiments/feature-discovery/runs/` を**読むだけ**（`AIL_RUNS_DIR`）。**スコアは最良手法（基準線を除く）の純利 bp** で、fold の符号・上乗せ t・実効標本数・デフレーテッド SR を横に並べる。⚠ **検査は実験側が `checks.json` に書いたものを読むだけ**（管理画面に pandas / scipy を入れない）。仕様は `docs/specs/dashboard.md` §10
-- **鍵なしでも動く（デモ）**: 資格情報が無いか `AIL_DEMO=1` なら、起動時にモックサーバを立てて全画面にモックのデータを出す（帯に「デモ」）。データは `data/demo/` に分ける。仕様 §6-2
+- **鍵なしでも動く（デモ）**: 資格情報が無いか `AIL_DEMO=1` なら、起動時にモックサーバを立てて全画面にモックのデータを出す（帯に「デモ」）。データは `data/demo/` に分ける。仕様 §6-2。実売買の画面は執行器のモックの記録（`dashboard/demo/live/`）を読む（`AIL_LIVE_DIR` を指定したときはそれ）
 - 面は `AIL_AUTH_MODE`: `loopback`（既定）/ `local`（＋ LAN）/ `cloudflare`（公開面。Access の JWT を全リクエストで検証。**監視と停止だけ**）
 - **停止ボタン** ＝ 記録ディレクトリに `HALT` を書き、働いている注文を全部取り消す。`sample.py` も `HALT` があると発注系の手順を拒否する
 - 本番の鍵はサンプルと同じ 3 段（dry-run `TT_ALLOW_PROD_DRY_RUN=1` / 取消 `allow_prod_cancel` / 発注 `TT_ALLOW_PROD_ORDERS=1` ＋ 確認文）。**取消の鍵で発注は開かない**

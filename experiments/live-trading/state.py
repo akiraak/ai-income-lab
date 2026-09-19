@@ -39,7 +39,11 @@ class TraderState:
         return sum(h.cost for h in self.holdings.values())
 
     def unsettled(self, today: str, settle_days: int = 1) -> float:
-        """受渡し前の売却代金。⚠ 現金口座では再投資できない可能性がある（プラン §4）。営業日ではなく暦日で数える（保守側）。"""
+        """受渡し前の売却代金。⚠ 現金口座では受渡し（T+1）の前に再投資すると good faith violation になりうる（live-trading.md §0-6）。
+
+        暦日で 1 日を数える。売った日の次の営業日がそのまま T+1 なので、営業日にしか動かない執行器では営業日で数えるのと同じ結果になる
+        （同日に売った代金は受渡し待ち ＝ その日の買いには使わない）。
+        """
         from datetime import date as _date, timedelta
         d = _date.fromisoformat(today)
         total = 0.0

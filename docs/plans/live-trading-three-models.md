@@ -230,7 +230,7 @@ flowchart LR
 | --- | --- | --- |
 | API の自動売買 | tastytrade の API Terms は algorithmic trading systems を明示的に許容（R3）。`automated-source: true` を注文に付ける | [trading-api-availability.md](../specs/trading-api-availability.md) |
 | wash sale | 3 人が同じ銘柄を 30 日以内に売り買いすると、損失の控除が繰り延べられる。⚠ **口座は 1 つなのでブローカーは合算で報告する**。税は個別に CPA 確認 | [trading-tax.md](../specs/trading-tax.md) |
-| Pattern Day Trader | 1 日 1 回の執行なら同日の往復は起きない。⚠ **再送や取消の設計で同日往復を作らない** | 記録 §0-5（`is-pattern-day-trader: false`） |
+| Pattern Day Trader | 1 日 1 回の執行なら同日の往復は起きない。⚠ **再送や取消の設計で同日往復を作らない**（⚠ **2026-09-18 追記: PDT 規則は 2026-06-04 に廃止され、現金口座は元から対象外**。効く線は現金口座の good faith violation。[live-trading.md §0-6](../specs/experiments/live-trading.md)） | 記録 §0-5（`is-pattern-day-trader: false`） |
 | 現金口座の受渡し | 売却代金は T+1 まで再投資できない可能性（good faith violation）。⚠ **Phase 0 で `cash-available-to-trade` 系の値を確かめ、執行器は受渡し前の代金を使わない** | Phase 0 |
 | 予定納税 | 短期益に源泉徴収は無い。金額は月 $1 未満【推測】なので実務上は無視できるが、記録は残す | trading-tax.md §6 |
 | 非表示利用の申告 | API で相場データを取って自動発注に使うのは NYSE の Non-Display Use の例示に当たる。⚠ **ブローカー経由の個人契約での扱いは未確認のまま** | trading-api-availability.md 付録 A-7 |

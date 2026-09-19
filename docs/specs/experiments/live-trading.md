@@ -122,6 +122,44 @@ TT_ALLOW_PROD_ORDERS=1 $PY run_day.py --traders test_a --env prod --mode submit 
 
 **⚠ 先に指摘するもの**: 現金口座なので、手仕舞った代金は T+1 まで再投資に使わない（執行器も `unsettled` として差し引く）／ 同日の往復は作らない（PDT）／ wash sale は 1 銘柄 1 往復なら起きない。
 
+### 0-6. 規制の線 — 1 日に何度も売買するとき（E17・E18。2026-09-18 調査）
+
+2026-09-18 に「1 日に何回売買するかはトレーダーの判断」と決まり、「1 日 1 回なら同日の往復は起きない」という前提が外れた。⚠ **机上の調査**（口座にも執行器にも触れていない）。⚠ **法令・税の最終判断は利用者（と CPA）**。
+
+**主張: 口座は 1 つの現金口座なので、線は口座単位で引かれる。効くのは「受渡し前の代金で買わない」の 1 本で、執行器はすでにそれを守っている。**
+
+```mermaid
+flowchart TD
+  A["1 日に何度も売買する"] --> B["同日の往復"]
+  A --> C["売った代金で受渡し前に買い直す"]
+  A --> D["損で売って 30 日以内に買い直す"]
+  B --> E["PDT 規則: 2026-06-04 に廃止。現金口座は元から対象外 → 線なし"]
+  C --> F["good faith violation ／ freeriding → ⚠ 効く線。受渡し済みの資金だけで買えば起きない"]
+  D --> G["wash sale → 違反ではなく税の繰延べ。口座単位で数えられる"]
+```
+
+| # | 線 | 一次情報【公表値】（取得 2026-09-18） | この実験への含意 |
+| --- | --- | --- | --- |
+| E17-a | **Pattern Day Trader（日計りの回数制限・$25,000）** | **2026-06-04 に廃止**。FINRA Regulatory Notice 26-10「FINRA Adopts New Intraday Margin Standards to Replace the Day Trading Margin Requirements」（https://www.finra.org/rules-guidance/notices/26-10 ）: PDT の指定・$25,000 の最低資産・day-trading buying power を削除し、**信用口座の**日中証拠金の基準に置き換える（SEC 承認 2026-04-14。Federal Register 2026-07485。業者の移行期間は 2027-10-20 まで）。tastytrade は「day-1 で実装済み」「**Cash accounts … were never subject to pattern day trading rules and remain subject to T+1 settlement and good faith violation rules**」（https://tastytrade.com/learn/markets/industry/pattern-day-trading/ ） | ✅ **同日の往復の回数に規制の上限は無い**（現金口座。記録でも `is-pattern-day-trader: false`・`day-trading-buying-power: 0.0`）。⚠ プラン §4 の「PDT: 同日往復を作らない」は、規制の理由としては古くなった |
+| E17-b | **現金口座の支払い（Reg T）** | 12 CFR 220.8(a): 現金口座で買えるのは「sufficient funds in the account」があるか、顧客が速やかに全額を払うと業者が good faith で受け入れたとき ／ (c): 全額を払う前に売ると「the privilege of delaying payment beyond the trade date shall be withdrawn for **90 calendar days**」（https://www.law.cornell.edu/cfr/text/12/220.8 ）。FINRA の解説: 「Buying and selling the same security in a cash account before paying for it is known as 'free-riding'」「'good faith violation' if you purchase a security with cash from a transaction that hasn't settled yet and then sell the security before the proceeds used to fund the purchase have settled」（https://www.finra.org/investors/investing/investment-products/stocks/day-trading 。2026-06-04 更新） | ⚠ **効く線はこれ**。違反になるのは「受渡し前の代金で買う → それを、元の代金が受渡される前に売る」の組。⚠ **受渡し済みの資金だけで買えば、同日に何度往復しても違反は起きない** |
+| E17-c | **受渡し（T+1）と tastytrade の扱い** | 株・ETF・オプションは T+1。「when you get **5 good faith violations in a rolling 12-month period**, your account will be set to **closing-only**」（https://tastytrade.com/learn/accounts/account-resources/margin-vs-cash-accounts/ ）。ヘルプ（Day Trading Rules in a Cash Account。https://support.tastytrade.com/support/s/solutions/articles/43000435231 ）の検索結果の要旨: 現金口座は日計りの回数に制限なし・ただし settled funds だけ ／ 5 回目で 90 日の closing-only ⚠ **ヘルプ本文は取得できなかった**（JS 描画。要旨は検索結果から ＝ 【推測】扱い） | 売った代金は**翌営業日**から使える（休場日は数えない ＝ §0-2 の暦）。⚠ **closing-only になると買えなくなり、実験が 90 日止まる** |
+| E18 | **wash sale** | IRS Pub 550・IRC §1091: 損で売った日の前後 30 日（計 61 日）に実質同一の証券を買うと損失は否認され、新しい株の取得価額に足される。⚠ **1099-B（Box 1g）でブローカーが報告するのは same account・same CUSIP の分**（[trading-tax.md §2-2・§2-7](../trading-tax.md)。出典はそちら） | **違反ではなく税の繰延べ**。⚠ **口座は 1 つなので、トレーダー A の損切りとトレーダー B の買いでも成立する**（ブローカーは誰の判断かを知らない）。回数と銘柄の重なりが増えるほど起きやすい。金額は月 $1 未満【推測】だが、年末をまたぐ繰延べは翌年に回る。税の扱いは CPA に確認 |
+
+**執行器はすでに E17-b の線の内側にいる**（コードは変えていない）:
+
+- 予算の空き ＝ 予算 − 建玉の取得原価 − **受渡し待ちの売却代金**（`plan.py`・`state.unsettled`）。同日に売った代金は `today + 1 日 > today` で受渡し待ちに数えられ、その日の買いには使われない
+- ⚠ `unsettled` は営業日ではなく暦日で 1 日を数える。執行が営業日にしか起きないので結果は T+1（営業日）と一致する【推測。金曜に売る → 月曜は受渡し済み・休場日を挟んでも次の営業日が T+1】。docstring の「保守側」は正確ではない（同じ結果になるだけ）
+- ⚠ **前提が 1 つある**: 全トレーダーの予算の合計 ≤ 口座の受渡し済みの現金（§0-2 の上限 $1,000 ＝ 入金額）。トレーダーは自分の予算の受渡し済みの分しか使わないので、他のトレーダーの受渡し待ちの代金に手を付けない。⚠ **ブローカーが買いにどの現金を充てるか（受渡し済みを先に使うか）は未確認**【推測: 受渡し済みが足りていれば違反にならない】
+
+**C9・D13・D14 への含意**（⚠ **決めるのは利用者**。ここは候補と理由まで）:
+
+| 決めごと | 規制から言えること | 候補 |
+| --- | --- | --- |
+| C9 今日買った株を今日売ってよいか | ✅ **規制上は可**（受渡し済みの資金で買った株なら、同日に売っても GFV にならない） | 可とする ／ 1 日 1 方向に絞る（執行の差を見る実験としては単純） |
+| C9 売った日に買い戻してよいか | ⚠ **売った代金では買えない**（翌営業日から）。予算に受渡し済みの空きが別にあれば可。⚠ 損切りの買い戻しは wash sale（税の繰延べ） | 売った銘柄は翌営業日まで買わない（単純で、GFV も wash sale の当日分も避ける）／ 空きがあれば可 |
+| D14 1 日の上限の数え方 | 回数に規制の上限は無い。上限は予算（受渡し済み）が自然に掛ける | 買いの合計額で数える（いまの `--max-day-usd`）を複数回の合計に |
+| 歯止め | GFV は 12 か月で 5 回目に 90 日の closing-only | ⚠ 口座の GFV の回数は API で読めるか未確認。執行器が受渡し待ちを使わない限り 0 回のはず → **記録に GFV の通知が出たら停止**を停止条件（§0-2）に足す候補 |
+
 ## 1. 記録（日次）
 
 Phase 5-1・Phase 6 で埋める。1 日 1 行 × トレーダー。数字は全部【実測】。

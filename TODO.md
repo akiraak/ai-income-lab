@@ -113,7 +113,10 @@
     ⚠ **終了しないタスク**（完了にしない・`DONE.md` に移さない）。既存の層に無いデータを考え続けるための常設タスク
     思いついたデータ源は、この下に子タスクとして足し、採る・採らないの判断と根拠（規約・遅延・銘柄を区別できるか）を残す
     関連: [daily-data-sources.md](docs/specs/experiments/daily-data-sources.md)
-  - [ ] データに曜日を含めたものを検証する
+  - [~] データに曜日を含めたものを検証する [plan](docs/plans/weekday-feature.md)
+    - [x] Phase 1: 準備（`cal` 層 ＋ テスト・表 2 つ ＋ leak・設定 5 本 ＋ キュー・事前登録）（✅ 2026-09-18。[事前登録](docs/specs/experiments/weekday-feature.md) §1 ＝ n_trials ＋9・表の行数は基準の表と一致・pytest 414 件）
+    - [ ] Phase 2: キュー `weekday` を回し、台帳を吐き、橋渡し対・leak 対照・診断を記録に書く
+      依存: 「GAN 24 本が終わったら、§16-4 と [gan-threshold-ownex.md §8](docs/specs/experiments/gan-threshold-ownex.md) に旧→新の差分表（36 行の判定が変わったか）を書き、台帳を吐き直し、worktree `/home/ubuntu/ail-exim-wt` を `git worktree remove` する」（⚠ 先に回すと「n_trials 613 のまま」の検算が濁る）
 
 - [ ] トレーダー 3 人（それぞれ予算と 1 本以上の予測モデルを持つ）に予算を割り振り、tastytrade の本口座で実際に売買して記録を残す（実売買の仕組み） [plan](docs/plans/live-trading-three-models.md)
   利用者の指示（2026-09-17）: **実際に売買を行う仕組みを実装します。予想モデルを３つほど用意してそれぞれに予算を割り振り実際の取引をしてデータを検証できる形で残します**

@@ -17,6 +17,8 @@ from ail.features import own, cross, relative, leadlag, exog   # noqa: F401
 from ail.features import trend                               # noqa: F401
 # ⚠ **`trendvol` は出来高の長い窓**（`trend` と同じ 3 スケール × 4 列。rules.md 15-2 規約 2-2）。config に書いたときだけ表に入る
 from ail.features import trendvol                            # noqa: F401
+# ⚠ **`cal` は暦の列**（曜日 ＋ 前の足からの日数。2026-09-18）。config に書いたときだけ表に入る
+from ail.features import cal                                 # noqa: F401
 # ⚠ **`im_` は銘柄ごとに値が変わる外部データ**（`ex_` との違いはそこだけ）
 from ail.features import impact                              # noqa: F401
 from ail.selectors import filter as _filter, wrapper, embedded  # noqa: F401

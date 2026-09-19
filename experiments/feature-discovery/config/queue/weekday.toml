@@ -1,0 +1,13 @@
+# ⚠ **暦の列（`cal` 層: 曜日 ＋ 前の足からの日数）の橋渡し対 3 本**（利用者の指示 2026-09-17「データに曜日を含めたものを検証する」）。
+# 事前登録は docs/specs/experiments/weekday-feature.md §1（⚠ **回すと決めたのは結果を見る前**。n_trials ＋9 ＝ 3 本 × θ 3）。
+#
+# ⚠ **表を先に作る**（`cli.run` は表を読むだけ。leak 対照の表も要る）:
+#   for e in owncal_2018 owncal_1995; do .venv/bin/python -m cli.build --experiment $e; .venv/bin/python -m cli.build --experiment $e --leak; done
+# ⚠ **GAN × ownex の後始末（台帳の検算 ＝ n_trials 613 のまま）が済んでから回す**（先に回すと検算が濁る）。
+# ⚠ **順は手間の小さい順**（14-10 規約 4）: Ridge 2018 → LightGBM 2018 → Ridge 1995。
+experiments = ["trade_owncal_ridge_a", "trade_owncal_lgbm_a", "trade_owncal_1995_ridge_a"]
+
+leak = true              # ⚠ 配線の穴に気づく唯一の手。切らない
+ledger = false           # ⚠ 台帳は終わってから 1 回吐く（`cli.report --catalog`。キューの中で吐くと「閉じる」注記の SystemExit で止まりうる）
+max_failures = 2
+time_budget_s = 3600     # ⚠ 見積り 10 分【推測。同じ形の 3 本の実測から】の 6 倍

@@ -24,7 +24,7 @@
     <div class="s">内部移転 {{ sm.transfers }} · <span class="{{ 'ng' if sm.bad else '' }}">問題 {{ sm.bad }}</span></div></div>
   <div class="stat"><div class="k">起動しなかった日</div>
     <div class="v {{ 'ng' if b.missing else '' }}">{{ '❌' if b.missing else '✅' }} {{ b.missing|length }} 日</div>
-    <div class="s">{{ b.missing|join(' ') or 'なし' }} · <span class="chip placeholder">仮</span> 休場日の暦なし（平日＝営業日）</div></div>
+    <div class="s">{{ b.missing|join(' ') or 'なし' }} · {% if b.placeholder.calendar %}<span class="chip placeholder">仮</span> 休場日の暦の外（平日＝営業日）{% else %}NYSE の休場日を除く{% if b.calendar.holidays %}（{{ b.calendar.holidays|join(' ') }}）{% endif %}{% endif %}</div></div>
 </div>
 
 <div class="charts-2">

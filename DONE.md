@@ -1,4 +1,14 @@
 # DONE
+- 2026-09-18 休場日の暦を入れた（管理画面の「平日＝営業日」の仮を外した） [plan](docs/plans/archive/nyse-calendar.md)
+  - 利用者の指示「そっちで進められるのをやって」（GAN × ownex のキューが回っている間に、裁定も GPU も要らないものから）
+  - 暦: 【公表値】NYSE "Holidays & Trading Hours"（https://www.nyse.com/markets/hours-calendars 。取得 2026-09-18）の 2026〜2028 年 ＝ 休場 29 日（10・10・9。⚠ 2028-01-01 は土曜で振替なし）と半日立会 5 日（13:00 ET 引け）。`experiments/tastytrade-api-sample/nyse_calendar.py` ＋ 読み手 `market_calendar.py`（標準ライブラリだけ。管理画面も執行器もここを import 済みなので共有の場所にした）
+  - ⚠ **WebFetch の要約は誤っていた**（2026-07-03 を半日・2026-12-25 を欠落・2027-07-05 を半日など）。生の HTML の表と脚注 4 本を読んで写し、⚠ **テストで規則（第 n 月曜・聖金曜日・土日の振替）から独立に計算した日付と突き合わせた**（3 年とも一致）
+  - ⚠ **データは `.toml` ではなく `.py` に置いた**: g3plus のコンテナはサンプルの `*.py` と `*.sh` しか COPY しない（[dashboard.md §7](docs/specs/dashboard.md)）。当初の `.toml` のままだと公開面に載らず概要が 500 になるところだった（`*.py` だけを写した場所で import できることを確かめた）
+  - 管理画面: 起動しなかった日（`live.business_days`）・判定の営業日と市場時間（`judge.business_date`・`in_market_hours`。「祝日は見ない」だった）が暦を使う。⚠ **暦に載っていない年だけ平日扱いに戻り「仮」の印が出る**（黙って戻さない）。暦の終わりまで 90 日を切ると全体の詳細に「次の年を足す」注意が出る
+  - 執行器: `run_day.window_refusal` が休場日と ⚠ **半日立会の日を拒否する**（窓 15:45〜16:05 は 13:00 の引けの後）。理由は `events.jsonl` の `out_of_window.reason` に残る。⚠ **半日の日に窓を動かすかは決めていない**（TODO の D13 にメモ。20 営業日の実験にかかるのは 2026-11-27 と 2026-12-24）
+  - 確認【実測】: 管理画面の pytest 151 件（＋5: 暦 3・祝日は起動なしに数えない・暦の外は仮の印）／ 執行器の pytest 38 件（＋1）／ `mockrun.sh` 20 営業日が通る
+  - 仕様: [dashboard.md §15-8](docs/specs/dashboard.md)「営業日の暦」・[live-trading.md §0-2](docs/specs/experiments/live-trading.md)
+
 - 2026-09-18 管理画面の pytest の 487 秒と、CSP で止まっていた確認ダイアログを直した [plan](docs/plans/archive/dashboard-pytest-speed-and-confirm.md)
   - 利用者の指示「2 → 1 の順で進めて」（GAN × ownex のキューが回っている間に進められるタスクとして挙げた 2 番と 1 番。`dashboard/` の中で完結し、キューには触れていない）
   - **pytest: 144 件 487 秒 → 146 件 7.7 秒【実測】**。数えた結果、⚠ **監視を実際に起こして通すテストは 1 本も無かった**（`test_app.py`・`test_demo.py` は `start_monitors=False` のまま監視の状態を直に入れる形）。監視を要らない 16 本（`test_experiments` 8・`test_inventory` 2・`test_live` 6）が `create_app(settings)` のまま `TestClient` を開いて監視を起こし、WSL2（mirrored）の無応答のポートで 30 秒ずつ待っていた（16 × 30 ≒ 480 秒）

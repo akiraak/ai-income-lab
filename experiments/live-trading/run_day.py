@@ -27,6 +27,7 @@ SAMPLE_DIR = os.path.normpath(os.path.join(HERE, "..", "tastytrade-api-sample"))
 sys.path.insert(0, HERE)
 sys.path.insert(0, SAMPLE_DIR)
 
+import market_calendar  # noqa: E402
 import record  # noqa: E402
 from ttclient import ApiError, Client, ProductionGuard, load_env  # noqa: E402
 
@@ -44,9 +45,27 @@ DEFAULT_MAX_TOTAL_BUDGET = 1000.0   # live-trading.md §0-2。全トレーダー
 DEFAULT_MAX_DAY_USD = 1000.0        # 1 日の買いの合計の上限
 
 
+def window_refusal(now_et: datetime) -> str | None:
+    """執行の窓の外なら理由を返す（中なら None）。営業日は NYSE の暦（`market_calendar`。管理画面と同じもの）で見る。
+
+    ⚠ **半日立会（13:00 ET 引け）の日も拒否する**: 窓 15:45〜16:05 は引けの後で、成行は通らない。
+       半日の日に窓を動かすかは決めごと（live-trading.md §0-2）で、まだ決めていない。
+    """
+    cal = market_calendar.nyse()
+    day = now_et.date()
+    if now_et.weekday() >= 5:
+        return f"{day} は土日"
+    if cal.is_holiday(day):
+        return f"{day} は NYSE の休場日"
+    if cal.is_early_close(day):
+        return f"{day} は半日立会（{cal.close_et(day):%H:%M} ET 引け）。執行の窓は引けの後になる"
+    if not WINDOW_START <= (now_et.hour, now_et.minute) < WINDOW_END:
+        return "執行の窓（15:45〜16:05 ET）の外"
+    return None
+
+
 def in_window(now_et: datetime) -> bool:
-    hm = (now_et.hour, now_et.minute)
-    return WINDOW_START <= hm < WINDOW_END and now_et.weekday() < 5
+    return window_refusal(now_et) is None
 
 
 def now_et() -> datetime:
@@ -149,9 +168,10 @@ def main() -> int:
         rec.write("events", {**meta, "kind": "halted", "note": "HALT があるので発注しない（取消は管理画面の停止ボタンが済ませている）"})
         print(f"拒否: 停止フラグがある（{halt_file}）", file=sys.stderr)
         return 3
-    if args.mode != "plan" and not args.ignore_window and not in_window(now_et()):
-        rec.write("events", {**meta, "kind": "out_of_window", "note": "15:45〜16:05 ET の外では発注しない"})
-        print("拒否: 執行の窓（15:45〜16:05 ET）の外。テストなら --ignore-window", file=sys.stderr)
+    refusal = None if args.mode == "plan" or args.ignore_window else window_refusal(now_et())
+    if refusal:
+        rec.write("events", {**meta, "kind": "out_of_window", "reason": refusal, "note": "NYSE の営業日の 15:45〜16:05 ET の外では発注しない"})
+        print(f"拒否: {refusal}。テストなら --ignore-window", file=sys.stderr)
         return 4
     rec.write("events", meta)
 

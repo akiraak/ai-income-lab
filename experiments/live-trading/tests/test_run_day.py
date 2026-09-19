@@ -7,7 +7,7 @@ from zoneinfo import ZoneInfo
 
 HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, HERE)
-from run_day import in_window  # noqa: E402
+from run_day import in_window, window_refusal  # noqa: E402
 
 ET = ZoneInfo("America/New_York")
 
@@ -18,6 +18,17 @@ def test_window():
     assert not in_window(datetime(2026, 9, 17, 16, 5, tzinfo=ET))
     assert not in_window(datetime(2026, 9, 17, 15, 44, tzinfo=ET))
     assert not in_window(datetime(2026, 9, 19, 15, 50, tzinfo=ET))   # 土曜
+
+
+def test_window_follows_the_nyse_calendar():
+    """休場日と半日立会（13:00 ET 引け）の日は、時刻が窓の中でも拒否する（暦は管理画面と同じ `market_calendar`）。"""
+    assert "休場日" in window_refusal(datetime(2026, 9, 7, 15, 50, tzinfo=ET))      # Labor Day（月曜）
+    assert "休場日" in window_refusal(datetime(2026, 11, 26, 15, 50, tzinfo=ET))    # Thanksgiving
+    assert "半日立会" in window_refusal(datetime(2026, 11, 27, 15, 50, tzinfo=ET))  # 翌日は 13:00 引け ＝ 窓は引けの後
+    assert "半日立会" in window_refusal(datetime(2026, 12, 24, 15, 50, tzinfo=ET))
+    assert window_refusal(datetime(2026, 9, 8, 15, 50, tzinfo=ET)) is None          # 休場日の翌日は通る
+    assert "土日" in window_refusal(datetime(2026, 9, 19, 15, 50, tzinfo=ET))
+    assert "窓" in window_refusal(datetime(2026, 9, 8, 15, 44, tzinfo=ET))
 
 
 def _run(args, env_extra):

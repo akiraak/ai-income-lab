@@ -245,15 +245,38 @@ N_SERIES = 3          # 系列の色の数（§15-2。状態・環境・アク�
 PAPER_PLACEHOLDER_BP_PER_DAY = 2.0   # ⚠ 仮データ（紙上の損益）の傾き。本物は実売買の Phase 3（紙上の対照）の後
 
 
+CALENDAR_WARN_DAYS = 90   # 暦の終わりまでこの日数を切ったら、全体の詳細に「次の年を足す」注意を出す
+
+
+def _calendar():
+    """NYSE の暦（サンプルの `market_calendar`。執行器と同じもの）。⚠ `import_sample` の後に呼ぶ。"""
+    import market_calendar
+
+    return market_calendar.nyse()
+
+
 def business_days(first: str, last: str) -> list[str]:
-    """⚠ 仮: 平日をすべて営業日とみなす（休場日の暦がまだ無い。TODO「休場日の暦を入れる」）。"""
+    """NYSE の営業日（休場日を除く平日）。⚠ 暦に載っていない年は平日をすべて営業日とみなす（`calendar_info` の `covered` が False）。"""
+    from datetime import date as _date
+    return [d.isoformat() for d in _calendar().trading_days(_date.fromisoformat(first), _date.fromisoformat(last))]
+
+
+def calendar_info(first: str | None, last: str | None, today=None) -> dict:
+    """暦の出どころと、いま見ている範囲を暦が答えられるか。画面は `covered` が False のときだけ「仮」の印を出す。"""
     from datetime import date as _date, timedelta
-    d, end, out = _date.fromisoformat(first), _date.fromisoformat(last), []
-    while d <= end:
-        if d.weekday() < 5:
-            out.append(d.isoformat())
-        d += timedelta(days=1)
-    return out
+    cal = _calendar()
+    today = today or _date.today()
+    covered, holidays = True, []
+    if first and last:
+        d, end = _date.fromisoformat(first), _date.fromisoformat(last)
+        covered = cal.covered(d) and cal.covered(end)
+        while d <= end:
+            if cal.is_holiday(d):
+                holidays.append(d.isoformat())
+            d += timedelta(days=1)
+    left = cal.days_left(today)
+    return {"covered": covered, "source": cal.source, "fetched": cal.fetched, "last_covered": cal.last_covered.isoformat(),
+            "days_left": left, "expiring": left < CALENDAR_WARN_DAYS, "holidays": holidays}
 
 
 def board(live_dir: Path, days: int = DAYS) -> dict:
@@ -265,6 +288,7 @@ def board(live_dir: Path, days: int = DAYS) -> dict:
     ds = dates(live_dir)[:days][::-1]          # 古い順の直近 days 日
     dd = {d: day(live_dir, d) for d in ds}
     bd = business_days(ds[0], ds[-1]) if ds else []
+    cal_info = calendar_info(ds[0], ds[-1]) if ds else calendar_info(None, None)
     missing = [d for d in bd if d not in dd]
     for i, t in enumerate(tr):
         name = t["name"]
@@ -355,6 +379,7 @@ def board(live_dir: Path, days: int = DAYS) -> dict:
             "diff1_median_bp": _median(all_diff1), "diff1_n": len(all_diff1),
             "fees_usd": round(sum(float(t["last"].get("fees_usd", 0) or 0) for t in tr), 4),
         },
-        # ⚠ 仮データの印（画面はこれを見てバッジを出す）
-        "placeholder": {"paper": True, "diff3_bp_per_day": PAPER_PLACEHOLDER_BP_PER_DAY, "calendar": True},
+        "calendar": cal_info,
+        # ⚠ 仮データの印（画面はこれを見てバッジを出す）。暦は、見ている範囲が NYSE の暦の外に出たときだけ仮（平日＝営業日）
+        "placeholder": {"paper": True, "diff3_bp_per_day": PAPER_PLACEHOLDER_BP_PER_DAY, "calendar": not cal_info["covered"]},
     }

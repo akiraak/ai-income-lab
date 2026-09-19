@@ -20,7 +20,7 @@ KEEP_DIR=/tmp/lt ./mockrun.sh                                 # 同じ ＋ 記�
 | `plan.py` | 状態機械 → 株数 → **予算の上限** → 銘柄ごとに全員ぶんを合算（A の売り × B の買いは内部移転） |
 | `execute.py` | dry-run → 発注 → 約定確認 → 取消。`Session offline` は再送。鍵は `ttclient.Client` の 3 段そのまま |
 | `ledger.py` | トレーダー別の損益 1 日 1 行（⚠ 損益で手法を採らない） |
-| `run_day.py` | 1 営業日の窓（15:45〜16:05 ET）を 1 回通す。記録は `out/<日付>/*.jsonl`（`Masker` 経由） |
+| `run_day.py` | 1 営業日の窓（15:45〜16:05 ET。⚠ NYSE の休場日と半日立会の日は拒否する ＝ `../tastytrade-api-sample/market_calendar.py`）を 1 回通す。記録は `out/<日付>/*.jsonl`（`Masker` 経由） |
 | `mockrun.sh` | モックで 20 営業日。`KEEP_DIR` を指定したときだけ、終了時に `config/`・`state/cert/`・`out/` をそこへ写す（指定しなければ消す） |
 
 記録（`out/<日付>/`）: `signals.jsonl`（トレーダー × 銘柄）・`quotes.jsonl`・`orders.jsonl`（注文・dry-run・応答・遷移・約定・合図時の気配・誰の何株ぶんか）・`transfers.jsonl`・`positions.jsonl`・`balances.jsonl`・`ledger.jsonl`・`events.jsonl`（見送り・予算超え・拒否・再送）。

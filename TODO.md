@@ -150,9 +150,6 @@
       2026-09-18 の実装で仮データを入れた（利用者の指示「データが無いものは仮データを入れ、後で実装する」）。仮の中身は `dashboard/app/live.py` の `PAPER_PLACEHOLDER_BP_PER_DAY`（実物に 1 営業日あたり 2bp を足した線）。印は `.chip.placeholder`・点線（dashboard.md §15-8）
       本物: 実売買の Phase 3 の `daily.csv`（トレーダー別・日次の紙上の純利と差 3）を `board()` で読み、トレーダーの詳細の点線と概要・詳細の差 3 に写す。⚠ 仮データが `/api/live` に出ないテストは残し、本物は出す
       依存: 「Phase 3: 紙上の対照（同じ合図を公式終値・片道 2.5bp で回し、差 1〜4 を `daily.csv` に 1 日 1 行 × 3 人）」
-    - [ ] 休場日の暦を入れる（起動しなかった日の「平日＝営業日」の仮を外す）
-      2026-09-18 の実装で仮にした（`dashboard/app/live.py` の `business_days`。印は「仮 休場日の暦なし」）。NYSE の休場日を一次情報から持つ（執行器の timer ／ cron の起動日と同じ暦を使う）
-      関連: 「D16: 毎日自動で起動する仕組み（titan の timer ／ cron）。まだ入れていない」
     - [ ] 外すと決めた 11 行（検証・データ・手動の注文・開発）の経路・テンプレート・テストを消す
       2026-09-18 の実装では左ペインから外しただけ（経路とコードはまだある）。決定は [dashboard-required-features.md](docs/plans/archive/dashboard-required-features.md) 3-1・4-1
       ⚠ 残すもの: `app/experiments.py`・`app/inventory.py`（vibeboard のタブが import）／ デモが使う `devtools` の `MockServer`・`run_step` ／ 停止と解除（`/ops/halt`・`/ops/resume`）と操作の履歴 ／ 記録と判定は観点 A を見届けるまで
@@ -188,10 +185,12 @@
       - [ ] C12: 停止の単位（含み損 20% の停止はそのトレーダーだけか、全員か）。停止ボタンは全員を止める
     - [ ] D. 実際の売買
       - [ ] D13: 発注してよい時間帯・注文の種類（成行 ／ 指値）・気配の取り方。いまは 15:45〜16:05 ET の 1 回・成行・REST の気配（live-trading.md §0-2）
+        ⚠ **半日立会の日（13:00 ET 引け）の扱いも決める**（2026-09-18 に暦を入れて分かった）: いまの窓 15:45〜16:05 は引けの後なので、執行器は既定で**発注しない**（`run_day.window_refusal`）。20 営業日の実験にかかるのは 2026-11-27（金）と 2026-12-24（木）。候補: 発注しない（いまの既定）／ 窓を 12:45〜13:05 に動かす（[live-trading.md §0-2](docs/specs/experiments/live-trading.md)）
       - [ ] D14: 1 日の上限の数え方（買い $1,000 ・注文数の上限を、複数回の合計で数えるか）
       - [ ] D15: 株数の決め方（整数株 ／ 金額指定）
         依存: 「Phase 0: 定義・停止条件・執行の窓を `docs/specs/experiments/live-trading.md` §0 に書く（⚠ 実際に動かす 3 人の属性は書かない ＝「未設定」）＋ 本番の読み取り・dry-run（端株・小数株・成行・MOC 相当。`sample.py --step dryrun2 --allow-prod-dry-run`。⚠ **利用者が流す**）」
       - [ ] D16: 毎日自動で起動する仕組み（titan の timer ／ cron）。まだ入れていない
+        ✅ 起動日の暦は 2026-09-18 に入れた（`experiments/tastytrade-api-sample/market_calendar.py`。執行器の窓と管理画面の「起動しなかった日」が同じものを使う）。timer ／ cron は平日に起こし、休場日は執行器が自分で拒否する形でよい（記録に `out_of_window` と理由が残る）
     - [ ] E. 規制・税（先に指摘しておくもの）
       - [ ] E17: 1 日に何度も売買するときの規制（日計り・現金口座の受渡し）を一次情報で確かめる
         口座は現金口座扱いの記録あり（`Cash Secured Margin`・`is-pattern-day-trader: false`）。⚠ 口座は 1 つなので、規制は口座単位で数えられる

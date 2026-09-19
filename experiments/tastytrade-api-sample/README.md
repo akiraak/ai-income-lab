@@ -19,6 +19,7 @@ tastytrade の Open API を **6 手順**（認証 → 口座照会 → 現在値
 | `sample.py` | 6 手順の本体。`--step` で個別実行 |
 | `ttclient.py` | REST / websocket の薄いクライアント。本番ガードもここ |
 | `record.py` | JSONL の書き出しとマスク |
+| `market_calendar.py` ／ `nyse_calendar.py` | NYSE の休場日と半日立会（【公表値】NYSE・取得 2026-09-18・2026〜2028 年）。管理画面と執行器が共有する。⚠ 年に 1 度、次の年を足す（テストは `dashboard/tests/test_market_calendar.py`） |
 | `candle_probe.py` | **過去の足（Candle）が取れるかを測る読み取り専用のプローブ**（2026-09-08 追加）。発注系には触れない |
 | `mock_server.py` | 資格情報なしで配線を確かめるためのモック。**tastytrade の【実測】には使えない** |
 | `test_record.py` | 記録とマスクのテスト（ネットワーク不要） |

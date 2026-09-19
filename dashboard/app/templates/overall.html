@@ -5,7 +5,8 @@
 <div class="backs"><a href="/">← 概要</a></div>
 <div class="sec"><h2>全体の詳細</h2><span class="muted small">全トレーダーまとめて{% if b.bd %} · 直近 {{ b.bd|length }} 営業日（{{ b.bd[0] }}〜{{ b.bd[-1] }}）{% endif %}</span></div>
 
-<div class="sec"><h2>日次</h2><span class="muted small">全トレーダーまとめて 1 日 1 行（新しい順）· 起動しなかった日も行を出す（<span class="chip placeholder">仮</span> 休場日の暦なし）</span></div>
+<div class="sec"><h2>日次</h2><span class="muted small">全トレーダーまとめて 1 日 1 行（新しい順）· 起動しなかった日も行を出す（{% if b.placeholder.calendar %}<span class="chip placeholder">仮</span> 休場日の暦の外 ＝ 平日をすべて営業日とみなす{% else %}NYSE の休場日を除く。暦は {{ b.calendar.last_covered }} まで{% endif %}）</span></div>
+{% if b.calendar.expiring %}<p class="rule">⚠ 休場日の暦が {{ b.calendar.last_covered }} で切れる（残り {{ b.calendar.days_left }} 日）。NYSE の公表（{{ b.calendar.source }}）から次の年を <code>nyse_calendar.py</code> に足す。切れた後は平日をすべて営業日とみなす</p>{% endif %}
 {% if b.bd %}
 <div class="panel"><div class="scroll-x"><table class="small orders">
 <tr><th>日付</th><th>env / mode</th><th class="num">起動</th><th class="num">合図</th><th class="num">注文</th><th class="num">約定</th><th class="num">内部移転</th><th class="num">問題</th><th class="num">再送</th><th class="num">差 1 中央値 bp</th><th class="num">差 1 最大</th><th class="num">見送り</th><th>事象</th></tr>

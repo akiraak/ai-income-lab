@@ -33,6 +33,8 @@ def test_market_hours():
     assert in_market_hours({"utc": "2026-09-08T14:00:00+00:00"})  # 火曜 10:00 ET
     assert not in_market_hours({"utc": "2026-09-05T18:00:00+00:00"})  # 土曜
     assert not in_market_hours({"utc": "2026-09-08T21:00:00+00:00"})  # 17:00 ET
+    assert not in_market_hours({"utc": "2026-09-07T14:00:00+00:00"})  # 月曜 10:00 ET だが Labor Day（NYSE 休場）
+    assert not in_market_hours({"utc": "2026-11-27T18:30:00+00:00"})  # 半日立会の 13:30 ET（13:00 引け）
 
 
 def test_judge_all_ok_and_mock_excluded(tmp_path):

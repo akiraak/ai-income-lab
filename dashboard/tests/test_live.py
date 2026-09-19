@@ -192,7 +192,7 @@ def test_placeholders_are_marked_and_not_in_api(settings):
 
 
 def test_missing_weekday_is_shown_as_not_started(settings):
-    """N7: 営業日なのに執行器の記録が無い日を出す（⚠ 休場日の暦はまだ無いので平日＝営業日とみなす）。"""
+    """N7: 営業日なのに執行器の記録が無い日を出す（営業日は NYSE の暦。test_holiday_is_not_a_missing_day）。"""
     build_live_dir(settings.live_dir)
     base = {"date": "2026-09-15", "env": "cert", "run_id": "20260915T195500Z"}
     _jsonl(settings.live_dir / "out" / "2026-09-15" / "events.jsonl", [{**base, "kind": "start", "mode": "dry-run", "traders": ["test_a"], "test": True}])
@@ -201,6 +201,35 @@ def test_missing_weekday_is_shown_as_not_started(settings):
     assert [c["a"] for c in b["traders"][0]["grid"]["T"]][1] == "nostart"
     with TestClient(create_app(settings, start_monitors=False), client=("127.0.0.1", 50000)) as c:
         assert "起動なし" in c.get("/overall").text
+
+
+def test_holiday_is_not_a_missing_day(settings):
+    """NYSE の休場日（2026-09-07 Labor Day・月曜）は「起動なし」に数えない。暦の中では「仮」の印も出ない。"""
+    build_live_dir(settings.live_dir)
+    base = {"date": "2026-09-04", "env": "cert", "run_id": "20260904T195500Z"}
+    _jsonl(settings.live_dir / "out" / "2026-09-04" / "events.jsonl", [{**base, "kind": "start", "mode": "dry-run", "traders": ["test_a"], "test": True}])
+    b = lv.board(settings.live_dir)
+    assert "2026-09-07" not in b["bd"] and "2026-09-07" not in b["missing"]
+    assert "2026-09-08" in b["missing"]                       # 休場日の翌日は営業日 ＝ 記録が無ければ起動なし
+    assert b["calendar"]["covered"] and b["calendar"]["holidays"] == ["2026-09-07"] and not b["placeholder"]["calendar"]
+    with TestClient(create_app(settings, start_monitors=False), client=("127.0.0.1", 50000)) as c:
+        top, overall = c.get("/").text, c.get("/overall").text
+        assert "NYSE の休場日を除く" in top and "2026-09-07" in top and "休場日の暦の外" not in top
+        assert "NYSE の休場日を除く" in overall and "休場日の暦の外" not in overall
+        assert "calendar" not in c.get("/api/live").text      # 暦の情報は board() だけが持つ
+
+
+def test_outside_the_calendar_falls_back_to_weekdays_and_is_marked(settings, monkeypatch):
+    """暦に載っていない年は平日をすべて営業日とみなし、画面に「仮」の印を出す（⚠ 黙って平日扱いにしない）。"""
+    build_live_dir(settings.live_dir)
+    info = lv.calendar_info("2031-01-02", "2031-01-03")
+    assert not info["covered"]
+    assert lv.business_days("2031-01-01", "2031-01-03") == ["2031-01-01", "2031-01-02", "2031-01-03"]   # 元日も平日なら営業日と答える
+    monkeypatch.setattr(lv, "calendar_info", lambda *a, **k: {**info, "expiring": True, "days_left": -5})
+    with TestClient(create_app(settings, start_monitors=False), client=("127.0.0.1", 50000)) as c:
+        assert "休場日の暦の外" in c.get("/").text
+        overall = c.get("/overall").text
+        assert "休場日の暦の外" in overall and "nyse_calendar.py" in overall
 
 
 def test_public_face_can_read_but_not_post(settings):

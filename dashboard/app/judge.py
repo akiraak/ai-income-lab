@@ -45,21 +45,25 @@ def _parse_iso(s: str | None) -> datetime | None:
     return dt
 
 
+def _calendar():
+    """NYSE の暦（サンプルの `market_calendar`。執行器と同じもの）。⚠ 載っていない年は平日をすべて営業日とみなす。"""
+    import market_calendar
+
+    return market_calendar.nyse()
+
+
 def in_market_hours(started_at: dict | None) -> bool:
-    """ET の平日 9:30〜16:00 か（祝日は見ない。時間外の遅延は参考値にしかならない）。"""
+    """NYSE の通常取引の時間内か（営業日の 9:30〜16:00 ET。半日立会は 13:00 まで）。時間外の遅延は参考値にしかならない。"""
     dt = _parse_iso((started_at or {}).get("utc"))
     if dt is None:
         return False
-    et = dt.astimezone(ET)
-    if et.weekday() >= 5:
-        return False
-    minutes = et.hour * 60 + et.minute
-    return 9 * 60 + 30 <= minutes < 16 * 60
+    return _calendar().is_open(dt)
 
 
 def business_date(dt: datetime) -> str | None:
+    """ET の日付（NYSE の営業日のときだけ）。⚠ 休場日を営業日に数えると「2 営業日を跨いだ」が甘くなる。"""
     et = dt.astimezone(ET)
-    return et.date().isoformat() if et.weekday() < 5 else None
+    return et.date().isoformat() if _calendar().is_trading_day(et.date()) else None
 
 
 # ---------------------------------------------------------------- 観点ごと

@@ -464,7 +464,7 @@ flowchart LR
 ### 13-4. ⚠ この画面で埋まらないもの
 
 - 紙上の対照（差 3）と B&H。Phase 3 で `daily.csv` ができたら列を足す（⚠ **新しいキーと列の対応を確かめる**。§10 の手順と同じ）。⚠ **それまでは紙上の損益と差 3 に仮データを出す**（§15-8。本物と取り違えない印を付け、`/api/live` には出さない）
-- 休場日の暦。⚠ **起動しなかった日は「平日＝営業日」とみなして出している**（仮。§15-8）
+- ✅ 休場日の暦は 2026-09-18 に入れた（NYSE の公表 2026〜2028 年。§15-8）。⚠ **暦に載っていない年だけ「平日＝営業日」に戻り、「仮」の印が出る**
 - 「儲かったか」の判定。損益は出すが色を付けない（判定は執行の差と無人運転だけ）
 - 執行器の起動。画面からは動かさない（titan の timer ／ cron。`live-trading.md` §0-5）
 
@@ -692,9 +692,27 @@ flowchart LR
 | --- | --- | --- | --- |
 | 紙上の損益（トレーダーの詳細） | 実物の損益に 1 営業日あたり 2bp（予算に対して）を足した線（`live.PAPER_PLACEHOLDER_BP_PER_DAY`） | 点線 ＋ 凡例「紙上 仮データ」＋ 端のラベル「紙上・仮」 | 「紙上の損益と差 3 を本物にする」 |
 | 差 3 紙上 − 実物（概要・トレーダーの詳細） | 上の傾き（2.0 bp/日） | `.chip.placeholder`「仮データ」。⚠ **状態の色（✅ など）を付けない** | 同上 |
-| 営業日の暦（起動しなかった日） | 平日をすべて営業日とみなす（`live.business_days`） | `.chip.placeholder`「仮」＋「休場日の暦なし」 | 「休場日の暦を入れる」 |
+| 営業日の暦（起動しなかった日） | ✅ **2026-09-18 に本物にした**（下の「営業日の暦」）。⚠ 暦に載っていない年だけ、平日をすべて営業日とみなす | 暦の外のときだけ `.chip.placeholder`「仮」＋「休場日の暦の外」 | —（年に 1 度、次の年を足す） |
 
 ⚠ **仮データは `/api/live` に出さない**（`board()` だけが持つ。テストで固定）。⚠ 本物に差し替えたら印を外す。
+
+**営業日の暦（2026-09-18）。主張: 暦は 1 つのファイルに持ち、管理画面と執行器が同じ読み手を通して使う。**
+
+```mermaid
+flowchart LR
+  N["NYSE の公表（2026〜2028）"] -->|"手で写す ＋ 規則と突き合わせ"| T["nyse_calendar.py"]
+  T --> M["market_calendar.py"]
+  M --> D["管理画面: 起動しなかった日・判定の営業日と市場時間"]
+  M --> E["執行器: 執行の窓（休場・半日は拒否）"]
+  M -.->|"D16 で使う"| C["timer ／ cron の起動日"]
+```
+
+- 正本は `experiments/tastytrade-api-sample/nyse_calendar.py`【公表値】NYSE "Holidays & Trading Hours"（https://www.nyse.com/markets/hours-calendars 。取得 2026-09-18）。休場 29 日（2026 年 10・2027 年 10・2028 年 9。⚠ 2028-01-01 は土曜で振替なし）と半日立会 5 日（13:00 ET 引け）
+- ⚠ **データを `.py` に置くのは §7 の契約のため**（コンテナはサンプルの `*.py` と `*.sh` しか COPY しない。`.toml` にすると公開面に載らない）
+- 読み手は同じ場所の `market_calendar.py`（標準ライブラリだけ）。管理画面は `live.business_days`・`live.calendar_info`・`judge.in_market_hours`・`judge.business_date` から、執行器は `run_day.window_refusal` から使う
+- ⚠ **手で写した**ので、テスト（`tests/test_market_calendar.py`）が規則（第 n 月曜・聖金曜日・土日の振替）から独立に計算した日付と突き合わせる。⚠ **WebFetch の要約は誤っていた**（2026-07-03 を半日・2026-12-25 を欠落など）ので、生の HTML の表と脚注を読んだ
+- ⚠ **年に 1 度、次の年を足す**。暦の終わり（2028-12-31）まで 90 日を切ると、全体の詳細に注意が出る（`live.CALENDAR_WARN_DAYS`）。切れた年は「仮」の印つきで平日扱いに戻る（⚠ 黙って戻さない）
+- ⚠ 暦の情報（`board()["calendar"]`）も `/api/live` には出さない
 
 
 ### 15-9. インラインを書かない（2026-09-18）
@@ -738,3 +756,4 @@ flowchart LR
 - 2026-09-18: **画面を作り直した**（§1・§13・§15-4〜15-8）。入口を概要（`/`。監視の帯・大きな数字・損益の推移・執行の差・トレーダーの段）にし、`/overall`（全体の詳細: 日次・注文の履歴・口座と接続）と `/traders/<name>`（トレーダーの詳細）を足した。`/live` は `/` へ転送。ナビは左ペイン。見た目はデザイン 3「数字とグラフが主役」。図は `app/charts.py`（サーバで組む SVG）、データは `live.board()`。⚠ **紙上の損益・差 3・休場日の暦は仮データ**（印を付け、`/api/live` に出さない）。デモは執行器のモックの記録を読む。監視の 1 件取消のボタンを外した。pytest 144 件（新しい画面・転送・仮データの印・起動しなかった日・公開面・デモの記録）。プランは [dashboard-design-implement.md](../plans/dashboard-design-implement.md)
 - 2026-09-18: **g3plus を `809104f` に更新した**（前回は `eec106c`・2026-09-10。titan から `ssh -i ~/.ssh/id_rsa_nopass g3plus` で pull → `docker compose build` → `up -d`。前のイメージは `ail-dashboard-ail-dashboard:prev` に残した）。確認【実測】: healthy ／ コンテナ内で `/`・`/overall`・`/records`・`/judge`・`/api/live`・`/api/state` が 200、`/live` は `/` へ 302、`/ops` は 404（公開面）／ docker network 越しの JWT なしは 403 ／ 監視は cert に再接続（refresh 1 回成功・エラー 0）。⚠ 実売買の部分は契約（§7）どおり空
 - 2026-09-18: **確認ダイアログとインラインの style を直した**（§15-9）。`onsubmit="return confirm(…)"` 5 か所が CSP（`script-src 'self'`）に止められ、停止・解除・発注・後片付けが確かめずに送られていた → `data-confirm` ＋ `app.js`。インラインの `style=` 9 か所は `app.css` のクラスへ。⚠ CSP は緩めていない。ブラウザで 3 つの form（概要の停止・操作の停止・後片付け）が「出る ／ 断ると送られない ／ 受けると送られる」・CSP 違反 0 件【実測】。**pytest の 487 秒も直した**（146 件で 7.7 秒。§13-5。監視を要らないテスト 16 本が監視を起こしていた。`conftest.py` に番人）。⚠ **g3plus は未デプロイ**（停止ボタンは公開面にもある）。プランは [dashboard-pytest-speed-and-confirm.md](../plans/archive/dashboard-pytest-speed-and-confirm.md)
+- 2026-09-18: **休場日の暦を入れた**（§15-8「営業日の暦」）。起動しなかった日の「平日＝営業日」の仮を外し、NYSE の公表（2026〜2028 年）を `experiments/tastytrade-api-sample/nyse_calendar.py` に持った。読み手 `market_calendar.py` は管理画面（起動しなかった日・判定の営業日と市場時間）と執行器（執行の窓）が共有する。⚠ 暦の外の年だけ「仮」の印に戻る。pytest 151 件。プランは [nyse-calendar.md](../plans/archive/nyse-calendar.md)

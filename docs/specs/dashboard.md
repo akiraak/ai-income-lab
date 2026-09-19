@@ -746,7 +746,7 @@ flowchart LR
 
 ### 15-10. i マークのヘルプ（2026-09-18。利用者の指示「i マークを付けて、ヘルプを表示する」）
 
-**主張: 説明の正本は `dashboard/glossary.toml` 1 本のまま。templates は語の名前で指すだけで、用語タブ（§12）と同じ文面が出る。**（プラン: [dashboard-help-icons.md](../plans/dashboard-help-icons.md)）
+**主張: 説明の正本は `dashboard/glossary.toml` 1 本のまま。templates は語の名前で指すだけで、用語タブ（§12）と同じ文面が出る。**（プラン: [dashboard-help-icons.md](../plans/archive/dashboard-help-icons.md)）
 
 ```mermaid
 flowchart LR

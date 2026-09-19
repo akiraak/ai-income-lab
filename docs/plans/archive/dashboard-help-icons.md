@@ -1,7 +1,7 @@
 # 管理画面に i マークを付けて、ヘルプを表示する
 
-作成日: 2026-09-18。派生元: [TODO](../../TODO.md) の「管理画面に i マークを付けて、ヘルプを表示する」（利用者の指示 2026-09-18）。
-関連: [dashboard.md](../specs/dashboard.md) §12（用語の正本）・§15（デザイン規約）・§15-9（インラインを書かない）。
+作成日: 2026-09-18。派生元: [DONE](../../../DONE.md) の「管理画面に i マークを付けて、ヘルプを表示する」（利用者の指示 2026-09-18）。
+関連: [dashboard.md](../../specs/dashboard.md) §12（用語の正本）・§15（デザイン規約）・§15-9（インラインを書かない）。
 
 ## 0. 目的・背景
 
@@ -87,4 +87,4 @@ flowchart LR
 | 2 | `helptext.py`・`info`・templates・css・js | ✅ 2026-09-18 |
 | 3 | テスト・デモで確認・スクリーンショット | ✅ 2026-09-18 |
 | 4 | 仕様（dashboard.md §15-10 ほか）・CLAUDE.md | ✅ 2026-09-18 |
-| 5 | ⚠ **利用者**: 見た目の確認 ／ g3plus-ops の Dockerfile に `COPY dashboard/glossary.toml` を足す | 未 |
+| 5 | ⚠ **利用者**: 見た目と文面の確認（✅ 2026-09-19）／ g3plus-ops の Dockerfile に `COPY dashboard/glossary.toml` を足す（⚠ g3plus-ops 側の作業。このリポジトリでは追わない） | ✅ 2026-09-19 |

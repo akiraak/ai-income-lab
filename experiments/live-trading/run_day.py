@@ -41,7 +41,10 @@ from trader import load_traders  # noqa: E402
 ET = ZoneInfo("America/New_York")
 WINDOW_START = (15, 45)
 WINDOW_END = (16, 5)
-DEFAULT_MAX_TOTAL_BUDGET = 1000.0   # live-trading.md §0-2。全トレーダーの予算の合計の上限（口座の残高）
+# live-trading.md §0-2。予算は 2 つの規模を並べて持つ（2026-09-19 の利用者決定）: 規模 A ＝ $1,000（実際の入金額）／ 規模 B ＝ $10,000。
+# ⚠ 既定は規模 A。⚠ **規模 B は実際の取引で使えない可能性がある**（口座にその額が入っていない）ので、使うときは
+#   `--max-total-budget 10000 --max-day-usd 10000`（または LT_MAX_TOTAL_BUDGET_USD / LT_MAX_DAY_USD）を明示する。
+DEFAULT_MAX_TOTAL_BUDGET = 1000.0   # 全トレーダーの予算の合計の上限（口座の残高）
 DEFAULT_MAX_DAY_USD = 1000.0        # 1 日の買いの合計の上限
 
 

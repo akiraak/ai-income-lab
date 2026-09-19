@@ -104,3 +104,112 @@ def portfolio_daily(sym_series: dict[str, pd.Series]) -> pd.Series:
     標本数はこの系列の長さ（検証日数）で数える。行数 63 × 日数 を使わない。
     """
     return pd.DataFrame(sym_series).mean(axis=1).sort_index()
+
+
+def simulate_topk(buy_pct, y, dates, symbols, threshold: float, k: int, cost_bp: float = 5.0,
+                  exit_pct=None, price=None, budget_usd: float | None = None, rng=None,
+                  rank=None) -> dict:
+    """⚠ **保有できる銘柄数に上限 K を置く閾値売買**（rules.md 17 章）。⚠ **純粋関数。`simulate` は触らない。**
+
+    1 fold ぶんの行（銘柄 × 日。並びは問わない）を受け、日付の順に 1 日ずつ回す。
+      売り: 保有中の銘柄は 出口% > θ で売る（13-4 のまま。⚠ 順位では売らない）
+      買い: その日の始めに未保有で 買い% > θ の候補を、買い% の高い順（同点は銘柄名の昇順）に空き枠だけ買う
+      枠  : K 本。⚠ **空き枠 ＝ K − その日の始めの保有数**（売った日の枠は翌営業日から。17-1 の 4）
+    `rng` を渡すと候補の並びを乱数にする（基準線「乱択上位 K」。17-4）。
+    `rank` を渡すと候補を買い% ではなくその値の大きい順に並べる（基準線「ボラ上位 K」。17-7）。⚠ **候補の条件
+    （未保有 ＆ 買い% > θ）は変えない。** NaN は最下位。省けば買い% の順 ＝ 既存の結果は 1 ビットも変わらない。
+    `price` と `budget_usd` を渡すと整数株の版（17-3）: 株数 ＝ floor(予算 ÷ K ÷ price)。0 株は見送り、
+    重み ＝ 株数 × price ÷ 予算。渡さなければ端数の版で重みは 1/K。
+
+    戻り値（行は入力と同じ並び）: pos（0/1）・weight（その行に掛かる重み）・net_unit_bp（重みを掛ける前の日次純利）・
+    port_net_bp ／ port_gross_bp ／ invested（日付を index にした系列。invested ＝ その日の重みの合計）・
+    trades（建てた回数）・signals（買いの候補の延べ数）・skipped_full（枠が無くて見送り）・
+    skipped_price（1 株が枠を超えて見送り）・symbols_bought（買った銘柄の種類数）。
+    """
+    if threshold < 50.0:
+        raise ValueError(f"θ = {threshold} は受けない（rules.md 13-3 の 2）")
+    if k < 1:
+        raise ValueError(f"K = {k} は受けない（1 以上）")
+    b = np.asarray(buy_pct, dtype=float)
+    yy = np.asarray(y, dtype=float)
+    e = (100.0 - b) if exit_pct is None else np.asarray(exit_pct, dtype=float)
+    d = np.asarray(dates)
+    sym = np.asarray([str(s) for s in symbols])
+    # ⚠ 並べる値。NaN は −inf（最下位）。`rank` を省けば買い% そのもの
+    key = b if rank is None else np.where(np.isnan(np.asarray(rank, dtype=float)), -np.inf,
+                                          np.asarray(rank, dtype=float))
+    if key.shape != b.shape:
+        raise ValueError("rank と買い% の長さが違う")
+    if not (b.shape == yy.shape == e.shape == d.shape == sym.shape):
+        raise ValueError("買い%・出口%・y・日付・銘柄の長さが違う")
+    integer = price is not None
+    if integer:
+        if not budget_usd or budget_usd <= 0:
+            raise ValueError("整数株の版は budget_usd が要る（rules.md 17-3）")
+        px = np.asarray(price, dtype=float)
+        slot = float(budget_usd) / k
+    n = len(b)
+    half = cost_bp / 2.0
+    pos = np.zeros(n, dtype=int)
+    weight = np.zeros(n)
+    net_unit = np.zeros(n)
+    held: dict[str, float] = {}                   # 銘柄 → 重み
+    last_row: dict[str, int] = {}                 # 銘柄 → その fold で最後に見た行（強制清算の置き場）
+    trades = signals = skipped_full = skipped_price = 0
+    bought_syms: set[str] = set()
+
+    # ⚠ 日付 → 銘柄名の昇順。同点の決め方（17-1 の 5）と乱数の引き方がこの並びで決まる（再現する）
+    order = np.lexsort((sym, d))
+    bounds = np.flatnonzero(np.r_[True, d[order][1:] != d[order][:-1], True])
+    for lo, hi in zip(bounds[:-1], bounds[1:]):
+        rows = order[lo:hi]
+        held_start = set(held)
+        free = k - len(held_start)
+        traded = np.zeros(len(rows), dtype=bool)
+        for j, i in enumerate(rows):
+            s = sym[i]
+            last_row[s] = i
+            if s in held:
+                weight[i] = held[s]
+                if e[i] > threshold:              # 手仕舞う（⚠ 保有中のときだけ出口% を読む）
+                    del held[s]
+                    traded[j] = True
+                else:
+                    pos[i] = 1
+        cand = [j for j, i in enumerate(rows) if sym[i] not in held_start and b[i] > threshold]
+        signals += len(cand)
+        if rng is not None:
+            cand = [cand[q] for q in rng.permutation(len(cand))]
+        else:
+            cand.sort(key=lambda j: (-key[rows[j]], sym[rows[j]]))
+        for j in cand:
+            i = rows[j]
+            if free <= 0:
+                skipped_full += 1
+                continue
+            if integer:
+                shares = int(slot // px[i]) if px[i] > 0 else 0
+                if shares < 1:                    # ⚠ 枠は使わず、次の順位の候補へ（17-3 の 1）
+                    skipped_price += 1
+                    continue
+                w = shares * px[i] / float(budget_usd)
+            else:
+                w = 1.0 / k
+            held[sym[i]] = w
+            weight[i] = w
+            pos[i] = 1
+            traded[j] = True
+            trades += 1
+            free -= 1
+            bought_syms.add(sym[i])
+        net_unit[rows] = pos[rows] * yy[rows] * 1e4 - np.where(traded, half, 0.0)
+    for s in held:                                # ⚠ fold 末尾の強制清算（13-4 の 4）
+        net_unit[last_row[s]] -= half
+    idx = pd.Index(d, name="ts")
+    port_net = pd.Series(weight * net_unit, index=idx).groupby(level=0).sum().sort_index()
+    port_gross = pd.Series(weight * pos * yy * 1e4, index=idx).groupby(level=0).sum().sort_index()
+    invested = pd.Series(weight * pos, index=idx).groupby(level=0).sum().sort_index()
+    return {"pos": pos, "weight": weight, "net_unit_bp": net_unit,
+            "port_net_bp": port_net, "port_gross_bp": port_gross, "invested": invested,
+            "trades": trades, "signals": signals, "skipped_full": skipped_full,
+            "skipped_price": skipped_price, "symbols_bought": len(bought_syms)}

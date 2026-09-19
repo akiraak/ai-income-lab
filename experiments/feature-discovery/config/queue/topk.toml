@@ -1,0 +1,10 @@
+# ⚠ **上位 K の 3 本**（rules.md 17 章・プラン `plans/topk-holdings.md`。利用者の指示 2026-09-19「B で進めて」）。
+# 事前登録は rules.md 17 章（⚠ **回すと決めたのは結果を見る前**。n_trials ＋45 ＝ 3 本 × K 5 × 行の種類 3）。
+# 表は作り直さない（3 本とも `features_from`。leak 対照の表も既にある）。
+# ⚠ **順は手間の小さい順**（14-10 規約 4）: Ridge → LightGBM → 時系列分類器（QUANT）。
+experiments = ["trade_own_ridge_a_topk", "trade_ownex_lgbm_a_topk", "trade_ownseq_ridge_a_topk"]
+
+leak = true              # ⚠ 配線の穴に気づく唯一の手。切らない
+ledger = false           # ⚠ 台帳は終わってから 1 回吐く（キューの中で吐くと「閉じる」注記の SystemExit で止まりうる）
+max_failures = 2
+time_budget_s = 7200     # ⚠ 見積り 30 分【推測。元の 3 本の実測 ＋ 上位 K の 90 シミュレーション / fold】の 4 倍

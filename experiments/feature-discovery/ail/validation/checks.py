@@ -12,6 +12,8 @@
 
 from __future__ import annotations
 
+import re
+
 import numpy as np
 import pandas as pd
 
@@ -343,6 +345,51 @@ def best_method_trading(methods) -> str | None:
     return rows[0] if rows else None
 
 
+_TOPK_NAME = re.compile(r"^(?P<base>.+)〔上位(?P<k>\d+)・(?P<kind>[^〕]+)〕$")
+
+
+def _daily_t(a: list | None, b: list | None) -> dict | None:
+    """日次の対の差（fold を連結）の平均と t。⚠ **目安であって検定ではない**（多重検定を通していない）。"""
+    if not a or not b:
+        return None
+    d = (pd.concat(a).sort_index() - pd.concat(b).sort_index()).dropna()
+    if len(d) < 3 or float(d.std(ddof=1)) == 0.0:
+        return None
+    return {"mean_bp_per_day": round(float(d.mean()), 4), "n_days": int(len(d)),
+            "t": round(float(d.mean() / (d.std(ddof=1) / np.sqrt(len(d)))), 4)}
+
+
+def topk_table(result: pd.DataFrame, daily: dict) -> list[dict]:
+    """上位 K の行（rules.md 17 章）ごとに、対 B&H と ⚠ **対 乱択上位 K**（17-4。順位に情報があるかはこの差）を並べる。
+
+    ⚠ **事前登録の予想（17-6）の「t」は `vs_random.daily.t`** ＝ 日次の対の差（fold 連結）の t。
+    """
+    rows: list[dict] = []
+    if result is None or "手法" not in result:
+        return rows
+    for (name, th), g in result.groupby(["手法", "閾値"], sort=False):
+        m = _TOPK_NAME.match(str(name))
+        if m is None or str(name).startswith("基準 "):
+            continue
+        rand = f"基準 乱択上位〔{m['base']}・上位{m['k']}・{m['kind']}〕"
+        vol = f"基準 ボラ上位〔{m['base']}・上位{m['k']}・{m['kind']}〕"      # 17-7
+        net = result[result["閾値"] == th].pivot(index="fold", columns="手法", values="純利bp")
+        entry = {"method": str(name), "base": m["base"], "K": int(m["k"]), "kind": m["kind"],
+                 "閾値": float(th), "純利bp": round(float(g["純利bp"].mean()), 4),
+                 "平均の投下率": round(float(g["保有日率"].mean()), 4)}
+        # ⚠ `vs_vol` ＝ 順位 − ボラ上位（荒さで説明できない分）／ `vol_vs_random` ＝ 荒い銘柄に集中した効果（17-7 の 5）
+        for key, left, other in (("vs_bh", name, DRIFT), ("vs_random", name, rand),
+                                 ("vs_vol", name, vol), ("vol_vs_random", vol, rand)):
+            if other not in net or left not in net:
+                continue
+            e = (net[left] - net[other]).sort_index()
+            entry[key] = {**_sign_row(e), "mean_bp": round(float(e.mean()), 4),
+                          "t": (round(t_, 4) if (t_ := _t(e)) is not None else None),
+                          "daily": _daily_t(daily.get((left, th)), daily.get((other, th)))}
+        rows.append(entry)
+    return rows
+
+
 def compute_trading(result: pd.DataFrame, summary: pd.DataFrame, per_symbol: pd.DataFrame,
                     daily: dict, config: dict, n_trials: int | None = None,
                     leak: bool = False, panel: pd.DataFrame | None = None,
@@ -425,6 +472,8 @@ def compute_trading(result: pd.DataFrame, summary: pd.DataFrame, per_symbol: pd.
                                    "勝ち銘柄": int((tot > 0).sum())}
         by[f"{th:g}"] = entry
     doc["by_threshold"] = by
+    if (tk := topk_table(result, daily)):
+        doc["topk"] = tk                           # ⚠ 上位 K の対 B&H ／ 対 乱択（rules.md 17-4）。診断
     if (br := _breadth_trading(panel)) is not None:
         doc["breadth"] = br
 

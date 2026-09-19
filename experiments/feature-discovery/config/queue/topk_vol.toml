@@ -1,0 +1,9 @@
+# ⚠ **上位 K に基準線「ボラ上位 K」を足した回し直し**（rules.md 17-7・プラン `plans/topk-vol-baseline.md`。利用者の指示 2026-09-19「(a) で進めて」）。
+# config は `topk` と同じ 3 本（⚠ 1 行も変えていない）。上位 K と乱択の行は同じ鍵・同じ数字にまとまる ＝ 再現の検算。
+# ⚠ **足されるのは基準線の行だけ ＝ n_trials は 667 のまま**（終わったら台帳を吐いて検算する）。
+experiments = ["trade_own_ridge_a_topk", "trade_ownex_lgbm_a_topk", "trade_ownseq_ridge_a_topk"]
+
+leak = true
+ledger = false
+max_failures = 2
+time_budget_s = 3600     # ⚠ 見積り 3 分【推測。`topk` の実測 2 分 ＋ シミュレーション 1/6 増】

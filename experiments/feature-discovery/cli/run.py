@@ -128,6 +128,12 @@ def evaluate_trading(panel: pd.DataFrame, feats: list[str], exp: dict, run: runs
     extra: dict = {"hold": {}, "rand": {}}
     # ⚠ **1 取引 1 行の保有日数**（13-4 の 6）。⚠ **成果物であって採否には使わない**。`extra["holds"]` で持ち出す
     holds_out: list[dict] = []
+    topk_out: list[dict] = []
+    if t.get("top_k") and form == "per_symbol":
+        raise SystemExit("⚠ 上位 K（rules.md 17 章）は形式 (A) と検知器だけ（(B) は銘柄ごとに較正が違い、買い% を銘柄間で比べられない）")
+    if t.get("top_k") and "close" in panel:
+        # ⚠ **特徴量には入らない**（`feats` は呼び出し側が先に決めている）。fold を切る前に作るのは、窓を過去へ伸ばすため
+        panel = panel.assign(**{TOPK_VOL_COLUMN: topk_vol(panel)})
 
     for f, tr, te in splits.folds_by_dates(panel, edges, horizon_min,
                                            int(v.get("embargo_bars", 0)),
@@ -291,11 +297,18 @@ def evaluate_trading(panel: pd.DataFrame, feats: list[str], exp: dict, run: runs
                             # ⚠ **逆売買の診断列**（14-3 の (3)）。⚠ **採否に使わない・試行に数えない**
                             "逆売買純利bp": float(port_rev.sum()),
                             "逆売買取引回数": rev_trades})
+        if t.get("top_k"):
+            # ⚠ **上位 K**（rules.md 17 章）。⚠ **既存の行を作り終えた後に足すだけ**（`top_k` の無い config は
+            # ここを通らないので、既存の経路は 1 行も変わらない）
+            _topk_fold(t, te, y, ts_te, buy, exits, n_cols, thresholds, cost_bp, seed, f,
+                       out, daily, extra, topk_out)
         run.log(f"  fold {f}: 訓練 {len(tr):,} / 検証 {len(te):,}（{len(groups)} 銘柄）")
 
     if picked:
         run.selected(pd.DataFrame(picked))
     extra["holds"] = pd.DataFrame(holds_out)        # ⚠ 成果物。`run.holds` と `checks` が読む
+    if topk_out:
+        extra["topk"] = pd.DataFrame(topk_out)      # ⚠ 診断（17-5 の 4）。採否には使わない
     res = pd.DataFrame(out)
     summary = (res.groupby(["手法", "閾値"])
                   .agg(本数=("選んだ本数", "mean"), 的中率=("的中率", "mean"), IC=("IC", "mean"),
@@ -306,6 +319,99 @@ def evaluate_trading(panel: pd.DataFrame, feats: list[str], exp: dict, run: runs
                   .reset_index().set_index("手法")
                   .sort_values("純利bp", ascending=False).round(4))
     return res, pd.DataFrame(sym_out), summary, daily, extra
+
+
+TOPK_RANDOM_SEEDS = 5        # ⚠ 基準線「乱択上位 K」は種 5 つの平均（rules.md 17-4。事前固定）
+TOPK_VOL_WINDOW = 60         # ⚠ 基準線「ボラ上位 K」の窓（営業日）。1 水準だけ・結果を見て動かさない（17-7 の 3）
+TOPK_VOL_MIN = 20            # 窓に最低これだけ無い日は最下位（17-7 の 2）
+TOPK_VOL_COLUMN = "_topk_vol"
+
+
+def topk_vol(panel: pd.DataFrame) -> pd.Series:
+    """銘柄ごとの直近 60 営業日の日次対数リターンの標準偏差（rules.md 17-7）。⚠ **足 t までの `close` しか見ない。**
+
+    ⚠ y（t → t+1）は使わない。足 t の終値は執行の時点で分かっている値である。
+    ⚠ 窓は fold を跨いで過去へ伸ばす（標本から学ばない ＝ 3 章 A。fit なし）。
+    """
+    p = panel.sort_values(["symbol", "ts"])
+    r = np.log(p["close"]).groupby(p["symbol"]).diff()
+    vol = r.groupby(p["symbol"]).rolling(TOPK_VOL_WINDOW, min_periods=TOPK_VOL_MIN).std()
+    return vol.reset_index(level=0, drop=True).reindex(panel.index)
+
+
+def topk_name(method: str, k: int, kind: str) -> str:
+    """⚠ **構成は手法名に入れる**（rules.md 17-5 の 1・16-6 規約 1）。鍵に列は足さない。"""
+    return f"{method}〔上位{k}・{kind}〕"
+
+
+def topk_random_name(method: str, k: int, kind: str) -> str:
+    """⚠ **`基準 ` で始める** ＝ 台帳が基準線として読み、試行に数えない（13-9 の 4）。"""
+    return f"基準 乱択上位〔{method}・上位{k}・{kind}〕"
+
+
+def topk_vol_name(method: str, k: int, kind: str) -> str:
+    """基準線「ボラ上位 K」（rules.md 17-7）。⚠ **`基準 ` で始める** ＝ 試行に数えない。"""
+    return f"基準 ボラ上位〔{method}・上位{k}・{kind}〕"
+
+
+def _topk_fold(t: dict, te: pd.DataFrame, y, ts_te, buy: dict, exits: dict, n_cols: dict,
+               thresholds: list[float], cost_bp: float, seed: int, f: int,
+               out: list[dict], daily: dict, extra: dict, topk_out: list[dict]) -> None:
+    """1 fold ぶんの上位 K の行（手法 × θ × K × 行の種類）と、その基準線「乱択上位 K」を足す（rules.md 17 章）。"""
+    from ail.validation import simulate as sim
+
+    ks = [int(x) for x in t["top_k"]]
+    kinds: list[tuple[str, float | None]] = [("端数", None)]
+    budgets = t.get("top_k_budgets_usd") or {}
+    if budgets and "close" not in te:
+        raise SystemExit("⚠ 整数株の版（rules.md 17-3）は表に close 列が要る")
+    kinds += [(f"整数株{tag}", float(usd)) for tag, usd in budgets.items()]
+    dates, syms = ts_te.values, te["symbol"].values
+    for mname, bp in buy.items():
+        if mname.startswith("基準 ") or mname == "乱択（基準）":
+            continue                                   # ⚠ 基準線は上位 K に通さない（定数の買い% は全部同点）
+        ex = exits.get(mname)
+        ok = ~np.isnan(bp)
+        hit = float(np.mean((bp[ok] > 50.0) == (y[ok] > 0))) if ok.any() else 0.0
+        ic = (float(np.corrcoef(bp[ok], y[ok])[0, 1]) if ok.any() and np.std(bp[ok]) > 0 else 0.0)
+        for th in thresholds:
+            for k in ks:
+                for kind, usd in kinds:
+                    kw = {} if usd is None else {"price": te["close"].values, "budget_usd": usd}
+                    r = sim.simulate_topk(bp, y, dates, syms, th, k, cost_bp, exit_pct=ex, **kw)
+                    rs = [sim.simulate_topk(bp, y, dates, syms, th, k, cost_bp, exit_pct=ex,
+                                            rng=np.random.default_rng(seed + q), **kw)
+                          for q in range(TOPK_RANDOM_SEEDS)]
+                    rand = {"port_net_bp": sum(x["port_net_bp"] for x in rs) / len(rs),
+                            "port_gross_bp": sum(x["port_gross_bp"] for x in rs) / len(rs),
+                            "invested": sum(x["invested"] for x in rs) / len(rs),
+                            **{c: float(np.mean([x[c] for x in rs]))
+                               for c in ("trades", "signals", "skipped_full", "skipped_price", "symbols_bought")}}
+                    rows = [(topk_name(mname, k, kind), r, n_cols.get(mname, 0.0)),
+                            (topk_random_name(mname, k, kind), rand, 0.0)]
+                    if TOPK_VOL_COLUMN in te:
+                        # ⚠ **基準線「ボラ上位 K」**（17-7）: 候補は同じ。並べる値だけを直近 60 日の値動きの大きさに替える
+                        rows.append((topk_vol_name(mname, k, kind),
+                                     sim.simulate_topk(bp, y, dates, syms, th, k, cost_bp, exit_pct=ex,
+                                                       rank=te[TOPK_VOL_COLUMN].values, **kw), 0.0))
+                    for name, res, cols in rows:
+                        daily.setdefault((name, th), []).append(res["port_net_bp"])
+                        extra["hold"].setdefault((name, th), []).append(res["invested"])
+                        out.append({"手法": name, "fold": f, "閾値": th, "選んだ本数": cols,
+                                    "的中率": hit, "IC": ic,
+                                    "粗利bp": float(res["port_gross_bp"].sum()),
+                                    "純利bp": float(res["port_net_bp"].sum()),
+                                    "取引回数": res["trades"],
+                                    "保有日率": float(res["invested"].mean()),     # ⚠ 上位 K では「平均の投下率」
+                                    "検証日数": int(len(res["port_net_bp"])),
+                                    "乱択ゲート純利bp": np.nan, "乱択ゲート取引回数": np.nan,
+                                    "逆売買純利bp": np.nan, "逆売買取引回数": np.nan})
+                        topk_out.append({"手法": name, "閾値": th, "fold": f, "K": k, "種類": kind,
+                                         "買いの合図": res["signals"], "買えた数": res["trades"],
+                                         "枠が無くて見送り": res["skipped_full"],
+                                         "株価で見送り": res["skipped_price"],
+                                         "平均の投下率": round(float(res["invested"].mean()), 4),
+                                         "買った銘柄の種類数": res["symbols_bought"]})
 
 
 def apply_gate(exp: dict, gate_doc: dict, enforce: bool, run: runs.Run) -> dict | None:
@@ -434,6 +540,7 @@ def main() -> None:
         run.result(res, g)
         run.per_symbol(per_sym)
         run.holds(extra.get("holds"))              # ⚠ 1 取引 1 行の保有日数（13-4 の 6。採否には使わない）
+        run.topk(extra.get("topk"))                # ⚠ 上位 K の診断（rules.md 17-5 の 4。採否には使わない）
         # ⚠ **日次のポートフォリオ系列を残す。** これが無かったので、検出限界の検討は同じ config を
         # ⚠ **回し直して系列を作り直すしかなかった**（validation-power.md §1）。エピソード表もここを読む
         run.daily(daily, extra)

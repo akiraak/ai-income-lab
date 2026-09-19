@@ -154,6 +154,11 @@ class Run:
         if df is not None and len(df):
             df.to_csv(os.path.join(self.dir, "holds.csv"), index=False)
 
+    def topk(self, df) -> None:
+        """⚠ **上位 K の診断**（rules.md 17-5 の 4: 買いの合図・買えた数・見送り・投下率）。⚠ **採否には使わない。**"""
+        if df is not None and len(df):
+            df.to_csv(os.path.join(self.dir, "topk.csv"), index=False)
+
     def per_symbol(self, df: pd.DataFrame) -> None:
         """⚠ **銘柄別 bp は成果物**（rules.md 13-7。利用者の求める出力）。⚠ **採否には使わない。**"""
         if len(df):

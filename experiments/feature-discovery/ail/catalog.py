@@ -41,6 +41,7 @@ _FAMILY_HEAD = re.compile(r"^###\s+(F\d)\.\s*([^—\-]+?)\s*[—\-]\s*.*?（(\d+
 _ID = re.compile(r"^(F\d-\d+[a-z]?)\b")
 
 # ⚠ **spec の表は全角の記号を使う。** 取り違えると符号が反転する
+_VARIANT = re.compile(r"〔[^〕]*〕$")      # 上位 K の構成（rules.md 17-5）
 _SIGNS = {"＋": "+", "−": "-", "－": "-", "▲": "-", ",": ""}
 
 
@@ -679,9 +680,13 @@ def ledger() -> dict:
         c = by_id.get(r["ID"])
         r["手法"] = c["手法"] if c else r["鍵"]
         # ⚠ **検知器はカタログ外の手法であって基準線ではない**（rules.md 14-1）
+        # ⚠ **上位 K の行**（rules.md 17-5）は構成を `〔…〕` で手法名に入れている。⚠ **系統と実装の列だけ、
+        # それを外した名前で引く**（鍵・判定・数え方は変えない）。`乱択上位〔…〕` は基準線
+        base = ("乱択（基準）" if r["鍵"].startswith(("乱択上位〔", "ボラ上位〔"))
+                else _VARIANT.sub("", r["鍵"]))
         r["系統"] = (f"{c['系統']} {c['系統名']}" if c
-                     else "検知器" if r["鍵"] in dets else "基準線")
-        r["実装"] = "✅" if (r["ID"] in impl or r["鍵"] in bases or r["鍵"] in dets) else "⚠ 無"
+                     else "検知器" if base in dets else "基準線")
+        r["実装"] = "✅" if (r["ID"] in impl or base in bases or base in dets) else "⚠ 無"
         r["判定"], r["理由"] = judge(r, bases)
     # ⚠ 判定が出そろってから「閉じる」注記を当てる（判定は変えない。rules.md 14 章）
     _apply_closed(rows, closed_notes())

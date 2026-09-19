@@ -1,0 +1,20 @@
+/* デザイン 3「数字とグラフが主役」（Phase 5 の 2 回目）。黒ベース（§15 の色）のまま、見出しの重みを数字とグラフに寄せる。
+   ⚠ 大きな数字（hero）は 1 画面に 1 つだけ。監視は細い帯に畳み、表は「全体の詳細」へ回す。 */
+.strip { display: flex; flex-wrap: wrap; gap: 8px 18px; align-items: center; padding: 8px 14px; background: var(--surface);
+         border: 1px solid var(--line); border-radius: 6px; font-size: 12px; color: var(--muted); }
+.strip b { color: var(--ink); font-weight: 600; }
+.strip .sep { width: 1px; height: 14px; background: var(--line-strong); }
+
+.hero-row { display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; gap: 12px; margin-top: 12px; }
+.hero, .stat { background: transparent; border-left: 2px solid var(--line-strong); padding: 4px 16px; min-width: 0; }
+.hero .k, .stat .k { color: var(--muted); font-size: 12px; }
+.hero .v { font-size: 52px; font-weight: 600; line-height: 1.1; margin: 4px 0; }
+.hero .s, .stat .s { color: var(--muted); font-size: 12px; }
+.stat .v { font-size: 30px; font-weight: 600; line-height: 1.2; margin: 4px 0; }
+
+.d3 .panel { border: 0; background: var(--surface); }
+.d3 .panel h3 { font-size: 14px; }
+.d3 .lane { border-top: 0; border-right: 0; border-bottom: 0; background: var(--surface); }
+.d3 .lane .info .big { font-size: 34px; }
+.d3 .lane { grid-template-columns: 230px minmax(0, 1fr); }
+.charts-2 { display: grid; grid-template-columns: 3fr 2fr; gap: 12px; margin-top: 12px; }

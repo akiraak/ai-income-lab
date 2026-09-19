@@ -1,0 +1,536 @@
+{
+ "now": "2026-09-19T01:19:18+00:00",
+ "face": "local",
+ "halt": {
+  "halted": false,
+  "path": "/home/ubuntu/ai-income-lab/dashboard/data/demo/records/HALT"
+ },
+ "monitors": {
+  "cert": {
+   "env": "cert",
+   "venue": "tastytrade",
+   "label": "sandbox (cert) ※接続先を差し替え",
+   "rest_base": "http://127.0.0.1:8765",
+   "mock": true,
+   "auth": {
+    "ok": true,
+    "scope": "read trade openid",
+    "expires_at": "2026-09-19T01:34:13+00:00",
+    "expires_in": 900,
+    "obtained_at": "2026-09-19T01:19:13.031+00:00",
+    "refresh_ok": 1,
+    "refresh_fail": 0,
+    "last_error": null,
+    "suspended": false,
+    "next_attempt_at": null,
+    "remaining_s": 894.2
+   },
+   "account": {
+    "label": "acct-c7c5",
+    "count": 1,
+    "type": "Individual",
+    "margin_or_cash": "Margin"
+   },
+   "balances": {
+    "cash-balance": "100000.0",
+    "net-liquidating-value": "100000.0",
+    "equity-buying-power": "200000.0",
+    "derivative-buying-power": "100000.0",
+    "available-trading-funds": null,
+    "pending-cash": null,
+    "pending-cash-effect": null,
+    "cash-available-to-withdraw": null,
+    "maintenance-requirement": null,
+    "currency": "USD",
+    "updated-at": "2026-09-19T01:19:13.077+00:00"
+   },
+   "positions": [],
+   "live_orders": [],
+   "orders_today": {
+    "total": 0,
+    "by_status": {}
+   },
+   "quote": {
+    "state": "ok",
+    "symbol": "SPY",
+    "bid": "560.10",
+    "ask": "560.12",
+    "last": "560.11",
+    "mid": "560.11",
+    "updated_at": "2026-09-19T01:19:13.096+00:00",
+    "requested_at": "2026-09-19T01:19:13+00:00",
+    "delay_s": 0.119,
+    "halted": false
+   },
+   "poll": {
+    "count": 1,
+    "errors": 0,
+    "count_429": 0,
+    "last_ok_at": "2026-09-19T01:19:13.214+00:00",
+    "last_error": null
+   },
+   "account_stream": {
+    "state": "connected",
+    "url": "ws://127.0.0.1:8766",
+    "connected_at": "2026-09-19T01:19:16.050+00:00",
+    "last_message_at": null,
+    "message_count": 0,
+    "order_notifications": 0,
+    "disconnects": 0,
+    "reconnects": 0,
+    "last_error": null,
+    "recent": []
+   },
+   "dxlink": {
+    "state": "connected",
+    "url": "ws://127.0.0.1:8767",
+    "connected_at": "2026-09-19T01:19:16.055+00:00",
+    "last_event_at": "2026-09-19T01:19:18.673+00:00",
+    "event_count": 13,
+    "disconnects": 0,
+    "reconnects": 0,
+    "last_error": null,
+    "quote": {
+     "bid": 560.23,
+     "ask": 560.25,
+     "bid_size": 300.0,
+     "ask_size": 200.0,
+     "at": "2026-09-19T01:19:18.673+00:00"
+    },
+    "trade": null,
+    "token_level": "api"
+   },
+   "errors": [],
+   "started_at": "2026-09-19T01:19:12.750+00:00",
+   "halted": false
+  },
+  "prod": {
+   "env": "prod",
+   "venue": "tastytrade",
+   "label": "production (実弾) ※接続先を差し替え",
+   "rest_base": "http://127.0.0.1:8765",
+   "mock": true,
+   "auth": {
+    "ok": true,
+    "scope": "read trade openid",
+    "expires_at": "2026-09-19T01:34:13+00:00",
+    "expires_in": 900,
+    "obtained_at": "2026-09-19T01:19:13.030+00:00",
+    "refresh_ok": 1,
+    "refresh_fail": 0,
+    "last_error": null,
+    "suspended": false,
+    "next_attempt_at": null,
+    "remaining_s": 894.2
+   },
+   "account": {
+    "label": "acct-c7c5",
+    "count": 1,
+    "type": "Individual",
+    "margin_or_cash": "Margin"
+   },
+   "balances": {
+    "cash-balance": "100000.0",
+    "net-liquidating-value": "100000.0",
+    "equity-buying-power": "200000.0",
+    "derivative-buying-power": "100000.0",
+    "available-trading-funds": null,
+    "pending-cash": null,
+    "pending-cash-effect": null,
+    "cash-available-to-withdraw": null,
+    "maintenance-requirement": null,
+    "currency": "USD",
+    "updated-at": "2026-09-19T01:19:13.078+00:00"
+   },
+   "positions": [],
+   "live_orders": [],
+   "orders_today": {
+    "total": 0,
+    "by_status": {}
+   },
+   "quote": {
+    "state": "ok",
+    "symbol": "SPY",
+    "bid": "560.10",
+    "ask": "560.12",
+    "last": "560.11",
+    "mid": "560.11",
+    "updated_at": "2026-09-19T01:19:13.095+00:00",
+    "requested_at": "2026-09-19T01:19:13+00:00",
+    "delay_s": 0.118,
+    "halted": false
+   },
+   "poll": {
+    "count": 1,
+    "errors": 0,
+    "count_429": 0,
+    "last_ok_at": "2026-09-19T01:19:13.213+00:00",
+    "last_error": null
+   },
+   "account_stream": {
+    "state": "connected",
+    "url": "ws://127.0.0.1:8766",
+    "connected_at": "2026-09-19T01:19:16.051+00:00",
+    "last_message_at": null,
+    "message_count": 0,
+    "order_notifications": 0,
+    "disconnects": 0,
+    "reconnects": 0,
+    "last_error": null,
+    "recent": []
+   },
+   "dxlink": {
+    "state": "connected",
+    "url": "ws://127.0.0.1:8767",
+    "connected_at": "2026-09-19T01:19:16.055+00:00",
+    "last_event_at": "2026-09-19T01:19:18.673+00:00",
+    "event_count": 13,
+    "disconnects": 0,
+    "reconnects": 0,
+    "last_error": null,
+    "quote": {
+     "bid": 560.23,
+     "ask": 560.25,
+     "bid_size": 300.0,
+     "ask_size": 200.0,
+     "at": "2026-09-19T01:19:18.673+00:00"
+    },
+    "trade": null,
+    "token_level": "api"
+   },
+   "errors": [],
+   "started_at": "2026-09-19T01:19:12.750+00:00",
+   "halted": false
+  }
+ },
+ "events": [
+  {
+   "at": "2026-09-19T01:19:16.055+00:00",
+   "venue": "tastytrade",
+   "env": "prod",
+   "kind": "ws_connect",
+   "detail": {
+    "stream": "dxlink"
+   },
+   "mock": true
+  },
+  {
+   "at": "2026-09-19T01:19:16.055+00:00",
+   "venue": "tastytrade",
+   "env": "cert",
+   "kind": "ws_connect",
+   "detail": {
+    "stream": "dxlink"
+   },
+   "mock": true
+  },
+  {
+   "at": "2026-09-19T01:19:16.051+00:00",
+   "venue": "tastytrade",
+   "env": "prod",
+   "kind": "ws_connect",
+   "detail": {
+    "stream": "account"
+   },
+   "mock": true
+  },
+  {
+   "at": "2026-09-19T01:19:16.050+00:00",
+   "venue": "tastytrade",
+   "env": "cert",
+   "kind": "ws_connect",
+   "detail": {
+    "stream": "account"
+   },
+   "mock": true
+  },
+  {
+   "at": "2026-09-19T01:19:13.031+00:00",
+   "venue": "tastytrade",
+   "env": "cert",
+   "kind": "refresh_ok",
+   "detail": {
+    "expires_in": 900,
+    "scope": "read trade openid",
+    "rotated": false
+   },
+   "mock": true
+  },
+  {
+   "at": "2026-09-19T01:19:13.030+00:00",
+   "venue": "tastytrade",
+   "env": "prod",
+   "kind": "refresh_ok",
+   "detail": {
+    "expires_in": 900,
+    "scope": "read trade openid",
+    "rotated": false
+   },
+   "mock": true
+  },
+  {
+   "at": "2026-09-19T01:18:33.541+00:00",
+   "venue": "tastytrade",
+   "env": "prod",
+   "kind": "ws_disconnect",
+   "detail": {
+    "stream": "account",
+    "reason": "ConnectionRefusedError: [Errno 111] Connect call failed ('127.0.0.1', 8766)"
+   },
+   "mock": true
+  },
+  {
+   "at": "2026-09-19T01:18:33.540+00:00",
+   "venue": "tastytrade",
+   "env": "cert",
+   "kind": "ws_disconnect",
+   "detail": {
+    "stream": "account",
+    "reason": "ConnectionRefusedError: [Errno 111] Connect call failed ('127.0.0.1', 8766)"
+   },
+   "mock": true
+  },
+  {
+   "at": "2026-09-19T01:16:26.008+00:00",
+   "venue": "tastytrade",
+   "env": "prod",
+   "kind": "ws_disconnect",
+   "detail": {
+    "stream": "account",
+    "reason": "ConnectionRefusedError: [Errno 111] Connect call failed ('127.0.0.1', 8766)"
+   },
+   "mock": true
+  },
+  {
+   "at": "2026-09-19T01:16:26.008+00:00",
+   "venue": "tastytrade",
+   "env": "cert",
+   "kind": "ws_disconnect",
+   "detail": {
+    "stream": "account",
+    "reason": "ConnectionRefusedError: [Errno 111] Connect call failed ('127.0.0.1', 8766)"
+   },
+   "mock": true
+  },
+  {
+   "at": "2026-09-19T01:14:18.688+00:00",
+   "venue": "tastytrade",
+   "env": "cert",
+   "kind": "ws_disconnect",
+   "detail": {
+    "stream": "account",
+    "reason": "ConnectionRefusedError: [Errno 111] Connect call failed ('127.0.0.1', 8766)"
+   },
+   "mock": true
+  },
+  {
+   "at": "2026-09-19T01:14:18.687+00:00",
+   "venue": "tastytrade",
+   "env": "prod",
+   "kind": "ws_disconnect",
+   "detail": {
+    "stream": "account",
+    "reason": "ConnectionRefusedError: [Errno 111] Connect call failed ('127.0.0.1', 8766)"
+   },
+   "mock": true
+  },
+  {
+   "at": "2026-09-19T01:12:13.193+00:00",
+   "venue": "tastytrade",
+   "env": "prod",
+   "kind": "ws_disconnect",
+   "detail": {
+    "stream": "account",
+    "reason": "ConnectionRefusedError: [Errno 111] Connect call failed ('127.0.0.1', 8766)"
+   },
+   "mock": true
+  },
+  {
+   "at": "2026-09-19T01:12:13.193+00:00",
+   "venue": "tastytrade",
+   "env": "cert",
+   "kind": "ws_disconnect",
+   "detail": {
+    "stream": "account",
+    "reason": "ConnectionRefusedError: [Errno 111] Connect call failed ('127.0.0.1', 8766)"
+   },
+   "mock": true
+  },
+  {
+   "at": "2026-09-19T01:10:05.886+00:00",
+   "venue": "tastytrade",
+   "env": "cert",
+   "kind": "ws_disconnect",
+   "detail": {
+    "stream": "account",
+    "reason": "ConnectionRefusedError: [Errno 111] Connect call failed ('127.0.0.1', 8766)"
+   },
+   "mock": true
+  },
+  {
+   "at": "2026-09-19T01:10:05.885+00:00",
+   "venue": "tastytrade",
+   "env": "prod",
+   "kind": "ws_disconnect",
+   "detail": {
+    "stream": "account",
+    "reason": "ConnectionRefusedError: [Errno 111] Connect call failed ('127.0.0.1', 8766)"
+   },
+   "mock": true
+  },
+  {
+   "at": "2026-09-19T01:07:58.684+00:00",
+   "venue": "tastytrade",
+   "env": "cert",
+   "kind": "ws_disconnect",
+   "detail": {
+    "stream": "account",
+    "reason": "ConnectionRefusedError: [Errno 111] Connect call failed ('127.0.0.1', 8766)"
+   },
+   "mock": true
+  },
+  {
+   "at": "2026-09-19T01:07:58.682+00:00",
+   "venue": "tastytrade",
+   "env": "prod",
+   "kind": "ws_disconnect",
+   "detail": {
+    "stream": "account",
+    "reason": "ConnectionRefusedError: [Errno 111] Connect call failed ('127.0.0.1', 8766)"
+   },
+   "mock": true
+  },
+  {
+   "at": "2026-09-19T01:05:51.492+00:00",
+   "venue": "tastytrade",
+   "env": "cert",
+   "kind": "ws_disconnect",
+   "detail": {
+    "stream": "account",
+    "reason": "ConnectionRefusedError: [Errno 111] Connect call failed ('127.0.0.1', 8766)"
+   },
+   "mock": true
+  },
+  {
+   "at": "2026-09-19T01:05:51.481+00:00",
+   "venue": "tastytrade",
+   "env": "prod",
+   "kind": "ws_disconnect",
+   "detail": {
+    "stream": "account",
+    "reason": "ConnectionRefusedError: [Errno 111] Connect call failed ('127.0.0.1', 8766)"
+   },
+   "mock": true
+  },
+  {
+   "at": "2026-09-19T01:03:45.767+00:00",
+   "venue": "tastytrade",
+   "env": "cert",
+   "kind": "ws_disconnect",
+   "detail": {
+    "stream": "account",
+    "reason": "ConnectionRefusedError: [Errno 111] Connect call failed ('127.0.0.1', 8766)"
+   },
+   "mock": true
+  },
+  {
+   "at": "2026-09-19T01:03:45.765+00:00",
+   "venue": "tastytrade",
+   "env": "prod",
+   "kind": "ws_disconnect",
+   "detail": {
+    "stream": "account",
+    "reason": "ConnectionRefusedError: [Errno 111] Connect call failed ('127.0.0.1', 8766)"
+   },
+   "mock": true
+  },
+  {
+   "at": "2026-09-19T01:01:38.265+00:00",
+   "venue": "tastytrade",
+   "env": "cert",
+   "kind": "ws_disconnect",
+   "detail": {
+    "stream": "account",
+    "reason": "ConnectionRefusedError: [Errno 111] Connect call failed ('127.0.0.1', 8766)"
+   },
+   "mock": true
+  },
+  {
+   "at": "2026-09-19T01:01:38.264+00:00",
+   "venue": "tastytrade",
+   "env": "prod",
+   "kind": "ws_disconnect",
+   "detail": {
+    "stream": "account",
+    "reason": "ConnectionRefusedError: [Errno 111] Connect call failed ('127.0.0.1', 8766)"
+   },
+   "mock": true
+  },
+  {
+   "at": "2026-09-19T00:59:30.820+00:00",
+   "venue": "tastytrade",
+   "env": "prod",
+   "kind": "ws_disconnect",
+   "detail": {
+    "stream": "account",
+    "reason": "ConnectionRefusedError: [Errno 111] Connect call failed ('127.0.0.1', 8766)"
+   },
+   "mock": true
+  },
+  {
+   "at": "2026-09-19T00:59:30.818+00:00",
+   "venue": "tastytrade",
+   "env": "cert",
+   "kind": "ws_disconnect",
+   "detail": {
+    "stream": "account",
+    "reason": "ConnectionRefusedError: [Errno 111] Connect call failed ('127.0.0.1', 8766)"
+   },
+   "mock": true
+  },
+  {
+   "at": "2026-09-19T00:57:23.393+00:00",
+   "venue": "tastytrade",
+   "env": "prod",
+   "kind": "ws_disconnect",
+   "detail": {
+    "stream": "account",
+    "reason": "ConnectionRefusedError: [Errno 111] Connect call failed ('127.0.0.1', 8766)"
+   },
+   "mock": true
+  },
+  {
+   "at": "2026-09-19T00:57:23.389+00:00",
+   "venue": "tastytrade",
+   "env": "cert",
+   "kind": "ws_disconnect",
+   "detail": {
+    "stream": "account",
+    "reason": "ConnectionRefusedError: [Errno 111] Connect call failed ('127.0.0.1', 8766)"
+   },
+   "mock": true
+  },
+  {
+   "at": "2026-09-19T00:55:17.916+00:00",
+   "venue": "tastytrade",
+   "env": "prod",
+   "kind": "ws_disconnect",
+   "detail": {
+    "stream": "account",
+    "reason": "ConnectionRefusedError: [Errno 111] Connect call failed ('127.0.0.1', 8766)"
+   },
+   "mock": true
+  },
+  {
+   "at": "2026-09-19T00:55:17.905+00:00",
+   "venue": "tastytrade",
+   "env": "cert",
+   "kind": "ws_disconnect",
+   "detail": {
+    "stream": "account",
+    "reason": "ConnectionRefusedError: [Errno 111] Connect call failed ('127.0.0.1', 8766)"
+   },
+   "mock": true
+  }
+ ]
+}

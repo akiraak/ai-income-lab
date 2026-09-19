@@ -1,0 +1,48 @@
+/* デザイン 2「明るい地・ゆったり」（Phase 5 の 2 回目）。app.css と patterns.css の変数を差し替え、余白を広げる。
+   ⚠ 色の意味（環境 ／ 状態の 2 系統と系列の色）は変えない。値だけを明るい地に合わせる。
+   ⚠ 系列の色は明るい地で選び直した 3 色（水色 ／ 藍 ／ 薔薇。同じ人は同じ系統の色）。
+      dataviz の validate_palette.js --mode light --pairs all（面 #ffffff ・ #f6f8fa）で全項目 PASS【実測 2026-09-18】 */
+:root {
+  color-scheme: light;
+  --bg: #f6f8fa;
+  --surface: #ffffff;
+  --raised: #ffffff;
+  --hover: #eef1f4;
+  --line: #d8dee4;
+  --line-strong: #afb8c1;
+  --ink: #1f2328;
+  --muted: #59636e;
+  --sub: #818b98;
+  --accent: #0969da;
+  --accent-bg: #0969da;
+  --ok: #1a7f37;  --ok-bg: rgba(26,127,55,.12);   --ok-ink: #1a7f37;
+  --warn: #9a6700; --warn-bg: rgba(212,167,44,.20); --warn-ink: #7d4e00;
+  --ng: #cf222e;  --ng-bg: rgba(207,34,46,.10);   --ng-ink: #b3131f;
+  --cert: #1f883d; --cert-bg: rgba(31,136,61,.08);
+  --prod: #cf222e; --prod-bg: rgba(207,34,46,.08);
+  --mock: #8250df; --mock-bg: rgba(130,80,223,.10); --mock-ink: #6639ba;
+  --series-1: #218cb5;  /* 水色 */
+  --series-2: #5d55a9;  /* 藍 */
+  --series-3: #bf5b76;  /* 薔薇 */
+  --grid-line: #eaeef2;
+  --cell-none: #f3f5f7; --cell-skip: #d8dee4;
+  --hold-1: rgba(33,140,181,.22); --hold-2: rgba(93,85,169,.22); --hold-3: rgba(191,91,118,.22);
+}
+body { font-size: 15px; }
+.top nav a.on { color: var(--ink); }
+.badge-mock { color: var(--mock-ink); border-color: rgba(130,80,223,.45); }
+svg .hit:hover { fill: rgba(0,0,0,.035); }
+svg .dt { stroke: #ffffff; }
+tbody tr:hover td, table tr:hover td { background: rgba(0,0,0,.02); }
+
+/* ゆったり: 余白を広げ、枠を弱め、影を 1 段だけ */
+main { padding: 24px 32px 40px; }
+.tile, .panel, .lane { padding: 16px 20px; border-color: #e5e9ee; box-shadow: 0 1px 2px rgba(31,35,40,.06); }
+.tiles { gap: 14px; }
+.tile .v, .maincol .tile .v { font-size: 18px; }
+.ov-grid { gap: 16px; margin-top: 16px; }
+.lanes { gap: 16px; }
+.lane { grid-template-columns: 240px minmax(0, 1fr); gap: 18px; }
+.lane .info { font-size: 13px; gap: 6px; }
+.lane .info .big { font-size: 26px; }
+.sec { margin: 28px 0 12px; }

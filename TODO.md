@@ -163,6 +163,10 @@
       2026-09-18 の実装では左ペインから外しただけ（経路とコードはまだある）。決定は [dashboard-required-features.md](docs/plans/archive/dashboard-required-features.md) 3-1・4-1
       ⚠ 残すもの: `app/experiments.py`・`app/inventory.py`（vibeboard のタブが import）／ デモが使う `devtools` の `MockServer`・`run_step` ／ 停止と解除（`/ops/halt`・`/ops/resume`）と操作の履歴 ／ 記録と判定は観点 A を見届けるまで
       ⚠ 直すもの: CLAUDE.md の管理画面の節・`dashboard/README.md`・dashboard.md §1・§7（検証とデータの画面の行）・§10・§11・テスト（`test_experiments`・`test_inventory`・`test_devtools`・`test_app` の該当）。`POST /ops/cancel` も外せる（1 件取消を外したので使う画面が無い）
+    - [ ] 管理画面に i マークを付けて、ヘルプを表示する
+      利用者の指示（2026-09-18）。着手時にプランを作る（どの項目に付けるか・文面の置き場・出し方）
+      ⚠ CSP（`script-src 'self'; style-src 'self'`）の内で作る: インラインのスクリプトと style は使えない（`<details>`・`title`・`app/static/app.js` なら通る）
+      関連: [dashboard.md §12 用語の画面](docs/specs/dashboard.md)（`dashboard/glossary.toml` に 87 語の定義がある。文面の正本にできるか確かめる）
   - [ ] 実売買を 4 役（予測・売買判断・実際の売買・ビュワー）に分け直すために決めること
     利用者の指示（2026-09-18）: 機能が限定すぎるので 4 つに分ける ＝ 予測（⚠ **モデルの作成・更新を含む**。1 日に何回動くかはモデルのルール次第）／ 売買判断（モデルの更新に合わせて、いつ何を売買するかを決める。予測と同じでもよい）／ 実際の売買 ／ ビュワー
     決まったこと（2026-09-18）: 1 日に何回売買するかはトレーダーの判断（CLAUDE.md の 2 つ目の例外を修正）／ 持ち株と持ち金はトレーダーごと・他のトレーダーの株は売れない・持ち金は固定の予算枠・口座全体の歯止めは置かず、口座に断られた買いはエラーとして記録（[live-trading.md §0-1](docs/specs/experiments/live-trading.md)）

@@ -1,4 +1,6 @@
-"""vibeboard の「トレーダー」タブ（`dashboard/traderview.py`・`dashboard/traders.toml`）の検査。仕様は dashboard.md §16。
+"""vibeboard の「トレーダー」タブ（`dashboard/traderview.py`・`dashboard/traders.toml`・`dashboard/models.toml`）の検査。仕様は dashboard.md §16。
+
+⚠ モデルの解説は `models.toml`（「予測モデル」タブと同じ 1 本。§17）。ここの `FORBIDDEN`・`COMPARING`・`_texts` は `test_models_tab.py` も使う。
 
 見るもの: やさしい言葉（本文に専門用語が無い）／ ほかの人とくらべる文が無い ／ どこまで確かかの印 ／ 数字は設定から写すだけ ／
 だれが居るかは設定から（人数を数えない・見くらべるページが無い）／ 売買の記録を開かない ／ 経路 ／ HTML の escape。
@@ -27,6 +29,9 @@ FORBIDDEN = [
     "シグナル", "合図", "ボラティリティ", "リターン", "パラメータ", "過学習", "バックテスト",
 ]
 REAL_WORDS = Path(traderview.DASHBOARD_DIR) / "traders.toml"
+REAL_MODELS = Path(traderview.DASHBOARD_DIR) / "models.toml"
+# モデルの `[[model]]` のうち、正式な名前・鍵・道を書く欄（本文の検査の外）
+FORMAL_KEYS = ("id", "name", "method", "formal", "configs", "records")
 
 
 # ⚠ **ほかの人・ほかのモデルとくらべる文を書かない**（利用者の指示 2026-09-20。トレーダーは 1 人のときも 10 人のときもある）
@@ -43,17 +48,22 @@ def _walk(where: str, v) -> list[tuple[str, str]]:
 
 
 def _texts(doc: dict) -> list[tuple[str, str]]:
-    """本文の全部の文（入れ子の表・配列も）。⚠ モデルの `name`・`method`（正式な名前）・`basis`（印の鍵）と呼び名は除く。"""
+    """本文の全部の文（入れ子の表・配列も）。⚠ モデルの正式な名前の欄（`FORMAL_KEYS`）・印の鍵（`basis`・`verdict`）と呼び名は除く。"""
     out = _walk("common", doc.get("common") or {})
     for m in doc.get("model", []):
-        body = {k: v for k, v in m.items() if k not in ("name", "method")}
+        body = {k: v for k, v in m.items() if k not in FORMAL_KEYS}
         body["traits"] = [{k: v for k, v in t.items() if k != "basis"} for t in m.get("traits") or []]
-        out += _walk(m["name"], body)
+        body["result"] = {k: v for k, v in (m.get("result") or {}).items() if k != "verdict"}
+        out += _walk(str(m.get("id") or m.get("name")), body)
     return out
 
 
 def _real() -> dict:
-    return tomllib.loads(REAL_WORDS.read_text(encoding="utf-8"))
+    """人の側（traders.toml）の `[common]`・`[nicks]` ＋ モデルの側（models.toml）の `[[model]]`。"""
+    doc = tomllib.loads(REAL_WORDS.read_text(encoding="utf-8"))
+    assert "model" not in doc, "モデルの解説は models.toml に書く（正本を 2 つにしない）"
+    doc["model"] = tomllib.loads(REAL_MODELS.read_text(encoding="utf-8"))["model"]
+    return doc
 
 
 def test_words_use_plain_language():
@@ -66,14 +76,26 @@ def test_words_do_not_compare_people():
     assert not hits, f"1 つのモデルだけを読んで分かる文にする（人数が変わると嘘になる）: {hits}"
 
 
+def test_the_model_output_is_called_output_score():
+    """モデルが最後に出す 0〜100 の数は「出力スコア」と呼ぶ（利用者の決定 2026-09-20。それまでは「点」）。
+
+    ⚠ 「点」は別の意味（場所の 1 点・幅の単位）と紛れるので本文で使わない。⚠ 裸の「スコア」も使わない
+    （検証タブの「スコア」＝ 最良手法の純利 bp と紛れる）。
+    """
+    texts = _texts(_real())
+    assert not [(where, text) for where, text in texts if "点" in text]
+    assert not [(where, text) for where, text in texts if re.search(r"(?<!出力)スコア", text)]
+    assert any("出力スコア" in text for _where, text in texts)
+
+
 def test_every_trait_says_how_sure_it_is():
     for m in _real()["model"]:
-        assert m.get("traits"), m["name"]
+        assert m.get("traits"), m["id"]
         for t in m["traits"]:
-            assert t.get("basis") in traderview.BASES, (m["name"], t.get("text"))
+            assert t.get("basis") in traderview.BASES, (m["id"], t.get("text"))
             # 確かめていない理由を言い切らない: 試し運転・見立ての理由は「見られる」か、見えたことの言い換え
             if t["basis"] == "guess":
-                assert "見られる" in (t.get("why") or "") + t["text"], (m["name"], t["text"])
+                assert "見られる" in (t.get("why") or "") + t["text"], (m["id"], t["text"])
 
 
 def test_words_hold_no_config_numbers():
@@ -105,12 +127,6 @@ WORDS = '''
 TA = "ナマエ"
 
 [common]
-card_sees = "見るもの"
-card_decides = "決め方"
-basis_build = "作りから"
-basis_trial = "試し運転で見えた"
-basis_guess = "見立て"
-basis_note = "印の意味"
 when = "いつの文"
 money = ["お金 1"]
 amount_one = "予算は {budget}。{n} 本で割って 1 本あたり {per}。"
@@ -125,11 +141,23 @@ ruler_wait = "何もしない"
 ruler_buy = "買う"
 combine_asis = "モデルは 1 本だけ。"
 combine_mean = "{k} 本のモデルの点を平均する。"
-no_words = "説明はまだ"
 unsettled = "まだ確定していない"
 limit_common = "良いとは言えていない"
+'''
+
+MODELS = '''
+[common]
+card_sees = "見るもの"
+card_decides = "決め方"
+open_page = "モデルのページ"
+basis_build = "作りから"
+basis_trial = "試し運転で見えた"
+basis_guess = "見立て"
+basis_note = "印の意味"
+no_words = "説明はまだ"
 
 [[model]]
+id = "a-type"
 name = "exp_a"
 method = "手法 A"
 label = "<b>形</b>を読む型"
@@ -159,6 +187,8 @@ def _trader(name: str, models: list[tuple[str, str]], extra: str = "") -> str:
 def paths(tmp_path: Path) -> traderview.TraderPaths:
     words = tmp_path / "traders.toml"
     words.write_text(WORDS, encoding="utf-8")
+    models = tmp_path / "models.toml"
+    models.write_text(MODELS, encoding="utf-8")
     tdir = tmp_path / "traders"
     (tdir / "candidates" / "notional").mkdir(parents=True)
     udir = tmp_path / "universe"
@@ -169,7 +199,7 @@ def paths(tmp_path: Path) -> traderview.TraderPaths:
     (tdir / "candidates" / "notional" / "TB.toml").write_text(_trader("TB", [("exp_a", "手法 A"), ("exp_b", "手法 B")],
         'sizing = "notional"\ncombine = "mean"\nthreshold = 50.0'), encoding="utf-8")
     (tdir / "test_x.toml").write_text(_trader("test_x", [("exp_a", "手法 A")], "test = true\nthreshold = 50.0"), encoding="utf-8")
-    return traderview.TraderPaths(words=words, traders_dir=tdir, universe_dir=udir)
+    return traderview.TraderPaths(words=words, models=models, traders_dir=tdir, universe_dir=udir)
 
 
 def test_who_is_listed_comes_from_config(paths):
@@ -197,10 +227,13 @@ def test_facts_come_from_config(paths):
 def test_page_shows_the_model_and_its_traits(paths):
     body = traderview.body(paths, "TA")
     heads = re.findall(r"<h2><span class='no'>(\d)</span>([^<]+)</h2>", body)
-    assert heads == [("1", "使うモデル"), ("2", "モデルの特性"), ("3", "何を見て、どう点を出すか"),
+    assert heads == [("1", "使うモデル"), ("2", "モデルの特性"), ("3", "何を見て、どう出力スコアを計算するか"),
                      ("4", "この人の決まり"), ("5", "気をつけること")]
     assert "<code>exp_a</code> <code>手法 A</code>" in body and "モデル A のひとこと" in body      # 使うモデルを表示する
     assert "モデルは 1 本だけ。" in body
+    # 使うモデルの札から「予測モデル」タブのそのモデルのページへ（id のあるモデルだけ）
+    assert "<a href='/#models/a-type' target='_top'>モデルのページ</a>" in body
+    assert "/#models/" not in traderview.body(paths, "TB").split("モデル B のひとこと")[1].split("</div></div>")[0]
     # 特性には、どこまで確かかの印。印の無い文は「見立て」として出す
     assert "特性 1<span class='tag build'>作りから</span>" in body
     assert "特性 2<span class='tag trial'>試し運転で見えた</span>" in body
@@ -231,7 +264,7 @@ def test_method_must_match(paths):
 
 
 def test_ruler_widths_follow_the_lines(paths):
-    """点のものさし: 幅のある線は 売る ／ 何もしない ／ 買う の 3 帯、幅の無い線は 2 帯。幅は設定から。"""
+    """出力スコアのものさし: 幅のある線は 売る ／ 何もしない ／ 買う の 3 帯、幅の無い線は 2 帯。幅は設定から。"""
     common = traderview.load_words(paths)["common"]
     band = traderview.ruler(common, traderview.load_facts(paths, "TA"))       # 55 ／ 45
     assert [float(w) for w in re.findall(r"width:([\d.]+)%", band)] == [45.0, 10.0, 45.0]
@@ -304,4 +337,4 @@ def test_http_routes(server):
 
 def test_fingerprint_sees_words_and_config(paths):
     fp = traderview.fingerprint(paths)
-    assert str(paths.words) in fp and any(k.endswith("TA.toml") for k in fp) and any(k.endswith("TB.toml") for k in fp)
+    assert str(paths.words) in fp and str(paths.models) in fp and any(k.endswith("TA.toml") for k in fp) and any(k.endswith("TB.toml") for k in fp)

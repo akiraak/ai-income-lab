@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""vibeboard のカスタムタブ「検証」「データ」「用語」「ハード」「トレーダー」の中身を出す小さなサーバ。
+"""vibeboard のカスタムタブ「検証」「データ」「用語」「ハード」「トレーダー」「予測モデル」「システム説明」の中身を出す小さなサーバ。
 
 vibeboard 本体が `/ext/<name>/...` でこのサーバへ中継する（プラン:
 docs/plans/vibeboard-experiments-tabs.md）。読むものと読み方は管理画面と同じで、
@@ -13,9 +13,15 @@ docs/plans/vibeboard-experiments-tabs.md）。読むものと読み方は管理�
   - `/hardware/api/sidebar` ・ `/hardware/view?item=<now|history>` ・ `/hardware/api/watch`
     ＋ `/hardware/api/snapshot` ・ `/hardware/api/history`（画面が自前で取りに来る JSON）
     （読み手は `hwstat.py`、画面は `hwview.py`。⚠ **値を読むのは見張り 1 本**。dashboard.md §14）
-  - `/traders/api/sidebar` ・ `/traders/view?item=<compare|T1…>` ・ `/traders/api/watch`
-    （実売買に出す人の**性質**をやさしい言葉で。言葉の正本は `dashboard/traders.toml`、画面は `traderview.py`。
-    ⚠ **売買結果は出さない・`out/` と `state/` を読まない**。dashboard.md §16）
+  - `/traders/api/sidebar` ・ `/traders/view?item=<T1…>` ・ `/traders/api/watch`
+    （実売買に出す人の**性質**をやさしい言葉で。言葉の正本は `dashboard/traders.toml`（人の側）と `dashboard/models.toml`
+    （モデルの解説）、画面は `traderview.py`。⚠ **売買結果は出さない・`out/` と `state/` を読まない**。dashboard.md §16）
+  - `/models/api/sidebar` ・ `/models/view?item=<all|own-ridge…>` ・ `/models/api/watch`
+    （予測モデルの一覧と、1 本ずつの解説。言葉の正本は `dashboard/models.toml`、画面は `modelview.py`。
+    ⚠ **売買結果は出さない・`runs/` も読まない**（試した結果の印は人が記録から写したもの）。dashboard.md §17）
+  - `/system/api/sidebar` ・ `/system/view?item=<overview|build|verify|live|names>` ・ `/system/api/watch`
+    （このシステムの説明。vibeboard では先頭のタブ。言葉の正本は `dashboard/system.toml`、画面と図は `systemview.py`。
+    ⚠ 開くのは TOML と台帳（`ledger.md`）だけ。dashboard.md §18）
 
 ⚠ **標準ライブラリだけで書く**（venv 不要。vibeboard の sidecar が `python3` で起こす）。
 ⚠ **bind は 127.0.0.1 固定**。外に出る経路は vibeboard の中継だけ。
@@ -40,6 +46,8 @@ sys.path.insert(0, str(DASHBOARD_DIR))
 
 import hwstat  # noqa: E402
 import hwview  # noqa: E402
+import modelview  # noqa: E402
+import systemview  # noqa: E402
 import traderview  # noqa: E402
 from app import experiments, inventory  # noqa: E402
 
@@ -964,7 +972,7 @@ def make_handler(runs_dir: Path, paths: ExpPaths, sampler: hwstat.Sampler | None
             if url.path == "/":
                 self._send(200, "text/plain; charset=utf-8", "vibetab ok\n")
                 return
-            if tab not in ("experiments", "data", "glossary", "hardware", "traders"):
+            if tab not in ("experiments", "data", "glossary", "hardware", "traders", "models", "system"):
                 self._send(404, "text/plain; charset=utf-8", "not found\n")
                 return
             if rest == "":
@@ -974,7 +982,9 @@ def make_handler(runs_dir: Path, paths: ExpPaths, sampler: hwstat.Sampler | None
                            "data": lambda: data_sidebar(paths),
                            "glossary": glossary_sidebar,
                            "hardware": hw_sidebar,
-                           "traders": lambda: traderview.sidebar(trader_paths)}[tab]()
+                           "traders": lambda: traderview.sidebar(trader_paths),
+                           "models": lambda: modelview.sidebar(trader_paths),
+                           "system": lambda: systemview.sidebar(trader_paths)}[tab]()
                 self._send(200, "application/json; charset=utf-8",
                            json.dumps(sidebar, ensure_ascii=False))
             elif rest == "view":
@@ -988,6 +998,12 @@ def make_handler(runs_dir: Path, paths: ExpPaths, sampler: hwstat.Sampler | None
                 elif tab == "traders":
                     inner = traderview.body(trader_paths, item)
                     body = None if inner is None else page("トレーダー", inner, traderview.CSS)
+                elif tab == "models":
+                    inner = modelview.body(trader_paths, item)
+                    body = None if inner is None else page("予測モデル", inner, modelview.CSS)
+                elif tab == "system":
+                    inner = systemview.body(trader_paths, item)
+                    body = None if inner is None else page("システム説明", inner, systemview.CSS)
                 else:
                     body = data_section_html(paths, item)
                 if body is None:
@@ -1012,7 +1028,9 @@ def make_handler(runs_dir: Path, paths: ExpPaths, sampler: hwstat.Sampler | None
                     "data": lambda: data_fingerprint(paths),
                     "glossary": glossary_fingerprint,
                     "hardware": dict,
-                    "traders": lambda: traderview.fingerprint(trader_paths)}[tab]
+                    "traders": lambda: traderview.fingerprint(trader_paths),
+                    "models": lambda: modelview.fingerprint(trader_paths),
+                    "system": lambda: systemview.fingerprint(trader_paths)}[tab]
             last = take()
             last_ping = time.monotonic()
             try:
@@ -1032,6 +1050,10 @@ def make_handler(runs_dir: Path, paths: ExpPaths, sampler: hwstat.Sampler | None
                             ids = [GLOSSARY_ALL] + [s["id"] for s in load_glossary()]
                         elif tab == "traders":
                             ids = [i["id"] for i in traderview.sidebar(trader_paths)["items"]]
+                        elif tab == "models":
+                            ids = [i["id"] for i in modelview.sidebar(trader_paths)["items"]]
+                        elif tab == "system":
+                            ids = [i["id"] for i in systemview.sidebar(trader_paths)["items"]]
                         else:
                             ids = [sec for sec, _ in DATA_SECTIONS]
                         for i in ids:

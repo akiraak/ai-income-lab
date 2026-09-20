@@ -5,8 +5,9 @@
   - ⚠ **だれが居るかは実売買の設定から引く**（`experiments/live-trading/config/traders/*.toml` の試験用でない人。
     直下に 1 人も居なければ `candidates/notional/` ＝「まだ確定していない」の印つき）。⚠ **人数を数えない・見くらべるページを作らない**
     （利用者の指示 2026-09-20。トレーダーは 1 人のときも 10 人のときもある）
-  - ⚠ **言葉の正本は `dashboard/traders.toml`**（モデルの特性 ＝ `[[model]]`・呼び名 ＝ `[nicks]`・共通の文 ＝ `[common]`。
-    説明をこのコードに書かない）。⚠ **数字は設定から写すだけ**
+  - ⚠ **言葉の正本は 2 本**: モデルの解説 ＝ `dashboard/models.toml` の `[[model]]`（「予測モデル」タブ `modelview.py` と同じ 1 本。
+    dashboard.md §17）／ 人の側の言葉 ＝ `dashboard/traders.toml`（呼び名 `[nicks]`・共通の文 `[common]`）。
+    説明をこのコードに書かない。⚠ **数字は設定から写すだけ**
   - ⚠ **売買結果は出さない**。⚠ **`out/`・`state/`・`.env` を読まない**（このモジュールが開くのは TOML だけ）
   - ⚠ **標準ライブラリだけ・読むだけ**（vibeboard の sidecar が `python3` で起こす。tailnet の閲覧者にも見える）
 """
@@ -24,22 +25,30 @@ REPO_ROOT = DASHBOARD_DIR.parent
 
 SPEC_URL = "/#specs/experiments/live-trading.md"
 GLOSSARY_URL = "/#glossary/all"
-# 人ごとの色（モデルの札の線と、点のものさしの「買う」の帯）。白地の上で読める濃さ。足りなくなったら頭から使い回す
+MODEL_URL = "/#models/"          # 「予測モデル」タブのモデルのページ（後ろに `[[model]]` の id）
+TRADER_URL = "/#traders/"        # このタブの人のページ（後ろに設定の鍵）
+# 人ごとの色（モデルの札の線と、出力スコアのものさしの「買う」の帯）。白地の上で読める濃さ。足りなくなったら頭から使い回す
 COLORS = ("#2a78d6", "#b0567a", "#2f8f6b", "#a8741a", "#6b5fc7")
 BASES = ("build", "trial", "guess")
 
 
 @dataclass(frozen=True)
 class TraderPaths:
-    words: Path            # 言葉の正本
+    words: Path            # 人の側の言葉の正本（traders.toml）
+    models: Path           # モデルの解説の正本（models.toml）
     traders_dir: Path      # 実売買の設定（直下 ＝ 確定・candidates/notional ＝ 候補）
     universe_dir: Path     # 銘柄の集合（本数を数えるだけ）
+    # 「システム説明」タブ（systemview.py）が読むもの: 説明の言葉の正本と、机上の検証の台帳（合計を写すだけ）
+    system: Path = DASHBOARD_DIR / "system.toml"
+    ledger: Path = REPO_ROOT / "docs" / "specs" / "experiments" / "feature-discovery" / "ledger.md"
 
     @classmethod
     def default(cls) -> "TraderPaths":
         lt = REPO_ROOT / "experiments" / "live-trading" / "config" / "traders"
         return cls(
             words=Path(os.environ.get("AIL_TRADERS_WORDS") or DASHBOARD_DIR / "traders.toml"),
+            models=Path(os.environ.get("AIL_MODELS_WORDS") or DASHBOARD_DIR / "models.toml"),
+            system=Path(os.environ.get("AIL_SYSTEM_WORDS") or DASHBOARD_DIR / "system.toml"),
             traders_dir=Path(os.environ.get("AIL_TRADERS_DIR") or lt),
             universe_dir=Path(os.environ.get("AIL_UNIVERSE_DIR")
                               or REPO_ROOT / "experiments" / "feature-discovery" / "config" / "universe"),
@@ -122,9 +131,10 @@ def _load(path: Path) -> dict:
 
 
 def load_words(paths: TraderPaths) -> dict:
-    doc = _load(paths.words)
+    """`common`・`nicks` ＝ 人の側（traders.toml）／ `mcommon`・`models` ＝ モデルの側（models.toml）。"""
+    doc, mdoc = _load(paths.words), _load(paths.models)
     return {"common": doc.get("common") or {}, "nicks": doc.get("nicks") or {},
-            "models": [m for m in doc.get("model", []) if m.get("name")]}
+            "mcommon": mdoc.get("common") or {}, "models": list(mdoc.get("model", []))}
 
 
 def _money(v: float) -> str:
@@ -179,7 +189,7 @@ def load_facts(paths: TraderPaths, name: str) -> dict | None:
 def find_model(words: dict, spec: dict) -> dict | None:
     """設定の [[models]] の 1 本に当たる説明。⚠ 手法（method）まで同じものだけ（違う手法は別のモデル）。"""
     return next((m for m in words["models"]
-                 if m["name"] == spec["name"] and str(m.get("method") or "") == spec["method"]), None)
+                 if m.get("name") == spec["name"] and str(m.get("method") or "") == spec["method"]), None)
 
 
 def _fill(text: str, facts: dict) -> str:
@@ -211,7 +221,7 @@ def _who(words: dict, name: str) -> str:
 
 
 def ruler(common: dict, facts: dict) -> str:
-    """点のものさし（0〜100）。売る ／ 何もしない ／ 買う の帯。⚠ 幅は設定の買う線から出す。"""
+    """出力スコアのものさし（0〜100）。売る ／ 何もしない ／ 買う の帯。⚠ 幅は設定の買う線から出す。"""
     sell, line = facts["sell"], facts["line"]
     segs = [("sell", sell, common.get("ruler_sell"))]
     if line > sell:
@@ -242,7 +252,7 @@ def trader_body(paths: TraderPaths, name: str) -> str | None:
     words, facts = load_words(paths), load_facts(paths, name)
     if facts is None:
         return None
-    common = words["common"]
+    common, mcommon = words["common"], words["mcommon"]
     index = [k for k, _f, _ok in trader_files(paths)].index(name)
     nick = words["nicks"].get(name)
     models = [(spec, find_model(words, spec)) for spec in facts["models"]]
@@ -256,13 +266,17 @@ def trader_body(paths: TraderPaths, name: str) -> str | None:
     for spec, m in models:
         formal = f"<code>{esc(spec['name'])}</code>" + (f" <code>{esc(spec['method'])}</code>" if spec["method"] else "")
         if m is None:
-            out.append(f"<div class='model'><div>{formal}</div><p>{esc(common.get('no_words'))}</p></div>")
+            out.append(f"<div class='model'><div>{formal}</div><p>{esc(mcommon.get('no_words'))}</p></div>")
             continue
         card = m.get("card") or {}
-        chips = [(common.get("card_sees"), card.get("sees")), (common.get("card_decides"), card.get("decides"))]
+        chips = [(mcommon.get("card_sees"), card.get("sees")), (mcommon.get("card_decides"), card.get("decides"))]
+        # 「予測モデル」タブのこのモデルのページへ（⚠ iframe の中なので target=_top）
+        more = (f"<p class='sub'><a href='{MODEL_URL}{esc(m['id'])}' target='_top'>{esc(mcommon.get('open_page'))}</a></p>"
+                if m.get("id") else "")
         out.append(f"<div class='model'><div class='lb'>{esc(m.get('label'))}</div><div>{formal}</div>"
                    f"<p>{esc(m.get('summary'))}</p><div class='chips'>"
-                   + "".join(f"<div class='chip'><b>{esc(k)}</b>{esc(v)}</div>" for k, v in chips if v) + "</div></div>")
+                   + "".join(f"<div class='chip'><b>{esc(k)}</b>{esc(v)}</div>" for k, v in chips if v)
+                   + f"</div>{more}</div>")
     out.append(f"<p>{esc(_fill(common.get('combine_' + facts['combine']) or '', facts))}</p>")
 
     out.append(_h2(2, "モデルの特性"))
@@ -272,12 +286,12 @@ def trader_body(paths: TraderPaths, name: str) -> str | None:
         if many:
             out.append(f"<h3>{esc(m.get('label'))}</h3>")
         out.append("<ul>" + "".join(
-            f"<li>{esc(t.get('text'))}{_tag(common, str(t.get('basis') or ''))}"
+            f"<li>{esc(t.get('text'))}{_tag(mcommon, str(t.get('basis') or ''))}"
             + (f"<span class='why'>理由: {esc(t['why'])}</span>" if t.get("why") else "") + "</li>"
             for t in m.get("traits") or []) + "</ul>")
-    out.append(f"<p class='sub'>{esc(common.get('basis_note'))}</p>")
+    out.append(f"<p class='sub'>{esc(mcommon.get('basis_note'))}</p>")
 
-    out.append(_h2(3, "何を見て、どう点を出すか"))
+    out.append(_h2(3, "何を見て、どう出力スコアを計算するか"))
     for spec, m in models:
         if m is None:
             continue
@@ -288,7 +302,7 @@ def trader_body(paths: TraderPaths, name: str) -> str | None:
         if m.get("sees_note"):
             out.append(f"<p class='sub'>{esc(m['sees_note'])}</p>")
         out.append(f"<ol class='steps'><li><b>学ぶ</b>　{esc(common.get('step_learn'))}</li>"
-                   f"<li><b>点をつける</b>　{esc(common.get('step_score'))}<br>{esc(m.get('how'))}</li></ol>")
+                   f"<li><b>出力スコアをつける</b>　{esc(common.get('step_score'))}<br>{esc(m.get('how'))}</li></ol>")
 
     out.append(_h2(4, "この人の決まり"))
     out.append(f"<h3>買う線と売る線</h3><p>{esc(_line_text(common, facts))}</p>{ruler(common, facts)}")
@@ -318,8 +332,8 @@ def body(paths: TraderPaths, item: str) -> str | None:
 
 
 def fingerprint(paths: TraderPaths) -> dict[str, float]:
-    """見張り用。言葉の正本と設定（確定・候補）の mtime。"""
-    files = [paths.words, *sorted(paths.traders_dir.glob("*.toml")),
+    """見張り用。言葉の正本（人の側・モデルの側）と設定（確定・候補）の mtime。"""
+    files = [paths.words, paths.models, *sorted(paths.traders_dir.glob("*.toml")),
              *sorted((paths.traders_dir / "candidates" / "notional").glob("*.toml"))]
     out = {}
     for f in files:

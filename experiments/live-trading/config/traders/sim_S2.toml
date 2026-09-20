@@ -1,0 +1,19 @@
+# シミュレーションの試験用トレーダー sim_S2（live-trading.md §0-7 (k)）＝ 本番の候補 `candidates/shares/T2.toml` の写し。
+# ⚠ `kind = "experiment"` ＝ 運転手が置く `sim/<名前>/out/<仮の日付>/predict.jsonl`（`simpredict.py` の作り置き）を読む。
+# ⚠ 日付は仮・値段は過去の実物 ＝ 損益に意味は無い（判定に混ぜない）。モデル・θ・合成規則は候補と同じ（替えない）。
+
+name = "sim_S2"
+test = true                         # シミュレーションの記録は判定に混ぜない
+budget_usd = 300.0                  # 規模 A（$300 × 3 ＋ 予備 $100）。規模 B は別の設定にして上限を明示する（⚠ 実際の取引では使えない可能性がある）
+# ✅ 2026-09-20 利用者決定 D3（端株が通らなかったときの絞り方。⚠ 月曜の結果を見る前に固定）＝
+#    会社株 48 本のうち 2026-09-18 の終値の低い順に 5 本・3 人共通（T $25.40 ／ PFE $27.66 ／ NKE $35.51 ／ VZ $48.09 ／ BAC $57.73【実測】）。1 銘柄の枠 $60
+symbols = ["T", "PFE", "NKE", "VZ", "BAC"]
+sizing = "shares"
+combine = "asis"
+threshold = 55.0
+note = "木（LightGBM・own cs rel ex）。⚠ 会社株 48 本だけを予測する（ETF 15 本は対象外）。種 0"
+
+[[models]]
+kind = "experiment"
+name = "trade_ownex_lgbm_a"
+method = "全部使う（基準）"

@@ -181,6 +181,7 @@ cd experiments/live-trading
   - ⚠ **操作は CLI（`simctl.py`）だけ・管理画面は表示だけ**（POST の経路を増やさない。停止ボタンは sim のとき `sim/<名前>/HALT` だけを書く）
   - ⚠ **テストは `LT_MODE_DIR` で `MODE`・`run.lock`・`sim/` を tmp に向ける**（本物の `run.lock` を一瞬でも取ると、同じ時刻の本物の執行器が拒否される）。⚠ **titan で試すときも `LT_MODE_DIR` を scratch に向ける**（本物の `MODE` を sim にしない）
   - ⚠ **シミュレーションを回す機械は Sx360**（利用者決定）: Sx360 には tastytrade の `.env` を置かない（資格情報が無いので実売買が物理的に起きない）。titan は実売買と日足の取得で、ふだんシミュレーションを回さない。日足は titan から Sx360 へ写す
+  - ⚠ **本番と同じ形（`kind = "experiment"`）は `sim3`（`sim_T1〜T3`・金額指定）／ `sim4`（`sim_S1〜S3`・整数株 5 本）**（2026-09-20）: 先に `simpredict.py make sim3`（titan・研究用の `data/` を読むだけ・192 本で約 16 分【実測】）。作り置きは `sim-predict/`（git 管理外。`sim3` と `sim4` で共通）で、欠けていれば運転手は起動を拒否する。Sx360 へは `sim-predict/` を写す（LightGBM 不要）。記録は `live-trading.md` §0-7 (k)
   - ⚠ **回して見つかった執行器の穴 3 つ**（§0-7 (j)）: ✅ 違うトレーダーの買いを合算して按分すると整数株の人に端数の持ち分ができる → **口座への注文はトレーダーごとに別々に出す**（2026-09-19 利用者決定「成績を正確に知りたい」。合算しない・按分しない・⚠ **内部移転もしない** ＝ 同日の利用者決定「トレーダーの実際の実績が検証できない」。A の売りと B の買いが重なる日も両方を口座に出し、売りが先。注文ごとに金額の内訳 `amounts` を残し、手数料をその人の台帳に入れる。⚠ 手数料は dry-run の見積り）／ ✅ 含み損 20% は**執行器は警告だけ・止めるのは人**（利用者決定。`drawdown_warning`）／ ✅ 発注の後に落ちた次の日に口座と台帳の食い違いを検知しない → **帳尻を合わせる 3 段**（利用者決定。`live-trading.md` §0-8）: 発注の前に控え（`state/<env>/journal.jsonl`）を書き、起動時に未完を照会してその人の台帳に戻す ／ 口座 − 台帳の合計を突き合わせ、多いぶんは台帳の外として記録・**少ない銘柄だけその日は売買しない** ／ 人が `reconcile.py` で合わせる（ネットワークなし）。⚠ **差を推測で誰かに割り振らない**。⚠ 台帳の保存は 1 注文ごと
 - **今日の買い% と 1 日の流し方**（2026-09-20。`live-trading.md` §0-9・§0-10。段取りは `docs/plans/live-trading-go-live-0922.md`）
 
@@ -260,6 +261,9 @@ node vibeboard/dist/cli.js --root .
 - タスク同士の関係は、そのタスクの下に字下げした **`依存:` / `派生元:` / `関連:`** の行で書く。
   相手のタスクは `「文面」` で（例: `依存: 「スキーマに tags 列を追加」`）、プランや仕様は
   Markdown リンクで（例: `関連: [spec](docs/specs/api.md)`）示す。vibeboard のツリーで両方向に辿れる
+- タスクの**期日**（いつやるか）は、そのタスクの下に字下げした **`期日:`** の行で書く（例: `期日: 2026-09-21` /
+  `期日: 2026-09-21 06:35` / `期日: 2026-09-21 12:45〜13:05`）。時刻だけの行（`期日: 06:35`）は、親をさかのぼって
+  最初に見つかる期日の日付を借りる。vibeboard の Tasks タブの「タイムライン」が、期日のあるタスクを日ごと・時刻の順に並べる
 - タスクが完了したら `TODO.md` から該当項目を削除し、`DONE.md` に移動する
 - `DONE.md` には完了日を `YYYY-MM-DD` 形式で付けて記録する
 - 新しいタスクが発生したら `TODO.md` の適切なセクションに追加する
@@ -292,4 +296,5 @@ node vibeboard/dist/cli.js --root .
 - **検証・データのタブ**（2026-09-10）: `vibeboard.config.json` の customTabs。中身は `dashboard/vibetab.py`（127.0.0.1:3015、標準ライブラリのみ。vibeboard の sidecar が `python3` で自動起動）が `experiments/feature-discovery/` の `runs/` と在庫を読んで出す。vibeboard 本体が `/ext/<name>` で中継する（upstream 改造）ので、`http://titan-income-vibeboard` 越しでもタブが動く。⚠ **customTabs の baseUrl に dashboard（3012）を指定しない**（中継後はループバック発に見え、ローカル面が開く）。プランは `docs/plans/archive/vibeboard-experiments-tabs.md`
 - **ハードのタブ**（2026-09-18）: customTabs の 4 本目（`hardware`）。中身は同じ `dashboard/vibetab.py` の `/hardware`（読み手 `dashboard/hwstat.py`・画面 `dashboard/hwview.py`。標準ライブラリのみ）が `nvidia-smi` と `/proc` を読み、GPU・CPU・メモリ・ディスクの「いまの状態」と「この 1 時間」を出す。⚠ **vibeboard 本体は改造していない**（このプロジェクト専用。`dashboard/app/` の外なので g3plus にも載らない）。⚠ **値を読むのは sidecar の見張り 1 本**（5 秒おき。`AIL_HW_INTERVAL_S`）で、画面は `api/snapshot`・`api/history` を自前で取りに来る。履歴はメモリ上の 1 時間だけ（sidecar を入れ直すと消える）。⚠ **WSL2 ではプロセス別の GPU メモリ・CPU 温度は読めない**。⚠ **読むだけ。このサーバに「操作」を足さない**（tailnet の閲覧者にも見える）。仕様は `docs/specs/dashboard.md` §14、プランは `docs/plans/archive/vibeboard-hardware-tab.md`
 - **サイドバーの検索**（2026-09-18）: Tasks・Plans・Specs・Files の左ペイン上端の箱で絞り込む。文書のタブはサーバがパスと本文を探し（`GET /api/search/:category?q=`。空白区切りは AND・大文字小文字は区別しない・1MB 超と二進は本文を見ない）、Tasks は手元の木を文面・メモ・親の文面で絞る。結果は平らな一覧で、Escape で消すとツリーに戻る。✅ **akiraak/vibeboard 本体へ反映済み**（vendor と本体は一致）。プランは `docs/plans/archive/vibeboard-search.md`
+- **Tasks のタイムライン**（2026-09-20）: Tasks タブの左ペインを `ツリー` ｜ `タイムライン` で切り替える。時間軸に置くのは**予定だけ**（`TODO.md` の `期日:` の行。`DONE.md` の完了日は置かない ＝ 利用者の裁定）。日の見出しを押すと右ペインにその日の一覧（`#tasks/@day/<日付>`）。⚠ **時刻は `TODO.md` に書いたままの土地の時刻（いまは PDT）で、vibeboard は時差を計算しない**（「いま」「過ぎた」は見ているブラウザの時計と比べる ＝ 別の時間帯から見るとずれる）。⚠ 日・時刻を文面の頭に書いても読まない（読むのは `期日:` の行だけ。文面の頭の時刻が期日と同じなら、タイムラインでは二重に出さない）。⚠ **本体（akiraak/vibeboard）へは未反映**（`~/src/vibeboard` の作業ツリーに同じ差分を入れてある・commit と push 待ち。⚠ push の前に `vibeboard update` を流すと vendor の差分が消える）。プランは `docs/plans/vibeboard-tasks-timeline.md`
 - **タスク追加 / 子タスク追加**（2026-09-11）: バックグラウンドの `claude -p` に TODO.md を編集させる（`vibeboard/src/claudeJob.ts`。詳細はマーカー内の Tasks の項）。✅ **2026-09-11 に akiraak/vibeboard 本体へ反映済み**（Ctrl+クリック修正も同時に反映。vendor と本体は一致しており `vibeboard update` を流してよい）。プランは `docs/plans/archive/vibeboard-task-add.md`

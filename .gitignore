@@ -27,3 +27,4 @@ experiments/live-trading/MODE
 experiments/live-trading/run.lock
 experiments/live-trading/mode.log
 experiments/live-trading/sim/
+experiments/live-trading/sim-predict/

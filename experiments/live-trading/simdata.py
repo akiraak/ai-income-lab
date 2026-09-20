@@ -65,7 +65,8 @@ def sim_days(cfg: SimConfig) -> list[date]:
 
 def load_closes(symbol: str, data_dir: str = DATA_DIR) -> list[tuple[date, float]]:
     out = []
-    with open(os.path.join(data_dir, f"{symbol}.csv"), encoding="utf-8", newline="") as f:
+    # ファイル名は `BRK/B` → `BRK-B.csv`（feature-discovery の流儀。paper.py と同じ）
+    with open(os.path.join(data_dir, f"{symbol.replace('/', '-')}.csv"), encoding="utf-8", newline="") as f:
         for row in csv.DictReader(f):
             out.append((datetime.fromtimestamp(int(row["time_ms"]) / 1000, timezone.utc).date(), float(row["close"])))
     return out

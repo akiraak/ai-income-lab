@@ -290,7 +290,16 @@ def main() -> int:
         control = modes.control_file(args.name)
         resumed = os.path.exists(control)
         if not resumed:
-            simdata.write_tree(root, cfg, args.traders_dir)
+            data = simdata.write_tree(root, cfg, args.traders_dir)
+            # `kind = "experiment"` のトレーダーがいるときだけ: 予測の作り置きを仮の日付に書き換えて木に置く（§0-7 (k)）。いなければ何もしない
+            import simpredict
+            try:
+                placed = simpredict.install(root, cfg, args.traders_dir, data)
+            except simpredict.SimPredictError as exc:
+                print(f"拒否: {exc}", file=sys.stderr)
+                return 2
+            if placed:
+                print(f"予測を置いた: {placed['days']} 日・{placed['rows']} 行（終値と気配の食い違い {placed['close_mismatch']} 行）", flush=True)
             first = window_times(simdata.sim_days(cfg)[0], cfg.windows)[0]
             simclock.init_control(control, first.replace(hour=9, minute=30, second=0), speed=args.speed or cfg.speed, paused=args.paused)
         else:

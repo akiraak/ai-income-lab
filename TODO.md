@@ -93,6 +93,7 @@
     ⚠ **火曜までにやらないもの**: 紙上の対照（Phase 3）・差 3 と B&H の列・4 役への分け直し（A・C・D13・D14・F・G）・g3plus の処理時間・規模 B（⚠ **規模 B（$10,000）は実際の取引で使えない可能性がある**）・管理画面の設計しなおしの残り
     ⚠ **本番の鍵を入れて起動するのは利用者**。Claude はコード・手順書・cert（sandbox）まで
     - [x] 〜 9/20（日）: 市場が開いていなくてもできる作業を全部終わらせる（合計 10〜15 時間【推測】。⚠ 削る順は S8 の `sim_T1`〜`sim_T3` → S9 → S6 の timer の雛形。S1〜S5・S7 は削れない）
+      期日: 2026-09-20
       ✅ 2026-09-20 未明に S1〜S11 と D1〜D6 が全部済んだ。D5 の前倒し（Phase 3 ・差 3 と B&H の列）も済み。残りは月曜から
       - [x] 利用者が決める D1〜D6（⚠ **利用者**。月曜の朝に待ちを作らないため日曜のうちに。プラン §6）
         ✅ **2026-09-20 未明の利用者決定**: D1 ＝ 案 B ／ D2 ＝ 同時 ／ D3 ＝ 推奨どおり（T・PFE・NKE・VZ・BAC）／ D4 ＝ 水曜から ／ D6 ＝ する ／ **D5 ＝「できるものはすぐにやる」**（市場が要らない後回し分 ＝ Phase 3 → 差 3 と B&H の列を前倒しする）
@@ -125,7 +126,7 @@
         ✅ 2026-09-20: `live-trading.md` §0-5（D1 ＝ 案 B の手順に書き換え）・§0-9（今日の買い%・`data-live/`・2 段の発注・`run-live.sh`・関門・火曜の投入の手順）
       - [x] S8: 通し ＝ `T1`〜`T3` と同じ形（63 本 ／ 48 本・`experiment`）をモックに 1 日ぶん流し、注文の本数と 15:55 → 16:00 ET に出し切れるかを測る（最大 63 ＋ 48 ＋ 63 ＝ 174 本【計算】・1 本ずつ約定を待つ）。余力があれば `sim_T1`〜`sim_T3` を 10 営業日
         ✅ 2026-09-19 夜: 候補（notional・us63）と 2026-09-18 の本物の予測をモックに 1 日ぶん submit で流した ＝ 注文 120 本（T1 58 ／ T2 0 ／ T3 62）・全部 Filled・問題 0・**124 秒 ＝ 1 本 1.03 秒**【実測。モックの約定の進み 0.5〜1 秒 ＋ 照会の刻み 0.5 秒】。⚠ **本物では窓に収まらない見込み**: sandbox の実測（2026-09-08）は dry-run 0.9 秒 ＋ 発注 1.9 秒 ＋ 約定まで 6.8 秒 ≒ 1 本 10 秒 → 120 本で約 19 分【推測】。約定が 1 秒でも約 7.6 分で、15:55 → 16:00 ET の 5 分に入らない → 下の S11。`sim_T1`〜`sim_T3` の 10 営業日は回していない（削る順の 1 番目）
-        関連: 「`sim_T1`〜`sim_T3` を `kind = "experiment"` でシミュレーションに流す（T2 は LightGBM。無い機械では titan で作った `predict.jsonl` を写す）」
+        ✅ `sim_T1`〜`sim_T3` の 64 営業日は 2026-09-20 に流した（[DONE.md](DONE.md)。`sim3`）
       - [x] S9: `state/prod/` のバックアップ（起動の前に日付つきで写す。台帳を失うと「何も持っていない」つもりで買い直す ＝ `live-trading.md` §0-8 の限界）
         ✅ 2026-09-19 夜: `run-live.sh` が `--mode submit` の回だけ、執行器の前に `state/` を `state-backup/<UTC の時刻>/` へ写す（直近 60 回ぶん。git 管理外）
       - [x] S11: 執行器の発注を 2 段にする（① dry-run ＋ 発注を先に全部出す → ② 約定の確認をまとめて待つ）＝ 初日の 120 本を窓に収める（⚠ **利用者の裁定 D6 が先**。実弾の経路の作り替えなので）
@@ -136,24 +137,40 @@
       - [x] S10: 回帰（執行器の pytest・`mockrun.sh`・`selftest.sh`・管理画面の pytest）
         ✅ 2026-09-20: feature-discovery 472 本 ／ 執行器 129 本 ＋ `mockrun.sh` ＋ `sim2` ／ `selftest.sh` ／ 管理画面 167 本 ＝ 全部通る
     - [ ] 9/21（月）: 本番の dry-run・sandbox のリハーサル・実売買のテスト・通し稽古（時刻は PDT）
+      期日: 2026-09-21
       - [ ] 06:35 `sample.py --step dryrun2 --allow-prod-dry-run` を流す（⚠ **利用者**。何もルーティングしない）→ Claude が §0-3 の表を埋める → `sizing` と銘柄集合が決まる
+        期日: 06:35
+        ⚠ 金額指定の売りは小数 4 桁の株数（0.0103 株など）で出る ＝ `market_sell_fractional_4dp_no_position` の行の断られ方（数量の形か持ち高か）を読む（§0-7 (k) の 5）
         関連: 「Step 3: `dryrun2` を本番で流して §0-3 の表を埋める（⚠ **利用者**。市場時間内に）」
       - [ ] 06:45 sandbox のリハーサル（`run_day.py --traders test_a --env cert --mode submit --ignore-window`。`Session offline` の再送・約定後の手数料の実額が読めるか・注文番号を控える）
+        期日: 06:45
         関連: 「約定後の実際の手数料を読む（いまは dry-run の見積り ＝ `orders.jsonl` の `amounts.fee_source: "dry_run_estimate"`。`/accounts/{n}/transactions`【記憶・未確認】を sandbox で確かめてから）」
       - [ ] 07:00 候補から `config/traders/T1〜T3.toml` を確定し、`live-trading.md` §0-1 の「`dryrun2` 待ち」を実値に直す
+        期日: 07:00
       - [ ] 07:15 本番 `test_a` の買い（⚠ **利用者**。dry-run → submit。D1 が案 A なら 12:45 の窓で）
+        期日: 07:15
         関連: 「Phase 5-1: 実売買のテスト（**利用者が行う**。試験用トレーダー `test_a` で本番に最小額の 1 発注 → 翌営業日に手仕舞い。Claude は手順書とチェックリストまで）」
       - [ ] 08:00〜 `run-live.sh` の通し（本番の気配で 更新 → 訓練 → 推論の所要時間）と `T1`〜`T3` の本番 dry-run・窓の外（⚠ **利用者**。`--allow-prod-dry-run --ignore-window`）
+        期日: 08:00
+        ⚠ **`BRK/B` の行が本番の dry-run で断られないかを見る**（モックは `BRK/B` の綴りのまま約定まで通したが、本物が受けるかはモックでは分からない。[live-trading.md §0-7 (k)](docs/specs/experiments/live-trading.md) の 1）
       - [ ] 12:45〜13:05 本番 `test_a` の売り（案 B）→ `T1`〜`T3` の本番 dry-run を本物の窓の中で（⚠ **利用者**。通し稽古・時間を測る）
+        期日: 12:45〜13:05
       - [ ] 13:30 チェックリスト・記録 §1・**関門 Go ／ No-Go**（プラン §4 の 5 条件。⚠ 1 つでも外れたら火曜は投入せず通し稽古をもう 1 回 ＝ 期日は 1 日ずれる）
+        期日: 13:30
     - [ ] 9/22（火）: 本番投入
+      期日: 2026-09-22
       - [ ] 06:35 sandbox で月曜の注文を注文番号で照会する ＋ cert の `test_a` を手仕舞い
+        期日: 06:35
         関連: 「前の営業日の注文を注文番号で照会できるかを sandbox で確かめる（控えからの復元 ＝ [live-trading.md §0-8](docs/specs/experiments/live-trading.md) の段 1。だめなら日をまたいだ未完は人が `reconcile.py resolve` で閉じる）」
       - [ ] 朝: 日足の更新 → 訓練（9/21 までの足で fit）
+        期日: 2026-09-22
       - [ ] 12:45〜13:05 `T1`〜`T3` を規模 A で本番投入（⚠ **利用者**。案 A のときは先に `test_a` の売り）
+        期日: 12:45〜13:05
         関連: 「Phase 5-2: 3 人を予算どおりに本番投入（**利用者が行う**。複数モデルのトレーダーを足すならその後）」
       - [ ] 13:05〜 確認（全注文の `final_status`・`reconcile.py --env prod show` で口座 − 台帳 ＝ 0・`events.jsonl`・管理画面・秘密の grep）→ 記録 §1 に 3 行
+        期日: 13:05
       - [ ] 引け後: timer ／ cron を入れる（⚠ **利用者**。水曜から無人）・`TODO.md` ／ `DONE.md` ／ `CLAUDE.md` の更新・このプランを archive へ
+        期日: 2026-09-22
   - [~] Phase 0: 定義・停止条件・執行の窓を `docs/specs/experiments/live-trading.md` §0 に書く（⚠ 実際に動かす 3 人の属性は書かない ＝「未設定」）＋ 本番の読み取り・dry-run（端株・小数株・成行・MOC 相当。`sample.py --step dryrun2 --allow-prod-dry-run`。⚠ **利用者が流す**）
     2026-09-17: §0-1〜§0-5 を書いた（定義・上限・窓・停止条件・閾値・試験用 `test_a`・手順書）。`sample.py` に `dryrun2`（手順 10。6 通り）を足した。⚠ **残るのは利用者が `dryrun2` を流して §0-3 の表を埋めること**（結果で `sizing` が決まる）
     候補のまま置く: T1 `trade_own_ridge_a` θ=50 ／ T2 `trade_ownex_lgbm_a` θ=55 ／ T3 `trade_ownseq_ridge_a` T3 QUANT θ=50 ／ 予算 $300 × 3 ＋ 予備 $100（⚠ 2026-09-19 に確定。予算は規模 A・B の 2 つを並べる。正は B6 のメモ）／ 執行は 15:50 ET の気配で合図・15:55 に成行（プラン §2-1〜§2-5）
@@ -179,8 +196,7 @@
     派生元: [plan](docs/plans/archive/live-trading-executor-fixes.md)（利用者の指示 2026-09-19「手数料など金額の内訳も保存するように」）
   - [ ] 前の営業日の注文を注文番号で照会できるかを sandbox で確かめる（控えからの復元 ＝ [live-trading.md §0-8](docs/specs/experiments/live-trading.md) の段 1。だめなら日をまたいだ未完は人が `reconcile.py resolve` で閉じる）
   - [ ] Sx360 でシミュレーションを立ち上げる（⚠ **利用者**。`git pull` → プロジェクト直下で `./run-sim.sh --fetch titan --fresh --speed max` の 1 本 ＝ 依存・日足の写し・モード・管理画面・運転手・検査まで。⚠ `.env` は置かない。手順は [live-trading.md §0-7 (h)](docs/specs/experiments/live-trading.md)）
-  - [ ] `sim_T1`〜`sim_T3` を `kind = "experiment"` でシミュレーションに流す（T2 は LightGBM。無い機械では titan で作った `predict.jsonl` を写す）
-    依存: 「Phase 1: 「今日の買い%」の経路（`cli/predict.py --asof`。`evaluate_trading` と同じ関数群で訓練 ＝ 昨日まで・検証 ＝ 今日の 63 行。既定経路は 1 ビットも変えない・先読みテスト・決定性）⚠ トレーダーの属性が決まってから」
+    本番と同じ形の `sim3`（金額指定）・`sim4`（整数株 5 本）を回すなら、titan の `experiments/live-trading/sim-predict/`（予測の作り置き。git 管理外）を写す ＝ Sx360 に LightGBM は要らない（2026-09-20）
   - [ ] 予想の時にg3plusを使った場合の処理時間を計測。遅すぎる場合はtitanで処理を動かすのを考える
     利用者の指示（2026-09-19）。着手時にプランを作る（何を「予想」の 1 回と数えるか ＝ モデルの更新 ＋ 今日の買い% の算出・どのモデルで測るか・「遅すぎる」の線を、測る前に決める）
     ⚠ g3plus のデプロイ設定・ホスト名は g3plus-ops（private）側にだけ書く（CLAUDE.md）。記録には処理時間と機械の仕様だけを残す
@@ -257,10 +273,13 @@
       - [ ] G24: 1 日に何度も売買するときの差 1〜4 の定義と、20 営業日の数え方
         関連: 「Phase 6: 20 営業日の記録と判定（`live-trading.md`。続ける・止める・予算を変えるは利用者。モデルや合成規則の入れ替えは新しい試行として n_trials に足す）」
 
-- [ ] vibeboard の Tasks をタイムラインで表示するようなものを作る
+- [~] vibeboard の Tasks をタイムラインで表示するようなものを作る [plan](docs/plans/vibeboard-tasks-timeline.md)
   利用者の指示（2026-09-20）。着手時にプランを作る（何を時間軸に置くか ＝ 期日・完了日・`DONE.md` の日付のどれを使うか／いまの `TODO.md` には日付の欄が無いので、書き方の規約から決める／Tasks タブの中の表示にするか別のタブにするか）
   派生元: 「2026-09-22（火）までに実運用へ: 日ごとの段取り」（日ごと・時刻ごとの子タスクをツリーで並べたが、時間の並びとしては読みにくい）
   ⚠ vibeboard は vendor 済み（`./vibeboard/`）。本体を直すなら akiraak/vibeboard へ反映して vendor と一致させる（CLAUDE.md の「vibeboard のこのプロジェクト固有の運用」。検索・タスク追加と同じ進め方）。このプロジェクト専用で足りるなら customTabs（`dashboard/vibetab.py`）で作る手もある
+  ✅ 2026-09-20: 作った（[DONE.md](DONE.md)）。利用者の裁定 ＝ vibeboard 本体の Tasks タブ ／ 予定だけ ／ 新しい欄 `期日:`。vendor と `~/src/vibeboard` の作業ツリーは一致・`npm test` 104 本
+  - [ ] 本体（akiraak/vibeboard。`~/src/vibeboard` の作業ツリーに同じ差分あり）を commit ＋ push し、動いている vibeboard（3010）を入れ直す（⚠ **利用者に確かめてから**。入れ直すまで切り替えは出ない ＝ `todo.ts` の読み手は起動時に読み込まれる。⚠ push の前に `vibeboard update` を流すと vendor の差分が消える）
+  - [ ] 片付け: `CLAUDE.md` の「本体へは未反映」を直す・プランを archive へ・この親を `DONE.md` へ
 
 - [ ] 既存の仕組みをCodex GPT6 Astraに分析と評価をさせる
   利用者の指示（2026-09-16）。着手時にプランを作る

@@ -23,6 +23,11 @@
       "name": "hardware",
       "label": "ハード",
       "baseUrl": "http://127.0.0.1:3015/hardware"
+    },
+    {
+      "name": "traders",
+      "label": "トレーダー",
+      "baseUrl": "http://127.0.0.1:3015/traders"
     }
   ]
 }

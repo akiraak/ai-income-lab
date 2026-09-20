@@ -1,6 +1,7 @@
 """仮の時計で執行器を 1 日通す（モックサーバに繋ぐ。ループバックだけ）。記録の印と、本物の木に 1 バイトも書かないこと。"""
 import json
 import os
+import pathlib
 import socket
 import subprocess
 import sys
@@ -96,6 +97,9 @@ def rows(root, date, kind):
 
 
 def test_one_day_under_the_sim_clock(tmp_path, monkeypatch, mock_server):
+    # ⚠ 本物の木（記録・状態・機械のモード）が 1 バイトも動かないこと。⚠ **「MODE が無い」を前提にしない**
+    #    （この機械はふだんシミュレーションモード ＝ MODE がある。live-trading.md §0-7 (f)）
+    real_mode = pathlib.Path(HERE, "MODE").read_bytes() if os.path.exists(os.path.join(HERE, "MODE")) else None
     real_before = tree(os.path.join(HERE, "out")), tree(os.path.join(HERE, "state"))
     root = setup_sim(tmp_path, monkeypatch, datetime(2026, 10, 1, 15, 46, tzinfo=ET))
     r = run_day(tmp_path, ["--traders", "sim_x", "--mode", "submit", "--sim-clock"], mock_server)      # ⚠ --date も --ignore-window も渡さない
@@ -115,7 +119,7 @@ def test_one_day_under_the_sim_clock(tmp_path, monkeypatch, mock_server):
     blob = "".join(open(os.path.join(d, f)).read() for d, _, fs in os.walk(root) for f in fs)
     assert "MOCK-SECRET" not in blob and "MOCK-REFRESH" not in blob
     assert (tree(os.path.join(HERE, "out")), tree(os.path.join(HERE, "state"))) == real_before           # 本物の木は動かない
-    assert not os.path.exists(os.path.join(HERE, "MODE"))
+    assert (pathlib.Path(HERE, "MODE").read_bytes() if os.path.exists(os.path.join(HERE, "MODE")) else None) == real_mode
 
 
 def test_drawdown_is_a_warning_only(tmp_path, monkeypatch, mock_server):

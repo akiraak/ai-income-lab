@@ -1,0 +1,24 @@
+{
+ "days": 64,
+ "events": {
+  "end": 62,
+  "hold": 572,
+  "out_of_window": 2,
+  "skip": 345,
+  "start": 62,
+  "too_small": 15
+ },
+ "orders": {
+  "total": 60,
+  "filled": 60,
+  "error": 0,
+  "cancelled": 0,
+  "buy": 35,
+  "sell": 25,
+  "by_trader": {
+   "sim_a": 12,
+   "sim_b": 41,
+   "sim_c": 7
+  }
+ }
+}

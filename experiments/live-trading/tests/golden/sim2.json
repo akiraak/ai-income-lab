@@ -1,0 +1,30 @@
+{
+ "days": 63,
+ "events": {
+  "auth_5xx_retry": 1,
+  "auth_failed": 1,
+  "blocked_symbol": 14,
+  "drawdown_warning": 10,
+  "end": 59,
+  "hold": 547,
+  "journal_recovered": 1,
+  "out_of_window": 2,
+  "position_short": 7,
+  "skip": 328,
+  "start": 61,
+  "too_small": 12
+ },
+ "orders": {
+  "total": 57,
+  "filled": 53,
+  "error": 3,
+  "cancelled": 1,
+  "buy": 36,
+  "sell": 21,
+  "by_trader": {
+   "sim_a": 8,
+   "sim_b": 42,
+   "sim_c": 7
+  }
+ }
+}

@@ -95,6 +95,20 @@ cp .env.example .env                                   # AIL_AUTH_MODE=local（�
 - 起動は `dashboard/run.sh`、または**プロジェクト直下の `run-server.sh`**（⚠ **既にポートを掴んでいるプロセスを止めてから起動する**）。⚠ **プロセスは名前ではなくポートから引く**（`pgrep -f` のパターンは自分自身のコマンドラインにも当たるため）。⚠ **vibeboard（3010）は触らない**
 - vibeboard との棲み分け: vibeboard はこのリポジトリの文書とタスクを見る**開発用**、dashboard は tastytrade の口座と記録を見る**運用用**。ポートも別（3010 / 3012）
 
+## テスト
+
+```bash
+./run-tests.sh            # ⚠ **ふだんはこれ 1 本**（執行器 → 管理画面 → selftest → mockrun。約 1 分 34 秒【実測】）
+./run-tests.sh --fast     # pytest 2 つだけ（約 38 秒）
+./run-tests.sh --full     # ＋ 黄金の集計値（通し運転 64 営業日 × 2。合計 2 分 3 秒【実測 2026-09-20・Sx360】）
+```
+
+- **黄金の集計値**（`experiments/live-trading/tests/test_sim_golden.py` ＋ `tests/golden/sim{1,2}.json`）＝ 通し運転の**出来事の件数と注文の数**を覚えておき、変わったら落とす。⚠ **直す前に「なぜ変わったか」を確かめる**（更新は `AIL_UPDATE_GOLDEN=1` のときだけ）。⚠ 重いので `AIL_GOLDEN=1`（＝ `--full`）のときだけ・日足が無い機械では skip
+- **限界の通し運転**（`tests/test_sim_limits.py`）＝ 予算の上限 ／ 1 日に 2 つの窓（⚠ **二重に買わない**）／ 停止と解除が日をまたぐこと。⚠ **執行器の窓は 15:45〜16:05 ET に固定**（外の窓は `out_of_window`。1 日に何度も売買する形へ進むときはここを広げる）
+- ⚠ **テストは `LT_MODE_DIR` ／ `AIL_MODE_DIR` を必ず tmp に向ける**（この機械はふだんシミュレーションモード ＝ 向け忘れると本物の `MODE` を読んで落ちる。2026-09-20 に 2 件直した）
+- ⚠ **`over_budget` は現在の経路では出ない**（予算は `target = min(per_symbol, available)` の丸めで守られる）。テストが「出ないこと」を固定している。消すか別の守りに使うかは利用者の裁定
+- 仕様は `docs/specs/experiments/live-trading.md` §0-7 (k)
+
 ## 実験コード
 
 ### experiments/i7-dataset（I7 案 B: 日本語評価セットの生成）

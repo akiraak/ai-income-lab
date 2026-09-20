@@ -252,3 +252,142 @@ def test_new_executor_events_count_as_problems(settings):
             f.write(json.dumps({"date": "2026-09-18", "env": "prod", "kind": kind, "trader": "test_a"}) + "\n")
     kinds = [e["kind"] for e in lv.day(live, "2026-09-18")["problems"]]
     assert {"drawdown_warning", "refused_mode_sim", "refused_lock_busy", "ledger_error", "journal_recovered", "journal_unresolved", "position_short"} <= set(kinds)
+
+
+# --- 面ごとの期間（§13-7。2026-09-20）-------------------------------------
+# ⚠ トレーダーの詳細 ＝ 全期間（1 人を縦に追う）／ 概要・全体の詳細・/api/live ＝ 直近 20 営業日（人を横に比べる）
+
+def _one_day(live: Path, date: str, price: float, *, trader: str = "test_a", side: str = "buy") -> None:
+    """1 日ぶんの記録（1 注文・約定は mid の 10bp 上 ＝ 差 1 が必ず 10.0bp になる）。"""
+    base = {"date": date, "env": "prod", "run_id": date.replace("-", "") + "T195500Z"}
+    _jsonl(live / "out" / date / "events.jsonl", [{**base, "kind": "start", "mode": "submit", "traders": [trader], "test": True}])
+    _jsonl(live / "out" / date / "orders.jsonl", [
+        {**base, "symbol": "T", "side": side, "sizing": "shares", "shares": 1, "value_usd": price,
+         "parts": [{"trader": trader, "shares": 1, "usd": price}], "external_id": f"lt-{date}", "mode": "submit",
+         "quote_at_signal": {"mid": price}, "submitted": {"order_id": 1, "status": "Received"}, "transitions": [],
+         "final_status": "Filled", "fills": [{"symbol": "T", "side": side, "shares": 1, "price": price * 1.001, "filled_at": "t", "order_id": 1, "fee_usd": 0.0}],
+         "amounts": {"gross_usd": price, "fee_usd": 0.0}, "attempts": 1, "cancelled": False, "error": None, "elapsed_ms": 100.0, "test": True}])
+    _jsonl(live / "out" / date / "ledger.jsonl", [
+        {**base, "trader": trader, "test": True, "budget_usd": 30.0, "cost_in_use_usd": price, "market_value_usd": price,
+         "unrealized_usd": 0.0, "realized_usd": 0.0, "fees_usd": 0.0, "unsettled_usd": 0.0, "holdings": {}, "holdings_priced": 1,
+         "drawdown_pct_of_budget": 0.0}])
+
+
+def build_long_live_dir(live: Path, n: int) -> list[str]:
+    """営業日 n 日ぶんの記録（⚠ 20 日の窓より長くする用）。戻りは古い順の日付。"""
+    (live / "config" / "traders").mkdir(parents=True)
+    (live / "config" / "traders" / "test_a.toml").write_text(TRADER_TOML, encoding="utf-8")
+    ds = lv.business_days("2026-07-01", "2026-12-31")[:n]
+    for i, d in enumerate(ds):
+        _one_day(live, d, 25.0 + i)
+    return ds
+
+
+def test_trader_page_is_all_history_while_the_other_faces_stay_20_days(settings):
+    """⚠ いちばん大事な回帰: 20 日より古い注文がトレーダーの詳細に出る（2026-09-20 まで出ていなかった）。"""
+    ds = build_long_live_dir(settings.live_dir, 25)
+    b20, ball = lv.board(settings.live_dir), lv.board(settings.live_dir, days=None)
+    assert len(b20["dates"]) == 20 and b20["period"]["label"] == "直近 20 営業日"
+    assert len(ball["dates"]) == 25 and ball["period"]["all"] and ball["period"]["label"] == "全期間（25 営業日）"
+    assert ds[0] not in b20["dates"] and ds[0] in ball["dates"]
+    assert b20["traders"][0]["n_orders"] == 20 and ball["traders"][0]["n_orders"] == 25
+    with TestClient(create_app(settings, start_monitors=False), client=("127.0.0.1", 50000)) as c:
+        tr = c.get("/traders/test_a").text
+        assert ds[0] in tr and "全期間（25 営業日）" in tr
+        for path in ("/", "/overall"):
+            page = c.get(path).text
+            assert ds[0] not in page and "直近 20 営業日" in page, path
+        assert ds[0] not in c.get("/api/live").text          # ⚠ API は 20 日のまま（重くしない）
+
+
+def test_history_is_grouped_by_month_and_only_the_latest_is_open(settings):
+    ds = build_long_live_dir(settings.live_dir, 45)
+    b = lv.board(settings.live_dir, days=None)
+    months = lv.history(b, "test_a")
+    assert [m["ym"] for m in months] == sorted({d[:7] for d in ds}, reverse=True)
+    assert sum(m["n"] for m in months) == len(ds)            # 1 件も落ちない
+    assert [r["date"] for r in months[0]["rows"]] == sorted([d for d in ds if d[:7] == months[0]["ym"]], reverse=True)
+    with TestClient(create_app(settings, start_monitors=False), client=("127.0.0.1", 50000)) as c:
+        html = c.get("/traders/test_a").text
+    assert html.count('<details class="hist"') == len(months)
+    assert html.count('<details class="hist" open>') == 1
+    assert html[html.index('<details class="hist"'):].startswith('<details class="hist" open>')   # 開いているのは最新の月
+
+
+def test_month_subtotals_are_counted_from_the_rows(settings):
+    """月の小計は表示のための足し算だけ（⚠ 損益は出さない ＝ 正本は台帳）。"""
+    ds = build_long_live_dir(settings.live_dir, 45)
+    b = lv.board(settings.live_dir, days=None)
+    m = lv.history(b, "test_a")[0]
+    rows = [d for d in ds if d[:7] == m["ym"]]
+    assert m["n"] == m["n_filled"] == len(rows) and m["n_error"] == m["n_cancelled"] == 0
+    assert m["buy_usd"] == round(sum(25.0 + ds.index(d) for d in rows), 2) and m["sell_usd"] == 0.0
+    assert m["diff1_median"] == 10.0                          # 約定は mid の 10bp 上（_one_day）
+    assert "pnl" not in m and "realized_usd" not in m
+
+
+def test_history_is_filtered_by_trader(settings):
+    build_long_live_dir(settings.live_dir, 3)
+    (settings.live_dir / "config" / "traders" / "other.toml").write_text(TRADER_TOML.replace('name = "test_a"', 'name = "other"'), encoding="utf-8")
+    _one_day(settings.live_dir, "2026-07-07", 99.0, trader="other")     # ⚠ test_a の 3 日（07-01・02・06）と重ならない日
+    b = lv.board(settings.live_dir, days=None)
+    assert [r["o"]["symbol"] for r in lv.history(b, "other")[0]["rows"]] == ["T"]
+    assert all(r["part"]["trader"] == "test_a" for m in lv.history(b, "test_a") for r in m["rows"])
+    assert sum(m["n"] for m in lv.history(b)) == 4             # 誰の分も絞らなければ全部
+
+
+def test_action_grid_scrolls_sideways_instead_of_squeezing_the_cells(settings):
+    """⚠ 1 日 18px を割ったら図を縮めずに横へ伸ばす（買・売の文字が読めなくなるため。§15-12）。"""
+    from app import charts
+    build_long_live_dir(settings.live_dir, 81)
+    b = lv.board(settings.live_dir, days=None)
+    t = b["traders"][0]
+    wide = str(charts.action_block(b, t))
+    assert 'class="scroll-x gridscroll"' in wide and "chart-wide" in wide
+    assert f'width="{charts.GRID_PAD_R + 18 * len(b["bd"])}"' in wide and 'class="chart gridlabels" width="52"' in wide
+    # ⚠ 64 日は 17.9px ＝ 境目のすぐ内側（sim2 の全期間）。ここでも横スクロールに入り、縮まない（大きさを属性で持つ）
+    border = str(charts.action_block({**b, "bd": b["bd"][:64], "missing": []}, {**t, "grid": {s: v[:64] for s, v in t["grid"].items()}}))
+    assert "gridscroll" in border and f'width="{charts.GRID_PAD_R + 18 * 64}"' in border
+    narrow = str(charts.action_block({**b, "bd": b["bd"][:20], "missing": []}, {**t, "grid": {s: v[:20] for s, v in t["grid"].items()}}))
+    assert "gridscroll" not in narrow and "chart-wide" not in narrow
+
+
+def test_x_labels_are_thinned_so_they_never_overlap():
+    """⚠ 2026-09-20 に 64 日で「12-2812-31」と重なった。最後の日は必ず出し、近すぎるときは 1 つ手前を落とす。"""
+    from app import charts
+    assert charts.x_ticks(20, 57.4) == [0, 5, 10, 15, 19]     # 20 日のときは今までどおり 5 日おき
+    for n, step in ((64, 6.6), (64, 17.9), (250, 4.6)):
+        idx = charts.x_ticks(n, step)
+        assert idx[0] == 0 and idx[-1] == n - 1
+        assert all((idx[i + 1] - idx[i]) * step >= charts.X_LABEL_PX for i in range(len(idx) - 1)), (n, step, idx)
+
+
+def test_partial_live_returns_numbers_and_charts_without_the_history(settings):
+    """3 秒ごとに取り直すのは数字と図だけ（⚠ 全期間の履歴を 3 秒ごとに送らない）。⚠ GET のみ・POST は増やさない。"""
+    build_long_live_dir(settings.live_dir, 25)
+    with TestClient(create_app(settings, start_monitors=False), client=("127.0.0.1", 50000)) as c:
+        part = c.get("/traders/test_a?partial=live")
+        assert part.status_code == 200
+        assert "損益の推移" in part.text and "行動の推移" in part.text
+        assert "注文の履歴" not in part.text and "<html" not in part.text and 'details class="hist"' not in part.text
+        assert c.post("/traders/test_a?partial=live").status_code == 405
+
+
+def test_day_records_are_cached_per_day_and_reread_when_the_files_change(settings, monkeypatch):
+    """全期間を読むので、過ぎた日は覚えておく（⚠ ファイルが変わったら読み直す・上限を超えたら古いものから捨てる）。"""
+    live = build_live_dir(settings.live_dir)
+    lv.day(live, "2026-09-18")
+    calls = []
+    orig = lv._read_day
+    monkeypatch.setattr(lv, "_read_day", lambda *a, **k: (calls.append(1), orig(*a, **k))[1])
+    assert lv.day(live, "2026-09-18")["n_orders"] == 1 and not calls        # 2 回目は開かない
+    with (live / "out" / "2026-09-18" / "events.jsonl").open("a", encoding="utf-8") as f:
+        f.write(json.dumps({"date": "2026-09-18", "kind": "halted"}) + "\n")
+    lv.day(live, "2026-09-18")
+    assert len(calls) == 1                                                  # 変わったら読み直す
+    lv.day(live, "2026-09-18", cache=False)
+    assert len(calls) == 2                                                  # cache=False は必ず読む
+    monkeypatch.setattr(lv, "DAY_CACHE_MAX", 2)
+    for d in ("2026-09-17", "2026-09-18", "2026-09-16"):
+        lv.day(live, d)
+    assert len(lv._DAY_CACHE) <= 2

@@ -224,8 +224,21 @@ table.exp-kv td { font-variant-numeric:tabular-nums; }
 /* ⚠ 仮データ（本物の数字ではない）の印。紫（MOCK と同じ「実物ではない」）の枠 */
 .chip.placeholder, .badge-placeholder { background: var(--mock-bg); color: #d2b8ff; border: 1px dashed rgba(163,113,247,.7); }
 
+/* ---- 注文の履歴の月（§15-12）: 全期間を 1 ページに出し、月ごとにたたむ。⚠ i マークの details.help とは別物 */
+details.hist { margin-top: 8px; }
+details.hist > summary { color: var(--ink); font-size: 13px; padding: 6px 8px; background: var(--raised); border-radius: 6px; }
+details.hist > summary:hover { background: var(--surface); }
+details.hist > summary .muted { margin-left: 8px; }
+details.hist[open] > summary { border-bottom-left-radius: 0; border-bottom-right-radius: 0; }
+details.hist > .panel { border-top-left-radius: 0; border-top-right-radius: 0; }
+
 /* ---- SVG の部品（§15-5） */
 svg.chart { display: block; width: 100%; height: auto; }
+/* 行動のマス目が長くなったとき（1 日 18px を保って横に伸ばす。§15-12）: 図は縮めず、外側を横スクロールさせる。
+   ⚠ 銘柄の名前は別の SVG（.gridlabels）で左に固定する ＝ 横へ流れても何の行か分かる */
+svg.chart-wide, svg.gridlabels { width: auto; max-width: none; flex: none; }
+.gridwrap { display: flex; align-items: flex-start; min-width: 0; }
+.gridwrap .scroll-x { flex: 1 1 auto; min-width: 0; }
 svg .grid { stroke: var(--grid-line); stroke-width: 1; }
 svg .axis { stroke: var(--line-strong); stroke-width: 1; }
 svg .zero { stroke: var(--sub); stroke-width: 1; }

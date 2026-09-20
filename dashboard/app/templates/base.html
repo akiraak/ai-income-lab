@@ -64,7 +64,8 @@
 <div class="haltbar">⛔ <b>停止中（HALT）</b> {{ halt.since|pt }} · {{ halt.actor }} {% if halt.reason %}· {{ halt.reason }}{% endif %} — 発注系はすべて拒否される{% if face == 'local' %}。解除は <a href="/ops">操作</a> から{% endif %}{{ info("HALT（停止ボタン）") }}</div>
 {% endif %}
 {% if flash %}<div class="flash">{{ flash }}</div>{% endif %}
-<main{% if machine.mode == 'sim' and (page in ('overview', 'overall') or page.startswith('trader:')) %} data-poll-self="3000"{% endif %}>
+{# ⚠ トレーダーの詳細は main ごとではなく「数字と図」だけを取り直す（全期間の履歴を 3 秒ごとに送らない。§13-7）＝ trader.html の data-poll #}
+<main{% if machine.mode == 'sim' and page in ('overview', 'overall') %} data-poll-self="3000"{% endif %}>
 {% block content %}{% endblock %}
 </main>
 <footer class="foot"><span>{{ now|pt }} / {{ now|et }}</span><span class="muted">{{ "公開面" if face == "public" else "ローカル面" }}（{{ auth_mode }}）{{ info("面（loopback / local / cloudflare）") }}</span>{% if not help_ok %}<span class="warn small">⚠ 用語の正本（glossary.toml）が読めない ＝ i マークのヘルプなし</span>{% endif %}<span class="muted">{% if page in ('overview', 'overall') or page.startswith('trader:') %}{{ 'シミュレーション' if machine.mode == 'sim' else '実売買' }}: {{ live_dir }}{% else %}記録: {{ records_dir }}{% endif %}</span></footer>

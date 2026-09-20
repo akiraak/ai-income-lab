@@ -1,3 +1,16 @@
+// 行動のマス目が横スクロールのとき（期間が長い ＝ .gridscroll）の見え位置。
+// 既定は右端（最新の日）。部分更新で作り直されたときは、その前に見ていた位置を保つ（§15-12）。
+function alignGrids(root, keep) {
+  (root || document).querySelectorAll(".gridscroll").forEach(function (el) {
+    el.scrollLeft = (keep === null || keep === undefined) ? el.scrollWidth : keep;
+  });
+}
+function gridScrollLeft(root) {
+  var el = (root || document).querySelector(".gridscroll");
+  return el ? el.scrollLeft : null;
+}
+document.addEventListener("DOMContentLoaded", function () { alignGrids(null, null); });
+
 // 部分更新: data-poll="<url>" を持つ要素を data-interval ミリ秒ごとに取り直して差し替える。
 // 認証は cookie（Access）か接続元で決まるので、fetch に特別なヘッダは要らない。
 (function () {
@@ -11,7 +24,9 @@
       fetch(url, { credentials: "same-origin", cache: "no-store" })
         .then(function (r) { if (!r.ok) { throw new Error(r.status); } return r.text(); })
         .then(function (html) {
+          var keep = gridScrollLeft(el);
           el.innerHTML = html;
+          alignGrids(el, keep);
         })
         .catch(function () { /* 次の周期でまた試す */ });
     }
@@ -30,7 +45,11 @@
       .then(function (r) { if (!r.ok) { throw new Error(r.status); } return r.text(); })
       .then(function (html) {
         var next = new DOMParser().parseFromString(html, "text/html").querySelector("main");
-        if (next) { main.innerHTML = next.innerHTML; }
+        if (next) {
+          var keep = gridScrollLeft(main);
+          main.innerHTML = next.innerHTML;
+          alignGrids(main, keep);
+        }
       })
       .catch(function () { /* 次の周期でまた試す */ });
   }, parseInt(main.getAttribute("data-poll-self"), 10) || 3000);

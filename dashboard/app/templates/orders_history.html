@@ -1,15 +1,16 @@
-{# 注文の履歴（新しい順・内部移転を含む）。who が空なら全トレーダー、名前ならそのトレーダーの分だけ #}
-{% set rows = [] %}
+{# 注文の履歴（新しい順・月ごとにたたむ）。who が空なら全トレーダー、名前ならそのトレーダーの分だけ。
+   ⚠ 月の見出しの小計は表示のための足し算だけ（損益は出さない ＝ 正本は台帳）。⚠ 開いているのは最新の月だけ（dashboard.md §13-7） #}
+{% set months = history(b, who) %}
 <div class="helprow">この表の言葉: <span>差 1{{ info("差 1（執行価格）") }}</span><span>内部移転{{ info("内部移転") }}</span><span>試行（再送）{{ info("再送") }}</span><span>状態とエラー{{ info("問題（注文）") }}</span></div>
-<div class="panel"><div class="scroll-x"><table class="small orders">
-<tr><th>日付</th><th>銘柄</th><th>売買</th><th class="num">数量</th><th class="num">合図時の mid</th><th class="num">約定</th><th class="num">差 1 bp</th><th>状態</th><th>{{ '誰の分' if not who else '' }}</th><th class="num">試行</th><th class="num">所要</th><th>エラー</th></tr>
-{% for dd in b.days|reverse %}
-  {% for o in dd.orders %}
-    {% set part = (o.parts|selectattr('trader', 'equalto', who)|list|first) if who else none %}
-    {% if not who or part %}
-    {% set _ = rows.append(1) %}
+{% for m in months %}
+<details class="hist"{% if loop.first %} open{% endif %}>
+  <summary><b>{{ m.ym }}</b> <span class="muted small">{{ m.n }} 件 · 約定 {{ m.n_filled }} · 買い ${{ '{:,.2f}'.format(m.buy_usd) }} ／ 売り ${{ '{:,.2f}'.format(m.sell_usd) }} · 差 1 中央値 {{ m.diff1_median if m.diff1_median is not none else '—' }} bp{% if m.n_error %} · <span class="ng">error {{ m.n_error }}</span>{% endif %}{% if m.n_cancelled %} · <span class="warn">取消 {{ m.n_cancelled }}</span>{% endif %}{% if m.n_transfers %} · 内部移転 {{ m.n_transfers }}{% endif %}</span></summary>
+  <div class="panel"><div class="scroll-x"><table class="small orders">
+  <tr><th>日付</th><th>銘柄</th><th>売買</th><th class="num">数量</th><th class="num">合図時の mid</th><th class="num">約定</th><th class="num">差 1 bp</th><th>状態</th><th>{{ '誰の分' if not who else '' }}</th><th class="num">試行</th><th class="num">所要</th><th>エラー</th></tr>
+  {% for r in m.rows %}
+    {% if r.kind == 'order' %}{% set o = r.o %}{% set part = r.part %}
     <tr>
-      <td class="nw">{{ dd.date }}</td><td><b>{{ o.symbol }}</b></td><td>{{ '買い' if o.side == 'buy' else '売り' }}</td>
+      <td class="nw">{{ r.date }}</td><td><b>{{ o.symbol }}</b></td><td>{{ '買い' if o.side == 'buy' else '売り' }}</td>
       <td class="num">{% if part %}{{ part.shares }} 株{% elif o.sizing == 'notional' and o.side == 'buy' %}${{ o.value_usd }}{% else %}{{ o.fills_qty or o.shares }} 株{% endif %}</td>
       <td class="num muted">{% if o.quote_at_signal and o.quote_at_signal.mid %}{{ '%.2f'|format(o.quote_at_signal.mid) }}{% else %}—{% endif %}</td>
       <td class="num">{% if o.fill_price %}{{ '%.2f'|format(o.fill_price) }}{% else %}—{% endif %}</td>
@@ -20,13 +21,9 @@
       <td class="num muted">{{ o.elapsed_ms }} ms</td>
       <td class="small {{ 'ng' if o.error else 'muted' }}">{% if o.error %}{{ o.error.code or o.error.type }}: {{ (o.error.message or '')[:120] }}{% else %}—{% endif %}</td>
     </tr>
-    {% endif %}
-  {% endfor %}
-  {% for x in dd.transfers %}
-    {% if not who or who in (x.buyer, x.seller) %}
-    {% set _ = rows.append(1) %}
+    {% else %}{% set x = r.x %}
     <tr>
-      <td class="nw">{{ dd.date }}</td><td><b>{{ x.symbol }}</b></td>
+      <td class="nw">{{ r.date }}</td><td><b>{{ x.symbol }}</b></td>
       <td>{% if not who %}内部移転{% else %}{{ '買い' if x.buyer == who else '売り' }}{% endif %}</td>
       <td class="num">{{ x.shares }} 株</td><td class="num muted">—</td><td class="num">{{ '%.2f'|format(x.price|float) }}</td><td class="num">—</td>
       <td class="cell-na">内部移転</td>
@@ -35,7 +32,8 @@
     </tr>
     {% endif %}
   {% endfor %}
+  </table></div></div>
+</details>
+{% else %}
+<div class="panel"><p class="muted small">注文は無い。</p></div>
 {% endfor %}
-</table>
-{% if not rows %}<p class="muted small">注文は無い。</p>{% endif %}
-</div></div>

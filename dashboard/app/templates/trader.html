@@ -1,32 +1,18 @@
 {% extends "base.html" %}
 {% block title %}{{ t.name }} · ai-income-lab{% endblock %}
 {% block content %}
-{# トレーダーの詳細（dashboard.md §13。2026-09-18）。⚠ 読むだけ。⚠ 紙上の損益と差 3 は仮データ（実売買の Phase 3 の後で本物にする） #}
-{% set tm = t.diff1_median %}{% set ts = 'na' if tm is none else ('ok' if tm <= 5 else ('warn' if tm <= 10 else 'ng')) %}
+{# トレーダーの詳細（dashboard.md §13・§13-7。2026-09-18 ／ 2026-09-20 に全期間へ）。⚠ 読むだけ。⚠ 紙上の損益と差 3 は仮データ（実売買の Phase 3 の後で本物にする）
+   ⚠ **この面だけ全期間**（1 人を縦に追う面）。概要・全体の詳細は直近 20 営業日（人を横に比べる面）＝ 見出しに `b.period.label` を必ず書く #}
 <div class="backs"><a href="/">← 概要</a> <a href="/overall">全体の詳細</a></div>
 <div class="sec"><h2><span class="tr-name"><i class="sw dot {{ t.cls }}"></i>{{ t.name }}</span>{% if t.test %} <span class="badge badge-mock">TEST</span>{{ info("試験用トレーダー（TEST）") }}{% else %}{{ info("トレーダー") }}{% endif %}{{ simmark(machine) }}</h2>
   <span class="muted small">予算 ${{ '{:,.0f}'.format(t.budget_usd) }} · 銘柄 {% if t.universe %}{{ t.universe }}{% else %}{{ t.symbols|join(' ') }}{% endif %} · モデル {% for mm in t.models %}{{ mm.kind_label }} {{ mm.name }}{{ ' ／ ' if not loop.last }}{% endfor %} · 合成 {{ t.combine_label }} · θ {{ t.threshold }} · 株数 {{ t.sizing_label }}</span>
+  <span class="muted small">{{ b.period.label }}{% if b.period.first %}（{{ b.period.first }}〜{{ b.period.last }}）{% endif %}</span>
   <span class="helprow">言葉: <span>予算{{ info("予算（トレーダーの持ち金）") }}</span><span>合成{{ info("合成規則") }}</span><span>θ{{ info("θ（閾値）") }}</span></span></div>
 {% if t.note %}<p class="small muted">{{ t.note }}</p>{% endif %}
-<div class="tiles">
-  <div class="tile"><div class="k">損益（実現 ＋ 含み）{{ info("損益（実現 ＋ 含み）") }}</div><div class="v">{{ pct(t.pnl_now_pct) }}</div>
-    <div class="s">{{ usd(t.pnl_now_usd) }} · 実現 {{ usd(t.last.realized_usd) }} ／ 含み {{ usd(t.last.unrealized_usd) }}</div></div>
-  <div class="tile"><div class="k">差 1 中央値{{ info("差 1（執行価格）") }}</div><div class="v"><span class="chip {{ ts }}">{{ {'ok': '✅', 'warn': '⚠', 'ng': '❌', 'na': '—'}[ts] }} {{ tm if tm is not none else '—' }} bp</span></div><div class="s">n={{ t.diff1|length }} · 正 ＝ 不利</div></div>
-  <div class="tile"><div class="k">約定 ／ 注文{{ info("内部移転") }}</div><div class="v num">{{ t.n_filled }} ／ {{ t.n_orders }}</div><div class="s">＋ 内部移転 {{ t.n_transfers }}</div></div>
-  <div class="tile"><div class="k">建玉{{ info("建玉") }}</div><div class="v small">{{ t.holdings_text }}</div><div class="s">原価 {{ usd(t.last.cost_in_use_usd) }}</div></div>
-  <div class="tile"><div class="k">手数料（差 2）{{ info("差 2（実コスト）") }}</div><div class="v num">{{ usd(t.last.fees_usd or 0) }}</div><div class="s">dry-run の写し</div></div>
-  <div class="tile"><div class="k">差 3 紙上 − 実物{{ info("差 3（紙上 − 実物）") }}</div><div class="v"><span class="chip placeholder">仮データ</span></div><div class="s">{{ b.placeholder.diff3_bp_per_day }} bp/日 · 実売買の Phase 3 の後で本物</div></div>
+{# ⚠ 3 秒ごとに取り直すのは数字と図だけ（シミュレーションモードのとき）。注文の履歴はこの囲いの外 ＝ 開いた月が閉じない・長い HTML を送らない #}
+<div{% if machine.mode == 'sim' %} data-poll="/traders/{{ t.name }}?partial=live" data-interval="3000"{% endif %}>
+{% include "trader_live.html" %}
 </div>
-{% if t.last.drawdown_pct_of_budget is not none and t.last.drawdown_pct_of_budget > 20 %}<div class="danger">⚠ 含み損 {{ t.last.drawdown_pct_of_budget }}% ＞ 20%（停止条件。live-trading.md §0-2。⚠ 自動では止めない。止めるのは人）{{ info("含み損の停止条件") }}</div>{% endif %}
-<div class="dgrid">
-  <div class="panel"><h3>損益の推移{{ simmark(machine) }} {{ info("紙上の損益") }}<span class="small">予算に対する %</span></h3>
-    <div class="legend"><span class="item"><i class="sw {{ t.cls }}"></i>実物</span><span class="item"><i class="sw dash"></i>紙上 <span class="chip placeholder">仮データ</span></span></div>
-    {{ charts.pnl_trader(b, t) }}
-    <p class="rule">⚠ 紙上の損益（同じ合図を公式終値で回した値）は<b>仮データ</b>（実物に 1 営業日あたり {{ b.placeholder.diff3_bp_per_day }}bp を足した線）。本物は実売買の Phase 3（紙上の対照）の後</p></div>
-  <div class="panel"><h3>差 1 の推移{{ simmark(machine) }} {{ info("差 1（執行価格）") }}<span class="small">注文ごと · 背景は閾値の帯（✅ ≤ 5 ／ ⚠ 5〜10 ／ ❌ ＞ 10）</span></h3>{{ charts.diff1_timeline(b, t) }}</div>
-  <div class="panel wide"><h3>行動の推移{{ simmark(machine) }} {{ info("行動のマス目") }}<span class="small">銘柄 × 営業日 · マスに触れると合図と約定</span></h3>{{ charts.action_grid(b, t, w=1240, cell_h=24) }}
-    <div class="keyrow"><span class="key"><i class="k-hold"></i>保有</span><span class="key"><i class="k-buy"></i>買 ／ 売</span><span class="key"><i class="k-skip"></i>見送り</span><span class="key"><i class="k-none"></i>動きなし</span><span class="key"><i class="k-nostart"></i>起動なし（<span class="chip placeholder">仮</span> 休場日の暦なし）</span></div></div>
-</div>
-<div class="sec"><h2>注文の履歴{{ simmark(machine) }}</h2><span class="muted small">{{ t.name }} の分 · 新しい順 · 内部移転を含む</span></div>
+<div class="sec"><h2>注文の履歴{{ simmark(machine) }}</h2><span class="muted small">{{ t.name }} の分 · {{ b.period.label }} · 新しい順 · 月ごとにたたんである（最新の月だけ開く）</span></div>
 {% set who = t.name %}{% include "orders_history.html" %}
 {% endblock %}

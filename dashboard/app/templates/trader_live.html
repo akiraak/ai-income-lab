@@ -1,0 +1,22 @@
+{# トレーダーの詳細の「数字と図」（dashboard.md §13-7）。⚠ ここだけがシミュレーション中に 3 秒ごとに取り直される部分。
+   ⚠ 注文の履歴は全期間で長いので、この外に置く（取り直さない）。⚠ 読むだけ・POST は無い #}
+{% set tm = t.diff1_median %}{% set ts = 'na' if tm is none else ('ok' if tm <= 5 else ('warn' if tm <= 10 else 'ng')) %}
+<div class="tiles">
+  <div class="tile"><div class="k">損益（実現 ＋ 含み）{{ info("損益（実現 ＋ 含み）") }}</div><div class="v">{{ pct(t.pnl_now_pct) }}</div>
+    <div class="s">{{ usd(t.pnl_now_usd) }} · 実現 {{ usd(t.last.realized_usd) }} ／ 含み {{ usd(t.last.unrealized_usd) }}</div></div>
+  <div class="tile"><div class="k">差 1 中央値{{ info("差 1（執行価格）") }}</div><div class="v"><span class="chip {{ ts }}">{{ {'ok': '✅', 'warn': '⚠', 'ng': '❌', 'na': '—'}[ts] }} {{ tm if tm is not none else '—' }} bp</span></div><div class="s">n={{ t.diff1|length }} · 正 ＝ 不利 · {{ b.period.label }}</div></div>
+  <div class="tile"><div class="k">約定 ／ 注文{{ info("内部移転") }}</div><div class="v num">{{ t.n_filled }} ／ {{ t.n_orders }}</div><div class="s">{{ b.period.label }}</div></div>
+  <div class="tile"><div class="k">建玉{{ info("建玉") }}</div><div class="v small">{{ t.holdings_text }}</div><div class="s">原価 {{ usd(t.last.cost_in_use_usd) }}</div></div>
+  <div class="tile"><div class="k">手数料（差 2）{{ info("差 2（実コスト）") }}</div><div class="v num">{{ usd(t.last.fees_usd or 0) }}</div><div class="s">dry-run の写し</div></div>
+  <div class="tile"><div class="k">差 3 紙上 − 実物{{ info("差 3（紙上 − 実物）") }}</div><div class="v"><span class="chip placeholder">仮データ</span></div><div class="s">{{ b.placeholder.diff3_bp_per_day }} bp/日 · 実売買の Phase 3 の後で本物</div></div>
+</div>
+{% if t.last.drawdown_pct_of_budget is not none and t.last.drawdown_pct_of_budget > 20 %}<div class="danger">⚠ 含み損 {{ t.last.drawdown_pct_of_budget }}% ＞ 20%（停止条件。live-trading.md §0-2。⚠ 自動では止めない。止めるのは人）{{ info("含み損の停止条件") }}</div>{% endif %}
+<div class="dgrid">
+  <div class="panel"><h3>損益の推移{{ simmark(machine) }} {{ info("紙上の損益") }}<span class="small">予算に対する % · {{ b.period.label }}</span></h3>
+    <div class="legend"><span class="item"><i class="sw {{ t.cls }}"></i>実物</span><span class="item"><i class="sw dash"></i>紙上 <span class="chip placeholder">仮データ</span></span></div>
+    {{ charts.pnl_trader(b, t) }}
+    <p class="rule">⚠ 紙上の損益（同じ合図を公式終値で回した値）は<b>仮データ</b>（実物に 1 営業日あたり {{ b.placeholder.diff3_bp_per_day }}bp を足した線）。本物は実売買の Phase 3（紙上の対照）の後</p></div>
+  <div class="panel"><h3>差 1 の推移{{ simmark(machine) }} {{ info("差 1（執行価格）") }}<span class="small">注文ごと · 背景は閾値の帯（✅ ≤ 5 ／ ⚠ 5〜10 ／ ❌ ＞ 10）</span></h3>{{ charts.diff1_timeline(b, t) }}</div>
+  <div class="panel wide"><h3>行動の推移{{ simmark(machine) }} {{ info("行動のマス目") }}<span class="small">銘柄 × 営業日（{{ b.period.label }}）· マスに触れると合図と約定</span></h3>{{ charts.action_block(b, t) }}
+    <div class="keyrow"><span class="key"><i class="k-hold"></i>保有</span><span class="key"><i class="k-buy"></i>買 ／ 売</span><span class="key"><i class="k-skip"></i>見送り</span><span class="key"><i class="k-none"></i>動きなし</span><span class="key"><i class="k-nostart"></i>起動なし（<span class="chip placeholder">仮</span> 休場日の暦なし）</span></div></div>
+</div>

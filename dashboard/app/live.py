@@ -15,10 +15,12 @@
 from __future__ import annotations
 
 import json
+import os
 import tomllib
 from pathlib import Path
 
-DAYS = 20
+DAYS = 20              # 人を横に比べる面（概要・全体の詳細・/api/live）が読む営業日。⚠ ここは動かさない
+DAY_CACHE_MAX = 400    # 1 人を縦に追う面（トレーダーの詳細）は全期間を読むので、日ごとに覚えておく（§2）
 COMBINE_LABEL = {"asis": "そのまま", "mean": "平均", "majority": "多数決", "unanimous": "全員一致"}
 SIZING_LABEL = {"shares": "整数株", "notional": "金額指定"}
 KIND_LABEL = {"fixed": "固定", "file": "CSV", "experiment": "実験"}
@@ -140,7 +142,36 @@ def _diff1_bp(order: dict) -> list[float]:
     return out
 
 
-def day(live_dir: Path, date: str) -> dict:
+_DAY_CACHE: dict[tuple[str, str], tuple[tuple, dict]] = {}
+
+
+def _day_stamp(d: Path) -> tuple:
+    """その日のディレクトリの指紋（名前・mtime・大きさ）。⚠ 過ぎた日は変わらないので、これが同じなら読み直さない。"""
+    try:
+        with os.scandir(d) as it:
+            return tuple(sorted((e.name, e.stat().st_mtime_ns, e.stat().st_size) for e in it if e.name.endswith(".jsonl")))
+    except OSError:
+        return ()
+
+
+def day(live_dir: Path, date: str, *, cache: bool = True) -> dict:
+    """1 日ぶんの記録。⚠ **戻りは共有物**（キャッシュに載る）なので、呼んだ側で書き換えない。"""
+    if not cache:
+        return _read_day(live_dir, date)
+    key = (str(live_dir), date)
+    stamp = _day_stamp(live_dir / "out" / date)
+    hit = _DAY_CACHE.get(key)
+    if hit is not None and hit[0] == stamp:
+        _DAY_CACHE[key] = _DAY_CACHE.pop(key)      # 使ったものを後ろへ（古いものから捨てる）
+        return hit[1]
+    data = _read_day(live_dir, date)
+    _DAY_CACHE[key] = (stamp, data)
+    while len(_DAY_CACHE) > DAY_CACHE_MAX:
+        _DAY_CACHE.pop(next(iter(_DAY_CACHE)))
+    return data
+
+
+def _read_day(live_dir: Path, date: str) -> dict:
     d = live_dir / "out" / date
     orders = _read_jsonl(d / "orders.jsonl")
     events = _read_jsonl(d / "events.jsonl")
@@ -192,6 +223,56 @@ def day(live_dir: Path, date: str) -> dict:
         "no_signal": sum(1 for e in events if e.get("kind") == "no_signal"),
         "skipped": sum(1 for e in events if e.get("kind") in ("too_small", "over_budget", "over_day_cap", "no_quote")),
     }
+
+
+def _order_usd(o: dict, part: dict | None) -> float:
+    """その行の代金。⚠ 数え直さない ＝ 記録にあるものを選ぶだけ（その人の分 → 注文の内訳 → 注文の額面）。"""
+    if part and part.get("usd") is not None:
+        return float(part["usd"])
+    amounts = o.get("amounts") or {}
+    if amounts.get("gross_usd") is not None:
+        return float(amounts["gross_usd"])
+    return float(o.get("value_usd") or 0)
+
+
+def history(b: dict, who: str | None = None) -> list[dict]:
+    """注文の履歴を月ごとにまとめる（新しい順。`who` が空なら全トレーダー）。
+
+    ⚠ 月の小計は**表示のための足し算だけ**（件数・代金・差 1 の中央値・エラーと取消の数）。
+    ⚠ **損益は出さない**（正本は台帳 `ledger.jsonl`。注文から損益を数え直さない ＝ dashboard.md §13）。
+    """
+    months: dict[str, dict] = {}
+
+    def bucket(date: str) -> dict:
+        return months.setdefault(date[:7], {"ym": date[:7], "rows": [], "n": 0, "n_filled": 0, "n_error": 0,
+                                            "n_cancelled": 0, "n_transfers": 0, "buy_usd": 0.0, "sell_usd": 0.0, "_diff1": []})
+
+    for dd in reversed(b.get("days") or []):
+        for o in dd["orders"]:
+            part = next((p for p in o.get("parts") or [] if p.get("trader") == who), None) if who else None
+            if who and part is None:
+                continue
+            m = bucket(dd["date"])
+            m["rows"].append({"kind": "order", "date": dd["date"], "o": o, "part": part})
+            m["n"] += 1
+            m["n_filled"] += 1 if o.get("final_status") == "Filled" else 0
+            m["n_error"] += 1 if o.get("status_class") == "ng" else 0
+            m["n_cancelled"] += 1 if o.get("cancelled") else 0
+            usd = _order_usd(o, part)
+            m["buy_usd" if o.get("side") == "buy" else "sell_usd"] += usd
+            m["_diff1"] += o.get("diff1_bp") or []
+        for x in dd["transfers"]:
+            if who and who not in (x.get("buyer"), x.get("seller")):
+                continue
+            m = bucket(dd["date"])
+            m["rows"].append({"kind": "transfer", "date": dd["date"], "x": x})
+            m["n_transfers"] += 1
+    out = []
+    for m in months.values():
+        m["diff1_median"] = _median(m.pop("_diff1"))
+        m["buy_usd"], m["sell_usd"] = round(m["buy_usd"], 2), round(m["sell_usd"], 2)
+        out.append(m)
+    return out
 
 
 def dates(live_dir: Path) -> list[str]:
@@ -285,13 +366,14 @@ def calendar_info(first: str | None, last: str | None, today=None) -> dict:
             "days_left": left, "expiring": left < CALENDAR_WARN_DAYS, "holidays": holidays}
 
 
-def board(live_dir: Path, days: int = DAYS, today=None) -> dict:
+def board(live_dir: Path, days: int | None = DAYS, today=None) -> dict:
     """概要・全体の詳細・トレーダーの詳細が使う形。トレーダー別の推移（損益・行動のマス目・差 1）と起動しなかった日。
 
+    ⚠ `days=None` ＝ **全期間**（トレーダーの詳細。1 人を縦に追う面）。既定の 20 日は概要・全体の詳細（人を横に比べる面）。
     ⚠ 仮データ（紙上の損益・差 3）は `placeholder` の印を付けて返す。`/api/live` には出さない。
     """
     tr = traders(live_dir)
-    ds = dates(live_dir)[:days][::-1]          # 古い順の直近 days 日
+    ds = dates(live_dir)[:days][::-1]          # 古い順の直近 days 日（days=None なら全部）
     dd = {d: day(live_dir, d) for d in ds}
     bd = business_days(ds[0], ds[-1]) if ds else []
     # today: シミュレーションでは仮の今日（暦の残り日数を仮の時計で数える）。None なら本物の今日
@@ -372,6 +454,9 @@ def board(live_dir: Path, days: int = DAYS, today=None) -> dict:
         "configured": [t for t in tr if not t["test"]],
         "test_traders": [t for t in tr if t["test"]],
         "bd": bd,
+        # 見ている期間（⚠ 画面は必ずこれを見出しに書く。20 日の面と全期間の面を取り違えないため）
+        "period": {"all": days is None, "days": days, "n_bd": len(bd), "first": ds[0] if ds else None, "last": ds[-1] if ds else None,
+                   "label": (f"全期間（{len(bd)} 営業日）" if days is None else f"直近 {days} 営業日") if ds else "記録なし"},
         "missing": missing,
         "dates": ds,
         "days": [dd[d] for d in ds],

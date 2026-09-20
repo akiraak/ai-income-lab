@@ -3,7 +3,7 @@
 {% block content %}
 {# 全体の詳細（dashboard.md §13。2026-09-18）: 日次（概要から移した）・注文の履歴（全トレーダー）・口座と接続（5 秒更新）。見本の順。⚠ 読むだけ #}
 <div class="backs"><a href="/">← 概要</a></div>
-<div class="sec"><h2>全体の詳細{{ simmark(machine) }}</h2><span class="muted small">全トレーダーまとめて{% if b.bd %} · 直近 {{ b.bd|length }} 営業日（{{ b.bd[0] }}〜{{ b.bd[-1] }}）{% endif %}</span></div>
+<div class="sec"><h2>全体の詳細{{ simmark(machine) }}</h2><span class="muted small">全トレーダーまとめて{% if b.bd %} · {{ b.period.label }}（{{ b.bd[0] }}〜{{ b.bd[-1] }}）{% endif %}</span></div>
 
 <div class="sec"><h2>日次{{ simmark(machine) }}</h2><span class="muted small">全トレーダーまとめて 1 日 1 行（新しい順）· 起動しなかった日も行を出す（{% if b.placeholder.calendar %}<span class="chip placeholder">仮</span> 休場日の暦の外 ＝ 平日をすべて営業日とみなす{% else %}NYSE の休場日を除く。暦は {{ b.calendar.last_covered }} まで{% endif %}）</span></div>
 {% if b.calendar.expiring %}<p class="rule">⚠ 休場日の暦が {{ b.calendar.last_covered }} で切れる（残り {{ b.calendar.days_left }} 日）。NYSE の公表（{{ b.calendar.source }}）から次の年を <code>nyse_calendar.py</code> に足す。切れた後は平日をすべて営業日とみなす</p>{% endif %}
@@ -38,7 +38,7 @@
 </table></div></div>
 {% else %}<p class="muted small">日次の記録が無い（<code>{{ b.live_dir }}</code>）。</p>{% endif %}
 
-<div class="sec"><h2>注文の履歴{{ simmark(machine) }}</h2><span class="muted small">全トレーダー · 新しい順 · 内部移転を含む</span></div>
+<div class="sec"><h2>注文の履歴{{ simmark(machine) }}</h2><span class="muted small">全トレーダー · {{ b.period.label }} · 新しい順 · 月ごとにたたんである ｜ ⚠ 1 人ずつの全期間は左ペインのトレーダーから</span></div>
 {% include "orders_history.html" %}
 
 <div class="sec" id="monitor"><h2>口座と接続{{ info("access token / refresh token") }}</h2><span class="muted small">認証・口座・建玉・働いている注文・現在値・接続・監視のイベント（5 秒ごとに更新）</span></div>

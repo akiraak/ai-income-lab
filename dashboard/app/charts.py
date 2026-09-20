@@ -55,6 +55,24 @@ def _series_cls(s: dict) -> str:
     return s["cls"] + (" dash" if s.get("dash") else "")
 
 
+X_LABEL_PX = 42    # x 軸の日付 1 つが要る横幅（"12-28" ＋ 余白）。⚠ これ以上詰めると重なる（2026-09-20 に 64 日で「12-2812-31」と重なった）
+GRID_PAD_R = 24    # 横スクロールのマス目の右の余白（⚠ 最後の日付が切れないぶん）
+MIN_CELL_W = 18    # 行動のマス目の 1 日の幅の下限。⚠ これを割ったら図を縮めず、横スクロールにする（プラン §3-2）
+
+
+def x_ticks(n: int, step: float, *, every: int = 5) -> list[int]:
+    """x 軸に日付を出す位置。⚠ 期間が長くなったら間引く。最後の日は必ず出し、近すぎるときは 1 つ手前を落とす。"""
+    if n <= 0:
+        return []
+    k = max(every, math.ceil(X_LABEL_PX / step)) if step > 0 else n
+    idx = list(range(0, n, k))
+    if idx and idx[-1] != n - 1:
+        if (n - 1 - idx[-1]) * step < X_LABEL_PX:
+            idx.pop()
+        idx.append(n - 1)
+    return idx or [n - 1]
+
+
 def line_chart(series: list[dict], bd: list[str], missing: list[str], *, w: int, hgt: int, label_fmt=None,
                pad_l: int = 52, pad_r: int = 120, pad_t: int = 14, pad_b: int = 22, show_x: bool = True,
                end_labels: bool = True, aria: str = "", domain: tuple[float, float] | None = None, n_ticks: int = 4,
@@ -88,9 +106,8 @@ def line_chart(series: list[dict], bd: list[str], missing: list[str], *, w: int,
         if miss_text:
             o.append(f'<text class="miss-t" x="{x(i):.1f}" y="{pad_t + 10}" text-anchor="middle">起動なし</text>')
     if show_x:
-        for i, d in enumerate(bd):
-            if i % 5 == 0 or i == n - 1:
-                o.append(f'<text class="tick" x="{x(i):.1f}" y="{hgt - 6}" text-anchor="middle">{d[5:]}</text>')
+        for i in x_ticks(n, step):
+            o.append(f'<text class="tick" x="{x(i):.1f}" y="{hgt - 6}" text-anchor="middle">{bd[i][5:]}</text>')
     for s in series:
         segs, cur = [], []
         for i, v in enumerate(s["pts"]):
@@ -220,9 +237,8 @@ def diff1_timeline(b: dict, t: dict) -> Markup:
         if lo <= tv <= hi:
             o.append(f'<text class="tick" x="{pl - 6}" y="{Y(tv) + 3:.1f}" text-anchor="end">{tv:g}</text>')
     o.append(f'<line class="zero" x1="{pl}" x2="{w2 - pr}" y1="{Y(0):.1f}" y2="{Y(0):.1f}"/>')
-    for i, d in enumerate(bd):
-        if i % 5 == 0 or i == n - 1:
-            o.append(f'<text class="tick" x="{X(i):.1f}" y="{h2 - 6}" text-anchor="middle">{d[5:]}</text>')
+    for i in x_ticks(n, cw):
+        o.append(f'<text class="tick" x="{X(i):.1f}" y="{h2 - 6}" text-anchor="middle">{bd[i][5:]}</text>')
     for d in b["missing"]:
         if d in bd:
             o.append(f'<rect class="miss" x="{X(bd.index(d)) - cw / 2:.1f}" y="{pt}" width="{cw:.1f}" height="{h2 - pt - pb}"><title>{d}: 起動なし</title></rect>')
@@ -233,21 +249,33 @@ def diff1_timeline(b: dict, t: dict) -> Markup:
     return Markup("".join(o))
 
 
-def action_grid(b: dict, t: dict, *, w: int = 1010, pad_l: int = 52, pad_r: int = 40, cell_h: int = 20, show_x: bool = True) -> Markup:
-    """行動のマス目（銘柄 × 営業日）。⚠ 状態の色は使わない（買い・売りは良い悪いではない）。系列の色の濃淡と文字で分ける。"""
+def action_grid(b: dict, t: dict, *, w: int = 1010, pad_l: int = 52, pad_r: int = 40, cell_h: int = 20, show_x: bool = True,
+                min_cell_w: float = 0, row_labels: bool = True, no_shrink: bool = False) -> Markup:
+    """行動のマス目（銘柄 × 営業日）。⚠ 状態の色は使わない（買い・売りは良い悪いではない）。系列の色の濃淡と文字で分ける。
+
+    ⚠ `min_cell_w` を割り込むときは**図を縮めずに横へ伸ばす**（`width` を持った `.chart-wide` になるので、呼ぶ側が `.scroll-x` で包む）。
+    """
     bd, n = b["bd"], len(b["bd"])
     rows = t["symbols"]
     if n == 0 or not rows:
         return Markup("")
     cw = (w - pad_l - pad_r) / n
+    # ⚠ `no_shrink` ＝ 大きさを属性で持つ（枠に合わせて縮まない）。これが無いと CSS の width:100% で縮み、
+    #    左に固定した銘柄名（.gridlabels）と行の高さがずれる（2026-09-20 に踏んだ）
+    wide = no_shrink or (min_cell_w > 0 and cw < min_cell_w)
+    if min_cell_w > 0 and cw < min_cell_w:
+        cw = float(min_cell_w)
+        w = int(pad_l + pad_r + cw * n)
     hgt = cell_h * len(rows) + (16 if show_x else 2)
-    o = [f'<svg class="chart" viewBox="0 0 {w} {hgt}" role="img" aria-label="{h(t["name"])} の行動（銘柄 × 日）">']
+    size = f'width="{w}" height="{hgt}" ' if wide else ""
+    o = [f'<svg class="chart{" chart-wide" if wide else ""}" {size}viewBox="0 0 {w} {hgt}" role="img" aria-label="{h(t["name"])} の行動（銘柄 × 日）">']
     cls_of = {"none": "c-none", "hold": f'c-hold {t["cls"]}', "buy": f'c-buy {t["cls"]}', "sell": f'c-sell {t["cls"]}',
               "skip": "c-skip", "nostart": "c-nostart"}
     text_of = {"buy": ("c-t", "買"), "sell": ("c-t", "売"), "skip": ("c-t-m", "見"), "nostart": ("c-t-ng", "✕")}
     for r, s in enumerate(rows):
         yy = r * cell_h
-        o.append(f'<text class="tick" x="{pad_l - 6}" y="{yy + cell_h / 2 + 3:.1f}" text-anchor="end">{h(s)}</text>')
+        if row_labels:
+            o.append(f'<text class="tick" x="{pad_l - 6}" y="{yy + cell_h / 2 + 3:.1f}" text-anchor="end">{h(s)}</text>')
         for i, c in enumerate(t["grid"].get(s) or []):
             xx = pad_l + i * cw
             o.append(f'<rect class="{cls_of[c["a"]]}" x="{xx + 1:.1f}" y="{yy + 1}" width="{cw - 2:.1f}" height="{cell_h - 2}" rx="2"><title>{h(c["tip"])}</title></rect>')
@@ -255,8 +283,30 @@ def action_grid(b: dict, t: dict, *, w: int = 1010, pad_l: int = 52, pad_r: int 
                 tc, tx = text_of[c["a"]]
                 o.append(f'<text class="{tc}" x="{xx + cw / 2:.1f}" y="{yy + cell_h / 2 + 3.5:.1f}" text-anchor="middle">{tx}</text>')
     if show_x:
-        for i, d in enumerate(bd):
-            if i % 5 == 0 or i == n - 1:
-                o.append(f'<text class="tick" x="{pad_l + i * cw + cw / 2:.1f}" y="{hgt - 3}" text-anchor="middle">{d[5:]}</text>')
+        for i in x_ticks(n, cw):
+            o.append(f'<text class="tick" x="{pad_l + i * cw + cw / 2:.1f}" y="{hgt - 3}" text-anchor="middle">{bd[i][5:]}</text>')
     o.append("</svg>")
     return Markup("".join(o))
+
+
+def action_block(b: dict, t: dict, *, w: int = 1240, cell_h: int = 24, min_cell_w: float = MIN_CELL_W) -> Markup:
+    """行動のマス目（＋ 1 日が細くなりすぎるときは横スクロール。⚠ **銘柄の名前は左に固定**する ＝ 別の SVG に出す）。
+
+    ⚠ 期間が長いほど横に伸びる（1 日 `min_cell_w` px を保つ）。既定の見え位置は右端（最新の日）で、
+    そこへ寄せるのは `app.js`（⚠ インラインの script も style も使わない ＝ CSP の内）。
+    """
+    n, rows = len(b["bd"]), t["symbols"]
+    pad_l, pad_r = 52, 40
+    if n == 0 or not rows:
+        return Markup("")
+    if (w - pad_l - pad_r) / n >= min_cell_w:
+        return action_grid(b, t, w=w, cell_h=cell_h)          # 収まるなら今までどおり 1 枚
+    lh = cell_h * len(rows) + 16
+    lab = [f'<svg class="chart gridlabels" width="{pad_l}" height="{lh}" viewBox="0 0 {pad_l} {lh}" role="presentation">']
+    for r, s in enumerate(rows):
+        lab.append(f'<text class="tick" x="{pad_l - 6}" y="{r * cell_h + cell_h / 2 + 3:.1f}" text-anchor="end">{h(s)}</text>')
+    lab.append("</svg>")
+    # マス目は 1 日 `min_cell_w` px で横へ伸ばす（⚠ 右端は日付が切れないぶんだけ空ける）
+    grid = action_grid(b, t, w=int(GRID_PAD_R + min_cell_w * n), pad_l=0, pad_r=GRID_PAD_R, cell_h=cell_h,
+                       min_cell_w=min_cell_w, row_labels=False, no_shrink=True)
+    return Markup(f'<div class="gridwrap">{"".join(lab)}<div class="scroll-x gridscroll">{grid}</div></div>')

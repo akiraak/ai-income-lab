@@ -44,7 +44,7 @@
   </div>
 </div>
 
-<div class="sec"><h2>トレーダー{{ simmark(machine) }}{{ info("トレーダー") }}</h2><span class="muted small">{{ b.configured|length }} 人{% if b.test_traders %} ＋ 試験用 {{ b.test_traders|length }} 人{% endif %} · 1 人 1 段。損益と行動を同じ時間の軸で揃える · 並びは設定の順で固定（損益の順にしない）· 名前を押すと詳細</span></div>
+<div class="sec"><h2>トレーダー{{ simmark(machine) }}{{ info("トレーダー") }}</h2><span class="muted small">{{ b.configured|length }} 人{% if b.test_traders %} ＋ 試験用 {{ b.test_traders|length }} 人{% endif %} · 1 人 1 段。損益と行動を同じ時間の軸で揃える · 並びは設定の順で固定（損益の順にしない）· <b>{{ b.period.label }}</b>（全期間は名前を押した先）</span></div>
 {% if not b.configured %}<p class="small warn">⚠ 実際に動かすトレーダーの属性はまだ設定していない（2026-09-17 の利用者決定）。下は試験用（<code>test = true</code>。記録に印が付き、判定に混ぜない）。</p>{% endif %}
 <div class="lanes">
 {% for t in b.traders %}

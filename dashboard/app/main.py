@@ -220,7 +220,9 @@ def create_app(settings: Settings | None = None, start_monitors: bool = True) ->
         return v if isinstance(v, (int, float)) and not isinstance(v, bool) else None
 
     templates.env.globals.update(charts=charts, pct=lambda v: charts.fmt_pct(_num_or_none(v)),
-                                 usd=lambda v: charts.fmt_usd(_num_or_none(v)))
+                                 usd=lambda v: charts.fmt_usd(_num_or_none(v)),
+                                 # 注文の履歴を月ごとにまとめる（§13-7）。⚠ まとめるのは表示の小計だけ・損益は数え直さない
+                                 history=lv.history)
     # i マークのヘルプ（§15-10）。文面の正本は dashboard/glossary.toml（用語タブと同じ 1 本）。templates は info("語") と名前で指すだけ
     from .helptext import HelpBook
 
@@ -256,11 +258,13 @@ def create_app(settings: Settings | None = None, start_monitors: bool = True) ->
         machine = machine or settings.machine()
         return NO_TREE if machine["mismatch"] else machine["live_dir"]
 
-    def board_now() -> dict:
+    def board_now(days: int | None = lv.DAYS) -> dict:
+        # ⚠ 面ごとに期間が違う（dashboard.md §13-7）: 概要・全体の詳細 ＝ 直近 20 営業日（人を横に比べる）／
+        #    トレーダーの詳細 ＝ days=None で全期間（1 人を縦に追う）。⚠ 見出しに `b.period.label` を必ず書く
         from datetime import date as _date
         machine = settings.machine()
         today = (machine["sim"] or {}).get("today")           # シミュレーションの「今日」＝ 仮の今日
-        return lv.board(live_dir_now(machine), today=_date.fromisoformat(today) if today else None)
+        return lv.board(live_dir_now(machine), days=days, today=_date.fromisoformat(today) if today else None)
 
     def api(payload: dict) -> JSONResponse:
         # `/api/*` は必ずモードを名乗る（シミュレーションの数字を本物と取り違えない）
@@ -340,10 +344,13 @@ def create_app(settings: Settings | None = None, start_monitors: bool = True) ->
 
     @app.get("/traders/{name}", response_class=HTMLResponse)
     async def trader_page(request: Request, name: str):
-        b = board_now()
+        b = board_now(days=None)                              # ⚠ この面だけ全期間（§13-7）
         t = next((x for x in b["traders"] if x["name"] == name), None)
         if t is None:
             raise HTTPException(404, "そのトレーダーは無い")
+        # ⚠ 3 秒ごとに取り直すのは数字と図だけ（注文の履歴は全期間で長いので外す。§13-7）。⚠ GET のみ・POST は増やさない
+        if request.query_params.get("partial") == "live":
+            return render(request, "trader_live.html", page=f"trader:{name}", b=b, t=t)
         return render(request, "trader.html", page=f"trader:{name}", b=b, t=t)
 
     @app.get("/api/state")

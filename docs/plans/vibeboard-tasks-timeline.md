@@ -97,7 +97,8 @@ flowchart LR
 - [x] Step 4: `TODO.md` の段取りに `期日:` を足し、3011 で見て直す（スクリーンショット）
 - [~] Step 5: README・雛形・本体（`~/src/vibeboard`）へ同じ差分・`CLAUDE.md`・片付け
   - ✅ README・雛形・`CLAUDE.md`・本体の作業ツリーへ同じ差分（`diff -rq` は空）
-  - ⚠ **残り（利用者に確かめてから）**: 本体の commit と push ／ 動いている vibeboard（3010）の入れ直し（`todo.ts` の読み手は起動時に読み込まれるので、入れ直すまで切り替えは出ない）
+  - ✅ 本体へ push 済み（2026-09-20。akiraak/vibeboard `ca8134c`）
+  - ⚠ **残り（利用者）**: 動いている vibeboard（3010）の入れ直し（`todo.ts` の読み手は起動時に読み込まれるので、入れ直すまで切り替えは出ない）
 
 ## 7. 結果（2026-09-20）
 

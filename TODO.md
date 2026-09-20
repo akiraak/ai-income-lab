@@ -278,8 +278,8 @@
   派生元: 「2026-09-22（火）までに実運用へ: 日ごとの段取り」（日ごと・時刻ごとの子タスクをツリーで並べたが、時間の並びとしては読みにくい）
   ⚠ vibeboard は vendor 済み（`./vibeboard/`）。本体を直すなら akiraak/vibeboard へ反映して vendor と一致させる（CLAUDE.md の「vibeboard のこのプロジェクト固有の運用」。検索・タスク追加と同じ進め方）。このプロジェクト専用で足りるなら customTabs（`dashboard/vibetab.py`）で作る手もある
   ✅ 2026-09-20: 作った（[DONE.md](DONE.md)）。利用者の裁定 ＝ vibeboard 本体の Tasks タブ ／ 予定だけ ／ 新しい欄 `期日:`。vendor と `~/src/vibeboard` の作業ツリーは一致・`npm test` 104 本
-  - [ ] 本体（akiraak/vibeboard。`~/src/vibeboard` の作業ツリーに同じ差分あり）を commit ＋ push し、動いている vibeboard（3010）を入れ直す（⚠ **利用者に確かめてから**。入れ直すまで切り替えは出ない ＝ `todo.ts` の読み手は起動時に読み込まれる。⚠ push の前に `vibeboard update` を流すと vendor の差分が消える）
-  - [ ] 片付け: `CLAUDE.md` の「本体へは未反映」を直す・プランを archive へ・この親を `DONE.md` へ
+  ✅ 2026-09-20: 本体（akiraak/vibeboard）へ push 済み（`ca8134c`。vendor と本体は一致）
+  - [ ] 動いている vibeboard（3010）を入れ直す（⚠ **利用者**。`./run-vibeboard.sh`、または `node vibeboard/dist/cli.js update --restart`。入れ直すまで `ツリー ｜ タイムライン` の切り替えは出ない ＝ `todo.ts` の読み手は起動時に読み込まれる）→ 画面で見たら、プランを archive へ・この親を消す（`DONE.md` には 2026-09-20 に記録済み）
 
 - [ ] 既存の仕組みをCodex GPT6 Astraに分析と評価をさせる
   利用者の指示（2026-09-16）。着手時にプランを作る

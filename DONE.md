@@ -5,7 +5,7 @@
   - 画面（`app.js`・`style.css`）: 左ペインの `ツリー` ｜ `タイムライン`（期日が 1 本も無ければ出ない）・日の見出し → 時刻の順・済んだ行も薄く・「今日」「いま」の線・「過ぎた」の印（1 分おき）・期日なしの件数 ／ 右ペインのその日の一覧（`#tasks/@day/<日付>`）／ タスクの詳細に期日のチップ
   - `TODO.md` の 9/20〜9/22 の段取りの行に `期日:` を足した（文面は変えていない）＝ 9/21 に 7 本・9/22 に 5 本【実測】。規約は `CLAUDE.md` のタスク管理ルール（vibeboard の雛形・README にも）
   - 確認【実測】: `npm test` 104 本・別のポート（3011 ／ 3017）に起こしてヘッドレスのブラウザで確かめた（時計を固定して「いま」「過ぎた」・`期日:` の無い `sample/` では切り替えが出ない・画面のエラー 0 件）。⚠ 動いている 3010・3015 には触れていない
-  - ⚠ 残り（`TODO.md`）: 本体（akiraak/vibeboard）への push と 3010 の入れ直し（利用者に確かめてから）
+  - ✅ 本体（akiraak/vibeboard）へ push 済み（`ca8134c`）。⚠ 残り（`TODO.md`）: 動いている 3010 の入れ直し（利用者）
 - 2026-09-20 `sim_T1`〜`sim_T3`（`kind = "experiment"` ＝ 本番と同じ形）をシミュレーションに流した [plan](docs/plans/archive/live-trading-sim-experiment-traders.md)
   - 利用者の指示（2026-09-20）:「1 を裏で動かしつつ、7 をやる」（火曜までに終えられるものの 1 番目）。裏のエージェントが titan の作業用の置き場（`~/.cache/ai-income-lab-sim`）で回した。本物の `MODE`・`run.lock`・`out/`・`state/` には触れていない・tastytrade にもつないでいない
   - `experiments/live-trading/simpredict.py`: `make` ＝ 出どころの日付で `cli.predict --asof` を研究用の `data/`（読むだけ）で作り置き（`sim-predict/`。git 管理外・8 並列・出来ている日は飛ばす）／ `install` ＝ 行の日付を仮の日付に書き換えて `sim/<名前>/out/<仮の日付>/predict.jsonl` に置く。⚠ 作り置きが 1 本でも欠けていれば運転手は rc=2 で起動を拒否。`simrun.py` は `install` を呼ぶ 1 か所だけ（`experiment` のモデルが無い `sim1`・`sim2` は変わらない）

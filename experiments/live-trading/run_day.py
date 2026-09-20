@@ -113,6 +113,25 @@ class DayRecorder:
         self.date, self.env, self.run_id, self.mock, self.sim = date, env, run_id, mock, sim
         self.mask = record.Masker()
 
+    def read(self, kind: str) -> list[dict]:
+        """その日の記録を読み直す（⚠ **同じ日に何度起動しても合計で数えるため**。壊れた行と欠けたファイルは飛ばす）。"""
+        rows: list[dict] = []
+        try:
+            with open(os.path.join(self.dir, f"{kind}.jsonl"), encoding="utf-8") as f:
+                for line in f:
+                    line = line.strip()
+                    if not line:
+                        continue
+                    try:
+                        row = json.loads(line)
+                    except ValueError:
+                        continue
+                    if isinstance(row, dict):
+                        rows.append(row)
+        except OSError:
+            pass
+        return rows
+
     def write(self, kind: str, row: dict) -> None:
         row = {"date": self.date, "env": self.env, "run_id": self.run_id, **row}
         if self.sim:
@@ -357,9 +376,13 @@ def main() -> int:
             rec.write("events", {"kind": "quote_failed", "symbol": sym, "status": exc.status, "code": exc.code})
     rec.write("quotes", {"quotes": quotes_raw})
 
+    # ⚠ 1 日の買いの上限は **全トレーダー・全起動の合計**（§0-2）。その日の記録から数え直す（⚠ 記録が正本・DB は持たない）
+    day_cap = planning.DayCap(args.max_day_usd, planning.spent_today(rec.read("orders")))
+    if day_cap.spent:
+        print(f"今日すでに買った額: ${day_cap.spent:,.2f} / 上限 ${args.max_day_usd:,.2f}（その日の記録から数え直した）")
     intents = []
     for t in traders:
-        its, ev = planning.size_intents(t, states[t.name], raw_by_trader[t.name], quotes, date, args.max_day_usd)
+        its, ev = planning.size_intents(t, states[t.name], raw_by_trader[t.name], quotes, date, day_cap)
         intents.extend(its)
         for e in ev:
             rec.write("events", e)
@@ -428,7 +451,8 @@ def main() -> int:
             print(f"⚠ 含み損の警告: {t.name} が予算の {dd}%（線 {DRAWDOWN_WARN_PCT}%）。執行器は止めない ＝ 止めるなら停止ボタン（HALT）", file=sys.stderr)
 
     bad = [r for r in results if r.final_status in ("error", "guarded", "halted", "not_submitted")]
-    rec.write("events", {"kind": "end", "now_et": now_et().isoformat(timespec="seconds"), "orders": len(results), "bad": len(bad), "fills": len(fills_by_trader), **({"ledger_errors": ledger_errors} if ledger_errors else {}),
+    rec.write("events", {"kind": "end", "now_et": now_et().isoformat(timespec="seconds"), "orders": len(results), "bad": len(bad), "fills": len(fills_by_trader),
+                         "day_spent_usd": round(day_cap.spent, 2), "day_cap_usd": args.max_day_usd, **({"ledger_errors": ledger_errors} if ledger_errors else {}),
                          **({"blocked_symbols": sorted(blocked)} if blocked else {})})
     print(f"完了。注文 {len(results)} 件・約定 {len(fills_by_trader)} 件・問題 {len(bad) + ledger_errors} 件。記録: {rec.dir}")
     return 1 if bad or ledger_errors or blocked else 0

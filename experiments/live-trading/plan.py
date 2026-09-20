@@ -16,6 +16,45 @@ from state import TraderState
 from trader import Trader
 
 
+@dataclass
+class DayCap:
+    """1 日の買いの合計の上限（§0-2）。⚠ **全トレーダー・全起動を通して 1 つ**を使い回す。
+
+    ⚠ 2026-09-20 まではローカル変数で数えていたので、**トレーダーごと・1 起動ごとに 0 から**になっていた
+    （3 人なら実質 3 倍）。いまは `run_day` が**その日の記録から `spent` を数え直して**作る（DB は持たない）。
+    """
+    limit: float | None = None
+    spent: float = 0.0
+
+    def allows(self, usd: float) -> bool:
+        return self.limit is None or self.spent + usd <= self.limit + 1e-9
+
+    def take(self, usd: float) -> None:
+        self.spent = round(self.spent + usd, 6)
+
+
+# 口座へ出したが金額が残らない終わり方（取消・拒否・エラー）。⚠ これらは「使った」に数えない
+SPENT_EXCLUDE = {"Cancelled", "Rejected", "Expired", "error", "halted", "guarded", "not_submitted", "dry-run", "planned"}
+
+
+def spent_today(orders: list[dict]) -> float:
+    """その日すでに買いに使った額（⚠ **記録が正本**。`out/<日付>/orders.jsonl` の行をそのまま渡す）。
+
+    数えるのは**口座へ出した買い**（`mode == "submit"`）だけ。約定したものは**約定額**、まだ分からないものは
+    **注文額**（⚠ 保守側 ＝ 多めに数えて買いを絞る）。取消・拒否・エラー・dry-run・売りは数えない。
+    """
+    total = 0.0
+    for o in orders:
+        if not isinstance(o, dict) or o.get("side") != "buy" or o.get("mode") != "submit":
+            continue
+        filled = sum(float(f.get("shares", 0) or 0) * float(f.get("price", 0) or 0) for f in o.get("fills") or [])
+        if filled:
+            total += filled
+        elif str(o.get("final_status")) not in SPENT_EXCLUDE:
+            total += float(o.get("value_usd") or 0)
+    return round(total, 6)
+
+
 @dataclass(frozen=True)
 class Intent:
     """トレーダー 1 人の 1 銘柄の売買の意図（口座に出す前）。"""
@@ -65,7 +104,7 @@ def decide(trader: Trader, state: TraderState, signals: list[Signal]) -> tuple[l
 
 
 def size_intents(trader: Trader, state: TraderState, raw: list[dict], quotes: dict[str, float], today: str,
-                 max_day_usd: float | None = None) -> tuple[list[Intent], list[dict]]:
+                 max_day_usd: float | DayCap | None = None) -> tuple[list[Intent], list[dict]]:
     """株数と金額を決め、⚠ **予算の上限で買いを拒む**（プラン §2-3）。
 
     予算の空き ＝ 予算 − 建玉の取得原価 − 受渡し待ちの売却代金（現金口座の T+1。保守側）。
@@ -75,7 +114,8 @@ def size_intents(trader: Trader, state: TraderState, raw: list[dict], quotes: di
     events: list[dict] = []
     per_symbol = trader.per_symbol_usd
     available = trader.budget_usd - state.cost_in_use() - state.unsettled(today)
-    day_total = 0.0
+    # ⚠ 1 日の上限は **全トレーダー・全起動で 1 つ**（§0-2）。数値で渡されたときは、その場限りの上限として包む
+    cap = max_day_usd if isinstance(max_day_usd, DayCap) else DayCap(max_day_usd)
     for r in raw:
         symbol, side = r["symbol"], r["side"]
         px = quotes.get(symbol)
@@ -104,11 +144,12 @@ def size_intents(trader: Trader, state: TraderState, raw: list[dict], quotes: di
         if usd > available + 1e-9:
             events.append({"kind": "over_budget", "trader": trader.name, "symbol": symbol, "usd": round(usd, 2), "available": round(available, 2)})
             continue
-        if max_day_usd is not None and day_total + usd > max_day_usd + 1e-9:
-            events.append({"kind": "over_day_cap", "trader": trader.name, "symbol": symbol, "usd": round(usd, 2), "cap": max_day_usd})
+        if not cap.allows(usd):
+            events.append({"kind": "over_day_cap", "trader": trader.name, "symbol": symbol, "usd": round(usd, 2),
+                           "cap": cap.limit, "spent_today_usd": round(cap.spent, 2)})
             continue
         available -= usd
-        day_total += usd
+        cap.take(usd)
         intents.append(Intent(trader.name, symbol, "buy", shares, usd, trader.sizing, r["buy_pct"], r["exit_pct"]))
     return intents, events
 
@@ -131,13 +172,14 @@ def to_orders(intents: list[Intent], quotes: dict[str, float]) -> list[NetOrder]
 
 
 def build_plan(traders: list[Trader], states: dict[str, TraderState], signals: list[Signal],
-               quotes: dict[str, float], today: str, max_day_usd: float | None = None) -> Plan:
+               quotes: dict[str, float], today: str, max_day_usd: float | DayCap | None = None) -> Plan:
     intents: list[Intent] = []
     events: list[dict] = []
+    cap = max_day_usd if isinstance(max_day_usd, DayCap) else DayCap(max_day_usd)   # ⚠ 1 日の上限は全員で 1 つ
     for t in traders:
         raw, ev = decide(t, states[t.name], signals)
         events.extend(ev)
-        its, ev2 = size_intents(t, states[t.name], raw, quotes, today, max_day_usd)
+        its, ev2 = size_intents(t, states[t.name], raw, quotes, today, cap)
         intents.extend(its)
         events.extend(ev2)
     return Plan(intents, to_orders(intents, quotes), events)

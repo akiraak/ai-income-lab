@@ -1,4 +1,9 @@
 # DONE
+- 2026-09-20 実売買: **1 日の買いの上限を「1 日の合計」で数えるようにした**（[plan](docs/plans/archive/day-cap-across-traders.md)・[live-trading.md §0-2](docs/specs/experiments/live-trading.md)）
+  利用者の指示: **「その方法で直して」**（＝ 起動時にその日の `orders.jsonl` を読んで合計する。⚠ **DB は足さない**）
+  ⚠ **直す前は効いていなかった**: 上限をローカル変数で数えていたので**トレーダーごと・1 起動ごとに 0 から**始まっていた【実測 2026-09-20】＝ 3 人なら実質 3 倍
+  実装: `plan.DayCap`（全員で 1 つ分け合う）＋ `plan.spent_today()`（約定は約定額・未確定は注文額 ＝ 保守側。取消 ／ 拒否 ／ エラー ／ dry-run ／ 売りは数えない）＋ `DayRecorder.read()`・`build_plan` も共有・`end` に `day_spent_usd` ／ `day_cap_usd`
+  テスト 6 件（`tests/test_day_cap.py`。⚠ **通しで 2 人 × 2 回起こして合計で効くこと**まで）。⚠ **黄金の集計値は変わらなかった** ＝ 上限に当たらない日常の動きは 1 ビットも変えていない【実測】
 - 2026-09-20 テスト: **自動テストを 1 コマンドにまとめ、通し運転の回帰と抜けている筋書きを足した**（[plan](docs/plans/archive/test-automation-sim.md)・[live-trading.md §0-7 (k)](docs/specs/experiments/live-trading.md)）
   利用者の指示: **「自動でテストを回せるものはある？」→ 提案の 1・2・3 とも「やります」**
   ⚠ **きっかけ**: 通し運転は「落ちないこと」しか見ておらず、⚠ **執行器が出しうる出来事 25 種類のうち 13 種類が一度も出ていなかった**【実測】

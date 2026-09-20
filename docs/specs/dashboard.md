@@ -538,7 +538,7 @@ flowchart TD
 ⚠ **きっかけ**: `sim2`（64 営業日）で `sim_a` は全期間に 8 件注文したのに、画面は**直近 20 営業日しか読まないので「注文 0」**に見えた【実測 2026-09-20】。
 損益の線だけが落ちていき、それを作った注文が表に無い ＝ 画面だけでは理由を辿れなかった。
 
-> この図の主張: 期間は面の役割で決まる。横に比べる面は全員同じ窓、縦に追う面は全期間。
+> この図の主張: 期間は面の役割で決まる。横に比べる面は全員同じ発注できる時間帯、縦に追う面は全期間。
 
 ```mermaid
 flowchart LR
@@ -774,7 +774,7 @@ flowchart LR
   N["NYSE の公表（2026〜2028）"] -->|"手で写す ＋ 規則と突き合わせ"| T["nyse_calendar.py"]
   T --> M["market_calendar.py"]
   M --> D["管理画面: 起動しなかった日・判定の営業日と市場時間"]
-  M --> E["執行器: 執行の窓（休場・半日は拒否）"]
+  M --> E["執行器: 発注できる時間帯（休場・半日は拒否）"]
   M -.->|"D16 で使う"| C["timer ／ cron の起動日"]
 ```
 
@@ -882,7 +882,7 @@ flowchart LR
 - 2026-09-18: **画面を作り直した**（§1・§13・§15-4〜15-8）。入口を概要（`/`。監視の帯・大きな数字・損益の推移・執行の差・トレーダーの段）にし、`/overall`（全体の詳細: 日次・注文の履歴・口座と接続）と `/traders/<name>`（トレーダーの詳細）を足した。`/live` は `/` へ転送。ナビは左ペイン。見た目はデザイン 3「数字とグラフが主役」。図は `app/charts.py`（サーバで組む SVG）、データは `live.board()`。⚠ **紙上の損益・差 3・休場日の暦は仮データ**（印を付け、`/api/live` に出さない）。デモは執行器のモックの記録を読む。監視の 1 件取消のボタンを外した。pytest 144 件（新しい画面・転送・仮データの印・起動しなかった日・公開面・デモの記録）。プランは [dashboard-design-implement.md](../plans/dashboard-design-implement.md)
 - 2026-09-18: **g3plus を `809104f` に更新した**（前回は `eec106c`・2026-09-10。titan から `ssh -i ~/.ssh/id_rsa_nopass g3plus` で pull → `docker compose build` → `up -d`。前のイメージは `ail-dashboard-ail-dashboard:prev` に残した）。確認【実測】: healthy ／ コンテナ内で `/`・`/overall`・`/records`・`/judge`・`/api/live`・`/api/state` が 200、`/live` は `/` へ 302、`/ops` は 404（公開面）／ docker network 越しの JWT なしは 403 ／ 監視は cert に再接続（refresh 1 回成功・エラー 0）。⚠ 実売買の部分は契約（§7）どおり空
 - 2026-09-18: **確認ダイアログとインラインの style を直した**（§15-9）。`onsubmit="return confirm(…)"` 5 か所が CSP（`script-src 'self'`）に止められ、停止・解除・発注・後片付けが確かめずに送られていた → `data-confirm` ＋ `app.js`。インラインの `style=` 9 か所は `app.css` のクラスへ。⚠ CSP は緩めていない。ブラウザで 3 つの form（概要の停止・操作の停止・後片付け）が「出る ／ 断ると送られない ／ 受けると送られる」・CSP 違反 0 件【実測】。**pytest の 487 秒も直した**（146 件で 7.7 秒。§13-5。監視を要らないテスト 16 本が監視を起こしていた。`conftest.py` に番人）。⚠ **g3plus は未デプロイ**（停止ボタンは公開面にもある）。プランは [dashboard-pytest-speed-and-confirm.md](../plans/archive/dashboard-pytest-speed-and-confirm.md)
-- 2026-09-18: **休場日の暦を入れた**（§15-8「営業日の暦」）。起動しなかった日の「平日＝営業日」の仮を外し、NYSE の公表（2026〜2028 年）を `experiments/tastytrade-api-sample/nyse_calendar.py` に持った。読み手 `market_calendar.py` は管理画面（起動しなかった日・判定の営業日と市場時間）と執行器（執行の窓）が共有する。⚠ 暦の外の年だけ「仮」の印に戻る。pytest 151 件。プランは [nyse-calendar.md](../plans/archive/nyse-calendar.md)
+- 2026-09-18: **休場日の暦を入れた**（§15-8「営業日の暦」）。起動しなかった日の「平日＝営業日」の仮を外し、NYSE の公表（2026〜2028 年）を `experiments/tastytrade-api-sample/nyse_calendar.py` に持った。読み手 `market_calendar.py` は管理画面（起動しなかった日・判定の営業日と市場時間）と執行器（発注できる時間帯）が共有する。⚠ 暦の外の年だけ「仮」の印に戻る。pytest 151 件。プランは [nyse-calendar.md](../plans/archive/nyse-calendar.md)
 - 2026-09-18: **銘柄の集合の一覧表**（§11-1）。vibeboard のデータタブの概要の先頭に、集合を横に比べる表と重複を除いた合計を出した（利用者の指示 2026-09-17）。4 つの正本（universe・dataset・experiment の config と調整後の manifest）を写して組む ＝ 集合や足を増やすと表が自動で変わる。実データで和集合 136・日足あり 136・1 分足あり 63【実測】（手で数えた 2026-09-17 の値と一致）。pytest 154 件。プランは [universe-table.md](../plans/archive/universe-table.md)
 - 2026-09-18: **外すと決めた 11 行 ＋ 1 件取消を消した**（§1・§3）。検証（`/experiments`）・データ（`/data`）・手動の注文（`/ops/dry-run`・`submit`・`cancel`・`cleanup`）・開発（`/dev/*`）の経路・テンプレート 6 枚・画面のテストを削除。⚠ **管理画面に発注の経路は無くなった**（`ops.py` のクライアントは取消の鍵だけ。設定も `TT_ALLOW_PROD_ORDERS` を読まない）。残した部品: `app/experiments.py`・`app/inventory.py`（vibeboard のタブ）・`devtools.MockServer`・`run_step`（デモ）。停止 ／ 解除 ／ 履歴 ／ 記録と判定はそのまま。pytest 145 件・ブラウザで停止 2 か所の確認ダイアログと CSP 違反 0 件・外した画面が 404【実測】。⚠ g3plus は未デプロイ。プランは [dashboard-remove-dropped.md](../plans/archive/dashboard-remove-dropped.md)
 - 2026-09-18: **i マークのヘルプ**（§15-10）。見出しの横の i を押すと 1〜2 行の説明と「詳しく」の文書名が出る。⚠ **文面の正本は `dashboard/glossary.toml`**（用語タブと同じ 1 本。節「実売買」「管理画面（監視と記録）」26 語を足した）で、templates は `info("語")` と名前で指すだけ。`<details>` の素の動き ＋ `app.js` の足し算（CSP はそのまま・違反 0 件【実測】）。⚠ **デプロイ契約（§7）の COPY に `dashboard/glossary.toml` を足した**（g3plus-ops の追従が要る）。pytest 157 件（`test_help.py` 12 件を追加）・ブラウザの検査 `tests/browser/help.mjs` 25 項目

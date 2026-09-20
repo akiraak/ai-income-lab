@@ -3,7 +3,7 @@
 正本は執行器（`experiments/live-trading/`）が持つ:
   - `MODE`                          … `{"mode": "real" ／ "sim", "name": …, "since": …}`。⚠ **無ければ real**
   - `sim/<名前>/sim/control.json`   … 仮の時計（仮のいま ＝ sim_epoch ＋ 実時間の経過 × speed。`simclock.py` と同じ式）
-  - `sim/<名前>/sim/status.json`    … 運転手の状態（何日目・窓の中 ／ 外）
+  - `sim/<名前>/sim/status.json`    … 運転手の状態（何日目・発注できる時間帯の中 ／ 外）
 
 ⚠ **1 つの画面に本物とシミュレーションを混ぜない**: 読む記録はモードから決まる（real ＝ 本物の記録 ／ sim ＝ `sim/<名前>/`）。
    `AIL_LIVE_DIR` を手で指定していて、木の種類がモードと食い違うときは、数字を出さずに「食い違っている」とだけ出す。

@@ -109,7 +109,7 @@ def test_unfilled_market_order_is_cancelled_after_the_full_wait(ran):
     ev = rows(ran[0], DAYS[4], "events")
     start, end = datetime.fromisoformat(ev[0]["now_et"]), datetime.fromisoformat(ev[-1]["now_et"])
     assert (end - start).total_seconds() >= 600                               # ⚠ 取消までの 600 秒は縮めない（仮の時計の上で待つ）
-    assert (start.hour, start.minute) == (15, 45) and (end.hour, end.minute) < (16, 5)   # 15:45 に起きて、窓（〜16:05）の中で片付く
+    assert (start.hour, start.minute) == (15, 45) and (end.hour, end.minute) < (16, 5)   # 15:45 に起きて、発注できる時間帯（〜16:05）の中で片付く
 
 
 def test_auth_5xx_waits_once_and_recovers(ran):

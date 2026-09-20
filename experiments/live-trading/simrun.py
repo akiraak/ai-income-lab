@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""シミュレーションの運転手: 仮の時計を進め、営業日の窓に入ったら、その日の気配をモックに流して執行器（run_day.py）を起こす。
+"""シミュレーションの運転手: 仮の時計を進め、営業日の発注できる時間帯に入ったら、その日の気配をモックに流して執行器（run_day.py）を起こす。
 
     python simctl.py mode sim sim1          # 先に機械をシミュレーションモードへ（何も動いていないとき・人が行う）
     python simrun.py sim1                   # 続きから（無ければ最初から）。速さ・停止・再開は別の端末から simctl.py で
@@ -126,7 +126,7 @@ class Driver:
     # ---------- 時間
 
     def wait_until(self, target: datetime) -> bool:
-        """仮の時計が target になるまで待つ。stop が来たら False。止まっている間は進まない。窓の外は既定で飛ぶ。"""
+        """仮の時計が target になるまで待つ。stop が来たら False。止まっている間は進まない。発注できる時間帯の外は既定で飛ぶ。"""
         beat = 0.0
         while True:
             ctl = simclock.read_control(self.control)
@@ -134,7 +134,7 @@ class Driver:
                 return False
             if time.time() - beat >= 1.0:
                 beat = time.time()
-                self.write_status(state="停止中" if ctl["paused"] else "窓の外")
+                self.write_status(state="停止中" if ctl["paused"] else "発注できる時間帯の外")
             remain = target.timestamp() - simclock.sim_now(ctl, time.time())
             if ctl["paused"]:
                 self.real_sleep(0.1)
@@ -145,7 +145,7 @@ class Driver:
             else:
                 self.real_sleep(min(remain / ctl["speed"], 0.2))
 
-    # ---------- 1 回の窓
+    # ---------- 1 回の発注できる時間帯
 
     # ---------- 筋書き（故障の注入。live-trading.md §0-7 (e)）
 
@@ -179,7 +179,7 @@ class Driver:
             while proc.poll() is None:
                 if time.time() - beat >= 1.0:
                     beat = time.time()
-                    self.write_status(state="停止中" if simclock.read_control(self.control)["paused"] else "窓の中")
+                    self.write_status(state="停止中" if simclock.read_control(self.control)["paused"] else "発注できる時間帯の中")
                 self.real_sleep(0.05)
         return proc.returncode
 
@@ -204,7 +204,7 @@ class Driver:
                 for target in window_times(date.fromisoformat(day), self.cfg.windows):
                     key = f"{target:%Y-%m-%d %H:%M}"
                     now = simclock.sim_now(simclock.read_control(self.control), time.time())
-                    if key in rcs or target.timestamp() < now - 60:   # 続きから: もう流した窓・過ぎた窓は流さない
+                    if key in rcs or target.timestamp() < now - 60:   # 続きから: もう流した発注できる時間帯・過ぎた発注できる時間帯は流さない
                         continue
                     if max_days is not None and done >= max_days:
                         self.write_status(state="終了", note=f"--days {max_days} に達した（続きは simrun.py {self.name}）")
@@ -213,7 +213,7 @@ class Driver:
                     if not self.wait_until(target):
                         self.write_status(state="終了", note="stop")
                         return 0
-                    self.write_status(state="窓の中")
+                    self.write_status(state="発注できる時間帯の中")
                     todays = self.events_on(i + 1)
                     faults = {e["kind"]: int(e.get("times", 1)) for e in todays if e["kind"] in MOCK_FAULTS}
                     if faults:
@@ -240,12 +240,12 @@ class Driver:
                             if c["step"] == 0:
                                 c["paused"] = True
                     simclock.update_control(self.control, after_day)
-                    self.write_status(state="窓の外", last_rc=rc, rcs=rcs)
+                    self.write_status(state="発注できる時間帯の外", last_rc=rc, rcs=rcs)
             self.write_status(state="終了", note="期間の最終日まで流した")
             return 0
         finally:
             self.stop_mock()
-            # ⚠ 運転手がいない間に仮の時計だけが進むと、次に起こしたとき窓を通り過ぎている。終わるときは必ず止める
+            # ⚠ 運転手がいない間に仮の時計だけが進むと、次に起こしたとき発注できる時間帯を通り過ぎている。終わるときは必ず止める
             simclock.pause(self.control)
 
 
@@ -255,7 +255,7 @@ def main() -> int:
     ap.add_argument("--fresh", action="store_true", help="記録の木を消して最初から（⚠ 消すのは sim/<名前>/ だけ）")
     ap.add_argument("--speed", default=None, help="速さの初期値（1 ／ 10 ／ 60 ／ 300 ／ 1440 ／ max。既定は設定の値。続きからのときは今の速さ）")
     ap.add_argument("--paused", action="store_true", help="止めた状態で始める（simctl.py resume ／ step で動かす）")
-    ap.add_argument("--days", type=int, default=None, help="この回に流す窓の数（既定は最終日まで）")
+    ap.add_argument("--days", type=int, default=None, help="この回に流す発注できる時間帯の数（既定は最終日まで）")
     ap.add_argument("--port", type=int, default=None, help="モックサーバのポート（既定は空いているもの）")
     ap.add_argument("--traders-dir", default=os.path.join(HERE, "config", "traders"))
     args = ap.parse_args()

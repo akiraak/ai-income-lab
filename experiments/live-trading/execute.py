@@ -218,7 +218,7 @@ class Executor:
             final = self.client.get_order(self.account, order_id)
             status = field_(final, "status")
             if status not in FINAL:
-                # 窓の終わり: 未約定は取り消す
+                # 発注できる時間帯の終わり: 未約定は取り消す
                 try:
                     self.client.cancel_order(self.account, order_id)
                     res.cancelled = True

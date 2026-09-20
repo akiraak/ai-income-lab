@@ -96,7 +96,7 @@ def resume(path: str, **kw) -> dict:
 
 
 def jump_to(path: str, when: datetime, **kw) -> dict:
-    """窓の外を飛ばす（運転手）。⚠ 進めるだけ。仮の時計は戻らない。"""
+    """発注できる時間帯の外を飛ばす（運転手）。⚠ 進めるだけ。仮の時計は戻らない。"""
     return update_control(path, lambda c: c.update(sim_epoch=max(c["sim_epoch"], when.timestamp())), **kw)
 
 

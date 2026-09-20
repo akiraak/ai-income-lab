@@ -1,7 +1,7 @@
 """通し運転で確かめる 3 つ（プラン: docs/plans/test-automation-sim.md Phase 3）。⚠ 作り物の日足・モックだけ。
 
 1. **予算の上限**: 何日流しても、取得原価が予算を超えない（⚠ 1 日に何回売買しても同じ）
-2. **1 日に 2 つの窓**: 同じ日に 2 回起きて、⚠ **二重に買わない**（TODO の C9・D13 の前提）
+2. **1 日に 2 つの発注できる時間帯**: 同じ日に 2 回起きて、⚠ **二重に買わない**（TODO の C9・D13 の前提）
 3. **停止と解除**: 途中で `HALT` を置くとその日から発注が止まり、消すと翌日から再開する（⚠ 日をまたぐ振る舞い）
 
 ⚠ `halt` は筋書き（設定）に入れない（live-trading.md §0-7 (i) の決めごと「人が押す」）＝ **テスト自身が `HALT` を置く**。
@@ -130,14 +130,14 @@ def test_the_budget_bites_as_too_small_not_as_over_budget(capped):
     assert "over_budget" not in kinds, "over_budget が出た ＝ 予算の守り方が変わった（プランと仕様を直す）"
 
 
-# --- 2. 1 日に 2 つの窓 ---------------------------------------------------
+# --- 2. 1 日に 2 つの発注できる時間帯 ---------------------------------------------------
 
 @pytest.fixture(scope="module")
 def twice(tmp_path_factory):
     tmp = tmp_path_factory.mktemp("two")
     root, child, days = setup(tmp, name="simtwo", trader="sim_two", budget=300.0, symbols=["T"],
                               windows='"15:46:00", "15:55:00"')
-    drive("simtwo", child, days=6)          # 窓の数で数える ＝ 3 営業日
+    drive("simtwo", child, days=6)          # 発注できる時間帯の数で数える ＝ 3 営業日
     return root, days[:3]
 
 
@@ -170,7 +170,7 @@ def early(tmp_path_factory):
 
 
 def test_a_window_outside_the_executor_window_is_refused(early):
-    """⚠ **執行器の窓は 15:45〜16:05 ET に固定**（`run_day.WINDOW_START/END`）。
+    """⚠ **執行器の発注できる時間帯は 15:45〜16:05 ET に固定**（`run_day.WINDOW_START/END`）。
 
     運転手は何時にでも起こせるが、執行器が `out_of_window` で拒む ＝ ⚠ **1 日に何度も売買する形（TODO の C9・D13）に
     進むときは、まずここを広げる必要がある**。この検査は、広げたときに落ちて気づくための印である。

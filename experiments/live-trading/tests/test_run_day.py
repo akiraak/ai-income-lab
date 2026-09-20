@@ -1,4 +1,4 @@
-"""窓の判定と、鍵なしの本番が dry-run の前で止まること（subprocess。ネットワークは使わない）。"""
+"""発注できる時間帯の判定と、鍵なしの本番が dry-run の前で止まること（subprocess。ネットワークは使わない）。"""
 import os
 import subprocess
 import sys
@@ -21,14 +21,14 @@ def test_window():
 
 
 def test_window_follows_the_nyse_calendar():
-    """休場日と半日立会（13:00 ET 引け）の日は、時刻が窓の中でも拒否する（暦は管理画面と同じ `market_calendar`）。"""
+    """休場日と半日立会（13:00 ET 引け）の日は、時刻が発注できる時間帯の中でも拒否する（暦は管理画面と同じ `market_calendar`）。"""
     assert "休場日" in window_refusal(datetime(2026, 9, 7, 15, 50, tzinfo=ET))      # Labor Day（月曜）
     assert "休場日" in window_refusal(datetime(2026, 11, 26, 15, 50, tzinfo=ET))    # Thanksgiving
-    assert "半日立会" in window_refusal(datetime(2026, 11, 27, 15, 50, tzinfo=ET))  # 翌日は 13:00 引け ＝ 窓は引けの後
+    assert "半日立会" in window_refusal(datetime(2026, 11, 27, 15, 50, tzinfo=ET))  # 翌日は 13:00 引け ＝ 発注できる時間帯は引けの後
     assert "半日立会" in window_refusal(datetime(2026, 12, 24, 15, 50, tzinfo=ET))
     assert window_refusal(datetime(2026, 9, 8, 15, 50, tzinfo=ET)) is None          # 休場日の翌日は通る
     assert "土日" in window_refusal(datetime(2026, 9, 19, 15, 50, tzinfo=ET))
-    assert "窓" in window_refusal(datetime(2026, 9, 8, 15, 44, tzinfo=ET))
+    assert "発注できる時間帯" in window_refusal(datetime(2026, 9, 8, 15, 44, tzinfo=ET))
 
 
 def _run(args, env_extra):

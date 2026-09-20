@@ -170,7 +170,7 @@ def test_three_days_at_max_speed(env):
     import journal as jn
     assert jn.Journal(os.path.join(root, "state", "cert")).unfinished() == []
     assert (sorted(glob.glob(os.path.join(HERE, "out", "*", "*"))), sorted(glob.glob(os.path.join(HERE, "state", "*", "*")))) == real_before
-    # 続きから: 流した窓は流し直さない
+    # 続きから: 流した発注できる時間帯は流し直さない
     r = cli("simrun.py", ["sim1", "--speed", "max", "--days", "1"], child)
     assert r.returncode == 0 and "続きから" in r.stdout and "2026-10-06" in r.stdout and "2026-10-05（" not in r.stdout
 
@@ -194,7 +194,7 @@ def test_half_day_is_refused_and_recorded(env):
     cli("simctl.py", ["mode", "sim", "sim1"], child)
     root = modes.sim_root("sim1")
     simdata.write_tree(root, simdata.load_config("sim1"), os.path.join(HERE, "config", "traders"), data_dir=data_dir)
-    simclock.init_control(modes.control_file("sim1"), datetime(2026, 11, 25, 9, 30, tzinfo=ET), speed="max", paused=True)   # 途中の日から（過ぎた窓は流さない）
+    simclock.init_control(modes.control_file("sim1"), datetime(2026, 11, 25, 9, 30, tzinfo=ET), speed="max", paused=True)   # 途中の日から（過ぎた発注できる時間帯は流さない）
     r = cli("simrun.py", ["sim1", "--days", "3"], child)
     assert r.returncode == 0, r.stdout + r.stderr
     assert sorted(os.listdir(os.path.join(root, "out"))) == ["2026-11-25", "2026-11-27", "2026-11-30"]     # 11-26 は休場 ＝ 起こさない

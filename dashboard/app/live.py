@@ -198,7 +198,7 @@ def _read_day(live_dir: Path, date: str) -> dict:
                                                         # 口座の建玉と台帳の帳尻（live-trading.md §0-8）: 前の実行の約定を控えから戻した ／ 照会できない ／ 口座が台帳より少ない
                                                         "journal_recovered", "journal_unresolved", "position_short")]
     retries = sum(1 for o in orders for t in o.get("transitions") or [] if "retry" in str(t.get("status", "")))
-    # 差 4（無人運転）: 拒否・再送・HALT・窓の外。差 3 は Phase 3（紙上の対照）の後で埋まる
+    # 差 4（無人運転）: 拒否・再送・HALT・発注できる時間帯の外。差 3 は Phase 3（紙上の対照）の後で埋まる
     return {
         "date": date,
         "envs": envs,

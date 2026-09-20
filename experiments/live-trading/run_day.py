@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""1 営業日の窓を 1 回通す（プラン §2-5）: 確認 → 合図 → 計画 → dry-run → 発注 → 約定確認 → 取消 → 記録。
+"""1 営業日を 1 回通す（プラン §2-5）: 確認 → 合図 → 計画 → dry-run → 発注 → 約定確認 → 取消 → 記録。
 
     python run_day.py --traders test_a --mode plan                 # 合図と計画だけ（口座を読むが注文は組まない）
     python run_day.py --traders test_a --mode dry-run              # cert: dry-run まで
@@ -57,10 +57,10 @@ DRAWDOWN_WARN_PCT = 20.0            # 含み損（実現 ＋ 含みの損）が�
 
 
 def window_refusal(now_et: datetime) -> str | None:
-    """執行の窓の外なら理由を返す（中なら None）。営業日は NYSE の暦（`market_calendar`。管理画面と同じもの）で見る。
+    """発注できる時間帯の外なら理由を返す（中なら None）。営業日は NYSE の暦（`market_calendar`。管理画面と同じもの）で見る。
 
-    ⚠ **半日立会（13:00 ET 引け）の日も拒否する**: 窓 15:45〜16:05 は引けの後で、成行は通らない。
-       半日の日に窓を動かすかは決めごと（live-trading.md §0-2）で、まだ決めていない。
+    ⚠ **半日立会（13:00 ET 引け）の日も拒否する**: 発注できる時間帯 15:45〜16:05 は引けの後で、成行は通らない。
+       半日の日にこの時間帯を動かすかは決めごと（live-trading.md §0-2）で、まだ決めていない。
     """
     cal = market_calendar.nyse()
     day = now_et.date()
@@ -69,9 +69,9 @@ def window_refusal(now_et: datetime) -> str | None:
     if cal.is_holiday(day):
         return f"{day} は NYSE の休場日"
     if cal.is_early_close(day):
-        return f"{day} は半日立会（{cal.close_et(day):%H:%M} ET 引け）。執行の窓は引けの後になる"
+        return f"{day} は半日立会（{cal.close_et(day):%H:%M} ET 引け）。発注できる時間帯は引けの後になる"
     if not WINDOW_START <= (now_et.hour, now_et.minute) < WINDOW_END:
-        return "執行の窓（15:45〜16:05 ET）の外"
+        return "発注できる時間帯（15:45〜16:05 ET）の外"
     return None
 
 
@@ -151,7 +151,7 @@ def make_client(cfg: dict, env: str, allow_prod_dry_run: bool, allow_prod_orders
 
 
 def main() -> int:
-    ap = argparse.ArgumentParser(description="実売買の執行器: 1 営業日の窓を 1 回通す")
+    ap = argparse.ArgumentParser(description="実売買の執行器: 1 営業日を 1 回通す")
     ap.add_argument("--traders", required=True, help="カンマ区切り（config/traders/<名前>.toml）")
     ap.add_argument("--date", default=None, help="YYYY-MM-DD（既定は今日 ET）")
     ap.add_argument("--env", default=None, choices=["cert", "prod"], help="既定は .env の TT_ENV、無ければ cert")

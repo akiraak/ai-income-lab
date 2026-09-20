@@ -143,7 +143,7 @@ def test_drawdown_is_a_warning_only(tmp_path, monkeypatch, mock_server):
 def test_window_and_calendar_follow_the_sim_clock(tmp_path, monkeypatch, mock_server):
     root = setup_sim(tmp_path, monkeypatch, datetime(2026, 10, 1, 15, 40, tzinfo=ET), speed=1)
     r = run_day(tmp_path, ["--traders", "sim_x", "--mode", "submit", "--sim-clock"], mock_server)
-    assert r.returncode == 4 and "窓" in r.stderr                                                     # 仮の 15:40 は窓の外
+    assert r.returncode == 4 and "発注できる時間帯" in r.stderr                                                     # 仮の 15:40 は発注できる時間帯の外
     simclock.jump_to(modes.control_file("sim1"), datetime(2026, 11, 27, 15, 50, tzinfo=ET))
     r = run_day(tmp_path, ["--traders", "sim_x", "--mode", "submit", "--sim-clock"], mock_server)
     assert r.returncode == 4 and "半日立会" in r.stderr                                               # 仮の 11-27 は半日立会

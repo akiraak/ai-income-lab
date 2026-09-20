@@ -159,7 +159,13 @@ def day(live_dir: Path, date: str) -> dict:
     modes = sorted({r.get("mode") for r in orders if r.get("mode")})
     all_diff1 = [x for o in orders for x in o["diff1_bp"]]
     starts = [e for e in events if e.get("kind") == "start"]
-    problems = [e for e in events if e.get("kind") in ("halted", "out_of_window", "auth_failed", "signal_error", "quote_failed", "over_budget", "over_day_cap", "auth_5xx_retry")]
+    problems = [e for e in events if e.get("kind") in ("halted", "out_of_window", "auth_failed", "signal_error", "quote_failed", "over_budget", "over_day_cap", "auth_5xx_retry",
+                                                        # 2026-09-19: 起動を拒否した日（機械がシミュレーションモード ／ 二重起動）と、台帳に入れられなかった約定
+                                                        "refused_mode_sim", "refused_lock_busy", "ledger_error",
+                                                        # 含み損が予算の 20% 以上（⚠ 執行器は警告だけ。止めるのは人 ＝ 停止ボタン）
+                                                        "drawdown_warning",
+                                                        # 口座の建玉と台帳の帳尻（live-trading.md §0-8）: 前の実行の約定を控えから戻した ／ 照会できない ／ 口座が台帳より少ない
+                                                        "journal_recovered", "journal_unresolved", "position_short")]
     retries = sum(1 for o in orders for t in o.get("transitions") or [] if "retry" in str(t.get("status", "")))
     # 差 4（無人運転）: 拒否・再送・HALT・窓の外。差 3 は Phase 3（紙上の対照）の後で埋まる
     return {
@@ -279,7 +285,7 @@ def calendar_info(first: str | None, last: str | None, today=None) -> dict:
             "days_left": left, "expiring": left < CALENDAR_WARN_DAYS, "holidays": holidays}
 
 
-def board(live_dir: Path, days: int = DAYS) -> dict:
+def board(live_dir: Path, days: int = DAYS, today=None) -> dict:
     """概要・全体の詳細・トレーダーの詳細が使う形。トレーダー別の推移（損益・行動のマス目・差 1）と起動しなかった日。
 
     ⚠ 仮データ（紙上の損益・差 3）は `placeholder` の印を付けて返す。`/api/live` には出さない。
@@ -288,7 +294,8 @@ def board(live_dir: Path, days: int = DAYS) -> dict:
     ds = dates(live_dir)[:days][::-1]          # 古い順の直近 days 日
     dd = {d: day(live_dir, d) for d in ds}
     bd = business_days(ds[0], ds[-1]) if ds else []
-    cal_info = calendar_info(ds[0], ds[-1]) if ds else calendar_info(None, None)
+    # today: シミュレーションでは仮の今日（暦の残り日数を仮の時計で数える）。None なら本物の今日
+    cal_info = calendar_info(ds[0], ds[-1], today=today) if ds else calendar_info(None, None, today=today)
     missing = [d for d in bd if d not in dd]
     for i, t in enumerate(tr):
         name = t["name"]

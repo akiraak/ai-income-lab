@@ -19,6 +19,23 @@
   });
 })();
 
+// シミュレーションモードの概要・詳細（§15-11）: <main data-poll-self="ミリ秒"> は、いまの URL を取り直して main の中身だけ差し替える
+// ＝ 仮の時計で流れている途中を、開いたまま眺められる。⚠ 表示だけ。帯は main の外なので差し替わらない（消えない）。
+(function () {
+  var main = document.querySelector("main[data-poll-self]");
+  if (!main) { return; }
+  setInterval(function () {
+    if (document.hidden || main.querySelector("details.help[open]")) { return; }
+    fetch(window.location.href, { credentials: "same-origin", cache: "no-store" })
+      .then(function (r) { if (!r.ok) { throw new Error(r.status); } return r.text(); })
+      .then(function (html) {
+        var next = new DOMParser().parseFromString(html, "text/html").querySelector("main");
+        if (next) { main.innerHTML = next.innerHTML; }
+      })
+      .catch(function () { /* 次の周期でまた試す */ });
+  }, parseInt(main.getAttribute("data-poll-self"), 10) || 3000);
+})();
+
 // 確認ダイアログ: data-confirm="<文面>" を持つ form は、送る前に confirm() で確かめる。断ったら送らない。
 // ⚠ templates に onsubmit="…" を書かない（CSP の script-src 'self' に止められ、確かめずに送られる。2026-09-18）。
 // ⚠ form ごとではなく document で捕まえる（部分更新で差し替わった要素の中の form にも効く）。

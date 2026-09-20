@@ -1,0 +1,16 @@
+# シミュレーションの試験用トレーダー C（§0-7 (d)）: 2 モデルの平均 ／ sim_a と同じ銘柄の合算と内部移転 ／ INTC は $100 の枠で too_small（見送り）が出る
+name = "sim_c"
+test = true
+budget_usd = 300.0
+symbols = ["T", "BAC", "INTC"]
+combine = "mean"
+threshold = 50.0
+sizing = "shares"
+[[models]]
+kind = "file"
+name = "m20"
+path = "../signals/sim_m20.csv"
+[[models]]
+kind = "file"
+name = "m10"
+path = "../signals/sim_m10.csv"

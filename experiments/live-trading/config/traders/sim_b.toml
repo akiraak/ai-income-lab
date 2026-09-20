@@ -1,0 +1,12 @@
+# シミュレーションの試験用トレーダー B（§0-7 (d)）: 金額指定。$30 の枠で NVDA・SPY を買う
+name = "sim_b"
+test = true
+budget_usd = 300.0
+symbols = ["T", "PFE", "VZ", "BAC", "KO", "XLF", "XLE", "XLU", "NVDA", "SPY"]
+combine = "asis"
+threshold = 55.0
+sizing = "notional"
+[[models]]
+kind = "file"
+name = "m20"
+path = "../signals/sim_m20.csv"

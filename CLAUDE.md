@@ -82,6 +82,7 @@ cp .env.example .env                                   # AIL_AUTH_MODE=local（�
 
 - `experiments/tastytrade-api-sample/` の `ttclient.py` / `record.py` を import し、記録（`out/*.jsonl`）をそのまま読む。資格情報もサンプルの `.env` を読む
 - 画面（2026-09-18 に作り直した。デザイン 3「数字とグラフが主役」・ナビは左ペイン）: **概要（`/`。監視の帯・大きな数字・損益の推移・執行の差・トレーダーの段）**・全体の詳細（`/overall`。日次・注文の履歴・口座と接続）・トレーダーの詳細（`/traders/<name>`）・記録と差分（`/records`）・6 観点の自動判定（`/judge`。観点 A まで）・操作（`/ops`。**停止 ／ 解除と履歴だけ**）。`/live` は `/` へ転送。**操作はローカル面だけ**。⚠ **検証（`/experiments`）・データ（`/data`）・手動の注文（dry-run ／ 発注 ／ 取消 ／ 後片付け）・開発（`/dev`）は 2026-09-18 に経路ごと消した** ＝ ⚠ **管理画面に発注の経路は無い**（発注は執行器と CLI だけ。`ops.py` のクライアントは取消の鍵しか開けない）。残した部品: `app/experiments.py`・`app/inventory.py`（vibeboard のタブが import）・`devtools` の `MockServer`・`run_step`（デモ）。⚠ **紙上の損益・差 3 は仮データ**（印つき。`/api/live` には出さない）。休場日は NYSE の暦（`experiments/tastytrade-api-sample/nyse_calendar.py`。執行器の窓と共有。⚠ **年に 1 度、次の年を足す**。載っていない年だけ「仮」に戻る）。図は `app/charts.py`（サーバで組む SVG）。仕様は `docs/specs/dashboard.md` §13・§15
+- **シミュレーションモード**（2026-09-19）: 機械のモード（`experiments/live-trading/MODE`）が sim の間、管理画面は `sim/<名前>/` だけを読み、全ページの最上部に青緑の帯・`<title>` に `[SIM]`・数字に「仮」の印・`/api/*` に `mode`（`app/simmode.py`。リクエストごとに読む）。⚠ **表示だけ**（切り替え・速さ・停止は CLI の `simctl.py`）。⚠ **1 つの画面に本物とシミュレーションを混ぜない**（モードと木が食い違えば数字を出さない）。⚠ 公開面は `MODE` を読まない。仕様は `docs/specs/dashboard.md` §13-6・§15-11
 - **検証の部品**（`app/experiments.py`。画面は vibeboard の検証タブ。管理画面の `/experiments` は 2026-09-18 に消した）は `experiments/feature-discovery/runs/` を**読むだけ**（`AIL_RUNS_DIR`）。**スコアは最良手法（基準線を除く）の純利 bp** で、fold の符号・上乗せ t・実効標本数・デフレーテッド SR を横に並べる。⚠ **検査は実験側が `checks.json` に書いたものを読むだけ**（管理画面に pandas / scipy を入れない）。仕様は `docs/specs/dashboard.md` §10
 - **鍵なしでも動く（デモ）**: 資格情報が無いか `AIL_DEMO=1` なら、起動時にモックサーバを立てて全画面にモックのデータを出す（帯に「デモ」）。データは `data/demo/` に分ける。仕様 §6-2。実売買の画面は執行器のモックの記録（`dashboard/demo/live/`）を読む（`AIL_LIVE_DIR` を指定したときはそれ）
 - 面は `AIL_AUTH_MODE`: `loopback`（既定）/ `local`（＋ LAN）/ `cloudflare`（公開面。Access の JWT を全リクエストで検証。**監視と停止だけ**）
@@ -163,7 +164,20 @@ cd experiments/live-trading
 - **実際に動かす 3 人は 2026-09-19 に確定**（利用者決定）: `T1` `trade_own_ridge_a` θ=50 ／ `T2` `trade_ownex_lgbm_a` θ=55 ／ `T3` `trade_ownseq_ridge_a` の T3 QUANT θ=50。予算は 2 つの規模を並べて持つ（2026-09-19 の利用者決定）＝ **規模 A $1,000**（$300 × 3 ＋ 予備 $100。口座の残高 ＝ 実際に使える。執行器の上限の既定）／ **規模 B $10,000**（$3,000 × 3 ＋ 予備 $1,000。⚠ **規模 B（$10,000）は実際の取引で使えない可能性がある** ＝ 数字を出すときは必ずそう添える。執行器では `--max-total-budget 10000 --max-day-usd 10000` を明示したときだけ。追加入金は利用者の判断）・合成 `asis`・種 0。⚠ **銘柄集合と `sizing` は未設定**（本番の `dryrun2` で端株が通るかで決まる。`live-trading.md` §0-1）。⚠ **ここから先にモデル・θ・合成規則を替えるのは新しい試行**。`config/traders/T1〜T3.toml` はまだ無い。試験用の `test_a`（固定の合図・1 銘柄・最小額）で配線と本番の 1 発注を先に通す順は変わらない
 - 記録は `out/<日付>/*.jsonl`（`Masker` 経由・git 管理外）、状態は `state/<env>/<名前>.json`。`--mode submit` 以外は状態を書かない
 - 本番の鍵は `ttclient.Client` の 3 段そのまま。発注は `TT_ALLOW_PROD_ORDERS=1` ＋ `--i-know-this-is-real-money`。⚠ **鍵を入れて起動するのは利用者**。`HALT` は管理画面の停止ボタンと同じファイル
-- **シミュレーション（仮データと仮の時計で執行器を通しで動かす）は 2026-09-19 に決めごとまで**（`live-trading.md` §0-7・プラン `docs/plans/live-trading-sim-clock.md`。⚠ **実装はまだ・利用者の指示待ち**）。⚠ **実売買とシミュレーションは排他にし、必ず分かるようにする**（利用者決定）＝ 機械全体のモードを 1 つ（`MODE`。無ければ `real`）・`run.lock`・シミュレーションモードでは本物の `run_day` が鍵があっても起動を拒否・記録は `sim/<名前>/` に分け全行 `sim: true`・トレーダー名は `sim_` 始まり・管理画面は全ページの帯と `[SIM]`。⚠ **操作は CLI（`simctl.py`）だけ・管理画面は表示だけ**（POST の経路を増やさない）。⚠ **シミュレーションを回す機械は Sx360**（利用者決定）: Sx360 には tastytrade の `.env` を置かない（資格情報が無いので実売買が物理的に起きない）。titan は実売買と日足の取得で、ふだんシミュレーションを回さない。日足は titan から Sx360 へ写す
+- **シミュレーション（仮データと仮の時計で執行器を通しで動かす）は 2026-09-19 に実装した**（決めごと・使い方・筋書き・見つかったことは `live-trading.md` §0-7。プランは `docs/plans/archive/live-trading-sim-clock.md`）
+
+  ```bash
+  cd experiments/live-trading; PY=../tastytrade-api-sample/.venv/bin/python
+  $PY simctl.py mode sim sim1            # 機械をシミュレーションモードへ（何も動いていないとき）。戻すのは mode real
+  ./simrun.sh sim1 --fresh --speed max   # 64 営業日を最速で（約 8 秒【実測】）。sim2 ＝ 筋書き（故障の注入）つき
+  $PY simctl.py speed 60 ／ pause ／ resume ／ step ／ stop ／ status   # 別の端末から
+  ```
+
+  - ⚠ **実売買とシミュレーションは排他にし、必ず分かるようにする**（利用者決定）＝ 機械全体のモードを 1 つ（`MODE`。無ければ `real`）・`run.lock`・シミュレーションモードでは本物の `run_day` が鍵があっても起動を拒否（rc=5。本物の `events.jsonl` に `refused_mode_sim`）・仮の時計（`run_day.py --sim-clock`）は MODE が sim ＆ 接続先がループバックのモック ＆ prod でない ＆ 本番の鍵なし、のときだけ・記録は `sim/<名前>/` に分け全行 `sim: true`・トレーダー名は `sim_` 始まり・管理画面は全ページの帯と `[SIM]`
+  - ⚠ **操作は CLI（`simctl.py`）だけ・管理画面は表示だけ**（POST の経路を増やさない。停止ボタンは sim のとき `sim/<名前>/HALT` だけを書く）
+  - ⚠ **テストは `LT_MODE_DIR` で `MODE`・`run.lock`・`sim/` を tmp に向ける**（本物の `run.lock` を一瞬でも取ると、同じ時刻の本物の執行器が拒否される）。⚠ **titan で試すときも `LT_MODE_DIR` を scratch に向ける**（本物の `MODE` を sim にしない）
+  - ⚠ **シミュレーションを回す機械は Sx360**（利用者決定）: Sx360 には tastytrade の `.env` を置かない（資格情報が無いので実売買が物理的に起きない）。titan は実売買と日足の取得で、ふだんシミュレーションを回さない。日足は titan から Sx360 へ写す
+  - ⚠ **回して見つかった執行器の穴 3 つ**（§0-7 (j)）: ✅ 違うトレーダーの買いを合算して按分すると整数株の人に端数の持ち分ができる → **口座への注文はトレーダーごとに別々に出す**（2026-09-19 利用者決定「成績を正確に知りたい」。合算しない・按分しない・⚠ **内部移転もしない** ＝ 同日の利用者決定「トレーダーの実際の実績が検証できない」。A の売りと B の買いが重なる日も両方を口座に出し、売りが先。注文ごとに金額の内訳 `amounts` を残し、手数料をその人の台帳に入れる。⚠ 手数料は dry-run の見積り）／ ✅ 含み損 20% は**執行器は警告だけ・止めるのは人**（利用者決定。`drawdown_warning`）／ ✅ 発注の後に落ちた次の日に口座と台帳の食い違いを検知しない → **帳尻を合わせる 3 段**（利用者決定。`live-trading.md` §0-8）: 発注の前に控え（`state/<env>/journal.jsonl`）を書き、起動時に未完を照会してその人の台帳に戻す ／ 口座 − 台帳の合計を突き合わせ、多いぶんは台帳の外として記録・**少ない銘柄だけその日は売買しない** ／ 人が `reconcile.py` で合わせる（ネットワークなし）。⚠ **差を推測で誰かに割り振らない**。⚠ 台帳の保存は 1 注文ごと
 - 決めごと・手順書・記録は `docs/specs/experiments/live-trading.md`
 
 ## Git 運用ルール

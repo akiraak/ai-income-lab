@@ -4,7 +4,7 @@
 {# トレーダーの詳細（dashboard.md §13。2026-09-18）。⚠ 読むだけ。⚠ 紙上の損益と差 3 は仮データ（実売買の Phase 3 の後で本物にする） #}
 {% set tm = t.diff1_median %}{% set ts = 'na' if tm is none else ('ok' if tm <= 5 else ('warn' if tm <= 10 else 'ng')) %}
 <div class="backs"><a href="/">← 概要</a> <a href="/overall">全体の詳細</a></div>
-<div class="sec"><h2><span class="tr-name"><i class="sw dot {{ t.cls }}"></i>{{ t.name }}</span>{% if t.test %} <span class="badge badge-mock">TEST</span>{{ info("試験用トレーダー（TEST）") }}{% else %}{{ info("トレーダー") }}{% endif %}</h2>
+<div class="sec"><h2><span class="tr-name"><i class="sw dot {{ t.cls }}"></i>{{ t.name }}</span>{% if t.test %} <span class="badge badge-mock">TEST</span>{{ info("試験用トレーダー（TEST）") }}{% else %}{{ info("トレーダー") }}{% endif %}{{ simmark(machine) }}</h2>
   <span class="muted small">予算 ${{ '{:,.0f}'.format(t.budget_usd) }} · 銘柄 {% if t.universe %}{{ t.universe }}{% else %}{{ t.symbols|join(' ') }}{% endif %} · モデル {% for mm in t.models %}{{ mm.kind_label }} {{ mm.name }}{{ ' ／ ' if not loop.last }}{% endfor %} · 合成 {{ t.combine_label }} · θ {{ t.threshold }} · 株数 {{ t.sizing_label }}</span>
   <span class="helprow">言葉: <span>予算{{ info("予算（トレーダーの持ち金）") }}</span><span>合成{{ info("合成規則") }}</span><span>θ{{ info("θ（閾値）") }}</span></span></div>
 {% if t.note %}<p class="small muted">{{ t.note }}</p>{% endif %}
@@ -19,14 +19,14 @@
 </div>
 {% if t.last.drawdown_pct_of_budget is not none and t.last.drawdown_pct_of_budget > 20 %}<div class="danger">⚠ 含み損 {{ t.last.drawdown_pct_of_budget }}% ＞ 20%（停止条件。live-trading.md §0-2。⚠ 自動では止めない。止めるのは人）{{ info("含み損の停止条件") }}</div>{% endif %}
 <div class="dgrid">
-  <div class="panel"><h3>損益の推移 {{ info("紙上の損益") }}<span class="small">予算に対する %</span></h3>
+  <div class="panel"><h3>損益の推移{{ simmark(machine) }} {{ info("紙上の損益") }}<span class="small">予算に対する %</span></h3>
     <div class="legend"><span class="item"><i class="sw {{ t.cls }}"></i>実物</span><span class="item"><i class="sw dash"></i>紙上 <span class="chip placeholder">仮データ</span></span></div>
     {{ charts.pnl_trader(b, t) }}
     <p class="rule">⚠ 紙上の損益（同じ合図を公式終値で回した値）は<b>仮データ</b>（実物に 1 営業日あたり {{ b.placeholder.diff3_bp_per_day }}bp を足した線）。本物は実売買の Phase 3（紙上の対照）の後</p></div>
-  <div class="panel"><h3>差 1 の推移 {{ info("差 1（執行価格）") }}<span class="small">注文ごと · 背景は閾値の帯（✅ ≤ 5 ／ ⚠ 5〜10 ／ ❌ ＞ 10）</span></h3>{{ charts.diff1_timeline(b, t) }}</div>
-  <div class="panel wide"><h3>行動の推移 {{ info("行動のマス目") }}<span class="small">銘柄 × 営業日 · マスに触れると合図と約定</span></h3>{{ charts.action_grid(b, t, w=1240, cell_h=24) }}
+  <div class="panel"><h3>差 1 の推移{{ simmark(machine) }} {{ info("差 1（執行価格）") }}<span class="small">注文ごと · 背景は閾値の帯（✅ ≤ 5 ／ ⚠ 5〜10 ／ ❌ ＞ 10）</span></h3>{{ charts.diff1_timeline(b, t) }}</div>
+  <div class="panel wide"><h3>行動の推移{{ simmark(machine) }} {{ info("行動のマス目") }}<span class="small">銘柄 × 営業日 · マスに触れると合図と約定</span></h3>{{ charts.action_grid(b, t, w=1240, cell_h=24) }}
     <div class="keyrow"><span class="key"><i class="k-hold"></i>保有</span><span class="key"><i class="k-buy"></i>買 ／ 売</span><span class="key"><i class="k-skip"></i>見送り</span><span class="key"><i class="k-none"></i>動きなし</span><span class="key"><i class="k-nostart"></i>起動なし（<span class="chip placeholder">仮</span> 休場日の暦なし）</span></div></div>
 </div>
-<div class="sec"><h2>注文の履歴</h2><span class="muted small">{{ t.name }} の分 · 新しい順 · 内部移転を含む</span></div>
+<div class="sec"><h2>注文の履歴{{ simmark(machine) }}</h2><span class="muted small">{{ t.name }} の分 · 新しい順 · 内部移転を含む</span></div>
 {% set who = t.name %}{% include "orders_history.html" %}
 {% endblock %}

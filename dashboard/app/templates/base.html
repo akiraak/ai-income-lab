@@ -3,14 +3,23 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>{% block title %}ai-income-lab 管理画面{% endblock %}</title>
+<title>{% if machine.mode == 'sim' %}[SIM] {% endif %}{% block title %}ai-income-lab 管理画面{% endblock %}</title>
 <link rel="stylesheet" href="/static/app.css">
 </head>
-<body class="face-{{ face }}">
+<body class="face-{{ face }}{{ ' mode-sim' if machine.mode == 'sim' else '' }}">
+{# ⚠ シミュレーションモードの帯（live-trading.md §0-7 (a)）: 全ページの最上部・部分更新の外 ＝ 消せない。色は実売買の画面では使わないもの。
+   取り直すのは中の時刻だけ。操作（速さ・停止・切り替え）は CLI の simctl.py だけで、ここには置かない #}
+{% if machine.mode == 'sim' %}
+<div class="simbar" role="status"><b>[SIM] シミュレーション {{ machine.name }}</b> — 仮データ・仮の時計。<b>実売買ではない</b>（この機械では、実売買の執行器は起動しない）{{ info("シミュレーションモード") }}
+  <span id="simclock" data-poll="/?partial=simclock" data-interval="1000">{% include "simclock_panel.html" %}</span></div>
+{% endif %}
+{% if machine.mismatch %}
+<div class="simbar simbar-ng" role="alert">⚠ <b>モードと記録が食い違っている</b> — {{ machine.mismatch }}。取り違えを防ぐため、実売買（トレーダー）の数字は出さない</div>
+{% endif %}
 {# 左ペイン（dashboard.md §15-6。2026-09-18 の利用者の決定）: 見る ／ トレーダー ／ API 検証 ／ ローカル面だけ。停止ボタンは右の上 #}
 <div class="shell">
 <aside class="side">
-  <div class="brand">ai-income-lab<br><span class="muted">管理画面</span> <span class="ver">v{{ version }}</span></div>
+  <div class="brand">ai-income-lab<br><span class="muted">管理画面</span> <span class="ver">v{{ version }}</span>{% if machine.mode == 'sim' %}<br><span class="chip placeholder">[SIM] {{ machine.name }}</span>{% endif %}</div>
   <nav class="side-nav">
     <div class="grp">見る</div>
     <a href="/" class="{{ 'on' if page == 'overview' else '' }}">概要</a>
@@ -49,16 +58,16 @@
   </form>
 </div>
 {% if demo %}
-<div class="demobar">🧪 <b>デモ</b> — 資格情報が無い（または <code>AIL_DEMO=1</code>）ので、手元のモックサーバのデータを表示している。tastytrade には繋いでいない。記録・監視ログは <code>data/demo/</code> に分けて置く{% if page in ('overview', 'overall') or page.startswith('trader:') %} — 実売買（トレーダー）は<b>執行器のモックの記録</b>（<code>{{ live_dir }}</code>）を読んでいる{% endif %}</div>
+<div class="demobar">🧪 <b>デモ</b> — 資格情報が無い（または <code>AIL_DEMO=1</code>）ので、手元のモックサーバのデータを表示している。tastytrade には繋いでいない。記録・監視ログは <code>data/demo/</code> に分けて置く{% if machine.mode != 'sim' and (page in ('overview', 'overall') or page.startswith('trader:')) %} — 実売買（トレーダー）は<b>執行器のモックの記録</b>（<code>{{ live_dir }}</code>）を読んでいる{% endif %}</div>
 {% endif %}
 {% if halt.halted %}
 <div class="haltbar">⛔ <b>停止中（HALT）</b> {{ halt.since|pt }} · {{ halt.actor }} {% if halt.reason %}· {{ halt.reason }}{% endif %} — 発注系はすべて拒否される{% if face == 'local' %}。解除は <a href="/ops">操作</a> から{% endif %}{{ info("HALT（停止ボタン）") }}</div>
 {% endif %}
 {% if flash %}<div class="flash">{{ flash }}</div>{% endif %}
-<main>
+<main{% if machine.mode == 'sim' and (page in ('overview', 'overall') or page.startswith('trader:')) %} data-poll-self="3000"{% endif %}>
 {% block content %}{% endblock %}
 </main>
-<footer class="foot"><span>{{ now|pt }} / {{ now|et }}</span><span class="muted">{{ "公開面" if face == "public" else "ローカル面" }}（{{ auth_mode }}）{{ info("面（loopback / local / cloudflare）") }}</span>{% if not help_ok %}<span class="warn small">⚠ 用語の正本（glossary.toml）が読めない ＝ i マークのヘルプなし</span>{% endif %}<span class="muted">{% if page in ('overview', 'overall') or page.startswith('trader:') %}実売買: {{ live_dir }}{% else %}記録: {{ records_dir }}{% endif %}</span></footer>
+<footer class="foot"><span>{{ now|pt }} / {{ now|et }}</span><span class="muted">{{ "公開面" if face == "public" else "ローカル面" }}（{{ auth_mode }}）{{ info("面（loopback / local / cloudflare）") }}</span>{% if not help_ok %}<span class="warn small">⚠ 用語の正本（glossary.toml）が読めない ＝ i マークのヘルプなし</span>{% endif %}<span class="muted">{% if page in ('overview', 'overall') or page.startswith('trader:') %}{{ 'シミュレーション' if machine.mode == 'sim' else '実売買' }}: {{ live_dir }}{% else %}記録: {{ records_dir }}{% endif %}</span></footer>
 </div>
 </div>
 <script src="/static/app.js"></script>

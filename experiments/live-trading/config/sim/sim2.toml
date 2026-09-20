@@ -1,0 +1,64 @@
+# シミュレーション sim2 ＝ sim1 と同じ仮データに、筋書き（故障の注入）を足したもの（live-trading.md §0-7 (e)）。
+# ⚠ 拒否の文面・コードは想像で作ったもの（tastytrade の【実測】ではない）。確かめるのは自分のコードの振る舞い（再送する ／ しない・記録・状態）。
+# day は何日目か（1〜64。半日立会は 41・60 日目）。モックの故障は「次の該当の要求」で起きる（注文の無い日をまたぐ）。
+name = "sim2"
+traders = ["sim_a", "sim_b", "sim_c"]
+start = "2026-10-01"
+end = "2026-12-31"
+source_start = "2026-06-01"
+windows = ["15:45:30"]
+speed = 60
+skip_outside_window = true
+spread_bp = 2.0
+fill_noise = 0.003
+seed = 0
+
+[[events]]   # 再送 60 秒 × 3 の内で通る
+day = 3
+kind = "session_offline"
+times = 2
+[[events]]   # 3 回とも拒否 ＝ 諦めて記録に残る（残りの 2 回は次の注文が受ける）
+day = 8
+kind = "session_offline"
+times = 5
+[[events]]   # 5xx は再送する
+day = 12
+kind = "http_5xx"
+times = 1
+[[events]]   # 429 は再送しない（エラーとして記録）
+day = 15
+kind = "http_429"
+times = 1
+[[events]]   # 認証の 5xx は 30 秒待って 1 回だけ取り直す
+day = 18
+kind = "auth_5xx"
+times = 1
+[[events]]   # 認証の 401 は再試行しない（その日は発注なし）
+day = 21
+kind = "auth_401"
+times = 1
+[[events]]   # 資金不足: エラーとして記録・再送しない
+day = 24
+kind = "reject_funds"
+times = 1
+[[events]]   # 成行が約定しない → 取消までの 600 秒を待って取り消す・状態は進まない
+day = 28
+kind = "no_fill"
+times = 1
+[[events]]   # 起動しない日（管理画面の「起動しなかった日」）
+day = 32
+kind = "skip_day"
+[[events]]   # 発注の後・記録の前に執行器が落ちる
+day = 36
+kind = "crash_mid"
+[[events]]   # 気配を 10 日つづけて −3%/日（累計 −26%）＝ 含み損が予算の 20% を超える水準
+day = 45
+kind = "drawdown"
+days = 10
+pct_per_day = -3.0
+[[events]]   # 台帳にあるはずの株が口座から消える（人が口座を直接触った・sandbox のリセットの代役）→ その銘柄だけ売買が止まる。直すのは reconcile.py
+day = 57
+kind = "position_loss"
+symbol = "BAC"
+shares = 100
+# halt は筋書きに置かない: 人が管理画面の停止ボタンを押す（通し稽古）

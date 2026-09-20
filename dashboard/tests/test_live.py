@@ -241,3 +241,14 @@ def test_public_face_can_read_but_not_post(settings):
         for path in ("/", "/overall", "/traders/test_a", "/api/live"):
             assert c.get(path).status_code == 200, path
             assert c.post(path).status_code == 405, path
+
+
+def test_new_executor_events_count_as_problems(settings):
+    """2026-09-19: 含み損の警告（執行器は止めない ＝ 人が気づけるように画面の「問題」に出す）・起動の拒否・台帳に入れられなかった約定。"""
+    live = build_live_dir(settings.live_dir)
+    path = live / "out" / "2026-09-18" / "events.jsonl"
+    with path.open("a", encoding="utf-8") as f:
+        for kind in ("drawdown_warning", "refused_mode_sim", "refused_lock_busy", "ledger_error", "journal_recovered", "journal_unresolved", "position_short"):
+            f.write(json.dumps({"date": "2026-09-18", "env": "prod", "kind": kind, "trader": "test_a"}) + "\n")
+    kinds = [e["kind"] for e in lv.day(live, "2026-09-18")["problems"]]
+    assert {"drawdown_warning", "refused_mode_sim", "refused_lock_busy", "ledger_error", "journal_recovered", "journal_unresolved", "position_short"} <= set(kinds)

@@ -150,3 +150,22 @@ def test_4xx_is_not_retried(tmp_path):
     c = Bad()
     r = Executor(c, "ACCT", None, str(tmp_path / "HALT"), mode="submit", retries=3, retry_interval=1, sleep=lambda s: None).run_one(_order())
     assert r.final_status == "error" and c.submits == 1
+
+
+def test_amounts_keep_the_fee_breakdown_and_fees_follow_the_trader(tmp_path):
+    """2026-09-19 の利用者決定「手数料など金額の内訳も保存する」: dry-run の fee-calculation を丸ごと残し、約定した注文の手数料をその人に付ける。"""
+    c = FakeClient()
+    fees = {"regulatory-fees": "0.02", "regulatory-fees-effect": "Debit", "commission": "0.00", "commission-effect": "None", "total-fees": "0.02", "total-fees-effect": "Debit"}
+    c.dry_run_order = lambda acct, order: {"buying-power-effect": {"change-in-buying-power": "25.60", "change-in-buying-power-effect": "Debit"}, "fee-calculation": fees, "order": {"status": "Received"}}
+    r = Executor(c, "ACCT", None, str(tmp_path / "HALT"), mode="submit").run_one(_order())
+    a = r.amounts()
+    assert a["gross_usd"] == 25.6 and a["fee_usd"] == 0.02 and a["net_usd"] == -25.62 and a["fee_source"] == "dry_run_estimate"
+    assert a["fee_breakdown"] == fees and a["buying_power_effect"]["change-in-buying-power"] == "25.60"
+    assert allocate_fills(r) == [{"trader": "test_a", "symbol": "T", "side": "buy", "shares": 1.0, "price": 25.6, "fee": 0.02}]
+
+
+def test_unfilled_order_carries_no_fee(tmp_path):
+    c = FakeClient()
+    c.dry_run_order = lambda acct, order: {"fee-calculation": {"total-fees": "0.02", "total-fees-effect": "Debit"}, "order": {}}
+    r = Executor(c, "ACCT", None, str(tmp_path / "HALT"), mode="dry-run").run_one(_order())
+    assert r.amounts()["fee_usd"] == 0.0 and r.amounts()["gross_usd"] == 0 and allocate_fills(r) == []

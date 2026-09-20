@@ -30,6 +30,8 @@ done
 : > "$WORK/env.test"
 export TT_ENV_FILE="$WORK/env.test" TT_REST_BASE="http://127.0.0.1:$PORT" TT_CLIENT_SECRET="MOCK-SECRET" TT_REFRESH_TOKEN="MOCK-REFRESH"
 export TT_HALT_FILE="$WORK/HALT" LT_OUT_DIR="$WORK/out" LT_STATE_DIR="$WORK/state"
+# MODE ／ run.lock も作業ディレクトリに向ける（本物の run.lock を取らない ＝ 同じ時刻の本物の執行器を邪魔しない。接続先がモックなので通る）
+export LT_MODE_DIR="$WORK"
 
 DAYS=$($PY - <<'PY'
 from datetime import date, timedelta
@@ -73,7 +75,14 @@ for o in filled:
     for f in o["fills"]:
         diffs.append((f["price"] - mid) / mid * 1e4)
 ok(diffs and any(abs(d) > 0.5 for d in diffs), f"差 1（気配 → 約定）が出る: 中央値 {sorted(diffs)[len(diffs)//2]:.1f}bp・最大 {max(diffs):.1f}bp")
-ok(len(transfers) >= 1, f"内部移転 {len(transfers)} 件（A の売り × B の買い）")
+# 2026-09-19: 内部移転はやめた（利用者決定「トレーダーの実際の実績が検証できない」）。A の売りと B の買いが重なる日は、両方が口座に出て売りが先
+ok(len(transfers) == 0, "内部移転 0 件（transfers.jsonl を書かない）")
+by_day = {}
+for o in orders:
+    by_day.setdefault((o["date"], o["symbol"]), []).append((o["side"], o["parts"][0]["trader"]))
+both = {k: v for k, v in by_day.items() if {s for s, _ in v} == {"buy", "sell"}}
+ok(both and all(v[0][0] == "sell" for v in both.values()), f"同じ日・同じ銘柄に売りと買いが別々の注文で出た日 {len(both)} 件（売りが先）")
+ok(all(len(o["parts"]) == 1 for o in orders), "1 注文 1 トレーダー")
 last = {l["trader"]: l for l in ledgers}
 ok(all(l["cost_in_use_usd"] <= l["budget_usd"] + 1e-6 for l in ledgers), "全日・全員で原価が予算を超えない")
 for name in ("mock_a", "mock_b"):

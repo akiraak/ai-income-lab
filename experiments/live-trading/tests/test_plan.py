@@ -1,7 +1,7 @@
 """状態機械・株数・予算の上限・銘柄ごとの合算（プラン §2-3・§6 の「予算」）。"""
 import pytest
 
-from plan import aggregate, build_plan, decide, size_intents
+from plan import build_plan, decide, size_intents, to_orders
 from signals import Signal
 from state import TraderState
 from trader import parse_trader
@@ -71,25 +71,37 @@ def test_day_cap():
     assert [i.symbol for i in its] == ["A1"] and ev[0]["kind"] == "over_day_cap"
 
 
-def test_aggregate_internal_transfer_and_net():
-    # A が SPY を 2 株売り、B が 3 株買う → 2 株は内部移転、口座には 1 株の買いだけ
+def test_opposite_traders_both_go_to_the_market_sell_first():
+    """2026-09-19 の利用者決定「内部移転はダメです。トレーダーの実際の実績が検証できない」:
+    A の売りと B の買いが同じ銘柄で重なっても付け替えない。両方を口座に出し、売りが先。"""
     from plan import Intent
-    q = {"SPY": 100.0}
-    its = [Intent("A", "SPY", "sell", 2, 200, "shares", 0, 90), Intent("B", "SPY", "buy", 3, 300, "shares", 90, 0)]
-    orders, transfers = aggregate(its, q)
-    assert len(transfers) == 1 and transfers[0].seller == "A" and transfers[0].buyer == "B" and transfers[0].shares == 2
-    assert len(orders) == 1 and orders[0].side == "buy" and orders[0].shares == 1 and orders[0].parts == [{"trader": "B", "shares": 1, "usd": 100.0}]
-    # 同数なら口座への注文は 0 件
-    its = [Intent("A", "SPY", "sell", 2, 200, "shares", 0, 90), Intent("B", "SPY", "buy", 2, 200, "shares", 90, 0)]
-    orders, transfers = aggregate(its, q)
-    assert orders == [] and transfers[0].shares == 2
+    q = {"SPY": 100.0, "QQQ": 50.0}
+    its = [Intent("B", "SPY", "buy", 3, 300, "shares", 90, 0), Intent("A", "SPY", "sell", 2, 200, "shares", 0, 90), Intent("B", "QQQ", "buy", 1, 50, "shares", 90, 0)]
+    orders = to_orders(its, q)
+    assert [(o.side, o.symbol, o.shares, o.parts) for o in orders] == [
+        ("sell", "SPY", 2, [{"trader": "A", "shares": 2, "usd": 200}]),
+        ("buy", "SPY", 3, [{"trader": "B", "shares": 3, "usd": 300}]),          # 3 株まるごと市場で買う（A の 2 株を中値で受け取らない）
+        ("buy", "QQQ", 1, [{"trader": "B", "shares": 1, "usd": 50}])]
 
 
-def test_aggregate_sums_two_buyers():
+def test_two_buyers_get_one_order_each():
+    """2026-09-19 の利用者決定: トレーダーごとの成績を正確に知るため、口座への注文はトレーダーごとに別々（合算しない・按分しない）。"""
     from plan import Intent
     its = [Intent("A", "SPY", "buy", 1, 100, "shares", 90, 0), Intent("B", "SPY", "buy", 2, 200, "shares", 90, 0)]
-    orders, _ = aggregate(its, {"SPY": 100.0})
-    assert orders[0].shares == 3 and [p["trader"] for p in orders[0].parts] == ["A", "B"]
+    orders = to_orders(its, {"SPY": 100.0})
+    assert [(o.shares, [p["trader"] for p in o.parts]) for o in orders] == [(1, ["A"]), (2, ["B"])]
+
+
+def test_mixed_sizing_never_gives_the_whole_share_trader_a_fraction():
+    """整数株の人と金額指定の人が同じ日に同じ銘柄を売買しても、整数株の人の注文は整数株の Market のまま（§0-7 (j) の 1）。"""
+    from plan import Intent
+    its = [Intent("A", "SPY", "buy", 5, 500, "shares", 90, 0), Intent("B", "SPY", "buy", 0.3, 30, "notional", 90, 0),
+           Intent("C", "SPY", "sell", 2.5, 250, "notional", 0, 90), Intent("D", "SPY", "sell", 1, 100, "shares", 0, 90)]
+    orders = to_orders(its, {"SPY": 100.0})
+    by = {o.parts[0]["trader"]: o for o in orders}
+    assert len(orders) == 4 and all(len(o.parts) == 1 for o in orders) and [o.side for o in orders] == ["sell", "sell", "buy", "buy"]
+    assert by["A"].sizing == "shares" and by["A"].shares == 5 and by["D"].shares == 1
+    assert by["B"].sizing == "notional" and by["B"].shares == 0.0 and by["B"].value_usd == 30.0 and by["C"].shares == 2.5
 
 
 def test_notional_sizing():
@@ -97,7 +109,7 @@ def test_notional_sizing():
     st = TraderState("A")
     its, ev = size_intents(t, st, [{"symbol": "SPY", "side": "buy", "buy_pct": 60, "exit_pct": 0}], {"SPY": 560.0}, "2026-10-01")
     assert its[0].usd == 5.0 and its[0].sizing == "notional"
-    orders, _ = aggregate(its, {"SPY": 560.0})
+    orders = to_orders(its, {"SPY": 560.0})
     assert orders[0].sizing == "notional" and orders[0].value_usd == 5.0 and orders[0].shares == 0.0
 
 
@@ -107,15 +119,5 @@ def test_build_plan_end_to_end():
     states["A"].apply_buy("SPY", 1, 100.0, "2026-10-01")
     sigs = [_sig("A", "SPY", 0, 90), _sig("B", "SPY", 90, 0)]
     p = build_plan([a, b], states, sigs, {"SPY": 100.0}, "2026-10-02")
-    assert len(p.intents) == 2 and len(p.transfers) == 1 and len(p.orders) == 1 and p.orders[0].shares == 1
-
-
-def test_transfer_rounds_to_whole_shares_when_shares_party_involved():
-    from plan import Intent
-    q = {"SPY": 100.0}
-    its = [Intent("A", "SPY", "sell", 1, 100, "shares", 0, 90), Intent("B", "SPY", "buy", 0.5, 50, "notional", 90, 0)]
-    orders, transfers = aggregate(its, q)
-    assert transfers == [] and len(orders) == 2       # 端株の買いと整数株の売りは別々に口座へ
-    its = [Intent("A", "SPY", "sell", 2, 200, "shares", 0, 90), Intent("B", "SPY", "buy", 1.4, 140, "notional", 90, 0)]
-    orders, transfers = aggregate(its, q)
-    assert transfers[0].shares == 1 and [o.side for o in orders] == ["buy", "sell"]
+    assert len(p.intents) == 2 and [(o.side, o.parts[0]["trader"], o.shares) for o in p.orders] == [("sell", "A", 1), ("buy", "B", 2)]
+    assert not hasattr(p, "transfers")

@@ -152,6 +152,7 @@ def create_app(settings: Settings | None = None, start_monitors: bool = True) ->
     from .access import AccessGuard
     from .devtools import DevError, DevTools
     from . import live as lv
+    from . import simmode
     from .judge import judge as run_judge
     from .masking import Redactor
     from .monitor import EventLog, Monitors
@@ -226,6 +227,10 @@ def create_app(settings: Settings | None = None, start_monitors: bool = True) ->
     helpbook = HelpBook(Path(os.environ["AIL_GLOSSARY_FILE"]) if os.environ.get("AIL_GLOSSARY_FILE") else None, clean=redactor.text)
     app.state.helpbook = helpbook
     templates.env.globals.update(info=helpbook.mark)
+    # シミュレーションモードの間、数字と図の見出しに付ける「仮」の印（§15-8 の .chip.placeholder と同じ扱い）
+    from markupsafe import Markup
+    SIM_MARK = Markup(' <span class="chip placeholder sim-mark" title="シミュレーション: 仮データ・仮の時計。実売買ではない">仮</span>')
+    templates.env.globals.update(simmark=lambda machine: SIM_MARK if (machine or {}).get("mode") == "sim" else "")
 
     # 外側ほど先に評価される: AccessGuard → SecurityHeaders → ルート
     app.add_middleware(SecurityHeaders, csrf=csrf)
@@ -243,14 +248,34 @@ def create_app(settings: Settings | None = None, start_monitors: bool = True) ->
     def actor(request: Request) -> str:
         return str(getattr(request.state, "user", None) or getattr(request.state, "client_ip", "") or "unknown")
 
-    def nav_traders() -> list[dict]:
+    # ⚠ 読む記録はモードから決まる（real ＝ 本物 ／ sim ＝ sim/<名前>/。simmode.py）。1 つの画面・1 つの応答に両方を混ぜない。
+    #    モードと木が食い違うときは空の木を読ませる ＝ 数字を出さない（帯に理由が出る）
+    NO_TREE = Path("/nonexistent/mode-mismatch")
+
+    def live_dir_now(machine: dict | None = None) -> Path:
+        machine = machine or settings.machine()
+        return NO_TREE if machine["mismatch"] else machine["live_dir"]
+
+    def board_now() -> dict:
+        from datetime import date as _date
+        machine = settings.machine()
+        today = (machine["sim"] or {}).get("today")           # シミュレーションの「今日」＝ 仮の今日
+        return lv.board(live_dir_now(machine), today=_date.fromisoformat(today) if today else None)
+
+    def api(payload: dict) -> JSONResponse:
+        # `/api/*` は必ずモードを名乗る（シミュレーションの数字を本物と取り違えない）
+        return JSONResponse(redactor({**payload, **simmode.public(settings.machine())}))
+
+    def nav_traders(machine: dict) -> list[dict]:
         # 左ペインのトレーダー（設定の順。色は系列の順。§15-6）
-        return [{"name": t["name"], "cls": f"s{i % lv.N_SERIES + 1}", "test": t["test"]} for i, t in enumerate(lv.traders(settings.live_dir))]
+        return [{"name": t["name"], "cls": f"s{i % lv.N_SERIES + 1}", "test": t["test"]} for i, t in enumerate(lv.traders(live_dir_now(machine)))]
 
     def render(request: Request, name: str, **ctx):
+        machine = settings.machine()
         base = {
             "page": "",
-            "nav_traders": nav_traders(),
+            "machine": {k: machine[k] for k in ("mode", "name", "since", "mismatch", "sim")},
+            "nav_traders": nav_traders(machine),
             "face": settings.face,
             "auth_mode": settings.auth_mode,
             "user": getattr(request.state, "user", None),
@@ -263,7 +288,7 @@ def create_app(settings: Settings | None = None, start_monitors: bool = True) ->
             "symbol": settings.symbol,
             "records_dir": str(settings.records_dir),
             # ⚠ 検証・データの画面はデモの対象外（実験側のファイルをそのまま読む）ので、出所を出し分ける
-            "live_dir": str(settings.live_dir),
+            "live_dir": str(machine["live_dir"]),
             "dev_available": dev is not None,
             "demo": settings.demo,
             "help_ok": helpbook.available(),
@@ -302,18 +327,20 @@ def create_app(settings: Settings | None = None, start_monitors: bool = True) ->
         ctx = monitor_ctx()
         if request.query_params.get("partial") == "strip":
             return render(request, "strip_panel.html", page="overview", **ctx)
-        return render(request, "overview.html", page="overview", b=lv.board(settings.live_dir), **ctx)
+        if request.query_params.get("partial") == "simclock":
+            return render(request, "simclock_panel.html", page="overview")
+        return render(request, "overview.html", page="overview", b=board_now(), **ctx)
 
     @app.get("/overall", response_class=HTMLResponse)
     async def overall(request: Request):
         ctx = monitor_ctx()
         if request.query_params.get("partial") == "monitor":
             return render(request, "monitor_panel.html", page="overall", **ctx)
-        return render(request, "overall.html", page="overall", b=lv.board(settings.live_dir), **ctx)
+        return render(request, "overall.html", page="overall", b=board_now(), **ctx)
 
     @app.get("/traders/{name}", response_class=HTMLResponse)
     async def trader_page(request: Request, name: str):
-        b = lv.board(settings.live_dir)
+        b = board_now()
         t = next((x for x in b["traders"] if x["name"] == name), None)
         if t is None:
             raise HTTPException(404, "そのトレーダーは無い")
@@ -322,11 +349,11 @@ def create_app(settings: Settings | None = None, start_monitors: bool = True) ->
     @app.get("/api/state")
     async def api_state(request: Request):
         payload = {"now": datetime.now(timezone.utc).isoformat(timespec="seconds"), "face": settings.face, "halt": ops.halt_status(), "monitors": monitors.snapshot(), "events": events.tail(30)}
-        return JSONResponse(redactor(payload))
+        return api(payload)
 
     @app.get("/api/events")
     async def api_events(request: Request, n: int = 100):
-        return JSONResponse(redactor({"events": events.tail(max(1, min(n, 1000)))}))
+        return api({"events": events.tail(max(1, min(n, 1000)))})
 
     # ---------------- 記録
 
@@ -354,7 +381,7 @@ def create_app(settings: Settings | None = None, start_monitors: bool = True) ->
 
     @app.get("/api/records")
     async def api_records(request: Request):
-        return JSONResponse(redactor({"runs": [r.summary() for r in load_runs(settings.records_dir)]}))
+        return api({"runs": [r.summary() for r in load_runs(settings.records_dir)]})
 
     # ---------------- 判定
 
@@ -374,12 +401,12 @@ def create_app(settings: Settings | None = None, start_monitors: bool = True) ->
 
     @app.get("/api/live")
     async def api_live(request: Request):
-        return JSONResponse(redactor(lv.index(settings.live_dir)))
+        return api(lv.index(live_dir_now()))
 
     @app.get("/api/judge")
     async def api_judge(request: Request):
         runs = load_runs(settings.records_dir)
-        return JSONResponse(redactor(run_judge(runs, events.load(), include_mock=settings.demo)))
+        return api(run_judge(runs, events.load(), include_mock=settings.demo))
 
     # ---------------- 停止（両面）
 

@@ -46,11 +46,16 @@ class Ops:
 
     def halt(self, actor: str, reason: str = "") -> dict:
         """HALT を書いてから、取り消せる環境の働いている注文を全部取り消す。"""
+        machine = self.settings.machine()
+        halt_file = self.settings.halt_file
         info = {"since": utcnow_iso(), "actor": actor, "reason": reason[:200]}
-        self.settings.halt_file.parent.mkdir(parents=True, exist_ok=True)
-        self.settings.halt_file.write_text(json.dumps(info, ensure_ascii=False), encoding="utf-8")
+        halt_file.parent.mkdir(parents=True, exist_ok=True)
+        halt_file.write_text(json.dumps(info, ensure_ascii=False), encoding="utf-8")
         results = []
-        for env, mon in self.monitors.items.items():
+        if machine["mode"] == "sim":
+            # ⚠ シミュレーションモードの停止ボタン ＝ シミュレーションの木の HALT だけ（通し稽古）。本物の HALT も本物の注文も触らない
+            results.append({"env": f"sim:{machine['name']}", "skipped": "シミュレーション: 仮の執行器は次の発注から拒否する。本物の口座の注文には触らない"})
+        for env, mon in ([] if machine["mode"] == "sim" else self.monitors.items.items()):
             if not mon.client.token or not mon.account_number:
                 results.append({"env": env, "skipped": "認証されていない（取消は行わない）"})
                 continue
@@ -61,16 +66,17 @@ class Ops:
                 results.append({"env": env, **self._cancel_all(env, mon)})
             except (ApiError, ProductionGuard, OpsError, OSError) as exc:   # ⚠ 停止は途中で落とさない（HALT は書けている）
                 results.append({"env": env, "error": f"{type(exc).__name__}: {str(exc)[:200]}"})
-        out = {"halted": True, **info, "results": results}
+        out = {"halted": True, "mode": machine["mode"], **info, "results": results}
         self.events.append("dashboard", "-", "halt", out)
         self._history("halt", actor, "-", out)
         return out
 
     def resume(self, actor: str) -> dict:
-        existed = self.settings.halt_file.exists()
+        halt_file = self.settings.halt_file
+        existed = halt_file.exists()
         if existed:
-            self.settings.halt_file.unlink()
-        out = {"halted": False, "resumed_at": utcnow_iso(), "actor": actor, "was_halted": existed}
+            halt_file.unlink()
+        out = {"halted": False, "mode": self.settings.machine()["mode"], "resumed_at": utcnow_iso(), "actor": actor, "was_halted": existed}
         self.events.append("dashboard", "-", "resume", out)
         self._history("resume", actor, "-", out)
         return out
@@ -118,7 +124,7 @@ class Ops:
     # ---------------- 履歴
 
     def _history(self, kind: str, actor: str, env: str, detail: dict) -> None:
-        row = {"at": utcnow_iso(), "kind": kind, "actor": actor, "env": env, "detail": self.redactor(detail)}
+        row = {"at": utcnow_iso(), "kind": kind, "actor": actor, "env": env, "mode": self.settings.machine()["mode"], "detail": self.redactor(detail)}
         with self._lock:
             self.history_path.parent.mkdir(parents=True, exist_ok=True)
             with open(self.history_path, "a", encoding="utf-8") as f:

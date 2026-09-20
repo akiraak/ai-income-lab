@@ -31,30 +31,19 @@ class Intent:
 
 @dataclass
 class NetOrder:
-    """口座に出す注文（銘柄ごとに全員ぶんを合算した後）。"""
+    """口座に出す注文。⚠ **1 注文 1 トレーダー**（2026-09-19 の利用者決定「トレーダーごとの成績を正確に知りたいので別々に出す」）。"""
     symbol: str
     side: str                        # buy / sell
     shares: float                    # shares sizing の数量（notional の買いは 0 で value を使う）
     value_usd: float                 # notional の買いの金額（それ以外は参考値）
     sizing: str
-    parts: list[dict] = field(default_factory=list)   # [{"trader", "shares", "usd"}] 誰の何株ぶんか（約定を按分する鍵）
-
-
-@dataclass
-class Transfer:
-    """同じ銘柄を A が売り B が買う日の内部移転（口座には出ない。差 3 のコスト 0 として残す）。"""
-    symbol: str
-    seller: str
-    buyer: str
-    shares: float
-    price: float
+    parts: list[dict] = field(default_factory=list)   # [{"trader", "shares", "usd"}] 誰の注文か（⚠ 常に 1 人。記録と画面がこの形を読む）
 
 
 @dataclass
 class Plan:
     intents: list[Intent]
     orders: list[NetOrder]
-    transfers: list[Transfer]
     events: list[dict]   # 見送り・予算超え・株数 0 などの理由
 
 
@@ -124,51 +113,21 @@ def size_intents(trader: Trader, state: TraderState, raw: list[dict], quotes: di
     return intents, events
 
 
-def aggregate(intents: list[Intent], quotes: dict[str, float]) -> tuple[list[NetOrder], list[Transfer]]:
-    """銘柄ごとに全員ぶんを合算する。A の売りと B の買いは気配で内部移転し、残りだけ口座に出す。
+def to_orders(intents: list[Intent], quotes: dict[str, float]) -> list[NetOrder]:
+    """意図 1 件を、その人の注文 1 本にする。⚠ **合算しない・内部移転しない**（2026-09-19 の利用者決定）。
 
-    ⚠ sizing が混在する銘柄（shares の人と notional の人）は、残りの買いを shares 側に丸めない。
-    買いの残りは「notional の買いが含まれていれば notional、そうでなければ shares」で出す。
+    - 「トレーダーごとの成績を正確に知りたいので別々に出す」＝ 1 注文 1 トレーダー。約定価格も手数料もその人のものがそのまま残る
+    - 「内部移転はダメです。トレーダーの実際の実績が検証できない」＝ A の売りと B の買いが同じ銘柄で重なっても、両方を口座に出す
+      （それまでは口座に出さず、気配の中値・手数料 0 で付け替えていた ＝ その人 1 人では出せない値段が成績に入っていた）
+    ⚠ **順は売りが先・買いが後**（同じ口座で同じ銘柄を買った直後に売る形を作らない。現金口座の決まり live-trading.md §0-6 とも合う）。
+    代償: 同じ銘柄を n 人が売買する日は注文が n 本になる。
     """
-    by_symbol: dict[str, list[Intent]] = {}
-    for it in intents:
-        by_symbol.setdefault(it.symbol, []).append(it)
     orders: list[NetOrder] = []
-    transfers: list[Transfer] = []
-    for symbol, its in by_symbol.items():
-        px = quotes[symbol]
-        buys = [i for i in its if i.side == "buy"]
-        sells = [i for i in its if i.side == "sell"]
-        # 内部移転: 売り手の株を買い手へ（買い手の目標株数まで）
-        buy_left = {i.trader: i.shares for i in buys}
-        sell_left = {i.trader: i.shares for i in sells}
-        for s in sells:
-            for b in buys:
-                if sell_left[s.trader] <= 1e-9:
-                    break
-                take = min(sell_left[s.trader], buy_left[b.trader])
-                if s.sizing == "shares" or b.sizing == "shares":
-                    # 整数株の人が絡む移転は整数株だけ（端株の持ち分を整数株の台帳に作らない）
-                    take = float(math.floor(take + 1e-9))
-                if take <= 1e-9:
-                    continue
-                transfers.append(Transfer(symbol, s.trader, b.trader, round(take, 6), px))
-                sell_left[s.trader] -= take
-                buy_left[b.trader] -= take
-        net_buy = [(b, buy_left[b.trader]) for b in buys if buy_left[b.trader] > 1e-9]
-        net_sell = [(s, sell_left[s.trader]) for s in sells if sell_left[s.trader] > 1e-9]
-        if net_buy:
-            sizing = "notional" if any(b.sizing == "notional" for b, _ in net_buy) else "shares"
-            shares = sum(q for _, q in net_buy)
-            usd = sum(q * px for _, q in net_buy)
-            orders.append(NetOrder(symbol, "buy", shares if sizing == "shares" else 0.0, round(usd, 2), sizing,
-                                   [{"trader": b.trader, "shares": round(q, 6), "usd": round(q * px, 2)} for b, q in net_buy]))
-        if net_sell:
-            sizing = "notional" if any(s.sizing == "notional" for s, _ in net_sell) else "shares"
-            shares = sum(q for _, q in net_sell)
-            orders.append(NetOrder(symbol, "sell", round(shares, 6), round(shares * px, 2), sizing,
-                                   [{"trader": s.trader, "shares": round(q, 6), "usd": round(q * px, 2)} for s, q in net_sell]))
-    return orders, transfers
+    for it in [i for i in intents if i.side == "sell"] + [i for i in intents if i.side == "buy"]:
+        usd = round(it.usd, 2)
+        shares = round(it.shares, 6) if it.side == "sell" else (it.shares if it.sizing == "shares" else 0.0)
+        orders.append(NetOrder(it.symbol, it.side, shares, usd, it.sizing, [{"trader": it.trader, "shares": round(it.shares, 6), "usd": usd}]))
+    return orders
 
 
 def build_plan(traders: list[Trader], states: dict[str, TraderState], signals: list[Signal],
@@ -181,5 +140,4 @@ def build_plan(traders: list[Trader], states: dict[str, TraderState], signals: l
         its, ev2 = size_intents(t, states[t.name], raw, quotes, today, max_day_usd)
         intents.extend(its)
         events.extend(ev2)
-    orders, transfers = aggregate(intents, quotes)
-    return Plan(intents, orders, transfers, events)
+    return Plan(intents, to_orders(intents, quotes), events)

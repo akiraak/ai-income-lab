@@ -1,0 +1,12 @@
+# シミュレーションの試験用トレーダー A（live-trading.md §0-7 (d)）: 整数株の基本形。1 銘柄 $100
+name = "sim_a"
+test = true
+budget_usd = 300.0
+symbols = ["T", "VZ", "BAC"]
+combine = "asis"
+threshold = 50.0
+sizing = "shares"
+[[models]]
+kind = "file"
+name = "m20"
+path = "../signals/sim_m20.csv"

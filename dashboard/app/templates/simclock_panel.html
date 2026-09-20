@@ -1,0 +1,2 @@
+{# シミュレーションの帯の中で 1 秒おきに取り直す部分（仮の時刻・速さ・何日目）。⚠ 表示だけ #}
+{% set sm = machine.sim %}{% if sm and sm.started %}<span class="simclock"><b class="num">{{ sm.now_et[:10] }} {{ sm.now_et[11:19] }} ET</b> · {{ sm.speed_label }}{% if sm.paused %} · <b>⏸ 停止中</b>{% endif %}{% if sm.day_index %} · {{ sm.day_index }} ／ {{ sm.days_total }} 日目{% endif %}{% if sm.state %} · {{ sm.state }}{% endif %}{% if not sm.driver_alive and sm.state != '終了' %} · <b>運転手が動いていない</b>{% endif %}</span>{% elif sm %}<span class="simclock">仮の時計はまだ無い（<code>simrun.py {{ sm.name }}</code> で始まる）</span>{% endif %}

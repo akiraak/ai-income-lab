@@ -701,7 +701,7 @@ note = "管理画面の概要・全体の詳細・トレーダーの詳細に出
 
   [[section.term]]
   name = "内部移転"
-  short = "同じ回に A の売りと B の買いが同じ銘柄のとき、口座に注文を出さず A の株を B に渡すこと。口座には出ない。"
+  short = "⚠ 2026-09-19 に廃止（成績が検証できない）。A の売りと B の買いが重なる日に口座へ出さず株を渡していた。古い記録にだけ出る。"
   doc = "docs/specs/experiments/live-trading.md"
   where = "§0-1 トレーダーのお金と持ち株"
 
@@ -752,6 +752,42 @@ note = "管理画面の概要・全体の詳細・トレーダーの詳細に出
   short = "本物の数字がまだ無い項目に入れた作り物の値。紫の破線の印と点線で示し、API には出さない。"
   doc = "docs/specs/dashboard.md"
   where = "§15-8 仮データの印"
+
+  [[section.term]]
+  name = "シミュレーションモード"
+  short = "機械のモードは実売買かシミュレーションのどちらか 1 つ（排他）。シミュレーションの間は実売買の執行器が起動せず、画面は仮データの記録だけを出す。切り替えは CLI。"
+  doc = "docs/specs/experiments/live-trading.md"
+  where = "§0-7 (a) 実売買とシミュレーションは排他"
+
+  [[section.term]]
+  name = "仮の時計"
+  short = "シミュレーションの「いま」。実時間の何倍かで進み、止められる。執行器の窓・再送・取消の待ちをこの上で数える。モック以外の接続先では使えない。"
+  doc = "docs/specs/experiments/live-trading.md"
+  where = "§0-7 (e) 窓と速さ"
+
+  [[section.term]]
+  name = "仮データ（日足の再生）"
+  short = "取得済みの実データの日足を、仮の期間の営業日へ 1 本ずつ当てた値段。日付は仮・値段は過去の実物なので、損益に意味は無く判定に混ぜない。"
+  doc = "docs/specs/experiments/live-trading.md"
+  where = "§0-7 (c) 仮データ"
+
+  [[section.term]]
+  name = "口座の建玉"
+  short = "口座が実際に持っている株（銘柄ごとの株数）。口座は 1 つなので合計しか見えず、誰のぶんかは分からない。現金は入らない。"
+  doc = "docs/specs/experiments/live-trading.md"
+  where = "§0-8 口座の建玉と台帳の帳尻を合わせる"
+
+  [[section.term]]
+  name = "台帳（トレーダーの持ち分）"
+  short = "執行器が付けている「誰が何株・いくらで持っているか」の記録。口座の建玉と食い違うと、少ない銘柄だけその日は売買しない。"
+  doc = "docs/specs/experiments/live-trading.md"
+  where = "§0-8 口座の建玉と台帳の帳尻を合わせる"
+
+  [[section.term]]
+  name = "控え"
+  short = "発注の直前に書く注文の覚え書き。発注の後に落ちても、次の起動で照会して約定をその人の台帳に戻せる。"
+  doc = "docs/specs/experiments/live-trading.md"
+  where = "§0-8 口座の建玉と台帳の帳尻を合わせる"
 
 [[section]]
 id = "screen"

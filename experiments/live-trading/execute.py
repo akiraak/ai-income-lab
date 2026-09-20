@@ -73,12 +73,34 @@ class ExecResult:
     cancelled: bool = False
     quote_at_signal: dict | None = None
     elapsed_ms: float | None = None
+    fees: dict | None = None      # dry-run の fee-calculation（丸ごと）
+    bp_effect: dict | None = None  # dry-run の buying-power-effect（丸ごと）
+
+    def amounts(self) -> dict:
+        """金額の内訳（2026-09-19 の利用者決定「手数料など金額の内訳も保存する」）。1 注文 1 トレーダーなので、そのままその人の内訳になる。
+
+        ⚠ 手数料の出どころは **dry-run の見積り**（発注の前に API が返す `fee-calculation`）。約定しなかった注文は 0。
+        """
+        gross = sum(f.shares * f.price for f in self.fills)
+        fee = fee_total_usd(self.fees) if self.fills else 0.0
+        sign = -1.0 if self.order.side == "buy" else 1.0
+        return {"gross_usd": round(gross, 4), "fee_usd": round(fee, 4), "fee_source": "dry_run_estimate" if self.fees is not None else None,
+                "net_usd": round(sign * gross - fee, 4), "fee_breakdown": self.fees, "buying_power_effect": self.bp_effect}
+
+
+def fee_total_usd(fees: dict | None) -> float:
+    """`fee-calculation` の合計を「払う額（正）」にする。Credit（戻り）は負。"""
+    try:
+        total = abs(float((fees or {}).get("total-fees") or 0))
+    except (TypeError, ValueError):
+        return 0.0
+    return -total if (fees or {}).get("total-fees-effect") == "Credit" else total
 
 
 class Executor:
     def __init__(self, client: Client, account_number: str, rec: record.Recorder, halt_file: str,
                  mode: str = "dry-run", retries: int = 3, retry_interval: float = 60.0,
-                 cancel_after: float = 600.0, poll_interval: float = 0.5, sleep=time.sleep):
+                 cancel_after: float = 600.0, poll_interval: float = 0.5, sleep=time.sleep, clock=None, journal=None):
         if mode not in ("plan", "dry-run", "submit"):
             raise ValueError(f"mode {mode!r} は無い（plan / dry-run / submit）")
         self.client = client
@@ -91,6 +113,8 @@ class Executor:
         self.cancel_after = cancel_after
         self.poll_interval = poll_interval
         self.sleep = sleep
+        self.journal = journal if mode == "submit" else None   # 控え（journal.py）。発注の直前と直後に書く
+        self.clock = clock   # 仮の時計（シミュレーション）。None なら約定待ちは今までどおり `client.wait_for_status`（本物の時計）
 
     # ---------- 部品 ----------
 
@@ -106,6 +130,23 @@ class Executor:
         qty_s = str(int(qty)) if float(qty).is_integer() else f"{qty:.4f}"
         return self.client.build_equity_order(order.symbol, qty_s, action=action, order_type="Market",
                                               external_identifier=external_id, source=ORDER_SOURCE)
+
+    def wait_for_status(self, order_id, targets: set[str], timeout: float) -> list[dict]:
+        """約定待ち。仮の時計があるときは、取消までの秒数（`cancel_after`）を仮の時計の上で数える。"""
+        if self.clock is None:
+            return self.client.wait_for_status(self.account, order_id, targets, timeout=timeout, interval=self.poll_interval)
+        transitions: list[dict] = []
+        started = self.clock.monotonic()
+        last = None
+        while self.clock.monotonic() - started < timeout:
+            status = field_(self.client.get_order(self.account, order_id), "status")
+            if status != last:
+                transitions.append({"at_ms": round((self.clock.monotonic() - started) * 1000, 1), "status": status})
+                last = status
+            if status in targets:
+                break
+            self.clock.sleep(self.poll_interval)
+        return transitions
 
     def _fills_of(self, order_obj: dict) -> list[dict]:
         legs = field_(order_obj, "legs") or []
@@ -128,7 +169,9 @@ class Executor:
                 return res
             for attempt in range(1, self.retries + 1):
                 try:
-                    res.dry_run = record.excerpt(self.client.dry_run_order(self.account, body), limit=12)
+                    preview = self.client.dry_run_order(self.account, body)
+                    res.dry_run = record.excerpt(preview, limit=12)
+                    res.fees, res.bp_effect = field_(preview, "fee-calculation"), field_(preview, "buying-power-effect")
                     break
                 except ApiError as exc:
                     if is_transient(exc) and attempt < self.retries:
@@ -140,6 +183,8 @@ class Executor:
                 res.final_status = "dry-run"
                 return res
             submitted = None
+            if self.journal:
+                self.journal.intent(ext, order, fee_total_usd(res.fees))   # ⚠ 発注より先に控える（落ちた後、誰の注文かを確実に戻すため）
             for attempt in range(1, self.retries + 1):
                 res.attempts = attempt
                 if self.halted():
@@ -166,8 +211,10 @@ class Executor:
                 return res
             order_obj = submitted["order"]
             order_id = field_(order_obj, "id")
+            if self.journal:
+                self.journal.submitted(ext, order_id)
             res.submitted = {"order_id": order_id, "status": field_(order_obj, "status"), "warnings": record.excerpt(submitted.get("warnings"))}
-            res.transitions += self.client.wait_for_status(self.account, order_id, FINAL, timeout=self.cancel_after, interval=self.poll_interval)
+            res.transitions += self.wait_for_status(order_id, FINAL, self.cancel_after)
             final = self.client.get_order(self.account, order_id)
             status = field_(final, "status")
             if status not in FINAL:
@@ -175,7 +222,7 @@ class Executor:
                 try:
                     self.client.cancel_order(self.account, order_id)
                     res.cancelled = True
-                    res.transitions += self.client.wait_for_status(self.account, order_id, FINAL, timeout=30, interval=self.poll_interval)
+                    res.transitions += self.wait_for_status(order_id, FINAL, 30)
                     final = self.client.get_order(self.account, order_id)
                     status = field_(final, "status")
                 except (ApiError, ProductionGuard) as exc:
@@ -196,17 +243,20 @@ class Executor:
         finally:
             res.elapsed_ms = round((time.perf_counter() - t0) * 1000, 1)
 
-    def run_all(self, orders: list[NetOrder], quotes_raw: dict[str, dict]) -> list[ExecResult]:
+    def run_all(self, orders: list[NetOrder], quotes_raw: dict[str, dict], on_result=None) -> list[ExecResult]:
+        """`on_result(res)` は 1 注文が片付くたびに呼ぶ（台帳の保存と控えの done を注文ごとに済ませるため）。"""
         results = []
         for o in orders:
-            results.append(self.run_one(o, quotes_raw.get(o.symbol)))
+            res = self.run_one(o, quotes_raw.get(o.symbol))
+            if on_result:
+                on_result(res)
+            results.append(res)
         return results
 
 
 def allocate_fills(res: ExecResult) -> list[dict]:
-    """1 注文の約定を、誰の何株ぶんかで按分する（合算して出した注文をトレーダーの台帳に戻す）。
-
-    約定価格は加重平均、数量は parts の比で配る（端数は最後の人に寄せる）。
+    """1 注文の約定をトレーダーの台帳に戻す。⚠ 2026-09-19 から 1 注文 1 トレーダーなので、約定も手数料もその人に全部付く
+    （`parts` が複数の形も読めるまま残す ＝ 数量と手数料は parts の比で配り、端数は最後の人に寄せる）。約定価格は加重平均。
     """
     total_qty = sum(f.shares for f in res.fills)
     if total_qty <= 0:
@@ -214,6 +264,7 @@ def allocate_fills(res: ExecResult) -> list[dict]:
     avg = sum(f.shares * f.price for f in res.fills) / total_qty
     parts = res.order.parts
     want = sum(p["shares"] for p in parts)
+    fee_total = res.amounts()["fee_usd"]
     out = []
     given = 0.0
     for i, p in enumerate(parts):
@@ -222,5 +273,6 @@ def allocate_fills(res: ExecResult) -> list[dict]:
             share = total_qty - given
         share = round(share, 6)
         given += share
-        out.append({"trader": p["trader"], "symbol": res.order.symbol, "side": res.order.side, "shares": share, "price": round(avg, 4)})
+        out.append({"trader": p["trader"], "symbol": res.order.symbol, "side": res.order.side, "shares": share, "price": round(avg, 4),
+                    "fee": round(fee_total * (share / total_qty), 4)})
     return out

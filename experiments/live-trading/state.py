@@ -10,6 +10,12 @@ import os
 from dataclasses import asdict, dataclass, field
 
 
+# 注文の数量は小数 4 桁（`execute.Executor.build`）、按分した持ち分は 6 桁。合算注文の按分でできた端数の持ち分（例 2.992573）を
+# 全部売ると、約定の数量は 2.9926 で返る。⚠ この差で台帳が落ちると「約定したのに状態が保存されない」。逆に少なく約定した残り（0.000028 株）を
+# 建玉として残すと、次の日に数量 0.0000 の売りを出し、買い直しもできない（どちらも 2026-09-19 にシミュレーションで見つけた）
+QTY_TOL = 1e-4
+
+
 @dataclass
 class Holding:
     shares: float
@@ -67,12 +73,13 @@ class TraderState:
         h = self.holdings.get(symbol)
         if not h or h.shares <= 0:
             raise ValueError(f"{self.name}: {symbol} を持っていないのに売れない")
-        if shares > h.shares + 1e-9:
+        if shares > h.shares + QTY_TOL:
             raise ValueError(f"{self.name}: {symbol} の持ち分 {h.shares} を超える売り {shares}")
+        shares = min(shares, h.shares)   # 丸めの差（下の QTY_TOL）は持ち分に合わせる ＝ 全部売ったら 0 になる
         self.realized_usd += (price - h.avg_price) * shares
         self.fees_usd += fee
         h.shares = round(h.shares - shares, 6)
-        if h.shares <= 1e-9:
+        if h.shares <= QTY_TOL:   # 丸めの残り（例 0.997728 を 0.9977 で売った残り 0.000028）は建玉として残さない ＝ 次の日に「0 株の売り」を出さない
             del self.holdings[symbol]
         self.pending_settlement.append({"date": date, "amount": shares * price})
         self.history.append({"date": date, "symbol": symbol, "side": "sell", "shares": shares, "price": price, "fee": fee, "note": note})

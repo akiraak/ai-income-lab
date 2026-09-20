@@ -60,8 +60,16 @@ class Settings:
     version: str = VERSION
     # デモ: 資格情報が無い（または AIL_DEMO=1）とき、本物には繋がずモックのデータで全画面を出す
     demo: bool = False
+    # 機械のモード（実売買 ／ シミュレーション）の正本 `MODE` がある場所（執行器のディレクトリ）。None ＝ 常に実売買（公開面・テスト）
+    mode_dir: Path | None = None
+    live_dir_explicit: bool = False   # AIL_LIVE_DIR を手で指定した（モードと木の種類が食い違えば数字を出さない。simmode.py）
 
     # ---- 派生 ----
+    def machine(self) -> dict:
+        """いまのモードと、画面が読む記録の木。⚠ リクエストのたびに読む（管理画面を動かしたまま CLI で切り替わる）。"""
+        from . import simmode
+        return simmode.resolve(self.mode_dir, self.live_dir, self.live_dir_explicit)
+
     @property
     def face(self) -> str:
         """公開面（cloudflare）かローカル面か。操作・開発の経路はローカル面でしか出さない。"""
@@ -130,7 +138,8 @@ class Settings:
     @property
     def halt_file(self) -> Path:
         # sample.py が見る場所と同じ（TT_HALT_FILE の既定 = 記録ディレクトリの HALT）
-        return self.records_dir / "HALT"
+        # ⚠ シミュレーションモードでは、シミュレーションの木の HALT だけ（本物の HALT に 1 バイトも書かない。live-trading.md §0-7 (a)）
+        return self.machine().get("halt_file") or self.records_dir / "HALT"
 
     @property
     def allow_prod_dry_run(self) -> bool:
@@ -244,6 +253,9 @@ def load_settings(environ: dict | None = None) -> Settings:
         runs_dir=runs_dir,
         exp_dir=exp_dir,
         live_dir=live_dir,
+        # ⚠ 公開面（g3plus）は常に実売買の側だけ（MODE も sim/ も載せない）
+        mode_dir=None if auth_mode == "cloudflare" else Path(env.get("AIL_MODE_DIR") or REPO_ROOT / "experiments" / "live-trading").resolve(),
+        live_dir_explicit=bool(env.get("AIL_LIVE_DIR")),
         sample_python=sample_python,
         symbol=(env.get("AIL_SYMBOL") or "SPY").upper(),
         poll_seconds=float(env.get("AIL_POLL_SECONDS") or 30),

@@ -32,7 +32,8 @@ def test_window_follows_the_nyse_calendar():
 
 
 def _run(args, env_extra):
-    env = {**os.environ, "TT_ENV_FILE": "/nonexistent", **env_extra}
+    # ⚠ MODE ／ run.lock は tmp に向ける（テストが本物の run.lock を一瞬でも取ると、同じ時刻の本物の執行器が拒否される）
+    env = {**os.environ, "TT_ENV_FILE": "/nonexistent", "LT_MODE_DIR": env_extra["LT_OUT_DIR"], **env_extra}
     return subprocess.run([sys.executable, os.path.join(HERE, "run_day.py"), *args], capture_output=True, text=True, env=env)
 
 

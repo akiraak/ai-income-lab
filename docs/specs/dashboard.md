@@ -498,6 +498,40 @@ cd dashboard && AIL_DEMO=1 AIL_PORT=3019 .venv/bin/python -m app.main     # デ�
 - ✅・❌・🧪 が □ で写るのは撮影機に絵文字フォントが無いとき（titan は無い。Sx360 は `fonts-noto-color-emoji` があり、そのまま写る）
 - ✅ **CSP 違反は全画面で 0 件【実測 2026-09-18】**（概要・全体の詳細・記録・判定・操作・開発。`tests/browser/confirm.mjs`）。当初は操作（`/ops`）ほかにインラインの style が 9 か所・確認ダイアログの `onsubmit` が 5 か所あり、CSP に止められていた（§15-9 で直した）
 
+### 13-6. シミュレーションモード（2026-09-19）— 表示だけ。実売買の数字と混ぜない
+
+決めごとの正本は [live-trading.md §0-7](experiments/live-trading.md)。⚠ **実売買とシミュレーションは排他**で、機械のモード（`experiments/live-trading/MODE`。無ければ real）は 1 つ。管理画面はそれを**リクエストのたびに読む**（動かしたまま CLI で切り替わる）。
+
+> この図の主張: 画面が読む記録の木はモードから 1 つに決まり、食い違うときは数字を出さない。操作は足さない（切り替え・速さ・停止は CLI の `simctl.py`）。
+
+```mermaid
+flowchart TD
+  M["MODE（app/simmode.py が読む）"] -->|real ／ 無い| R["本物の記録（AIL_LIVE_DIR ／ 既定 ／ デモ）<br/>帯なし ＝ 今までどおり"]
+  M -->|sim| S["sim/（名前）/ だけを読む<br/>全ページの帯・[SIM]・「仮」の印・/api/* に mode"]
+  M -->|壊れている| X["数字を出さない（帯に理由）"]
+  S --> H["停止ボタン ＝ sim/（名前）/HALT だけを書く<br/>本物の HALT・本物の注文には触らない"]
+  R --> C{"AIL_LIVE_DIR が手で指定されていて<br/>木の種類がモードと食い違う"}
+  S --> C
+  C -->|はい| X
+```
+
+| 項目 | 内容 |
+| --- | --- |
+| 読む場所 | `AIL_MODE_DIR`（既定 `experiments/live-trading`）の `MODE`・`sim/<名前>/{config,state,out}`・`sim/<名前>/sim/{control,status}.json`。⚠ **公開面（cloudflare）は `MODE` を読まない** ＝ 常に実売買の側だけ（g3plus には `MODE` も `sim/` も載せない） |
+| 帯 | 全ページの最上部・`position: sticky`・**部分更新の外**（消せない）。「[SIM] シミュレーション <名前> — 仮データ・仮の時計。実売買ではない」＋ 仮の時刻 ／ 速さ ／ 停止中 ／ 何日目 ／ 運転手の状態（ここだけ 1 秒おきに `/?partial=simclock` で取り直す）。`<title>` の頭に `[SIM]`、左ペインの銘の下にも `[SIM] <名前>`。見た目は §15-11 |
+| 「仮」の印 | 概要・全体の詳細・トレーダーの詳細の見出しと大きな数字に `.chip.placeholder.sim-mark`（テンプレートの `simmark(machine)`） |
+| 流れている途中を眺める | シミュレーションモードの概要・全体の詳細・トレーダーの詳細だけ、`<main data-poll-self="3000">` ＝ いまの URL を取り直して `main` の中身を差し替える（`app.js`。帯は `main` の外なので差し替わらない。ヘルプを開いている間は止まる） |
+| 「今日」 | 暦の残り日数は仮の今日で数える（`board(today=…)`）。記録の日付はもともと記録から来る |
+| `/api/*` | `/api/state`・`/api/events`・`/api/records`・`/api/live`・`/api/judge` の全部に `"mode"`。sim のときは `"sim": {名前・速さ・仮の時刻・何日目…}`、食い違いは `"mode_mismatch"`。⚠ **1 つの応答に本物とシミュレーションの行を混ぜない** |
+| 停止ボタン | `Settings.halt_file` がモードを見る: sim のときは `sim/<名前>/HALT`（執行器が仮の時計のとき見るのと同じファイル）。⚠ **sim のときは本物の口座への取消を 1 本も出さない**（通し稽古）。操作の履歴の各行に `mode` |
+| ⚠ 操作は足さない | POST の経路は `/ops/halt`・`/ops/resume`・`/ops/retry-auth` のまま（テストで固定）。管理画面が `sim/` の下に書くのは `HALT` だけ。§3 の権限の表は変えない |
+| デモとの関係 | デモ（鍵なし ／ `AIL_DEMO=1`）の帯は今までどおり別に出る（排他の対象外）。⚠ **Sx360 は資格情報が無いので常にデモの帯も出る**が、モードが sim なら実売買の 3 画面はシミュレーションの記録を読む |
+| テスト | `tests/test_mode_banner.py`（`MODE` が無ければ 1 つも出ない ／ sim で全ページに帯と `[SIM]` ／ `/api/*` の `mode` ／ 食い違いは数字なし ／ 公開面は読まない ／ POST が増えていない ／ 停止ボタンは sim の `HALT` だけ）。ブラウザ確認（帯が最上部・スクロールしても見える・仮の時刻が進む・開いたまま数字が進む・CSP 違反 0 件）は 2026-09-19 に手で行った |
+
+![シミュレーションモードの概要（sim2・筋書きつき・幅 1280px）](../plans/assets/dashboard-sim.png)
+
+⚠ **写っている数字は仮データ**（過去の日足の再生 ＋ 筋書きの `drawdown`）。損益にも差 1 にも意味は無い。
+
 ## 14. ハードの画面（2026-09-18）
 
 vibeboard の**ハード**タブ（`/ext/hardware`）。検証が何時間も使う機械（titan ＝ WSL2 ＋ RTX 3090 Ti ＋ 32 スレッド）の
@@ -780,6 +814,16 @@ flowchart LR
 ![概要の i マーク（デモ・幅 1280px）](../plans/assets/dashboard-help.png)
 
 
+### 15-11. シミュレーションモードの帯（2026-09-19）
+
+| 項目 | 決めごと |
+| --- | --- |
+| 色 | **青緑の斜めの縞**（`.simbar`。`#0f5e5a` ／ `#0b4a47`・下線 `#2dd4bf`）。⚠ 環境の色（cert 緑・prod 赤・MOCK 紫）とも状態の色（ok ／ warn ／ ng）とも取り違えない色を 1 つ、この帯のためだけに使う（実売買の画面では使わない） |
+| 置き場 | `<body>` の先頭（`.shell` の外）・`position: sticky; top: 0`。⚠ 部分更新（`data-poll`）の外 ＝ 消せない。取り直すのは中の `#simclock` だけ |
+| 食い違い | `.simbar-ng`（茶）で「モードと記録が食い違っている」。数字は出さない |
+| 「仮」の印 | §15-8 の `.chip.placeholder` と同じ見た目（紫の点線）＋ `.sim-mark`。⚠ 状態の色を付けない |
+| i マーク | 帯の中に `info("シミュレーションモード")`（`<div>` の中。`<p>` ではない）。語は `glossary.toml` の「実売買」の分野に 3 つ（シミュレーションモード ／ 仮の時計 ／ 仮データ（日足の再生）） |
+
 ## 9. 更新履歴
 
 - 2026-09-05: 初版（Phase 1〜4 の実装、デプロイ契約）
@@ -799,3 +843,4 @@ flowchart LR
 - 2026-09-18: **銘柄の集合の一覧表**（§11-1）。vibeboard のデータタブの概要の先頭に、集合を横に比べる表と重複を除いた合計を出した（利用者の指示 2026-09-17）。4 つの正本（universe・dataset・experiment の config と調整後の manifest）を写して組む ＝ 集合や足を増やすと表が自動で変わる。実データで和集合 136・日足あり 136・1 分足あり 63【実測】（手で数えた 2026-09-17 の値と一致）。pytest 154 件。プランは [universe-table.md](../plans/archive/universe-table.md)
 - 2026-09-18: **外すと決めた 11 行 ＋ 1 件取消を消した**（§1・§3）。検証（`/experiments`）・データ（`/data`）・手動の注文（`/ops/dry-run`・`submit`・`cancel`・`cleanup`）・開発（`/dev/*`）の経路・テンプレート 6 枚・画面のテストを削除。⚠ **管理画面に発注の経路は無くなった**（`ops.py` のクライアントは取消の鍵だけ。設定も `TT_ALLOW_PROD_ORDERS` を読まない）。残した部品: `app/experiments.py`・`app/inventory.py`（vibeboard のタブ）・`devtools.MockServer`・`run_step`（デモ）。停止 ／ 解除 ／ 履歴 ／ 記録と判定はそのまま。pytest 145 件・ブラウザで停止 2 か所の確認ダイアログと CSP 違反 0 件・外した画面が 404【実測】。⚠ g3plus は未デプロイ。プランは [dashboard-remove-dropped.md](../plans/archive/dashboard-remove-dropped.md)
 - 2026-09-18: **i マークのヘルプ**（§15-10）。見出しの横の i を押すと 1〜2 行の説明と「詳しく」の文書名が出る。⚠ **文面の正本は `dashboard/glossary.toml`**（用語タブと同じ 1 本。節「実売買」「管理画面（監視と記録）」26 語を足した）で、templates は `info("語")` と名前で指すだけ。`<details>` の素の動き ＋ `app.js` の足し算（CSP はそのまま・違反 0 件【実測】）。⚠ **デプロイ契約（§7）の COPY に `dashboard/glossary.toml` を足した**（g3plus-ops の追従が要る）。pytest 157 件（`test_help.py` 12 件を追加）・ブラウザの検査 `tests/browser/help.mjs` 25 項目
+- 2026-09-19: **シミュレーションモード**（§13-6・§15-11）。機械のモード（`MODE`）が sim の間、全ページに帯と `[SIM]`・数字に「仮」の印・`/api/*` に `mode`。読む記録はモードから決まり（`app/simmode.py`）、食い違えば数字を出さない。停止ボタンはシミュレーションの木の `HALT` だけを書く。⚠ **表示だけ・POST の経路は増やしていない**。pytest 8 件。プランは [docs/plans/archive/live-trading-sim-clock.md](../plans/archive/live-trading-sim-clock.md)

@@ -15,18 +15,25 @@
   <div class="tile"><div class="k">約定 ／ 注文{{ info("内部移転") }}</div><div class="v num">{{ t.n_filled }} ／ {{ t.n_orders }}</div><div class="s">＋ 内部移転 {{ t.n_transfers }}</div></div>
   <div class="tile"><div class="k">建玉{{ info("建玉") }}</div><div class="v small">{{ t.holdings_text }}</div><div class="s">原価 {{ usd(t.last.cost_in_use_usd) }}</div></div>
   <div class="tile"><div class="k">手数料（差 2）{{ info("差 2（実コスト）") }}</div><div class="v num">{{ usd(t.last.fees_usd or 0) }}</div><div class="s">dry-run の写し</div></div>
-  <div class="tile"><div class="k">差 3 紙上 − 実物{{ info("差 3（紙上 − 実物）") }}</div><div class="v"><span class="chip placeholder">仮データ</span></div><div class="s">{{ b.placeholder.diff3_bp_per_day }} bp/日 · 実売買の Phase 3 の後で本物</div></div>
+  <div class="tile"><div class="k">差 3 紙上 − 実物{{ info("差 3（紙上 − 実物）") }}</div>{% if t.paper_real %}<div class="v num">{{ t.diff3_cum_bp if t.diff3_cum_bp is not none else '—' }} bp</div><div class="s">累計（予算に対して）· 日次の中央値 {{ t.diff3_median_bp if t.diff3_median_bp is not none else '—' }} bp{% if t.close_source == 'quotes' %} · <span class="chip placeholder">終値は気配の代役</span>{% endif %}</div>{% else %}<div class="v"><span class="chip placeholder">仮データ</span></div><div class="s">{{ b.placeholder.diff3_bp_per_day }} bp/日 · 紙上の対照（daily.csv）ができたら本物</div>{% endif %}</div>
 </div>
 {% if t.last.drawdown_pct_of_budget is not none and t.last.drawdown_pct_of_budget > 20 %}<div class="danger">⚠ 含み損 {{ t.last.drawdown_pct_of_budget }}% ＞ 20%（停止条件。live-trading.md §0-2。⚠ 自動では止めない。止めるのは人）{{ info("含み損の停止条件") }}</div>{% endif %}
 <div class="dgrid">
   <div class="panel"><h3>損益の推移{{ simmark(machine) }} {{ info("紙上の損益") }}<span class="small">予算に対する %</span></h3>
-    <div class="legend"><span class="item"><i class="sw {{ t.cls }}"></i>実物</span><span class="item"><i class="sw dash"></i>紙上 <span class="chip placeholder">仮データ</span></span></div>
+    <div class="legend"><span class="item"><i class="sw {{ t.cls }}"></i>実物</span><span class="item"><i class="sw dash"></i>紙上{% if not t.paper_real %} <span class="chip placeholder">仮データ</span>{% endif %}</span></div>
     {{ charts.pnl_trader(b, t) }}
-    <p class="rule">⚠ 紙上の損益（同じ合図を公式終値で回した値）は<b>仮データ</b>（実物に 1 営業日あたり {{ b.placeholder.diff3_bp_per_day }}bp を足した線）。本物は実売買の Phase 3（紙上の対照）の後</p></div>
+    {% if t.paper_real %}<p class="rule">紙上 ＝ 同じ合図を公式終値・片道 2.5bp・等加重で回した累計（執行器の <code>paper.py</code> が書く <code>daily.csv</code>）。⚠ 紙上は予算・整数株・拒否を知らない ＝ 実物が見送ったぶんは差 3 に出る。⚠ 損益で手法を採らない</p>{% else %}<p class="rule">⚠ 紙上の損益（同じ合図を公式終値で回した値）は<b>仮データ</b>（実物に 1 営業日あたり {{ b.placeholder.diff3_bp_per_day }}bp を足した線）。本物は実売買の Phase 3（紙上の対照）の後</p>{% endif %}</div>
   <div class="panel"><h3>差 1 の推移{{ simmark(machine) }} {{ info("差 1（執行価格）") }}<span class="small">注文ごと · 背景は閾値の帯（✅ ≤ 5 ／ ⚠ 5〜10 ／ ❌ ＞ 10）</span></h3>{{ charts.diff1_timeline(b, t) }}</div>
   <div class="panel wide"><h3>行動の推移{{ simmark(machine) }} {{ info("行動のマス目") }}<span class="small">銘柄 × 営業日 · マスに触れると合図と約定</span></h3>{{ charts.action_grid(b, t, w=1240, cell_h=24) }}
     <div class="keyrow"><span class="key"><i class="k-hold"></i>保有</span><span class="key"><i class="k-buy"></i>買 ／ 売</span><span class="key"><i class="k-skip"></i>見送り</span><span class="key"><i class="k-none"></i>動きなし</span><span class="key"><i class="k-nostart"></i>起動なし（<span class="chip placeholder">仮</span> 休場日の暦なし）</span></div></div>
 </div>
+{% if t.paper_real %}
+<div class="sec"><h2>紙上の対照（日次）{{ simmark(machine) }}</h2><span class="muted small">同じ合図を公式終値・片道 2.5bp で回した紙上と、実物・B&amp;H · bp は予算に対して · 新しい順{% if t.close_source == 'quotes' %} · ⚠ 終値は気配の代役（モック ／ シミュレーション）{% endif %}</span></div>
+<div class="panel"><div class="scroll-x"><table class="small orders">
+  <tr><th>日付</th><th class="num">紙上 bp</th><th class="num">実物 bp</th><th class="num">差 3 bp</th><th class="num">差 3 累計</th><th class="num">B&amp;H bp</th><th class="num">紙上の保有</th><th class="num">約定 ／ 注文</th><th class="num">執行できず</th><th class="num">差 1 気配→約定</th><th class="num">約定→終値</th><th class="num">終値なし</th></tr>
+  {% for r in t.daily %}<tr><td>{{ r.date }}</td><td class="num">{{ r.paper_bp if r.paper_bp is not none else '—' }}</td><td class="num">{{ r.real_bp if r.real_bp is not none else '—' }}</td><td class="num">{{ r.diff3_bp if r.diff3_bp is not none else '—' }}</td><td class="num">{{ r.diff3_cum_bp if r.diff3_cum_bp is not none else '—' }}</td><td class="num">{{ r.bh_bp if r.bh_bp is not none else '—' }}</td><td class="num">{{ r.paper_held }} ／ {{ r.n_symbols }}</td><td class="num">{{ r.filled }} ／ {{ r.orders }}</td><td class="num">{{ r.unexecuted }}</td><td class="num">{{ r.diff1_quote_to_fill_bp if r.diff1_quote_to_fill_bp is not none else '—' }}</td><td class="num">{{ r.diff1_fill_to_close_bp if r.diff1_fill_to_close_bp is not none else '—' }}</td><td class="num">{{ r.close_missing }}</td></tr>
+  {% endfor %}</table></div></div>
+{% endif %}
 <div class="sec"><h2>注文の履歴{{ simmark(machine) }}</h2><span class="muted small">{{ t.name }} の分 · 新しい順 · 内部移転を含む</span></div>
 {% set who = t.name %}{% include "orders_history.html" %}
 {% endblock %}

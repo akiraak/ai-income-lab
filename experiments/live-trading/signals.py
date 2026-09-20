@@ -38,8 +38,9 @@ def _read_file_model(spec: ModelSpec, date: str) -> dict[str, tuple[float, float
     return out
 
 
-def _read_predict_rows(path: str) -> dict[tuple[str, str], tuple[float, float]]:
-    out: dict[tuple[str, str], tuple[float, float]] = {}
+def _read_predict_rows(path: str, date: str | None = None) -> dict[tuple[str, str], tuple[float, float, str | None]]:
+    """(モデル, 銘柄) → (買い%, 出口%, 手法)。⚠ **行に日付があり、今日と違えば読まない**（古い予測で売買しない）。"""
+    out: dict[tuple[str, str], tuple[float, float, str | None]] = {}
     if not os.path.exists(path):
         return out
     with open(path, encoding="utf-8") as f:
@@ -48,7 +49,9 @@ def _read_predict_rows(path: str) -> dict[tuple[str, str], tuple[float, float]]:
             if not line:
                 continue
             row = json.loads(line)
-            out[(row["model"], row["symbol"])] = (float(row["buy"]), float(row["exit"]))
+            if date is not None and row.get("date") not in (None, date):
+                continue
+            out[(row["model"], row["symbol"])] = (float(row["buy"]), float(row["exit"]), row.get("method"))
     return out
 
 
@@ -62,8 +65,13 @@ def model_outputs(spec: ModelSpec, symbols: tuple[str, ...], date: str, predict_
     if spec.kind == "experiment":
         if not predict_path:
             raise SignalError(f"experiment モデル {spec.name} には predict.jsonl が要る（Phase 1 の predict.py が書く）")
-        rows = _read_predict_rows(predict_path)
-        return {s: rows[(spec.name, s)] for s in symbols if (spec.name, s) in rows}
+        rows = _read_predict_rows(predict_path, date)
+        got = {s: rows[(spec.name, s)] for s in symbols if (spec.name, s) in rows}
+        if spec.method is not None:
+            wrong = sorted({m for _, _, m in got.values() if m != spec.method}, key=str)
+            if wrong:
+                raise SignalError(f"experiment モデル {spec.name}: predict.jsonl の手法 {wrong} が設定の {spec.method!r} と違う")
+        return {s: (b, e) for s, (b, e, _m) in got.items()}
     raise SignalError(f"モデル kind {spec.kind!r} は無い")
 
 

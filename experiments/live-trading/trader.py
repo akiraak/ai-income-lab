@@ -34,6 +34,7 @@ class ModelSpec:
     buy: float | None = None   # fixed
     exit: float | None = None  # fixed
     path: str | None = None    # file
+    method: str | None = None  # experiment: 実験の中の手法（例 "T3 QUANT（60日窓）"）。predict.jsonl の行の method と突き合わせる
 
     @property
     def is_test(self) -> bool:
@@ -94,12 +95,19 @@ class Trader:
             raise ValueError(f"{self.name}: fixed / file のモデルを持つトレーダーは test = true が要る（記録を判定に混ぜないため）")
 
 
-def load_universe(name: str) -> tuple[str, ...]:
-    """feature-discovery の銘柄集合（`config/universe/<name>.toml` の groups を平らに）。"""
+def load_universe(name: str, group: str | None = None) -> tuple[str, ...]:
+    """feature-discovery の銘柄集合（`config/universe/<name>.toml` の groups を平らに）。
+
+    `group` を渡すとその群だけ（例 us63 の `company` ＝ 会社株 48 本。T2 のモデルは ETF を予測しない）。
+    """
     path = os.path.join(UNIVERSE_DIR, f"{name}.toml")
     with open(path, "rb") as f:
         doc = tomllib.load(f)
     symbols: list[str] = []
+    if group is not None:
+        if group not in (doc.get("groups") or {}):
+            raise ValueError(f"universe {name} に群 {group!r} は無い（{list((doc.get('groups') or {}))}）")
+        return tuple(doc["groups"][group])
     for group in (doc.get("groups") or {}).values():
         symbols.extend(group)
     if not symbols:
@@ -117,12 +125,13 @@ def parse_trader(doc: dict, name_hint: str = "", source_path: str = "") -> Trade
                 buy=float(m["buy"]) if "buy" in m else None,
                 exit=float(m["exit"]) if "exit" in m else None,
                 path=(os.path.join(os.path.dirname(source_path), m["path"]) if source_path and not os.path.isabs(m.get("path", "")) else m.get("path")) if m.get("path") else None,
+                method=str(m["method"]) if m.get("method") else None,
             )
         )
     universe = doc.get("universe")
     symbols = tuple(doc.get("symbols") or ())
     if universe and not symbols:
-        symbols = load_universe(universe)
+        symbols = load_universe(universe, doc.get("universe_group"))
     trader = Trader(
         name=str(doc.get("name") or name_hint),
         budget_usd=float(doc.get("budget_usd", 0)),
@@ -135,7 +144,7 @@ def parse_trader(doc: dict, name_hint: str = "", source_path: str = "") -> Trade
         universe=universe,
         note=str(doc.get("note", "")),
         source_path=source_path,
-        extra={k: v for k, v in doc.items() if k not in ("name", "budget_usd", "symbols", "universe", "models", "combine", "threshold", "sizing", "test", "note")},
+        extra={k: v for k, v in doc.items() if k not in ("name", "budget_usd", "symbols", "universe", "universe_group", "models", "combine", "threshold", "sizing", "test", "note")},
     )
     trader.validate()
     return trader

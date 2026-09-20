@@ -29,7 +29,7 @@
 | 予備 | — | — | A $100 ／ B $1,000 | — | 規制費・約定の端数・受渡しの遅れ |
 | `test_a`（試験用） | `file`（`config/signals/test_a.csv`。日付ごとに 買い ／ 出口 を手で書く） | 50 | $30 | `T`（us63 で株価が最も低い。$25.4【実測 2026-09-18 00:00 ET の気配】） | ✅ 固定。本番の最小額 1 発注に使う |
 
-⚠ **銘柄集合と `sizing` の規則（結果を見る前に固定。2026-09-19）**: §0-3 の `notional_market_5usd` が通れば **`sizing = "notional"`・`universe = "us63"`（63 本・1 銘柄は規模 A $4.76 ／ 規模 B $47.62）**。通らなければ **`sizing = "shares"` で銘柄を事前固定で絞る**（⚠ 絞り方と本数は利用者の裁定・未決。1 人の予算 ÷ N が 1 株の値段を超える銘柄しか買えない。本数は下の表）。
+⚠ **銘柄集合と `sizing` の規則（結果を見る前に固定。2026-09-19）**: §0-3 の `notional_market_5usd` が通れば **`sizing = "notional"`・`universe = "us63"`（63 本・1 銘柄は規模 A $4.76 ／ 規模 B $47.62）**。通らなければ **`sizing = "shares"` で銘柄を事前固定で絞る** ＝ ✅ **2026-09-20 利用者決定 D3: 会社株 48 本のうち 2026-09-18 の終値の低い順に 5 本・3 人共通（T $25.40 ／ PFE $27.66 ／ NKE $35.51 ／ VZ $48.09 ／ BAC $57.73【実測】。1 銘柄の枠 $60）**。T2 は会社株しか予測しないので ETF を入れない。⚠ `dryrun2` の結果を見る前に決めた。候補の設定は `config/traders/candidates/{notional,shares}/`（1 人の予算 ÷ N が 1 株の値段を超える銘柄しか買えない。本数は下の表）。
 #### 予算の規模 — A $1,000 と B $10,000 を並べて比べる（2026-09-19。利用者の決定）
 
 利用者の指示: **「$1000 と $10000 の両方を比較できるようにして。$10000 は実際の取引で使えない可能性があるのでそれを明記する」**（$1,000 が購入の制限になっているため）。
@@ -69,7 +69,7 @@
 | --- | --- | --- |
 | 持ち株 | トレーダーごと（1 人 1 ファイル。銘柄・株数・取得単価・建てた日） | `state/<env>/<名前>.json`（`state.py`） |
 | 売り | ⚠ **自分の持ち株だけ売れる。他のトレーダーが買った株は売れない**。⚠ **内部移転はしない**（2026-09-19 の利用者決定「内部移転はダメです。トレーダーの実際の実績が検証できない」）＝ 同じ回で A の売りと B の買いが同じ銘柄でも付け替えず、**両方をその人の注文として口座に出す（売りが先・買いが後）**。2026-09-18 から 09-19 までは、口座に出さず気配の中値・手数料 0 で A の株を B に渡していた ＝ その人 1 人では出せない値段が成績に入り、差 1 の標本も欠けた。代償: 重なった日はスプレッドを 2 回払う・同じ日に同じ銘柄の売却と購入が口座の記録に残る（損で売ると wash sale の報告になりうる【推測・一次情報未確認】） | `plan.py` の `decide`・`size_intents`・`to_orders` |
-| 口座への注文 | ⚠ **トレーダーごとに別々に出す**（2026-09-19 の利用者決定「トレーダーごとの成績を正確に知りたいので別々に出す。また手数料など金額の内訳も保存するように」）。同じ銘柄を 2 人が同じ日に買えば注文は 2 本。⚠ **合算しない・按分しない** ＝ 約定価格も手数料もその人のものがそのまま残り、整数株の人に端数の持ち分ができない（§0-7 (j) の 1）。内部移転もしない（上の行）。代償: 注文の本数が増える（us63 × 3 人で最大 189 本。1 本ずつ約定を待つ・レート制限に近づく） | `plan.to_orders`（1 意図 1 注文。`NetOrder.parts` は常に 1 人） |
+| 口座への注文 | ⚠ **トレーダーごとに別々に出す**（2026-09-19 の利用者決定「トレーダーごとの成績を正確に知りたいので別々に出す。また手数料など金額の内訳も保存するように」）。同じ銘柄を 2 人が同じ日に買えば注文は 2 本。⚠ **合算しない・按分しない** ＝ 約定価格も手数料もその人のものがそのまま残り、整数株の人に端数の持ち分ができない（§0-7 (j) の 1）。内部移転もしない（上の行）。代償: 注文の本数が増える（us63 × 3 人で最大 189 本・レート制限に近づく）。⚠ **2026-09-20 から発注は 2 段**（先に全部出す → 約定を 1 本ずつ確かめる ＝ §0-9 (c)。1 本ずつ約定を待つ直列の形では初日の約 120 本が窓に収まらない） | `plan.to_orders`（1 意図 1 注文。`NetOrder.parts` は常に 1 人） |
 | 金額の内訳 | 注文ごとに `orders.jsonl` の `amounts` ＝ 約定代金 `gross_usd` ／ 手数料 `fee_usd` と内訳 `fee_breakdown`（dry-run の `fee-calculation` を丸ごと）／ `buying_power_effect` ／ 差し引き `net_usd`（買いは負）。手数料は約定した注文のぶんだけ、その人の台帳（`state` の `fees_usd`・`history[].fee`・`ledger.jsonl` の `fees_usd`）に入る。⚠ **出どころは dry-run の見積り**（`fee_source: "dry_run_estimate"`）。約定後の実額を読む経路（`/accounts/{n}/transactions`【記憶・未確認】）はまだ無い。⚠ 実現損益には手数料を含めない（今までどおり別建て） | `execute.ExecResult.amounts`・`allocate_fills`・`run_day.py` |
 | 持ち金 | ⚠ **固定の予算枠**。空き ＝ 予算 − 建玉の取得原価 − 受渡し待ちの売却代金。⚠ **実現損益と手数料は空きに入れない**（得をしても損をしても、次の空きは予算まで戻る。増えた分は使わずに残る） | `plan.py` の `size_intents` |
 | 自分の予算枠が足りない | 注文を出す前に見送る。事象 `over_budget` ／ `too_small` として記録する（⚠ エラーではなく「見送り」） | 同上 |
@@ -97,7 +97,7 @@
 
 ### 0-3. 本番の dry-run — 端株・小数株・成行・MOC 相当（⚠ 利用者が流す。未実施）
 
-`experiments/tastytrade-api-sample/sample.py --step dryrun2 --allow-prod-dry-run` が 6 通りを dry-run だけで通し、記録（`out/tastytrade-prod-*.jsonl` の step 10）に残す。⚠ **何もルーティングしない。**
+`experiments/tastytrade-api-sample/sample.py --step dryrun2 --allow-prod-dry-run` が 9 通り（2026-09-19 に 3 行足した）を dry-run だけで通し、記録（`out/tastytrade-prod-*.jsonl` の step 10）に残す。⚠ **何もルーティングしない。**
 
 | 鍵 | 注文 | 知りたいこと | 結果 |
 | --- | --- | --- | --- |
@@ -107,6 +107,9 @@
 | `market_1` | 成行 1 株 | 基準 | ⏳ |
 | `market_on_close_1` | `Market On Close` 1 株 | MOC 相当の種別があるか（無ければエラー文に使える種別の一覧が出る見込み） | ⏳ |
 | `limit_1_low` | 指値 1 株（気配の 8 割） | 対照（2026-09-05 に通っている） | ⏳ |
+| `notional_market_4.76usd` | `Notional Market` $4.76（2026-09-19 に足した） | ⚠ **実際の 1 銘柄の枠**（規模 A $300 ÷ 63 本 ＝ T1・T3）。$5.00 は通るがこれが落ちる ＝ 最小額が $5 | ⏳ |
+| `notional_market_6.25usd` | `Notional Market` $6.25（同上） | T2 の枠（$300 ÷ 会社株 48 本） | ⏳ |
+| `market_sell_fractional_4dp_no_position` | 成行 売り 0.0123 株（`Sell to Close`。同上） | 執行器は金額指定の人の端株を小数 4 桁の数量で売る（§0-7 (j) の 1 の未確認）。⚠ **建玉が無いので断られる見込み** ＝ 知りたいのは「数量の形で断られるのか、持ち高で断られるのか」（エラー文から読む） | ⏳ |
 
 結果で決まるもの: `test_a` と実際の 3 人の `sizing`（端株が通れば `notional` で $5 刻み、通らなければ `shares` で銘柄を絞る。プラン §2-3）。
 
@@ -124,40 +127,61 @@
 
 ⚠ 市場時間外の拒否は想定どおり（2026-09-08 の sample と同じ）。**市場時間の sandbox リハーサル（Phase 2 の 6）が残る。** 記録は `experiments/live-trading/out/2026-09-18/`（口座番号・トークンは出ていないことを grep で確認）。
 
-### 0-5. 実売買のテストの手順書（Phase 5-1。⚠ 利用者が行う）
+### 0-5. 実売買のテストの手順書（Phase 5-1。⚠ 利用者が行う。2026-09-20 に D1 ＝ 案 B へ書き換えた）
 
-⚠ **Claude はここまで。鍵を入れて起動するのは利用者。** 時刻は ET（EDT のいまは JST −13 時間。15:55 ET ＝ 翌 04:55 JST）。
+⚠ **Claude はここまで。鍵を入れて起動するのは利用者。** 時刻は PDT（titan の時計）と ET。執行の窓 15:45〜16:05 ET ＝ **12:45〜13:05 PDT**。
+✅ **2026-09-20 の利用者決定 D1 ＝ 案 B**: `test_a` の往復を **9/21（月）の 1 日で済ませる** ＝ 朝に買い（窓の外なので `--ignore-window`）・窓の中で売り。売りの経路を月曜のうちに本番で確かめ、火曜の窓を 3 人の投入だけに使う。同日の往復は規制上は可（受渡し済みの資金で買った株。§0-6）。⚠ 買いが決めごとの窓の外になるが、試験用（`test: true`）なので判定に混ぜない。同じ日に 2 回起動して 買い → 売り が通ることはモックで確かめた【実測 2026-09-20】。全体の段取りは [プラン](../../plans/live-trading-go-live-0922.md) §3-2。
 
-**前日まで**
+> この図の主張: 月曜は「何も出さない確認 → sandbox で出す → 本番で 1 株買う → 窓の中で売る」の順で、どの段も 1 つ前が通ってから進む。
 
-1. `sample.py --step dryrun2 --allow-prod-dry-run` を流し、§0-3 の表を埋める（Claude が記録から写す）
-2. `experiments/live-trading/config/signals/test_a.csv` の日付を、**買う日**（1 行目 `buy=100`）と**手仕舞う日**（翌営業日 `exit=100`）に書き換える
-3. `cd experiments/live-trading && ../feature-discovery/.venv/bin/python -m pytest -q tests && ./mockrun.sh` が通ることを見る
-4. 管理画面（`dashboard/`）で停止ボタンが押せる状態にしておく（`HALT` は `experiments/tastytrade-api-sample/out/HALT`）
+```mermaid
+flowchart LR
+  A["06:35 PDT<br/>dryrun2（本番・何も出さない）"] --> B["06:45<br/>cert のリハーサル<br/>（Claude）"]
+  B --> C["07:15<br/>本番 test_a 買い<br/>dry-run → submit"]
+  C --> D["12:45〜13:05<br/>本番 test_a 売り<br/>dry-run → submit"]
+  D --> E["13:30<br/>チェックリスト → 関門（§0-9 (e)）"]
+```
 
-**買う日（15:45〜16:04 ET）**
+**前日まで（✅ 2026-09-20 に Claude が済ませた）**: `config/signals/test_a.csv` は 2026-09-21 の買い ／ 執行器の pytest・`mockrun.sh`・`selftest.sh` が通る ／ 管理画面の停止ボタン（`HALT` は `experiments/tastytrade-api-sample/out/HALT`）。
+
+**9/21（月）06:35 PDT — `dryrun2`（本番。何もルーティングしない。5 秒強）**
+
+```bash
+cd experiments/tastytrade-api-sample && .venv/bin/python sample.py --step dryrun2 --allow-prod-dry-run
+```
+
+結果は Claude が記録（`out/tastytrade-prod-*.jsonl` の step 10。⚠ `mock: true` の無い最新のもの）から §0-3 に写し、`config/traders/candidates/` の `notional` ／ `shares` のどちらかを `config/traders/T1〜T3.toml` に写す。
+
+**07:15 PDT 頃 — 本番 `test_a` の買い**（cert のリハーサルが `Filled` まで行ってから）
 
 ```bash
 cd experiments/live-trading
 PY=../tastytrade-api-sample/.venv/bin/python
-# (a) 本番の dry-run（何もルーティングしない）。注文 1 件が dry-run で通り、buying-power-effect が $25 前後であること
-$PY run_day.py --traders test_a --env prod --mode dry-run --allow-prod-dry-run
+$PY test_signal.py buy                      # 今日（ET）の行を「買い 100」に（✅ 9/21 ぶんは書いてある。念のため）
+# (a) 本番の dry-run（何もルーティングしない）。注文 1 件が通り、buying-power-effect が $25 前後であること
+$PY run_day.py --traders test_a --env prod --mode dry-run --allow-prod-dry-run --ignore-window
 # (b) 本番の発注（実弾）。鍵 2 つを両方付ける。記録は out/<日付>/orders.jsonl
+TT_ALLOW_PROD_ORDERS=1 $PY run_day.py --traders test_a --env prod --mode submit --i-know-this-is-real-money --ignore-window
+```
+
+**12:45〜13:05 PDT — 本番 `test_a` の売り**（窓の中なので `--ignore-window` は付けない）
+
+```bash
+$PY test_signal.py exit                     # 今日の行を「出口 100」に書き換える
+$PY run_day.py --traders test_a --env prod --mode dry-run --allow-prod-dry-run
 TT_ALLOW_PROD_ORDERS=1 $PY run_day.py --traders test_a --env prod --mode submit --i-know-this-is-real-money
 ```
 
-**手仕舞う日（15:45〜16:04 ET）**: 同じ 2 行。`test_a.csv` のその日の行が `exit=100` なので売りが出る。
-
-**チェックリスト（買う日・手仕舞う日それぞれ）**
+**チェックリスト（買い・売りそれぞれ）**
 
 - [ ] `orders.jsonl` の `final_status` が `Filled`・`fills[].price` と `quote_at_signal.mid` の差（bp）
-- [ ] `positions.jsonl` の `after` に T 1 株（買う日）／ 無し（手仕舞う日）
-- [ ] `state/prod/test_a.json` の `holdings`・`realized_usd` が口座と一致
+- [ ] `positions.jsonl` の `after` に T 1 株（買いの後）／ 無し（売りの後）
+- [ ] `state/prod/test_a.json` の `holdings`・`realized_usd` が口座と一致（`$PY reconcile.py --env prod show` で差 0）
 - [ ] `events.jsonl` に `retry` ／ `halted` ／ `over_budget` が無いか（あれば理由を §1 に書く）
 - [ ] `grep -r "<口座番号の下 4 桁>" out/` が空（秘密が出ていない）
 - [ ] 何かおかしければ管理画面の停止ボタン（`HALT` ＋ 全取消）。執行器は次の起動で `HALT` を見て発注しない
 
-**⚠ 先に指摘するもの**: 現金口座なので、手仕舞った代金は T+1 まで再投資に使わない（執行器も `unsettled` として差し引く）／ 同日の往復は作らない（PDT）／ wash sale は 1 銘柄 1 往復なら起きない。
+**⚠ 先に指摘するもの**: 現金口座なので、売った代金（約 $25）は翌営業日まで買いに使わない（執行器も受渡し待ちとして差し引く）。火曜の 3 人の予算 $900 は受渡し済みの現金の内 ／ 同じ日・同じ銘柄の売買が口座の記録に残る（損で売れば wash sale の報告になりうる【推測】。金額は数セント）／ ⚠ **認証に失敗したら連打しない**（IP が約 8 時間ブロックされ、火曜まで潰れる）。
 
 ### 0-6. 規制の線 — 1 日に何度も売買するとき（E17・E18。2026-09-18 調査）
 
@@ -431,6 +455,123 @@ $PY reconcile.py --env prod resolve lt-0123abcd --filled 4 --price 25.61
 | 台帳の動きは全部、口座の注文と 1 対 1 | 2026-09-19 に内部移転をやめたので、口座に出ない売買は無い ＝ 控えに載らない台帳の動きは、人の手（`reconcile.py`）だけ |
 | 口座が多いぶんは止めない | 二重の買いは段 1 で先に消えるので、残る「多いぶん」は台帳の外の株。⚠ 台帳のファイルを失ったときは全部「多い」になり、トレーダーは何も持っていないつもりで買い直す ＝ `state/` のバックアップは別の話（未着手） |
 | モック | 口座の建玉は `/_mock/positions` で置ける ／ ずらせる（運転手は起こすたびに台帳の合計を置く）。筋書き `position_loss` |
+
+### 0-9. 今日の買い% ・1 日の流し方・2 段の発注・本番投入の手順（2026-09-20。[プラン](../../plans/live-trading-go-live-0922.md)）
+
+> この図の主張: 1 日の流れは `run-live.sh` の 1 本で、15:50 ET に起こすと約 1 分半で予測が出て、その場で執行器が動く。本番の鍵を入れるのは利用者だけ。
+
+```mermaid
+flowchart LR
+  P["朝: run-live.sh --prepare<br/>日足 ＋ 外部系列（約 2 分）"] --> W["15:50 ET<br/>run-live.sh --wait"]
+  W --> U["日足の更新（足だけ 52 秒）<br/>末尾 ＝ 今日の途中の足"]
+  U --> Q["cli.predict × 3（並列 36 秒）<br/>→ out/<日付>/predict.jsonl"]
+  Q --> K["台帳の控え<br/>state-backup/"]
+  K --> X["run_day.py<br/>① 全部発注 → ② 約定を確かめる"]
+```
+
+#### (a) 今日の買い%（`experiments/feature-discovery/cli/predict.py`。Phase 1）
+
+| 決めごと | 中身 |
+| --- | --- |
+| コード | ⚠ **モデル・較正・変換のコードは足していない**。表 ＝ `cli.build.assemble`（`build` の前半の切り出し）／ 買い% ＝ `cli.run.fold_buy_pct`（バックテストの fold の中身の切り出し）。切り出しの前後で own_2018 の表は 1 ビットも同じ・既定経路の指紋テストが通る【実測 2026-09-19】 |
+| 塊の切り方 | 訓練 ＝ **ラベルの終わりの足が `asof` より前の行**（＝ 前々営業日まで。前の営業日の行はラベルが今日の終値を含むので入れない）／ 検証 ＝ `asof` の行。`asof` より後の足は読んだ直後に捨てる |
+| 毎日 fit し直す（B7） | 訓練と推論を分けない。3 本とも 表 31〜34 秒 ＋ fit 0.1（T1）／ 1.4（T2）／ 2.7 秒（T3）、並列で 36 秒【実測・titan】 |
+| 今日の足（終値の代役） | 置き場の末尾の「今日の途中の足」（市場時間中に `live_update.sh` を流すと入る）。`--proxy` は足を上書き ／ 追加する口（検算と予備）。⚠ **15:50 の出来高は 1 日ぶんより小さい**（引けの出来高が入らない）ので、出来高の列（`own_vratio_*`）は今日の行だけ低く出る ＝ 消せない差として差 1 の側で読む |
+| 出力（B8） | `out/<日付>/predict.jsonl` ＝ 日付・`model`（実験名）・`method`（手法）・銘柄・買い%・出口%・代役の終値・入力の指紋・commit。記録（訓練の範囲・較正の係数・所要時間）は `predict.meta.jsonl` |
+| 執行器の読み方 | `ModelSpec` の `name` ＝ 実験名・`method` ＝ 手法。⚠ 行の日付が今日と違えば読まない（古い予測で売買しない）・手法が設定と違えば止まる |
+| 台帳 | ⚠ `runs/` を作らない ＝ 試行ではない（n_trials は動かない） |
+| テスト | `tests/test_predict.py` 9 本: 決定性 ／ `asof` より後の足をどう壊しても出力も指紋も不変 ／ 逆に今日の足は効く ／ 代役の足 ／ 3 モデル ／ 手法の指定 |
+
+2026-09-18 の合図【実測】: T1 買い 58 ／ 63・T2 買い 0 ／ 48（全銘柄 44〜46% ＝ θ 55 に届かない）・T3 買い 62 ／ 63 ＝ **初日の注文は 120 本前後**。
+
+#### (b) 日足の置き場 `data-live/`（`experiments/feature-discovery/live_update.sh`）
+
+| 決めごと | 中身 |
+| --- | --- |
+| 置き場 | `experiments/feature-discovery/data-live/`（git 管理外。`AIL_DATA_DIR` で `store.DATA` が差し替わる。未指定なら今までどおり `data/`）。⚠ **研究用の `data/` は 1 バイトも変えない**（足を伸ばすと台帳の鍵「期間」と入力の指紋が動く） |
+| ⚠ 配信側の足は過去にさかのぼって変わる【実測 2026-09-19】 | 取り直した足は小数 2 桁・分割の権利落ち前日の終値だけ未調整（例 AAPL 2020-08-28 が 499.23）＝ 63 銘柄中 41 銘柄に 2% 超の食い違い。→ **歴史は研究用の写し（種。最終日 2026-09-08）のまま凍らせ、その後ろだけ継ぎ足す**（継ぎ目は終値の比で検算）。⚠ **研究用の `data/` に `cli.fetch --dataset daily` を流すと表が壊れる** |
+| 外部系列 | `config/dataset/exog_live.toml`（`exog_daily` の気象・地震は `end` が 2026-09-01 で止めてあるので別に置いた）。⚠ NOAA は公表が 3〜4 日遅れ、8 日より古くなると T2 の今日の行が落ちる ＝ `cli/live_status.py` が rc=2 で知らせる。⚠ 年が変わったら金利の `years` に次の年を足す |
+| 所要時間 | 初回 118 秒 ／ 足だけ（`--no-exog`）52 秒【実測】。⚠ `cli.fetch` は差分取得ができず毎回全部取る |
+
+#### (c) 発注は 2 段（2026-09-20 利用者決定 D6）
+
+| | 直列（〜2026-09-19・`--serial`） | 2 段（既定） |
+| --- | --- | --- |
+| 形 | 1 本ずつ 控え → dry-run → 発注 → 約定待ち → 台帳 | ① 全部の注文を順に 控え → dry-run → 発注 ／ ② 1 本ずつ約定を確かめて台帳へ |
+| 120 本のモックの 1 日【実測】 | 124 秒 | 2.4 秒 |
+| 本物の見込み【推測。sandbox の実測 dry-run 0.9・発注 1.9・約定 6.8 秒から】 | 約 19 分 ＝ 窓に収まらない | ① 約 5.6 分 ＋ ② 照会 ＝ 15:51 台に出し始めれば 16:00 までに収まる見込み（⚠ 余裕は小さい ＝ 月曜に本番の dry-run の往復時間を測る） |
+| 同じもの | 出す順（売りが先・買いが後）・発注の前の控え・1 注文ごとの台帳の保存・取消の期限（その注文を出してから 600 秒）・HALT（①の途中で見つけたら残りは出さない。出したぶんは確かめる） | |
+| 落ちたとき | 失うのは高々 1 注文 | ①の途中なら出したぶんが控えに注文番号つきで残る ＝ 次の起動が照会して台帳に戻す（§0-8 の段 1。`sim2` の `crash_mid` で確かめた） |
+
+⚠ **合図から発注までの時刻**: プラン §2-5 は「15:50 の気配で合図・15:55 に成行」だったが、`run-live.sh` は予測が出しだい執行器を起こす（15:51 台）。本数が多い日に 16:00 までに出し切るため。合図の時刻（15:50）は変えていない。
+
+#### (d) 起動の 1 本 `run-live.sh`（プロジェクト直下）
+
+```bash
+./run-live.sh --prepare                                         # 朝に 1 度: 日足 ＋ 外部系列（約 2 分。発注しない）
+./run-live.sh --traders T1,T2,T3 --date 2026-09-18 --mode plan -- --ignore-window   # 過去の日で通す（発注しない）
+# 本番の dry-run（何もルーティングしない）。窓の外なら --ignore-window を足す
+./run-live.sh --traders T1,T2,T3 -- --env prod --allow-prod-dry-run
+# ⚠ 本番の発注（実弾）。利用者だけ。15:50 ET まで待ってから流れる
+TT_ALLOW_PROD_ORDERS=1 ./run-live.sh --traders T1,T2,T3 --mode submit --wait -- --env prod --i-know-this-is-real-money
+```
+
+- 「--」の後ろはそのまま `run_day.py` へ渡る。⚠ **本番の鍵はスクリプトに書いていない**
+- 予測が 1 本でも失敗したら執行器を起こさない（rc=12）。日足の更新が失敗しても起こさない（rc=10）
+- `--mode submit` の回だけ、執行器の前に `state/` を `state-backup/<UTC の時刻>/` へ写す（直近 60 回ぶん。git 管理外）。台帳を失ったら、ここから戻して `reconcile.py show` で口座と突き合わせる
+- 毎日の自動起動（timer）は `experiments/live-trading/systemd/`（✅ D4 ＝ 水曜から。入れるのも鍵を置くのも利用者）
+
+#### (e) 関門（9/21 月 13:30 PDT）と本番投入（9/22 火。Phase 5-2。⚠ 利用者が行う）
+
+| # | 条件（1 つでも外れたら火曜は投入せず、通し稽古をもう 1 回 ＝ 投入は水曜） |
+| ---: | --- |
+| 1 | `dryrun2` から `sizing` と銘柄集合が一意に決まり、`config/traders/T1〜T3.toml` がテストを通っている |
+| 2 | cert のリハーサルが `Filled` まで行き、台帳と cert の口座が一致 |
+| 3 | 本番 `test_a` の買いと売りが `Filled`・`reconcile.py --env prod show` の差 0・秘密の grep が空 |
+| 4 | `run-live.sh` の 更新 → 予測 が本番の市場時間で 2 分以内 |
+| 5 | `T1`〜`T3` の本番 dry-run で断られる注文が無い（あれば理由が分かっている）・dry-run 1 本の往復時間 × 本数 × 2 が 8 分に収まる |
+
+**9/22（火）12:45 PDT 頃に起こす**（15:50 ET まで待ってから流れる）:
+
+```bash
+cd ~/ai-income-lab
+./run-live.sh --prepare                                         # 朝のうちに
+TT_ALLOW_PROD_ORDERS=1 ./run-live.sh --traders T1,T2,T3 --mode submit --wait -- --env prod --i-know-this-is-real-money
+```
+
+確認（13:05 PDT〜）: `out/<日付>/orders.jsonl` の `final_status`（`Filled` 以外の本数と理由）／ `cd experiments/live-trading && $PY reconcile.py --env prod show` で口座 − 台帳 ＝ 0 ／ `events.jsonl`（`over_budget`・`too_small`・`position_short`・`journal_unresolved`）／ 管理画面（`./run-server.sh`）／ 秘密の grep。⚠ 初日は 3 人とも持ち高 0 から買うので注文が最も多い。⚠ T2 は 48 銘柄を同時に買うか、1 本も買わない（仕様どおり。§0-1）。
+
+### 0-10. 紙上の対照 — `paper.py` と `out/daily.csv`（Phase 3。2026-09-20。利用者決定 D5「できるものはすぐにやる」で前倒し）
+
+> この図の主張: 紙上の対照は執行器の記録と公式終値を読むだけの後処理で、朝の準備のたびに全部作り直す。管理画面はその表を写すだけ。
+
+```mermaid
+flowchart LR
+  S["out/<日付>/signals.jsonl<br/>合図（買い% ／ 出口%）"] --> P["paper.py<br/>公式終値・片道 2.5bp・等加重<br/>状態機械はバックテストと同じ"]
+  C["data-live/adjusted/d<br/>公式終値"] --> P
+  L["ledger ／ orders ／ events"] --> P
+  P --> D["out/daily.csv<br/>1 日 1 行 × トレーダー"]
+  D --> V["管理画面: 紙上の線・差 3・B&H<br/>（無ければ仮データのまま）"]
+```
+
+| 決めごと | 中身 |
+| --- | --- |
+| いつ作るか | `run-live.sh --prepare`（朝）が日足の更新の後に流す。⚠ **毎回ぜんぶ作り直す**（何度流しても同じ）。その日の行は、翌朝に公式終値が入ってから確定する |
+| 紙上の執行 | 未保有で 買い% > θ なら建てる ／ 保有中で 出口% > θ なら手仕舞う ／ その日の公式終値で執行 ／ 建てた日と手仕舞った日にだけ片道 2.5bp ／ 銘柄は等加重（予算 ÷ 銘柄数）。`ail/validation/simulate.py` と同じ規則で、テストが同じ数字になることを確かめる。⚠ fold 末尾の強制清算だけは無い |
+| 日付 d の行 | 前の営業日の終値 → d の終値に、d の売買の**前**から持っていた分が稼いだもの − d の売買のコスト。紙上も実物も同じ数え方。bp はその人の予算に対して |
+| 実物 | 台帳（`ledger.jsonl` の d の最後の行）を d の公式終値で値洗い ＝ 実現損益 ＋ Σ 株数 ×（終値 − 取得単価）− 手数料、の前日差 |
+| 差 3 | 累計 ＝ 紙上の累計 − 実物の累計（常に成り立つ）。日次はその前日差。台帳の無い日（起動しなかった日）は空で、次に台帳が出た日にまとめて入る |
+| B&H | その人の銘柄を最初の日に全部買って持ち続ける（片道 2.5bp を 1 回）。⚠ 紙上だけ |
+| 差 1・差 2・差 4 | 差 1 ＝ 気配の中値 → 約定・約定 → 公式終値（bp。正 ＝ 不利。その日の中央値）／ 差 2 ＝ 合図時のスプレッドの半分（bp）と手数料（$。⚠ dry-run の見積り）／ 差 4 ＝ 再送・認証・HALT・窓の外・未解決の控え・口座が少ない銘柄・台帳の食い違いの件数 |
+| 説明できる差 | `unexecuted` ＝ 紙上は売買したのに実物は見送った ／ 約定しなかった数（`over_budget`・`too_small`・`no_quote`・`blocked_symbol`・未約定）。`close_missing` ＝ 終値が無かった銘柄 |
+| モック ／ シミュレーション | 公式終値が無いので `--close-from quotes`（合図時の気配の中値を終値の代役に）。⚠ 「約定 → 終値」は意味を持たない。画面に「終値は気配の代役」の印 |
+| ⚠ 限界 | 紙上は予算・整数株・受渡し待ち・拒否を知らない（整数株の人は枠を使い切れないぶんだけ実物の動きが小さい）／ 配当落ちの日は終値の尺度（調整済み）と実物がずれる ／ 1 日に何度も売買する形（TODO の G24）では数え方を決め直す |
+
+```bash
+cd experiments/live-trading; PY=../tastytrade-api-sample/.venv/bin/python
+$PY paper.py                                          # out/ の全日付 → out/daily.csv
+$PY paper.py --out-dir <sim の out> --close-from quotes   # モック ／ シミュレーション
+```
 
 ## 1. 記録（日次）
 

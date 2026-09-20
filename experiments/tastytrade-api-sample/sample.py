@@ -909,6 +909,15 @@ def step_prod_dry_run_types(rec: record.Recorder, cfg: dict) -> None:
             ("market_1", "成行 1 株", build(SYMBOL, 1, order_type="Market")),
             ("market_on_close_1", "MOC 相当（order-type 'Market On Close'【未確認】）", build(SYMBOL, 1, order_type="Market On Close")),
             ("limit_1_low", "指値 1 株（気配の 8 割。対照）", build(SYMBOL, 1, order_type="Limit", price=low_price)),
+            # ⚠ 2026-09-19 に足した 3 行（既存の 6 行の鍵・順・中身は変えない）。
+            # $5.00 は通るが $4.76 は落ちる ＝ 最小額が $5、と見分けるために $5 の行と並べる。
+            # $4.76 ＝ 規模 A $300 ÷ 63 本（T1・T3 の 1 銘柄の枠）／ $6.25 ＝ $300 ÷ 会社株 48 本（T2）
+            ("notional_market_4.76usd", "Notional Market $4.76（実際の 1 銘柄の枠。最小額が $5 かを見分ける）", build(SYMBOL, None, order_type="Notional Market", value="4.76")),
+            ("notional_market_6.25usd", "Notional Market $6.25（T2 ＝ 会社株 48 本の枠）", build(SYMBOL, None, order_type="Notional Market", value="6.25")),
+            # 執行器は金額指定の人の端株を小数 4 桁の数量で売る（live-trading.md §0-7 (j) の 1 の未確認）。
+            # ⚠ 建玉が無いので「持ち高不足」で断られる見込み。それでよい ＝ 知りたいのは
+            # 「数量の形（小数 4 桁）で断られるのか、持ち高で断られるのか」で、エラー文から読む
+            ("market_sell_fractional_4dp_no_position", "成行 売り 0.0123 株（小数 4 桁。⚠ 建玉なし ＝ 断られる見込み。断られた理由を読む）", build(SYMBOL, "0.0123", action="Sell to Close", order_type="Market")),
         ]
         results = []
         for key, label, order in cases:

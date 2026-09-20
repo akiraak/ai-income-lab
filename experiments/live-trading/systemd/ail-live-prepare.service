@@ -1,0 +1,10 @@
+# 朝の準備: 日足 ＋ 外部系列の更新（発注しない・鍵は要らない）。
+[Unit]
+Description=ai-income-lab 実売買: 朝の準備（日足と外部系列の更新）
+
+[Service]
+Type=oneshot
+WorkingDirectory=%h/ai-income-lab
+ExecStart=%h/ai-income-lab/run-live.sh --prepare
+StandardOutput=append:%h/ai-income-lab/experiments/live-trading/out/timer-prepare.log
+StandardError=inherit

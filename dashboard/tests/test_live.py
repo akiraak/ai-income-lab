@@ -252,3 +252,28 @@ def test_new_executor_events_count_as_problems(settings):
             f.write(json.dumps({"date": "2026-09-18", "env": "prod", "kind": kind, "trader": "test_a"}) + "\n")
     kinds = [e["kind"] for e in lv.day(live, "2026-09-18")["problems"]]
     assert {"drawdown_warning", "refused_mode_sim", "refused_lock_busy", "ledger_error", "journal_recovered", "journal_unresolved", "position_short"} <= set(kinds)
+
+
+def test_real_paper_control_replaces_the_placeholder_when_daily_csv_exists(settings):
+    """実売買の Phase 3: 執行器の paper.py が書いた daily.csv があれば、紙上の損益・差 3・B&H は本物を出す（仮の印を外す）。無い人は仮のまま。"""
+    build_live_dir(settings.live_dir)
+    b0 = lv.board(settings.live_dir)
+    d = b0["dates"][-1]
+    path = settings.live_dir / "out" / "daily.csv"
+    cols = ["date", "trader", "test", "budget_usd", "n_symbols", "n_signals", "paper_held", "paper_trades", "paper_bp", "paper_cum_bp",
+            "real_usd", "real_bp", "real_cum_bp", "diff3_bp", "diff3_cum_bp", "bh_bp", "bh_cum_bp", "orders", "filled", "not_filled", "unexecuted",
+            "diff1_quote_to_fill_bp", "diff1_fill_to_close_bp", "diff2_half_spread_bp", "diff2_fees_usd", "diff4_events", "close_missing", "close_source"]
+    vals = [d, "test_a", "True", 30.0, 1, 1, 1, 1, -2.5, -2.5, -0.01, -3.33, -3.33, 0.83, 0.83, -2.5, -2.5, 1, 1, 0, 0, 7.87, "", 9.84, 0.0, 0, 0, "bars"]
+    path.write_text(",".join(cols) + "\n" + ",".join(str(v) for v in vals) + "\n", encoding="utf-8")
+    b = lv.board(settings.live_dir)
+    t = next(x for x in b["traders"] if x["name"] == "test_a")
+    assert t["paper_real"] and not b["placeholder"]["paper"]
+    assert t["paper_pct"][b["bd"].index(d)] == -0.025 and t["diff3_cum_bp"] == 0.83 and t["daily"][0]["bh_bp"] == -2.5
+    with TestClient(create_app(settings, start_monitors=False), client=("127.0.0.1", 50000)) as c:
+        page = c.get("/traders/test_a").text
+        assert "紙上の対照（日次）" in page and "0.83" in page
+        assert '仮データ</span></div><div class="s">' not in page                 # 差 3 のタイルは本物
+        api = c.get("/api/live").json()
+        assert api["daily"][0]["paper_cum_bp"] == -2.5 and api["daily"][0]["trader"] == "test_a"
+    path.write_text("こわれた,ファイル\n1,2\n", encoding="utf-8")
+    assert lv.board(settings.live_dir)["placeholder"]["paper"]                   # 読めなければ仮に戻る（落ちない）

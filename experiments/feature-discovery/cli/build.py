@@ -32,11 +32,16 @@ ORDER = ("own", "trend", "trendvol", "seq", "cs", "rel", "ll", "ex", "im", "cal"
 # ⚠ **`ex` と `im` は価格に依存しない**（外部系列を貼るだけ）が、並びは固定する
 
 
-def build(experiment: str, layer: str = "adjusted", leak: bool = False,
-          max_elapsed: float | None = None, out: str | None = None,
-          shift_days: int = 0) -> pd.DataFrame:
+def assemble(experiment: str, layer: str = "adjusted", leak: bool = False, shift_days: int = 0,
+             keep_tail: bool = False, panel_hook=None):
+    """足 → 層 → ラベルを横に並べた表（⚠ **`dropna` の手前まで**）。戻り値は (表, 足のパネル, 解決済みの config)。
+
+    ⚠ **`build` の前半をそのまま切り出したもの**（既定の引数なら `build` の出力は 1 ビットも変わらない）。
+    ⚠ **`keep_tail` と `panel_hook` は `cli/predict.py`（実売買の「今日の買い%」）だけが使う**:
+    `keep_tail` ＝ ラベルの無い末尾 `horizon` 本を落とさない（今日の行が要る）／
+    `panel_hook` ＝ 読んだ足に手を入れる口（`asof` より後を切る・今日の足の代役を末尾に足す）。
+    """
     exp = config.resolve_experiment(experiment)
-    table = runs.variant(experiment, leak, shift_days)      # ⚠ 表の名前（下のループの name と別）
     if shift_days:
         # ⚠ **偽薬: `ex_` の日付だけを過去へずらす。** ⚠ **`ex_` の無い実験では何もずれないので止める**
         if "ex" not in exp.get("feature_layers", []):
@@ -52,6 +57,8 @@ def build(experiment: str, layer: str = "adjusted", leak: bool = False,
     panel = store.load_panel(directory, order)
     if not panel:
         raise SystemExit(f"{directory} が空。先に cli.fetch / cli.adjust を回す")
+    if panel_hook is not None:
+        panel = panel_hook(panel)
 
     # ⚠ **スケールのラベルは config に書いた実験だけが持つ**（既定は空 ＝ 既存の表は 1 列も増えない）
     scales = [int(w) for w in exp.get("label_scales", [])]
@@ -99,7 +106,7 @@ def build(experiment: str, layer: str = "adjusted", leak: bool = False,
         # ⚠ **末尾 W 本は NaN のまま。** 下の `dropna` が 1 か所で落とす（表の尻が W 本だけ短くなる）
         if scales:
             cols.append(labels.build_scales(bars, scales, leak=leak))
-        x = pd.concat(labels.trim(cols, horizon), axis=1)
+        x = pd.concat(cols if keep_tail else labels.trim(cols, horizon), axis=1)
         x.insert(0, "symbol", s)
         frames.append(x)
     df = pd.concat(frames, ignore_index=True)
@@ -110,6 +117,17 @@ def build(experiment: str, layer: str = "adjusted", leak: bool = False,
         ref = next(iter(shapes.values()))
         odd = [s for s, c in shapes.items() if c != ref]
         raise SystemExit(f"⚠ 列の集合が銘柄で違う: {odd[:5]}（先に config か features 側を直す）")
+
+    return df, panel, exp
+
+
+def build(experiment: str, layer: str = "adjusted", leak: bool = False,
+          max_elapsed: float | None = None, out: str | None = None,
+          shift_days: int = 0) -> pd.DataFrame:
+    table = runs.variant(experiment, leak, shift_days)      # ⚠ 表の名前
+    df, panel, exp = assemble(experiment, layer, leak, shift_days)
+    period = exp["_dataset"]["period"]
+    scales = [int(w) for w in exp.get("label_scales", [])]
 
     before = len(df)
     # ⚠ **期間を揃える。** ⚠ **層ごとに始まりが違うと、比べているのが層の差か期間の差か分からなくなる**

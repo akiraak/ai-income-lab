@@ -1,0 +1,15 @@
+# 執行: 15:40 ET に起き、run-live.sh が 15:50 ET まで待ってから 日足 → 予測 → 執行器。
+# ⚠ **本番の鍵はこのファイルに書かない。** 利用者が ~/.config/ai-income-lab/live.env を自分で作る（README.md）。
+#    そのファイルが無ければ起動に失敗する ＝ 鍵を置くまで timer を入れても発注は起きない。
+# ⚠ 休場日・半日立会は執行器が自分で拒否して記録に残す（out_of_window）。HALT があれば発注しない。
+[Unit]
+Description=ai-income-lab 実売買: 1 日ぶんの執行（T1〜T3）
+
+[Service]
+Type=oneshot
+WorkingDirectory=%h/ai-income-lab
+EnvironmentFile=%h/.config/ai-income-lab/live.env
+ExecStart=%h/ai-income-lab/run-live.sh --traders ${AIL_LIVE_TRADERS} --mode ${AIL_LIVE_MODE} --wait -- --env ${AIL_LIVE_ENV} $AIL_LIVE_EXTRA
+TimeoutStartSec=3600
+StandardOutput=append:%h/ai-income-lab/experiments/live-trading/out/timer-run.log
+StandardError=inherit

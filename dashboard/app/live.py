@@ -201,6 +201,33 @@ def dates(live_dir: Path) -> list[str]:
     return sorted((p.name for p in root.iterdir() if p.is_dir() and len(p.name) == 10 and p.name[4] == "-"), reverse=True)
 
 
+DAILY_NUM = ("budget_usd", "paper_bp", "paper_cum_bp", "real_usd", "real_bp", "real_cum_bp", "diff3_bp", "diff3_cum_bp", "bh_bp", "bh_cum_bp",
+             "diff1_quote_to_fill_bp", "diff1_fill_to_close_bp", "diff2_half_spread_bp", "diff2_fees_usd")
+DAILY_INT = ("n_symbols", "n_signals", "paper_held", "paper_trades", "orders", "filled", "not_filled", "unexecuted", "diff4_events", "close_missing")
+
+
+def daily_rows(live_dir: Path) -> list[dict]:
+    """紙上の対照（実売買の Phase 3。執行器の `paper.py` が書く `out/daily.csv`）。⚠ **読むだけ**（ここで計算しない）。無ければ空。"""
+    import csv
+    path = live_dir / "out" / "daily.csv"
+    if not path.exists():
+        return []
+    rows = []
+    try:
+        with path.open(encoding="utf-8", newline="") as f:
+            for r in csv.DictReader(f):
+                row: dict = {"date": r.get("date"), "trader": r.get("trader"), "test": r.get("test") == "True",
+                             "close_source": r.get("close_source") or ""}
+                for k in DAILY_NUM:
+                    row[k] = float(r[k]) if r.get(k) not in (None, "") else None
+                for k in DAILY_INT:
+                    row[k] = int(float(r[k])) if r.get(k) not in (None, "") else None
+                rows.append(row)
+    except (OSError, ValueError, KeyError):
+        return []
+    return rows
+
+
 def index(live_dir: Path, days: int = DAYS) -> dict:
     tr = traders(live_dir)
     st = states(live_dir)
@@ -229,7 +256,10 @@ def index(live_dir: Path, days: int = DAYS) -> dict:
         "diff1_n": len(all_diff1),
         "real_days": sum(1 for dd in recent if not dd["mock"] and not dd["test"] and "submit" in dd["modes"]),
     }
+    daily = daily_rows(live_dir)
     return {
+        # ⚠ 紙上の対照は本物（daily.csv）があるときだけ出す。仮データは出さない
+        **({"daily": daily[-days * max(1, len(tr)):]} if daily else {}),
         "live_dir": str(live_dir),
         "empty": not tr and not recent,
         "traders": tr,
@@ -297,6 +327,7 @@ def board(live_dir: Path, days: int = DAYS, today=None) -> dict:
     # today: シミュレーションでは仮の今日（暦の残り日数を仮の時計で数える）。None なら本物の今日
     cal_info = calendar_info(ds[0], ds[-1], today=today) if ds else calendar_info(None, None, today=today)
     missing = [d for d in bd if d not in dd]
+    daily = daily_rows(live_dir)
     for i, t in enumerate(tr):
         name = t["name"]
         t["cls"] = f"s{i % N_SERIES + 1}"
@@ -305,16 +336,28 @@ def board(live_dir: Path, days: int = DAYS, today=None) -> dict:
         t["pnl_usd"] = [round(ledger[d].get("realized_usd", 0) + ledger[d].get("unrealized_usd", 0), 2) if d in ledger else None for d in bd]
         t["pnl_pct"] = [round(v / t["budget_usd"] * 100, 4) if v is not None and t["budget_usd"] else None for v in t["pnl_usd"]]
         t["last"] = next((ledger[d] for d in reversed(ds) if d in ledger), {})
-        # ⚠ 仮データ: 紙上の損益 ＝ 実物の損益に 1 営業日あたり 2bp（予算に対して）を足した線。本物ではない
-        k = 0
-        paper = []
-        for v in t["pnl_pct"]:
-            if v is None:
-                paper.append(None)
-                continue
-            k += 1
-            paper.append(round(v + PAPER_PLACEHOLDER_BP_PER_DAY / 100 * k, 4))
-        t["paper_pct"] = paper
+        mine = {r["date"]: r for r in daily if r["trader"] == name}
+        t["paper_real"] = bool(mine)
+        if mine:
+            # ✅ 本物: 執行器の paper.py が書いた daily.csv（同じ合図を公式終値・片道 2.5bp で回した累計。予算に対する %）
+            t["paper_pct"] = [round(mine[d]["paper_cum_bp"] / 100, 4) if d in mine and mine[d]["paper_cum_bp"] is not None else None for d in bd]
+            t["bh_pct"] = [round(mine[d]["bh_cum_bp"] / 100, 4) if d in mine and mine[d]["bh_cum_bp"] is not None else None for d in bd]
+            t["daily"] = [mine[d] for d in sorted(mine, reverse=True)][:days]
+            last_row = next((mine[d] for d in sorted(mine, reverse=True) if mine[d]["diff3_cum_bp"] is not None), None)
+            t["diff3_cum_bp"] = last_row["diff3_cum_bp"] if last_row else None
+            t["diff3_median_bp"] = _median([r["diff3_bp"] for r in mine.values() if r["diff3_bp"] is not None])
+            t["close_source"] = next(iter(mine.values()))["close_source"]
+        else:
+            # ⚠ 仮データ: 紙上の損益 ＝ 実物の損益に 1 営業日あたり 2bp（予算に対して）を足した線。本物ではない（daily.csv がまだ無いとき）
+            k = 0
+            paper = []
+            for v in t["pnl_pct"]:
+                if v is None:
+                    paper.append(None)
+                    continue
+                k += 1
+                paper.append(round(v + PAPER_PLACEHOLDER_BP_PER_DAY / 100 * k, 4))
+            t["paper_pct"] = paper
         grid: dict[str, list[dict]] = {s: [] for s in t["symbols"]}
         diff1: list[list] = []
         n_orders = n_filled = n_transfers = 0
@@ -388,5 +431,8 @@ def board(live_dir: Path, days: int = DAYS, today=None) -> dict:
         },
         "calendar": cal_info,
         # ⚠ 仮データの印（画面はこれを見てバッジを出す）。暦は、見ている範囲が NYSE の暦の外に出たときだけ仮（平日＝営業日）
-        "placeholder": {"paper": True, "diff3_bp_per_day": PAPER_PLACEHOLDER_BP_PER_DAY, "calendar": not cal_info["covered"]},
+        # ⚠ 紙上の損益・差 3 は、daily.csv（実売買の Phase 3）がある人は本物・無い人は仮データ（`t.paper_real` で人ごとに分かれる）
+        "placeholder": {"paper": not any(t.get("paper_real") for t in tr), "diff3_bp_per_day": PAPER_PLACEHOLDER_BP_PER_DAY, "calendar": not cal_info["covered"]},
+        "diff3_median_bp": _median([r["diff3_bp"] for r in daily if r["diff3_bp"] is not None and not r["test"]]),
+        "close_source": daily[0]["close_source"] if daily else None,
     }

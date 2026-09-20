@@ -167,6 +167,7 @@ def main() -> int:
     ap.add_argument("--retry-interval", type=float, default=60.0, help="Session offline ／ 5xx の再送間隔（秒）")
     ap.add_argument("--auth-retry-wait", type=float, default=30.0, help="認証が 5xx のとき 1 回だけ待って取り直す秒数（401 は再試行しない）")
     ap.add_argument("--cancel-after", type=float, default=600.0, help="未約定を取り消すまでの秒数（既定 10 分 ＝ 16:05）")
+    ap.add_argument("--serial", action="store_true", help="発注を 1 本ずつ約定まで待つ元の形に戻す（既定は 2 段 ＝ 先に全部出してから約定を確かめる）")
     ap.add_argument("--max-day-usd", type=float, default=float(os.environ.get("LT_MAX_DAY_USD") or DEFAULT_MAX_DAY_USD))
     ap.add_argument("--max-total-budget", type=float, default=float(os.environ.get("LT_MAX_TOTAL_BUDGET_USD") or DEFAULT_MAX_TOTAL_BUDGET))
     ap.add_argument("--sim-clock", action="store_true", default=os.environ.get("LT_SIM_CLOCK") == "1",
@@ -404,7 +405,7 @@ def main() -> int:
         journal.done(res.external_id, str(res.final_status), shares=sum(f["shares"] for f in fills))
 
     ex = Executor(client, account, None, halt_file, mode=args.mode, retries=args.retries, retry_interval=args.retry_interval, cancel_after=args.cancel_after,
-                  sleep=CLOCK.sleep, clock=CLOCK if sim else None, journal=journal)
+                  sleep=CLOCK.sleep, clock=CLOCK if sim else None, journal=journal, pipeline=not args.serial)
     results = ex.run_all(orders, quotes_raw, on_result=settle)
 
     if args.mode == "submit":

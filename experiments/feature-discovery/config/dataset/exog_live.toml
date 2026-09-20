@@ -1,0 +1,35 @@
+# ⚠ **実売買用の外部系列**（`live_update.sh` だけが使う。研究の実行はこれを読まない）。
+#
+# ⚠ **中身は `exog_daily` と同じ取得元・同じ系列**（`trade_ownex_ridge_a` の `ex_sources` ＝ ecb・treasury・noaa・usgs）。
+# ⚠ **違うのは気象（noaa）と地震（usgs）の `end` だけ**: `exog_daily` は 2026-09-01 で止めてあり（研究の表を動かさないため）、
+# そのままだと `ex_max_stale_days = 7` を過ぎた日から `ex_` の列が欠損になり、T2 の「今日の行」が作れない。
+# ⚠ **`exog_daily` は書き換えない**（研究の入力の指紋が動く）。⚠ 年が変わったら treasury の `years` に次の年を足す。
+name = "exog_live"
+period = "d"
+
+[[series]]
+source = "ecb"
+role = "本命"
+ids = ["USD", "JPY", "GBP", "CHF", "CNY", "AUD", "CAD"]
+
+[[series]]
+source = "treasury"
+role = "本命"
+ids = ["1 Mo", "3 Mo", "1 Yr", "2 Yr", "5 Yr", "10 Yr", "30 Yr"]
+years = [2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025, 2026]
+
+[[series]]
+source = "noaa"
+role = "偽薬"
+ids = ["TMAX", "TMIN", "PRCP"]
+stations = ["USW00094728", "USW00023174", "USW00094846"]
+start = "2018-01-01"
+end = "2026-12-31"           # ⚠ 先の日付でよい（返るのは公表済みの日まで）
+
+[[series]]
+source = "usgs"
+role = "偽薬"
+ids = ["count", "maxmag"]
+start = "2018-01-01"
+end = "2026-12-31"
+minmagnitude = 5.0

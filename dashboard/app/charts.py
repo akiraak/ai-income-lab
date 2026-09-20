@@ -151,11 +151,12 @@ def pnl_lane(b: dict, t: dict, *, k: int, hgt: int = 100) -> Markup:
 
 
 def pnl_trader(b: dict, t: dict) -> Markup:
-    """トレーダーの詳細: 実物の損益 ＋ ⚠ 紙上の損益（仮データ。点線）。"""
+    """トレーダーの詳細: 実物の損益 ＋ 紙上の損益（点線。daily.csv があれば本物・無ければ ⚠ 仮データ）。"""
     series = [{"cls": t["cls"], "name": "実物", "pts": t["pnl_pct"], "tips": pnl_tips(t)}]
     if t.get("paper_pct"):
-        series.append({"cls": t["cls"], "dash": True, "name": "紙上・仮", "pts": t["paper_pct"],
-                       "tips": [f"{fmt_pct(v)}（仮データ）" if v is not None else "" for v in t["paper_pct"]]})
+        real = bool(t.get("paper_real"))       # daily.csv（実売買の Phase 3）があれば本物。無ければ仮データ
+        series.append({"cls": t["cls"], "dash": True, "name": "紙上" if real else "紙上・仮", "pts": t["paper_pct"],
+                       "tips": [(f"紙上 {fmt_pct(v)}" if real else f"{fmt_pct(v)}（仮データ）") if v is not None else "" for v in t["paper_pct"]]})
     return line_chart(series, b["bd"], b["missing"], w=620, hgt=220, pad_r=150, label_fmt=lambda s, i: fmt_pct(s["pts"][i]),
                       aria=f'{t["name"]} の損益の推移')
 

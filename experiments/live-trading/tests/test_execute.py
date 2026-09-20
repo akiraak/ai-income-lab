@@ -169,3 +169,107 @@ def test_unfilled_order_carries_no_fee(tmp_path):
     c.dry_run_order = lambda acct, order: {"fee-calculation": {"total-fees": "0.02", "total-fees-effect": "Debit"}, "order": {}}
     r = Executor(c, "ACCT", None, str(tmp_path / "HALT"), mode="dry-run").run_one(_order())
     assert r.amounts()["fee_usd"] == 0.0 and r.amounts()["gross_usd"] == 0 and allocate_fills(r) == []
+
+
+# ---------- 2 段の発注（2026-09-20。利用者決定 D6）: 先に全部出す → 約定をまとめて確かめる ----------
+
+class LoggingClient(FakeClient):
+    """呼ばれた順を残す偽物。`reject` の銘柄は発注で 4xx。注文番号は発注の順に 1, 2, 3…。"""
+
+    def __init__(self, reject=()):
+        super().__init__()
+        self.calls, self.reject, self.timeouts, self._ids = [], set(reject), {}, {}
+
+    def dry_run_order(self, acct, order):
+        self.calls.append(("dry", order["legs"][0]["symbol"]))
+        return super().dry_run_order(acct, order)
+
+    def submit_order(self, acct, order):
+        sym = order["legs"][0]["symbol"]
+        self.calls.append(("submit", sym))
+        if sym in self.reject:
+            raise ApiError(422, "margin_check_failed", "資金不足（作り物）", {})
+        oid = len(self._ids) + 1
+        self._ids[oid] = sym
+        return {"order": {"id": oid, "status": "Received"}, "warnings": []}
+
+    def wait_for_status(self, acct, oid, targets, timeout, interval):
+        self.calls.append(("wait", self._ids[oid]))
+        self.timeouts[self._ids[oid]] = timeout
+        return [{"at_ms": 1, "status": "Filled"}]
+
+
+def _orders(symbols):
+    return [NetOrder(s, "buy", 1, 10.0, "shares", [{"trader": "T1", "shares": 1, "usd": 10.0}]) for s in symbols]
+
+
+def test_submit_mode_sends_every_order_before_waiting_for_any_fill(tmp_path):
+    c = LoggingClient()
+    done = []
+    ex = Executor(c, "ACCT", None, str(tmp_path / "HALT"), mode="submit")
+    res = ex.run_all(_orders(["A", "B", "C"]), {}, on_result=lambda r: done.append(r.order.symbol))
+    kinds = [k for k, _ in c.calls]
+    assert kinds.index("wait") > max(i for i, k in enumerate(kinds) if k == "submit")     # 約定の確認は全部出し終えてから
+    assert [s for k, s in c.calls if k == "submit"] == ["A", "B", "C"]                    # 出す順は渡した順（売りが先・買いが後のまま）
+    assert done == ["A", "B", "C"] and [r.final_status for r in res] == ["Filled"] * 3    # 結果は 1 注文ずつ・渡した順に返る
+    assert all(len(r.fills) == 1 for r in res)
+
+
+def test_a_rejected_order_is_settled_at_once_and_does_not_stop_the_rest(tmp_path):
+    c = LoggingClient(reject={"B"})
+    done = []
+    ex = Executor(c, "ACCT", None, str(tmp_path / "HALT"), mode="submit")
+    res = ex.run_all(_orders(["A", "B", "C"]), {}, on_result=lambda r: done.append((r.order.symbol, r.final_status)))
+    assert done == [("B", "error"), ("A", "Filled"), ("C", "Filled")]      # 断られた注文は出した時点で確定（約定待ちに入らない）
+    assert [r.order.symbol for r in res] == ["A", "B", "C"]                # 戻り値の並びは渡した順
+    assert ("wait", "B") not in c.calls
+
+
+def test_cancel_deadline_counts_from_each_orders_own_submission(tmp_path):
+    class Clock:
+        t = 0.0
+        def monotonic(self): return self.t
+        def sleep(self, s): self.t += s
+
+    clock = Clock()
+
+    class SlowSubmit(LoggingClient):
+        def submit_order(self, acct, order):
+            clock.t += 100.0                                    # 発注 1 本に 100 秒かかる作り物
+            return super().submit_order(acct, order)
+
+        def get_order(self, acct, oid):
+            self.calls.append(("get", self._ids[oid]))
+            return super().get_order(acct, oid)
+
+    c = SlowSubmit()
+    ex = Executor(c, "ACCT", None, str(tmp_path / "HALT"), mode="submit", cancel_after=600.0, clock=clock, sleep=clock.sleep)
+    left = []
+    orig = ex.wait_for_status
+    ex.wait_for_status = lambda oid, targets, timeout: (left.append(timeout), orig(oid, targets, timeout))[1]
+    ex.run_all(_orders(["A", "B", "C"]), {})
+    # A は出してから 200 秒・B は 100 秒・C は 0 秒たっている ＝ 残りは 400 ／ 500 ／ 600 秒（直列のときと同じ「発注から 600 秒」）
+    assert left == [400.0, 500.0, 600.0]
+
+
+def test_serial_flag_restores_one_by_one(tmp_path):
+    c = LoggingClient()
+    ex = Executor(c, "ACCT", None, str(tmp_path / "HALT"), mode="submit", pipeline=False)
+    ex.run_all(_orders(["A", "B"]), {})
+    assert [k for k, _ in c.calls] == ["dry", "submit", "wait", "dry", "submit", "wait"]
+
+
+def test_halt_during_the_first_stage_stops_further_submits_but_still_settles_what_went_out(tmp_path):
+    halt = tmp_path / "HALT"
+
+    class HaltAfterFirst(LoggingClient):
+        def submit_order(self, acct, order):
+            out = super().submit_order(acct, order)
+            halt.write_text("stop")                              # 1 本目を出した直後に停止ボタン
+            return out
+
+    c = HaltAfterFirst()
+    ex = Executor(c, "ACCT", None, str(halt), mode="submit")
+    res = ex.run_all(_orders(["A", "B", "C"]), {})
+    assert [r.final_status for r in res] == ["Filled", "halted", "halted"]
+    assert [s for k, s in c.calls if k == "submit"] == ["A"]

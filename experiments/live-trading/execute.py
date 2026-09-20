@@ -75,6 +75,7 @@ class ExecResult:
     elapsed_ms: float | None = None
     fees: dict | None = None      # dry-run の fee-calculation（丸ごと）
     bp_effect: dict | None = None  # dry-run の buying-power-effect（丸ごと）
+    submitted_at: float | None = None  # 発注した時刻（単調な時計。取消の期限を数えるためだけ・記録には出さない）
 
     def amounts(self) -> dict:
         """金額の内訳（2026-09-19 の利用者決定「手数料など金額の内訳も保存する」）。1 注文 1 トレーダーなので、そのままその人の内訳になる。
@@ -100,7 +101,8 @@ def fee_total_usd(fees: dict | None) -> float:
 class Executor:
     def __init__(self, client: Client, account_number: str, rec: record.Recorder, halt_file: str,
                  mode: str = "dry-run", retries: int = 3, retry_interval: float = 60.0,
-                 cancel_after: float = 600.0, poll_interval: float = 0.5, sleep=time.sleep, clock=None, journal=None):
+                 cancel_after: float = 600.0, poll_interval: float = 0.5, sleep=time.sleep, clock=None, journal=None,
+                 pipeline: bool = True):
         if mode not in ("plan", "dry-run", "submit"):
             raise ValueError(f"mode {mode!r} は無い（plan / dry-run / submit）")
         self.client = client
@@ -114,6 +116,7 @@ class Executor:
         self.poll_interval = poll_interval
         self.sleep = sleep
         self.journal = journal if mode == "submit" else None   # 控え（journal.py）。発注の直前と直後に書く
+        self.pipeline = pipeline   # submit のとき 2 段（先に全部出す → 約定をまとめて確かめる）。False で直列
         self.clock = clock   # 仮の時計（シミュレーション）。None なら約定待ちは今までどおり `client.wait_for_status`（本物の時計）
 
     # ---------- 部品 ----------
@@ -154,7 +157,16 @@ class Executor:
 
     # ---------- 1 注文 ----------
 
+    def _now(self) -> float:
+        return self.clock.monotonic() if self.clock is not None else time.monotonic()
+
     def run_one(self, order: NetOrder, quote: dict | None = None) -> ExecResult:
+        """1 注文を最後まで（dry-run → 発注 → 約定待ち → 未約定は取消）。"""
+        res, order_id = self.submit_one(order, quote)
+        return res if order_id is None else self.finish_one(res, order_id)
+
+    def submit_one(self, order: NetOrder, quote: dict | None = None) -> tuple[ExecResult, object]:
+        """前半: 控え → dry-run → 発注まで。戻り値の 2 つ目は注文番号（発注に至らなかったら None ＝ `res` はもう確定）。"""
         ext = f"lt-{uuid.uuid4().hex[:16]}"
         res = ExecResult(order=order, external_id=ext, quote_at_signal=quote)
         body = self.build(order, ext)
@@ -162,11 +174,11 @@ class Executor:
         try:
             if self.mode == "plan":
                 res.final_status = "planned"
-                return res
+                return res, None
             if self.halted():
                 res.final_status = "halted"
                 res.error = {"type": "Halt", "message": f"HALT がある（{self.halt_file}）。発注しない"}
-                return res
+                return res, None
             for attempt in range(1, self.retries + 1):
                 try:
                     preview = self.client.dry_run_order(self.account, body)
@@ -181,7 +193,7 @@ class Executor:
                     raise
             if self.mode == "dry-run":
                 res.final_status = "dry-run"
-                return res
+                return res, None
             submitted = None
             if self.journal:
                 self.journal.intent(ext, order, fee_total_usd(res.fees))   # ⚠ 発注より先に控える（落ちた後、誰の注文かを確実に戻すため）
@@ -190,7 +202,7 @@ class Executor:
                 if self.halted():
                     res.final_status = "halted"
                     res.error = {"type": "Halt", "message": "再送の前に HALT を見つけた"}
-                    return res
+                    return res, None
                 # 再送の前に「もう入っていないか」（API は重複排除しない）
                 if attempt > 1:
                     found = self.client.find_order_by_external_id(self.account, ext)
@@ -208,13 +220,33 @@ class Executor:
                     raise
             if not submitted:
                 res.final_status = "not_submitted"
-                return res
+                return res, None
             order_obj = submitted["order"]
             order_id = field_(order_obj, "id")
             if self.journal:
                 self.journal.submitted(ext, order_id)
             res.submitted = {"order_id": order_id, "status": field_(order_obj, "status"), "warnings": record.excerpt(submitted.get("warnings"))}
-            res.transitions += self.wait_for_status(order_id, FINAL, self.cancel_after)
+            res.submitted_at = self._now()
+            return res, order_id
+        except ProductionGuard as exc:
+            res.final_status = "guarded"
+            res.error = {"type": "ProductionGuard", "message": str(exc)}
+            return res, None
+        except ApiError as exc:
+            res.final_status = "error"
+            res.error = {"type": "ApiError", "status": exc.status, "code": exc.code, "message": exc.message[:300], "body": record.excerpt(exc.body, limit=10)}
+            return res, None
+        finally:
+            res.elapsed_ms = round((time.perf_counter() - t0) * 1000, 1)
+
+    def finish_one(self, res: ExecResult, order_id) -> ExecResult:
+        """後半: 約定を待ち、未約定は取り消し、約定を読む。⚠ **取消までの秒数は「その注文を出した時刻」から数える**
+        （まとめて待つ形でも、1 本ごとの期限は直列のときと同じ ＝ 発注から `cancel_after` 秒）。"""
+        order = res.order
+        t0 = time.perf_counter()
+        try:
+            left = max(0.0, self.cancel_after - (self._now() - (res.submitted_at if res.submitted_at is not None else self._now())))
+            res.transitions += self.wait_for_status(order_id, FINAL, left)
             final = self.client.get_order(self.account, order_id)
             status = field_(final, "status")
             if status not in FINAL:
@@ -241,16 +273,39 @@ class Executor:
             res.error = {"type": "ApiError", "status": exc.status, "code": exc.code, "message": exc.message[:300], "body": record.excerpt(exc.body, limit=10)}
             return res
         finally:
-            res.elapsed_ms = round((time.perf_counter() - t0) * 1000, 1)
+            res.elapsed_ms = round((res.elapsed_ms or 0.0) + (time.perf_counter() - t0) * 1000, 1)
 
     def run_all(self, orders: list[NetOrder], quotes_raw: dict[str, dict], on_result=None) -> list[ExecResult]:
-        """`on_result(res)` は 1 注文が片付くたびに呼ぶ（台帳の保存と控えの done を注文ごとに済ませるため）。"""
-        results = []
+        """`on_result(res)` は 1 注文が片付くたびに呼ぶ（台帳の保存と控えの done を注文ごとに済ませるため）。
+
+        ⚠ **発注するとき（submit）は 2 段**（2026-09-20。利用者決定 D6）: ① 全部の注文を順に「控え → dry-run → 発注」まで出し、
+        ② その後で 1 本ずつ約定を確かめる。1 本ごとに約定を待つ直列の形だと、待ちが本数ぶん積み上がって窓に収まらない
+        （120 本で約 19 分【推測。sandbox の実測 dry-run 0.9 ＋ 発注 1.9 ＋ 約定 6.8 秒から】）。
+        順（売りが先・買いが後）・控え・1 注文ごとの台帳の保存・1 本ごとの取消の期限は直列のときと同じ。
+        ①の途中で落ちても、出した注文は控えに注文番号つきで残る ＝ 次の起動が照会して台帳に戻す（§0-8 の段 1）。
+        `pipeline=False`（`run_day.py --serial`）で元の直列に戻せる。
+        """
+        results: list[ExecResult] = []
+        if self.mode != "submit" or not self.pipeline:
+            for o in orders:
+                res = self.run_one(o, quotes_raw.get(o.symbol))
+                if on_result:
+                    on_result(res)
+                results.append(res)
+            return results
+        pending: list[tuple[ExecResult, object]] = []
         for o in orders:
-            res = self.run_one(o, quotes_raw.get(o.symbol))
+            res, order_id = self.submit_one(o, quotes_raw.get(o.symbol))
+            results.append(res)
+            if order_id is None:
+                if on_result:
+                    on_result(res)          # 発注に至らなかった（拒否・HALT など）＝ もう確定
+            else:
+                pending.append((res, order_id))
+        for res, order_id in pending:
+            self.finish_one(res, order_id)
             if on_result:
                 on_result(res)
-            results.append(res)
         return results
 
 

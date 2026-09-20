@@ -1,0 +1,19 @@
+# ⚠ **候補（まだ動かせない）**。`dryrun2`（live-trading.md §0-3）の結果で notional ／ shares のどちらかを
+# `config/traders/T1.toml` に写して確定する（プラン live-trading-go-live-0922 の S3 → 月曜 07:00）。
+# ⚠ `config/traders/` の直下に無いので `run_day.py --traders T1` では読めない ＝ 半端な設定で起動できない。
+# 属性は 2026-09-19 の利用者決定（live-trading.md §0-1）。⚠ ここから先にモデル・θ・合成規則を替えるのは新しい試行。
+
+name = "T1"
+test = false
+budget_usd = 300.0                  # 規模 A（$300 × 3 ＋ 予備 $100）。規模 B は別の設定にして上限を明示する（⚠ 実際の取引では使えない可能性がある）
+universe = "us63"
+                                    # 1 銘柄の枠 $300 ÷ 63 ＝ $4.76
+sizing = "notional"                 # 金額指定（Notional Market）。§0-3 で $4.76 ／ $6.25 が通ったときだけ
+combine = "asis"
+threshold = 50.0
+note = "線形（Ridge・own 35 列）。種 0"
+
+[[models]]
+kind = "experiment"
+name = "trade_own_ridge_a"
+method = "全部使う（基準）"

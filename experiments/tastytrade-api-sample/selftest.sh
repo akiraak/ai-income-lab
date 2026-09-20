@@ -109,6 +109,29 @@ case "$GUARD_OUT" in
   *) fail "本番 dry-run がフラグ無しで走ってしまう" ;;
 esac
 
+note "6b. dryrun2（注文種別・端株の dry-run）がモックで全行を通すか"
+# ⚠ 配線だけ。モックは Notional Market も小数の数量も建玉なしの売りも受ける ＝ 本物の可否は本番の dry-run でしか分からない
+$PY sample.py --step dryrun2 --allow-prod-dry-run > "$WORK/dryrun2.log" 2>&1 || fail "sample.py --step dryrun2"
+DRY2=$(ls -t out/tastytrade-prod-*.jsonl 2>/dev/null | head -1)
+$PY - "${DRY2:-/nonexistent}" <<'EOF' || FAIL=1
+import json, sys
+rows = [json.loads(l) for l in open(sys.argv[1], encoding="utf-8")]
+row = next((r for r in rows if r.get("step") == 10), None)
+cases = (row or {}).get("detail", {}).get("cases", [])
+keys = [c["key"] for c in cases]
+want = ["notional_market_5usd", "limit_fractional_0.01", "market_fractional_0.01", "market_1", "market_on_close_1", "limit_1_low",
+        "notional_market_4.76usd", "notional_market_6.25usd", "market_sell_fractional_4dp_no_position"]
+ok = keys == want
+print(f"  {'ok  ' if ok else 'NG  '} 行の鍵と順: {len(keys)} 行")
+sell = next((c for c in cases if c["key"] == "market_sell_fractional_4dp_no_position"), {})
+leg = (sell.get("order", {}).get("legs") or [{}])[0]
+ok2 = leg.get("action") == "Sell to Close" and leg.get("quantity") == "0.0123"
+print(f"  {'ok  ' if ok2 else 'NG  '} 小数 4 桁の売りの形: {leg.get('action')} {leg.get('quantity')}")
+ok3 = bool(row) and row.get("mock") is True
+print(f"  {'ok  ' if ok3 else 'NG  '} mock フラグ")
+sys.exit(0 if ok and ok2 and ok3 else 1)
+EOF
+
 note "7. 停止フラグ（HALT）で発注系の手順が止まるか"
 touch "$WORK/HALT"
 HALT_OUT=$($PY sample.py --step 4 2>&1); HALT_RC=$?

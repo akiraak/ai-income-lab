@@ -167,6 +167,9 @@ cd experiments/live-trading
 - **シミュレーション（仮データと仮の時計で執行器を通しで動かす）は 2026-09-19 に実装した**（決めごと・使い方・筋書き・見つかったことは `live-trading.md` §0-7。プランは `docs/plans/archive/live-trading-sim-clock.md`）
 
   ```bash
+  ./run-sim.sh --fresh --speed max       # ⚠ **ふだんはこれ 1 本**（プロジェクト直下。依存 → 日足の確認 → モード → 管理画面 → 運転手 → 検査）。sim2 ／ --paused ／ --fetch titan
+  ./run-sim.sh ctl speed 60              # 別の端末から: ctl の後ろは simctl.py へ（status ／ pause ／ resume ／ step ／ stop）。reconcile も同じ
+  # 中身を 1 つずつ叩くなら:
   cd experiments/live-trading; PY=../tastytrade-api-sample/.venv/bin/python
   $PY simctl.py mode sim sim1            # 機械をシミュレーションモードへ（何も動いていないとき）。戻すのは mode real
   ./simrun.sh sim1 --fresh --speed max   # 64 営業日を最速で（約 8 秒【実測】）。sim2 ＝ 筋書き（故障の注入）つき
@@ -174,6 +177,7 @@ cd experiments/live-trading
   ```
 
   - ⚠ **実売買とシミュレーションは排他にし、必ず分かるようにする**（利用者決定）＝ 機械全体のモードを 1 つ（`MODE`。無ければ `real`）・`run.lock`・シミュレーションモードでは本物の `run_day` が鍵があっても起動を拒否（rc=5。本物の `events.jsonl` に `refused_mode_sim`）・仮の時計（`run_day.py --sim-clock`）は MODE が sim ＆ 接続先がループバックのモック ＆ prod でない ＆ 本番の鍵なし、のときだけ・記録は `sim/<名前>/` に分け全行 `sim: true`・トレーダー名は `sim_` 始まり・管理画面は全ページの帯と `[SIM]`
+  - ⚠ **`run-sim.sh` は資格情報のある機械（titan）では本物の `MODE` に触らない** ＝ `MODE`・`run.lock`・記録を作業用の置き場（`~/.cache/ai-income-lab-sim`。`AIL_SIM_SCRATCH`）に向け、管理画面はデモで 3014 に起こす（⚠ 3012 は触らない）。資格情報の無い機械（Sx360）では機械のモードを sim に切り替え、管理画面は 3012（既に動いていればそのまま使う）
   - ⚠ **操作は CLI（`simctl.py`）だけ・管理画面は表示だけ**（POST の経路を増やさない。停止ボタンは sim のとき `sim/<名前>/HALT` だけを書く）
   - ⚠ **テストは `LT_MODE_DIR` で `MODE`・`run.lock`・`sim/` を tmp に向ける**（本物の `run.lock` を一瞬でも取ると、同じ時刻の本物の執行器が拒否される）。⚠ **titan で試すときも `LT_MODE_DIR` を scratch に向ける**（本物の `MODE` を sim にしない）
   - ⚠ **シミュレーションを回す機械は Sx360**（利用者決定）: Sx360 には tastytrade の `.env` を置かない（資格情報が無いので実売買が物理的に起きない）。titan は実売買と日足の取得で、ふだんシミュレーションを回さない。日足は titan から Sx360 へ写す

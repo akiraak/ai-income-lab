@@ -307,6 +307,21 @@ flowchart LR
   C --> E["simctl.py mode real<br/>（運転手が止まってから）"]
 ```
 
+**ふだんはプロジェクト直下の `run-sim.sh` 1 本**（2026-09-20。利用者の指示「手順が複雑なので run-xxxxx.sh 作って」）: 依存の用意 → 日足の確認（`--fetch titan` で scp）→ モードの切り替え → 管理画面 → 運転手 → 記録の検査、をまとめて行う。
+
+```bash
+./run-sim.sh                         # sim1 を続きから（無ければ最初から・×60）＋ 管理画面。終わっても管理画面は Ctrl+C まで残る
+./run-sim.sh --fresh --speed max     # 最初から最速で ／ ./run-sim.sh sim2 --fresh（筋書きつき）／ --paused ／ --days N ／ --no-dashboard ／ --fetch titan
+./run-sim.sh ctl speed 60            # 別の端末から。ctl の後ろは simctl.py へ（status ／ pause ／ resume ／ step ／ stop）。./run-sim.sh reconcile show も同じ
+```
+
+| 機械 | `run-sim.sh` の動き |
+| --- | --- |
+| 資格情報が無い（Sx360） | 機械のモード（`experiments/live-trading/MODE`）を sim に切り替えて回す。管理画面は 3012（既に動いていれば止めずにそのまま使う ＝ モードはリクエストごとに読む） |
+| 資格情報がある（titan） | ⚠ **本物の `MODE` には触らない**: `MODE`・`run.lock`・記録を作業用の置き場（既定 `~/.cache/ai-income-lab-sim`。`AIL_SIM_SCRATCH`）に向ける（`LT_MODE_DIR`）＝ 本物の執行器を止めない。管理画面は `AIL_DEMO=1`（tastytrade に繋がない）で 3014 に起こす。⚠ 3012 の管理画面は触らない |
+
+中身を 1 つずつ叩くとき:
+
 ```bash
 cd experiments/live-trading
 PY=../tastytrade-api-sample/.venv/bin/python

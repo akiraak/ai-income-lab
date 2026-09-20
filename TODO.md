@@ -106,7 +106,7 @@
   - [ ] 約定後の実際の手数料を読む（いまは dry-run の見積り ＝ `orders.jsonl` の `amounts.fee_source: "dry_run_estimate"`。`/accounts/{n}/transactions`【記憶・未確認】を sandbox で確かめてから）
     派生元: [plan](docs/plans/archive/live-trading-executor-fixes.md)（利用者の指示 2026-09-19「手数料など金額の内訳も保存するように」）
   - [ ] 前の営業日の注文を注文番号で照会できるかを sandbox で確かめる（控えからの復元 ＝ [live-trading.md §0-8](docs/specs/experiments/live-trading.md) の段 1。だめなら日をまたいだ未完は人が `reconcile.py resolve` で閉じる）
-  - [ ] Sx360 でシミュレーションを立ち上げる（⚠ **利用者**。手順は [live-trading.md §0-7 (h)](docs/specs/experiments/live-trading.md) ＝ pull → venv → ⚠ `.env` は置かない → titan から日足 11 銘柄を写す → `simctl.py mode sim sim1` → `./simrun.sh sim1`）
+  - [ ] Sx360 でシミュレーションを立ち上げる（⚠ **利用者**。`git pull` → プロジェクト直下で `./run-sim.sh --fetch titan --fresh --speed max` の 1 本 ＝ 依存・日足の写し・モード・管理画面・運転手・検査まで。⚠ `.env` は置かない。手順は [live-trading.md §0-7 (h)](docs/specs/experiments/live-trading.md)）
   - [ ] `sim_T1`〜`sim_T3` を `kind = "experiment"` でシミュレーションに流す（T2 は LightGBM。無い機械では titan で作った `predict.jsonl` を写す）
     依存: 「Phase 1: 「今日の買い%」の経路（`cli/predict.py --asof`。`evaluate_trading` と同じ関数群で訓練 ＝ 昨日まで・検証 ＝ 今日の 63 行。既定経路は 1 ビットも変えない・先読みテスト・決定性）⚠ トレーダーの属性が決まってから」
   - [ ] 予想の時にg3plusを使った場合の処理時間を計測。遅すぎる場合はtitanで処理を動かすのを考える

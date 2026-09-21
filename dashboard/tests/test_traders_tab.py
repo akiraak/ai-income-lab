@@ -27,6 +27,9 @@ FORBIDDEN = [
     "Ridge", "線形", "LightGBM", "決定木", "勾配", "時系列分類器", "QUANT", "fit", "訓練", "較正", "fold", "walk",
     "universe", "us63", "company", "sizing", "notional", "端株", "成行", "執行", "B&H", "n_trials", "DSR", "bp",
     "シグナル", "合図", "ボラティリティ", "リターン", "パラメータ", "過学習", "バックテスト",
+    # 2026-09-21 の利用者の指示「表・手法・形式・窓という単語が分かりにくい」。言い換え ＝ 手法 → 数字の選び方・作り方 ／
+    # 形式 → 学習範囲 ／ 窓 → 観測期間・取引時間帯（⚠「表」は「表す」「表示」にも当たるので検査に入れず、目で直す）
+    "手法", "形式", "窓",
 ]
 REAL_WORDS = Path(traderview.DASHBOARD_DIR) / "traders.toml"
 REAL_MODELS = Path(traderview.DASHBOARD_DIR) / "models.toml"

@@ -7,7 +7,7 @@
     `dashboard/models.toml` から写す（正本を増やさない）
   - ⚠ **図はサーバで組むインライン SVG**（外部リソースなし）。箱の文字は TOML・描き方だけがここ。
     ⚠ 1 図 1 主張（`claim` を図の直前に出す）・箱は 12 個以内（`MAX_NODES`。超えたぶんは描かない ＝ テストが数える）
-  - ⚠ **台帳の合計は描くたびに `ledger.md` の §0 から読む**（読めなければその段を出さない。数字を TOML に書き写さない）
+  - ⚠ **検証結果一覧の合計は描くたびに `ledger.md` の §0 から読む**（読めなければその段を出さない。数字を TOML に書き写さない）
   - ⚠ **売買結果は出さない・`out/`・`state/`・`.env`・`runs/` を開かない**（開くのは TOML と `ledger.md` だけ）
   - ⚠ **標準ライブラリだけ・読むだけ**（vibeboard の sidecar が `python3` で起こす。tailnet の閲覧者にも見える）
 """
@@ -93,18 +93,18 @@ def figure_html(fig: dict | None) -> str:
     return f"{claim}<div class='fig'>{svg}</div>"
 
 
-# ---------------------------------------------------------------- 台帳の合計（§0 の 1 文から読む）
+# ---------------------------------------------------------------- 検証結果一覧（旧: 台帳）の合計（§0 の 1 文から読む）
 
 
 def ledger_totals(paths: TraderPaths) -> dict | None:
-    """台帳（生成物）の頭から、試した行数と 採る ／ 保留 ／ 落とす の合計を読む。読めなければ None。"""
+    """検証結果一覧（`ledger.md`。生成物）の頭から、試した行数と 採る ／ 保留 ／ 落とす の合計を読む。読めなければ None。"""
     try:
         with open(paths.ledger, encoding="utf-8") as f:
             head = "".join(line for _i, line in zip(range(60), f))
     except OSError:
         return None
     found = {k: re.search(p, head) for k, p in (
-        ("date", r"生成日\s*(\d{4}-\d{2}-\d{2})"), ("rows", r"試行は\s*([\d,]+)\s*行（手法）"),
+        ("date", r"生成日\s*(\d{4}-\d{2}-\d{2})"), ("rows", r"(?:検証|試行)は\s*([\d,]+)\s*行（手法）"),
         ("adopt", r"「採る」は\s*([\d,]+)\s*件"), ("drop", r"落とす\s*([\d,]+)\s*行"), ("hold", r"保留\s*([\d,]+)\s*行"))}
     if not all(found.values()):
         return None
@@ -197,7 +197,7 @@ def body(paths: TraderPaths, item: str) -> str | None:
 
 
 def fingerprint(paths: TraderPaths) -> dict[str, float]:
-    """見張り用。システム説明の言葉・台帳 ＋ モデルの言葉と実売買の設定（型ごとの段がそこから写す）。"""
+    """見張り用。システム説明の言葉・検証結果一覧 ＋ モデルの言葉と実売買の設定（型ごとの段がそこから写す）。"""
     out = traderview.fingerprint(paths)
     for f in (paths.system, paths.ledger):
         try:

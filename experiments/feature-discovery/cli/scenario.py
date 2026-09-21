@@ -5,7 +5,7 @@
     python3 -m cli.scenario predict --run runs/<実行> --latest    # 保存した重みから最新日の予測（JSON）
     python3 -m cli.scenario predict --run runs/<実行> --asof 2025-03-14
 
-⚠ **`cli.run` とは別の物差し（分布 → CRPS）。** 実行は `runs/<時刻>_scn_<名前>/` に残すが、`summary.csv` を書かないので
+⚠ **`cli.run` とは別の物差し（分布 → CRPS）。** 実行は `<時刻>_scn_<名前>` として記録（runs/research.sqlite）に残すが、`summary.csv` を書かないので
 台帳・検証タブには出ない（記録 §0 決定 6）。成績は `scores.csv`、起点ごとの生の行は `origins.csv`、判定は `verdict.json`。
 ⚠ **評価の実行は毎回学習し直す**（前の実行の `fitted/` を読まない）。`fitted/` を読むのは `predict` だけ。
 """
@@ -124,7 +124,13 @@ def run(args) -> None:
 
 
 def predict(args) -> None:
-    cfg = json.load(open(os.path.join(args.run, "config.json"), encoding="utf-8"))
+    name = runs.resolve(args.run)                  # 実行の名前（記録は runs/research.sqlite）
+    with runs.materialized(name) as d:             # ⚠ 重みを読むための写し（出たら消す）
+        _predict(args, name, d)
+
+
+def _predict(args, name: str, run_dir: str) -> None:
+    cfg = json.load(open(os.path.join(run_dir, "config.json"), encoding="utf-8"))
     bars, feats, names, s = _prepare(cfg)
     asof = s.origin[-1] if args.latest else np.datetime64(args.asof, "D")
     hit = np.flatnonzero(s.origin == asof)
@@ -136,7 +142,7 @@ def predict(args) -> None:
     usable = [k for k, t0 in enumerate(starts, 1) if t0 <= asof]
     if not usable:
         raise SystemExit(f"⚠ {asof} より前に学習を終えた重みが無い（最初のテストの始まりは {starts[0]}）")
-    path = os.path.join(args.run, "fitted", f"f{usable[-1]}_seed{args.seed}.pt")
+    path = os.path.join(run_dir, "fitted", f"f{usable[-1]}_seed{args.seed}.pt")
     gen, doc = model.load(path)
     sc = data.Scaler.from_dict(doc["scaler"], names)
     n = int(cfg["n_scenarios"])
@@ -146,7 +152,7 @@ def predict(args) -> None:
     out = {"symbol": cfg["symbol"], "as_of": str(asof), "data_cutoff": str(asof),
            "data_available_at": "起点の営業日の引け（16:00 ET。半日立会は 13:00 ET）の後",
            "horizon_dates": after or "未確定（起点の翌営業日から 5 営業日）", "n_scenarios": n,
-           "model_version": f"{os.path.basename(os.path.normpath(args.run))}/{os.path.basename(path)}",
+           "model_version": f"{name}/{os.path.basename(path)}",
            "training_cutoff": doc["meta"]["training_cutoff"], "checkpoint_selected_until": doc["meta"]["val_cutoff"],
            "return_basis": RETURN_BASIS, **metrics.summarize_paths(paths),
            "calibration_status": "確率の補正はしていない（生成した割合そのまま ＝ モデル推定の確率）。検証は記録 cgan-scenario.md",
@@ -166,7 +172,7 @@ def main() -> None:
     a.add_argument("--max-epochs", type=int, help="学習の上限を縮める（配線の確認用。⚠ 同上）")
     a.set_defaults(fn=run)
     b = sub.add_parser("predict", help="保存した重みから予測（JSON）")
-    b.add_argument("--run", required=True, help="runs/<実行> のパス")
+    b.add_argument("--run", required=True, help="実行の名前（`runs/<実行>` の形でもよい。記録は runs/research.sqlite）")
     g = b.add_mutually_exclusive_group(required=True)
     g.add_argument("--asof", help="予測起点の営業日（YYYY-MM-DD）")
     g.add_argument("--latest", action="store_true", help="足のある最後の営業日")

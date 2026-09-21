@@ -20,7 +20,7 @@
     },
     {
       "name": "experiments",
-      "label": "検証",
+      "label": "実行",
       "baseUrl": "http://127.0.0.1:3015/experiments",
       "command": ["python3", "dashboard/vibetab.py"]
     },

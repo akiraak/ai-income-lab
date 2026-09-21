@@ -133,11 +133,11 @@ formal_label = "正式な名前と設定（用語あり）"
 flow_claim = "共通の図の主張"
 flow_link = "共通の流れ"
 axes_title = "組み立て"
-axis_data = "入れるデータ"
+axis_data = "入力データ"
 axis_prep = "下ごしらえ"
 axis_calc = "計算の仕方"
 axis_target = "当てにいく対象"
-axis_scope = "学ぶ範囲"
+axis_scope = "学習範囲"
 walk_title = "小さな例"
 walk_caution = "例の数字は作りもの"
 score_read = "読み方"
@@ -258,7 +258,7 @@ def test_model_page_deep_parts(paths):
     part = {h: body.split(f"</span>{h}</h2>")[1].split("<h2>")[0] for h in (
         "どんなモデルか", "何を見て、どう答えを出すか", "出力スコアの出かたと読み方", "過去のデータで試した結果")}
     # 1: 組み立ての表（知らない軸は出さない）＋ 詳しく
-    assert "<tr><th>入れるデータ</th><td>軸のデータ</td></tr><tr><th>計算の仕方</th><td>軸の計算</td></tr>" in part["どんなモデルか"]
+    assert "<tr><th>入力データ</th><td>軸のデータ</td></tr><tr><th>計算の仕方</th><td>軸の計算</td></tr>" in part["どんなモデルか"]
     assert "知らない軸" not in body and "用語 Ridge の説明" in part["どんなモデルか"]
     # 3: 図（主張が直前・箱の文字はエスケープ）→ 見るもの → 答えの出し方 → 小さな例 → 共通の流れへ → 詳しく
     how = part["何を見て、どう答えを出すか"]

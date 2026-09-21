@@ -38,7 +38,7 @@ class TraderPaths:
     models: Path           # モデルの解説の正本（models.toml）
     traders_dir: Path      # 実売買の設定（直下 ＝ 確定・candidates/notional ＝ 候補）
     universe_dir: Path     # 銘柄の集合（本数を数えるだけ）
-    # 「システム説明」タブ（systemview.py）が読むもの: 説明の言葉の正本と、机上の検証の台帳（合計を写すだけ）
+    # 「システム説明」タブ（systemview.py）が読むもの: 説明の言葉の正本と、机上の検証の検証結果一覧（合計を写すだけ）
     system: Path = DASHBOARD_DIR / "system.toml"
     ledger: Path = REPO_ROOT / "docs" / "specs" / "experiments" / "feature-discovery" / "ledger.md"
 

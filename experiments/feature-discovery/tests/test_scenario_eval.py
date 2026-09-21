@@ -142,14 +142,14 @@ def test_cli_run_and_predict_end_to_end(tmp_path, monkeypatch, capsys):
 
     import argparse
     scenario.run(argparse.Namespace(config="toy", folds=None, seeds=None, max_epochs=None))
-    run_dir = capsys.readouterr().out.strip().splitlines()[-1]
-    have = set(p.name for p in (tmp_path / run_dir.split("/")[-1]).iterdir())
+    run_dir = capsys.readouterr().out.strip().splitlines()[-1]       # 実行の名前（記録は DB）
+    have = {p.split("/")[0] for p in runs.files(run_dir)}
     assert {"config.json", "inputs.json", "env.json", "origins.csv", "scores.csv", "history.csv", "quality.csv",
             "verdict.json", "log.txt", "fitted"} <= have
     assert "summary.csv" not in have                                  # ⚠ 台帳・検証タブに出さない（記録 §0 決定 6）
-    verdict = json.load(open(f"{run_dir}/verdict.json", encoding="utf-8"))
+    verdict = runs.read_json(run_dir, "verdict.json")
     assert verdict["verdict"] in ("採る", "保留", "落とす") and set(verdict["ok"]) == set("abcde")
-    scores = pd.read_csv(f"{run_dir}/scores.csv")
+    scores = runs.read_csv(run_dir, "scores.csv")
     assert set(scores["model"]) == {"cgan", "hist", "light", "ridge"}
     assert scores[(scores["model"] == "ridge")]["crps"].isna().all()
 
@@ -173,7 +173,8 @@ def test_cli_run_and_predict_end_to_end(tmp_path, monkeypatch, capsys):
     scenario_report.main()
     text = capsys.readouterr().out
     assert "== 再現: f2 種 1" in text
-    rep = scenario_report.reproduce(run_dir, pd.read_csv(f"{run_dir}/origins.csv"), "f2", 1)
+    with runs.materialized(run_dir) as d:
+        rep = scenario_report.reproduce(d, pd.read_csv(f"{d}/origins.csv"), "f2", 1)
     assert rep["max_abs_diff"] < 1e-9                                  # CPU では 1 ビットも違わないはず（許容は丸めの分）
     for name in ("cgan-calibration.svg", "cgan-intervals.svg"):
         root = ET.parse(tmp_path / "fig" / name).getroot()

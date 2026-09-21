@@ -24,6 +24,8 @@ import argparse
 
 import pandas as pd
 
+from ail import runs
+
 DRIFT = "基準 常に上（ドリフト）"
 
 
@@ -54,10 +56,13 @@ def main() -> int:
                     help="銘柄の群（`名前=SYM,SYM,...`）。⚠ 何度でも指定できる")
     a = ap.parse_args()
 
-    ps = pd.read_csv(f"{a.run}/per_symbol.csv")
+    name = runs.resolve(a.run)                     # 実行の名前（記録は runs/research.sqlite）
+    ps = runs.read_csv(name, "per_symbol.csv")
+    if ps is None:
+        raise SystemExit(f"⚠ 実行 {name} に per_symbol.csv が無い（閾値売買の実行だけが持つ）")
     method = a.method
     if method is None:
-        s = pd.read_csv(f"{a.run}/summary.csv", index_col=0)
+        s = runs.read_csv(name, "summary.csv", index_col=0)
         cand = [str(x) for x in s.index if not str(x).startswith("基準 ") and str(x) != "乱択（基準）"]
         method = cand[0] if cand else None
     j = decompose(ps, method, a.threshold)
@@ -69,7 +74,7 @@ def main() -> int:
     named = {s for v in groups.values() for s in v}
     j["群"] = j["銘柄"].map(lambda s: next((k for k, v in groups.items() if s in v), "その他"))
 
-    print(f"実行 {a.run}")
+    print(f"実行 {name}")
     print(f"手法 {method} θ={a.threshold:g}\n")
     cols = ["上乗せ", "落ちた分", "当てた分"]
     if named:

@@ -13,6 +13,7 @@ from pathlib import Path
 import pytest
 
 import vibetab
+from tests.conftest import RunDir
 
 
 # ---------------------------------------------------------------- 最小のデータ
@@ -20,9 +21,8 @@ import vibetab
 
 def make_run(runs_dir: Path, name: str, leak: bool = False, score: float = 1.5,
              positive: int = 5, t: float = 3.5, dsr: float = 0.97,
-             layer: str = "adjusted", layers: tuple = ("own", "cs")) -> Path:
-    d = runs_dir / name
-    d.mkdir(parents=True)
+             layer: str = "adjusted", layers: tuple = ("own", "cs")) -> RunDir:
+    d = RunDir(runs_dir, name)
     (d / "summary.csv").write_text(
         "手法,本数,的中率,IC,粗利bp,純利bp,fold数\n"
         f"全部使う（基準）,36,0.51,0.02,{score + 4.0},{score + 3.0},5\n"
@@ -104,7 +104,7 @@ def exp_dir(tmp_path: Path) -> Path:
     return exp
 
 
-# ---------------------------------------------------------------- 検証タブ
+# ---------------------------------------------------------------- 実行タブ
 
 
 def test_exp_sidebar_groups_and_badge(runs_dir):
@@ -125,7 +125,7 @@ def test_exp_sidebar_missing_dir(tmp_path):
 
 def test_exp_overview_html(runs_dir):
     body = vibetab.exp_overview_html(runs_dir)
-    assert "検証のまとめ" in body
+    assert "実行のまとめ" in body
     assert "+1.50" in body
     assert "先読みの検査" in body
 
@@ -135,8 +135,8 @@ def test_exp_overview_html(runs_dir):
 
 def test_exp_overview_methods_and_traits(runs_dir):
     body = vibetab.exp_overview_html(runs_dir)
-    assert "検証方法とその特徴" in body
-    assert "検証方法ごとの成績" in body
+    assert "実行の種類とその特徴" in body
+    assert "実行の種類ごとの成績" in body
     # fixture の実検証は feature_layers に cs があるので断面。組の表に組が出る
     assert "断面・日足・1 日先・調整後" in body
     assert "先読みの検査・日足・1 日先・調整後" in body
@@ -156,7 +156,7 @@ def test_exp_overview_analysis_no_leak_no_pass(tmp_path):
     make_run(runs, "2026-09-09T12-00-00_own", score=-1.0, positive=2, t=0.5, dsr=0.3)
     body = vibetab.exp_overview_html(runs)
     assert "配線の確認がまだ無い" in body
-    assert "「発見あり」と言える検証はまだ無い" in body
+    assert "「発見あり」と言える実行はまだ無い" in body
 
 
 def test_exp_overview_analysis_leak_not_jumping(tmp_path):
@@ -199,8 +199,7 @@ def test_exp_run_html(runs_dir):
 
 def test_exp_run_html_holding_days_column(runs_dir):
     """閾値売買の詳細に「保有日数 中央値（p25–p75）」の列が出る。⚠ **checks.json の写し**で、鍵が無い θ は「—」。"""
-    d = runs_dir / "2026-09-10T10-00-00_trade_own_ridge_a"
-    d.mkdir()
+    d = RunDir(runs_dir, "2026-09-10T10-00-00_trade_own_ridge_a")
     (d / "summary.csv").write_text(
         "手法,閾値,本数,的中率,IC,粗利bp,純利bp,取引回数,保有日率,fold数\n"
         "全部使う（基準）,50.0,35,0.52,0.03,13.0,10.0,60,0.5,5\n", encoding="utf-8")
@@ -246,10 +245,9 @@ def test_fmt_only_trims_zeros_after_the_point():
 # --------------------------------------------- 門前の実行（rules.md 14-5）
 
 
-def make_gated_run(runs_dir: Path, name: str) -> Path:
+def make_gated_run(runs_dir: Path, name: str) -> RunDir:
     """⚠ **summary.csv を書かない**（前置きの門で閾値売買を回していない実行）。"""
-    d = runs_dir / name
-    d.mkdir(parents=True)
+    d = RunDir(runs_dir, name)
     (d / "config.json").write_text(json.dumps(
         {"dataset": "daily", "horizon": 1, "k": 16, "cost_bp": 5.0, "feature_layers": ["own"],
          "trading": {"style": "threshold", "thresholds": [50, 55, 60], "form": "shared"}}),
@@ -273,13 +271,13 @@ def make_gated_run(runs_dir: Path, name: str) -> Path:
 
 
 def test_gated_run_is_listed_apart_and_not_counted(runs_dir):
-    """⚠ **門前は目次とまとめに出るが、「検証 N 件」には数えない**（rules.md 14-5）。"""
+    """⚠ **門前は目次とまとめに出るが、「実行 N 件」には数えない**（rules.md 14-5）。"""
     make_gated_run(runs_dir, "2026-09-11T11-00-00_trade_own_lgbm_a")
     items = vibetab.exp_sidebar(runs_dir)["items"]
     by_id = {i["id"]: i for i in items}
     g = by_id["2026-09-11T11-00-00_trade_own_lgbm_a"]
     assert g["badge"] == "門前" and "門前" in g["group"]
-    assert "検証 1 件" in by_id["overview"]["sub"]          # ⚠ 門前を足して 2 件にしない
+    assert "実行 1 件" in by_id["overview"]["sub"]          # ⚠ 門前を足して 2 件にしない
     body = vibetab.exp_overview_html(runs_dir)
     assert "門前（前置きの門を通らず、検証を回していない）" in body
     assert "0.503" in body and "3.2" in body                # 門の 2 値（写し）
@@ -400,7 +398,7 @@ def test_http_routes(server):
     status, body = _get(f"{server}/experiments/api/sidebar")
     assert status == 200 and json.loads(body)["items"]
     status, body = _get(f"{server}/experiments/view?item=overview")
-    assert status == 200 and "検証のまとめ" in body
+    assert status == 200 and "実行のまとめ" in body
     assert _get(f"{server}/data/view?item=bars")[0] == 200
     assert _get(f"{server}/experiments/view?item=nai")[0] == 404
     assert _get(f"{server}/nazo/api/sidebar")[0] == 404
@@ -416,9 +414,8 @@ def test_http_routes(server):
 
 def test_exp_fingerprint_moves_on_checks_update(runs_dir):
     before = vibetab.exp_fingerprint(runs_dir)
-    p = runs_dir / "2026-09-09T12-00-00_own_2018" / "checks.json"
-    import os
-    os.utime(p, (p.stat().st_atime, p.stat().st_mtime + 10))  # ⚠ dir の mtime は動かない上書き
+    p = RunDir(runs_dir, "2026-09-09T12-00-00_own_2018") / "checks.json"
+    p.write_text(p.read_text().replace("0.97", "0.98"))        # ⚠ 中身が変われば指紋が動く（記録は DB）
     after = vibetab.exp_fingerprint(runs_dir)
     assert after != before
     assert set(after) == set(before)
@@ -427,9 +424,8 @@ def test_exp_fingerprint_moves_on_checks_update(runs_dir):
 # ---------------------------------------------------------------- 閾値つき売買（rules.md 13 章）
 
 
-def make_trading_run(runs_dir: Path, name: str) -> Path:
-    d = runs_dir / name
-    d.mkdir(parents=True)
+def make_trading_run(runs_dir: Path, name: str) -> RunDir:
+    d = RunDir(runs_dir, name)
     head = "手法,閾値,本数,的中率,IC,粗利bp,純利bp,取引回数,保有日率,fold数\n"
     rows = []
     for th, net in ((50.0, 10.0), (55.0, 12.0), (60.0, 8.0)):
@@ -563,7 +559,7 @@ def test_real_glossary_terms_are_short_and_unique():
 def test_real_glossary_covers_the_words_that_block_reading():
     """入口として最低限引けること（語が消えたら足し直す合図）。"""
     names = {t["name"] for s in vibetab.load_glossary() for t in s["term"]}
-    for w in ("試行", "DSR（デフレーテッド SR）", "上乗せ", "門前", "ex_ / im_", "cert（sandbox）"):
+    for w in ("検証（旧: 試行）", "識別項目（旧: 鍵）", "検証結果一覧（ledger。旧: 台帳）", "DSR（デフレーテッド SR）", "上乗せ", "門前", "ex_ / im_", "cert（sandbox）"):
         assert w in names
 
 

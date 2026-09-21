@@ -7,8 +7,9 @@
 ⚠ **設計の要点は 4 つ**（プラン `plans/archive/evolutionary-search-runner.md` §4）。
   1. ⚠ **subprocess で起動する。** 同じプロセスで回すと、1 本が落ちたときに残り全部が道連れになる
   2. ⚠ **本番 1 本につき `--leak` 対照を 1 本、自動で並べる**（rules.md 14-10 規約 6）。⚠ **手で足すと必ず忘れる**
-  3. ⚠ **状態を `runs/queue/<名前>.json` に残す。** 途中で殺しても続きから回り、⚠ **済んだものは 2 度回さない**
-     （同じ設定を 2 度回すと `runs/` にディレクトリが 2 つでき、⚠ **台帳の鍵では 1 行のままなので気づけない**）
+  3. ⚠ **状態を DB（`runs/research.sqlite` の `queue_state`。2026-09-21 までは `runs/queue/<名前>.json`）に残す。**
+     途中で殺しても続きから回り、⚠ **済んだものは 2 度回さない**
+     （同じ設定を 2 度回すと実行が 2 つでき、⚠ **台帳の鍵では 1 行のままなので気づけない**）
   4. ⚠ **1 本終わるごとに台帳を吐き直し、`n_trials` の推移を状態に残す**（数え落としに気づくため）
 
 ⚠ **打ち切りは 3 つとも config に書く**（14-9・プラン §3-2）。⚠ **回し続ける仕組みは、放っておくと
@@ -18,7 +19,6 @@
 from __future__ import annotations
 
 import argparse
-import json
 import os
 import subprocess
 import sys
@@ -27,7 +27,6 @@ import tomllib
 
 ROOT = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
 QUEUE_CONFIG = os.path.join(ROOT, "config", "queue")
-STATE_DIR = os.path.join(ROOT, "runs", "queue")
 LEDGER = os.path.abspath(os.path.join(
     ROOT, "..", "..", "docs", "specs", "experiments", "feature-discovery", "ledger.md"))
 
@@ -78,22 +77,25 @@ def _item(experiment: str, leak: bool) -> dict:
 # --- 状態（再開の要） ---------------------------------------------------
 
 def state_path(name: str) -> str:
-    return os.path.join(STATE_DIR, f"{name}.json")
+    """状態の置き場の表示用（DB のどの行か）。"""
+    from ail import runs
+    return f"{os.path.relpath(runs.db_path(), ROOT)} の queue_state「{name}」"
 
 
 def load_state(name: str) -> dict | None:
-    p = state_path(name)
-    if not os.path.exists(p):
-        return None
-    with open(p, encoding="utf-8") as f:
-        return json.load(f)
+    from ail import rundb, runs
+    path = runs.db_path()
+    return rundb.load_queue(rundb.connect(path), name) if os.path.exists(path) else None
 
 
 def save_state(state: dict) -> None:
-    os.makedirs(STATE_DIR, exist_ok=True)
+    from ail import rundb, runs
     state["updated_at"] = time.strftime("%Y-%m-%dT%H-%M-%S")
-    with open(state_path(state["queue"]), "w", encoding="utf-8") as f:
-        json.dump(state, f, ensure_ascii=False, indent=2)
+    conn = rundb.connect(runs.db_path())
+    try:
+        rundb.save_queue(conn, state["queue"], state)
+    finally:
+        conn.close()
 
 
 def merge(old: dict | None, items: list[dict], cfg: dict) -> dict:
@@ -122,7 +124,7 @@ def merge(old: dict | None, items: list[dict], cfg: dict) -> dict:
 # --- 実行 ---------------------------------------------------------------
 
 def _subprocess_runner(experiment: str, leak: bool) -> tuple[bool, str | None, str]:
-    """`cli.run` を別プロセスで 1 本回す。戻り値は (成功したか, 実行ディレクトリ, 末尾のログ)。"""
+    """`cli.run` を別プロセスで 1 本回す。戻り値は (成功したか, 実行の名前, 末尾のログ)。"""
     cmd = [sys.executable, "-m", "cli.run", "--experiment", experiment] + (["--leak"] if leak else [])
     p = subprocess.run(cmd, cwd=ROOT, capture_output=True, text=True)
     tail = (p.stdout or "")[-2000:] + (p.stderr or "")[-2000:]
@@ -130,13 +132,13 @@ def _subprocess_runner(experiment: str, leak: bool) -> tuple[bool, str | None, s
 
 
 def parse_run_dir(stdout: str) -> str | None:
-    """`cli.run` が最後に出す `→ runs/<時刻>_<名前>` を拾う。
+    """`cli.run` が最後に出す `→ <時刻>_<名前>`（実行の名前）を拾う。
 
     ⚠ **拾えなくても実行は失敗ではない**（None のまま進む）。⚠ **状態から実行を辿れなくなるだけ。**
     """
     for line in reversed(stdout.splitlines()):
         if line.startswith("→ "):
-            return line[2:].strip()
+            return line[2:].split("#")[0].strip()
     return None
 
 
@@ -201,7 +203,7 @@ def run_queue(name: str, *, dry_run: bool = False, restart: bool = False,
             break
     left = [i for i in state["items"] if i["status"] != "done"]
     log(f"キュー {name}: 済み {len(state['items']) - len(left)} ／ 残り {len(left)}"
-        + (f" ／ 状態 {os.path.relpath(state_path(name), ROOT)}" if not dry_run else ""))
+        + (f" ／ 状態 {state_path(name)}" if not dry_run else ""))
     return state
 
 

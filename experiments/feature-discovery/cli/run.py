@@ -451,7 +451,7 @@ def apply_gate(exp: dict, gate_doc: dict, enforce: bool, run: runs.Run) -> dict 
         return exp
     run.log("⚠ --gate: 門で足切りする（14-10 規約 2 に反する使い方。rules.md 14-5 の経緯）")
     if not gate_doc.get("passed"):
-        run.log("⚠ **全手法が門前 ＝ 閾値売買を回さない**（台帳には「門前」で残す・"
+        run.log("⚠ **全手法が門前 ＝ 閾値売買を回さない**（検証結果一覧には「門前」で残す・"
                 "n_trials に数えない。rules.md 14-5）")
         return None
     if blocked:
@@ -545,7 +545,7 @@ def main() -> None:
                         "cost_bp": float(exp.get("cost_bp", 5.0)),
                         "thresholds": [float(x) for x in t.get("thresholds", (50.0, 55.0, 60.0))],
                         "gate": gate_doc})
-            print(f"→ {os.path.relpath(run.close(), store.ROOT)}")
+            print(f"→ {run.close()}")          # 実行の名前（記録は runs/research.sqlite）
             return
         exp = gated_exp
         res, per_sym, g, daily, extra = evaluate_trading(panel, feats, exp, run)
@@ -570,7 +570,7 @@ def main() -> None:
         doc["gate"] = gate_doc                       # ⚠ 記録するだけ。採否には使わない（14-5）
         run.checks(doc)
         run.log(_checks_line_trading(doc))
-        print(f"→ {os.path.relpath(run.close(), store.ROOT)}")
+        print(f"→ {run.close()}")          # 実行の名前（記録は runs/research.sqlite）
         return
 
     res = evaluate(panel, feats, exp, run)
@@ -590,7 +590,7 @@ def main() -> None:
                          n_trials=checks.n_trials_now(), leak=args.leak)
     run.checks(doc)
     run.log(_checks_line(doc))
-    print(f"→ {os.path.relpath(run.close(), store.ROOT)}")
+    print(f"→ {run.close()}")          # 実行の名前（記録は runs/research.sqlite）
 
 
 def _checks_line_trading(doc: dict) -> str:

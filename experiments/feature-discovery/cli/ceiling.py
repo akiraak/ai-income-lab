@@ -32,6 +32,8 @@ from statistics import NormalDist
 import numpy as np
 import pandas as pd
 
+from ail import runs
+
 DRIFT = "基準 常に上（ドリフト）"
 MIN_DROP_BP = 1000.0
 COST_ONEWAY_BP = 2.5
@@ -213,7 +215,7 @@ def _fold_days(run: str) -> list[int]:
 
 def main() -> int:
     ap = argparse.ArgumentParser(description="回す前に上限を見積もる（rules.md 14-2）")
-    ap.add_argument("--run", required=True, help="実行ディレクトリ（daily.csv と result.csv を読む）")
+    ap.add_argument("--run", required=True, help="実行の名前（daily.csv と result.csv を読む。記録は runs/research.sqlite）")
     ap.add_argument("--rule", default="C3 長期 SMA200 フィルタ", help="現行規則とみなす手法")
     ap.add_argument("--threshold", type=float, default=50.0)
     ap.add_argument("--min-drop-bp", type=float, default=MIN_DROP_BP)
@@ -223,7 +225,10 @@ def main() -> int:
     ap.add_argument("--json", help="結果を書き出す先")
     a = ap.parse_args()
 
-    df = _load_daily(a.run)
+    a.run = runs.resolve(a.run)
+    with runs.materialized(a.run) as d:            # ⚠ 読むための写し（出たら消す）
+        df = _load_daily(d)
+        folds = _fold_days(d)
     bh_s = _series(df, DRIFT, a.threshold)
     me_s = _series(df, a.rule, a.threshold)
     if len(bh_s) == 0 or len(me_s) != len(bh_s):
@@ -233,7 +238,6 @@ def main() -> int:
 
     spans = episode_spans(bh_s, a.min_drop_bp)
     w = windows(n, spans)
-    folds = _fold_days(a.run)
     if sum(folds) != n:
         raise SystemExit(f"⚠ fold の合計 {sum(folds)} が検証日数 {n} と合わない")
     nf = len(folds)

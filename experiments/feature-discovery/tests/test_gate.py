@@ -226,7 +226,7 @@ def test_rerun_method_becomes_a_normal_trial_row():
 
 
 def _write_gated_dir(d):
-    d.mkdir()
+    d.mkdir(parents=True)
     cfg = {"dataset": "daily", "bar_minutes": 1440.0, "horizon": 1, "cost_bp": 5.0,
            "model": "Ridge", "feature_layers": ["own"],
            "trading": {"style": "threshold", "thresholds": [50, 55, 60], "form": "shared"}}
@@ -240,10 +240,19 @@ def _write_gated_dir(d):
     (d / "inputs.json").write_text(json.dumps({"layer": "adjusted"}), encoding="utf-8")
 
 
+def _ingest(d):
+    """いままでのディレクトリの形で作った偽の実行を DB に入れる（⚠ 記録は DB）。"""
+    from ail import rundb
+    conn = rundb.connect(runs.db_path())
+    rundb.ingest_dir(conn, str(d), d.name)
+    conn.close()
+
+
 def test_read_run_accepts_a_fully_gated_run(tmp_path, monkeypatch):
     """summary の無い実行でも、gate で全手法が落ちたものは台帳のために拾う（隠さない）。"""
     monkeypatch.setattr(runs, "RUNS", str(tmp_path))
-    _write_gated_dir(tmp_path / "2026-09-11T00-00-00_gated")
+    _write_gated_dir(tmp_path / "src" / "2026-09-11T00-00-00_gated")
+    _ingest(tmp_path / "src" / "2026-09-11T00-00-00_gated")
     run = catalog._read_run("2026-09-11T00-00-00_gated")
     assert run is not None and len(run["summary"]) == 0
     assert run["checks"]["gate"]["blocked"] == ["全部使う（基準）"]
@@ -252,20 +261,22 @@ def test_read_run_accepts_a_fully_gated_run(tmp_path, monkeypatch):
 def test_read_run_still_rejects_a_crashed_run(tmp_path, monkeypatch):
     """gate の無い summary 無し実行（途中で落ちた）は従来どおり読まない。"""
     monkeypatch.setattr(runs, "RUNS", str(tmp_path))
-    d = tmp_path / "2026-09-11T00-00-00_crashed"
-    d.mkdir()
+    d = tmp_path / "src" / "2026-09-11T00-00-00_crashed"
+    d.mkdir(parents=True)
     (d / "config.json").write_text("{}", encoding="utf-8")
+    _ingest(d)
     assert catalog._read_run("2026-09-11T00-00-00_crashed") is None
 
 
 def test_a_forced_run_that_crashed_is_not_read_as_pregate(tmp_path, monkeypatch):
     """⚠ `--ignore-gate` で summary が無いのは「回したのに落ちた」。門前として拾わない。"""
     monkeypatch.setattr(runs, "RUNS", str(tmp_path))
-    d = tmp_path / "2026-09-11T00-00-00_forced"
+    d = tmp_path / "src" / "2026-09-11T00-00-00_forced"
     _write_gated_dir(d)
     ch = json.loads((d / "checks.json").read_text(encoding="utf-8"))
     ch["gate"]["forced"] = True
     (d / "checks.json").write_text(json.dumps(ch, ensure_ascii=False), encoding="utf-8")
+    _ingest(d)
     assert catalog._read_run("2026-09-11T00-00-00_forced") is None
 
 
@@ -283,7 +294,8 @@ def test_ledger_renders_pregate_rows(tmp_path, monkeypatch):
     monkeypatch.setattr(runs, "RUNS", str(tmp_path))
     # ⚠ 実 runs/ を外すので、実 runs/ の保留行に当たる [[closed]] は空にする
     monkeypatch.setattr(catalog, "closed_notes", lambda path=None: [])
-    _write_gated_dir(tmp_path / "2026-09-11T00-00-00_gated")
+    _write_gated_dir(tmp_path / "src" / "2026-09-11T00-00-00_gated")
+    _ingest(tmp_path / "src" / "2026-09-11T00-00-00_gated")
     md = ledger.build()
     assert "門前が 1 行" in md
     assert "＋ 1 行（門前）" in md

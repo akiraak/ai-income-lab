@@ -13,6 +13,50 @@ from app.config import Settings, import_sample  # noqa: E402
 SAMPLE_DIR = DASH.parent / "experiments" / "tastytrade-api-sample"
 import_sample(SAMPLE_DIR)
 
+# 検証の記録の書き手（実験側 `ail/rundb.py`。標準ライブラリだけ）。⚠ テストで偽の実行を DB に書くためだけに使う
+sys.path.insert(0, str(DASH.parent / "experiments" / "feature-discovery"))
+from ail import rundb  # noqa: E402
+
+
+class RunDir:
+    """⚠ **テスト用: 偽の実行を DB（`<runs_dir>/research.sqlite`）に書く。** 記録は 2026-09-21 から DB。
+
+    いままでのディレクトリと同じ書き方（`d.mkdir()`・`(d / "summary.csv").write_text(...)`）がそのまま使える。
+    ⚠ 実行は閉じない（テストが後から書き足す・書き換える）。
+    """
+
+    def __init__(self, runs_dir: Path, name: str):
+        self.runs_dir, self.name = Path(runs_dir), name
+        conn = self._conn()
+        if not conn.execute("SELECT 1 FROM runs WHERE name = ?", (name,)).fetchone():
+            rundb.open_run(conn, name)
+        conn.close()
+
+    def _conn(self):
+        return rundb.connect(str(self.runs_dir / rundb.FILE_NAME))
+
+    def mkdir(self, *a, **k) -> None:
+        pass
+
+    def __truediv__(self, rel: str) -> "_RunFile":
+        return _RunFile(self, rel)
+
+
+class _RunFile:
+    def __init__(self, run: RunDir, rel: str):
+        self.run, self.rel = run, rel
+
+    def write_text(self, text: str, encoding: str = "utf-8") -> None:
+        conn = self.run._conn()
+        rundb.put(conn, self.run.name, self.rel, text.encode(encoding))
+        conn.close()
+
+    def read_text(self, encoding: str = "utf-8") -> str:
+        conn = self.run._conn()
+        data = rundb.get(conn, self.run.name, self.rel)
+        conn.close()
+        return data.decode(encoding)
+
 FAKE_SECRET = "FAKE-CLIENT-SECRET-0001"
 FAKE_REFRESH = "FAKE-REFRESH-TOKEN-0001"
 FAKE_ACCOUNT = "5WT99999"
@@ -108,14 +152,13 @@ def settings(tmp_path):
 
 
 def write_experiment(runs_dir: Path, run_id: str, *, config: dict, inputs: dict,
-                     summary: list[tuple] | None, checks: dict | None = None) -> Path:
-    """検証の実行記録（runs/<実行>/）を 1 つ作る。summary は (手法, 本数, 的中率, IC, 粗利, 純利)。
+                     summary: list[tuple] | None, checks: dict | None = None) -> "RunDir":
+    """検証の実行記録（DB の実行 1 つ）を作る。summary は (手法, 本数, 的中率, IC, 粗利, 純利)。
 
     ⚠ **`summary=None` は `summary.csv` を書かない**（前置きの門で閾値売買を回していない実行。
     rules.md 14-5。`cli/run.py` は門前のとき summary も result も書かない）。
     """
-    d = runs_dir / run_id
-    d.mkdir(parents=True, exist_ok=True)
+    d = RunDir(runs_dir, run_id)
     (d / "config.json").write_text(json.dumps(config, ensure_ascii=False), encoding="utf-8")
     (d / "inputs.json").write_text(json.dumps(inputs, ensure_ascii=False), encoding="utf-8")
     (d / "env.json").write_text(json.dumps({"seed": 0, "git_commit": "abc1234",

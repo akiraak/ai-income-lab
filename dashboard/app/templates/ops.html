@@ -3,7 +3,7 @@
 <h2>操作 <span class="muted small">ローカル面だけ。公開面ではこのページは存在しない</span></h2>
 
 <section class="card">
-  <h3>停止 / 解除{{ info("HALT（停止ボタン）") }}{{ info("3 段の鍵") }}</h3>
+  <h3>停止 / 解除{{ info("HALT（停止ボタン）") }}{{ info("3 段の許可") }}</h3>
   {% if halt.halted %}
   <div class="danger">⛔ 停止中（HALT）{{ halt.since|pt }} · {{ halt.actor }} {{ halt.reason or '' }}。<code>sample.py</code> の発注系の手順もこのフラグで止まる。</div>
   <form method="post" action="/ops/resume" class="inline" data-confirm="停止を解除する。発注系が再び通るようになる。よいか？"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn btn-primary">解除（再開）</button></form>

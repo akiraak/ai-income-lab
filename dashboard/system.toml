@@ -6,14 +6,14 @@
 #    （使わない語は tests/test_traders_tab.py の FORBIDDEN ＝ dashboard.md §16-2 の表。テストが見る）。
 #    用語・正式な名前・コードの場所・細かい数字と出典は **`detail`・`detail_points`・`detail_table`（画面では「詳しく（用語あり）」の囲み。⚠ 畳まない・いつも開いている）にだけ**書く。
 # ⚠ **本文に実売買の設定の数字（予算・買う線・見る株の本数）と `$` を書かない**（設定が変わると嘘になる。トレーダーのタブが設定から写す）。
-# ⚠ **売買結果（損益・注文・約定・持ち高）は書かない**。⚠ 台帳の合計は画面が `ledger.md` から読む（`ledger = true` の段。ここに書き写さない）。
+# ⚠ **売買結果（損益・注文・約定・持ち高）は書かない**。⚠ 検証結果一覧の合計は画面が `ledger.md` から読む（`ledger = true` の段。ここに書き写さない）。
 # ⚠ **型ごとのしくみ（`models = true` の段）の文は models.toml から写す**（ここに書かない）。
 # ⚠ **確かめた事実だけを書く**（出どころは規約 rules.md・記録 docs/specs/experiments/・コード）。仕組みを変えたら該当の段を読み直す。
 # ⚠ 図: 1 図 1 主張（`claim` は図の直前に出る）・箱は 12 個以内。`kind = "flow"`（箱と矢印）／ `"folds"`（期間を分けて試す図）。
 #
 # 形: [[page]]（id・label・sub・title・lead）→ [[page.section]]（title・text・points・after・note・models・ledger・links・
 #     detail・detail_points・detail_links）→ [page.section.figure] ／ [page.section.table] ／ [page.section.detail_table]。
-#     ⚠ TOML の決まりで、段の平の鍵（title や detail）は [page.section.figure] などの小さな表より**上**に書く。
+#     ⚠ TOML の決まりで、段の平の項目（title や detail）は [page.section.figure] などの小さな表より**上**に書く。
 #     links の形 ＝ { label = "…", doc = "docs/…" } か { label = "…", tab = "models|traders|system|glossary|experiments|data", item = "…" }。
 
 [common]
@@ -24,7 +24,7 @@ ledger_rows = "試した形（行）"
 ledger_adopt = "採る"
 ledger_hold = "保留"
 ledger_drop = "落とす"
-ledger_note = "過去のデータで試した結果の台帳から写した合計（台帳を作った日 {date}）。台帳を作り直すと、この数字も変わる。"
+ledger_note = "過去のデータで試した結果の検証結果一覧から写した合計（検証結果一覧を作った日 {date}）。検証結果一覧を作り直すと、この数字も変わる。"
 
 # ================================================================ 全体（簡単に）
 
@@ -53,7 +53,7 @@ links = [
 ]
 detail = [
   "机上の検証は experiments/feature-discovery/（cli.fetch → cli.adjust → cli.build → cli.run → cli.report）。実売買は experiments/live-trading/（run-live.sh → cli.predict → run_day.py）。管理画面は dashboard/（3012）。",
-  "2026-08-27 の方針で、資金を動かす実行は原則しない。例外は 2 つだけ ＝ tastytrade の API の挙動の検証（2026-09-05）と、トレーダーに予算を割り振る実売買（2026-09-17）。どちらも本番の鍵を入れて起動するのは利用者だけ（CLAUDE.md）。",
+  "2026-08-27 の方針で、資金を動かす実行は原則しない。例外は 2 つだけ ＝ tastytrade の API の挙動の検証（2026-09-05）と、トレーダーに予算を割り振る実売買（2026-09-17）。どちらも本番の許可を出して起動するのは利用者だけ（CLAUDE.md）。",
 ]
 
 [page.section.figure]
@@ -159,7 +159,7 @@ text = [
 note = "過去のデータで試すと、どのモデルも出力スコアがまん中の近くのせまい幅に集まった。つまり「強く上がりそう」と言える日がほとんど無い。これが、買う線を上げるとほとんど買わなくなる理由。"
 detail = [
   "Platt 較正（ail/models/calibrate.py）: 買い% ＝ 100·σ(a·pred + b)。a・b は訓練分割の尻の holdout で fit する（rules.md 13-2）。出口% は 100 − 買い%（入口と出口を別に持つ検知器だけ別の窓で fit ＝ 16 章）。",
-  "門の診断【実測】: 時系列分類器 3 本の holdout AUC は 0.501〜0.508・買い% の幅は 0.5〜2.1 ポイント（tsc-threshold.md §3）。(A) 形式の Platt 係数は a ≈ 0 だった（threshold-trading.md）。⚠ 2026-09-12 より前は較正の数値解が止まっていた（較正「旧」。台帳では列で区別する）。",
+  "門の診断【実測】: 時系列分類器 3 本の holdout AUC は 0.501〜0.508・買い% の幅は 0.5〜2.1 ポイント（tsc-threshold.md §3）。(A) 形式の Platt 係数は a ≈ 0 だった（threshold-trading.md）。⚠ 2026-09-12 より前は較正の数値解が止まっていた（較正「旧」。検証結果一覧では列で区別する）。",
 ]
 detail_links = [{ label = "tsc-threshold.md", doc = "docs/specs/experiments/tsc-threshold.md" }, { label = "threshold-trading.md", doc = "docs/specs/experiments/threshold-trading.md" }]
 
@@ -176,9 +176,9 @@ points = [
   "回すと決めるのは、結果を見る前。回したものは、うまくいかなくても全部「試した数」に数える。",
   "計算が変わる変更をしたら、必ず名前も変える。同じ名前のまま中身を変えると、前の結果と混ざってしまう。",
 ]
-links = [{ label = "名前と鍵", tab = "system", item = "names" }]
+links = [{ label = "名前と識別名", tab = "system", item = "names" }]
 detail = [
-  "登録は @register(種類, 名前)（ail/registry.py）。新しいファイルを作ったら ail/bootstrap.py に 1 行足す。可能性が低くても机上の検証は積極的に回す（rules.md 14-10）。緩めないもの ＝ 回すと決めるのは結果を見る前 ／ 回したものは全部 n_trials に数える ／ leak 対照 ／ 1 実行 1 ディレクトリ。",
+  "登録は @register(種類, 名前)（ail/registry.py）。新しいファイルを作ったら ail/bootstrap.py に 1 行足す。可能性が低くても机上の検証は積極的に回す（rules.md 14-10）。緩めないもの ＝ 回すと決めるのは結果を見る前 ／ 回したものは全部 n_trials に数える ／ leak 対照 ／ 1 実行 1 記録（上書きしない。置き場は runs/research.sqlite）。",
 ]
 
 # ================================================================ 過去のデータで確かめる（手厚く）
@@ -200,7 +200,7 @@ points = [
 ]
 detail = [
   "ウォークフォワード（増えていく窓）。split = walk_forward_dates・folds = 5・purge = true（config の [validation]）。切れ目は全銘柄共通の日付集合を 6 等分して決める（ail/validation/splits.py の date_edges。最初の 1 塊は訓練だけ）。own_2018 の表では fold 1 ＝ 2019-07-09〜2020-12-08（360 日）・fold 2 ＝ 2020-12-09〜2022-05-16（361 日）…【実測。threshold-trading.md】。",
-  "パージ ＝ ラベルが検証期間に食い込む訓練行を落とす。断面を使うときはエンバーゴ（境目をさらに空ける）。時系列を無作為に切らない（rules.md 9 章）。",
+  "パージ ＝ ラベルが評価期間に食い込む訓練行を落とす。断面を使うときはエンバーゴ（境目をさらに空ける）。時系列を無作為に切らない（rules.md 9 章）。",
 ]
 
 [page.section.figure]
@@ -257,13 +257,13 @@ detail = ["leak 対照（rules.md 7 章・13-10）。--leak で回した実行�
 
 [[page.section]]
 title = "試した数を数える"
-text = ["サイコロを何百回もふれば、たまたま良い目が続くことがある。モデルも同じで、たくさん試すほど、たまたま良く見える形が出てくる。だから試した形は全部、台帳に数えて残す。良い数字が出たら、「これだけ試した中でのいちばん」として割り引いて読む。"]
+text = ["サイコロを何百回もふれば、たまたま良い目が続くことがある。モデルも同じで、たくさん試すほど、たまたま良く見える形が出てくる。だから試した形は全部、検証結果一覧に数えて残す。良い数字が出たら、「これだけ試した中でのいちばん」として割り引いて読む。"]
 ledger = true
 detail = [
-  "台帳 ＝ docs/specs/experiments/feature-discovery/ledger.md（生成物。cli.report --catalog。手で書き換えない）。多重検定に使う n_trials は台帳の行数で、デフレーテッド SR（DSR）に渡す。⚠ 試行を増やしても採否は厳しくならない（判定式に DSR は入らない ＝ rules.md 14-10）。",
-  "条件付き GAN のシナリオ予測は別の物差し（CRPS）なので台帳の n_trials は動かさず、試した構成は記録の §0-3 に数える（cgan-scenario.md）。",
+  "検証結果一覧 ＝ docs/specs/experiments/feature-discovery/ledger.md（生成物。cli.report --catalog。手で書き換えない）。多重検定に使う n_trials は検証結果一覧の行数で、デフレーテッド SR（DSR）に渡す。⚠ 検証を増やしても採否は厳しくならない（判定式に DSR は入らない ＝ rules.md 14-10）。",
+  "条件付き GAN のシナリオ予測は別の物差し（CRPS）なので検証結果一覧の n_trials は動かさず、試した構成は記録の §0-3 に数える（cgan-scenario.md）。",
 ]
-detail_links = [{ label = "ledger.md（台帳）", doc = "docs/specs/experiments/feature-discovery/ledger.md" }, { label = "検証のタブ", tab = "experiments", item = "overview" }]
+detail_links = [{ label = "ledger.md（検証結果一覧）", doc = "docs/specs/experiments/feature-discovery/ledger.md" }, { label = "実行のタブ", tab = "experiments", item = "overview" }]
 
 [[page.section]]
 title = "これまでの経緯"
@@ -306,16 +306,16 @@ rows = [
 head = ["記録", "内訳と数字"]
 rows = [
   ["gpu-models.md（2026-09-09）", "毎日往復の物差し。勾配ブースティング・深層 ＝ 保留（1 期間依存）／ 断面 × 非線形 ＝ 落とす〜保留 ／ GAN 増強 ＝ 落とす ／ 系列モデル ＝ 見送り"],
-  ["threshold-trading.md（09-10）", "追試 24 試行: 落とす 23 ／ 保留 1（own × Ridge × (A) × θ=50。上乗せ ＋12.8bp・t 0.13・符号 1/5。⚠ 較正「旧」の行。いまのコードでは落とす）"],
-  ["downtrend-detection.md（09-12）", "21 試行: 落とす 18 ／ 保留 3 ／ 採る 0。保留はどれも t < 2・符号が割れる。較正 std の回し直し（20-40-14）は 落とす 17 ／ 保留 4（D1 θ50 が保留へ）"],
-  ["entry-timing.md §9（09-12）", "36 試行: 保留 2 ／ 落とす 34。最良 ＋29.56bp/fold・符号 1/5・t 0.87・DSR 0.267。上位 3 行は対照側（逆向き）"],
+  ["threshold-trading.md（09-10）", "追試 24 検証: 落とす 23 ／ 保留 1（own × Ridge × (A) × θ=50。上乗せ ＋12.8bp・t 0.13・符号 1/5。⚠ 較正「旧」の行。いまのコードでは落とす）"],
+  ["downtrend-detection.md（09-12）", "21 検証: 落とす 18 ／ 保留 3 ／ 採る 0。保留はどれも t < 2・符号が割れる。較正 std の回し直し（20-40-14）は 落とす 17 ／ 保留 4（D1 θ50 が保留へ）"],
+  ["entry-timing.md §9（09-12）", "36 検証: 保留 2 ／ 落とす 34。最良 ＋29.56bp/fold・符号 1/5・t 0.87・DSR 0.267。上位 3 行は対照側（逆向き）"],
   ["mlp-threshold-trading.md（09-13）", "own 6 行: 上乗せ −68〜−1,017bp ／ ownex 6 行: −312〜−703bp"],
   ["gan-threshold-trading.md（09-13〜14）", "own 36 行: 上乗せ −36.70〜−1,638.70bp。ownex（gan-threshold-ownex.md）も 36 行とも落とす"],
   ["selectors-seven-threshold.md（09-15）", "選別 7 本 × Ridge / LightGBM: 42 行とも落とす"],
   ["tsc-threshold.md（09-15）", "MiniRocket・Hydra・QUANT × 3 θ: 落とす 8 ／ 保留 1（QUANT θ=50 ＋61.92bp・t 0.44。5 fold 中 4 fold が「全部持つ ／ 全部休む」）"],
-  ["patchtst-threshold.md（09-15）", "上乗せ −51.11 ／ −989.89 ／ −1,568.40bp。学習 10 回とも検証 MSE が「0 と予測する」を超えられない"],
+  ["patchtst-threshold.md（09-15）", "上乗せ −51.11 ／ −989.89 ／ −1,568.40bp。学習 10 回とも選定期間の MSE が「0 と予測する」を超えられない"],
   ["evolutionary-search.md（09-16）", "F4-1 記号回帰 × Ridge・LightGBM・MLP × 3 θ ＝ 9 行とも落とす（Ridge: −219.08〜−698.59bp）。先頭の式に own_dow（曜日。5 fold 中 4 fold。fold 2 には無い）"],
-  ["topk-holdings.md（09-19）", "台帳の 45 行: 採る 0 ／ 保留 37 ／ 落とす 8。基準線「ボラ上位」が T1・T3 の端数 10 対のうち 9 対でモデルの順位を上回った"],
+  ["topk-holdings.md（09-19）", "検証結果一覧の 45 行: 採る 0 ／ 保留 37 ／ 落とす 8。基準線「ボラ上位」が T1・T3 の端数 10 対のうち 9 対でモデルの順位を上回った"],
   ["cgan-scenario.md（09-18〜19）", "CRPS（低いほどよい）: cGAN 0.01210 ／ 履歴ベース 0.01195 ／ 軽量モデル 0.01146。事前登録の 5 条件とも満たさず"],
 ]
 
@@ -356,8 +356,8 @@ after = [
   "出力スコアが 1 本でも出せなかった日は、注文の仕組みを起こさない（古い出力スコアや欠けた出力スコアで売り買いしない）。",
 ]
 detail = [
-  "run-live.sh の 1 本。朝 ＝ --prepare（日足 ＋ 外部系列の更新 約 2 分 → 紙上の対照 out/daily.csv。発注しない）。15:50 ET ＝ --wait で起こす → 日足の更新（足だけ 52 秒）→ cli.predict × 3（並列 36 秒）→ out/<日付>/predict.jsonl → 台帳の控え state-backup/（submit の回だけ）→ run_day.py【所要時間は実測・titan】。",
-  "cli.predict は表 ＝ cli.build.assemble・買い% ＝ cli.run.fold_buy_pct の切り出しで、モデル・較正のコードは足していない。訓練 ＝ ラベルが asof より前に確定している行 ／ 検証 ＝ asof の行。asof より後の足は読んだ直後に捨てる。runs/ を作らない（試行ではない）。",
+  "run-live.sh の 1 本。朝 ＝ --prepare（日足 ＋ 外部系列の更新 約 2 分 → 紙上の対照 out/daily.csv。発注しない）。15:50 ET ＝ --wait で起こす → 日足の更新（足だけ 52 秒）→ cli.predict × 3（並列 36 秒）→ out/<日付>/predict.jsonl → 売買履歴の控え state-backup/（submit の回だけ）→ run_day.py【所要時間は実測・titan】。",
+  "cli.predict は表 ＝ cli.build.assemble・買い% ＝ cli.run.fold_buy_pct の切り出しで、モデル・較正のコードは足していない。訓練 ＝ ラベルが asof より前に確定している行 ／ 予測する行 ＝ asof の行。asof より後の足は読んだ直後に捨てる。runs/ を作らない（検証ではない）。",
   "執行の窓は 15:45〜16:05 ET（NYSE の営業日。休場日は暦で見る。半日立会の日は発注しない）。合図は 15:50 の気配、注文は成行。未約定は発注から 600 秒で取消。Session offline と 5xx は 60 秒おき 3 回まで再送（external-identifier で重複を探してから）。",
 ]
 detail_links = [{ label = "live-trading.md §0-9", doc = "docs/specs/experiments/live-trading.md" }]
@@ -387,7 +387,7 @@ points = [
 ]
 detail = [
   "合成規則 combine ＝ asis / mean / majority / unanimous（事前固定）。sizing ＝ notional（金額指定・端株）か shares（整数株）。空き ＝ 予算 − 建玉の取得原価 − 受渡し待ちの売却代金（T+1・保守側）。超える買いは over_budget / too_small の事象として記録して見送る（plan.size_intents）。",
-  "発注は 2 段（利用者決定 D6）: ① 全部の注文を順に 控え → dry-run → 発注 ／ ② 1 本ずつ約定を確かめて台帳へ。直列（--serial）では初日の約 120 本が窓に収まらない（モック 120 本: 直列 124 秒 ／ 2 段 2.4 秒【実測】）。",
+  "発注は 2 段（利用者決定 D6）: ① 全部の注文を順に 控え → dry-run → 発注 ／ ② 1 本ずつ約定を確かめて売買履歴へ。直列（--serial）では初日の約 120 本が窓に収まらない（モック 120 本: 直列 124 秒 ／ 2 段 2.4 秒【実測】）。",
   "口座への注文はトレーダーごとに別々（合算しない・按分しない・内部移転しない ＝ 2026-09-19 利用者決定）。同日に A の売りと B の買いが重なっても両方を口座に出し、売りが先。",
 ]
 
@@ -399,24 +399,24 @@ points = [
   "口座のほうが多い株は「帳面の外」として記録するだけ。口座のほうが少ない株は、その日は売り買いしない。",
   "食いちがいを、だれかのものと推し量って割り振ることはしない。合わせるのは人。",
 ]
-detail = ["3 段（live-trading.md §0-8）: 発注の前に控え state/<env>/journal.jsonl を書き、起動時に未完を照会してその人の台帳に戻す ／ 口座 − 台帳の合計を突き合わせる ／ 人が reconcile.py で合わせる（ネットワークなし）。台帳の保存は 1 注文ごと。状態は state/<env>/<名前>.json、記録は out/<日付>/*.jsonl（Masker 経由・git 管理外）。"]
+detail = ["3 段（live-trading.md §0-8）: 発注の前に控え state/<env>/journal.jsonl を書き、起動時に未完を照会してその人の売買履歴に戻す ／ 口座 − 売買履歴の合計を突き合わせる ／ 人が reconcile.py で合わせる（ネットワークなし）。売買履歴の保存は 1 注文ごと。状態は state/<env>/<名前>.json、記録は out/<日付>/*.jsonl（Masker 経由・git 管理外）。"]
 
 [[page.section]]
 title = "安全の仕掛け"
 detail = [
-  "鍵の 3 段（ttclient.Client）: dry-run ＝ TT_ALLOW_PROD_DRY_RUN=1 ／ 取消 ＝ allow_prod_cancel（管理画面の停止ボタン用）／ 発注 ＝ TT_ALLOW_PROD_ORDERS=1 ＋ --i-know-this-is-real-money。取消の鍵で発注は開かない。⚠ 本番の鍵を入れて起動するのは利用者だけ。",
+  "許可の 3 段（ttclient.Client）: dry-run ＝ TT_ALLOW_PROD_DRY_RUN=1 ／ 取消 ＝ allow_prod_cancel（管理画面の停止ボタン用）／ 発注 ＝ TT_ALLOW_PROD_ORDERS=1 ＋ --i-know-this-is-real-money。取消の許可では発注できない。⚠ 本番の許可を出して起動するのは利用者だけ。",
   "停止 ＝ 記録ディレクトリの HALT。管理画面（3012）の停止ボタンが置き、働いている注文を全部取り消す。⚠ 管理画面に発注の経路は無い。予算の上限は規模 A $1,000（既定）。規模 B $10,000 は --max-total-budget 10000 --max-day-usd 10000 を明示したときだけ（⚠ 実際の取引では使えない可能性がある）。含み損 20% は drawdown_warning（警告だけ）。",
-  "シミュレーション ＝ 機械のモード MODE（無ければ real）・run.lock・記録は sim/<名前>/ に分け全行 sim: true・トレーダー名は sim_ 始まり。sim のとき本物の run_day は鍵があっても起動を拒否する（rc=5）。回す機械は資格情報を置かない Sx360（live-trading.md §0-7）。",
+  "シミュレーション ＝ 機械のモード MODE（無ければ real）・run.lock・記録は sim/<名前>/ に分け全行 sim: true・トレーダー名は sim_ 始まり。sim のとき本物の run_day は許可があっても起動を拒否する（rc=5）。回す機械は資格情報を置かない Sx360（live-trading.md §0-7）。",
 ]
 
 [page.section.table]
 head = ["仕掛け", "中身"]
 rows = [
-  ["鍵は 3 段", "注文の下書きを確かめる ／ 取り消す ／ 本当に注文する、でそれぞれ別の鍵が要る。取り消しの鍵では注文できない"],
-  ["本番の鍵を入れるのは人", "AI は手順とコードまで。鍵を入れて起こすのは利用者だけ"],
+  ["許可は 3 段", "注文の下書きを確かめる ／ 取り消す ／ 本当に注文する、でそれぞれ別の許可が要る。取り消しの許可では注文できない"],
+  ["本番の許可を出すのは人", "AI は手順とコードまで。許可を出して起こすのは利用者だけ"],
   ["停止ボタン", "管理画面のボタン 1 つで、新しい注文を止め、出ている注文を全部取り消す"],
   ["予算の上限", "始める前に書いた上限を超える買いは、注文の仕組みが断る"],
-  ["時間の窓", "取引が終わる前後の決まった時間の外では注文しない。休みの日は暦で見る"],
+  ["取引時間帯", "取引が終わる前後の決まった時間の外では注文しない。休みの日は暦で見る"],
   ["大きな含み損", "警告を出すだけ。自動で投げ売りしない。止めるのは人"],
   ["シミュレーション", "仮のデータと仮の時計で、同じ仕組みを通しで動かせる。本物とは同時に動かず、記録も画面も必ず分ける"],
 ]
@@ -442,45 +442,45 @@ detail = [
 ]
 detail_links = [{ label = "dashboard.md §13", doc = "docs/specs/dashboard.md" }, { label = "live-trading-three-models.md（プラン）", doc = "docs/plans/live-trading-three-models.md" }]
 
-# ================================================================ 名前と鍵（技術的な定義）
+# ================================================================ 名前と識別名（技術的な定義）
 
 [[page]]
 id = "names"
-label = "名前と鍵"
+label = "名前と識別名"
 sub = "技術的な定義"
-title = "名前と鍵 — モデルは内部でどう呼ばれているか"
-lead = "モデル 1 本を指すのは、2 つの名前の組。「どの試しの設定か」と「その中のどの手法か」。記録や設定のファイルには、この 2 つがそのままの綴りで出てくる。"
+title = "名前と識別名 — モデルは内部でどう呼ばれているか"
+lead = "モデル 1 本を指すのは、2 つの名前の組。「どの試しの設定か」と「その中で、数字をどう選ぶか・どう作るか」。記録や設定のファイルには、この 2 つがそのままの綴りで出てくる。"
 
 [[page.section]]
-title = "モデル 1 本 ＝ 設定の名前 × 手法の名前"
-text = ["1 つの試しの設定の中に、手法が何本も入っていることがある。だから設定の名前だけでは、モデル 1 本は決まらない。実際の売買の設定・今日の出力スコアのファイル・画面の解説は、どれもこの 2 つの名前の組で同じモデルを指している。綴りが 1 文字でもちがうと別のものとして扱われ、注文の仕組みは止まる。"]
+title = "モデル 1 本 ＝ 設定の名前 × 数字の選び方・作り方の名前"
+text = ["1 つの試しの設定の中に、数字の選び方・作り方が何通りも入っていることがある（全部の数字をそのまま使う ／ 決まったやり方で数字をしぼる ／ 観測期間 60 日の値動きの線から数字を作る、など）。だから設定の名前だけでは、モデル 1 本は決まらない。実際の売買の設定・今日の出力スコアのファイル・画面の解説は、どれもこの 2 つの名前の組で同じモデルを指している。綴りが 1 文字でもちがうと別のものとして扱われ、注文の仕組みは止まる。"]
 detail = [
   "実売買の設定の [[models]]: kind = \"experiment\" ／ name ＝ 実験名（例 trade_ownseq_ridge_a）／ method ＝ 手法名（例 T3 QUANT（60日窓）＝ その実験の結果表の「手法」の列 ＝ 選別か検知器の登録名。学習器の名前ではない）。",
   "predict.jsonl の行は model（実験名）・method・symbol・buy・exit。signals.py は (実験名, 銘柄) で引き、行の method が設定と違えば SignalError で止まる。シミュレーションの作り置きのファイル名は 実験名@<手法名の sha1 の頭 8 桁>。",
-  "画面: traderview.find_model は name と method の両方が一致する models.toml の [[model]] だけを当てる。id（例 seq-quant）は #models/<id> の URL 用で、内部の鍵ではない。",
+  "画面: traderview.find_model は name と method の両方が一致する models.toml の [[model]] だけを当てる。id（例 seq-quant）は #models/<id> の URL 用で、内部の識別名ではない。",
 ]
 
 [page.section.figure]
 claim = "同じ 2 つの名前の組が、設定・今日の出力スコア・画面をつないでいる。"
 per_row = 4
 steps = [
-  { t = "試しの設定", s = "設定の名前 ＋ 中の手法の名前" },
+  { t = "試しの設定", s = "設定の名前 ＋ 中の選び方・作り方の名前" },
   { t = "実際の売買の設定", s = "トレーダーが使うモデルとして書く" },
   { t = "今日の出力スコアのファイル", s = "1 行ごとに 2 つの名前つき" },
   { t = "画面の解説", s = "同じ組で当てて、やさしい呼び方を出す", kind = "out" },
 ]
 
 [[page.section]]
-title = "部品の名前と、台帳の鍵"
-text = ["学び方・線の読み方・数字の選び方などの部品は、名前を付けて登録表に入れてある。試しの設定は、この名前で部品を指す。"]
+title = "部品の名前と、検証結果一覧の識別項目"
+text = ["学び方・線の読み方・数字の選び方などの部品は、名前を付けて名前の一覧（登録簿）に入れてある。試しの設定は、この名前で部品を指す。"]
 points = [
-  "部品の名前は、試した結果の台帳で「同じ形か、ちがう形か」を見分ける鍵になっている。だから、計算が変わる変更をしたら必ず名前を変える。",
-  "試しの設定の名前（ファイル名）は鍵ではない。台帳は、設定の中身（モデル・見ている数字・期間・線の引き方など）から鍵を作る。",
+  "部品の名前は、試した結果の検証結果一覧で「同じ形か、ちがう形か」を見分ける識別項目になっている。だから、計算が変わる変更をしたら必ず名前を変える。",
+  "試しの設定の名前（ファイル名）は識別項目ではない。検証結果一覧は、設定の中身（モデル・見ている数字・期間・線の引き方など）から識別項目を作る。",
   "すでにある名前は変えない。これから足す名前だけ、決まった形にそろえる。",
 ]
 detail = [
   "登録は ail/registry.py の register(kind, name)。種類は source / feature / selector / transform / model / detector / split / metric / stat。同じ種類に同じ名前を 2 度登録すると落ちる。走り出す前に resolve_all で全部解決する。",
-  "rules.md 10-1（2026-09-14）: モデル名（Ridge+GAN増強(batch16k)）は台帳の鍵（catalog.KEY）。増強は + で足し、既定から外した水準だけ括弧で付ける。実験名（trade_ownex_mlpgan16k_b）は鍵ではない ＝ 名前から中身を読まない・正本は config の中身。leak 対照は実行ディレクトリにだけ _leak が付く。",
+  "rules.md 10-1（2026-09-14）: モデル名（Ridge+GAN増強(batch16k)）は検証結果一覧の識別項目（catalog.KEY）。増強は + で足し、既定から外した水準だけ括弧で付ける。実験名（trade_ownex_mlpgan16k_b）は識別項目ではない ＝ 名前から中身を読まない・正本は config の中身。leak 対照は実行ディレクトリにだけ _leak が付く。",
 ]
 detail_links = [{ label = "rules.md 10-1（名前の付け方）", doc = "docs/specs/experiments/feature-discovery/rules.md" }]
 
@@ -491,7 +491,7 @@ rows = [
   ["検知器", "登録名", "T3 QUANT（60日窓）／ D2 中期ゲート（60日・学習）／ 入口D1(20)×出口D3(200)（学習）", "ail/detectors/*.py"],
   ["選別・変換", "登録名", "全部使う（基準）／ F4-1 記号回帰（遺伝的プログラミング）", "ail/selectors/・ail/search/"],
   ["実験", "config の name ＝ ファイル名", "trade_ownseq_ridge_a（trade_ ＋ 表の呼び名 ＋ モデル略 ＋ 形式）", "config/experiment/<name>.toml"],
-  ["実行", "<時刻>_<実験名>[_leak]", "2026-09-19T13-19-20_trade_ownseq_ridge_a_topk", "runs/（1 実行 1 ディレクトリ）"],
+  ["実行", "<時刻>_<実験名>[_leak]", "2026-09-19T13-19-20_trade_ownseq_ridge_a_topk", "runs/research.sqlite（1 実行 1 記録）"],
   ["トレーダー", "設定のファイル名", "T1〜T3 ／ test_a ／ sim_T1", "live-trading/config/traders/<名前>.toml"],
   ["画面のページ", "id", "own-ridge ／ ownex-lgbm ／ seq-quant", "dashboard/models.toml"],
 ]

@@ -125,10 +125,9 @@ def test_calibration_coefficients_are_recorded(run, tmp_path):
     import os
     panel = _panel()
     evaluate_trading(panel, _feats(panel), _exp(), run)
-    d = os.path.join(run.dir, "fitted")
-    files = sorted(os.listdir(d))
-    assert any(f.startswith("calibration_f") for f in files)
-    doc = json.load(open(os.path.join(d, files[0]), encoding="utf-8"))
+    files = runs.files(run.name, "fitted/")                  # ⚠ 記録は DB（書いたその場で入る）
+    assert any(f.startswith("fitted/calibration_f") for f in files)
+    doc = runs.read_json(run.name, files[0])
     cal = doc["全部使う（基準）"]
     assert set(cal) == {"a", "b", "source"} and cal["source"] in ("holdout", "train", "constant")
 
@@ -172,7 +171,7 @@ def test_holds_csv_has_one_row_per_trade_and_matches_per_symbol(run):
     bh = holds[holds["手法"] == "基準 常に上（ドリフト）"]
     assert (bh["強制清算"]).all() and len(bh) == 3 * 5 * 3
     run.holds(holds)
-    assert os.path.exists(os.path.join(run.dir, "holds.csv"))
+    assert runs.exists(run.name, "holds.csv")
 
 
 def test_reverse_columns_follow_the_identity(run):

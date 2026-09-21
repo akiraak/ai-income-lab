@@ -32,6 +32,8 @@ REAL_WORDS = Path(traderview.DASHBOARD_DIR) / "traders.toml"
 REAL_MODELS = Path(traderview.DASHBOARD_DIR) / "models.toml"
 # モデルの `[[model]]` のうち、正式な名前・鍵・道を書く欄（本文の検査の外）
 FORMAL_KEYS = ("id", "name", "method", "formal", "configs", "records")
+# 用語を書いてよい欄 ＝ 画面の「詳しく（用語あり）」の囲み（`[model.detail.*]`。dashboard.md §17-2）
+DETAIL_KEYS = ("detail",)
 
 
 # ⚠ **ほかの人・ほかのモデルとくらべる文を書かない**（利用者の指示 2026-09-20。トレーダーは 1 人のときも 10 人のときもある）
@@ -48,11 +50,16 @@ def _walk(where: str, v) -> list[tuple[str, str]]:
 
 
 def _texts(doc: dict) -> list[tuple[str, str]]:
-    """本文の全部の文（入れ子の表・配列も）。⚠ モデルの正式な名前の欄（`FORMAL_KEYS`）・印の鍵（`basis`・`verdict`）と呼び名は除く。"""
+    """本文の全部の文（入れ子の表・配列も）。⚠ モデルの正式な名前の欄（`FORMAL_KEYS`）・「詳しく」の欄（`DETAIL_KEYS`）・
+    印の鍵（`basis`・`verdict`・経緯の表の数と `old`）と呼び名は除く。"""
     out = _walk("common", doc.get("common") or {})
     for m in doc.get("model", []):
-        body = {k: v for k, v in m.items() if k not in FORMAL_KEYS}
+        body = {k: v for k, v in m.items() if k not in FORMAL_KEYS + DETAIL_KEYS}
         body["traits"] = [{k: v for k, v in t.items() if k != "basis"} for t in m.get("traits") or []]
+        score = dict(m.get("score") or {})
+        score["items"] = [{k: v for k, v in t.items() if k != "basis"} for t in score.get("items") or []]
+        body["score"] = score
+        body["history"] = [{k: v for k, v in r.items() if k in ("when", "what", "note", "aside")} for r in m.get("history") or []]
         body["result"] = {k: v for k, v in (m.get("result") or {}).items() if k != "verdict"}
         out += _walk(str(m.get("id") or m.get("name")), body)
     return out

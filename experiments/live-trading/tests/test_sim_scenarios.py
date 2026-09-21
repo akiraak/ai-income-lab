@@ -28,7 +28,7 @@ end = "2026-12-31"
 source_start = "2026-06-01"
 speed = "max"
 '''
-EVENTS = [(1, "session_offline", 2), (2, "http_429", 1), (3, "http_5xx", 1), (4, "reject_funds", 1), (5, "no_fill", 1), (6, "auth_5xx", 1),
+EVENTS = [(1, "session_offline", 2), (2, "http_429", 3), (3, "http_5xx", 1), (4, "reject_funds", 1), (5, "no_fill", 1), (6, "auth_5xx", 1),
           (7, "auth_401", 1), (8, "skip_day", None), (9, "crash_mid", None), (10, "session_offline", 5), (12, "position_loss", None)]
 DAYS = ["2026-10-01", "2026-10-02", "2026-10-05", "2026-10-06", "2026-10-07", "2026-10-08", "2026-10-09", "2026-10-12", "2026-10-13", "2026-10-14", "2026-10-15",
         "2026-10-16", "2026-10-19"]
@@ -86,9 +86,11 @@ def test_session_offline_is_resent_within_the_window(ran):
     assert held(ran[0], DAYS[0]) == ["T"]
 
 
-def test_429_is_not_resent_and_state_does_not_advance(ran):
+def test_429_is_resent_after_a_wait_then_gives_up_and_state_does_not_advance(ran):
+    """2026-09-21: 429 は待って再送する（再送の前に重複を探す）。3 回とも 429 なら、最後に external-identifier で探して無ければ error。"""
     o = the_order(ran[0], DAYS[1])
-    assert o["final_status"] == "error" and o["error"]["status"] == 429 and o["attempts"] == 1 and o["side"] == "sell"
+    assert o["final_status"] == "error" and o["error"]["status"] == 429 and o["attempts"] == 3 and o["side"] == "sell"
+    assert [t["status"] for t in o["transitions"] if "retry" in t["status"]] == ["retry:429 too_many_requests"] * 2
     assert held(ran[0], DAYS[1]) == ["T"]                                     # 売れていない ＝ 持ったまま
 
 

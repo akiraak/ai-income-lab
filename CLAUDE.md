@@ -161,7 +161,7 @@ cd experiments/live-trading
 ```
 
 - トレーダーは `config/traders/<名前>.toml`（予算・銘柄集合・モデルの一覧・合成規則・θ・`sizing`）。モデルの `kind` は `fixed` / `file`（試験用。`test = true` が要る）/ `experiment`（`predict.jsonl`。Phase 1 の後）
-- **実際に動かす 3 人は 2026-09-19 に確定**（利用者決定）: `T1` `trade_own_ridge_a` θ=50 ／ `T2` `trade_ownex_lgbm_a` θ=55 ／ `T3` `trade_ownseq_ridge_a` の T3 QUANT θ=50。予算は 2 つの規模を並べて持つ（2026-09-19 の利用者決定）＝ **規模 A $1,000**（$300 × 3 ＋ 予備 $100。口座の残高 ＝ 実際に使える。執行器の上限の既定）／ **規模 B $10,000**（$3,000 × 3 ＋ 予備 $1,000。⚠ **規模 B（$10,000）は実際の取引で使えない可能性がある** ＝ 数字を出すときは必ずそう添える。執行器では `--max-total-budget 10000 --max-day-usd 10000` を明示したときだけ。追加入金は利用者の判断）・合成 `asis`・種 0。⚠ **銘柄集合と `sizing` は未設定**（本番の `dryrun2` で端株が通るかで決まる。`live-trading.md` §0-1）。⚠ **ここから先にモデル・θ・合成規則を替えるのは新しい試行**。`config/traders/T1〜T3.toml` はまだ無い。試験用の `test_a`（固定の合図・1 銘柄・最小額）で配線と本番の 1 発注を先に通す順は変わらない
+- **実際に動かす 3 人は 2026-09-19 に確定**（利用者決定）: `T1` `trade_own_ridge_a` θ=50 ／ `T2` `trade_ownex_lgbm_a` θ=55 ／ `T3` `trade_ownseq_ridge_a` の T3 QUANT θ=50。予算は 2 つの規模を並べて持つ（2026-09-19 の利用者決定）＝ **規模 A $1,000**（$300 × 3 ＋ 予備 $100。口座の残高 ＝ 実際に使える。執行器の上限の既定）／ **規模 B $10,000**（$3,000 × 3 ＋ 予備 $1,000。⚠ **規模 B（$10,000）は実際の取引で使えない可能性がある** ＝ 数字を出すときは必ずそう添える。執行器では `--max-total-budget 10000 --max-day-usd 10000` を明示したときだけ。追加入金は利用者の判断）・合成 `asis`・種 0。✅ **銘柄集合と `sizing` は 2026-09-21 に確定**（利用者決定）＝ **3 人とも整数株（`shares`）・T・PFE・NKE・VZ・BAC の 5 本**。本番の `dryrun2` で、金額指定（`Notional Market`）は通るが**最低 $5**（T1・T3 の 1 銘柄の枠 $4.76 では買えない）・**端株は 1 本 $0.10 の手数料**（整数株の成行は $0.001）と分かったため（`live-trading.md` §0-3）。`config/traders/T1〜T3.toml` は `candidates/shares/` の写し。⚠ **ここから先にモデル・θ・合成規則・銘柄・`sizing` を替えるのは新しい試行**。✅ 本番 `test_a` の往復（買い → 窓の中で売り）は 2026-09-21 に通り、関門は Go ＝ **2026-09-22（火）に規模 A で本番投入**
 - 記録は `out/<日付>/*.jsonl`（`Masker` 経由・git 管理外）、状態は `state/<env>/<名前>.json`。`--mode submit` 以外は状態を書かない
 - 本番の鍵は `ttclient.Client` の 3 段そのまま。発注は `TT_ALLOW_PROD_ORDERS=1` ＋ `--i-know-this-is-real-money`。⚠ **鍵を入れて起動するのは利用者**。`HALT` は管理画面の停止ボタンと同じファイル
 - **シミュレーション（仮データと仮の時計で執行器を通しで動かす）は 2026-09-19 に実装した**（決めごと・使い方・筋書き・見つかったことは `live-trading.md` §0-7。プランは `docs/plans/archive/live-trading-sim-clock.md`）
@@ -192,14 +192,18 @@ cd experiments/live-trading
   # ⚠ 本番の発注は利用者だけ: TT_ALLOW_PROD_ORDERS=1 ./run-live.sh --traders T1,T2,T3 --mode submit --wait -- --env prod --i-know-this-is-real-money
   ```
 
-  - `run-live.sh` ＝ 日足の更新（足だけ 52 秒）→ `cli.predict` × 3（並列 36 秒）→ `out/<日付>/predict.jsonl` → 台帳の控え（`state-backup/`。submit の回だけ）→ `run_day.py`。「--」の後ろはそのまま執行器へ。⚠ **本番の鍵は書いていない**。予測が 1 本でも失敗したら執行器を起こさない
+  - `run-live.sh` ＝ 日足の更新（市場時間中も 54〜55 秒【実測 2026-09-21】）→ `cli.predict` × 3（並列 37〜38 秒）→ `out/<日付>/predict.jsonl` → 台帳の控え（`state-backup/`。submit の回だけ）→ `run_day.py`。「--」の後ろはそのまま執行器へ。⚠ **本番の鍵は書いていない**。予測が 1 本でも失敗したら執行器を起こさない
   - `experiments/feature-discovery/cli/predict.py`: ⚠ **モデル・較正のコードは足していない**（表 ＝ `cli.build.assemble`・買い% ＝ `cli.run.fold_buy_pct` ＝ 既存のコードの切り出し。⚠ この 2 つを触るときは既定経路の指紋テスト `tests/test_trading_run.py` と `tests/test_predict.py` を流す）。訓練 ＝ ラベルが `asof` より前に確定している行・検証 ＝ `asof` の行。⚠ `runs/` を作らない（試行ではない）
   - ⚠ **実売買の日足は `experiments/feature-discovery/data-live/`**（`live_update.sh`。`AIL_DATA_DIR` で `store.DATA` が差し替わる）。⚠ **研究用の `data/` に `cli.fetch --dataset daily` を流さない** ＝ 配信側が過去の足をさかのぼって変えていて（小数 2 桁・権利落ち前日の終値が未調整。41 銘柄に 2% 超【実測 2026-09-19】）、表が壊れる。`data-live/` は研究用の写しを種にして後ろだけ継ぐ。外部系列は `exog_live`（⚠ 年が変わったら金利の `years` を足す）
   - ⚠ **発注は 2 段**（利用者決定 D6）: ① 全部の注文を順に 控え → dry-run → 発注 ／ ② 1 本ずつ約定を確かめて台帳へ。1 本ずつ約定を待つ直列の形（`--serial` で戻せる）では初日の約 120 本が窓に収まらない
-  - 3 人の設定は `config/traders/candidates/{notional,shares}/`（⚠ まだ `config/traders/` に無い ＝ 起動できない）。`dryrun2`（9 行。$4.76 ／ $6.25 の端株を含む）の結果で片方を写す。端株が通らなければ T・PFE・NKE・VZ・BAC の 5 本（利用者決定 D3）
+  - 3 人の設定は `config/traders/T1〜T3.toml`（2026-09-21 に `candidates/shares/` を写して確定。`candidates/notional/` は使わない候補として残す）
+  - ⚠ **予測は今日の途中の足（終値の代役）が要る** ＝ 当日の実行で `--skip-update` を付けると `cli.predict` が「asof の行が無い」で止まる。更新は発注の回がやるので、朝の `--prepare` は必須ではない
   - `test_a` の往復は `test_signal.py buy|exit` で合図を書き換えて同じ日に 2 回起動する（利用者決定 D1 ＝ 案 B）
   - 紙上の対照は `paper.py` → `out/daily.csv`（読むだけの後処理。管理画面はあれば本物・無ければ仮データ）
   - 毎日の自動起動の雛形は `experiments/live-trading/systemd/`（⚠ 入れるのも鍵を置くのも利用者。水曜から ＝ D4）
+  - ⚠ **2026-09-21 に踏んだ落とし穴 2 つ**（どちらも本番で起きる前に直した。`docs/plans/archive/live-trading-429-fix.md`）
+    - **429 Too Many Requests で約定が台帳から漏れた**: cert は認証から 3〜4 本目の照会で 429 を返す【実測】。執行器は約定確認の照会が 1 回失敗すると「error・0 株」と確定し控えも閉じていた → 429 は待って取り直す（`Retry-After` か 5 秒 × 回数）・照会しきれない注文は **`unknown`（控えを開けたまま次の起動が照会して台帳に戻す）**。⚠ 照会の失敗を「約定 0」と読まない
+    - **市場時間中に日足の取得（DXLink）が終わらなかった**: 「8 秒データが来なければ終わり」だったが、市場が開いている間は今日の足の更新が 1 秒ごとに届き続けるので、1 束が上限 300 秒まで待った（63 銘柄で約 20 分【推測】＝ 窓を越える）→ 「新しい時刻の足が 8 秒来なければ終わり」に直した（`ail/data/sources/tastytrade.py`）。⚠ **閉場中に測った所要時間を市場時間中の見積りに使わない**
 - 決めごと・手順書・記録は `docs/specs/experiments/live-trading.md`
 
 ## Git 運用ルール

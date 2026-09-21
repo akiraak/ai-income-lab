@@ -1,0 +1,21 @@
+# ✅ **確定（2026-09-21 月・利用者決定）**: `candidates/shares/T2.toml` を写した。実際に動かす設定。
+# 決め手は本番の `dryrun2`（live-trading.md §0-3。2026-09-21 12:10 PDT【実測】）: 金額指定（Notional Market）は最低 $5
+# （$4.76 は `below_notional_value_minimum` で断られる ＝ T1・T3 の 1 銘柄の枠 $300 ÷ 63 本では買えない）・端株の注文は 1 本 $0.10 の手数料
+# （$5 の注文で 2%。整数株の成行は $0.001）→ 3 人とも整数株・D3 の 5 本（利用者決定）。
+# 属性は 2026-09-19 の利用者決定（live-trading.md §0-1）。⚠ ここから先にモデル・θ・合成規則・銘柄・sizing を替えるのは新しい試行。
+
+name = "T2"
+test = false
+budget_usd = 300.0                  # 規模 A（$300 × 3 ＋ 予備 $100）。規模 B は別の設定にして上限を明示する（⚠ 実際の取引では使えない可能性がある）
+# ✅ 2026-09-20 利用者決定 D3（端株が通らなかったときの絞り方。⚠ 月曜の結果を見る前に固定）＝
+#    会社株 48 本のうち 2026-09-18 の終値の低い順に 5 本・3 人共通（T $25.40 ／ PFE $27.66 ／ NKE $35.51 ／ VZ $48.09 ／ BAC $57.73【実測】）。1 銘柄の枠 $60
+symbols = ["T", "PFE", "NKE", "VZ", "BAC"]
+sizing = "shares"
+combine = "asis"
+threshold = 55.0
+note = "木（LightGBM・own cs rel ex）。⚠ 会社株 48 本だけを予測する（ETF 15 本は対象外）。種 0"
+
+[[models]]
+kind = "experiment"
+name = "trade_ownex_lgbm_a"
+method = "全部使う（基準）"

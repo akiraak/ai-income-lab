@@ -36,12 +36,21 @@ ENVIRONMENTS = {
 class ApiError(RuntimeError):
     """tastytrade のエラーエンベロープ（error.code / error.message）を持つ例外。"""
 
-    def __init__(self, status: int, code: str, message: str, body):
+    def __init__(self, status: int, code: str, message: str, body, retry_after: float | None = None):
         super().__init__(f"HTTP {status} {code}: {message}")
         self.status = status
         self.code = code
         self.message = message
         self.body = body
+        self.retry_after = retry_after   # 応答の Retry-After（秒）。429 で待つ長さ（無ければ None）
+
+
+def _retry_after(resp) -> float | None:
+    try:
+        value = float(resp.headers.get("Retry-After") or "")
+    except ValueError:
+        return None   # 無い ／ 日時の形（秒でない）
+    return value if value >= 0 else None
 
 
 class ProductionGuard(RuntimeError):
@@ -123,7 +132,7 @@ class Client:
             # User-Agent 不正のときは nginx の HTML が返る
             if resp.ok:
                 return resp.text
-            raise ApiError(resp.status_code, "non_json_response", resp.text[:200], resp.text[:500])
+            raise ApiError(resp.status_code, "non_json_response", resp.text[:200], resp.text[:500], retry_after=_retry_after(resp))
         if not resp.ok:
             err = (body or {}).get("error") or {}
             raise ApiError(
@@ -131,6 +140,7 @@ class Client:
                 str(err.get("code", "unknown_error")),
                 str(err.get("message", "")),
                 body,
+                retry_after=_retry_after(resp),
             )
         return body
 

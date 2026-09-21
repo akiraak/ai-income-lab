@@ -107,3 +107,15 @@ def test_experiment_rows_of_another_day_or_method_are_not_used(tmp_path):
     assert model_outputs(spec, ("T", "VZ"), "2026-09-21", str(p)) == {"VZ": (55.0, 45.0)}     # 古い日の行では売買しない
     with pytest.raises(SignalError):
         model_outputs(ModelSpec(kind="experiment", name="m", method="B"), ("VZ",), "2026-09-21", str(p))
+
+
+def test_confirmed_traders_are_the_shares_candidates():
+    """2026-09-21 の確定（dryrun2 で金額指定は最低 $5 ＝ T1・T3 の枠 $4.76 では買えない → 3 人とも整数株・D3 の 5 本）。候補と中身が同じこと。"""
+    from trader import load_traders
+    if not os.path.exists(os.path.join(CONF, "T1.toml")):
+        pytest.skip("T1.toml を確定する前")
+    got = load_traders(["T1", "T2", "T3"], CONF)
+    want = load_traders(["T1", "T2", "T3"], os.path.join(CONF, "candidates", "shares"))
+    assert [(t.name, t.symbols, t.sizing, t.threshold, t.budget_usd, t.combine, t.test, [(m.kind, m.name, m.method) for m in t.models]) for t in got] == \
+           [(t.name, t.symbols, t.sizing, t.threshold, t.budget_usd, t.combine, t.test, [(m.kind, m.name, m.method) for m in t.models]) for t in want]
+    assert all(list(t.symbols) == ["T", "PFE", "NKE", "VZ", "BAC"] and t.sizing == "shares" for t in got)

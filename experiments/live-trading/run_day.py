@@ -41,7 +41,7 @@ import recovery  # noqa: E402
 import simclock  # noqa: E402
 from journal import Journal  # noqa: E402
 import signals as signalling  # noqa: E402
-from execute import Executor, allocate_fills  # noqa: E402
+from execute import UNKNOWN, Executor, allocate_fills  # noqa: E402
 from state import load_state, save_state  # noqa: E402
 from trader import load_traders  # noqa: E402
 
@@ -390,6 +390,14 @@ def main() -> int:
         fills_by_trader.extend(fills)
         if args.mode != "submit":
             return
+        if res.final_status == UNKNOWN:
+            # ⚠ 控えを閉じない: 注文は届いた（か分からない）のに状態を読めなかった。次の起動が注文番号（無ければ external-identifier）で
+            #    照会して、その人の台帳に戻す（§0-8 の段 1）。ここで「約定 0」と書くと、約定していたとき台帳から漏れる
+            rec.write("events", {"kind": "order_unknown", "trader": o.parts[0]["trader"] if o.parts else None, "symbol": o.symbol, "side": o.side,
+                                 "external_id": res.external_id, "order_id": (res.submitted or {}).get("order_id"),
+                                 "note": "状態を読めなかった注文。控えは開いたまま ＝ 次の起動が照会して台帳に戻す。急ぐなら口座の注文履歴を見て reconcile.py で合わせる"})
+            print(f"⚠ 状態を読めなかった注文: {o.side} {o.symbol}（控えは開いたまま。次の起動が照会して台帳に戻す）", file=sys.stderr)
+            return
         for f in fills:
             # ⚠ 1 件の食い違いで落ちない: ここで落ちると、約定済みのほかの売買まで状態に残らない
             try:
@@ -428,7 +436,7 @@ def main() -> int:
                                  "note": "含み損が予算の 20% 以上。執行器は止めない（投げ売りもしない）。止めるなら停止ボタン（HALT）"})
             print(f"⚠ 含み損の警告: {t.name} が予算の {dd}%（線 {DRAWDOWN_WARN_PCT}%）。執行器は止めない ＝ 止めるなら停止ボタン（HALT）", file=sys.stderr)
 
-    bad = [r for r in results if r.final_status in ("error", "guarded", "halted", "not_submitted")]
+    bad = [r for r in results if r.final_status in ("error", "guarded", "halted", "not_submitted", UNKNOWN)]
     rec.write("events", {"kind": "end", "now_et": now_et().isoformat(timespec="seconds"), "orders": len(results), "bad": len(bad), "fills": len(fills_by_trader), **({"ledger_errors": ledger_errors} if ledger_errors else {}),
                          **({"blocked_symbols": sorted(blocked)} if blocked else {})})
     print(f"完了。注文 {len(results)} 件・約定 {len(fills_by_trader)} 件・問題 {len(bad) + ledger_errors} 件。記録: {rec.dir}")

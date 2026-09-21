@@ -180,34 +180,17 @@
         ⚠ 月曜に測るもの: 本番の dry-run 1 本の往復時間・cert の発注と約定までの時間（関門 5）
       - [x] S10: 回帰（執行器の pytest・`mockrun.sh`・`selftest.sh`・管理画面の pytest）
         ✅ 2026-09-20: feature-discovery 472 本 ／ 執行器 129 本 ＋ `mockrun.sh` ＋ `sim2` ／ `selftest.sh` ／ 管理画面 167 本 ＝ 全部通る
-    - [ ] 9/21（月）: 本番の dry-run・sandbox のリハーサル・実売買のテスト・通し稽古（時刻は PDT）
+    - [x] 9/21（月）: 本番の dry-run・sandbox のリハーサル・実売買のテスト・通し稽古 → ✅ **関門 Go**（2026-09-21 13:00 PDT 頃・利用者決定「火曜にする」）。経緯は [DONE.md](DONE.md)
       期日: 2026-09-21
-      - [ ] 06:35 `sample.py --step dryrun2 --allow-prod-dry-run` を流す（⚠ **利用者**。何もルーティングしない）→ Claude が §0-3 の表を埋める → `sizing` と銘柄集合が決まる
-        期日: 06:35
-        ⚠ 金額指定の売りは小数 4 桁の株数（0.0103 株など）で出る ＝ `market_sell_fractional_4dp_no_position` の行の断られ方（数量の形か持ち高か）を読む（§0-7 (k) の 5）
-        関連: 「Step 3: `dryrun2` を本番で流して §0-3 の表を埋める（⚠ **利用者**。市場時間内に）」
-      - [ ] 06:45 sandbox のリハーサル（`run_day.py --traders test_a --env cert --mode submit --ignore-window`。`Session offline` の再送・約定後の手数料の実額が読めるか・注文番号を控える）
-        期日: 06:45
-        関連: 「約定後の実際の手数料を読む（いまは dry-run の見積り ＝ `orders.jsonl` の `amounts.fee_source: "dry_run_estimate"`。`/accounts/{n}/transactions`【記憶・未確認】を sandbox で確かめてから）」
-      - [ ] 07:00 候補から `config/traders/T1〜T3.toml` を確定し、`live-trading.md` §0-1 の「`dryrun2` 待ち」を実値に直す
-        期日: 07:00
-      - [ ] 07:15 本番 `test_a` の買い（⚠ **利用者**。dry-run → submit。D1 が案 A なら 12:45 の窓で）
-        期日: 07:15
-        関連: 「Phase 5-1: 実売買のテスト（**利用者が行う**。試験用トレーダー `test_a` で本番に最小額の 1 発注 → 翌営業日に手仕舞い。Claude は手順書とチェックリストまで）」
-      - [ ] 08:00〜 `run-live.sh` の通し（本番の気配で 更新 → 訓練 → 推論の所要時間）と `T1`〜`T3` の本番 dry-run・窓の外（⚠ **利用者**。`--allow-prod-dry-run --ignore-window`）
-        期日: 08:00
-        ⚠ **`BRK/B` の行が本番の dry-run で断られないかを見る**（モックは `BRK/B` の綴りのまま約定まで通したが、本物が受けるかはモックでは分からない。[live-trading.md §0-7 (k)](docs/specs/experiments/live-trading.md) の 1）
-      - [ ] 12:45〜13:05 本番 `test_a` の売り（案 B）→ `T1`〜`T3` の本番 dry-run を本物の窓の中で（⚠ **利用者**。通し稽古・時間を測る）
-        期日: 12:45〜13:05
-      - [ ] 13:30 チェックリスト・記録 §1・**関門 Go ／ No-Go**（プラン §4 の 5 条件。⚠ 1 つでも外れたら火曜は投入せず通し稽古をもう 1 回 ＝ 期日は 1 日ずれる）
-        期日: 13:30
     - [ ] 9/22（火）: 本番投入
       期日: 2026-09-22
       - [ ] 06:35 sandbox で月曜の注文を注文番号で照会する ＋ cert の `test_a` を手仕舞い
         期日: 06:35
+        ⚠ cert の `test_a` は 9/21 に手仕舞い済み（1663301）。照会するのは 1663195（買い）・1663301（売り）
         関連: 「前の営業日の注文を注文番号で照会できるかを sandbox で確かめる（控えからの復元 ＝ [live-trading.md §0-8](docs/specs/experiments/live-trading.md) の段 1。だめなら日をまたいだ未完は人が `reconcile.py resolve` で閉じる）」
       - [ ] 朝: 日足の更新 → 訓練（9/21 までの足で fit）
         期日: 2026-09-22
+        ⚠ 別に流さなくてよい: 発注の回（`run-live.sh --mode submit --wait`）が 15:50 ET に日足の更新 → 予測を自分で行う（市場時間中に 55 秒 ＋ 38 秒【実測 9/21】）
       - [ ] 12:45〜13:05 `T1`〜`T3` を規模 A で本番投入（⚠ **利用者**。案 A のときは先に `test_a` の売り）
         期日: 12:45〜13:05
         関連: 「Phase 5-2: 3 人を予算どおりに本番投入（**利用者が行う**。複数モデルのトレーダーを足すならその後）」
@@ -215,12 +198,12 @@
         期日: 13:05
       - [ ] 引け後: timer ／ cron を入れる（⚠ **利用者**。水曜から無人）・`TODO.md` ／ `DONE.md` ／ `CLAUDE.md` の更新・このプランを archive へ
         期日: 2026-09-22
-  - [~] Phase 0: 定義・停止条件・執行の窓を `docs/specs/experiments/live-trading.md` §0 に書く（⚠ 実際に動かす 3 人の属性は書かない ＝「未設定」）＋ 本番の読み取り・dry-run（端株・小数株・成行・MOC 相当。`sample.py --step dryrun2 --allow-prod-dry-run`。⚠ **利用者が流す**）
+  - [x] Phase 0: 定義・停止条件・執行の窓を `docs/specs/experiments/live-trading.md` §0 に書く（⚠ 実際に動かす 3 人の属性は書かない ＝「未設定」）＋ 本番の読み取り・dry-run（端株・小数株・成行・MOC 相当。`sample.py --step dryrun2 --allow-prod-dry-run`。⚠ **利用者が流す**）
     2026-09-17: §0-1〜§0-5 を書いた（定義・上限・窓・停止条件・閾値・試験用 `test_a`・手順書）。`sample.py` に `dryrun2`（手順 10。6 通り）を足した。⚠ **残るのは利用者が `dryrun2` を流して §0-3 の表を埋めること**（結果で `sizing` が決まる）
     候補のまま置く: T1 `trade_own_ridge_a` θ=50 ／ T2 `trade_ownex_lgbm_a` θ=55 ／ T3 `trade_ownseq_ridge_a` T3 QUANT θ=50 ／ 予算 $300 × 3 ＋ 予備 $100（⚠ 2026-09-19 に確定。予算は規模 A・B の 2 つを並べる。正は B6 のメモ）／ 執行は 15:50 ET の気配で合図・15:55 に成行（プラン §2-1〜§2-5）
-  - [~] Phase 2: トレーダーと執行器 `experiments/live-trading/`（`trader.py` ＋ `config/traders/*.toml`・合成規則のテスト・状態機械・予算の上限・銘柄ごとに合算・dry-run → 発注 → 約定確認 → 取消・再送・記録は `Masker` 経由。固定の合図でモック 20 日 → sandbox で市場時間に 1 日）
+  - [x] Phase 2: トレーダーと執行器 `experiments/live-trading/`（`trader.py` ＋ `config/traders/*.toml`・合成規則のテスト・状態機械・予算の上限・銘柄ごとに合算・dry-run → 発注 → 約定確認 → 取消・再送・記録は `Masker` 経由。固定の合図でモック 20 日 → sandbox で市場時間に 1 日）
     2026-09-17: 一式を書いた（pytest 37 本・`mockrun.sh` で 2 人 × 20 営業日が通る・cert の dry-run は市場時間外の拒否 `tif_no_after_hours_opening_market_orders` まで届いた ＝ 配線は通った。§0-4）。⚠ **残るのは市場時間（15:45〜16:05 ET）の sandbox リハーサル 1 日**（`run_day.py --traders test_a --mode submit`。cert の `Session offline` の再送が効くか）
-  - [ ] Phase 5-1: 実売買のテスト（**利用者が行う**。試験用トレーダー `test_a` で本番に最小額の 1 発注 → 翌営業日に手仕舞い。Claude は手順書とチェックリストまで）
+  - [x] Phase 5-1: 実売買のテスト（**利用者が行う**。試験用トレーダー `test_a` で本番に最小額の 1 発注 → 翌営業日に手仕舞い。Claude は手順書とチェックリストまで）
     - ⚠ 2026-09-05 の dry-run で **着金前でも 1 株は通る**ことが分かっている（買付余力 1000.0 が効く）。2026-09-16 に着金済み
   - [x] Phase 1: 「今日の買い%」の経路（`cli/predict.py --asof`。`evaluate_trading` と同じ関数群で訓練 ＝ 昨日まで・検証 ＝ 今日の 63 行。既定経路は 1 ビットも変えない・先読みテスト・決定性）⚠ トレーダーの属性が決まってから
     ✅ 2026-09-19 夜〜09-20: `cli/predict.py`（S2 のメモ）。B7 ＝ 毎日 fit し直す（訓練と推論を分けない。並列で 36 秒）・B8 ＝ `out/<日付>/predict.jsonl`（`ModelSpec` の `name` ＋ `method`）。[live-trading.md §0-9 (a)](docs/specs/experiments/live-trading.md)
@@ -277,9 +260,11 @@
         - [x] Step 1: モデル・θ・予算・合成・種を §0-1 に書く（✅ 2026-09-19）
         ⚠ **2026-09-19 に分かったこと（上位 K の机上の検証から。[topk-holdings.md](docs/specs/experiments/topk-holdings.md)）**: (1) T1 の「保留 ＋12.79」は較正「旧」の行で、いまのコード（std）では θ=50 は「落とす」（−270.89bp/fold）(2) T2 は同じ日の全銘柄にほぼ同じ買い% を出す ＝ 銘柄を選んでいない。銘柄は us63 ではなく会社株 48 本 (3) ⚠ 3 人を替えるかは利用者の裁定（替えたら新しい試行）
         - [x] Step 2: 親プラン §2-2 の T2 の注意を実測に合わせて直す（幅 123bp は種ではなく `ex_` / `im_` の修正前後の入力の差。✅ 2026-09-19）
-        - [ ] Step 3: `dryrun2` を本番で流して §0-3 の表を埋める（⚠ **利用者**。市場時間内に）
-        - [ ] Step 4: 端株が通らなかったときの絞り方と本数を決める（⚠ **利用者**。通れば不要）
-        - [ ] Step 5: `config/traders/T1〜T3.toml` を書く（`sizing` と銘柄が決まってから。T3 は実験の中の手法を指す欄が `ModelSpec` に要る ＝ Phase 1 の `predict.jsonl` の形と一緒に）
+        - [x] Step 3: `dryrun2` を本番で流して §0-3 の表を埋める（⚠ **利用者**。市場時間内に）
+          ✅ 2026-09-21: 金額指定は最低 $5・端株は 1 本 $0.10（§0-3）
+        - [x] Step 4: 端株が通らなかったときの絞り方と本数を決める（⚠ **利用者**。通れば不要）
+          ✅ 2026-09-21 利用者決定: 3 人とも `shares`・D3 の 5 本（T1・T3 の枠 $4.76 が最低額に届かないため）
+        - [x] Step 5: `config/traders/T1〜T3.toml` を書く（`sizing` と銘柄が決まってから。T3 は実験の中の手法を指す欄が `ModelSpec` に要る ＝ Phase 1 の `predict.jsonl` の形と一緒に）
       - [x] B7: 各モデルの更新ルール（いつ・1 日に何回・日中の株価データが要るか）。いまのモデルは日足だけ
         ✅ 2026-09-20: いまの 3 本は日足だけ・1 日 1 回・15:50 ET に毎日 fit し直す（`cli/predict.py`。3 本並列で 36 秒【実測】）。日中のデータを使うモデルを足すときに決め直す
       - [x] B8: 予測を売買判断に渡す経路

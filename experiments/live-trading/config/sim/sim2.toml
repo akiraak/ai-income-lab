@@ -25,10 +25,10 @@ times = 5
 day = 12
 kind = "http_5xx"
 times = 1
-[[events]]   # 429 は再送しない（エラーとして記録）
+[[events]]   # 429 は待って再送する（2026-09-21 から。再送の前に重複を探す）。3 回とも 429 ＝ 諦めてエラーとして記録
 day = 15
 kind = "http_429"
-times = 1
+times = 3
 [[events]]   # 認証の 5xx は 30 秒待って 1 回だけ取り直す
 day = 18
 kind = "auth_5xx"

@@ -4,6 +4,8 @@
   - HALT があれば発注しない（取消は通す）
   - 本番の鍵は `ttclient.Client` の 3 段そのまま（dry-run ／ 取消 ／ 発注）。取消の鍵で発注は開かない
   - `Session offline` は `retry_interval` 秒おきに `retries` 回まで再送。再送の前に `external-identifier` で重複を探す
+  - 429 は `Retry-After`（無ければ `rate_limit_wait` × 回数・上限 30 秒）待って取り直す。照会は `read_retries` 回まで
+  - ⚠ 注文番号のある注文を照会しきれなかったら `unknown`（「約定 0」で確定させない）＝ 控えを開けたまま次の起動の復元へ渡す
   - 認証失敗は再試行しない（IP ブロック）
   - 未約定は `cancel_after` 秒で取り消す
 """
@@ -29,6 +31,7 @@ from plan import NetOrder  # noqa: E402
 ORDER_SOURCE = "ai-income-lab/live-trading"
 WORKING = {"Received", "Routed", "In Flight", "Live", "Contingent", "Cancel Requested"}
 FINAL = {"Filled", "Cancelled", "Rejected", "Expired", "Removed"}
+UNKNOWN = "unknown"   # 発注は届いた（か、届いたか分からない）のに状態を読めなかった。⚠ 控えを閉じない（run_day の settle）
 
 
 def field_(obj, name):
@@ -40,12 +43,22 @@ def is_session_offline(exc: ApiError) -> bool:
     return "session offline" in text or "session_offline" in text
 
 
+def is_rate_limited(exc: ApiError) -> bool:
+    """429 Too Many Requests（nginx の HTML。2026-09-21 の cert で、認証から 3〜4 本目の照会で出た【実測】）。"""
+    return exc.status == 429
+
+
 def is_transient(exc: ApiError) -> bool:
-    """再送してよい拒否: `Session offline`（cert で市場時間内にも出る）と 5xx（nginx の HTML 502。2026-09-18 深夜の cert で実測）。
+    """再送してよい拒否: `Session offline`（cert で市場時間内にも出る）・429・5xx（nginx の HTML 502。2026-09-18 深夜の cert で実測）。
 
     ⚠ 注文の中身が悪い 4xx は再送しない。認証の 401 も再送しない（IP ブロック）。
     """
-    return is_session_offline(exc) or exc.status >= 500
+    return is_session_offline(exc) or is_rate_limited(exc) or exc.status >= 500
+
+
+def is_retryable_read(exc: ApiError) -> bool:
+    """照会（GET ／ 取消）を取り直してよい失敗: 429 と 5xx。"""
+    return is_rate_limited(exc) or exc.status >= 500
 
 
 @dataclass
@@ -102,7 +115,7 @@ class Executor:
     def __init__(self, client: Client, account_number: str, rec: record.Recorder, halt_file: str,
                  mode: str = "dry-run", retries: int = 3, retry_interval: float = 60.0,
                  cancel_after: float = 600.0, poll_interval: float = 0.5, sleep=time.sleep, clock=None, journal=None,
-                 pipeline: bool = True):
+                 pipeline: bool = True, rate_limit_wait: float = 5.0, read_retries: int = 6):
         if mode not in ("plan", "dry-run", "submit"):
             raise ValueError(f"mode {mode!r} は無い（plan / dry-run / submit）")
         self.client = client
@@ -118,8 +131,31 @@ class Executor:
         self.journal = journal if mode == "submit" else None   # 控え（journal.py）。発注の直前と直後に書く
         self.pipeline = pipeline   # submit のとき 2 段（先に全部出す → 約定をまとめて確かめる）。False で直列
         self.clock = clock   # 仮の時計（シミュレーション）。None なら約定待ちは今までどおり `client.wait_for_status`（本物の時計）
+        self.rate_limit_wait = rate_limit_wait   # 429 の待ち（Retry-After が無いとき）＝ これ × 回数・上限 30 秒
+        self.read_retries = read_retries         # 照会の取り直しの上限（429 ／ 5xx）
 
     # ---------- 部品 ----------
+
+    def _backoff(self, exc: ApiError, attempt: int) -> float:
+        """429 ／ 照会の失敗の待ち: `Retry-After` があれば従い、無ければ `rate_limit_wait` × 回数（上限 30 秒）。"""
+        ra = getattr(exc, "retry_after", None)
+        if ra is not None:
+            return min(float(ra), 60.0)
+        return min(self.rate_limit_wait * attempt, 30.0)
+
+    def _retry_wait(self, exc: ApiError, attempt: int) -> float:
+        """dry-run ／ 発注の再送の待ち。429 は `_backoff`、ほか（Session offline ／ 5xx）は今までどおり `retry_interval`。"""
+        return self._backoff(exc, attempt) if is_rate_limited(exc) else self.retry_interval
+
+    def _read(self, fn, *args):
+        """照会（GET ／ 取消）を 429 と 5xx のときだけ待って取り直す。⚠ 使い切ったら ApiError をそのまま上げる。"""
+        for attempt in range(1, max(1, self.read_retries) + 1):
+            try:
+                return fn(*args)
+            except ApiError as exc:
+                if not is_retryable_read(exc) or attempt >= max(1, self.read_retries):
+                    raise
+                self.sleep(self._backoff(exc, attempt))
 
     def halted(self) -> bool:
         return os.path.exists(self.halt_file)
@@ -135,14 +171,27 @@ class Executor:
                                               external_identifier=external_id, source=ORDER_SOURCE)
 
     def wait_for_status(self, order_id, targets: set[str], timeout: float) -> list[dict]:
-        """約定待ち。仮の時計があるときは、取消までの秒数（`cancel_after`）を仮の時計の上で数える。"""
+        """約定待ち。仮の時計があるときは、取消までの秒数（`cancel_after`）を仮の時計の上で数える。
+
+        照会が 429 ／ 5xx で落ちたら待って続きを待つ（`read_retries` 回まで。期限は最初に決めたまま）。使い切ったら ApiError を上げる。
+        """
         if self.clock is None:
-            return self.client.wait_for_status(self.account, order_id, targets, timeout=timeout, interval=self.poll_interval)
-        transitions: list[dict] = []
+            transitions: list[dict] = []
+            started = time.monotonic()
+            for attempt in range(1, max(1, self.read_retries) + 1):
+                try:
+                    left = max(0.0, timeout - (time.monotonic() - started))
+                    return transitions + self.client.wait_for_status(self.account, order_id, targets, timeout=left, interval=self.poll_interval)
+                except ApiError as exc:
+                    if not is_retryable_read(exc) or attempt >= max(1, self.read_retries):
+                        raise
+                    transitions.append({"at_ms": round((time.monotonic() - started) * 1000, 1), "status": f"poll retry:{exc.status} {exc.code}"})
+                    self.sleep(self._backoff(exc, attempt))
+        transitions = []
         started = self.clock.monotonic()
         last = None
         while self.clock.monotonic() - started < timeout:
-            status = field_(self.client.get_order(self.account, order_id), "status")
+            status = field_(self._read(self.client.get_order, self.account, order_id), "status")
             if status != last:
                 transitions.append({"at_ms": round((self.clock.monotonic() - started) * 1000, 1), "status": status})
                 last = status
@@ -171,6 +220,7 @@ class Executor:
         res = ExecResult(order=order, external_id=ext, quote_at_signal=quote)
         body = self.build(order, ext)
         t0 = time.perf_counter()
+        sent = False
         try:
             if self.mode == "plan":
                 res.final_status = "planned"
@@ -188,7 +238,7 @@ class Executor:
                 except ApiError as exc:
                     if is_transient(exc) and attempt < self.retries:
                         res.transitions.append({"at_ms": round((time.perf_counter() - t0) * 1000, 1), "status": f"dry-run retry:{exc.status} {exc.code}"})
-                        self.sleep(self.retry_interval)
+                        self.sleep(self._retry_wait(exc, attempt))
                         continue
                     raise
             if self.mode == "dry-run":
@@ -197,6 +247,7 @@ class Executor:
             submitted = None
             if self.journal:
                 self.journal.intent(ext, order, fee_total_usd(res.fees))   # ⚠ 発注より先に控える（落ちた後、誰の注文かを確実に戻すため）
+            sent = True   # ここから先の 429 ／ 5xx は「届いたか分からない」（前の試みが相手に届いていたかもしれない）
             for attempt in range(1, self.retries + 1):
                 res.attempts = attempt
                 if self.halted():
@@ -205,7 +256,7 @@ class Executor:
                     return res, None
                 # 再送の前に「もう入っていないか」（API は重複排除しない）
                 if attempt > 1:
-                    found = self.client.find_order_by_external_id(self.account, ext)
+                    found = self._read(self.client.find_order_by_external_id, self.account, ext)
                     if found:
                         submitted = {"order": found}
                         break
@@ -215,19 +266,13 @@ class Executor:
                 except ApiError as exc:
                     if is_transient(exc) and attempt < self.retries:
                         res.transitions.append({"at_ms": round((time.perf_counter() - t0) * 1000, 1), "status": f"retry:{exc.status} {exc.code}"})
-                        self.sleep(self.retry_interval)
+                        self.sleep(self._retry_wait(exc, attempt))
                         continue
                     raise
             if not submitted:
                 res.final_status = "not_submitted"
                 return res, None
-            order_obj = submitted["order"]
-            order_id = field_(order_obj, "id")
-            if self.journal:
-                self.journal.submitted(ext, order_id)
-            res.submitted = {"order_id": order_id, "status": field_(order_obj, "status"), "warnings": record.excerpt(submitted.get("warnings"))}
-            res.submitted_at = self._now()
-            return res, order_id
+            return self._accepted(res, submitted)
         except ProductionGuard as exc:
             res.final_status = "guarded"
             res.error = {"type": "ProductionGuard", "message": str(exc)}
@@ -235,9 +280,28 @@ class Executor:
         except ApiError as exc:
             res.final_status = "error"
             res.error = {"type": "ApiError", "status": exc.status, "code": exc.code, "message": exc.message[:300], "body": record.excerpt(exc.body, limit=10)}
+            if sent and is_retryable_read(exc):
+                # 発注の段で 429 ／ 5xx を使い切った ＝ 前の試みが届いていたかもしれない → 最後にもう 1 度 external-identifier で探す
+                try:
+                    found = self._read(self.client.find_order_by_external_id, self.account, ext)
+                except ApiError:
+                    res.final_status = UNKNOWN   # ⚠ 探せもしない ＝ 控えを閉じない（次の起動が external-identifier で探す）
+                    return res, None
+                if found:
+                    res.error = None
+                    return self._accepted(res, {"order": found})
             return res, None
         finally:
             res.elapsed_ms = round((time.perf_counter() - t0) * 1000, 1)
+
+    def _accepted(self, res: ExecResult, submitted: dict) -> tuple[ExecResult, object]:
+        order_obj = submitted["order"]
+        order_id = field_(order_obj, "id")
+        if self.journal:
+            self.journal.submitted(res.external_id, order_id)
+        res.submitted = {"order_id": order_id, "status": field_(order_obj, "status"), "warnings": record.excerpt(submitted.get("warnings"))}
+        res.submitted_at = self._now()
+        return res, order_id
 
     def finish_one(self, res: ExecResult, order_id) -> ExecResult:
         """後半: 約定を待ち、未約定は取り消し、約定を読む。⚠ **取消までの秒数は「その注文を出した時刻」から数える**
@@ -247,18 +311,23 @@ class Executor:
         try:
             left = max(0.0, self.cancel_after - (self._now() - (res.submitted_at if res.submitted_at is not None else self._now())))
             res.transitions += self.wait_for_status(order_id, FINAL, left)
-            final = self.client.get_order(self.account, order_id)
+            final = self._read(self.client.get_order, self.account, order_id)
             status = field_(final, "status")
             if status not in FINAL:
                 # 窓の終わり: 未約定は取り消す
                 try:
-                    self.client.cancel_order(self.account, order_id)
+                    self._read(self.client.cancel_order, self.account, order_id)
                     res.cancelled = True
                     res.transitions += self.wait_for_status(order_id, FINAL, 30)
-                    final = self.client.get_order(self.account, order_id)
+                    final = self._read(self.client.get_order, self.account, order_id)
                     status = field_(final, "status")
                 except (ApiError, ProductionGuard) as exc:
                     res.error = {"type": type(exc).__name__, "message": str(exc)[:300]}
+            if status not in FINAL:
+                # ⚠ まだ働いている（取消が通らなかった）＝ この後に約定しうる。部分約定もここでは台帳に入れない
+                #    （次の起動の復元が取り消してから全部を読む ＝ 二重に入れない）
+                res.final_status = UNKNOWN
+                return res
             res.final_status = status
             for f in self._fills_of(final):
                 res.fills.append(Fill(order.symbol, order.side, float(f.get("quantity") or 0), float(f.get("fill-price") or 0),
@@ -269,7 +338,9 @@ class Executor:
             res.error = {"type": "ProductionGuard", "message": str(exc)}
             return res
         except ApiError as exc:
-            res.final_status = "error"
+            # ⚠ 注文は相手に届いている（注文番号がある）。照会しきれなかっただけなので「約定 0」で確定させない
+            #    （2026-09-21 の cert: 約定したのに 429 で error・0 株と記録し、控えも閉じた）→ unknown ＝ 控えを開けたまま
+            res.final_status = UNKNOWN
             res.error = {"type": "ApiError", "status": exc.status, "code": exc.code, "message": exc.message[:300], "body": record.excerpt(exc.body, limit=10)}
             return res
         finally:

@@ -3,6 +3,10 @@
 #   ./run-live.sh --prepare                                   # 朝に 1 度: 日足 ＋ 外部系列の更新 → 紙上の対照 daily.csv（発注しない）
 #   ./run-live.sh --traders T1,T2,T3                           # 既定は --mode dry-run・接続先は .env の TT_ENV（無ければ cert）
 #   ./run-live.sh --traders T1,T2,T3 --wait                    # 15:50:00 ET まで待ってから流す（窓の中で使う形）
+#
+# ⚠ **--mode submit ＋ 今日の日付のときは、引けに間に合わなければ起動を拒否する（rc=11）。**
+#    準備（日足の更新 ＋ 予測）に約 120 秒かかるので、発注の開始が刻限（既定 15:58 ET）を過ぎる時刻に起こすと止まる。
+#    ⚠ 引けは 16:00 ET で、引け後の成行は拒否される。刻限は AIL_SUBMIT_DEADLINE、準備の見積りは AIL_PREP_SECONDS。
 #   ./run-live.sh --traders T1,T2,T3 --date 2026-09-18 --mode plan -- --ignore-window   # 過去の日で通す（発注しない）
 #   「--」より後ろはそのまま run_day.py へ渡る（--env prod ／ --allow-prod-dry-run ／ --i-know-this-is-real-money など）。
 #
@@ -52,10 +56,42 @@ DATE=${DATE:-$TODAY}
 
 if [ "$WAIT" = 1 ]; then
   TARGET=$(TZ=America/New_York date -d "$DATE 15:50:00" +%s)
-  say "15:50:00 ET（$(date -d @"$TARGET")）まで待つ"
-  while [ "$(date +%s)" -lt "$TARGET" ]; do
-    LEFT=$(( TARGET - $(date +%s) )); sleep $(( LEFT > 60 ? 60 : LEFT ))
-  done
+  if [ "$(date +%s)" -ge "$TARGET" ]; then
+    # ⚠ 過ぎていたら待たずに進む。⚠ **これはブレーキではない**（遅れて起動したときは下の「引けに間に合うか」が止める）
+    say "15:50:00 ET は既に過ぎている ＝ 待たずに進む"
+  else
+    say "15:50:00 ET（$(date -d @"$TARGET")）まで待つ"
+    while [ "$(date +%s)" -lt "$TARGET" ]; do
+      LEFT=$(( TARGET - $(date +%s) )); sleep $(( LEFT > 60 ? 60 : LEFT ))
+    done
+  fi
+fi
+
+# ---- 引けに間に合うか（⚠ 2026-09-22 に踏んだ形。遅れて起動すると、準備の 95 秒の後に引け後の成行を投げる）
+# ⚠ **止めるのは submit ＋ 今日の日付のときだけ。** plan ／ dry-run と過去の日付は素通り。
+# ⚠ `--ignore-window` を「--」の後ろに書いた回も素通り（窓を承知で外すと決めた回なので）。
+IGNORE_WINDOW=0
+for a in ${PASS+"${PASS[@]}"}; do [ "$a" = "--ignore-window" ] && IGNORE_WINDOW=1; done
+if [ "$MODE" = "submit" ] && [ "$DATE" = "$TODAY" ] && [ "$IGNORE_WINDOW" = 0 ]; then
+  # 見積り【実測 2026-09-21・09-22】: 日足の更新 55 秒 ＋ 予測 38 秒。余裕を見て 120 秒（飛ばすなら 60 秒）
+  PREP=${AIL_PREP_SECONDS:-120}
+  [ "$SKIP_UPDATE" = 1 ] && PREP=${AIL_PREP_SECONDS:-60}
+  # 発注を始めていてよい刻限。⚠ 引けは 16:00 ET で、引け後の成行は拒否される（tif_no_after_hours_opening_market_orders）
+  DEADLINE_AT=${AIL_SUBMIT_DEADLINE:-15:58:00}
+  DEADLINE=$(TZ=America/New_York date -d "$DATE $DEADLINE_AT" +%s)
+  NOW=$(date +%s)
+  START_AT=$(( NOW + PREP ))
+  if [ "$START_AT" -gt "$DEADLINE" ]; then
+    say "拒否: 引けに間に合わない"
+    echo "  いま        $(TZ=America/New_York date -d "@$NOW" +%H:%M:%S) ET" >&2
+    echo "  準備に      ${PREP} 秒（日足の更新 ＋ 予測）" >&2
+    echo "  発注の開始  $(TZ=America/New_York date -d "@$START_AT" +%H:%M:%S) ET  ＞  刻限 ${DEADLINE_AT} ET" >&2
+    echo "  ⚠ 引けは 16:00 ET。引け後の成行は拒否される（tif_no_after_hours_opening_market_orders）" >&2
+    echo "  ⚠ 今日は見送り、翌営業日の 15:45 ET までに起動する。" >&2
+    echo "     どうしても流すなら AIL_SUBMIT_DEADLINE=16:05:00 か、「--」の後ろに --ignore-window を足す" >&2
+    exit 11
+  fi
+  say "引けに間に合う（発注の開始の見込み $(TZ=America/New_York date -d "@$START_AT" +%H:%M:%S) ET ／ 刻限 ${DEADLINE_AT} ET）"
 fi
 
 # 1. 日足（今日の途中の足 ＝ 終値の代役が末尾に入る）。外部系列は朝の --prepare で済ませておく（--with-exog で一緒に取る）

@@ -31,6 +31,7 @@ sys.path.insert(0, HERE)
 
 import simdata  # noqa: E402
 from trader import load_traders  # noqa: E402
+from _livefs import livefs  # noqa: E402
 
 FD_DIR = os.path.normpath(os.path.join(HERE, "..", "feature-discovery"))
 MARKS = {"sim": True, "mock": True, "test": True}
@@ -61,8 +62,13 @@ def cache_path(base: str, source_date: str, experiment: str, method: str | None)
 
 
 def read_rows(path: str) -> list[dict]:
-    with open(path, encoding="utf-8") as f:
-        return [json.loads(line) for line in f if line.strip()]
+    return [json.loads(line) for line in livefs.read_lines(path, missing_ok=True) if line.strip()]
+
+
+def _ensure_db(base: str) -> None:
+    """作り置きの置き場の DB（`<置き場>/sim.sqlite`）。⚠ 本物の live.sqlite に混ぜない（プラン db-model-facts.md §11）。"""
+    if not any(os.path.isfile(os.path.join(base, n)) for n in livefs.DB_NAMES):
+        livefs.init(base, "sim")
 
 
 def plan_jobs(name: str, traders_dir: str | None = None, base: str | None = None,
@@ -76,31 +82,40 @@ def plan_jobs(name: str, traders_dir: str | None = None, base: str | None = None
     base = base or predict_dir()
     sources = sorted(set(data["source"].values()))
     todo = [(src, exp, method, cache_path(base, src, exp, method)) for src in sources for exp, method in models]
-    return [j for j in todo if not os.path.exists(j[3])], len(todo)
+    return [j for j in todo if not livefs.exists(j[3], missing_ok=True)], len(todo)
 
 
 def _predict_one(job: tuple[str, str, str | None, str], python: str) -> tuple[tuple, int, float, str]:
     src, exp, method, path = job
-    os.makedirs(os.path.dirname(path), exist_ok=True)
+    os.makedirs(os.path.dirname(path), exist_ok=True)       # cli.predict が書く一時ファイルの置き場（DB に入れたら消す）
     part = path + ".part"
     for p in (part, part + ".tmp"):
         if os.path.exists(p):
             os.remove(p)
     # ⚠ 研究用の data/ を読む（AIL_DATA_DIR を外す）。鍵・資格情報・モードの変数は子へ渡さない
     env = {k: v for k, v in os.environ.items() if k != "AIL_DATA_DIR" and not k.startswith(("TT_", "LT_"))}
-    cmd = [python, "-m", "cli.predict", "--experiment", exp, "--asof", src, "--out", part, "--meta-out", path[:-6] + ".meta.json"]
+    meta = path[:-6] + ".meta.json"
+    cmd = [python, "-m", "cli.predict", "--experiment", exp, "--asof", src, "--out", part, "--meta-out", meta + ".part"]
     if method:
         cmd += ["--method", method]
     t0 = time.time()
     proc = subprocess.run(cmd, cwd=FD_DIR, env=env, capture_output=True, text=True)
     ok = proc.returncode == 0 and os.path.exists(part) and os.path.getsize(part) > 0
     if ok:
-        os.replace(part, path)      # ⚠ 出来上がってから名前を付ける ＝ 途中で死んだものを「出来ている」と数えない
+        # ⚠ 出来上がってから DB に入れる ＝ 途中で死んだものを「出来ている」と数えない。入れたら一時ファイルは消す
+        with open(part, encoding="utf-8") as f:
+            livefs.append_many(path, [line.rstrip("\n") for line in f if line.strip()])
+        if os.path.exists(meta + ".part"):
+            with open(meta + ".part", encoding="utf-8") as f:
+                livefs.write_doc(meta, f.read())
+            os.remove(meta + ".part")
+        os.remove(part)
     return job, (0 if ok else proc.returncode or 1), time.time() - t0, (proc.stderr or proc.stdout or "").strip()[-400:]
 
 
 def make(name: str, jobs: int = 8, python: str | None = None, limit: int | None = None) -> int:
     python = python or os.path.join(FD_DIR, ".venv", "bin", "python")
+    _ensure_db(predict_dir())
     todo, total = plan_jobs(name)
     print(f"[simpredict] {name}: 作り置き {total - len(todo)}/{total}・これから {len(todo)} 本（{jobs} 並列）→ {predict_dir()}", flush=True)
     if limit is not None:
@@ -127,7 +142,7 @@ def install(root: str, cfg: simdata.SimConfig, traders_dir: str, data: dict, bas
         return None
     base = base or predict_dir()
     missing = [(data["source"][day], exp) for day in data["days"] for exp, method in models
-               if not os.path.exists(cache_path(base, data["source"][day], exp, method))]
+               if not livefs.exists(cache_path(base, data["source"][day], exp, method), missing_ok=True)]
     if missing:
         head = ", ".join(f"{s} {e}" for s, e in missing[:4])
         raise SimPredictError(f"予測の作り置きが {len(missing)} 本足りない（{head}{' …' if len(missing) > 4 else ''}）。"
@@ -147,17 +162,18 @@ def install(root: str, cfg: simdata.SimConfig, traders_dir: str, data: dict, bas
                 elif close is not None and abs(float(close) - quote) > 1e-6 * max(1.0, abs(quote)):
                     mismatch.append({"date": day, "source_date": src, "symbol": row["symbol"], "proxy_close": close, "quote": quote})
                 out_rows.append({**row, "date": day, "source_date": src, **MARKS})
-        day_dir = os.path.join(root, "out", day)
-        os.makedirs(day_dir, exist_ok=True)
-        with open(os.path.join(day_dir, "predict.jsonl"), "w", encoding="utf-8") as f:
-            for row in out_rows:
-                f.write(json.dumps(row, ensure_ascii=False) + "\n")
+        # ⚠ 木の記録は木の sim.sqlite（道はそのまま）。⚠ 同じ木に 2 度置かない（行は足すだけなので、2 度目は重なる）
+        target = os.path.join(root, "out", day, "predict.jsonl")
+        texts = [json.dumps(row, ensure_ascii=False) for row in out_rows]
+        have = livefs.read_lines(target, missing_ok=True)
+        if have and have != texts:
+            raise SimPredictError(f"木に違う予測がもう置いてある: {target}（最初からやり直すなら --fresh）")
+        if not have:
+            livefs.append_many(target, texts)
         rows_total += len(out_rows)
     summary = {"sim": True, "days": len(data["days"]), "models": [{"experiment": e, "method": m} for e, m in models], "rows": rows_total,
                "rows_without_quote": no_quote, "close_mismatch": len(mismatch), "close_mismatch_head": mismatch[:10], "predict_dir": base}
-    os.makedirs(os.path.join(root, "sim"), exist_ok=True)
-    with open(os.path.join(root, "sim", "predict_install.json"), "w", encoding="utf-8") as f:
-        json.dump(summary, f, ensure_ascii=False, indent=1)
+    livefs.write_doc(os.path.join(root, "sim", "predict_install.json"), json.dumps(summary, ensure_ascii=False, indent=1))
     return summary
 
 

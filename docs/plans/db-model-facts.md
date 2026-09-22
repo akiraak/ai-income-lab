@@ -258,3 +258,52 @@ flowchart TB
 - テスト: `tests/test_rundb.py` に 2 本（そのまま入る・書き換えと削除を拒む・取り込み → 突き合わせ → 食い違いは残して消す → 書き戻しが 1 ビットも違わない）
 - ✅ **消した**（2026-09-21 夜・利用者の了承「消す＋控え取り直し」）: 消した 56 ／ 食い違い 0（`out/` ごと無くなった）→ 控えを取り直した `/mnt/c/Users/akira/ai-income-lab-backup/research-2026-09-21-2.sqlite`（320.1 MB・sha256 一致 `f8d5fcfe…`・整合性 ok・実行 255 ／ 出力 56 ／ `ledger_rows` 2,147）。前の控え（`outputs` を入れる前）も残してある。研究側のテスト 501 本
 - 2026-09-21 夜: 利用者が控え（`research-2026-09-21-2.sqlite`）を Sx360 へ scp した（利用者の報告。⚠ titan から Sx360 へは ssh が届かないので、Claude は写しの中身を確かめていない。確かめるなら Sx360 で `sha256sum` が `f8d5fcfe9aba58a5dd114ef467623716a056cd41ff5f83567ffdcceaa3c99649`）
+
+## 11. Phase 5 の残りと Phase 6 を本番投入の前に（2026-09-21 夜）
+
+利用者の指示（2026-09-21 夜）: **本番投入前に進めて、明日テストするようにする**。裁定: ① 実売買の DB は **1 つにまとめる**（シミュレーションは本物と混ぜない ＝ 木ごとに別のファイル）／ ② 作り替える前にいまの変更をコミットして push（✅ `acc5f9f` ＝ **戻す点**）／ ③ 範囲は全部（執行器・紙上の対照・シミュレーション・管理画面の読み手 ＋ API 検証の記録 ＋ 管理画面の履歴）。
+⚠ 先に書いた懸念（利用者の了承済み）: 本番投入の前夜に実弾の執行器の記録の書き方を替える ＝ 壊れると注文と売買履歴が食い違う・無人運転の成立を同じ作りで測れなくなる（§4 の 4）。→ 明日の朝に通しで確かめ、だめなら `acc5f9f` へ戻す。
+
+> この図の主張: 記録の道の決め方は 1 行も変えず、「どの DB に入るか」は道の近くにある DB ファイルで決まる。本物は 1 つ、シミュレーション・テストはそれぞれの置き場に自分の DB を持つ。
+
+```mermaid
+flowchart LR
+  P["記録の道<br/>（いままでと同じ計算）"] --> L{"近い先祖に<br/>DB ファイルがあるか"}
+  L -- "sim/<名前>/sim.sqlite" --> S[("シミュレーション<br/>木ごと")]
+  L -- "テストの一時置き場の DB" --> T[("テスト")]
+  L -- "リポジトリ直下 live.sqlite<br/>（決まった置き場だけ）" --> R[("本物 1 つ<br/>執行器 ＋ API 検証 ＋ 管理画面")]
+  L -- "どれも無い" --> E["止まる<br/>（本物に落ちない）"]
+```
+
+| 決めたこと | 形 | 理由 |
+| --- | --- | --- |
+| 部品 | `experiments/tastytrade-api-sample/livefs.py`（標準ライブラリだけ）。執行器・API 検証・管理画面の 3 つが既に import している置き場 | 1 か所に書く |
+| DB の選び方 | 記録の道から親へたどり、最初に見つかった `live.sqlite` ／ `sim.sqlite` ／ `demo.sqlite` に入る。本物 ＝ リポジトリ直下の `live.sqlite`。⚠ 本物に入れてよいのは決まった置き場（`experiments/live-trading/out`・`state`・`mode.log`・`experiments/tastytrade-api-sample/out`・`dashboard/data`〔`demo` を除く〕）だけで、ほかは止まる | 道の決め方（`LT_OUT_DIR`・`LT_STATE_DIR`・シミュレーションの木・テストの一時置き場）がそのまま効く ＝ テストが本物に書く事故が起きない |
+| 表 | `lines`（いままでの `*.jsonl`・`*.log`。1 行 1 行・足すだけ ＝ 書き換えも削除もトリガーが拒む）／ `docs`（丸ごと書き換えるもの ＝ 売買履歴 `state/<env>/<名前>.json`・紙上の対照 `daily.csv` など。書き換えの前の中身は `docs_history` に残る） | 行は元の文字のまま ＝ 取り込んだファイルと 1 ビットも違わないことを確かめられる |
+| ファイルのまま | `HALT`・`MODE`・`run.lock`・シミュレーションの `control.json`・`status.json`・入力の `data.json`・設定・プロセスの画面の写し（`mock.log`・`run_day` のログ） | 止める・切り替える・排他の仕組み（§3）と入力 |
+| 控え | `run-live.sh` の submit の回の控えは `state-backup/<時刻>.sqlite`（SQLite の backup） | いままでの `state/` の写しと同じ役 |
+
+**明日のテスト**（⚠ 本番の前に全部通す。1 つでも外れたら `acc5f9f` に戻して本番は今までの作りで行う）:
+
+1. 06:35 sandbox の照会（予定どおり）＋ `test_a` を cert で submit（新しい作りで 控え → 発注 → 約定 → 売買履歴 → 控えを閉じる）→ `livefs.py cat` で記録・売買履歴・控えを読む
+2. `reconcile.py --env cert show`（口座 − 売買履歴 ＝ 0）・`paper.py`（`daily.csv` が DB に）
+3. 管理画面（3012）で `/`・`/traders/<名前>`・`/records`・`/judge`・`/ops` の履歴が出る
+4. 本番の dry-run（`run-live.sh --traders T1,T2,T3 -- --env prod --allow-prod-dry-run`）
+5. 12:45〜 本番投入（利用者）→ 13:05〜 確認（全注文の `final_status`・口座 − 売買履歴 ＝ 0・秘密の grep は `livefs.py dump`）
+
+### 11-1. 2026-09-21 夜にやったこと
+
+| 部品 | 直したこと |
+| --- | --- |
+| `experiments/tastytrade-api-sample/livefs.py`（新） | 道 → 近い DB・`lines`（足すだけ）・`docs`（書き換えの前は `docs_history`）・取り込み ／ 突き合わせ ／ 書き出し ／ 控え ／ `dump`。⚠ 読みは厳しい（どの DB にも当たらない道は止まる。管理画面だけ `missing_ok=True`） |
+| 執行器 | `run_day.DayRecorder`・`state.load/save`・`journal`・`recovery.load_all_states`・`reconcile`（建玉の記録・売買履歴の有無・`reconcile.log`）・`mode`（`mode.log`・本物の建玉の確かめ。作業用の置き場には DB を作る）・`signals`（予測）・`paper`（記録・`daily.csv`） |
+| シミュレーション | `simdata.write_tree` が木に `sim.sqlite`・`simrun`（筋書きの記録・`--fresh` で接続を閉じてから消す）・`simctl check`・`simpredict`（作り置き ＝ `sim-predict/sim.sqlite`・木に置く予測） |
+| `run-live.sh` | 予測を回ごとの道へ `livefs.py append`・`--prepare` の日付の確かめ・控えは `livefs.py export`・`out/` を mkdir しない |
+| API 検証・管理画面 | `record.Recorder`・`app/live.py`・`records.py`・`monitor.py`（監視のイベント）・`ops.py`（操作の履歴）・`devtools.py`（ジョブの履歴）・`config.ensure_dirs`（デモ・Docker・テストの置き場に DB、デモの執行器の記録を demo.sqlite へ） |
+| スクリプト | `mockrun.sh`・`selftest.sh`（作業用の置き場の DB。⚠ selftest の記録はもう本物に残らない） |
+| テスト | 執行器・管理画面の conftest が一時置き場に DB を作る。記録を読む ／ 置く所を `livefs` に（`tests/_records.py`） |
+
+【実測】: 執行器の pytest 142 本・管理画面 222 本・`mockrun.sh`・`sim2`（64 日 18 秒・2,536 行・`reconcile show` の差は注入した BAC だけ・控えの未完 0）・`selftest.sh`・`run-live.sh --date 2026-09-18 --mode plan`（作業用の置き場。40 秒）・本物の管理画面の全ページ 200（本物の DB から）。取り込み: 本物 93 ファイル・作り置き 384 ファイル・**一致 477 ／ 477**。⚠ テスト・シミュレーションを流しても本物の `live.sqlite` は作られなかった（＝ 本物に落ちていない）。
+
+⚠ **ファイルはまだ消していない**: 明日の本番投入が新しい作りで済むまで、`acc5f9f`（ファイルの作り）に戻すときの足場として残す。戻したときは、明日の朝の cert の試しの分だけファイルが古い（cert の `test_a` は往復して建玉なしになる見込み ＝ 食い違わない。食い違ったら `reconcile.py`）。
+⚠ g3plus は `809104f` のまま（自動では更新されない）。更新するときは `/data` のファイルを `livefs.py import` してから（dashboard.md §13-1）。

@@ -12,6 +12,7 @@ import json
 import os
 from dataclasses import dataclass
 
+from _livefs import livefs
 from trader import ModelSpec, Trader, combine
 
 
@@ -41,17 +42,14 @@ def _read_file_model(spec: ModelSpec, date: str) -> dict[str, tuple[float, float
 def _read_predict_rows(path: str, date: str | None = None) -> dict[tuple[str, str], tuple[float, float, str | None]]:
     """(モデル, 銘柄) → (買い%, 出口%, 手法)。⚠ **行に日付があり、今日と違えば読まない**（古い予測で売買しない）。"""
     out: dict[tuple[str, str], tuple[float, float, str | None]] = {}
-    if not os.path.exists(path):
-        return out
-    with open(path, encoding="utf-8") as f:
-        for line in f:
-            line = line.strip()
-            if not line:
-                continue
-            row = json.loads(line)
-            if date is not None and row.get("date") not in (None, date):
-                continue
-            out[(row["model"], row["symbol"])] = (float(row["buy"]), float(row["exit"]), row.get("method"))
+    for line in livefs.read_lines(path):         # ⚠ 2026-09-21 から DB の lines（run-live.sh が `livefs.py append` で入れる）
+        line = line.strip()
+        if not line:
+            continue
+        row = json.loads(line)
+        if date is not None and row.get("date") not in (None, date):
+            continue
+        out[(row["model"], row["symbol"])] = (float(row["buy"]), float(row["exit"]), row.get("method"))
     return out
 
 

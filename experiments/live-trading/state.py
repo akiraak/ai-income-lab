@@ -1,6 +1,7 @@
 """トレーダー × 銘柄の状態（0 ／ 1・持ち分・取得単価・受渡し待ち）。口座は合算しか見せないので執行器が持つ。
 
-1 人 1 ファイル `state/<名前>.json`。⚠ **書き換えは原子的に**（tmp → rename）。
+1 人 1 つ `state/<env>/<名前>.json`（⚠ 2026-09-21 から DB の docs ＝ `livefs`。道はそのまま鍵）。
+⚠ **書き換えは原子的に**（DB の 1 トランザクション。前の中身は docs_history に残る）。
 """
 
 from __future__ import annotations
@@ -8,6 +9,8 @@ from __future__ import annotations
 import json
 import os
 from dataclasses import asdict, dataclass, field
+
+from _livefs import livefs
 
 
 # 注文の数量は小数 4 桁（`execute.Executor.build`）、按分した持ち分は 6 桁。合算注文の按分でできた端数の持ち分（例 2.992573）を
@@ -105,19 +108,18 @@ def state_path(state_dir: str, name: str) -> str:
     return os.path.join(state_dir, f"{name}.json")
 
 
+def has_state(state_dir: str, name: str) -> bool:
+    return livefs.read_doc(state_path(state_dir, name)) is not None
+
+
 def load_state(state_dir: str, name: str) -> TraderState:
-    path = state_path(state_dir, name)
-    if not os.path.exists(path):
+    text = livefs.read_doc(state_path(state_dir, name))
+    if text is None:
         return TraderState(name=name)
-    with open(path, encoding="utf-8") as f:
-        return TraderState.from_dict(json.load(f))
+    return TraderState.from_dict(json.loads(text))
 
 
 def save_state(state_dir: str, st: TraderState) -> str:
-    os.makedirs(state_dir, exist_ok=True)
     path = state_path(state_dir, st.name)
-    tmp = path + ".tmp"
-    with open(tmp, "w", encoding="utf-8") as f:
-        json.dump(st.to_dict(), f, ensure_ascii=False, indent=1)
-    os.replace(tmp, path)
+    livefs.write_doc(path, json.dumps(st.to_dict(), ensure_ascii=False, indent=1))
     return path

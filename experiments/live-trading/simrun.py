@@ -32,6 +32,7 @@ sys.path.insert(0, HERE)
 import mode as modes  # noqa: E402
 import simclock  # noqa: E402
 import simdata  # noqa: E402
+from _livefs import livefs  # noqa: E402
 
 ET = ZoneInfo("America/New_York")
 UA = "simrun/1.0"
@@ -228,8 +229,8 @@ class Driver:
                     else:
                         rc = self.run_window(day, quotes, extra_args or [], crash=any(e["kind"] == "crash_mid" for e in todays))
                     if todays:
-                        with open(os.path.join(self.root, "sim", "scenario.jsonl"), "a", encoding="utf-8") as f:
-                            f.write(json.dumps({"sim": True, "day_index": i + 1, "date": day, "events": todays, "quote_factor": round(factor, 6), "rc": rc}, ensure_ascii=False) + "\n")
+                        livefs.append(os.path.join(self.root, "sim", "scenario.jsonl"),
+                                      json.dumps({"sim": True, "day_index": i + 1, "date": day, "events": todays, "quote_factor": round(factor, 6), "rc": rc}, ensure_ascii=False))
                     rcs[key] = rc
                     done += 1
                     print(f"  {day}（出どころ {data['source'][day]}）{i + 1:>3}/{len(days)}  run_day rc={rc}", flush=True)
@@ -286,6 +287,7 @@ def main() -> int:
             return 2
         root = modes.sim_root(args.name)
         if args.fresh and os.path.isdir(root):
+            livefs.forget()                            # 木の sim.sqlite を消す前に、このプロセスの接続を閉じる
             shutil.rmtree(root)
         control = modes.control_file(args.name)
         resumed = os.path.exists(control)

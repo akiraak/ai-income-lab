@@ -21,6 +21,7 @@ from __future__ import annotations
 import argparse
 import csv
 import glob
+import io
 import json
 import math
 import os
@@ -28,6 +29,9 @@ import statistics
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, HERE)
+from _livefs import livefs  # noqa: E402
+
 DEFAULT_BARS = os.path.normpath(os.path.join(HERE, "..", "feature-discovery", "data-live", "adjusted", "d"))
 COST_BP = 5.0          # 往復。片道 2.5bp（rules.md 13-4。バックテストと同じ）
 UNATTENDED = ("retry", "auth_5xx_retry", "auth_failed", "halted", "out_of_window", "journal_unresolved", "position_short", "ledger_error")
@@ -42,10 +46,13 @@ COLUMNS = ["date", "trader", "test", "budget_usd", "n_symbols", "n_signals",
 
 
 def _jsonl(path: str) -> list[dict]:
-    if not os.path.exists(path):
-        return []
-    with open(path, encoding="utf-8") as f:
-        return [json.loads(l) for l in f if l.strip()]
+    """執行器の記録（⚠ 2026-09-21 から DB の lines ＝ `livefs`。道はそのまま）。"""
+    return [json.loads(l) for l in livefs.read_lines(path) if l.strip()]
+
+
+def record_dates(out_dir: str) -> list[str]:
+    """記録のある日付（`out/<YYYY-MM-DD>/`）。"""
+    return [d for d in livefs.listdir(out_dir) if len(d) == 10 and d[4] == "-" and d[7] == "-" and d[:4].isdigit()]
 
 
 def load_closes_from_bars(bars_dir: str, symbols: set[str]) -> dict[str, dict[str, float]]:
@@ -81,7 +88,7 @@ def _median(xs: list[float]) -> float | None:
 def build_rows(out_dir: str, closes: dict[str, dict[str, float]], close_source: str, cost_bp: float = COST_BP,
                last_date: str | None = None) -> list[dict]:
     """全日付 × トレーダーの行。`last_date` より後の日は書かない（公式終値がまだ無い今日を外すため）。"""
-    dates = sorted(os.path.basename(p) for p in glob.glob(os.path.join(out_dir, "20??-??-??")) if os.path.isdir(p))
+    dates = record_dates(out_dir)
     if last_date:
         dates = [d for d in dates if d <= last_date]
     half = cost_bp / 2.0
@@ -235,13 +242,13 @@ def _threshold(sig_rows: dict[str, dict], out_dir: str, trader: str) -> float:
 
 
 def write_csv(path: str, rows: list[dict]) -> None:
-    tmp = path + ".tmp"
-    with open(tmp, "w", encoding="utf-8", newline="") as f:
-        w = csv.DictWriter(f, fieldnames=COLUMNS)
-        w.writeheader()
-        for r in rows:
-            w.writerow({k: ("" if r.get(k) is None else r.get(k)) for k in COLUMNS})
-    os.replace(tmp, path)
+    """`daily.csv` を丸ごと書く（⚠ 2026-09-21 から DB の docs。前の中身は docs_history に残る）。"""
+    f = io.StringIO(newline="")
+    w = csv.DictWriter(f, fieldnames=COLUMNS)
+    w.writeheader()
+    for r in rows:
+        w.writerow({k: ("" if r.get(k) is None else r.get(k)) for k in COLUMNS})
+    livefs.write_doc(path, f.getvalue())
 
 
 def main() -> int:
@@ -254,7 +261,7 @@ def main() -> int:
     ap.add_argument("--csv", default=None, help="既定は <out-dir>/daily.csv")
     args = ap.parse_args()
 
-    dates = sorted(os.path.basename(p) for p in glob.glob(os.path.join(args.out_dir, "20??-??-??")) if os.path.isdir(p))
+    dates = record_dates(args.out_dir)
     if not dates:
         print(f"{args.out_dir} に日付の記録が無い", file=sys.stderr)
         return 1

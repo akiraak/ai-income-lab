@@ -11,6 +11,8 @@ import recovery
 from journal import Journal
 from plan import NetOrder
 from state import TraderState, load_state, save_state
+import livefs
+from tests._records import exists, jsonl, put_jsonl
 
 HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -46,7 +48,7 @@ def test_journal_lists_only_unfinished(tmp_path):
     j.intent("lt-b", order("T2", "VZ", "sell", 3), 0.02), j.submitted("lt-b", 8)
     j.intent("lt-c", order("T3", "T"), 0.0)
     j.done("lt-zzz", "halted")                                        # 控えていない ID の done は書かない
-    open(j.path, "a").write('{"op": "intent", "ext": "lt-bro')          # 書いている途中で落ちた行
+    livefs.append(j.path, '{"op": "intent", "ext": "lt-bro')            # 書いている途中で落ちた行（ファイルの頃に取り込んだもの）
     got = Journal(str(tmp_path)).unfinished()
     assert [(e["ext"], e.get("order_id"), e["trader"], e["fee_usd"]) for e in got] == [("lt-b", 8, "T2", 0.02), ("lt-c", None, "T3", 0.0)]
 
@@ -72,7 +74,7 @@ def test_recover_without_writing_in_plan_or_dry_run(tmp_path):
     j = Journal(sd, "2026-10-01")
     j.intent("lt-a", order(), 0.0), j.submitted("lt-a", 7)
     ev, _ = recovery.recover_unfinished(Journal(sd), Broker({7: filled(2, 70.1)}), "ACCT", sd, "2026-10-02", write=False)
-    assert ev[0]["applied"] is False and not os.path.exists(os.path.join(sd, "T1.json")) and len(Journal(sd).unfinished()) == 1
+    assert ev[0]["applied"] is False and not exists(os.path.join(sd, "T1.json")) and len(Journal(sd).unfinished()) == 1
 
 
 def test_recover_closes_orders_that_never_filled_or_never_left(tmp_path):
@@ -84,7 +86,7 @@ def test_recover_closes_orders_that_never_filled_or_never_left(tmp_path):
     broker = Broker({7: filled(0, 0, "Cancelled"), 9: filled(0, 0, "Live", id=9)})
     ev, unresolved = recovery.recover_unfinished(Journal(sd), broker, "ACCT", sd, "2026-10-02", write=True)
     assert unresolved == set() and sorted(e["outcome"] for e in ev) == ["not_submitted", "recovered_no_fill", "recovered_no_fill"]
-    assert broker.cancelled == [9] and Journal(sd).unfinished() == [] and not os.path.exists(os.path.join(sd, "T1.json"))
+    assert broker.cancelled == [9] and Journal(sd).unfinished() == [] and not exists(os.path.join(sd, "T1.json"))
 
 
 def test_recover_leaves_what_it_cannot_look_up_and_blocks_the_symbol(tmp_path):
@@ -133,7 +135,7 @@ def test_cli_add_remove_and_log(cli):
     assert run("remove", "T1", "KO", "1", "--price", "71.15").returncode == 0   # 売れていた値段が分かっているとき
     assert load_state(sd, "T1").realized_usd == pytest.approx(1.0) and load_state(sd, "T1").holdings["KO"].shares == 1
     assert run("remove", "T1", "KO", "9").returncode == 2 and run("add", "nobody", "KO", "1", "--price", "1").returncode == 2
-    log = [json.loads(line) for line in open(os.path.join(sd, "reconcile.log"))]
+    log = jsonl(os.path.join(sd, "reconcile.log"))
     assert [(r["cmd"], r["trader"], r["before"], r["after"]) for r in log] == [("add", "T1", 0.0, 2.0), ("remove", "T2", 3.0, 0.0), ("remove", "T1", 2.0, 1.0)]
 
 
@@ -143,8 +145,7 @@ def test_cli_resolve_and_show(cli):
     j.intent("lt-x", order("T1", "KO", "buy", 2), 0.0)
     j.intent("lt-y", order("T2", "KO", "sell", 3), 0.02)
     out = tmp / "out" / "2026-10-01"
-    out.mkdir(parents=True)
-    (out / "positions.jsonl").write_text(json.dumps({"date": "2026-10-01", "when": "before", "positions": [{"symbol": "KO", "quantity": "2", "quantity-direction": "Long"}]}) + "\n")
+    put_jsonl(out / "positions.jsonl", [{"date": "2026-10-01", "when": "before", "positions": [{"symbol": "KO", "quantity": "2", "quantity-direction": "Long"}]}])
     r = run("show")
     assert r.returncode == 1 and "控えの未完: 2 件" in r.stdout and "口座が少ない" in r.stdout and "lt-x" in r.stdout
     assert run("resolve", "lt-x", "--filled", "2").returncode == 2             # 価格が要る

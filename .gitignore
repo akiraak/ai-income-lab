@@ -28,3 +28,9 @@ experiments/live-trading/run.lock
 experiments/live-trading/mode.log
 experiments/live-trading/sim/
 experiments/live-trading/sim-predict/
+# 記録の DB（2026-09-21。docs/plans/db-model-facts.md §11）: 本物はリポジトリ直下の live.sqlite・デモとテストは置き場ごと
+/live.sqlite
+/live.sqlite-*
+*.sqlite-wal
+*.sqlite-shm
+dashboard/demo/live/demo.sqlite

@@ -5,6 +5,7 @@ import os
 
 import numpy as np
 
+import livefs
 import paper
 
 SIMULATE_PY = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
@@ -25,10 +26,8 @@ BUY = {"AAA": [60, 40, 40, 70, 55, 30], "BBB": [40, 45, 80, 52, 20, 90]}
 
 
 def _write(path, rows):
-    os.makedirs(os.path.dirname(path), exist_ok=True)
-    with open(path, "w", encoding="utf-8") as f:
-        for r in rows:
-            f.write(json.dumps(r) + "\n")
+    # ⚠ 記録は DB（livefs。道はそのまま）
+    livefs.append_many(path, [json.dumps(r) for r in rows])
 
 
 def _closes():

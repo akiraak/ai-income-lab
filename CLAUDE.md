@@ -98,7 +98,7 @@ cp .env.example .env                                   # AIL_AUTH_MODE=local（�
 .venv/bin/python -m pytest -q tests                    # 面の判定・JWT・記録と判定・秘密が応答に出ないこと
 ```
 
-- `experiments/tastytrade-api-sample/` の `ttclient.py` / `record.py` を import し、記録（`out/*.jsonl`）をそのまま読む。資格情報もサンプルの `.env` を読む
+- `experiments/tastytrade-api-sample/` の `ttclient.py` / `record.py` を import し、記録（道は `out/*.jsonl` のまま・⚠ 2026-09-21 から中身はリポジトリ直下の `live.sqlite`。下の「記録の置き場」）をそのまま読む。資格情報もサンプルの `.env` を読む
 - 画面（2026-09-18 に作り直した。デザイン 3「数字とグラフが主役」・ナビは左ペイン）: **概要（`/`。監視の帯・大きな数字・損益の推移・執行の差・トレーダーの段）**・全体の詳細（`/overall`。日次・注文の履歴・口座と接続）・トレーダーの詳細（`/traders/<name>`）・記録と差分（`/records`）・6 観点の自動判定（`/judge`。観点 A まで）・操作（`/ops`。**停止 ／ 解除と履歴だけ**）。`/live` は `/` へ転送。**操作はローカル面だけ**。⚠ **実行の一覧（`/experiments`）・データ（`/data`）・手動の注文（dry-run ／ 発注 ／ 取消 ／ 後片付け）・開発（`/dev`）は 2026-09-18 に経路ごと消した** ＝ ⚠ **管理画面に発注の経路は無い**（発注は執行器と CLI だけ。`ops.py` のクライアントは取消の許可しか持たない）。残した部品: `app/experiments.py`・`app/inventory.py`（vibeboard のタブが import）・`devtools` の `MockServer`・`run_step`（デモ）。⚠ **紙上の損益・差 3 は、執行器の `out/daily.csv`（`paper.py`）があれば本物・無ければ仮データ**（印つき。仮は `/api/live` に出さない）。休場日は NYSE の暦（`experiments/tastytrade-api-sample/nyse_calendar.py`。執行器の窓と共有。⚠ **年に 1 度、次の年を足す**。載っていない年だけ「仮」に戻る）。図は `app/charts.py`（サーバで組む SVG）。仕様は `docs/specs/dashboard.md` §13・§15
 - **シミュレーションモード**（2026-09-19）: 機械のモード（`experiments/live-trading/MODE`）が sim の間、管理画面は `sim/<名前>/` だけを読み、全ページの最上部に青緑の帯・`<title>` に `[SIM]`・数字に「仮」の印・`/api/*` に `mode`（`app/simmode.py`。リクエストごとに読む）。⚠ **表示だけ**（切り替え・速さ・停止は CLI の `simctl.py`）。⚠ **1 つの画面に本物とシミュレーションを混ぜない**（モードと木が食い違えば数字を出さない）。⚠ 公開面は `MODE` を読まない。仕様は `docs/specs/dashboard.md` §13-6・§15-11
 - **実行の一覧の部品**（`app/experiments.py`。画面は vibeboard の実行タブ。管理画面の `/experiments` は 2026-09-18 に消した）は `experiments/feature-discovery/runs/research.sqlite` を**読み取り専用で読むだけ**（`AIL_RUNS_DIR` ＝ DB の置き場）。**スコアは最良手法（基準線を除く）の純利 bp** で、fold の符号・上乗せ t・実効標本数・デフレーテッド SR を横に並べる。⚠ **検査は実験側が `checks.json` に書いたものを読むだけ**（管理画面に pandas / scipy を入れない）。仕様は `docs/specs/dashboard.md` §10
@@ -136,7 +136,7 @@ python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
 ```
 
 - 既定は sandbox（cert）。**本番では発注系（手順 4・5）を拒否する**。実弾は `TT_ALLOW_PROD_ORDERS=1` と `--i-know-this-is-real-money` の両方が要る。取消だけの許可 `allow_prod_cancel` は管理画面の停止ボタン用（発注は開かない）
-- 資格情報（`.env`）と実行記録（`out/`）は git 管理外。記録はトークン・口座番号をマスクしてから書く。接続先を差し替えた実行（selftest）は `mock: true` が付く
+- 資格情報（`.env`）と実行記録（`out/`。⚠ 2026-09-21 から中身はリポジトリ直下の `live.sqlite`）は git 管理外。記録はトークン・口座番号をマスクしてから書く。接続先を差し替えた実行（selftest）は `mock: true` が付く（⚠ selftest の記録は作業用の置き場の DB に入り、本物には残らない）
 - `out/HALT` があると発注系の手順（4・5・5limit・6）を拒否する（管理画面の停止ボタンが置く。`TT_HALT_FILE` / `TT_OUT_DIR` で場所を変えられる）
 - sandbox は相場データを配信しない（`/market-data` が全経路 502）ので、気配は本番の資格情報で読む
 - 記録と判定は `docs/specs/experiments/tastytrade-api-sample.md`。**2026-09-08 の市場時間に 6 観点のうち 5 つが ✅**（残るは営業日を 2 日跨ぐ交換だけで、g3plus の管理画面が監視を回して自動で埋める）
@@ -198,6 +198,13 @@ cd experiments/live-trading
 - トレーダーは `config/traders/<名前>.toml`（予算・銘柄集合・モデルの一覧・合成規則・θ・`sizing`）。モデルの `kind` は `fixed` / `file`（試験用。`test = true` が要る）/ `experiment`（`predict.jsonl`。Phase 1 の後）
 - **実際に動かす 3 人は 2026-09-19 に確定**（利用者決定）: `T1` `trade_own_ridge_a` θ=50 ／ `T2` `trade_ownex_lgbm_a` θ=55 ／ `T3` `trade_ownseq_ridge_a` の T3 QUANT θ=50。予算は 2 つの規模を並べて持つ（2026-09-19 の利用者決定）＝ **規模 A $1,000**（$300 × 3 ＋ 予備 $100。口座の残高 ＝ 実際に使える。執行器の上限の既定）／ **規模 B $10,000**（$3,000 × 3 ＋ 予備 $1,000。⚠ **規模 B（$10,000）は実際の取引で使えない可能性がある** ＝ 数字を出すときは必ずそう添える。執行器では `--max-total-budget 10000 --max-day-usd 10000` を明示したときだけ。追加入金は利用者の判断）・合成 `asis`・種 0。✅ **銘柄集合と `sizing` は 2026-09-21 に確定**（利用者決定）＝ **3 人とも整数株（`shares`）・T・PFE・NKE・VZ・BAC の 5 本**。本番の `dryrun2` で、金額指定（`Notional Market`）は通るが**最低 $5**（T1・T3 の 1 銘柄の枠 $4.76 では買えない）・**端株は 1 本 $0.10 の手数料**（整数株の成行は $0.001）と分かったため（`live-trading.md` §0-3）。`config/traders/T1〜T3.toml` は `candidates/shares/` の写し。⚠ **ここから先にモデル・θ・合成規則・銘柄・`sizing` を替えるのは新しい検証**。✅ 本番 `test_a` の往復（買い → 窓の中で売り）は 2026-09-21 に通り、関門は Go ＝ **2026-09-22（火）に規模 A で本番投入**
 - 記録は `out/<日付>/*.jsonl`（`Masker` 経由・git 管理外）、状態は `state/<env>/<名前>.json`。`--mode submit` 以外は状態を書かない
+- ⚠ **記録の置き場は DB（2026-09-21。利用者の指示「本番投入前に進めて、明日テストする」。プランは `docs/plans/db-model-facts.md` §11）**: 道（`out/…`・`state/…`）の計算は今までと同じで、中身は `experiments/tastytrade-api-sample/livefs.py` を通して **道の近くの DB** に入る（道から親へたどって最初の `live.sqlite` ／ `sim.sqlite` ／ `demo.sqlite`）
+  - 本物 ＝ リポジトリ直下の `live.sqlite` 1 つ（執行器 ＋ API 検証 ＋ 管理画面。利用者の裁定）。⚠ 本物に入れてよいのは決まった置き場（`experiments/live-trading/out`・`state`・`mode.log`・`experiments/tastytrade-api-sample/out`・`dashboard/data`〔`demo` を除く〕）だけで、ほかは止まる
+  - シミュレーションの木は木の中の `sim.sqlite`（`simdata.write_tree` が作る）・予測の作り置きは `sim-predict/sim.sqlite`・テストは一時置き場の DB（conftest）・mockrun ／ selftest は作業用の置き場の DB ＝ ⚠ **本物に落ちない**（どの DB にも当たらない道は止まる）
+  - ⚠ **執行器の読みは厳しい**: どの DB にも当たらない道を読むと止まる（設定の誤りで「何も持っていない」と読んで買い直さない）。管理画面は `missing_ok=True`（無くても落とさない）
+  - ⚠ **ファイルのまま**: `HALT`・`MODE`・`run.lock`・`control.json`・`status.json`・入力・設定・プロセスの画面の写し
+  - 見る ＝ `python3 experiments/tastytrade-api-sample/livefs.py ls|cat <道>`・`dump <DB のあるディレクトリ>`（秘密の grep）・`stats`・`export <道> --to <置き場>`（ファイルの形に書き出す）
+  - ⚠ **いままでのファイルは取り込んで 1 ビットずつ突き合わせたが、まだ消していない**（2026-09-22 の本番投入が新しい作りで済むまで、`acc5f9f` に戻すときの足場として残す）
 - 本番の許可は `ttclient.Client` の 3 段そのまま。発注は `TT_ALLOW_PROD_ORDERS=1` ＋ `--i-know-this-is-real-money`。⚠ **許可を出して起動するのは利用者**。`HALT` は管理画面の停止ボタンと同じファイル
 - **シミュレーション（仮データと仮の時計で執行器を通しで動かす）は 2026-09-19 に実装した**（決めごと・使い方・筋書き・見つかったことは `live-trading.md` §0-7。プランは `docs/plans/archive/live-trading-sim-clock.md`）
 
@@ -227,7 +234,7 @@ cd experiments/live-trading
   # ⚠ 本番の発注は利用者だけ: TT_ALLOW_PROD_ORDERS=1 ./run-live.sh --traders T1,T2,T3 --mode submit --wait -- --env prod --i-know-this-is-real-money
   ```
 
-  - `run-live.sh` ＝ 日足の更新（市場時間中も 54〜55 秒【実測 2026-09-21】）→ `cli.predict` × 3（並列 37〜38 秒）→ `out/<日付>/predict.jsonl` → 売買履歴の控え（`state-backup/`。submit の回だけ）→ `run_day.py`。「--」の後ろはそのまま執行器へ。⚠ **本番の許可は書いていない**。予測が 1 本でも失敗したら執行器を起こさない
+  - `run-live.sh` ＝ 日足の更新（市場時間中も 54〜55 秒【実測 2026-09-21】）→ `cli.predict` × 3（並列 37〜38 秒）→ `out/<日付>/predict-<時刻>.jsonl`（⚠ 2026-09-21 から DB。回ごとに別の道 ＝ 前の回の行を読まない）→ 売買履歴の控え（`state-backup/<時刻>/`。submit の回だけ・`livefs.py export` でいままでと同じファイルの形）→ `run_day.py`。「--」の後ろはそのまま執行器へ。⚠ **本番の許可は書いていない**。予測が 1 本でも失敗したら執行器を起こさない
   - `experiments/feature-discovery/cli/predict.py`: ⚠ **モデル・較正のコードは足していない**（表 ＝ `cli.build.assemble`・買い% ＝ `cli.run.fold_buy_pct` ＝ 既存のコードの切り出し。⚠ この 2 つを触るときは既定経路の指紋テスト `tests/test_trading_run.py` と `tests/test_predict.py` を流す）。訓練 ＝ ラベルが `asof` より前に確定している行・予測する行 ＝ `asof` の行。⚠ `runs/` を作らない（検証ではない）
   - ⚠ **実売買の日足は `experiments/feature-discovery/data-live/`**（`live_update.sh`。`AIL_DATA_DIR` で `store.DATA` が差し替わる）。⚠ **研究用の `data/` に `cli.fetch --dataset daily` を流さない** ＝ 配信側が過去の足をさかのぼって変えていて（小数 2 桁・権利落ち前日の終値が未調整。41 銘柄に 2% 超【実測 2026-09-19】）、表が壊れる。`data-live/` は研究用の写しを種にして後ろだけ継ぐ。外部系列は `exog_live`（⚠ 年が変わったら金利の `years` を足す）
   - ⚠ **発注は 2 段**（利用者決定 D6）: ① 全部の注文を順に 控え → dry-run → 発注 ／ ② 1 本ずつ約定を確かめて売買履歴へ。1 本ずつ約定を待つ直列の形（`--serial` で戻せる）では初日の約 120 本が窓に収まらない

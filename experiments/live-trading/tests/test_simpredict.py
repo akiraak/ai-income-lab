@@ -10,6 +10,8 @@ import pytest
 import mode as modes
 import simdata
 import simpredict
+import livefs
+from tests._records import isdir
 from test_simrun import cli, make_bars, rows
 
 SIM_TOML = """name = "simx"
@@ -58,13 +60,13 @@ def fill_cache(cache, data, skip=(), shift_close=None):
         if src in skip:
             continue
         path = simpredict.cache_path(cache, src, "exp_x", "手法 X")
-        os.makedirs(os.path.dirname(path), exist_ok=True)
-        with open(path, "w", encoding="utf-8") as f:
-            for sym in ("T", "VZ", "BAC", "SPY"):          # SPY はこの人が持たない銘柄（実験は銘柄集合ぜんぶを出す）
-                buy = 80.0 if k % 2 == 0 else 20.0
-                close = data["quotes"][day].get(sym, 1.0) * (1.01 if shift_close == sym else 1.0)
-                f.write(json.dumps({"date": src, "model": "exp_x", "method": "手法 X", "symbol": sym, "buy": buy, "exit": 100 - buy,
-                                    "proxy_close": close}, ensure_ascii=False) + "\n")
+        lines = []
+        for sym in ("T", "VZ", "BAC", "SPY"):              # SPY はこの人が持たない銘柄（実験は銘柄集合ぜんぶを出す）
+            buy = 80.0 if k % 2 == 0 else 20.0
+            close = data["quotes"][day].get(sym, 1.0) * (1.01 if shift_close == sym else 1.0)
+            lines.append(json.dumps({"date": src, "model": "exp_x", "method": "手法 X", "symbol": sym, "buy": buy, "exit": 100 - buy,
+                                     "proxy_close": close}, ensure_ascii=False))
+        livefs.append_many(path, lines)                    # ⚠ 作り置きも DB（livefs）
 
 
 def built(traders_dir):
@@ -92,7 +94,7 @@ def test_install_stops_when_a_day_is_missing(env, tmp_path):
     fill_cache(cache, data, skip=("2026-06-03",))
     with pytest.raises(simpredict.SimPredictError, match="1 本足りない.*2026-06-03 exp_x"):
         simpredict.install(str(tmp_path / "tree"), cfg, traders_dir, data)
-    assert not os.path.exists(tmp_path / "tree" / "out")            # 半端に置かない
+    assert not isdir(tmp_path / "tree" / "out")                     # 半端に置かない
     todo, total = simpredict.plan_jobs("simx", traders_dir, cache, data_dir=os.environ["LT_SIM_DATA_DIR"])
     assert total == 7 and [(j[0], j[1], j[2]) for j in todo] == [("2026-06-03", "exp_x", "手法 X")]   # 再開: 無いものだけ作る
 
@@ -110,7 +112,7 @@ def test_no_experiment_model_places_nothing(env, tmp_path):
     cfg = simdata.load_config("sim1", os.path.join(here, "config", "sim"))
     data = simdata.build(cfg, ["T", "VZ", "BAC"], data_dir=os.environ["LT_SIM_DATA_DIR"])
     assert simpredict.install(str(tmp_path / "tree"), cfg, os.path.join(here, "config", "traders"), data) is None
-    assert not os.path.exists(tmp_path / "tree")
+    assert not os.path.exists(tmp_path / "tree") and not isdir(tmp_path / "tree")
 
 
 def test_cache_path_separates_methods(tmp_path):

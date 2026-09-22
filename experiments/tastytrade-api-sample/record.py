@@ -85,10 +85,10 @@ def sdk_versions() -> dict:
 
 
 class Recorder:
-    """1 実行 = 1 ファイル。手順ごとに 1 行を追記する。"""
+    """1 実行 = 1 本（道 `out/<venue>-<env>-<run_id>.jsonl`）。手順ごとに 1 行を足す。
+    ⚠ 2026-09-21 から中身は DB（`livefs`。道はそのまま・本物はリポジトリ直下の live.sqlite）。"""
 
     def __init__(self, out_dir: str, venue: str, env: str, run_id: str | None = None, mock: bool = False) -> None:
-        os.makedirs(out_dir, exist_ok=True)
         self.venue = venue
         self.env = env
         # 接続先をモックに差し替えた実行は【実測】ではない。行に mock: true を残し、判定から外せるようにする（2026-09-05）
@@ -99,8 +99,9 @@ class Recorder:
         self._sdk = sdk_versions()
 
     def write(self, row: dict) -> None:
-        with open(self.path, "a", encoding="utf-8") as f:
-            f.write(json.dumps(self.mask(row), ensure_ascii=False) + "\n")
+        import livefs
+
+        livefs.append(self.path, json.dumps(self.mask(row), ensure_ascii=False))
 
     @contextmanager
     def step(self, number: int, name: str, **extra):

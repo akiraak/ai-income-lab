@@ -17,6 +17,7 @@ import simclock
 import simdata
 import simrun
 from tests.test_simrun import make_bars
+from tests._records import doc, isdir, jsonl
 
 HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 ET = ZoneInfo("America/New_York")
@@ -65,8 +66,7 @@ def ran(tmp_path_factory):
 
 
 def rows(root, day, kind):
-    path = os.path.join(root, "out", day, f"{kind}.jsonl")
-    return [json.loads(line) for line in open(path, encoding="utf-8")] if os.path.exists(path) else []
+    return jsonl(os.path.join(root, "out", day, f"{kind}.jsonl"))
 
 
 def the_order(root, day):
@@ -125,7 +125,7 @@ def test_auth_401_is_not_retried(ran):
 
 
 def test_skipped_day_leaves_no_record(ran):
-    assert not os.path.exists(os.path.join(ran[0], "out", DAYS[7]))
+    assert not isdir(os.path.join(ran[0], "out", DAYS[7]))
     status = json.load(open(os.path.join(ran[0], "sim", "status.json")))
     assert status["rcs"][f"{DAYS[7]} 15:45"] == "skipped"
 
@@ -142,7 +142,7 @@ def test_the_day_after_the_crash_recovers_the_fill_and_does_not_trade_twice(ran)
     ev = [e for e in rows(ran[0], DAYS[9], "events") if e["kind"] == "journal_recovered"]
     assert len(ev) == 1 and ev[0]["outcome"] == "recovered_filled" and ev[0]["side"] == "sell" and ev[0]["intent_date"] == DAYS[8] and ev[0]["trader"] == "sim_a"
     assert the_order(ran[0], DAYS[9])["side"] == "buy"                          # 売れていたことが台帳に入ったので、次は買い（二重の売りではない）
-    hist = json.load(open(os.path.join(ran[0], "state", "cert", "sim_a.json")))["history"]
+    hist = doc(os.path.join(ran[0], "state", "cert", "sim_a.json"))["history"]
     recovered = [h for h in hist if h.get("note") == "recovered"]
     assert len(recovered) == 1 and recovered[0]["date"] == DAYS[8] and recovered[0]["side"] == "sell" and recovered[0]["fee"] > 0
 
@@ -172,7 +172,7 @@ def test_sell_fee_lands_in_the_traders_ledger(ran):
 
 
 def test_scenario_log_and_marks(ran):
-    log = [json.loads(line) for line in open(os.path.join(ran[0], "sim", "scenario.jsonl"))]
+    log = jsonl(os.path.join(ran[0], "sim", "scenario.jsonl"))
     assert [(r["day_index"], r["events"][0]["kind"]) for r in log] == [(d, k) for d, k, _ in EVENTS]
     every = [r for d in DAYS for kind in ("events", "orders", "ledger") for r in rows(ran[0], d, kind)]
     assert every and all(r["sim"] is True and r["mock"] is True and r["test"] is True for r in every)

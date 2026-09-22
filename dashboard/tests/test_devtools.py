@@ -3,6 +3,7 @@
 import time
 
 from app.devtools import DevError, DevTools
+from app.livestore import livefs
 
 
 def test_mock_start_and_step_run(settings):
@@ -19,7 +20,7 @@ def test_mock_start_and_step_run(settings):
         assert job.status == "done", "\n".join(job.lines)
         assert any("final_Cancelled" in l for l in job.lines)
         assert "MOCK-CLIENT-SECRET" not in "\n".join(job.lines)
-        assert list(settings.records_dir.glob("*.jsonl")), "TT_OUT_DIR に記録が落ちる"
+        assert livefs.find(settings.records_dir, "*.jsonl"), "TT_OUT_DIR に記録が落ちる（DB）"
         try:
             dev.run_step("prod", "4", 3, use_mock=False)
         except DevError as exc:

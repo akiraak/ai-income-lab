@@ -16,6 +16,8 @@ FD="$ROOT/experiments/feature-discovery"
 LT="$ROOT/experiments/live-trading"
 PY_FD="$FD/.venv/bin/python"
 PY_LT="$ROOT/experiments/tastytrade-api-sample/.venv/bin/python"
+# ⚠ 記録は DB（2026-09-21 から。道はそのまま・本物はリポジトリ直下の live.sqlite）。見る・足す・書き出すのは livefs.py
+LIVEFS="$ROOT/experiments/tastytrade-api-sample/livefs.py"
 
 TRADERS=""; MODE="dry-run"; DATE=""; WAIT=0; PREPARE=0; EXOG=0; SKIP_UPDATE=0; PASS=()
 while [ $# -gt 0 ]; do
@@ -38,7 +40,7 @@ if [ "$PREPARE" = 1 ]; then
   say "朝の準備: 日足 ＋ 外部系列（発注しない）"
   "$FD/live_update.sh"; RC=$?
   # 紙上の対照（Phase 3）: 前の営業日までの公式終値が入ったので daily.csv を作り直す（読むだけ・何度流しても同じ）
-  if ls -d "${LT_OUT_DIR:-$LT/out}"/20??-??-?? > /dev/null 2>&1; then
+  if "$PY_LT" "$LIVEFS" ls "${LT_OUT_DIR:-$LT/out}" 2>/dev/null | grep -q -E '^20[0-9]{2}-[0-9]{2}-[0-9]{2}$'; then
     say "紙上の対照 → daily.csv"
     (cd "$LT" && "$PY_LT" paper.py --bars-dir "${AIL_LIVE_DATA_DIR:-$FD/data-live}/adjusted/d") || say "⚠ paper.py が失敗した（売買には影響しない）"
   fi
@@ -68,7 +70,9 @@ else
 fi
 
 # 2. 今日の買い%（トレーダーの設定から 実験 × 手法 を拾い、並列で流す）。置き場は執行器と同じ（LT_OUT_DIR はテスト・モック用）
-OUT="${LT_OUT_DIR:-$LT/out}/$DATE"; mkdir -p "$OUT"; TMP=$(mktemp -d); trap 'rm -rf "$TMP"' EXIT
+OUT="${LT_OUT_DIR:-$LT/out}/$DATE"; TMP=$(mktemp -d); trap 'rm -rf "$TMP"' EXIT
+# ⚠ 予測は回ごとに別の道（行は足すだけなので、同じ道に 2 回入れると前の回の行が残り、後の回に無い銘柄で古い値を読む）
+PRED="$OUT/predict.jsonl"
 TRADERS_DIR=""; for ((i=0; i<${#PASS[@]}; i++)); do [ "${PASS[$i]}" = "--traders-dir" ] && TRADERS_DIR="${PASS[$((i+1))]}"; done
 MODELS=$(cd "$LT" && "$PY_LT" - "$TRADERS" "${TRADERS_DIR:-$LT/config/traders}" <<'PY'
 import sys
@@ -96,21 +100,24 @@ if [ -n "$MODELS" ]; then
   done <<< "$MODELS"
   FAIL=0; for p in "${PIDS[@]}"; do wait "$p" || FAIL=1; done
   [ "$FAIL" = 0 ] || { say "⚠ 予測が失敗した。執行器は起こさない"; exit 12; }
-  cat "$TMP"/p*.jsonl > "$OUT/predict.jsonl.tmp" && mv "$OUT/predict.jsonl.tmp" "$OUT/predict.jsonl"
-  cat "$TMP"/m*.json >> "$OUT/predict.meta.jsonl"
-  say "予測 $(wc -l < "$OUT/predict.jsonl") 行 → ${OUT#$ROOT/}/predict.jsonl"
+  PRED="$OUT/predict-$(date -u +%Y%m%dT%H%M%SZ).jsonl"
+  cat "$TMP"/p*.jsonl | "$PY_LT" "$LIVEFS" append "$PRED" || { say "⚠ 予測を記録に入れられない。執行器は起こさない"; exit 12; }
+  for m in "$TMP"/m*.json; do tr -d '\n' < "$m"; echo; done | "$PY_LT" "$LIVEFS" append "$OUT/predict.meta.jsonl" || say "⚠ 予測の付記を記録に入れられない（売買には影響しない）"
+  say "予測 $(cat "$TMP"/p*.jsonl | grep -c .) 行 → ${PRED#$ROOT/}（DB）"
 fi
 
 # 3. 台帳の控え（発注する回だけ。台帳を失うと「何も持っていない」つもりで買い直す ＝ live-trading.md §0-8 の限界）
-if [ "$MODE" = "submit" ] && [ -d "$LT/state" ]; then
+#    ⚠ 2026-09-21 から売買履歴は DB。控えは今までと同じファイルの形で書き出す（state/<env>/<名前>.json・journal.jsonl …）
+if [ "$MODE" = "submit" ]; then
   BK="$LT/state-backup/$(date -u +%Y%m%dT%H%M%SZ)"
-  mkdir -p "$BK" && cp -a "$LT/state/." "$BK/" && say "台帳の控え → ${BK#$ROOT/}"
+  "$PY_LT" "$LIVEFS" export "${LT_STATE_DIR:-$LT/state}" --to "$BK" > /dev/null && say "売買履歴の控え → ${BK#$ROOT/}" \
+    || say "⚠ 売買履歴の控えを書き出せなかった"
   ls -1d "$LT"/state-backup/* 2>/dev/null | head -n -60 | xargs -r rm -rf      # 直近 60 回ぶんだけ残す
 fi
 
 # 4. 執行器
 say "執行器（--mode $MODE）"
-cd "$LT" && "$PY_LT" run_day.py --traders "$TRADERS" --date "$DATE" --mode "$MODE" --predict "$OUT/predict.jsonl" "${PASS[@]}"
+cd "$LT" && "$PY_LT" run_day.py --traders "$TRADERS" --date "$DATE" --mode "$MODE" --predict "$PRED" "${PASS[@]}"
 RC=$?
 say "終了 rc=$RC"
 exit $RC

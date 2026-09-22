@@ -16,6 +16,7 @@ from ttclient import ApiError, Client, ProductionGuard
 
 from .config import Settings
 from .masking import Redactor
+from .livestore import livefs
 from .monitor import EventLog, EnvMonitor, Monitors, WORKING_STATUSES, field, utcnow_iso
 
 
@@ -126,20 +127,15 @@ class Ops:
     def _history(self, kind: str, actor: str, env: str, detail: dict) -> None:
         row = {"at": utcnow_iso(), "kind": kind, "actor": actor, "env": env, "mode": self.settings.machine()["mode"], "detail": self.redactor(detail)}
         with self._lock:
-            self.history_path.parent.mkdir(parents=True, exist_ok=True)
-            with open(self.history_path, "a", encoding="utf-8") as f:
-                f.write(json.dumps(row, ensure_ascii=False) + "\n")
+            livefs.append(self.history_path, json.dumps(row, ensure_ascii=False))     # ⚠ 2026-09-21 から DB（livefs）
 
     def history(self, n: int = 50) -> list[dict]:
-        if not self.history_path.exists():
-            return []
         rows = []
-        with open(self.history_path, encoding="utf-8") as f:
-            for line in f:
-                line = line.strip()
-                if line:
-                    try:
-                        rows.append(json.loads(line))
-                    except json.JSONDecodeError:
-                        continue
+        for line in livefs.read_lines(self.history_path, missing_ok=True):
+            line = line.strip()
+            if line:
+                try:
+                    rows.append(json.loads(line))
+                except json.JSONDecodeError:
+                    continue
         return rows[-n:][::-1]

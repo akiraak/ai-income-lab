@@ -7,6 +7,7 @@
   - トレーダーの定義        → `config/traders/*.toml`
   - 台帳（持ち分・実現損益） → `state/<env>/<名前>.json`
   - 日次の記録              → `out/<日付>/{signals,quotes,orders,transfers,ledger,events,positions,balances}.jsonl`
+  ⚠ 2026-09-21 から、台帳と日次の記録は道はそのままで中身は DB（`livefs`。プラン db-model-facts.md §11）
 
 ⚠ **標準ライブラリだけ**。⚠ **どのファイルが無くても落とさない**（g3plus には執行器の記録を置かないので空でも 200）。
 ⚠ 記録は執行器が `Masker` を通して書いているが、画面の応答はさらに `Redactor` を通す。
@@ -14,9 +15,13 @@
 
 from __future__ import annotations
 
+import csv
+import io
 import json
 import tomllib
 from pathlib import Path
+
+from .livestore import livefs
 
 DAYS = 20
 COMBINE_LABEL = {"asis": "そのまま", "mean": "平均", "majority": "多数決", "unanimous": "全員一致"}
@@ -28,29 +33,24 @@ STATUS_CLASS = {"Filled": "ok", "dry-run": "na", "planned": "na", "Cancelled": "
 
 def _read_jsonl(path: Path) -> list[dict]:
     rows: list[dict] = []
-    try:
-        with path.open(encoding="utf-8") as f:
-            for line in f:
-                line = line.strip()
-                if not line:
-                    continue
-                try:
-                    row = json.loads(line)
-                except ValueError:
-                    continue
-                if isinstance(row, dict):
-                    rows.append(row)
-    except OSError:
-        pass
+    for line in livefs.read_lines(path, missing_ok=True):
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            row = json.loads(line)
+        except ValueError:
+            continue
+        if isinstance(row, dict):
+            rows.append(row)
     return rows
 
 
 def _read_json(path: Path) -> dict:
     try:
-        with path.open(encoding="utf-8") as f:
-            data = json.load(f)
+        data = json.loads(livefs.read_doc(path, missing_ok=True) or "")
         return data if isinstance(data, dict) else {}
-    except (OSError, ValueError):
+    except ValueError:
         return {}
 
 
@@ -102,15 +102,13 @@ def states(live_dir: Path) -> dict[str, dict[str, dict]]:
     """env → トレーダー名 → 台帳。"""
     out: dict[str, dict[str, dict]] = {}
     root = live_dir / "state"
-    if not root.is_dir():
-        return out
-    for env_dir in sorted(p for p in root.iterdir() if p.is_dir()):
-        for path in sorted(env_dir.glob("*.json")):
+    for env in livefs.listdir(root, missing_ok=True):
+        for path in map(Path, livefs.find(root / env, "*.json", missing_ok=True)):
             st = _read_json(path)
             if not st:
                 continue
             holdings = st.get("holdings") or {}
-            out.setdefault(env_dir.name, {})[path.stem] = {
+            out.setdefault(env, {})[path.stem] = {
                 "holdings": holdings,
                 "cost_in_use_usd": round(sum(float(h.get("shares", 0)) * float(h.get("avg_price", 0)) for h in holdings.values()), 2),
                 "realized_usd": round(float(st.get("realized_usd", 0) or 0), 2),
@@ -196,9 +194,7 @@ def day(live_dir: Path, date: str) -> dict:
 
 def dates(live_dir: Path) -> list[str]:
     root = live_dir / "out"
-    if not root.is_dir():
-        return []
-    return sorted((p.name for p in root.iterdir() if p.is_dir() and len(p.name) == 10 and p.name[4] == "-"), reverse=True)
+    return sorted((n for n in livefs.listdir(root, missing_ok=True) if len(n) == 10 and n[4] == "-" and livefs.isdir(root / n, missing_ok=True)), reverse=True)
 
 
 DAILY_NUM = ("budget_usd", "paper_bp", "paper_cum_bp", "real_usd", "real_bp", "real_cum_bp", "diff3_bp", "diff3_cum_bp", "bh_bp", "bh_cum_bp",
@@ -208,21 +204,19 @@ DAILY_INT = ("n_symbols", "n_signals", "paper_held", "paper_trades", "orders", "
 
 def daily_rows(live_dir: Path) -> list[dict]:
     """紙上の対照（実売買の Phase 3。執行器の `paper.py` が書く `out/daily.csv`）。⚠ **読むだけ**（ここで計算しない）。無ければ空。"""
-    import csv
-    path = live_dir / "out" / "daily.csv"
-    if not path.exists():
+    text = livefs.read_doc(live_dir / "out" / "daily.csv", missing_ok=True)
+    if text is None:
         return []
     rows = []
     try:
-        with path.open(encoding="utf-8", newline="") as f:
-            for r in csv.DictReader(f):
-                row: dict = {"date": r.get("date"), "trader": r.get("trader"), "test": r.get("test") == "True",
-                             "close_source": r.get("close_source") or ""}
-                for k in DAILY_NUM:
-                    row[k] = float(r[k]) if r.get(k) not in (None, "") else None
-                for k in DAILY_INT:
-                    row[k] = int(float(r[k])) if r.get(k) not in (None, "") else None
-                rows.append(row)
+        for r in csv.DictReader(io.StringIO(text, newline="")):
+            row: dict = {"date": r.get("date"), "trader": r.get("trader"), "test": r.get("test") == "True",
+                         "close_source": r.get("close_source") or ""}
+            for k in DAILY_NUM:
+                row[k] = float(r[k]) if r.get(k) not in (None, "") else None
+            for k in DAILY_INT:
+                row[k] = int(float(r[k])) if r.get(k) not in (None, "") else None
+            rows.append(row)
     except (OSError, ValueError, KeyError):
         return []
     return rows

@@ -8,7 +8,8 @@
     TT_ALLOW_PROD_ORDERS=1 python run_day.py --traders test_a --env prod --mode submit --i-know-this-is-real-money
 
 ⚠ 本番の鍵は `ttclient.Client` の 3 段そのまま。⚠ **鍵を入れて起動するのは利用者**（CLAUDE.md の例外）。
-⚠ 記録は `out/<日付>/*.jsonl`（`Masker` 経由。口座番号・トークンは出ない）。状態は `state/<トレーダー>.json`。
+⚠ 記録は `out/<日付>/*.jsonl`（`Masker` 経由。口座番号・トークンは出ない）。状態は `state/<env>/<トレーダー>.json`。
+   ⚠ 2026-09-21 から、どちらも道はそのままで中身は DB（`livefs`。本物はリポジトリ直下の live.sqlite・シミュレーションは木の sim.sqlite）。
 ⚠ `--mode submit` 以外では状態を書き換えない。
 ⚠ **実売買とシミュレーションは排他**（live-trading.md §0-7 (a)）: 起動時に `MODE` を見て `run.lock` を取る。`MODE` が無ければ real ＝ 今までどおり。
    `--sim-clock`（仮の時計）は MODE が sim ＆ 接続先がループバックのモック ＆ prod でない ＆ 本番の鍵が無いときだけ受け付ける。
@@ -43,6 +44,7 @@ from journal import Journal  # noqa: E402
 import signals as signalling  # noqa: E402
 from execute import UNKNOWN, Executor, allocate_fills  # noqa: E402
 from state import load_state, save_state  # noqa: E402
+from _livefs import livefs  # noqa: E402
 from trader import load_traders  # noqa: E402
 
 ET = ZoneInfo("America/New_York")
@@ -105,11 +107,10 @@ def sim_clock_refusal(machine: modes.Mode, cfg: dict, env: str, args) -> str | N
 
 
 class DayRecorder:
-    """`out/<日付>/<種類>.jsonl` に 1 行ずつ。全行が Masker を通る。"""
+    """`out/<日付>/<種類>.jsonl` に 1 行ずつ（⚠ 道はそのまま・中身は DB の lines）。全行が Masker を通る。"""
 
     def __init__(self, out_dir: str, date: str, env: str, run_id: str, mock: bool, sim: bool = False):
         self.dir = os.path.join(out_dir, date)
-        os.makedirs(self.dir, exist_ok=True)
         self.date, self.env, self.run_id, self.mock, self.sim = date, env, run_id, mock, sim
         self.mask = record.Masker()
 
@@ -119,8 +120,7 @@ class DayRecorder:
             row.update(sim=True, test=True)   # シミュレーションの全行に sim・mock・test（§0-7 (a)）
         if self.mock:
             row["mock"] = True
-        with open(os.path.join(self.dir, f"{kind}.jsonl"), "a", encoding="utf-8") as f:
-            f.write(json.dumps(self.mask(row), ensure_ascii=False) + "\n")
+        livefs.append(os.path.join(self.dir, f"{kind}.jsonl"), json.dumps(self.mask(row), ensure_ascii=False))
 
 
 def make_client(cfg: dict, env: str, allow_prod_dry_run: bool, allow_prod_orders: bool, rec: DayRecorder, auth_retry_wait: float = 30.0) -> Client:

@@ -99,12 +99,12 @@ def good_run(run_id="20260908T140000Z", at="2026-09-08T14:00:00.000+00:00", mock
 
 
 def write_run(records_dir: Path, rows):
-    records_dir.mkdir(parents=True, exist_ok=True)
+    """API 検証の記録を 1 本置く（⚠ 2026-09-21 から DB ＝ `livefs`。道はいままでと同じ）。"""
+    import livefs
+
     head = rows[0]
     path = records_dir / f"{head['venue']}-{head['env']}-{head['run_id']}.jsonl"
-    with open(path, "w", encoding="utf-8") as f:
-        for r in rows:
-            f.write(json.dumps(r, ensure_ascii=False) + "\n")
+    livefs.append_many(path, [json.dumps(r, ensure_ascii=False) for r in rows])
     return path
 
 
@@ -171,3 +171,13 @@ def write_experiment(runs_dir: Path, run_id: str, *, config: dict, inputs: dict,
     if checks is not None:
         (d / "checks.json").write_text(json.dumps(checks, ensure_ascii=False), encoding="utf-8")
     return d
+
+
+@pytest.fixture(autouse=True)
+def _record_db(tmp_path):
+    """⚠ 記録は DB（2026-09-21。プラン db-model-facts.md §11）。テストの一時置き場に自分の DB を作る ＝ 本物の live.sqlite に書かない。"""
+    import livefs
+
+    livefs.init(tmp_path, "live")
+    yield
+    livefs.forget()

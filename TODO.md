@@ -195,7 +195,16 @@
       - [ ] 12:45〜13:05 `T1`〜`T3` を規模 A で本番投入（⚠ **利用者**。案 A のときは先に `test_a` の売り）
         期日: 12:45〜13:05
         関連: 「Phase 5-2: 3 人を予算どおりに本番投入（**利用者が行う**。複数モデルのトレーダーを足すならその後）」
+      - [ ] 06:45 新しい記録の作り（DB。2026-09-21 夜に替えた）を通しで確かめる（⚠ 1 つでも外れたら `git revert` で `acc5f9f` の作りに戻して、本番は今までの作りで行う）
+        期日: 06:45〜07:30
+        1. cert の `test_a` を往復（`test_signal.py buy` → `run_day.py --traders test_a --env cert --mode submit --ignore-window` → `test_signal.py exit` → もう 1 回）＝ 控え → 発注 → 約定 → 売買履歴 → 控えを閉じる が DB の上で通る
+        2. `livefs.py cat experiments/live-trading/out/<今日>/orders.jsonl`・`state/cert/test_a.json`・`state/cert/journal.jsonl` を読む ／ `reconcile.py --env cert show`（口座 − 売買履歴 ＝ 0・控えの未完 0）
+        3. `paper.py`（`daily.csv` が DB に入る）・管理画面（3012）の `/`・`/traders/test_a`・`/records`・`/judge`・`/ops` の履歴
+        4. 本番の dry-run: `./run-live.sh --traders T1,T2,T3 -- --env prod --allow-prod-dry-run`（予測が `predict-<時刻>.jsonl` に入り、執行器がそれを読む）
+        5. `livefs.py dump .` に秘密（client secret・refresh token・口座番号・`eyJ`）が無い
+        関連: [プラン §11](docs/plans/db-model-facts.md)・[live-trading.md §0-11](docs/specs/experiments/live-trading.md)
       - [ ] 13:05〜 確認（全注文の `final_status`・`reconcile.py --env prod show` で口座 − 売買履歴 ＝ 0・`events.jsonl`・管理画面・秘密の grep）→ 記録 §1 に 3 行
+        ⚠ 2026-09-21 夜から記録は DB: 読むのは `livefs.py cat <道>`、秘密の grep は `livefs.py dump . | grep`
         期日: 13:05
       - [ ] 引け後: timer ／ cron を入れる（⚠ **利用者**。水曜から無人）・`TODO.md` ／ `DONE.md` ／ `CLAUDE.md` の更新・このプランを archive へ
         期日: 2026-09-22
@@ -354,9 +363,20 @@
       `trend-gates` の計算を直す前の「見る株の組を変えた 2 つ」（42 検証・2026-09-12）／ `own-ridge` の期間や見る株を変えた形（1995 年から・48 本など）。載せるなら経緯の行を 1 つ足して `names` を書く（数は DB から出る）
   - [x] Phase 4: 「詳しく」の【実測】（較正の係数・門）を DB から差し込む
     ✅ 2026-09-21: `models.toml` の差し込み（`{{gate|…}}`・`{{calib|…}}`）32 か所・控えは DB の値と全部同じ（食い違い 0）。範囲・桁のそろわない並び・いくつもの実行にまたがる数字は人が写したまま。管理画面 222 本
-  - [~] Phase 5: 小さな置き場（`feature-discovery/out/`・`tastytrade-api-sample/out/`・`dashboard/data/`）
+  - [x] Phase 5: 小さな置き場（`feature-discovery/out/`・`tastytrade-api-sample/out/`・`dashboard/data/`）
     ✅ 2026-09-21: `feature-discovery/out/` を研究の DB の表 `outputs` へ（56 ファイル・一致 56 ／ 56・書き手 `cli/calibdiag.py`・`cli/crosscheck.py` を DB に）。[プラン §10](docs/plans/db-model-facts.md)
     - [x] `feature-discovery/out/` のファイルを消す（⚠ **利用者の了承のあと**。`python3 -m cli.db remove-out --i-verified`）→ 控えを取り直す（C ドライブの控えは `outputs` を入れる前のもの）
       ✅ 2026-09-21: 利用者の了承（「消す＋控え取り直し」）→ 消した 56 ／ 食い違い 0（`out/` ごと無くなった）→ 控え `/mnt/c/Users/akira/ai-income-lab-backup/research-2026-09-21-2.sqlite`（320.1 MB・sha256 一致・整合性 ok・実行 255 ／ 出力 56 ／ `ledger_rows` 2,147）。前の控え（`outputs` を入れる前）も残してある
-    - [ ] `tastytrade-api-sample/out/` と `dashboard/data/`（⚠ 実売買の本番投入が落ち着いてから。停止ボタンの `HALT` と管理画面の記録が同じ置き場。`HALT` は DB に入れない ＝ プラン §3）
-  - [ ] Phase 6: 実売買（`live.sqlite`）とシミュレーション（`sim.sqlite`）。⚠ 時期はプラン §4 の 4・本番で起動し直すのは利用者
+    - [x] `tastytrade-api-sample/out/` と `dashboard/data/`（⚠ 実売買の本番投入が落ち着いてから。停止ボタンの `HALT` と管理画面の記録が同じ置き場。`HALT` は DB に入れない ＝ プラン §3）
+      ✅ 2026-09-21 夜: 利用者の指示で前倒し（Phase 6 といっしょに `live.sqlite` へ。`HALT` はファイルのまま）
+  - [~] Phase 6: 実売買（`live.sqlite`）とシミュレーション（`sim.sqlite`）。⚠ 時期はプラン §4 の 4・本番で起動し直すのは利用者
+    ⚠ 2026-09-21 夜: 利用者の指示「本番投入前に進めて、明日テストするようにする」→ 前倒し。裁定 ＝ 実売買の DB は 1 つ ／ 範囲は全部（Phase 5 の残りも）／ 戻す点は `acc5f9f`。[プラン §11](docs/plans/db-model-facts.md)
+    - [x] `livefs.py`（道 → 近い DB）と執行器・紙上の対照・突き合わせ・シミュレーションの読み書き
+    - [x] API 検証の記録（`tastytrade-api-sample/out`）と管理画面の読み手・履歴（`dashboard/data`）
+    - [x] いまのファイルを取り込んで 1 ビットずつ突き合わせる（⚠ ファイルを消すのは利用者の了承のあと）
+      ✅ 2026-09-21 夜: 本物 93 ・作り置き 384 ＝ 一致 477 ／ 477。本物の DB はリポジトリ直下の `live.sqlite`
+    - [x] 回帰（執行器の pytest・`mockrun.sh`・`sim2`・`selftest.sh`・管理画面の pytest）
+      ✅ 2026-09-21 夜: 執行器 142 本・管理画面 222 本・mockrun・sim2（64 日 18 秒・差は注入した BAC だけ）・selftest・`run-live.sh --mode plan`（作業用の置き場）・本物の管理画面の全ページ 200。[プラン §11-1](docs/plans/db-model-facts.md)
+    - [ ] 明日の朝のテスト（下の「9/22（火）: 本番投入」の 06:45 の段。⚠ 1 つでも外れたら `acc5f9f` に戻して本番は今までの作りで）
+      期日: 2026-09-22 06:45
+    - [ ] いままでのファイル（`experiments/live-trading/out`・`state`・`experiments/tastytrade-api-sample/out`・`dashboard/data`・`sim-predict`）を消す（⚠ **本番投入が新しい作りで済んでから・利用者の了承のあと**。`livefs.py remove --i-verified <ディレクトリ>…`。それまでは `acc5f9f` に戻すときの足場）

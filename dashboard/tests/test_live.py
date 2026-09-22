@@ -12,6 +12,7 @@ from pathlib import Path
 from fastapi.testclient import TestClient
 
 from app import live as lv
+from app.livestore import livefs
 from app.main import create_app
 
 TRADER_TOML = """
@@ -46,10 +47,8 @@ name = "trade_ownex_lgbm_a"
 
 
 def _jsonl(path: Path, rows: list[dict]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("w", encoding="utf-8") as f:
-        for r in rows:
-            f.write(json.dumps(r, ensure_ascii=False) + "\n")
+    # ⚠ 執行器の記録は DB（livefs。道はそのまま）
+    livefs.append_many(path, [json.dumps(r, ensure_ascii=False) for r in rows])
 
 
 def build_live_dir(live: Path, *, with_real: bool = False) -> Path:
@@ -57,11 +56,10 @@ def build_live_dir(live: Path, *, with_real: bool = False) -> Path:
     (live / "config" / "traders" / "test_a.toml").write_text(TRADER_TOML, encoding="utf-8")
     if with_real:
         (live / "config" / "traders" / "T1.toml").write_text(REAL_TOML, encoding="utf-8")
-    (live / "state" / "prod").mkdir(parents=True)
-    (live / "state" / "prod" / "test_a.json").write_text(json.dumps({
+    livefs.write_doc(live / "state" / "prod" / "test_a.json", json.dumps({
         "name": "test_a", "holdings": {"T": {"shares": 1, "avg_price": 25.5, "opened": "2026-09-18"}},
         "realized_usd": 0.0, "fees_usd": 0.0, "pending_settlement": [], "last_date": "2026-09-18",
-        "history": [{"date": "2026-09-18", "symbol": "T", "side": "buy", "shares": 1, "price": 25.5}]}), encoding="utf-8")
+        "history": [{"date": "2026-09-18", "symbol": "T", "side": "buy", "shares": 1, "price": 25.5}]}))
     base = {"date": "2026-09-18", "env": "prod", "run_id": "20260918T195500Z"}
     _jsonl(live / "out" / "2026-09-18" / "events.jsonl", [
         {**base, "kind": "start", "mode": "submit", "traders": ["test_a"], "test": True},
@@ -247,9 +245,8 @@ def test_new_executor_events_count_as_problems(settings):
     """2026-09-19: 含み損の警告（執行器は止めない ＝ 人が気づけるように画面の「問題」に出す）・起動の拒否・台帳に入れられなかった約定。"""
     live = build_live_dir(settings.live_dir)
     path = live / "out" / "2026-09-18" / "events.jsonl"
-    with path.open("a", encoding="utf-8") as f:
-        for kind in ("drawdown_warning", "refused_mode_sim", "refused_lock_busy", "ledger_error", "journal_recovered", "journal_unresolved", "position_short"):
-            f.write(json.dumps({"date": "2026-09-18", "env": "prod", "kind": kind, "trader": "test_a"}) + "\n")
+    for kind in ("drawdown_warning", "refused_mode_sim", "refused_lock_busy", "ledger_error", "journal_recovered", "journal_unresolved", "position_short"):
+        livefs.append(path, json.dumps({"date": "2026-09-18", "env": "prod", "kind": kind, "trader": "test_a"}))
     kinds = [e["kind"] for e in lv.day(live, "2026-09-18")["problems"]]
     assert {"drawdown_warning", "refused_mode_sim", "refused_lock_busy", "ledger_error", "journal_recovered", "journal_unresolved", "position_short"} <= set(kinds)
 
@@ -264,7 +261,7 @@ def test_real_paper_control_replaces_the_placeholder_when_daily_csv_exists(setti
             "real_usd", "real_bp", "real_cum_bp", "diff3_bp", "diff3_cum_bp", "bh_bp", "bh_cum_bp", "orders", "filled", "not_filled", "unexecuted",
             "diff1_quote_to_fill_bp", "diff1_fill_to_close_bp", "diff2_half_spread_bp", "diff2_fees_usd", "diff4_events", "close_missing", "close_source"]
     vals = [d, "test_a", "True", 30.0, 1, 1, 1, 1, -2.5, -2.5, -0.01, -3.33, -3.33, 0.83, 0.83, -2.5, -2.5, 1, 1, 0, 0, 7.87, "", 9.84, 0.0, 0, 0, "bars"]
-    path.write_text(",".join(cols) + "\n" + ",".join(str(v) for v in vals) + "\n", encoding="utf-8")
+    livefs.write_doc(path, ",".join(cols) + "\n" + ",".join(str(v) for v in vals) + "\n")
     b = lv.board(settings.live_dir)
     t = next(x for x in b["traders"] if x["name"] == "test_a")
     assert t["paper_real"] and not b["placeholder"]["paper"]
@@ -275,5 +272,5 @@ def test_real_paper_control_replaces_the_placeholder_when_daily_csv_exists(setti
         assert '仮データ</span></div><div class="s">' not in page                 # 差 3 のタイルは本物
         api = c.get("/api/live").json()
         assert api["daily"][0]["paper_cum_bp"] == -2.5 and api["daily"][0]["trader"] == "test_a"
-    path.write_text("こわれた,ファイル\n1,2\n", encoding="utf-8")
+    livefs.write_doc(path, "こわれた,ファイル\n1,2\n")
     assert lv.board(settings.live_dir)["placeholder"]["paper"]                   # 読めなければ仮に戻る（落ちない）

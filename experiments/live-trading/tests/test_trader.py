@@ -102,7 +102,8 @@ def test_experiment_rows_of_another_day_or_method_are_not_used(tmp_path):
     p = tmp_path / "predict.jsonl"
     rows = [{"date": "2026-09-18", "model": "m", "method": "A", "symbol": "T", "buy": 60, "exit": 40},
             {"date": "2026-09-21", "model": "m", "method": "A", "symbol": "VZ", "buy": 55, "exit": 45}]
-    p.write_text("\n".join(json.dumps(r, ensure_ascii=False) for r in rows) + "\n", encoding="utf-8")
+    import livefs
+    livefs.append_many(p, [json.dumps(r, ensure_ascii=False) for r in rows])      # ⚠ 予測も DB（livefs）
     spec = ModelSpec(kind="experiment", name="m", method="A")
     assert model_outputs(spec, ("T", "VZ"), "2026-09-21", str(p)) == {"VZ": (55.0, 45.0)}     # 古い日の行では売買しない
     with pytest.raises(SignalError):

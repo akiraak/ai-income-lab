@@ -4,7 +4,7 @@
     submitted  発注の後: 相手側の注文番号
     done       その人の台帳を保存した後（約定なし・エラー・人が閉じた、も done）
 
-`state/<env>/journal.jsonl` に 1 行ずつ足すだけ（書き換えない）。⚠ `--mode submit` のときだけ書く。
+`state/<env>/journal.jsonl` に 1 行ずつ足すだけ（書き換えない。⚠ 2026-09-21 から DB の lines ＝ `livefs`。道はそのまま鍵）。⚠ `--mode submit` のときだけ書く。
 起動時に done の無い intent があれば、その注文は「口座では約定したかもしれないのに台帳に入っていない」＝ `recovery.py` が照会して戻す。
 1 注文 1 トレーダー（2026-09-19）なので、誰の台帳に入れるかは控えで確実に分かる。⚠ 差を推測で割り振らない。
 """
@@ -14,6 +14,8 @@ from __future__ import annotations
 import json
 import os
 from datetime import datetime, timezone
+
+from _livefs import livefs
 
 NAME = "journal.jsonl"
 
@@ -26,11 +28,8 @@ class Journal:
         self._open: set[str] = set()
 
     def _append(self, row: dict) -> None:
-        os.makedirs(os.path.dirname(self.path), exist_ok=True)
-        with open(self.path, "a", encoding="utf-8") as f:
-            f.write(json.dumps({**row, "at": self.now().isoformat(timespec="seconds")}, ensure_ascii=False) + "\n")
-            f.flush()
-            os.fsync(f.fileno())   # ⚠ 発注より先にディスクへ（落ちた後に読むための記録）
+        # ⚠ 発注より先にディスクへ（落ちた後に読むための記録）＝ DB の 1 トランザクション（synchronous=FULL で書き終えてから戻る）
+        livefs.append(self.path, json.dumps({**row, "at": self.now().isoformat(timespec="seconds")}, ensure_ascii=False))
 
     def intent(self, ext: str, order, fee_usd: float = 0.0) -> None:
         part = order.parts[0]
@@ -52,23 +51,20 @@ class Journal:
 
     def unfinished(self) -> list[dict]:
         """done の無い intent（古い順）。submitted があれば order_id が付く。"""
-        if not os.path.exists(self.path):
-            return []
         entries: dict[str, dict] = {}
-        with open(self.path, encoding="utf-8") as f:
-            for line in f:
-                line = line.strip()
-                if not line:
-                    continue
-                try:
-                    row = json.loads(line)
-                except ValueError:
-                    continue            # 書いている途中で落ちた最後の行
-                ext = row.get("ext")
-                if row.get("op") == "intent":
-                    entries[ext] = dict(row)
-                elif row.get("op") == "submitted" and ext in entries:
-                    entries[ext]["order_id"] = row.get("order_id")
-                elif row.get("op") == "done":
-                    entries.pop(ext, None)
+        for line in livefs.read_lines(self.path):
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                row = json.loads(line)
+            except ValueError:
+                continue                # 書いている途中で落ちた最後の行（ファイルの頃に取り込んだもの）
+            ext = row.get("ext")
+            if row.get("op") == "intent":
+                entries[ext] = dict(row)
+            elif row.get("op") == "submitted" and ext in entries:
+                entries[ext]["order_id"] = row.get("order_id")
+            elif row.get("op") == "done":
+                entries.pop(ext, None)
         return list(entries.values())

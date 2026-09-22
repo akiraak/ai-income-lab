@@ -50,17 +50,22 @@ export TT_PROD_CLIENT_SECRET="SELFTEST-PROD-SECRET"
 export TT_PROD_REFRESH_TOKEN="SELFTEST-PROD-REFRESH"
 # 停止フラグは手元の out/HALT ではなく作業用の場所を見る（本物の停止中でも自己検査は回せる）
 export TT_HALT_FILE="$WORK/HALT"
+# ⚠ 記録は DB（2026-09-21）。自己検査の記録は作業用の置き場と、そこの DB に入れる（本物の live.sqlite を汚さない）
+export TT_OUT_DIR="$WORK/out"
+$PY livefs.py init "$WORK" demo > /dev/null
+records() { $PY livefs.py ls "$WORK/out" 2>/dev/null | grep -E "${1:-}.*\.jsonl$" | sort -t- -k3; }
 
 note "3. 6 手順を通す"
-OUT_BEFORE=$(ls out/*.jsonl 2>/dev/null | wc -l)
+OUT_BEFORE=$(records | wc -l)
 $PY sample.py --step all --seconds 8 || fail "sample.py --step all"
-LATEST=$(ls -t out/*.jsonl | head -1)
-[ "$(ls out/*.jsonl | wc -l)" -gt "$OUT_BEFORE" ] || fail "記録ファイルが増えていない"
+LATEST="$WORK/out/$(records | tail -1)"
+[ "$(records | wc -l)" -gt "$OUT_BEFORE" ] || fail "記録が増えていない"
 
 note "4. 記録の中身"
 $PY - "$LATEST" <<'EOF' || FAIL=1
 import json, sys
-rows = [json.loads(l) for l in open(sys.argv[1], encoding="utf-8")]
+import livefs
+rows = [json.loads(l) for l in livefs.read_lines(sys.argv[1])]
 by_step = {r["step"]: r for r in rows}
 want = {1: "authenticated", 2: "ok", 4: "final_Cancelled", 5: "buy_Filled/sell_Filled"}
 bad = False
@@ -81,7 +86,7 @@ EOF
 
 note "5. 秘密が記録に出ていないか"
 for secret in SELFTEST-CLIENT-SECRET SELFTEST-REFRESH-TOKEN SELFTEST-PROD-SECRET SELFTEST-PROD-REFRESH 5WT00042 eyJ; do
-  hits=$(grep -c -- "$secret" "$LATEST" || true)
+  hits=$($PY livefs.py dump "$WORK" | grep -c -- "$secret" || true)
   if [ "$hits" = "0" ]; then echo "  ok   $secret は出ていない"; else fail "$secret が $hits 行に出ている"; fi
 done
 
@@ -112,10 +117,11 @@ esac
 note "6b. dryrun2（注文種別・端株の dry-run）がモックで全行を通すか"
 # ⚠ 配線だけ。モックは Notional Market も小数の数量も建玉なしの売りも受ける ＝ 本物の可否は本番の dry-run でしか分からない
 $PY sample.py --step dryrun2 --allow-prod-dry-run > "$WORK/dryrun2.log" 2>&1 || fail "sample.py --step dryrun2"
-DRY2=$(ls -t out/tastytrade-prod-*.jsonl 2>/dev/null | head -1)
-$PY - "${DRY2:-/nonexistent}" <<'EOF' || FAIL=1
+DRY2="$WORK/out/$(records '^tastytrade-prod-' | tail -1)"
+$PY - "$DRY2" <<'EOF' || FAIL=1
 import json, sys
-rows = [json.loads(l) for l in open(sys.argv[1], encoding="utf-8")]
+import livefs
+rows = [json.loads(l) for l in livefs.read_lines(sys.argv[1])]
 row = next((r for r in rows if r.get("step") == 10), None)
 cases = (row or {}).get("detail", {}).get("cases", [])
 keys = [c["key"] for c in cases]

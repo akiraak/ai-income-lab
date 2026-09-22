@@ -19,6 +19,7 @@ import os
 
 import pandas as pd
 
+from ail import runs
 from ail.data import store
 from ail.data.sources import iem, nws
 import ail.bootstrap  # noqa: F401
@@ -62,7 +63,8 @@ def main() -> None:
     ap.add_argument("--day", required=True,
                     help="UTC の日（YYYY-MM-DD）。⚠ 配信側は 3 日前から取るので、4 日以内の日が確実"
                          "（API は 7〜14 日で消える）")
-    ap.add_argument("--out", default=os.path.join(store.ROOT, "out"))
+    ap.add_argument("--out", default=None,
+                    help="⚠ 省けば DB の outputs に入れる（2026-09-21 から。道 crosscheck_<日>.json）。置き場を書けばファイルの写しも作る")
     args = ap.parse_args()
 
     doc = compare(args.day)
@@ -74,11 +76,14 @@ def main() -> None:
     if doc["違う"]:
         print("⚠ **不一致がある。** ⚠ API は 7〜14 日で消えるので、"
               "⚠ **配信 < 保管庫 なら「消えかけ」、配信 > 保管庫 なら「保管庫の遅れ」を疑う**")
-    os.makedirs(args.out, exist_ok=True)
-    path = os.path.join(args.out, f"crosscheck_{args.day}.json")
-    with open(path, "w", encoding="utf-8") as f:
-        json.dump(doc, f, ensure_ascii=False, indent=2)
-    print(f"→ {os.path.relpath(path, store.ROOT)}")
+    text = json.dumps(doc, ensure_ascii=False, indent=2)
+    print(f"→ {runs.put_output(f'crosscheck_{args.day}.json', text)}")
+    if args.out:
+        os.makedirs(args.out, exist_ok=True)
+        path = os.path.join(args.out, f"crosscheck_{args.day}.json")
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(text)
+        print(f"   写し {path}")
 
 
 if __name__ == "__main__":

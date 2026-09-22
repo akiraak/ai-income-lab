@@ -1,4 +1,17 @@
 # DONE
+- 2026-09-21 DB: 予測モデル名の綴りを確定し、研究の記録を DB だけにし、予測モデルのタブの試した経緯の数と「詳しく」の門・較正の係数を DB から出すようにした（Phase 1〜4）[plan](docs/plans/db-model-facts.md)
+  - 利用者の返事 4 つ: 綴り ＝ 学習範囲を単語に（`a` ／ `b` → `shared` ／ `each`）／ 控え ＝ C ドライブ ＋ Sx360 ／ 実行ディレクトリ ＝ 消す（sidecar の入れ直しも Claude が）／ `ledger_rows` ＝ 書いてよい
+  - Phase 1: `config/names.toml` の 2 行・rules.md 10-2・CLAUDE.md。1 対 1 は変わらない（検証名 1,155 ／ 予測モデル名 591）
+  - Phase 2 の仕上げ: 控え `/mnt/c/Users/akira/ai-income-lab-backup/research-2026-09-21.sqlite`（316.7 MB・整合性 ok・sha256 一致。⚠ Dropbox・OneDrive の下は避けた）→ sidecar（3015）を 3016 で確かめてから入れ替え（実行タブ ＝「実行 140 件」）→ `cli.db remove-dirs` で実行ディレクトリ 255 と `runs/queue/` を消した（食い違い 0・`runs/` 2.5 GB → 303 MB）。消した後の DB だけの検証結果一覧はコミット済みの `ledger.md` と 1 文字も違わない・`n_trials` 667・研究側 497 本 ／ 管理画面 218 本【実測】
+  - Phase 3: 検証結果一覧を吐き直すたびに同じ行と判定を DB の `ledger_rows` へ（`cli/ledger.py` の `store`・`ail/rundb.py`。記録ではなく生成物）。`modelview.py` が読み取り専用で引き、`models.toml` の経緯 24 行に `names`（予測モデル名のパターン）。**人が写した 24 行の数は DB と全部同じ**（食い違い 0）。DB の無い機械では人が写した数。dashboard.md §17-3・rules.md 10 章の規約 8。テスト 研究側 499 本 ／ 管理画面 220 本
+  - 見つけたこと（数の誤りではない）: 経緯の表に載っていない試しがある（`trend-gates` の直す前の 42 検証・`own-ridge` の期間や見る株を変えた形）→ 載せるかは利用者（TODO）
+  - Phase 4: `models.toml` の「詳しく」に差し込み（`{{gate|…}}` ＝ `checks.json` の門・`{{calib|…}}` ＝ `fitted/calibration_f*.json` の a ／ b）を 32 か所。DB の値は点線の下線で出し、指すと出どころの実行の識別名。DB の無い機械では控え。**控え 32 か所は DB の値と全部同じ**（食い違い 0）。管理画面 222 本
+  - Phase 5 の一部: `feature-discovery/out/`（診断・突き合わせの出力 56 ファイル）を研究の DB の表 `outputs` へ（道は `out/` からの相対のまま・書き換えも削除も拒む・実行ではない）。一致 56 ／ 56。書き手 `cli/calibdiag.py`・`cli/crosscheck.py` を DB に。`cli.db import-out ／ verify-out ／ remove-out ／ export-out`
+  - 利用者の了承のあと `out/` のファイルを消した（56 ／ 食い違い 0）→ 控えを取り直した（`research-2026-09-21-2.sqlite`・320.1 MB・sha256 一致）。研究側 501 本
+  - 控えを Sx360 にも写した（利用者が scp。利用者の報告）
+  - 残り: Phase 5 の残り（`tastytrade-api-sample/out/`・`dashboard/data/`）と Phase 6（実売買の本番投入が落ち着いてから）
+- 2026-09-21 名前の付け方（英語名）をそろえるか決めた → 予測モデル名の命名規則（rules.md 10-2）で決着
+  - 2026-09-20 の案（種類.系統.変種 の階層スラッグ）ではなく、検証結果一覧の識別項目から機械で作る 3 段（型 ／ 予測モデル名 ／ 検証名）にした（利用者の裁定「予測モデルの命名規則を作らないと解説に使えない」でプラン db-model-facts.md の Phase 1 に）。綴りは同日の利用者の裁定で確定（学習範囲 `shared` ／ `each`）。既存の名前は 1 つも変えていない
 - 2026-09-21 予測モデルの解説と DB での永続化をいっしょに進めた（Phase 0〜2。ディレクトリを消すのと Phase 3 以降は残り）[plan](docs/plans/db-model-facts.md)
   - 利用者の指示「予測モデルの解説と DB での永続化を同時にやった方が良い」→ 裁定 ＝ 入力データ以外を DB に ／ 2 か所に置かない（DB に入れたらファイルは削除）／ SQLite ／ 命名規則が先。§3 の線引きと §4 の 5 点も了承（「1 実行 1 記録」への書き換え・消す前の一致の確かめ・控え・実売買は 20 営業日のあと・DB ファイルは 3 つ）
   - Phase 1 命名規則: `ail/names.py`・`config/names.toml`・rules.md 10-2。予測モデル名 ＝ 検証結果一覧の識別項目から θ を除いたもの（`<入力データ>.<数字の選び方・作り方>.<学習器>.<学習範囲>[~…][@θ]`）。検証結果一覧 1,155 行 ＝ 検証名 1,155 ／ 予測モデル名 591 で 1 対 1【実測】。⚠ 綴りは利用者の裁定待ち

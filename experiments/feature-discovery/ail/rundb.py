@@ -4,6 +4,10 @@
       runs         実行 1 本 1 行（名前 ＝ いままでのディレクトリ名 `<時刻>_<実験名>`）
       files        実行の中のファイル 1 つ 1 行（`summary.csv`・`fitted/calibration_f1.json` …）。中身はそのまま
       queue_state  `cli.queue` の再開の状態（1 キュー 1 行。これだけは書き換える）
+      outputs      診断・突き合わせの出力（いままでの `out/` のファイル 1 つ 1 行。道は `out/` からの相対のまま。
+                   ⚠ 実行ではない ＝ 検証結果一覧・実行タブには出ない。書き換えない・消さない。2026-09-21）
+      ledger_rows  検証結果一覧の行と判定（⚠ **記録ではなく生成物**。`ledger.md` と同じもので、吐き直すたびにまるごと
+                   入れ直す。標準ライブラリだけの読み手 ＝ vibeboard の予測モデルのタブが、判定を pandas なしで引くため）
 
   - ⚠ **中身は元のバイト列のまま入れる**（JSON は文字列のまま ＝ `json_extract` で引ける。ほかは zlib で縮めるだけ）。
     ⚠ `sha256` は元のバイト列の指紋 ＝ 取り込んだファイルと 1 ビットも違わないことを確かめる鍵
@@ -48,6 +52,31 @@ CREATE TABLE IF NOT EXISTS files (
   PRIMARY KEY (run, path)
 );
 CREATE TABLE IF NOT EXISTS queue_state (name TEXT PRIMARY KEY, doc TEXT NOT NULL, updated_at TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS outputs (
+  path        TEXT PRIMARY KEY,          -- `out/` からの道（`diag/<時刻>_<名前>/folds.csv`・`crosscheck_<日>.json` …）
+  size        INTEGER NOT NULL,          -- 元のバイト数
+  sha256      TEXT NOT NULL,             -- 元のバイト列の指紋
+  codec       TEXT NOT NULL,             -- 'text' ／ 'zlib'（files と同じ）
+  body        BLOB NOT NULL,
+  created_at  TEXT NOT NULL
+);
+CREATE TRIGGER IF NOT EXISTS outputs_frozen_update BEFORE UPDATE ON outputs
+  BEGIN SELECT RAISE(ABORT, '診断の出力は書き換えない（rules.md 10 章）'); END;
+CREATE TRIGGER IF NOT EXISTS outputs_frozen_delete BEFORE DELETE ON outputs
+  BEGIN SELECT RAISE(ABORT, '診断の出力は消さない（rules.md 10 章）'); END;
+CREATE TABLE IF NOT EXISTS ledger_rows (
+  leak        INTEGER NOT NULL,          -- 1 ＝ leak 対照の行
+  trial_name  TEXT NOT NULL,             -- 検証名（rules.md 10-2。識別項目の 12 列の別名）
+  model_name  TEXT NOT NULL,             -- 予測モデル名（θ を除いた 11 列の別名）
+  is_trial    INTEGER NOT NULL,          -- 1 ＝ n_trials に数える行（catalog.is_trial）
+  verdict     TEXT NOT NULL,             -- 判定（採る ／ 保留 ／ 落とす ／ 基準 …）
+  closed      INTEGER NOT NULL,          -- 1 ＝ 「閉じる」注記のある行
+  first_run   TEXT,                      -- 実行一覧のいちばん古い日（YYYY-MM-DD。時刻で始まらない実行は数えない）
+  last_run    TEXT,
+  runs        TEXT NOT NULL,             -- 実行一覧（JSON）
+  doc         TEXT NOT NULL,             -- 検証結果一覧の行まるごと（JSON。NaN は null）
+  PRIMARY KEY (leak, trial_name)
+);
 CREATE TRIGGER IF NOT EXISTS files_frozen_update BEFORE UPDATE ON files
   WHEN (SELECT closed_at FROM runs WHERE name = OLD.run) IS NOT NULL
   BEGIN SELECT RAISE(ABORT, '閉じた実行のファイルは書き換えない（rules.md 10 章）'); END;
@@ -250,6 +279,89 @@ def save_queue(conn: sqlite3.Connection, name: str, doc: dict) -> None:
     conn.execute("INSERT INTO queue_state VALUES (?, ?, ?) ON CONFLICT (name) DO UPDATE SET doc = excluded.doc,"
                  " updated_at = excluded.updated_at", (name, json.dumps(doc, ensure_ascii=False, indent=2), now()))
     conn.commit()
+
+
+# --- 診断・突き合わせの出力（いままでの out/。書き換えない）-----------
+
+def put_output(conn: sqlite3.Connection, path: str, data: bytes) -> None:
+    """診断の出力を 1 つ入れる。⚠ 同じ道がもうあれば止める（上書きしない。名前に時刻か日付を入れる）。"""
+    if conn.execute("SELECT 1 FROM outputs WHERE path = ?", (path,)).fetchone():
+        raise SystemExit(f"⚠ 出力 {path} はもう DB にある（上書きしない。rules.md 10 章）")
+    codec, body = encode(path, data)
+    with conn:
+        conn.execute("INSERT INTO outputs (path, size, sha256, codec, body, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+                     (path, len(data), sha256(data), codec, body, now()))
+
+
+def get_output(conn: sqlite3.Connection | None, path: str) -> bytes | None:
+    if conn is None:
+        return None
+    row = conn.execute("SELECT codec, body FROM outputs WHERE path = ?", (path,)).fetchone()
+    return None if row is None else decode(*row)
+
+
+def list_outputs(conn: sqlite3.Connection | None, prefix: str = "") -> list[str]:
+    if conn is None:
+        return []
+    return [p for (p,) in conn.execute("SELECT path FROM outputs WHERE substr(path, 1, ?) = ? ORDER BY path",
+                                       (len(prefix), prefix))]
+
+
+def ingest_outputs(conn: sqlite3.Connection, root: str) -> tuple[int, int]:
+    """⚠ いままでの `out/` を取り込む（1 つのトランザクション）。(入れた数, もう同じ中身が入っていた数)。
+    ⚠ 同じ道に違う中身が入っていれば止める（何も入れない）。"""
+    added = same = 0
+    with conn:
+        for rel in _walk(root):
+            with open(os.path.join(root, rel), "rb") as f:
+                data = f.read()
+            row = conn.execute("SELECT sha256 FROM outputs WHERE path = ?", (rel,)).fetchone()
+            if row is not None:
+                if row[0] != sha256(data):
+                    raise SystemExit(f"⚠ 出力 {rel} は DB に違う中身で入っている（取り込み直さない）")
+                same += 1
+                continue
+            codec, body = encode(rel, data)
+            conn.execute("INSERT INTO outputs (path, size, sha256, codec, body, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+                         (rel, len(data), sha256(data), codec, body, now()))
+            added += 1
+    return added, same
+
+
+def verify_outputs(conn: sqlite3.Connection, root: str) -> tuple[list[str], list[str]]:
+    """`out/` のファイルと DB を突き合わせる。(一致した道, 食い違いの一覧)。⚠ DB から取り出したバイト列の指紋で比べる。"""
+    ok, bad = [], []
+    for rel in _walk(root):
+        with open(os.path.join(root, rel), "rb") as f:
+            want = sha256(f.read())
+        got = get_output(conn, rel)
+        if got is None:
+            bad.append(f"DB に無い: {rel}")
+        elif sha256(got) != want:
+            bad.append(f"中身が違う: {rel}")
+        else:
+            ok.append(rel)
+    return ok, bad
+
+
+# --- 検証結果一覧（生成物。まるごと入れ直す）--------------------------
+
+LEDGER_COLUMNS = ("leak", "trial_name", "model_name", "is_trial", "verdict", "closed",
+                  "first_run", "last_run", "runs", "doc")
+
+
+def write_ledger(conn: sqlite3.Connection, items: list[dict], meta: dict[str, str]) -> None:
+    """⚠ **検証結果一覧の行をまるごと入れ直す**（1 つのトランザクション。途中で落ちたら前のまま）。
+
+    ⚠ 記録ではなく `ledger.md` と同じ生成物なので、書き換えてよい（判定の規則は `catalog.py` の 1 か所のまま）。
+    """
+    cols = ", ".join(LEDGER_COLUMNS)
+    marks = ", ".join(":" + c for c in LEDGER_COLUMNS)
+    with conn:
+        conn.execute("DELETE FROM ledger_rows")
+        conn.executemany(f"INSERT INTO ledger_rows ({cols}) VALUES ({marks})", items)
+        conn.executemany("INSERT INTO meta VALUES (?, ?) ON CONFLICT (key) DO UPDATE SET value = excluded.value",
+                         list(meta.items()))
 
 
 # --- 落ちた実行 --------------------------------------------------------

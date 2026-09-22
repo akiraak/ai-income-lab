@@ -159,3 +159,57 @@ def test_db_cli_imports_verifies_and_removes_only_matching_dirs(db, capsys):
     assert "整合性 ok" in capsys.readouterr().out
     with pytest.raises(SystemExit, match="上書きしない"):
         dbcli.main(["backup", "--to", str(backup)])
+
+
+# ---------------------------------------------------------------- 診断・突き合わせの出力（いままでの out/。2026-09-21）
+
+def test_outputs_are_kept_as_is_and_frozen(db):
+    """⚠ **出力は元のバイト列のまま・同じ道には入れ直さない・書き換えも削除もできない**（1 記録 1 回）。"""
+    conn = rundb.connect(runs.db_path())
+    assert runs.put_output("diag/2026-01-01T00-00-00_x/folds.csv", "fold,a\n1,0.5\n") == \
+        "DB の outputs/diag/2026-01-01T00-00-00_x/folds.csv"
+    rundb.put_output(conn, "crosscheck_2026-01-01.json", '{"同じ": 1}'.encode())
+    assert rundb.get_output(conn, "diag/2026-01-01T00-00-00_x/folds.csv") == b"fold,a\n1,0.5\n"
+    assert rundb.list_outputs(conn, "diag/") == ["diag/2026-01-01T00-00-00_x/folds.csv"]
+    assert conn.execute("SELECT json_extract(body, '$.同じ') FROM outputs WHERE path LIKE 'crosscheck%'").fetchone()[0] == 1
+    with pytest.raises(SystemExit, match="もう DB にある"):
+        runs.put_output("diag/2026-01-01T00-00-00_x/folds.csv", "x")
+    with pytest.raises(sqlite3.DatabaseError, match="書き換えない"):
+        conn.execute("UPDATE outputs SET size = 0")
+    conn.rollback()
+    with pytest.raises(sqlite3.DatabaseError, match="消さない"):
+        conn.execute("DELETE FROM outputs")
+    conn.rollback()
+
+
+def test_out_dir_import_verify_remove_and_export(db, monkeypatch):
+    """`out/` を取り込み → 突き合わせ → 一致したファイルだけ消す（食い違ったものは残す）→ 書き戻すと 1 ビットも違わない。"""
+    from cli import db as cli_db
+
+    out = db / "out"
+    files = {"crosscheck_2026-09-08.json": '{"a": 1}\n'.encode(), "diag/t_curve/auc_width.csv": b"auc,w\n0.5,1\n",
+             "gan_ownex/queue.log": b"\xe3\x81\x82\n", "gan_ownex/nohup.out": bytes(range(256))}
+    for rel, data in files.items():
+        (out / rel).parent.mkdir(parents=True, exist_ok=True)
+        (out / rel).write_bytes(data)
+    monkeypatch.setattr(runs, "OUT", str(out))
+    assert cli_db.main(["import-out"]) == 0
+    assert cli_db.main(["import-out"]) == 0                  # 2 回目は「もう同じ中身」だけ（増えない）
+    conn = rundb.connect(runs.db_path())
+    assert conn.execute("SELECT count(*) FROM outputs").fetchone()[0] == 4
+    assert cli_db.main(["verify-out"]) == 0
+
+    (out / "gan_ownex/queue.log").write_bytes(b"changed")    # ディスクの側が変わった ＝ 食い違い
+    assert cli_db.main(["verify-out"]) == 1
+    with pytest.raises(SystemExit, match="違う中身"):
+        cli_db.main(["import-out"])
+    with pytest.raises(SystemExit, match="i-verified"):
+        cli_db.main(["remove-out"])
+    assert cli_db.main(["remove-out", "--i-verified"]) == 1   # 食い違ったものは残す
+    assert sorted(p.relative_to(out).as_posix() for p in out.rglob("*") if p.is_file()) == ["gan_ownex/queue.log"]
+    assert not (out / "diag").exists()                        # 空になったディレクトリも消える
+
+    back = db / "back"
+    assert cli_db.main(["export-out", "--to", str(back)]) == 0
+    for rel, data in files.items():
+        assert (back / rel).read_bytes() == data

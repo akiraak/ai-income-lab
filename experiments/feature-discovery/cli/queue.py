@@ -145,11 +145,14 @@ def parse_run_dir(stdout: str) -> str | None:
 def _write_ledger() -> int | None:
     """台帳を吐き直して `n_trials` を返す。⚠ **数字は作らない**（`ail/catalog.py` が正本）。"""
     from cli import ledger
+    from ail import catalog
     from ail.validation import checks
 
-    text = ledger.build()
+    d = catalog.ledger()
+    text = ledger.build(d)
     with open(LEDGER, "w", encoding="utf-8") as f:
         f.write(text)
+    ledger.store(d)                      # ⚠ 同じ行と判定を DB の ledger_rows にも（ledger.md と同じ生成物）
     return checks.n_trials_now()
 
 

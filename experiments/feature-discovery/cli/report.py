@@ -111,8 +111,12 @@ def main() -> None:
     args = ap.parse_args()
 
     if args.catalog:
+        from ail import catalog
         from cli import ledger
-        print(ledger.build(), end="")
+        d = catalog.ledger()
+        text = ledger.build(d)
+        ledger.store(d)                  # ⚠ 同じ行と判定を DB の ledger_rows にも（ledger.md と同じ生成物）
+        print(text, end="")
         return
 
     if args.recheck:

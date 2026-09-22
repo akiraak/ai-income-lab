@@ -6,8 +6,10 @@
 """
 
 import builtins
+import dataclasses
 import json
 import re
+import sqlite3
 import threading
 import tomllib
 
@@ -145,6 +147,11 @@ score_link = "出力スコアの使われ方"
 history_title = "試した経緯"
 history_old = "計算を直す前"
 history_note = "経緯の注"
+history_source_db = "記録から数えた"
+history_source_hand = "人が写した"
+history_hand = "写した数"
+detail_db_note = "点線は記録から"
+detail_hand_note = "囲みは控え"
 
 [[model]]
 id = "desk-one"
@@ -177,7 +184,7 @@ walk = { lead = "例の前書き", steps = [{ t = "段 1", text = "一段目" },
 score = { items = [{ text = "癖 1", why = "癖の理由", basis = "trial" }, { text = "癖 2" }], read = ["読み方 1"] }
 history = [
   { when = "2026-09-01", what = "古い試し", hold = 1, drop = 2, old = true },
-  { when = "2026-09-12", what = "直した試し", hold = 1, drop = 2, note = "経緯の理由" },
+  { when = "2026-09-12", what = "直した試し", hold = 1, drop = 2, note = "経緯の理由", names = ["own.fixed.*"] },
   { when = "2026-09-19", what = "別の決まり", adopt = 1, aside = "ちがう決まり" },
 ]
 
@@ -189,7 +196,7 @@ points = ["alpha = 1.0"]
 links = [{ label = "記録へ", doc = "docs/specs/experiments/x.md" }]
 
 [model.detail.score]
-text = ["Platt の a"]
+text = ["Platt の a {{calib|2026-01-01T00-00-00_x|方式 <A>|a|+2|＋1.00 ／ −2.00}}・門 {{gate|2026-01-01T00-00-00_x|方式 <A>|auc|3|0.500}}"]
 
 [model.detail.result]
 text = ["台帳の鍵"]
@@ -377,3 +384,152 @@ def test_http_routes(server):
 def test_fingerprint_sees_words_and_trader_config(paths):
     fp = modelview.fingerprint(paths)
     assert str(paths.models) in fp and any(k.endswith("TA.toml") for k in fp)
+
+
+# ---------------------------------------------------------------- 試した経緯の数を研究の DB から（2026-09-21）
+
+REAL_DB = REPO_ROOT / "experiments" / "feature-discovery" / "runs" / "research.sqlite"
+
+
+def _ledger_db(path, rows, built_at="2026-09-21T10-00-00"):
+    """実験側 `ail/rundb.py` の `ledger_rows` と同じ形の小さな DB（⚠ 列の順も同じ）。"""
+    conn = sqlite3.connect(path)
+    conn.executescript("CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);"
+                       "CREATE TABLE ledger_rows (leak INTEGER, trial_name TEXT, model_name TEXT, is_trial INTEGER,"
+                       " verdict TEXT, closed INTEGER, first_run TEXT, last_run TEXT, runs TEXT, doc TEXT);")
+    conn.executemany("INSERT INTO ledger_rows VALUES (?, ?, ?, ?, ?, 0, ?, ?, '[]', '{}')", rows)
+    conn.execute("INSERT INTO meta VALUES ('ledger_built_at', ?)", (built_at,))
+    conn.commit()
+    conn.close()
+
+
+def test_history_counts_come_from_the_db(paths, tmp_path):
+    """`names` のある行は DB の数（θ はまとめて・基準線と leak 対照は数えない）。無い行には「人が写した数」の印。
+    ⚠ DB は読み取り専用（中身も時刻も変わらない）・無い DB は作らない。"""
+    db = tmp_path / "research.sqlite"
+    _ledger_db(db, [
+        (0, "own.fixed.ridge.shared@50", "own.fixed.ridge.shared", 1, "採る", "2026-09-12", "2026-09-17"),
+        (0, "own.fixed.ridge.shared@55", "own.fixed.ridge.shared", 1, "落とす", "2026-09-12", "2026-09-12"),
+        (0, "own.fixed.lgbm.shared@50", "own.fixed.lgbm.shared", 1, "落とす", "2026-09-13", "2026-09-13"),
+        (0, "own.fixed.none.shared@50", "own.fixed.none.shared", 0, "基準", "2026-09-12", "2026-09-12"),   # 基準線
+        (1, "own.fixed.ridge.shared@50", "own.fixed.ridge.shared", 1, "保留", "2026-09-12", "2026-09-12"),  # leak 対照
+    ])
+    before = (db.read_bytes(), db.stat().st_mtime_ns)
+    with_db = dataclasses.replace(paths, research_db=db)
+    res = modelview.body(with_db, "a-type").split("</span>過去のデータで試した結果</h2>")[1].split("<h2>")[0]
+    assert "<td>直した試し<span class='why'>経緯の理由</span></td><td>3</td><td>採る 1 ／ 落とす 2</td></tr>" in res
+    assert "<td>3</td><td>保留 1 ／ 落とす 2<span class='sub'>（写した数）</span></td></tr>" in res        # names の無い古い試し
+    assert "<p class='sub'>経緯の注 記録から数えた</p>" in res
+    m = modelview.load(with_db)["models"][0]
+    assert modelview.best_verdict(m, modelview.ledger_rows(with_db)) == "adopt" and modelview.best_verdict(m) == "hold"
+    assert modelview.fingerprint(with_db)["ledger_rows"] == 20260921100000.0
+    assert (db.read_bytes(), db.stat().st_mtime_ns) == before
+    # DB が無い機械・表の無い DB では TOML の数（印なし）と「人が写した」の注。無い DB は作らない
+    for gone in (tmp_path / "none.sqlite", tmp_path / "empty.sqlite"):
+        if gone.name == "empty.sqlite":
+            sqlite3.connect(gone).close()
+        body = modelview.body(dataclasses.replace(paths, research_db=gone), "a-type")
+        assert "<td>直した試し<span class='why'>経緯の理由</span></td><td>3</td><td>保留 1 ／ 落とす 2</td></tr>" in body
+        assert "写した数" not in body and "<p class='sub'>経緯の注 人が写した</p>" in body
+    assert not (tmp_path / "none.sqlite").exists()
+
+
+def test_real_history_matches_the_db():
+    """⚠ **本物の経緯の表の数（人が写した控え）が、研究の DB から数えた数と同じ**。`names` はどれも 1 行以上に当たり、
+    `when` の日は DB の実行の日の範囲に入り、試した結果の印は DB の数でいちばん良い印と同じ。
+    ⚠ 食い違ったら、記録で確かめてから `models.toml` の数・印・文を直す（DB を正とする）。DB の無い機械では飛ばす。"""
+    paths = dataclasses.replace(traderview.TraderPaths.default(), research_db=REAL_DB)
+    ledger = modelview.ledger_rows(paths)
+    if not ledger:
+        pytest.skip("研究の DB（ledger_rows）が無い機械")
+    bad = []
+    for m in _real()["model"]:
+        for r in m.get("history") or []:
+            if not r.get("names"):
+                continue
+            db = modelview.counted(ledger, r["names"])
+            where = (m["id"], r["when"], r["what"][:16])
+            if db is None:
+                bad.append((*where, "names がどの行にも当たらない"))
+                continue
+            got = {v: db[v] for v in modelview.VERDICTS}
+            want = {v: int(r.get(v) or 0) for v in modelview.VERDICTS}
+            if got != want or sum(got.values()) != db["rows"]:
+                bad.append((*where, f"DB {got}（{db['rows']} 行）／ TOML {want}"))
+            day = str(r["when"])[:10]
+            if not (db["first"] <= day <= db["last"]):
+                bad.append((*where, f"when {day} が DB の日 {db['first']}〜{db['last']} の外"))
+        if m.get("history"):
+            if modelview.best_verdict(m, ledger) != m["result"]["verdict"]:
+                bad.append((m["id"], "試した結果の印", modelview.best_verdict(m, ledger), m["result"]["verdict"]))
+    assert not bad, bad
+
+
+# ---------------------------------------------------------------- 「詳しく」の差し込み（2026-09-21・Phase 4）
+
+def _files_db(path, files: dict[tuple[str, str], object]):
+    """実験側 `ail/rundb.py` の `files` と同じ形（JSON は文字列のまま ＝ codec 'text'）。"""
+    conn = sqlite3.connect(path)
+    conn.execute("CREATE TABLE files (run TEXT, path TEXT, size INTEGER, sha256 TEXT, codec TEXT, body BLOB)")
+    conn.executemany("INSERT INTO files VALUES (?, ?, 0, '', 'text', ?)",
+                     [(r, p, json.dumps(doc, ensure_ascii=False)) for (r, p), doc in files.items()])
+    conn.commit()
+    conn.close()
+
+
+def test_detail_plugs_come_from_run_records(paths, tmp_path):
+    """差し込みは DB の値（点線の下線・title に実行の識別名・fold の順・負は −・`+` で ＋）。DB が無ければ控え。地の文はエスケープ。"""
+    run, method = "2026-01-01T00-00-00_x", "方式 <A>"
+    db = tmp_path / "research.sqlite"
+    _files_db(db, {(run, "fitted/calibration_f2.json"): {method: {"a": -2.5, "b": 0.1}},
+                   (run, "fitted/calibration_f1.json"): {method: {"a": 12.345, "b": 0.2}},
+                   (run, "checks.json"): {"gate": {"methods": {method: {"auc": 0.51234, "auc_folds": [0.5, 0.52]}}}}})
+    before = db.read_bytes()
+    score = modelview.body(dataclasses.replace(paths, research_db=db), "a-type").split(
+        "</span>出力スコアの出かたと読み方</h2>")[1].split("<h2>")[0]
+    title = "試した記録から: 2026-01-01T00-00-00_x"
+    assert f"Platt の a <span class='dbv' title='{title}'>＋12.35 ／ −2.50</span>・門 <span class='dbv' title='{title}'>0.512</span>" in score
+    assert "<p class='sub'>点線は記録から</p>" in score and "囲みは控え" not in score
+    assert db.read_bytes() == before
+    # DB が無い機械 ・ 実行が無い ・ 項目が無い ＝ 控え（印なし）
+    for gone in (tmp_path / "none.sqlite", db):
+        body = modelview.body(dataclasses.replace(paths, research_db=gone if gone.name == "none.sqlite" else None), "a-type")
+        assert "Platt の a ＋1.00 ／ −2.00・門 0.500" in body and "class='dbv'" not in body
+        assert "<p class='sub'>囲みは控え</p>" in body
+    assert not (tmp_path / "none.sqlite").exists()
+    facts = modelview.RunFacts(dataclasses.replace(paths, research_db=db))
+    assert facts.value("gate", run, method, "width_pt") is None and facts.value("calib", "no-run", method, "a") is None
+    assert facts.value("gate", run, method, "passed") is None        # 決まった項目だけ
+    facts.close()
+    assert modelview.plug_text([0.0, -0.004, 3.0], "+2") == "0.00 ／ −0.00 ／ ＋3.00"
+
+
+def test_real_detail_plugs_match_the_db():
+    """⚠ **本物の「詳しく」の差し込みはどれも形が正しく、控え（人が写した文字）が DB から引いた値と同じ**。
+    ⚠ 食い違ったら、記録で確かめてから控えを直す（DB を正とする）。`{{` の書き損じも見つける。DB の無い機械では形だけ見る。"""
+    doc = _real()
+    plugs, broken = [], []
+    for m in doc["model"]:
+        for part, d in (m.get("detail") or {}).items():
+            for t in [*(d.get("text") or []), *(d.get("points") or [])]:
+                found = list(modelview.PLUG.finditer(t))
+                if t.count("{{") != len(found) or t.count("}}") != len(found):
+                    broken.append((m["id"], part, t[:40]))
+                plugs += [(m["id"], part, x) for x in found]
+    assert not broken, broken
+    assert plugs
+    for _id, _part, x in plugs:
+        assert x.group(4) in modelview.PLUG_FIELDS[x.group(1)], x.group(0)
+    facts = modelview.RunFacts(dataclasses.replace(traderview.TraderPaths.default(), research_db=REAL_DB))
+    if facts.conn is None:
+        pytest.skip("研究の DB が無い機械")
+    bad = []
+    for mid, part, x in plugs:
+        kind, run, method, field, fmt, fallback = x.groups()
+        v = facts.value(kind, run, method, field)
+        if v is None:
+            bad.append((mid, part, x.group(0)[:60], "DB から引けない"))
+        elif modelview.plug_text(v, fmt) != fallback:
+            bad.append((mid, part, field, f"DB {modelview.plug_text(v, fmt)} ／ 控え {fallback}"))
+    facts.close()
+    assert not bad, bad

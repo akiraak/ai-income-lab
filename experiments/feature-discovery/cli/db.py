@@ -7,6 +7,10 @@
     python3 -m cli.db sweep                        # 途中で落ちた実行を閉じる
     python3 -m cli.db export --run <実行> --to <道>  # 実行のファイルを書き戻す（読むための写し）
     python3 -m cli.db backup --to <道>             # ⚠ 控え（SQLite の backup。書いている最中でも壊れない写し）
+    python3 -m cli.db import-out                   # ⚠ いままでの out/（診断・突き合わせの出力）を表 outputs に取り込む（2026-09-21）
+    python3 -m cli.db verify-out                   # ⚠ out/ のファイルと DB を 1 ビットずつ突き合わせる
+    python3 -m cli.db remove-out --i-verified      # ⚠ 突き合わせて一致した out/ のファイルだけを消す（⚠ 利用者の了承のあと）
+    python3 -m cli.db export-out --prefix <道> --to <置き場>   # 出力を書き戻す（読むための写し。例 --prefix diag/2026-09-13T08-56-31_trade_own_ridge_a/）
 
 ⚠ **取り込みは 1 実行 1 トランザクション**（途中で止めても、入った実行は全部そろっている）。
 ⚠ **`remove-dirs` は `verify` と同じ突き合わせをもう一度してから消す**（DB から取り出したバイト列の指紋 ＝ ディスクの指紋）。
@@ -49,6 +53,11 @@ def cmd_stats(conn: sqlite3.Connection) -> None:
     left = run_dirs()
     if left:
         print(f"  ⚠ runs/ に残っている実行ディレクトリ {len(left)}（取り込んで突き合わせたら `remove-dirs`）")
+    n_out, out_size = conn.execute("SELECT count(*), coalesce(sum(size), 0) FROM outputs").fetchone()
+    print(f"  診断・突き合わせの出力 {n_out:,}（{out_size / 1e6:,.2f} MB）")
+    left = out_files()
+    if left:
+        print(f"  ⚠ out/ に残っているファイル {len(left)}（取り込んで突き合わせたら `remove-out`）")
 
 
 def cmd_import(conn: sqlite3.Connection) -> None:
@@ -122,6 +131,53 @@ def cmd_remove_dirs(conn: sqlite3.Connection, confirmed: bool) -> int:
     return 0 if not bad and not qbad else 1
 
 
+def out_files() -> list[str]:
+    """`out/` にまだ残っているファイル（`out/` からの道）。"""
+    return rundb._walk(runs.OUT) if os.path.isdir(runs.OUT) else []
+
+
+def cmd_import_out(conn: sqlite3.Connection) -> None:
+    if not os.path.isdir(runs.OUT):
+        print("out/ が無い（取り込むものなし）")
+        return
+    t0 = time.time()
+    added, same = rundb.ingest_outputs(conn, runs.OUT)
+    print(f"取り込んだ出力 {added} ／ もう同じ中身が入っていた {same}（{time.time() - t0:.1f} 秒）")
+
+
+def cmd_verify_out(conn: sqlite3.Connection) -> int:
+    t0 = time.time()
+    ok, bad = rundb.verify_outputs(conn, runs.OUT) if os.path.isdir(runs.OUT) else ([], [])
+    for b in bad:
+        print("  ⚠", b)
+    print(f"一致 {len(ok)} ／ 食い違い {len(bad)}（{time.time() - t0:.1f} 秒）")
+    return 0 if not bad else 1
+
+
+def cmd_remove_out(conn: sqlite3.Connection, confirmed: bool) -> int:
+    if not confirmed:
+        raise SystemExit("⚠ 消すと戻せない（out/ は git 管理外）。`verify-out` の結果を見てから --i-verified を付ける")
+    ok, bad = rundb.verify_outputs(conn, runs.OUT) if os.path.isdir(runs.OUT) else ([], [])
+    for rel in ok:
+        os.remove(os.path.join(runs.OUT, rel))
+    for d, _dirs, _fs in sorted(os.walk(runs.OUT), key=lambda x: -len(x[0])):     # 空になったディレクトリを下から
+        if not os.listdir(d):
+            os.rmdir(d)
+    print(f"消したファイル {len(ok)} ／ ⚠ 残した（食い違い） {len(bad)}")
+    return 0 if not bad else 1
+
+
+def cmd_export_out(conn: sqlite3.Connection, prefix: str, dest: str) -> None:
+    n = 0
+    for rel in rundb.list_outputs(conn, prefix):
+        out = os.path.join(dest, *rel.split("/"))
+        os.makedirs(os.path.dirname(out), exist_ok=True)
+        with open(out, "wb") as f:
+            f.write(rundb.get_output(conn, rel))
+        n += 1
+    print(f"{n} ファイル → {dest}")
+
+
 def cmd_backup(conn: sqlite3.Connection, dest: str) -> None:
     if os.path.exists(dest):
         raise SystemExit(f"⚠ {dest} はもうある（控えを上書きしない。日付を付けた別の名前にする）")
@@ -146,6 +202,13 @@ def main(argv: list[str] | None = None) -> int:
     ex.add_argument("--to", required=True)
     bk = sub.add_parser("backup")
     bk.add_argument("--to", required=True)
+    for c in ("import-out", "verify-out"):
+        sub.add_parser(c)
+    ro = sub.add_parser("remove-out")
+    ro.add_argument("--i-verified", action="store_true")
+    eo = sub.add_parser("export-out")
+    eo.add_argument("--prefix", default="")
+    eo.add_argument("--to", required=True)
     args = ap.parse_args(argv)
 
     conn = rundb.connect(runs.db_path())
@@ -165,6 +228,14 @@ def main(argv: list[str] | None = None) -> int:
         print(f"{rundb.export_run(conn, name, args.to)} ファイル → {args.to}")
     elif args.cmd == "backup":
         cmd_backup(conn, args.to)
+    elif args.cmd == "import-out":
+        cmd_import_out(conn)
+    elif args.cmd == "verify-out":
+        return cmd_verify_out(conn)
+    elif args.cmd == "remove-out":
+        return cmd_remove_out(conn, args.i_verified)
+    elif args.cmd == "export-out":
+        cmd_export_out(conn, args.prefix, args.to)
     return 0
 
 

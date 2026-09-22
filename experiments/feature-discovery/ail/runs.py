@@ -25,6 +25,8 @@
   - `Run.dir` は作業の置き場（`runs/work/<実行>/`）。道でしか書けないもの（`torch.save` など）はここに置けば、
     `close()` が DB に入れて置き場を消す。⚠ 途中で落ちた実行は、次の `Run` か `python3 -m cli.db sweep` が閉じる
   - 読むのは `list_runs()`・`read_json()`・`read_csv()`・`read_bytes()`・`materialized()`（道が要る読み手のため）
+  - ⚠ **診断・突き合わせの出力（いままでの `out/`）も同じ DB**（`put_output()`。表 `outputs`・道は `out/` からの相対。
+    実行ではないので検証結果一覧・実行タブには出ない。2026-09-21）
 """
 
 from __future__ import annotations
@@ -56,6 +58,17 @@ def db_path() -> str:
 
 def work_root() -> str:
     return os.path.join(RUNS, "work")
+
+
+# ⚠ いままでの診断・突き合わせの出力の置き場（`cli.db import-out` が取り込む元。2026-09-21 から新しいファイルは作らない）
+OUT = os.path.join(ROOT, "out")
+
+
+def put_output(path: str, data: bytes | str) -> str:
+    """診断の出力を DB の `outputs` に入れる（道は `out/` からの相対 ＝ `diag/<時刻>_<名前>/folds.csv` など。上書きしない）。
+    表示用の文字を返す。読み戻すのは `python3 -m cli.db export-out --prefix <道> --to <置き場>`。"""
+    rundb.put_output(rundb.connect(db_path()), path, data.encode("utf-8") if isinstance(data, str) else data)
+    return f"DB の outputs/{path}"
 
 
 def _reader():

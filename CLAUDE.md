@@ -150,13 +150,16 @@ python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
 ```bash
 cd experiments/feature-discovery
 .venv/bin/python -m cli.db stats                     # 実行の数・大きさ（runs/research.sqlite）
-.venv/bin/python -m cli.db verify                    # 残っている実行ディレクトリと DB を 1 ビットずつ突き合わせる
+.venv/bin/python -m cli.db verify                    # 残っている実行ディレクトリと DB を 1 ビットずつ突き合わせる（2026-09-21 に全部消したので、いまは突き合わせる相手なし）
 .venv/bin/python -m cli.db backup --to <道>          # 控え（書いている最中でも壊れない写し）
+.venv/bin/python -m cli.db export-out --prefix diag/<時刻>_<名前>/ --to <置き場>   # 診断の出力（いままでの out/）を書き戻す
 ```
 
-- ⚠ **実行の記録の正本は `runs/research.sqlite`**（利用者の裁定「2 か所には置かない。DB に入れたらファイルは削除」。プランは `docs/plans/db-model-facts.md`）。`ail/runs.Run` が**書くたびにその場で**入れ、閉じた実行は書き換え・削除をトリガーが拒む。読み手は `runs.read_json` ／ `read_csv` ／ `materialized`（道が要る読み手は一時ディレクトリに書き戻す）。`cli.queue` の状態も同じ DB（`queue_state`）
+- ⚠ **実行の記録の正本は `runs/research.sqlite`**（利用者の裁定「2 か所には置かない。DB に入れたらファイルは削除」。プランは `docs/plans/db-model-facts.md`）。`ail/runs.Run` が**書くたびにその場で**入れ、閉じた実行は書き換え・削除をトリガーが拒む。読み手は `runs.read_json` ／ `read_csv` ／ `materialized`（道が要る読み手は一時ディレクトリに書き戻す）。`cli.queue` の状態も同じ DB（`queue_state`）。⚠ **実行ディレクトリは 2026-09-21 に全部消した**（一致 255 ／ 255 を確かめてから。利用者の了承）。控えは `/mnt/c/Users/akira/ai-income-lab-backup/research-<日付>.sqlite`（⚠ Dropbox・OneDrive の下に置かない ＝ 外に出る）
+- 診断・突き合わせの出力（`cli.calibdiag`・`cli.crosscheck`。いままでの `experiments/feature-discovery/out/`）も 2026-09-21 から DB の `outputs`（道は `out/` からの相対のまま・書き換えない）。記録の文書の `out/diag/…` は `outputs` の `diag/…`
+- 検証結果一覧を吐き直す（`cli.report --catalog`・`cli.queue`）と、同じ行と判定が DB の `ledger_rows` にも入る（⚠ 記録ではなく生成物。まるごと入れ直す）。vibeboard の予測モデルのタブが、試した経緯の数をここから予測モデル名のパターンで数える（`dashboard.md` §17-3）。「詳しく」の門の数字と較正の係数も、`models.toml` の差し込み（`{{gate|…}}`・`{{calib|…}}`）で実行の記録から引く（⚠ 控えは DB の値と同じでないとテストが落ちる）
 - ⚠ **検証結果一覧・`n_trials` の数え方は変えていない**（取り込み前後で `ledger.md` が 1 文字も変わらないことを確かめた）
-- 予測モデル名（検証結果一覧の識別項目の別名 `<入力データ>.<数字の選び方・作り方>.<学習器>.<学習範囲>[~…][@θ]`）は `ail/names.py`・綴りの一覧は `config/names.toml`。⚠ 名前の部品は「表・手法・形式・窓」と呼ばない（2026-09-21 の利用者の指示「分かりにくい」。検証結果一覧の列の名前との対応は rules.md 10-2）。規約は rules.md 10-2（⚠ 綴りは利用者の裁定待ち）
+- 予測モデル名（検証結果一覧の識別項目の別名 `<入力データ>.<数字の選び方・作り方>.<学習器>.<学習範囲>[~…][@θ]`）は `ail/names.py`・綴りの一覧は `config/names.toml`。⚠ 名前の部品は「表・手法・形式・窓」と呼ばない（2026-09-21 の利用者の指示「分かりにくい」。検証結果一覧の列の名前との対応は rules.md 10-2）。規約は rules.md 10-2（綴りは 2026-09-21 に確定。学習範囲は `shared` ／ `each` ＝ 例 `T3` は `own-seq.t3-quant60.ridge.shared`）
 - ⚠ 実売買（`experiments/live-trading/`）の記録はまだファイル（DB に移すのはプランの Phase 6。20 営業日のあと）
 
 ### experiments/feature-discovery の `cli.scenario`（条件付き GAN のシナリオ予測。2026-09-19 に「落とす」）

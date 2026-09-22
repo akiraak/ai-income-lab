@@ -30,6 +30,7 @@ docs/plans/vibeboard-experiments-tabs.md）。読むものと読み方は管理�
 from __future__ import annotations
 
 import argparse
+import dataclasses
 import html
 import json
 import os
@@ -931,6 +932,8 @@ def make_handler(runs_dir: Path, paths: ExpPaths, sampler: hwstat.Sampler | None
     # ⚠ ここでは見張りを起こさない（起こすのは main()）。止まっている Sampler は要求のたびにその場で読む
     sampler = sampler or hwstat.Sampler()
     trader_paths = trader_paths or traderview.TraderPaths.default()
+    if trader_paths.research_db is None:         # 予測モデルのタブも、実行タブと同じ置き場の DB を読む
+        trader_paths = dataclasses.replace(trader_paths, research_db=Path(runs_dir) / experiments.DB_NAME)
 
     class Handler(BaseHTTPRequestHandler):
         protocol_version = "HTTP/1.1"

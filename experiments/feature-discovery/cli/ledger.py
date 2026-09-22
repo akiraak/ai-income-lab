@@ -1,13 +1,18 @@
 """検証結果一覧の markdown を組み立てる。⚠ **中身は `ail/catalog.py` が作る。ここは並べるだけ。**
 
-呼び出しは `python3 -m cli.report --catalog`。
+呼び出しは `python3 -m cli.report --catalog`。同じ行と判定を DB の `ledger_rows` にも入れる（`store`。
+⚠ `ledger.md` と同じ生成物 ＝ 吐き直すたびにまるごと入れ直す。読み手は vibeboard の予測モデルのタブ）。
 """
 
 from __future__ import annotations
 
+import json
+import math
+import re
+import sqlite3
 import time
 
-from ail import catalog
+from ail import catalog, names, rundb, runs
 
 DOC = "docs/specs/experiments/feature-discovery.md"
 RULES = "rules.md"
@@ -38,8 +43,51 @@ def _sort_key(r: dict):
     return (g, -net)
 
 
-def build() -> str:
-    d = catalog.ledger()
+_RUN_DAY = re.compile(r"^(\d{4}-\d{2}-\d{2})T")
+
+
+def _plain(v):
+    """JSON に入れられる形へ（numpy の数 → Python の数・NaN → None）。"""
+    if isinstance(v, dict):
+        return {str(k): _plain(x) for k, x in v.items()}
+    if isinstance(v, (list, tuple, set)):
+        return [_plain(x) for x in v]
+    if hasattr(v, "item") and not isinstance(v, (str, bytes)):
+        v = v.item()
+    if isinstance(v, float) and not math.isfinite(v):
+        return None
+    return v if v is None or isinstance(v, (str, int, float, bool)) else str(v)
+
+
+def ledger_items(d: dict) -> list[dict]:
+    """`ledger_rows` の行（本体 ＋ leak 対照）。⚠ 名前は識別項目から作る（`ail/names.py`。綴りの無いものは止まる）。"""
+    items = []
+    for leak, rows in ((0, d["rows"]), (1, d["leak"])):
+        for r in rows:
+            days = sorted(m.group(1) for x in r.get("実行一覧") or [] if (m := _RUN_DAY.match(str(x))))
+            items.append({"leak": leak, "trial_name": names.trial_name(r), "model_name": names.model_name(r),
+                          "is_trial": int(bool(catalog.is_trial(r))), "verdict": str(r["判定"]),
+                          "closed": int(bool(r.get("閉じる"))),
+                          "first_run": days[0] if days else None, "last_run": days[-1] if days else None,
+                          "runs": json.dumps(list(r.get("実行一覧") or []), ensure_ascii=False),
+                          "doc": json.dumps(_plain(r), ensure_ascii=False)})
+    return items
+
+
+def store(d: dict, conn: sqlite3.Connection | None = None) -> int:
+    """検証結果一覧の行と判定を DB（`ledger_rows`）へまるごと入れ直し、`n_trials` を返す。
+
+    ⚠ 数え方は `catalog.is_trial`（`build` の「検証の行」と同じ）。⚠ 判定の規則をここに書かない。
+    """
+    items = ledger_items(d)
+    n_trials = sum(i["is_trial"] for i in items if not i["leak"])
+    rundb.write_ledger(conn or rundb.connect(runs.db_path()), items,
+                       {"ledger_built_at": rundb.now(), "ledger_n_trials": str(n_trials)})
+    return n_trials
+
+
+def build(d: dict | None = None) -> str:
+    d = d or catalog.ledger()
     rows = sorted(d["rows"], key=_sort_key)
     # ⚠ **検証の行 = カタログ ID の行 ＋ モデルが処置の行**（catalog.is_trial が正本）
     methods = [r for r in rows if catalog.is_trial(r)]

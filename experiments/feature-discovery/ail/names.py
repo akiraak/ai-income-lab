@@ -1,8 +1,8 @@
 """予測モデルの名前（rules.md 10-2）。⚠ **台帳の鍵から機械で作る。人が付けるのは「型」（解説のページ）だけ。**
 
     from ail import names
-    names.model_name(row)    # 'own.all.ridge.a'      台帳の鍵から θ を除いた 11 列 ＝ 予測モデル 1 つ
-    names.trial_name(row)    # 'own.all.ridge.a@50'   台帳の鍵の 12 列 ＝ 台帳の 1 行 ＝ n_trials の 1
+    names.model_name(row)    # 'own.all.ridge.shared'      台帳の鍵から θ を除いた 11 列 ＝ 予測モデル 1 つ
+    names.trial_name(row)    # 'own.all.ridge.shared@50'   台帳の鍵の 12 列 ＝ 台帳の 1 行 ＝ n_trials の 1
 
 名前の形: `<入力データ>.<数字の選び方・作り方>.<学習器>.<学習範囲>[~<既定から外れた列>…][@<θ>]`
 （台帳の列では 特徴量の層 ／ 鍵〔手法〕／ モデル ／ 形式。⚠ 言葉は rules.md 10-2 の対応の一覧で読む）
@@ -136,7 +136,7 @@ def _options(row: dict) -> list[str]:
 
 
 def model_name(row: dict) -> str:
-    """予測モデル名 ＝ 台帳の鍵から θ を除いた 11 列。例 `own-seq.t3-quant60.ridge.a`（`60` ＝ 観測期間 60 日）。"""
+    """予測モデル名 ＝ 台帳の鍵から θ を除いた 11 列。例 `own-seq.t3-quant60.ridge.shared`（`60` ＝ 観測期間 60 日）。"""
     form = table()["form"].get(row["形式"]) or _stop("学習範囲（台帳の列「形式」）", row["形式"])
     base = ".".join((layers_slug(row["特徴量の層"]), method_slug(row["鍵"]), learner_slug(row["モデル"]), form))
     return base + "".join("~" + o for o in _options(row))

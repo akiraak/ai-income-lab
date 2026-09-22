@@ -7,6 +7,29 @@
 - 「vibeboard の「予測モデル」タブを、予測モデルを詳しく解説するものにする」（[プラン](vibeboard-models-tab-deep.md)。Phase 0〜4 は済み・Phase 5 の一覧のページは裁定待ち）
 - 「名前の付け方（英語名）をそろえるか決める」（裁定待ち）→ ⚠ 2026-09-21 の裁定 ④ で**このプランの最初の段**になった
 
+## 0. 再開するとき（2026-09-21 夜の時点。⚠ 最初にここを読む）
+
+言葉は CLAUDE.md の「言葉」の表（検証結果一覧 ＝ 旧 台帳 ／ 検証 ＝ 旧 試行 ／ 識別項目 ＝ 旧 台帳の鍵 ／ 評価期間 ／ 実行タブ ／ 売買履歴 ／ 識別名 ／ 許可 ／ 資格情報）。
+
+| 段 | 状態 | 残り |
+| --- | --- | --- |
+| Phase 0 裁定 | ✅ | — |
+| Phase 1 予測モデル名 | ✅ 綴りも確定（2026-09-21 の利用者の裁定: 学習範囲を `shared` ／ `each` に） | — |
+| Phase 2 研究の記録を DB へ | ✅ 控え（C ドライブ）・sidecar の入れ直し・実行ディレクトリ 255 と `runs/queue/` の削除まで（2026-09-21） | — （控えは Sx360 にも写した ＝ 2026-09-21 の利用者の報告） |
+| Phase 3 予測モデルのタブが DB を読む | ✅ `ledger_rows`・経緯の行の `names`・DB との突き合わせのテスト（2026-09-21） | 経緯の表に載っていない試しを載せるか（`models.toml` を読む利用者。§10） |
+| Phase 4 「詳しく」の【実測】を DB から | ✅ 門の数字と較正の係数の 32 か所を差し込みに（2026-09-21） | 範囲・桁のそろわない並び・いくつもの実行にまたがる数字は人が写したまま（§10） |
+| Phase 5 小さな記録（`feature-discovery/out/`・`tastytrade-api-sample/out/`・`dashboard/data/`） | 🔶 `feature-discovery/out/` は表 `outputs` へ（一致 56 ／ 56・書き手 2 本を DB に・ファイルは消して控えを取り直した。2026-09-21） | `tastytrade-api-sample/out/` と `dashboard/data/` は実売買の管理画面・停止ボタン（`HALT`）と同じ置き場なので、本番投入（2026-09-22）が落ち着いてから |
+| Phase 6 実売買とシミュレーション | ❌ | ⚠ 実売買の 20 営業日のあと（§4 の 4）。執行器のメッセージの「台帳」→「売買履歴」も落ち着いてから |
+
+**利用者の返事**（2026-09-21 夜）: ① 綴り ＝ 学習範囲を単語に（`shared` ／ `each`）／ ② 控え ＝ C ドライブ ＋ Sx360 ／ ③ 実行ディレクトリ ＝ 消す（sidecar の入れ直しも Claude が）／ ④ `ledger_rows` ＝ 書いてよい。
+
+**注意**:
+
+- 実験を回すと、記録は DB にしか入らない（実行ディレクトリは作られない）。`cli.db verify` が突き合わせる相手はもう無い
+- 検証結果一覧を吐き直すと `ledger_rows` も入れ直される。⚠ **経緯の表に当たる試しが増えると、管理画面のテスト `test_real_history_matches_the_db` が落ちる** ＝ 記録で確かめて `models.toml` の数・印・文を直す（DB を正とする）
+- 実験は回していない（`n_trials` は 667 のまま）
+- 実売買（`experiments/live-trading/`）には触らない（2026-09-22 本番投入）
+
 ## 1. 目的・背景 ＝ なぜ重なるか
 
 「予測モデル」タブの**事実の部分**（試した結果の印・試した経緯の「何通り・内訳」・「詳しく」の【実測】の数字）は、**いま人が記録から手で写している**。機械で引けないのは、引く先が無いから:
@@ -94,8 +117,8 @@ flowchart LR
 ```mermaid
 flowchart TB
   F["型（解説のページ 1 枚）<br/>人が付ける ＝ いまの models.toml の id<br/>例 seq-quant"]
-  M["予測モデル名<br/>検証結果一覧の識別項目から θ を除いて機械で作る<br/>例 own-seq.t3-quant60.ridge.a"]
-  X["検証名<br/>予測モデル名 ＋ θ<br/>例 own-seq.t3-quant60.ridge.a@50"]
+  M["予測モデル名<br/>検証結果一覧の識別項目から θ を除いて機械で作る<br/>例 own-seq.t3-quant60.ridge.shared"]
+  X["検証名<br/>予測モデル名 ＋ θ<br/>例 own-seq.t3-quant60.ridge.shared@50"]
   F -- "1 対 多" --> M
   M -- "1 対 多" --> X
 ```
@@ -106,13 +129,13 @@ flowchart TB
 | 予測モデル名 | トレーダーが使う単位（θ はトレーダーの側） | `catalog.KEY` から θ を除いた 11 列を、決まった順に短い綴りで並べる。⚠ **既定の値は書かない**（rules.md 10-1 の「水準」と同じ）＝ 日足・1 日・`adjusted`・既定の期間（2018-01-31 から）と銘柄数（63）・較正 `std` は書かず、外れたときだけ `~p1995`・`~cal-old` のように足す | 実験名（`trade_own_ridge_a`）は変えない。DB が実験名 → 予測モデル名の対応を持つ |
 | 検証名 | 検証結果一覧の 1 行 ＝ `n_trials` の 1 | 予測モデル名 ＋ `@θ` | 検証結果一覧の行と 1 対 1 |
 
-いま動かす 3 人の例（2026-09-21 に実装した綴り。⚠ 綴りは利用者の裁定待ち。入力データの部分は検証結果一覧の「特徴量の層」の空白を `-` にした機械の綴りで、実験名の略 `ownex`・`ownseq` とは別。`60` は観測期間 60 日の印）:
+いま動かす 3 人の例（2026-09-21 に確定した綴り ＝ 学習範囲は利用者の裁定で `shared` ／ `each`。入力データの部分は検証結果一覧の「特徴量の層」の空白を `-` にした機械の綴りで、実験名の略 `ownex`・`ownseq` とは別。`60` は観測期間 60 日の印）:
 
 | トレーダー | 検証結果一覧の識別項目（θ 以外で既定から外れる列） | 予測モデル名（案） | 型 |
 | --- | --- | --- | --- |
-| `T1` | 全部使う（基準）× Ridge × `own` × 63 × 共通 × std | `own.all.ridge.a` | `own-ridge` |
-| `T2` | 全部使う（基準）× LightGBM × `own cs rel ex` × 48 × 共通 × std | `own-cs-rel-ex.all.lgbm.a~n48` | `ownex-lgbm` |
-| `T3` | T3 QUANT（観測期間 60 日）× Ridge × `own seq` × 63 × 共通 × std | `own-seq.t3-quant60.ridge.a` | `seq-quant` |
+| `T1` | 全部使う（基準）× Ridge × `own` × 63 × 共通 × std | `own.all.ridge.shared` | `own-ridge` |
+| `T2` | 全部使う（基準）× LightGBM × `own cs rel ex` × 48 × 共通 × std | `own-cs-rel-ex.all.lgbm.shared~n48` | `ownex-lgbm` |
+| `T3` | T3 QUANT（観測期間 60 日）× Ridge × `own seq` × 63 × 共通 × std | `own-seq.t3-quant60.ridge.shared` | `seq-quant` |
 
 守ること（テストにする）:
 
@@ -129,7 +152,7 @@ flowchart TB
 - 書き手・読み手の直しが入出力だけで済む（計算のコードは 1 行も変えていない ＝ 既定経路の指紋テストがそのまま通る）
 - JSON は文字列のまま入れるので、DB の中で `json_extract` で引ける。CSV は zlib で縮めるだけ（2,321.7 MB → 313.4 MB【実測】）
 
-⚠ **解説のタブ（Phase 3）が要るのは検証結果一覧の行と判定**で、これは pandas の要る `catalog` が作るので、標準ライブラリだけの sidecar は作れない。→ Phase 3 では **検証結果一覧を吐き直すときに、同じ `ledger()` の結果を DB のテーブル `ledger_rows` にも書く**（`ledger.md` と同じ生成物。毎回まるごと作り直す。⚠ 利用者に確かめる ＝ §9）。
+⚠ **解説のタブ（Phase 3）が要るのは検証結果一覧の行と判定**で、これは pandas の要る `catalog` が作るので、標準ライブラリだけの sidecar は作れない。→ Phase 3 では **検証結果一覧を吐き直すときに、同じ `ledger()` の結果を DB のテーブル `ledger_rows` にも書く**（`ledger.md` と同じ生成物。毎回まるごと作り直す。⚠ 利用者に確かめる ＝ §10）。
 
 以下は 2026-09-21 の最初の案（経緯として残す）。
 
@@ -143,10 +166,10 @@ flowchart TB
 ## 7. Phase
 
 - ✅ **Phase 0**: 裁定 ① 〜 ⑤（2026-09-21）
-- 🔶 **Phase 1（命名規則）**（✅ 実装・テスト・rules.md 10-2 まで。⚠ 綴りの裁定待ち ＝ §9）: §5 の案を詰めて rules.md 10-1 の次の節に書く（⚠ **綴りは利用者の裁定**）。検証結果一覧の全行に名前を付けて 1 対 1 を確かめるテスト。既存の名前は変えない
-- 🔶 **Phase 2（研究の DB）**（✅ 取り込み・一致の確かめ・書き手と読み手の切り替え・規約の書き換えまで。⚠ ディレクトリを消すのは了承待ち ＝ §9）: テーブルを作る → 書き手・読み手を DB に替える → いまの 255 本を取り込む → `ledger.md` が変わらない・`n_trials` 667 のまま・書き戻したものが元のファイルと一致、を確かめる → ⚠ **利用者の了承のあと** `runs/` のファイルを消す → `CLAUDE.md`・rules.md 10 章の「1 実行 1 ディレクトリ」を書き換える（⚠ 文面は利用者の了承）
-- **Phase 3（解説のタブが DB を読む）**: 試した経緯の行に予測モデル名を書き、何通り・内訳・いつを DB から出す。`result.verdict` と DB の判定が食い違えばテストが落ちる。⚠ 食い違いが見つかったら、どちらが正しいかを記録で確かめて直し、§8 に残す
-- **Phase 4（「詳しく」の【実測】）**: 較正の係数・門の数字などを、DB の値の差し込みに替える（出典の実行の識別名つき）
+- ✅ **Phase 1（命名規則）**（2026-09-21。綴りも確定 ＝ §10）: §5 の案を詰めて rules.md 10-1 の次の節に書く（⚠ **綴りは利用者の裁定**）。検証結果一覧の全行に名前を付けて 1 対 1 を確かめるテスト。既存の名前は変えない
+- ✅ **Phase 2（研究の DB）**（2026-09-21。ディレクトリを消すところまで ＝ §10）: テーブルを作る → 書き手・読み手を DB に替える → いまの 255 本を取り込む → `ledger.md` が変わらない・`n_trials` 667 のまま・書き戻したものが元のファイルと一致、を確かめる → ⚠ **利用者の了承のあと** `runs/` のファイルを消す → `CLAUDE.md`・rules.md 10 章の「1 実行 1 ディレクトリ」を書き換える（⚠ 文面は利用者の了承）
+- ✅ **Phase 3（解説のタブが DB を読む）**（2026-09-21 ＝ §10）: 試した経緯の行に予測モデル名を書き、何通り・内訳・いつを DB から出す。`result.verdict` と DB の判定が食い違えばテストが落ちる。⚠ 食い違いが見つかったら、どちらが正しいかを記録で確かめて直し、§8 に残す
+- ✅ **Phase 4（「詳しく」の【実測】）**（2026-09-21 ＝ §10）: 較正の係数・門の数字などを、DB の値の差し込みに替える（出典の実行の識別名つき）
 - **Phase 5（小さな置き場）**: `feature-discovery/out/`・`tastytrade-api-sample/out/`・`dashboard/data/`（管理画面の読み書きを替える）
 - **Phase 6（実売買 ＋ シミュレーション）**: ⚠ **§4 の 4 の時期に**。執行器・控え・売買履歴・`paper.py`・`reconcile.py`・`recovery.py`・管理画面の読み手を `live.sqlite` に、シミュレーションを `sim.sqlite` に。`mockrun.sh`・`sim2`・執行器の pytest を通す。⚠ 本番で起動し直すのは利用者
 - 予測モデルのタブの **Phase 5（一覧のページの形）** は元のプランのまま（裁定待ち。このプランとは独立）
@@ -172,13 +195,13 @@ flowchart TB
 - 手元で見る: `python3 dashboard/vibetab.py --port 3016` → `http://127.0.0.1:3016/models/view?item=own-ridge`（3010・3015 に触らない）
 - 【実測】で残す: 取り込みの所要時間・DB ファイルの大きさ（いまの `runs/` 2.2GB との比）・sidecar がページを返す時間
 
-## 9. 進み具合と【実測】（2026-09-21）
+## 10. 進み具合と【実測】（2026-09-21）
 
 ### Phase 1（命名規則）
 
 - `ail/names.py`・`config/names.toml`・`tests/test_names.py`（16 本）・rules.md 10-2
 - 検証結果一覧の全行で識別項目 ↔ 名前が 1 対 1【実測】: 行 1,155 ＝ 検証名 1,155 ／ 予測モデル名 591（うち検証数に数える行を持つもの 333）／ leak 対照 992 行も 1 対 1 ／ いちばん長い名前 52 文字
-- ⚠ **綴りの裁定待ち**（`T1` `own.all.ridge.a` ／ `T2` `own-cs-rel-ex.all.lgbm.a~n48` ／ `T3` `own-seq.t3-quant60.ridge.a`）。綴りを変えても記録は直さない（名前は識別項目から作り直せる）
+- ✅ **綴りを確定した**（2026-09-21 の利用者の裁定: 学習範囲を `a` ／ `b` ではなく `shared` ／ `each` に ＝ `T1` `own.all.ridge.shared` ／ `T2` `own-cs-rel-ex.all.lgbm.shared~n48` ／ `T3` `own-seq.t3-quant60.ridge.shared`）。直したのは `config/names.toml` の 2 行だけで、記録は直していない（名前は識別項目から作り直せる）。1 対 1 は変わらない（検証名 1,155 ／ 予測モデル名 591）・いちばん長い名前 57 文字
 
 ### Phase 2（研究の DB）
 
@@ -192,11 +215,46 @@ flowchart TB
 
 - 書いたその場で入れる形にした理由: `cli.run` は自分の `summary.csv` が検証結果一覧に入った状態で `n_trials` を数える（`checks.n_trials_now`）。閉じるときにまとめて入れると 1 本数え落とす（DSR が甘くなる向き）。`tests/test_checks.py` が「閉じる前に数える」を確かめる
 - `cli.report --recheck` は ⚠ **`checks.json` のある実行を書き換えない**ように直した（無い実行にだけ足す）
-- ⚠ **まだ消していない**: `runs/` の実行ディレクトリ 255 と `runs/queue/*.json`（いまは DB とディスクの 2 か所にある）。消すのは `python3 -m cli.db remove-dirs --i-verified`（消す直前にもう一度突き合わせ、一致した実行だけを消す）
+- ✅ **消した**（2026-09-21 夜・利用者の了承のあと）: 下の「Phase 2 の仕上げ」
 
-### 利用者に確かめること
+### Phase 2 の仕上げ（2026-09-21 夜）
 
-1. 予測モデル名の綴り（§5・rules.md 10-2）
-2. `runs/` の実行ディレクトリを消してよいか（一致 255 ／ 255）
-3. 控えの置き場（別の機械かディスク。`python3 -m cli.db backup --to <道>`）。⚠ 消す前に 1 つ取るのを推す
-4. Phase 3 で、検証結果一覧の行と判定を DB のテーブル `ledger_rows` にも書いてよいか（`ledger.md` と同じ生成物。毎回まるごと作り直す）
+| 手順 | 【実測】 |
+| --- | --- |
+| 突き合わせ（`cli.db verify`） | 一致 255 ／ 食い違い 0 ／ キューの状態の食い違い 0（6.7 秒） |
+| 控え（`cli.db backup`） | 316.7 MB・整合性 ok。ext4 の上で取り、`/mnt/c/Users/akira/ai-income-lab-backup/research-2026-09-21.sqlite` へ写して sha256 が一致（`f0731085…`）・写しも整合性 ok・実行 255。⚠ Dropbox・OneDrive の下には置かない（外に出る）。⚠ C ドライブは WSL の仮想ディスクと同じ物理ディスクの可能性がある ＝ **Sx360 にも写す（利用者）**: Sx360 から `scp titan:/mnt/c/Users/akira/ai-income-lab-backup/research-2026-09-21.sqlite <置き場>/`（titan から Sx360 へは ssh が届かない【実測】） |
+| sidecar（3015）の入れ直し | 古い sidecar（2026-09-20 起動・実行ディレクトリを読む ＝ 「検証 140 件」）を、3016 で新しいコードの全タブが 200 を返すのを確かめてから入れ替えた（`setsid nohup python3 dashboard/vibetab.py`。前の sidecar と同じ起こし方。vibeboard 3010 には触らない）。実行タブは「実行 140 件」＝ DB を読む。vibeboard の中継（`/ext/…`）も 200 |
+| 消す（`cli.db remove-dirs --i-verified`） | 消した実行ディレクトリ 255 ／ 残した（食い違い）0 ／ キューの状態も消した（7.4 秒）。`runs/` は 2.5 GB → 303 MB（DB だけ） |
+| 消した後の確かめ | DB だけで作った検証結果一覧がコミット済みの `ledger.md` と 1 文字も違わない（512,484 文字）・`n_trials` 667 ／ 研究側のテスト 497 本 ／ 管理画面のテスト 218 本 ／ 実売買の経路（`run-live.sh`・`cli/predict.py`・執行器）は `runs/` を読まないことをコードで確かめた |
+
+### Phase 3（予測モデルのタブが DB を読む。2026-09-21 夜）
+
+- 書き手: `cli/ledger.py` の `store`（`ledger_items` ＝ 行ごとに検証名・予測モデル名・`is_trial`・判定・閉じる・実行の最初と最後の日・実行一覧・行まるごとの JSON）を `cli.report --catalog` と `cli.queue` の吐き直しから呼ぶ。テーブルは `ail/rundb.py` の `ledger_rows`（`write_ledger` がまるごと入れ直す）。`meta` に `ledger_built_at`・`ledger_n_trials`
+- 本物の DB に入れた【実測】: 本体 1,155 行（`n_trials` に数える 667 ＝ 保留 116 ／ 落とす 551）・leak 対照 992 行・2.5 秒。`ledger.md` は 1 文字も変わらない
+- 読み手: `dashboard/modelview.py` の `ledger_rows`（読み取り専用・無い DB は作らない）・`counted`（`fnmatch`。θ はまとめて数える）。`models.toml` の経緯の行に `names` を書いた（26 行のうち 24 行）。DB の無い機械・`names` の無い行は TOML の数（DB がある機械では「人が写した数」の印）。見張りに `meta.ledger_built_at`
+- ⚠ **突き合わせの結果: 人が写した 24 行の数は DB の数と全部同じ**（食い違い 0）。`when` も全部 DB の実行の日の範囲に入る。印（`result.verdict`）も DB の数でのいちばん良い印と同じ
+- `names` を書けなかった 2 行: `ownex-lgbm` の 2026-09-13（株の外の数字を直す前の回し直し。検証結果一覧では直した後の回し直しと同じ 1 行にまとまる ＝ 「再現 ⚠ 3 実行・幅 133.72bp」）／ `cgan-scenario`（検証結果一覧の外の物差し）
+- ⚠ **経緯の表に載っていない試し**（数の誤りではない。載せるかは `models.toml` を読む利用者が決める）: `trend-gates` の計算を直す前の「見る株の組を変えた 2 つ」（`~n70~cal-old`・`~n74~cal-old` の 42 検証。2026-09-12）／ `own-ridge` の期間や見る株を変えた形（`~p1995-02-10`・`~p2018-06-27~n48`・`~p2018-09-10~n48` など）
+- テスト: 研究側 `tests/test_ledger_rows.py`（2 本。本物の検証結果一覧を一時 DB に入れ、同じ行・判定・`n_trials` ＝ `ledger.md` の数・入れ直しで増えない）／ 管理画面 `tests/test_models_tab.py` の `test_history_counts_come_from_the_db`（小さな DB で、DB の数・印・注・読み取り専用・無い DB を作らない）と `test_real_history_matches_the_db`（本物の DB と `models.toml` の突き合わせ。DB が無い機械では飛ばす）
+- sidecar（3015）は `modelview.py` を直したので、もう一度入れ替えた（同じ手順）
+
+### Phase 4（「詳しく」の【実測】を DB から。2026-09-21 夜）
+
+- 形: `models.toml` の `[model.detail.*]` の文に差し込み `{{gate|<実行>|<数字の選び方・作り方>|<項目>|<桁>|<控え>}}` ／ `{{calib|…}}`（`dashboard/modelview.py` の `PLUG`）。`gate` ＝ `checks.json` の `gate.methods[…]` の auc ／ width_pt ／ auc_folds ／ width_folds、`calib` ＝ `fitted/calibration_f1..N.json` の a ／ b を fold の順に。桁の頭の `+` で正の数に ＋・負は −・並びは「 ／ 」
+- 読み手 `RunFacts`: 読み取り専用・引くのは `checks.json` と `fitted/calibration_f*.json` だけ・差し込みのあるページだけ DB を開く・無い DB は作らない。DB の値は点線の下線（title に実行の識別名 ＝ 出典）・囲みの下に「機械で引いた値」の注。DB が無い機械では控え ＋「人が写した」の注
+- 差し込みにしたもの（32 か所）: `own-ridge`（較正 a・b ＝ 09-13T08-57-34、門の AUC・幅と fold 別）／ `ownex-lgbm`（a ＝ 09-17T16-58-20、門）／ `seq-quant`・`minirocket`・`hydra`（09-15T10-38-12 の門と a。`hydra` の幅の fold 別は桁がそろわないので写したまま）／ `patchtst`（09-15T14-04-35）／ `symbolic-regression`（09-16T10-18-18 の門）
+- ⚠ **突き合わせの結果: 32 か所の控えは DB の値と全部同じ**（食い違い 0）
+- 差し込めずに人が写したままのもの: 範囲（`trend-gates`・`entry-exit-gates`・`mlp`・`gan-augment` の「0.491〜0.512」など）・桁のそろわない並び（`own-ridge` の較正「旧」の a、`hydra` の幅）・`result.csv` や記録の文書から写した数（保有日率・取引の数・上乗せ）・シミュレーションの集計
+- テスト: `tests/test_models_tab.py` の `test_detail_plugs_come_from_run_records`（小さな DB で書き方・title・注・控え・読み取り専用）と `test_real_detail_plugs_match_the_db`（本物の 32 か所の形と、控え ＝ DB の値。DB が無い機械では形だけ）。管理画面 222 本
+- sidecar（3015）は入れ替えた（同じ手順・vibeboard の中継でも差し込みが出る）
+
+### Phase 5 のうち `feature-discovery/out/`（2026-09-21 夜）
+
+- 中身【実測】: 56 ファイル・0.23 MB ＝ `diag/`（`cli/calibdiag.py` の診断 14 回ぶん）・`crosscheck_2026-09-08.json`（`cli/crosscheck.py`）・`gan_ownex/`（2026-09-14〜15 に手で回したキューのログ）。⚠ コードで読む手は無い（記録の文書が出典として道を書いているだけ）。実売買の経路（`run-live.sh`・`cli/predict.py`・執行器）は読まない
+- 置き場: 研究の DB の表 `outputs`（道 ＝ `out/` からの相対のまま・中身は元のバイト列・`sha256`・書き換えも削除もトリガーが拒む・同じ道には入れ直さない）。⚠ 実行（`runs`）には入れない ＝ 検証結果一覧・実行タブ・`n_trials` に出ない
+- 書き手: `cli/calibdiag.py`（`diag/<時刻>_<名前>/folds.csv`・`meta.json`・`theta.csv`・`auc_width.csv`）・`cli/crosscheck.py`（`crosscheck_<日>.json`。`--out` を書けばファイルの写しも）を `runs.put_output` に。出力のバイト列はいままでのファイルと同じ書き方
+- 道具: `cli.db import-out`（取り込み。2 回目は増えない・違う中身なら止まる）／ `verify-out`／ `remove-out --i-verified`（突き合わせて一致したファイルだけ消す・空のディレクトリも）／ `export-out --prefix … --to …`（書き戻し）／ `stats` に出力の数
+- 【実測】: 取り込み 56 ／ 突き合わせ 一致 56 ／ 食い違い 0。DB は 316.7 → 320.1 MB（`ledger_rows` と `outputs`）
+- テスト: `tests/test_rundb.py` に 2 本（そのまま入る・書き換えと削除を拒む・取り込み → 突き合わせ → 食い違いは残して消す → 書き戻しが 1 ビットも違わない）
+- ✅ **消した**（2026-09-21 夜・利用者の了承「消す＋控え取り直し」）: 消した 56 ／ 食い違い 0（`out/` ごと無くなった）→ 控えを取り直した `/mnt/c/Users/akira/ai-income-lab-backup/research-2026-09-21-2.sqlite`（320.1 MB・sha256 一致 `f8d5fcfe…`・整合性 ok・実行 255 ／ 出力 56 ／ `ledger_rows` 2,147）。前の控え（`outputs` を入れる前）も残してある。研究側のテスト 501 本
+- 2026-09-21 夜: 利用者が控え（`research-2026-09-21-2.sqlite`）を Sx360 へ scp した（利用者の報告。⚠ titan から Sx360 へは ssh が届かないので、Claude は写しの中身を確かめていない。確かめるなら Sx360 で `sha256sum` が `f8d5fcfe9aba58a5dd114ef467623716a056cd41ff5f83567ffdcceaa3c99649`）

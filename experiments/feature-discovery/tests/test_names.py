@@ -25,22 +25,22 @@ LIVE = {"鍵": "全部使う（基準）", "モデル": "Ridge", "粒度": "日�
 
 @pytest.mark.parametrize("change,want", [
     # 実売買の 3 人（2026-09-19 に確定。config/traders/T1〜T3.toml）
-    ({}, "own.all.ridge.a@50"),
+    ({}, "own.all.ridge.shared@50"),
     ({"モデル": "LightGBM", "特徴量の層": "own cs rel ex", "銘柄": "48", "閾値": "55"},
-     "own-cs-rel-ex.all.lgbm.a~n48@55"),
-    ({"鍵": "T3 QUANT（60日窓）", "特徴量の層": "own seq"}, "own-seq.t3-quant60.ridge.a@50"),
+     "own-cs-rel-ex.all.lgbm.shared~n48@55"),
+    ({"鍵": "T3 QUANT（60日窓）", "特徴量の層": "own seq"}, "own-seq.t3-quant60.ridge.shared@50"),
     # 既定から外れた列だけが `~` で後ろに付く（順は 検証方式 → 粒度 → 地平 → 層 → 期間 → 銘柄 → 較正）
-    ({"較正": "旧"}, "own.all.ridge.a~cal-old@50"),
-    ({"期間": "1995-02-10", "形式": "銘柄別"}, "own.all.ridge.b~p1995-02-10@50"),
-    ({"検証方式": "毎日往復", "較正": "—", "閾値": "—", "期間": "—", "銘柄": "—"}, "own.all.ridge.a~rt~p-na~n-na"),
+    ({"較正": "旧"}, "own.all.ridge.shared~cal-old@50"),
+    ({"期間": "1995-02-10", "形式": "銘柄別"}, "own.all.ridge.each~p1995-02-10@50"),
+    ({"検証方式": "毎日往復", "較正": "—", "閾値": "—", "期間": "—", "銘柄": "—"}, "own.all.ridge.shared~rt~p-na~n-na"),
     ({"粒度": "1 分足", "地平": "390 本（1 取引日）", "層": "raw", "検証方式": "毎日往復", "較正": "—", "閾値": "—"},
-     "own.all.ridge.a~rt~1m~h390~raw"),
-    ({"鍵": "F3-1b", "モデル": "LightGBM+GAN増強(batch16k)"}, "own.f3-1b.lgbm-gan-16k.a@50"),
-    ({"鍵": "入口D2(60)×出口D1(20)（学習）", "特徴量の層": "own trend"}, "own-trend.in-d2-out-d1.ridge.a@50"),
-    ({"鍵": "乱択（基準）", "モデル": "—"}, "own.random.none.a@50"),
+     "own.all.ridge.shared~rt~1m~h390~raw"),
+    ({"鍵": "F3-1b", "モデル": "LightGBM+GAN増強(batch16k)"}, "own.f3-1b.lgbm-gan-16k.shared@50"),
+    ({"鍵": "入口D2(60)×出口D1(20)（学習）", "特徴量の層": "own trend"}, "own-trend.in-d2-out-d1.ridge.shared@50"),
+    ({"鍵": "乱択（基準）", "モデル": "—"}, "own.random.none.shared@50"),
     ({"鍵": "ボラ上位〔T3 QUANT（60日窓）・上位3・整数株B⚠〕", "モデル": "—", "特徴量の層": "own seq"},
-     "own-seq.voltop-t3-quant60-top3-shb.none.a@50"),
-    ({"鍵": "全部使う（基準）〔上位10・端数〕"}, "own.all-top10-frac.ridge.a@50"),
+     "own-seq.voltop-t3-quant60-top3-shb.none.shared@50"),
+    ({"鍵": "全部使う（基準）〔上位10・端数〕"}, "own.all-top10-frac.ridge.shared@50"),
 ])
 def test_names_are_built_from_the_key(change, want):
     row = {**LIVE, **change}

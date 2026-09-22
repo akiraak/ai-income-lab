@@ -9,15 +9,26 @@
     `name`・`method` が合う `[[model]]`）。⚠ **本数を数えない・見くらべる表や順位を作らない**
   - ⚠ **用語を書いてよいのは `[model.detail.*]`（「詳しく」の囲み）と正式な名前の欄だけ**。ほかの欄（`axes`・`walk`・`score`・`history` も）は
     やさしい言葉の検査を受ける（`tests/test_traders_tab.py` の `FORBIDDEN`）。⚠ 新しい欄はトレーダーのタブには出ない（人のページを長くしない）
-  - ⚠ **「過去のデータで試した結果」は人が記録から写した印と文**（`result`。検証結果一覧からは機械で引けない ＝ §17-3）。
+  - ⚠ **「過去のデータで試した結果」の印と文は人が書く**（`result`）。⚠ **試した経緯の数は研究の DB から数える**（2026-09-21。
+    経緯の行の `names` ＝ 予測モデル名のパターン〔rules.md 10-2〕で `ledger_rows` を引き、θ はまとめて数える。DB が無い機械・
+    `names` の無い行は TOML の数）。⚠ 印・TOML の数と DB の数が食い違えばテストが落ちる（`tests/test_models_tab.py`）。
     `[common] show_result = false` で段と印を出さない。⚠ **売買結果は出さない**
-  - ⚠ **`out/`・`state/`・`.env`・`runs/` を読まない**（このモジュールが開くのは TOML だけ。「正式な名前」の段は実験の config から写す）
+  - ⚠ **「詳しく」の中の差し込み**（`{{gate|…}}`・`{{calib|…}}` ＝ `PLUG`。2026-09-21）は、実行の記録（DB の `files`）の
+    `checks.json` の門と `fitted/calibration_f*.json` の較正の係数から引く（出どころの実行の識別名を title に出す）。
+    DB の無い機械では人が写した控え。⚠ 控えと DB の値が食い違えばテストが落ちる
+  - ⚠ **`out/`・`state/`・`.env` を読まない**。開くのは TOML と、研究の DB の `ledger_rows`（検証結果一覧の生成物）・
+    `files` の `checks.json` と `fitted/calibration_f*.json` だけで、DB は読み取り専用（無い DB は作らない）。
+    「正式な名前」の段は実験の config から写す
   - ⚠ **標準ライブラリだけ・読むだけ**（vibeboard の sidecar が `python3` で起こす。tailnet の閲覧者にも見える）
 """
 
 from __future__ import annotations
 
+import fnmatch
+import json
 import re
+import sqlite3
+import zlib
 from pathlib import Path
 from urllib.parse import quote
 
@@ -27,6 +38,8 @@ from traderview import TraderPaths, esc
 
 LIST_ID = "all"
 VERDICTS = ("adopt", "hold", "drop")
+# 検証結果一覧の判定 → 印（`ledger_rows.verdict`）。⚠ 読むのは n_trials に数える行だけ（基準線の行は数えない）
+LEDGER_VERDICTS = {"採る": "adopt", "保留": "hold", "落とす": "drop"}
 ID_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9-]*$")
 # 実験の config から「正式な名前」の段へ写す鍵（あるものだけ）
 CONFIG_KEYS = ("model", "feature_layers", "detectors", "transform", "selectors", "symbol")
@@ -61,6 +74,7 @@ CSS = traderview.CSS + figures.CSS + """
  .result { border: 1px solid #d0d7de; border-radius: 6px; padding: 8px 14px; margin: 10px 0; }
  .result .tag { margin-left: 0; margin-right: 8px; font-size: 12px; line-height: 20px; padding: 0 8px; border-radius: 10px; }
  td ul { margin: 0 0 0 1.1em; }
+ .dbv { border-bottom: 1px dotted #57606a; cursor: help; }
 """
 
 
@@ -190,10 +204,107 @@ def _more(label, inner: str) -> str:
     return f"<div class='more'><div class='more-h'>{esc(label)}</div>{inner}</div>" if inner else ""
 
 
-def _detail(common: dict, m: dict, part: str) -> str:
-    """大見出しごとの「詳しく（用語あり）」の囲み（`[model.detail.<part>]` の `text`・`points`・`links`）。無ければ出さない。"""
+# 「詳しく」の中の差し込み（2026-09-21。プラン db-model-facts.md の Phase 4）:
+#   {{gate|<実行>|<数字の選び方・作り方>|<項目>|<書き方>|<控え>}}  ＝ checks.json の gate.methods[…][項目]（auc ／ width_pt ／ auc_folds ／ width_folds）
+#   {{calib|<実行>|<数字の選び方・作り方>|<項目>|<書き方>|<控え>}} ＝ fitted/calibration_f1..N.json の […][項目]（a ／ b。fold の順に並べる）
+# 書き方 ＝ 小数の桁（`+` を付けると正の数に ＋）。控え ＝ DB の無い機械で出す、人が写した文字（⚠ DB の値と同じでないとテストが落ちる）
+PLUG = re.compile(r"\{\{(gate|calib)\|([^|{}]+)\|([^|{}]+)\|([^|{}]+)\|(\+?\d)\|([^{}]*)\}\}")
+PLUG_FIELDS = {"gate": ("auc", "width_pt", "auc_folds", "width_folds"), "calib": ("a", "b")}
+_CALIB_FILE = re.compile(r"^fitted/calibration_f(\d+)\.json$")
+
+
+class RunFacts:
+    """実行の記録（DB の `files`）から「詳しく」に差し込む値を引く。⚠ 読み取り専用・引くのは `checks.json` と
+    `fitted/calibration_f*.json` だけ・無い DB は作らない。DB が無い・開けないときは何も返さない（控えを出す）。"""
+
+    def __init__(self, paths: TraderPaths):
+        self.conn: sqlite3.Connection | None = None
+        self._cache: dict[tuple[str, str], object] = {}
+        db = paths.research_db
+        if db is not None and Path(db).is_file():
+            try:
+                self.conn = sqlite3.connect(f"file:{Path(db)}?mode=ro", uri=True, timeout=10)
+                self.conn.execute("SELECT 1 FROM files LIMIT 1")
+            except sqlite3.Error:
+                self.close()
+
+    def close(self) -> None:
+        if self.conn is not None:
+            self.conn.close()
+            self.conn = None
+
+    def _json(self, run: str, path: str):
+        key = (run, path)
+        if key not in self._cache:
+            doc = None
+            try:
+                row = self.conn.execute("SELECT codec, body FROM files WHERE run = ? AND path = ?", (run, path)).fetchone()
+                if row is not None:
+                    codec, body = row
+                    text = body if codec == "text" and isinstance(body, str) else zlib.decompress(body).decode("utf-8")
+                    doc = json.loads(text)
+            except (sqlite3.Error, ValueError, zlib.error):
+                doc = None
+            self._cache[key] = doc
+        return self._cache[key]
+
+    def value(self, kind: str, run: str, method: str, field: str):
+        """数か、数の並び（fold の順）。引けなければ None。"""
+        if self.conn is None or field not in PLUG_FIELDS.get(kind, ()):
+            return None
+        if kind == "gate":
+            g = self._json(run, "checks.json") or {}
+            v = (((g.get("gate") or {}).get("methods") or {}).get(method) or {}).get(field)
+        else:
+            try:
+                files = [p for (p,) in self.conn.execute(
+                    "SELECT path FROM files WHERE run = ? AND path LIKE 'fitted/calibration_f%.json'", (run,))]
+            except sqlite3.Error:
+                return None
+            folds = sorted((int(m.group(1)), p) for p in files if (m := _CALIB_FILE.match(p)))
+            v = [((self._json(run, p) or {}).get(method) or {}).get(field) for _n, p in folds] or None
+        nums = v if isinstance(v, list) else [v]
+        if v is None or not all(isinstance(x, (int, float)) and not isinstance(x, bool) for x in nums):
+            return None
+        return v
+
+
+def plug_text(v, fmt: str) -> str:
+    """差し込む数の書き方（負は − ・ `+` なら正に ＋ ・ 並びは「 ／ 」でつなぐ）。"""
+    def one(x: float) -> str:
+        s = f"{x:.{int(fmt.lstrip('+'))}f}".replace("-", "−")
+        return "＋" + s if fmt.startswith("+") and x > 0 else s
+    return " ／ ".join(one(x) for x in v) if isinstance(v, list) else one(v)
+
+
+def _plugged(text: str, facts: RunFacts | None, used: list) -> str:
+    """文の中の差し込みを埋めた HTML（地の文はエスケープ）。DB から引けた値は点線の下線 ＋ 出どころの実行（title）。"""
+    out, pos = [], 0
+    for m in PLUG.finditer(text):
+        out.append(esc(text[pos:m.start()]))
+        kind, run, method, field, fmt, fallback = m.groups()
+        v = facts.value(kind, run, method, field) if facts is not None else None
+        if v is None:
+            out.append(esc(fallback))
+        else:
+            used.append(run)
+            out.append(f"<span class='dbv' title='{esc('試した記録から: ' + run)}'>{esc(plug_text(v, fmt))}</span>")
+        pos = m.end()
+    out.append(esc(text[pos:]))
+    return "".join(out)
+
+
+def _detail(common: dict, m: dict, part: str, facts: RunFacts | None = None) -> str:
+    """大見出しごとの「詳しく（用語あり）」の囲み（`[model.detail.<part>]` の `text`・`points`・`links`）。無ければ出さない。
+    文の中の差し込み（`PLUG`）は、DB がある機械では実行の記録から引いた値にする。"""
     d = (m.get("detail") or {}).get(part) or {}
-    inner = _paras(d.get("text")) + (traderview._ul(d["points"]) if d.get("points") else "") + _links(d.get("links"))
+    used: list[str] = []
+    paras = "".join(f"<p>{_plugged(str(t), facts, used)}</p>" for t in d.get("text") or [] if t)
+    points = ("<ul>" + "".join(f"<li>{_plugged(str(t), facts, used)}</li>" for t in d["points"] if t) + "</ul>"
+              if d.get("points") else "")
+    has_plug = any(PLUG.search(str(t)) for t in [*(d.get("text") or []), *(d.get("points") or [])])
+    note = common.get("detail_db_note") if used else common.get("detail_hand_note") if has_plug else None
+    inner = paras + points + _links(d.get("links")) + (f"<p class='sub'>{esc(note)}</p>" if note and (paras or points) else "")
     return _more(common.get("detail_label") or "詳しく（用語あり）", inner)
 
 
@@ -221,8 +332,51 @@ def _walk(common: dict, m: dict) -> str:
             + f"<p class='sub'>{esc(common.get('walk_caution'))}</p></div>")
 
 
-def _history(common: dict, m: dict) -> str:
-    """試した経緯の表（人が記録から写したもの）。いまの印に数えない行は薄く出し、理由を添える:
+Ledger = list[tuple[str, str, "str | None", "str | None"]]
+
+
+def ledger_rows(paths: TraderPaths) -> Ledger | None:
+    """研究の DB の検証結果一覧のうち n_trials に数える行 ＝ (予測モデル名, 判定, 最初の日, 最後の日)。
+
+    ⚠ 読み取り専用で開く（無い DB は作らない・書かない）。DB が無い・表が無い・開けないときは None（TOML の数を出す）。
+    """
+    db = paths.research_db
+    if db is None or not Path(db).is_file():
+        return None
+    try:
+        conn = sqlite3.connect(f"file:{Path(db)}?mode=ro", uri=True, timeout=10)
+        try:
+            return conn.execute("SELECT model_name, verdict, first_run, last_run FROM ledger_rows"
+                                " WHERE leak = 0 AND is_trial = 1").fetchall()
+        finally:
+            conn.close()
+    except sqlite3.Error:
+        return None
+
+
+def counted(ledger: Ledger | None, patterns) -> dict | None:
+    """経緯の 1 行の数を DB から数える。`patterns` ＝ 予測モデル名のパターン（`fnmatch`。θ はまとめて数える）。
+
+    返すのは `{adopt, hold, drop, rows, first, last}`（rows ＝ 当たった行の数・first/last ＝ 実行の最初と最後の日）。
+    DB が無い・`names` が無い・1 行も当たらないときは None（TOML の数を出す）。
+    """
+    if ledger is None or not patterns:
+        return None
+    pats = [str(p) for p in patterns]
+    hit = [r for r in ledger if any(fnmatch.fnmatchcase(r[0], p) for p in pats)]
+    if not hit:
+        return None
+    out: dict = {v: 0 for v in VERDICTS}
+    for _name, verdict, _first, _last in hit:
+        if verdict in LEDGER_VERDICTS:
+            out[LEDGER_VERDICTS[verdict]] += 1
+    days = [d for r in hit for d in r[2:] if d]
+    return {**out, "rows": len(hit), "first": min(days, default=None), "last": max(days, default=None)}
+
+
+def _history(common: dict, m: dict, ledger: Ledger | None = None) -> str:
+    """試した経緯の表。数は研究の DB から数える（`names` の無い行・DB の無い機械は人が写した TOML の数）。
+    いまの印に数えない行は薄く出し、理由を添える:
     `old = true` ＝ 計算を直す前の試し（理由は `[common] history_old`）／ `aside = "理由"` ＝ ちがう売り買いの決まりでの試しなど。"""
     rows = [r for r in m.get("history") or [] if r.get("what")]
     if not rows:
@@ -232,16 +386,22 @@ def _history(common: dict, m: dict) -> str:
            + "".join(f"<th>{esc(common.get(k) or d)}</th>" for k, d in (
                ("history_when", "いつ"), ("history_what", "何を試したか"), ("history_ways", "何通り"), ("history_split", "内訳"))) + "</tr>"]
     for r in rows:
-        counts = [(name, int(r.get(v) or 0)) for v, name in names]
+        db = counted(ledger, r.get("names"))
+        counts = [(name, int((db or r).get(v) or 0)) for v, name in names]
         split = " ／ ".join(f"{name} {n}" for name, n in counts if n)
+        # ⚠ DB がある機械で、DB から数えられなかった行（`names` が無い）にだけ「人が写した数」の印
+        hand = (f"<span class='sub'>（{esc(common['history_hand'])}）</span>"
+                if ledger is not None and db is None and common.get("history_hand") else "")
         aside = _aside(common, r)
         old = f"<span class='sub'>（{esc(aside)}）</span>" if aside else ""
         note = f"<span class='why'>{esc(r['note'])}</span>" if r.get("note") else ""
         out.append(f"<tr{' class=' + chr(39) + 'old' + chr(39) if aside else ''}><td>{esc(r.get('when'))}</td>"
-                   f"<td>{esc(r['what'])}{old}{note}</td><td>{sum(n for _k, n in counts) or ''}</td><td>{esc(split)}</td></tr>")
+                   f"<td>{esc(r['what'])}{old}{note}</td><td>{sum(n for _k, n in counts) or ''}</td><td>{esc(split)}{hand}</td></tr>")
     out.append("</table>")
-    if common.get("history_note"):
-        out.append(f"<p class='sub'>{esc(common['history_note'])}</p>")
+    source = common.get("history_source_db" if ledger is not None else "history_source_hand")
+    notes = " ".join(str(x) for x in (common.get("history_note"), source) if x)
+    if notes:
+        out.append(f"<p class='sub'>{esc(notes)}</p>")
     return "".join(out)
 
 
@@ -250,11 +410,12 @@ def _aside(common: dict, r: dict) -> str:
     return str(r.get("aside") or (common.get("history_old") if r.get("old") else "") or "")
 
 
-def best_verdict(m: dict) -> str:
-    """経緯の表（`old`・`aside` の行を除く）でいちばん良かった印。表が無ければ ""。⚠ `result.verdict` と食い違わないことをテストが見る。"""
+def best_verdict(m: dict, ledger: Ledger | None = None) -> str:
+    """経緯の表（`old`・`aside` の行を除く）でいちばん良かった印（DB があれば DB の数で）。表が無ければ ""。
+    ⚠ `result.verdict` と食い違わないことをテストが見る。"""
     rows = [r for r in m.get("history") or [] if not (r.get("old") or r.get("aside"))]
     for v in VERDICTS:
-        if any(int(r.get(v) or 0) > 0 for r in rows):
+        if any(int((counted(ledger, r.get("names")) or r).get(v) or 0) > 0 for r in rows):
             return v
     return ""
 
@@ -294,6 +455,18 @@ def model_body(paths: TraderPaths, item: str) -> str | None:
     m = next((x for x in data["models"] if x["id"] == item), None)
     if m is None:
         return None
+    has_plug = any(PLUG.search(str(t)) for d in (m.get("detail") or {}).values()
+                   for t in [*(d.get("text") or []), *(d.get("points") or [])])
+    facts = RunFacts(paths) if has_plug else None       # 差し込みのあるページだけ DB を開く
+    try:
+        return _model_body(paths, data, m, facts)
+    finally:
+        if facts is not None:
+            facts.close()
+
+
+def _model_body(paths: TraderPaths, data: dict, m: dict, facts: "RunFacts | None") -> str:
+    item = m["id"]
     common, words = data["common"], data["words"]
     users = data["users"].get(item, [])
     out = [f"<div style='--who:{COLOR_LIVE if users else COLOR_DESK}'>", f"<h1>{esc(m.get('label'))}</h1>"]
@@ -308,7 +481,7 @@ def model_body(paths: TraderPaths, item: str) -> str | None:
         out.append(f"<p class='who'><b>{esc(common.get('used_by'))}</b>　{links}</p>")
     else:
         out.append(f"<p class='who sub'>{esc(common.get('used_by_none'))}</p>")
-    out.append(_axes(common, m) + _detail(common, m, "about"))
+    out.append(_axes(common, m) + _detail(common, m, "about", facts))
 
     out.append(traderview._h2(2, "モデルの特性"))
     out.append("<ul>" + "".join(
@@ -327,12 +500,12 @@ def model_body(paths: TraderPaths, item: str) -> str | None:
     out.append(_walk(common, m))
     if common.get("flow_link"):                  # 全部のモデルに共通の流れは「システム説明」に書いてある（二重に書かない）
         out.append(_links([{"label": common["flow_link"], "tab": "system", "item": "build"}]))
-    out.append(_detail(common, m, "how"))
+    out.append(_detail(common, m, "how", facts))
 
     no = 4
     score = _score(common, m)
     if score:
-        out.append(traderview._h2(no, "出力スコアの出かたと読み方") + score + _detail(common, m, "score"))
+        out.append(traderview._h2(no, "出力スコアの出かたと読み方") + score + _detail(common, m, "score", facts))
         no += 1
     if _show_result(common):
         out.append(traderview._h2(no, "過去のデータで試した結果"))
@@ -343,13 +516,13 @@ def model_body(paths: TraderPaths, item: str) -> str | None:
                        + (f"<span class='why'>{esc(result['why'])}</span>" if result.get("why") else "") + "</div>")
         else:
             out.append(f"<p>{esc(common.get('result_none'))}</p>")
-        out.append(_history(common, m))
+        out.append(_history(common, m, ledger_rows(paths) if m.get("history") else None))
         records = [str(r) for r in m.get("records") or []]
         if records:
             out.append(f"<p class='sub'>{esc(common.get('records_label'))}: " + "　".join(
                 f"<a href='{esc(doc_url(r))}' target='_top'>{esc(r.rsplit('/', 1)[-1])}</a>" for r in records) + "</p>")
         out.append(f"<p class='sub'>{esc(common.get('result_note'))}</p>")
-        out.append(_detail(common, m, "result"))
+        out.append(_detail(common, m, "result", facts))
 
     survivor = common.get("limit_survivor") if m.get("stocks") is not False else None
     out.append(traderview._h2(no, "気をつけること") + "<div class='care'>" + traderview._ul(
@@ -369,5 +542,18 @@ def body(paths: TraderPaths, item: str) -> str | None:
 
 
 def fingerprint(paths: TraderPaths) -> dict[str, float]:
-    """見張り用。言葉の正本と実売買の設定（だれがどのモデルを使うか）の mtime。"""
-    return traderview.fingerprint(paths)
+    """見張り用。言葉の正本と実売買の設定（だれがどのモデルを使うか）の mtime ＋ 検証結果一覧を DB に入れ直した時刻。"""
+    out = traderview.fingerprint(paths)
+    db = paths.research_db
+    if db is not None and Path(db).is_file():
+        try:
+            conn = sqlite3.connect(f"file:{Path(db)}?mode=ro", uri=True, timeout=10)
+            try:
+                row = conn.execute("SELECT value FROM meta WHERE key = 'ledger_built_at'").fetchone()
+            finally:
+                conn.close()
+            if row:
+                out["ledger_rows"] = float(re.sub(r"\D", "", str(row[0])) or 0)
+        except sqlite3.Error:
+            pass
+    return out

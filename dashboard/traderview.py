@@ -41,6 +41,9 @@ class TraderPaths:
     # 「システム説明」タブ（systemview.py）が読むもの: 説明の言葉の正本と、机上の検証の検証結果一覧（合計を写すだけ）
     system: Path = DASHBOARD_DIR / "system.toml"
     ledger: Path = REPO_ROOT / "docs" / "specs" / "experiments" / "feature-discovery" / "ledger.md"
+    # 「予測モデル」タブ（modelview.py）が試した経緯の数を引く研究の DB（`ledger_rows` だけ・読み取り専用）。
+    # ⚠ None ＝ 読まない（TOML の数を出す）。vibetab は実行タブと同じ置き場（`--runs-dir`）の DB を渡す
+    research_db: Path | None = None
 
     @classmethod
     def default(cls) -> "TraderPaths":

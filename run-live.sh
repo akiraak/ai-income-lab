@@ -69,7 +69,7 @@ fi
 
 # ---- 引けに間に合うか（⚠ 2026-09-22 に踏んだ形。遅れて起動すると、準備の 95 秒の後に引け後の成行を投げる）
 # ⚠ **止めるのは submit ＋ 今日の日付のときだけ。** plan ／ dry-run と過去の日付は素通り。
-# ⚠ `--ignore-window` を「--」の後ろに書いた回も素通り（窓を承知で外すと決めた回なので）。
+# ⚠ `--ignore-window` を「--」の後ろに書いた回も素通り（発注できる時間帯を承知で外すと決めた回なので）。
 IGNORE_WINDOW=0
 for a in ${PASS+"${PASS[@]}"}; do [ "$a" = "--ignore-window" ] && IGNORE_WINDOW=1; done
 if [ "$MODE" = "submit" ] && [ "$DATE" = "$TODAY" ] && [ "$IGNORE_WINDOW" = 0 ]; then

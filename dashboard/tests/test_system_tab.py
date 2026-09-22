@@ -1,8 +1,8 @@
 """vibeboard の「システム説明」タブ（`dashboard/systemview.py`・`dashboard/system.toml`）の検査。仕様は dashboard.md §18。
 
 見るもの: 本文はやさしい言葉（⚠ `detail*` ＝ 「詳しく（用語あり）」の囲みは検査の外。⚠ 囲みは畳まない ＝ `<details>` にしない）／ 設定の数字と `$` が本文に無い ／
-ページの鍵 ／ 手厚い 3 ページとどの段にも「詳しく」／ 図は主張つき・箱 12 個以内 ／ リンク先が在る ／ 型ごとの段は models.toml から ／
-台帳の合計は ledger.md から（無ければ出さない）／ TOML と台帳しか開かない ／ 先頭のタブ ／ 経路 ／ 白地。
+⚠ **概要の 1 ページだけ**（2026-09-21 の利用者の指示。モデルの話は予測モデルのタブのしくみのページ ＝ test_models_tab.py）／ 図は主張つき・箱 12 個以内 ／
+リンク先が在る ／ ページの描き方（段・図・表・型ごとの段・台帳の合計）は最小の置き場で ／ TOML と台帳しか開かない ／ 先頭のタブ ／ 経路 ／ 白地。
 """
 
 import builtins
@@ -25,7 +25,8 @@ REPO_ROOT = traderview.REPO_ROOT
 REAL = Path(traderview.DASHBOARD_DIR) / "system.toml"
 # 用語を使ってよい欄（画面では「詳しく」の囲みとリンク先）。ほかは全部、やさしい言葉の検査を受ける
 DETAIL_KEYS = ("detail", "detail_points", "detail_table", "detail_links", "links")
-DEEP_PAGES = ("build", "verify", "live")
+# しくみのページ（2026-09-21 にこのタブから予測モデルのタブへ移した。models.toml の [[page]]）
+GUIDE_PAGES = ("build", "verify", "live", "names")
 
 
 def _real() -> dict:
@@ -62,28 +63,25 @@ def test_the_model_output_is_called_output_score():
     assert not [(where, text) for where, text in texts if re.search(r"(?<!出力)スコア", text)]
 
 
-def test_pages_and_depth():
-    """全体は簡単に・作る ／ 確かめる ／ 使う は手厚く（利用者の裁定）。手厚いページはどの段にも「詳しく」がある。"""
-    pages = {p["id"]: p for p in _real()["page"]}
-    assert list(pages)[0] == "overview" and set(DEEP_PAGES) <= set(pages) and "names" in pages
-    assert all(systemview.ID_PATTERN.match(i) for i in pages) and len(pages) == len(_real()["page"])
-    assert all(len(pages[i]["section"]) > len(pages["overview"]["section"]) for i in DEEP_PAGES)
-    for i in DEEP_PAGES:
-        assert pages[i].get("lead")
-        assert sum(1 for s in pages[i]["section"] if s.get("figure")) >= 1, i
-        for s in pages[i]["section"]:
-            assert s.get("title") and (s.get("detail") or s.get("models")), (i, s.get("title"))
+def test_only_the_overview():
+    """⚠ **概要の 1 ページだけ**（2026-09-21 の利用者の指示「システム説明は概要だけにする」）。モデルの話のページはここに無い。"""
+    pages = [p["id"] for p in _real()["page"]]
+    assert pages == ["overview"]
+    assert not set(GUIDE_PAGES) & set(pages)
+    overview = _real()["page"][0]
+    assert overview.get("lead") and all(s.get("title") for s in overview["section"])
 
 
 def test_figures_have_a_claim_and_few_nodes():
     """1 図 1 主張・箱は 12 個以内（CLAUDE.md の図の原則）。models.toml の型ごとの図も同じ。"""
-    figs = [(p["id"], s["figure"]) for p in _real()["page"] for s in p.get("section") or [] if s.get("figure")]
+    mdoc = tomllib.loads((Path(traderview.DASHBOARD_DIR) / "models.toml").read_text(encoding="utf-8"))
+    figs = [(p["id"], s["figure"]) for doc in (_real(), mdoc) for p in doc.get("page", []) for s in p.get("section") or [] if s.get("figure")]
     assert figs
     for where, fig in figs:
         assert fig.get("claim"), where
         if fig.get("kind", "flow") == "flow":
             assert 2 <= len(fig["steps"]) <= systemview.MAX_NODES and all(x.get("t") for x in fig["steps"]), where
-    models = tomllib.loads((Path(traderview.DASHBOARD_DIR) / "models.toml").read_text(encoding="utf-8"))["model"]
+    models = mdoc["model"]
     paths = traderview.TraderPaths.default()
     live = modelview.load(paths)["users"]
     for m in models:
@@ -108,18 +106,16 @@ def test_links_point_at_real_things():
                         assert link["item"] in model_ids, link
 
 
-def test_real_pages_render_with_ledger_totals():
+def test_real_overview_renders_and_points_at_the_model_pages():
     paths = traderview.TraderPaths.default()
-    assert [i["id"] for i in systemview.sidebar(paths)["items"]][:4] == ["overview", *DEEP_PAGES]
-    totals = systemview.ledger_totals(paths)
-    assert totals and all(re.fullmatch(r"[\d,]+", totals[k]) for k in ("rows", "adopt", "hold", "drop"))
+    assert [i["id"] for i in systemview.sidebar(paths)["items"]] == ["overview"]
     overview = systemview.body(paths, "overview")
     assert "<svg" in overview and "class='big'" not in overview and "<table" not in overview     # 全体は簡単に（結論の数字・タブの表は置かない ＝ 利用者の指示）
-    assert f"<b>{totals['rows']}</b>" in systemview.body(paths, "verify")                          # 台帳の合計は「確かめる」のページに
-    build = systemview.body(paths, "build")
-    for m in modelview.load(paths)["models"]:
-        if m["id"] in modelview.load(paths)["users"]:
-            assert m["label"] in build and f"/#models/{m['id']}" in build                # 型ごとのしくみは models.toml から
+    for page in GUIDE_PAGES:                                                                 # モデルの話は予測モデルのタブのしくみのページへ
+        assert f"<a href='/#models/{page}' target='_top'>" in overview, page
+    assert "/#system/" not in overview and "ほかのページ" not in overview                    # 1 ページだけ ＝ ほかのページの並びは出ない
+    for gone in GUIDE_PAGES:
+        assert systemview.body(paths, gone) is None
 
 
 def test_system_tab_is_first_in_vibeboard_config():

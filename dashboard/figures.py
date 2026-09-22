@@ -1,6 +1,7 @@
 """vibeboard のタブで使う図（サーバで組むインライン SVG）。仕様は docs/specs/dashboard.md §18-2。
 
 「システム説明」（systemview.py）と「予測モデル」（modelview.py）の両方が使う ＝ 循環しない置き場。
+図は 2 種類 ＝ `flow`（箱と矢印）／ `folds`（期間を分けて、先へ進みながら試す図）。`figure_html` が出し分ける。
 
   - ⚠ **箱の文字は TOML・描き方だけがここ**（説明をこのコードに書かない）
   - ⚠ 1 図 1 主張（`claim` を図の直前に出す）・箱は 12 個以内（`MAX_NODES`。超えたぶんは描かない ＝ テストが数える）
@@ -100,3 +101,48 @@ def flow_html(steps: list[dict] | None, claim: str | None = None, per_row: int =
     if not svg:
         return ""
     return (f"<p class='claim'>{esc(claim)}</p>" if claim else "") + f"<div class='fig'>{svg}</div>"
+
+
+def folds_svg(fig: dict) -> str:
+    """期間を分けて、先へ進みながら試す図。行 ＝ 1 回の試し。学ぶ期間（だんだん長くなる）→ すき間 → 答え合わせの期間。"""
+    n = max(2, min(int(fig.get("n") or 5), 8))
+    labels = {k: str(fig.get(k) or "") for k in ("learn", "gap", "test", "unused", "axis_from", "axis_to", "row")}
+    left, top, row_h, bar_h, total_w = 86, 30, 30, 18, 560
+    unit = total_w / (n + 1)                       # 最初の学ぶ期間 ＝ 1 単位、答え合わせ ＝ 1 単位ずつ
+    gap_w = 6
+    width, height = left + total_w + 16, top + n * row_h + 46
+    out = [f"<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 {width} {height}' width='{width}' height='{height}' role='img'>"]
+    out.append(f"<text x='{left}' y='16' font-size='11.5' fill='#57606a'>{esc(labels['axis_from'])}</text>"
+               f"<text x='{left + total_w}' y='16' font-size='11.5' fill='#57606a' text-anchor='end'>{esc(labels['axis_to'])}</text>")
+    for i in range(n):
+        y = top + i * row_h
+        learn_w = unit * (i + 1) - gap_w
+        out.append(f"<text x='{left - 8}' y='{y + 13}' font-size='12' fill='#424a53' text-anchor='end'>{esc(labels['row'])} {i + 1}</text>")
+        out.append(f"<rect class='learn' x='{left}' y='{y}' width='{learn_w:g}' height='{bar_h}' rx='3' fill='#d8dee4'/>")
+        out.append(f"<rect class='test' x='{left + unit * (i + 1):g}' y='{y}' width='{unit:g}' height='{bar_h}' rx='3' fill='#2a78d6'/>")
+        rest = total_w - unit * (i + 2)
+        if rest > 1:
+            out.append(f"<rect x='{left + unit * (i + 2):g}' y='{y}' width='{rest:g}' height='{bar_h}' rx='3' fill='none' stroke='#d0d7de' stroke-dasharray='3 3'/>")
+    ly = top + n * row_h + 18
+    legend = [("#d8dee4", "", labels["learn"]), ("#ffffff", "", labels["gap"]), ("#2a78d6", "", labels["test"]), ("none", "dash", labels["unused"])]
+    x = left
+    for fill, dash, label in legend:
+        if not label:
+            continue
+        stroke = " stroke='#d0d7de'" + (" stroke-dasharray='3 3'" if dash else "") if fill in ("none", "#ffffff") else ""
+        out.append(f"<rect x='{x}' y='{ly - 10}' width='14' height='12' rx='2' fill='{fill}'{stroke}/>"
+                   f"<text x='{x + 19}' y='{ly}' font-size='11.5' fill='#424a53'>{esc(label)}</text>")
+        x += 19 + _width(label) * 11.5 + 18
+    out.append("</svg>")
+    return "".join(out)
+
+
+def figure_html(fig: dict | None) -> str:
+    if not fig:
+        return ""
+    kind = str(fig.get("kind") or "flow")
+    svg = folds_svg(fig) if kind == "folds" else flow_svg(fig.get("steps") or [], int(fig.get("per_row") or 4))
+    if not svg:
+        return ""
+    claim = f"<p class='claim'>{esc(fig.get('claim'))}</p>" if fig.get("claim") else ""
+    return f"{claim}<div class='fig'>{svg}</div>"

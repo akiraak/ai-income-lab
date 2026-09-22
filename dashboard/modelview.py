@@ -1,6 +1,9 @@
 """vibeboard の「予測モデル」タブの画面（HTML の body）。仕様は docs/specs/dashboard.md §17。
 
-**一覧 ＋ モデル 1 本 1 ページ**。モデルの「型」ごとに、何を見て・どう答えを出し・過去のデータで試したらどうだったかを、やさしい言葉で出す。
+**一覧 ＋ しくみのページ ＋ モデル 1 本 1 ページ**。モデルの「型」ごとに、何を見て・どう答えを出し・過去のデータで試したらどうだったかを、やさしい言葉で出す。
+⚠ **しくみのページ**（どのモデルにも共通 ＝ モデルを作る ／ 過去のデータで確かめる ／ 実際の売買で使う ／ 名前と識別名）は、2026-09-21 に
+「システム説明」タブから移した（利用者の指示「システム説明は概要だけにする」）。言葉は `models.toml` の `[[page]]`。ページの描き方
+（段・図・表・「詳しく」・検証結果一覧の合計・型ごとのしくみ）はここにあり、「システム説明」の概要（`systemview.py`）も同じものを使う。
 2026-09-20 に手厚くした（利用者の裁定）: 図（入れるもの → 計算 → 出力スコア）／ このモデルの組み立て（軸の表）／ 小さな例で段を追う ／
 出力スコアの出かたと読み方 ／ 試した経緯の表 ／ 大見出しごとの「詳しく（用語あり）」の囲み（⚠ **畳まない**）。⚠ **欄の無いモデルは、その部分を出さないだけ**。
 
@@ -75,6 +78,12 @@ CSS = traderview.CSS + figures.CSS + """
  .result .tag { margin-left: 0; margin-right: 8px; font-size: 12px; line-height: 20px; padding: 0 8px; border-radius: 10px; }
  td ul { margin: 0 0 0 1.1em; }
  .dbv { border-bottom: 1px dotted #57606a; cursor: help; }
+ .mtype { border-left: 4px solid #2a78d6; padding: 2px 0 2px 14px; margin: 16px 0; }
+ .mtype .lb { font-size: 15px; font-weight: 700; }
+ .big { display: flex; flex-wrap: wrap; gap: 10px; margin: 8px 0; }
+ .big div { border: 1px solid #d0d7de; border-radius: 6px; padding: 6px 14px; min-width: 96px; }
+ .big b { display: block; font-size: 20px; }
+ .big span { font-size: 12px; color: #656d76; }
 """
 
 
@@ -116,6 +125,108 @@ def _paras(items) -> str:
     return "".join(f"<p>{esc(t)}</p>" for t in items or [] if t)
 
 
+# ---------------------------------------------------------------- ページ（しくみのページ・システム説明の概要）
+#
+# 形: [[page]]（id・label・sub・title・lead）→ [[page.section]]（title・text・points・after・note・models・ledger・links・
+#     detail・detail_points・detail_links）→ [page.section.figure] ／ [page.section.table] ／ [page.section.detail_table]。
+#     `models = true` の段 ＝ いま使っている型ごとのしくみ（文は [[model]] から写す）。`ledger = true` の段 ＝ 検証結果一覧の合計（ledger.md から読む）
+
+
+def guide_pages(paths: TraderPaths) -> list[dict]:
+    """しくみのページ（`models.toml` の `[[page]]`）。"""
+    return [p for p in traderview._load(paths.models).get("page", []) if ID_PATTERN.match(str(p.get("id") or ""))]
+
+
+def ledger_totals(paths: TraderPaths) -> dict | None:
+    """検証結果一覧（`ledger.md`。生成物）の頭から、試した行数と 採る ／ 保留 ／ 落とす の合計を読む。読めなければ None。"""
+    try:
+        with open(paths.ledger, encoding="utf-8") as f:
+            head = "".join(line for _i, line in zip(range(60), f))
+    except OSError:
+        return None
+    found = {k: re.search(p, head) for k, p in (
+        ("date", r"生成日\s*(\d{4}-\d{2}-\d{2})"), ("rows", r"(?:検証|試行)は\s*([\d,]+)\s*行（手法）"),
+        ("adopt", r"「採る」は\s*([\d,]+)\s*件"), ("drop", r"落とす\s*([\d,]+)\s*行"), ("hold", r"保留\s*([\d,]+)\s*行"))}
+    if not all(found.values()):
+        return None
+    return {k: m.group(1) for k, m in found.items()}
+
+
+def _ledger_html(common: dict, paths: TraderPaths) -> str:
+    t = ledger_totals(paths)
+    if t is None:
+        return ""
+    cells = [(t["rows"], common.get("ledger_rows")), (t["adopt"], common.get("ledger_adopt")),
+             (t["hold"], common.get("ledger_hold")), (t["drop"], common.get("ledger_drop"))]
+    return ("<div class='big'>" + "".join(f"<div><b>{esc(v)}</b><span>{esc(k)}</span></div>" for v, k in cells) + "</div>"
+            f"<p class='sub'>{esc(str(common.get('ledger_note') or '').replace('{date}', t['date']))}</p>")
+
+
+def _table(tb: dict | None) -> str:
+    if not tb or not tb.get("rows"):
+        return ""
+    head = "".join(f"<th>{esc(h)}</th>" for h in tb.get("head") or [])
+    rows = "".join("<tr>" + "".join(f"<td>{esc(c)}</td>" for c in row) + "</tr>" for row in tb["rows"])
+    return f"<div class='fig'><table>{'<tr>' + head + '</tr>' if head else ''}{rows}</table></div>"
+
+
+def _section_detail(common: dict, sec: dict) -> str:
+    points = traderview._ul(sec["detail_points"]) if sec.get("detail_points") else ""
+    inner = _paras(sec.get("detail")) + points + _table(sec.get("detail_table")) + _links(sec.get("detail_links"))
+    if not inner:
+        return ""
+    # ⚠ 畳まない（<details> にしない）。開いた状態だけ ＝ 利用者の指示 2026-09-20
+    return f"<div class='more'><div class='more-h'>{esc(common.get('detail_label') or '詳しく')}</div>{inner}</div>"
+
+
+def _model_types(common: dict, paths: TraderPaths) -> str:
+    """いま使っているモデルの型ごとのしくみ。⚠ 文は `[[model]]` から写す（ページに書かない）。図の箱は `[[model]]` の `flow`。"""
+    data = load(paths)
+    out = []
+    for m in data["models"]:
+        if m["id"] not in data["users"]:
+            continue
+        fig = {"steps": m.get("flow"), "per_row": 5}
+        out.append(f"<div class='mtype'><div class='lb'>{esc(m.get('label'))}</div><p>{esc(m.get('summary'))}</p>"
+                   f"{figures.figure_html(fig)}<p>{esc(m.get('how'))}</p>"
+                   f"<p class='sub'><a href='{traderview.MODEL_URL}{esc(m['id'])}' target='_top'>"
+                   f"{esc(data['common'].get('open_page'))}</a></p></div>")
+    return "".join(out) or f"<p class='sub'>{esc(common.get('no_live_models'))}</p>"
+
+
+def section_html(common: dict, paths: TraderPaths, no: int, sec: dict) -> str:
+    out = [traderview._h2(no, str(sec.get("title") or "")), _paras(sec.get("text"))]
+    if sec.get("points"):
+        out.append(traderview._ul(sec["points"]))
+    out.append(figures.figure_html(sec.get("figure")))
+    out.append(_paras(sec.get("after")))
+    out.append(_table(sec.get("table")))
+    if sec.get("models") is True:
+        out.append(_model_types(common, paths))
+    if sec.get("ledger") is True:
+        out.append(_ledger_html(common, paths))
+    if sec.get("note"):
+        out.append(f"<p class='note'>{esc(sec['note'])}</p>")
+    out.append(_links(sec.get("links")))
+    out.append(_section_detail(common, sec))
+    return "".join(out)
+
+
+def page_body(common: dict, paths: TraderPaths, page: dict, pages: list[dict], url: str) -> str:
+    """1 ページ ＝ 題 → 前書き → 段（番号つき）→ 同じ束のほかのページ（`url` ＋ id）。"""
+    out = ["<div style='--who:#2a78d6'>", f"<h1>{esc(page.get('title') or page.get('label'))}</h1>"]
+    if page.get("lead"):
+        out.append(f"<p class='lead'>{esc(page['lead'])}</p>")
+    for i, sec in enumerate(page.get("section") or [], start=1):
+        out.append(section_html(common, paths, i, sec))
+    others = [p for p in pages if p["id"] != page["id"]]
+    if others:
+        out.append(f"<h3>{esc(common.get('other_pages'))}</h3><div class='nav'>" + "".join(
+            f"<a href='{url}{esc(p['id'])}' target='_top'>{esc(p.get('label'))}</a>" for p in others) + "</div>")
+    out.append("</div>")
+    return "\n".join(out)
+
+
 def load(paths: TraderPaths) -> dict:
     """言葉の正本 ＋ だれがどのモデルを使うか。`models` は「いま使っている」→「机上で試した」の順（束の中は書いた順）。"""
     words = traderview.load_words(paths)
@@ -147,9 +258,12 @@ def _verdict_tag(common: dict, m: dict) -> str:
 
 
 def sidebar(paths: TraderPaths) -> dict:
+    """一覧 → しくみのページ（どのモデルにも共通）→ いま使っている → 机上で試した。"""
     data = load(paths)
     common, show = data["common"], _show_result(data["common"])
     items = [{"id": LIST_ID, "label": str(common.get("list_title") or "一覧")}]
+    items += [{"id": p["id"], "label": str(p.get("label") or p["id"]), "sub": str(p.get("sub") or ""),
+               "group": str(common.get("group_guide") or "")} for p in guide_pages(paths)]
     for m in data["models"]:
         group = common.get("group_live") if m["id"] in data["users"] else common.get("group_desk")
         items.append({"id": m["id"], "label": str(m.get("label") or m["id"]), "group": str(group or ""),
@@ -432,7 +546,7 @@ def _score(common: dict, m: dict) -> str:
     if score.get("read"):
         out.append(f"<h3>{esc(common.get('score_read') or '読み方')}</h3>{_paras(score['read'])}")
     if common.get("score_link"):
-        out.append(_links([{"label": common["score_link"], "tab": "system", "item": "live"}]))
+        out.append(_links([{"label": common["score_link"], "tab": "models", "item": "live"}]))
     return "".join(out)
 
 
@@ -499,7 +613,7 @@ def _model_body(paths: TraderPaths, data: dict, m: dict, facts: "RunFacts | None
     out.append(f"<h3>答えの出し方</h3><p>{esc(m.get('how'))}</p>")
     out.append(_walk(common, m))
     if common.get("flow_link"):                  # 全部のモデルに共通の流れは「システム説明」に書いてある（二重に書かない）
-        out.append(_links([{"label": common["flow_link"], "tab": "system", "item": "build"}]))
+        out.append(_links([{"label": common["flow_link"], "tab": "models", "item": "build"}]))
     out.append(_detail(common, m, "how", facts))
 
     no = 4
@@ -538,7 +652,13 @@ def _model_body(paths: TraderPaths, data: dict, m: dict, facts: "RunFacts | None
 
 
 def body(paths: TraderPaths, item: str) -> str | None:
-    return list_body(paths) if item == LIST_ID else model_body(paths, item)
+    if item == LIST_ID:
+        return list_body(paths)
+    pages = guide_pages(paths)
+    page = next((p for p in pages if p["id"] == item), None)
+    if page is not None:                             # しくみのページ（⚠ id は [[model]] と重ねない ＝ テスト）
+        return page_body(load(paths)["common"], paths, page, pages, traderview.MODEL_URL)
+    return model_body(paths, item)
 
 
 def fingerprint(paths: TraderPaths) -> dict[str, float]:

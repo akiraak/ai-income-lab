@@ -224,7 +224,7 @@ def _who(words: dict, name: str) -> str:
 
 
 def ruler(common: dict, facts: dict) -> str:
-    """出力スコアのものさし（0〜100）。売る ／ 何もしない ／ 買う の帯。⚠ 幅は設定の買う線から出す。"""
+    """出力スコアのものさし（0〜100）。売る ／ 何もしない ／ 買う の帯。⚠ 幅は設定の売買基準値（θ）から出す。"""
     sell, line = facts["sell"], facts["line"]
     segs = [("sell", sell, common.get("ruler_sell"))]
     if line > sell:
@@ -308,7 +308,7 @@ def trader_body(paths: TraderPaths, name: str) -> str | None:
                    f"<li><b>出力スコアをつける</b>　{esc(common.get('step_score'))}<br>{esc(m.get('how'))}</li></ol>")
 
     out.append(_h2(4, "この人の決まり"))
-    out.append(f"<h3>買う線と売る線</h3><p>{esc(_line_text(common, facts))}</p>{ruler(common, facts)}")
+    out.append(f"<h3>売買基準値</h3><p>{esc(_line_text(common, facts))}</p>{ruler(common, facts)}")
     out.append(f"<h3>いつ</h3><p>{esc(common.get('when'))}</p>")
     out.append(f"<h3>いくら</h3><p>{esc(_fill(common.get('amount_one'), facts))}{esc(_buy_way(common, facts))}</p>"
                + _ul(common.get("money")))
@@ -318,7 +318,7 @@ def trader_body(paths: TraderPaths, name: str) -> str | None:
                + _ul([common.get("limit_common"), common.get("limit_purpose"), *limits, common.get("limit_survivor")]) + "</div>")
 
     rows = [("予測モデル", "、".join(f"<code>{esc(s['name'])}</code>（{esc(s['method'] or s['kind'])}）" for s, _m in models)),
-            ("買う線（θ）", esc(_num(facts["line"]))), ("合成規則", f"<code>{esc(facts['combine'])}</code>"),
+            ("売買基準値（θ）", esc(_num(facts["line"]))), ("合成規則", f"<code>{esc(facts['combine'])}</code>"),
             ("銘柄集合", f"{esc(facts['universe'])}・{facts['n']} 本"),
             ("株数の決め方（sizing）", f"<code>{esc(facts['sizing'])}</code>"), ("予算", esc(_money(facts["budget"]))),
             ("設定のファイル", f"<code>{esc(facts['source'])}</code>" + ("" if facts["settled"] else "（候補）"))]

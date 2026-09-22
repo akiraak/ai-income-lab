@@ -109,7 +109,7 @@ def test_every_trait_says_how_sure_it_is():
 
 
 def test_words_hold_no_config_numbers():
-    """予算・買う線・本数・1 本あたりの金額は設定から写す。言葉の正本に書くと設定とずれる。"""
+    """予算・売買基準値・本数・1 本あたりの金額は設定から写す。言葉の正本に書くと設定とずれる。"""
     bad = [(where, m.group(0)) for where, text in _texts(_real())
            for m in re.finditer(r"\$\s?\d|(?<!\d)(?:63|48|55|45)(?!\d)", text)]
     assert not bad, f"設定の数字は {{budget}} {{n}} {{per}} {{line}} {{sell}} で書く: {bad}"

@@ -271,14 +271,14 @@ def test_model_page_deep_parts(paths):
     how = part["何を見て、どう答えを出すか"]
     assert how.index("<p class='claim'>共通の図の主張</p><div class='fig'><svg") < how.index("まとまり 1") < how.index("答えの出し方 A")
     assert how.count("<g class='node'>") == 3 and "&lt;計算&gt;" in how and "<計算>" not in how
-    assert how.index("答えの出し方 A") < how.index("<h3>小さな例</h3>") < how.index("<a href='/#system/build' target='_top'>共通の流れ</a>")
+    assert how.index("答えの出し方 A") < how.index("<h3>小さな例</h3>") < how.index("<a href='/#models/build' target='_top'>共通の流れ</a>")
     assert "<li><b>段 1</b>　一段目</li><li>二段目</li></ol>" in how and "空" not in how and "例の数字は作りもの" in how
     assert "alpha = 1.0" in how and "<a href='/#specs/experiments/x.md' target='_top'>記録へ</a>" in how
     # 4: 癖（印つき。印が無ければ見立て）・読み方・使われ方へのリンク・詳しく
     score = part["出力スコアの出かたと読み方"]
     assert "癖 1<span class='tag trial'>試し運転で見えた</span><span class='why'>理由: 癖の理由</span>" in score
     assert "癖 2<span class='tag guess'>見立て</span>" in score and "読み方 1" in score and "Platt の a" in score
-    assert "<a href='/#system/live' target='_top'>出力スコアの使われ方</a>" in score
+    assert "<a href='/#models/live' target='_top'>出力スコアの使われ方</a>" in score
     # 5: 経緯の表（古い試しは薄く・印ごとの内訳・合計）＋ 詳しく
     res = part["過去のデータで試した結果"]
     assert "<tr class='old'><td>2026-09-01</td><td>古い試し<span class='sub'>（計算を直す前）</span></td><td>3</td><td>保留 1 ／ 落とす 2</td></tr>" in res
@@ -533,3 +533,85 @@ def test_real_detail_plugs_match_the_db():
             bad.append((mid, part, field, f"DB {modelview.plug_text(v, fmt)} ／ 控え {fallback}"))
     facts.close()
     assert not bad, bad
+
+
+# ---------------------------------------------------------------- しくみのページ（2026-09-21 にシステム説明から移した）
+
+from tests.test_system_tab import DETAIL_KEYS as PAGE_DETAIL_KEYS, GUIDE_PAGES  # noqa: E402
+from tests.test_traders_tab import _walk  # noqa: E402
+
+SYSTEM_TOML = REPO_ROOT / "dashboard" / "system.toml"
+
+
+def _page_plain(doc: dict) -> list[tuple[str, str]]:
+    """しくみのページの本文（⚠ `detail*` ＝ 「詳しく（用語あり）」の囲みとリンク先は検査の外。リンクの見出しは本文）。"""
+    out = []
+    for p in doc.get("page", []):
+        out += _walk(p["id"], {k: v for k, v in p.items() if k not in ("id", "section")})
+        for i, sec in enumerate(p.get("section") or []):
+            body = {k: v for k, v in sec.items() if k not in PAGE_DETAIL_KEYS}
+            body["link_labels"] = [x.get("label") for x in sec.get("links") or []]
+            out += _walk(f"{p['id']}[{i}]", body)
+    return [(where, text) for where, text in out if not where.endswith(".kind")]
+
+
+def test_guide_pages_are_plain_and_deep():
+    """モデルを作る ／ 過去のデータで確かめる ／ 実際の売買で使う は手厚く（どの段にも「詳しく」か型ごとのしくみ・図が 1 つ以上）＋ 名前と識別名。
+    本文はやさしい言葉・設定の数字と細かい成績の数字は「詳しく」へ・「点」と裸の「スコア」を使わない。"""
+    doc = _real()
+    pages = {p["id"]: p for p in doc["page"]}
+    assert list(pages) == list(GUIDE_PAGES)
+    for i in ("build", "verify", "live"):
+        assert pages[i].get("lead") and sum(1 for sec in pages[i]["section"] if sec.get("figure")) >= 1, i
+        for sec in pages[i]["section"]:
+            assert sec.get("title") and (sec.get("detail") or sec.get("models")), (i, sec.get("title"))
+    assert pages["names"].get("lead") and all(sec.get("detail") for sec in pages["names"]["section"])
+    texts = _page_plain(doc)
+    assert not [(w, x) for w, t in texts for x in FORBIDDEN if x.lower() in t.lower()], "本文はやさしい言葉で。用語は detail（詳しく）へ"
+    assert not [(w, m.group(0)) for w, t in texts for m in re.finditer(r"\$\s?\d|(?<!\d)(?:63|48|55|45)(?!\d)|\d\s*bp", t)]
+    assert not [(w, t) for w, t in texts if "点" in t or re.search(r"(?<!出力)スコア", t)]
+    # 実際の売買で使う には、モデルの話の段だけ（帳面と口座・安全の仕掛け・何を見て判定するか は システム説明の概要へ）
+    titles = [sec["title"] for sec in pages["live"]["section"]]
+    assert titles == ["トレーダー ＝ モデル ＋ 売買基準値 ＋ 予算", "1 日の流れ", "出力スコアから注文へ", "出力スコアの読み方"]
+
+
+def test_guide_page_ids_and_links():
+    """しくみのページの id は [[model]] の id と重ならない。リンク先（このタブ・システム説明・文書）が在る。"""
+    doc = _real()
+    page_ids = [p["id"] for p in doc["page"]]
+    model_ids = [m["id"] for m in doc["model"]]
+    assert not set(page_ids) & set(model_ids) and modelview.LIST_ID not in page_ids
+    items = {i["id"] for i in modelview.sidebar(traderview.TraderPaths.default())["items"]}
+    system_ids = {p["id"] for p in tomllib.loads(SYSTEM_TOML.read_text(encoding="utf-8"))["page"]}
+    for p in doc["page"]:
+        for sec in p.get("section") or []:
+            for link in [*(sec.get("links") or []), *(sec.get("detail_links") or [])]:
+                assert link.get("label"), (p["id"], link)
+                if link.get("doc"):
+                    assert (REPO_ROOT / link["doc"]).is_file(), link
+                elif link.get("tab") == "models" and link.get("item"):
+                    assert link["item"] in items, link
+                elif link.get("tab") == "system":
+                    assert link.get("item") in system_ids, link
+                else:
+                    assert link.get("tab") in modelview.TAB_URLS, link
+
+
+def test_real_guide_pages_render():
+    """左の一覧 ＝ 一覧 → しくみ（束）→ いま使っている → 机上で試した。作る ＝ 型ごとのしくみ ／ 確かめる ＝ 検証結果一覧の合計 ／ 使う ＝ システム説明へのリンク。"""
+    paths = traderview.TraderPaths.default()
+    data = modelview.load(paths)
+    items = modelview.sidebar(paths)["items"]
+    assert [i["id"] for i in items[:5]] == [modelview.LIST_ID, *GUIDE_PAGES]
+    assert {i["group"] for i in items[1:5]} == {data["common"]["group_guide"]}
+    build = modelview.body(paths, "build")
+    for m in data["models"]:
+        if m["id"] in data["users"]:
+            assert m["label"] in build and f"/#models/{m['id']}" in build                   # 型ごとのしくみは [[model]] から
+    totals = modelview.ledger_totals(paths)
+    assert totals and f"<b>{totals['rows']}</b>" in modelview.body(paths, "verify")         # 検証結果一覧の合計は ledger.md から
+    live = modelview.body(paths, "live")
+    assert "<a href='/#system/overview' target='_top'>" in live and "安全の仕掛け</h2>" not in live and "帳面と口座を合わせる</h2>" not in live
+    assert "own-seq.t3-quant60.ridge.shared" in modelview.body(paths, "names")               # 予測モデル名（rules.md 10-2）
+    assert "しくみのほかのページ" in build and "<a href='/#models/verify' target='_top'>" in build
+    assert "<a href='/#models/build' target='_top'>" in modelview.body(paths, data["models"][0]["id"])   # モデルのページから共通の流れへ

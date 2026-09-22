@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""vibeboard のカスタムタブ「検証」「データ」「用語」「ハード」の中身を出す小さなサーバ。
+"""vibeboard のカスタムタブ「実行」「データ」「用語」「ハード」「トレーダー」「予測モデル」「システム説明」の中身を出す小さなサーバ。
 
 vibeboard 本体が `/ext/<name>/...` でこのサーバへ中継する（プラン:
 docs/plans/vibeboard-experiments-tabs.md）。読むものと読み方は管理画面と同じで、
@@ -13,6 +13,15 @@ docs/plans/vibeboard-experiments-tabs.md）。読むものと読み方は管理�
   - `/hardware/api/sidebar` ・ `/hardware/view?item=<now|history>` ・ `/hardware/api/watch`
     ＋ `/hardware/api/snapshot` ・ `/hardware/api/history`（画面が自前で取りに来る JSON）
     （読み手は `hwstat.py`、画面は `hwview.py`。⚠ **値を読むのは見張り 1 本**。dashboard.md §14）
+  - `/traders/api/sidebar` ・ `/traders/view?item=<T1…>` ・ `/traders/api/watch`
+    （実売買に出す人の**性質**をやさしい言葉で。言葉の正本は `dashboard/traders.toml`（人の側）と `dashboard/models.toml`
+    （モデルの解説）、画面は `traderview.py`。⚠ **売買結果は出さない・`out/` と `state/` を読まない**。dashboard.md §16）
+  - `/models/api/sidebar` ・ `/models/view?item=<all|own-ridge…>` ・ `/models/api/watch`
+    （予測モデルの一覧と、1 本ずつの解説。言葉の正本は `dashboard/models.toml`、画面は `modelview.py`。
+    ⚠ **売買結果は出さない・`runs/` も読まない**（試した結果の印は人が記録から写したもの）。dashboard.md §17）
+  - `/system/api/sidebar` ・ `/system/view?item=<overview|build|verify|live|names>` ・ `/system/api/watch`
+    （このシステムの説明。vibeboard では先頭のタブ。言葉の正本は `dashboard/system.toml`、画面と図は `systemview.py`。
+    ⚠ 開くのは TOML と検証結果一覧（`ledger.md`）だけ。dashboard.md §18）
 
 ⚠ **標準ライブラリだけで書く**（venv 不要。vibeboard の sidecar が `python3` で起こす）。
 ⚠ **bind は 127.0.0.1 固定**。外に出る経路は vibeboard の中継だけ。
@@ -21,6 +30,7 @@ docs/plans/vibeboard-experiments-tabs.md）。読むものと読み方は管理�
 from __future__ import annotations
 
 import argparse
+import dataclasses
 import html
 import json
 import os
@@ -37,6 +47,9 @@ sys.path.insert(0, str(DASHBOARD_DIR))
 
 import hwstat  # noqa: E402
 import hwview  # noqa: E402
+import modelview  # noqa: E402
+import systemview  # noqa: E402
+import traderview  # noqa: E402
 from app import experiments, inventory  # noqa: E402
 
 DEFAULT_PORT = 3015
@@ -165,12 +178,12 @@ def kv_table(pairs: list[tuple[str, str]]) -> str:
     return "<table>" + "".join(f"<tr><th>{k}</th><td>{v}</td></tr>" for k, v in pairs) + "</table>"
 
 
-# ---------------------------------------------------------------- 検証（runs/）
+# ---------------------------------------------------------------- 実行（runs/research.sqlite）
 
 # 層を除く 4 検査（純利・fold・上乗せ・DSR）。「合格」＝ この 4 つが全部 ✅
 SCORE_MARKS = ("純利", "fold", "上乗せ", "DSR")
 
-# 検証方法の 4 軸。⚠ 画面向けの文言だけ（正本は rules.md §6・§7・§9 と dashboard.md §10）。
+# 実行の種類の 4 軸。⚠ 画面向けの文言だけ（正本は rules.md §6・§7・§9 と dashboard.md §10）。
 # ⚠ 文言に数字を書かない。数字は checks.json の写し（下の節）から出す
 AXIS_NOTES = [
     ("種類", "特徴量に他銘柄の層（cs・rel・ll）が入るか。先読みの検査は対照実験なので別枠"),
@@ -190,7 +203,7 @@ KIND_TRAITS = [
      "組が単純で、層・手法・費用の効き方を切り分けやすい",
      "own だけでは銘柄を増やしても「1 銘柄の実験を N 回」に近い。銘柄どうしは独立でないので、実効系列数まで割り引くと標本は見た目ほど増えない"),
     ("先読みの検査",
-     "ラベルを混ぜた列（LEAK_）を 1 本足した対照実験。どの検証にも対で回す",
+     "ラベルを混ぜた列（LEAK_）を 1 本足した対照実験。どの実行にも対で回す",
      "数字が跳ねなければ検証の配線（分割・パージ・コスト）が壊れている、を毎回確かめられる",
      "スコアが高いのは正常（そういう検査）。手法の成績としては読まない"),
 ]
@@ -217,7 +230,7 @@ def _bp(v) -> str:
 
 
 def exp_methods(idx: dict) -> list[dict]:
-    """検証方法（種類・粒度・先・層の組）ごとの要約。
+    """実行の種類（種類・粒度・先・層の組）ごとの要約。
 
     ⚠ **数字は各組で最もスコアの高い実行の checks.json の写し**（`index()` はスコアの降順なので
     先頭が最良）。組で数えるのは実行の件数と ✅ の件数だけで、統計は計算しない。
@@ -233,15 +246,15 @@ def exp_methods(idx: dict) -> list[dict]:
 
 
 def _traits_html(idx: dict) -> str:
-    """① 検証方法とその特徴。軸の「いまの値」だけ runs/ から拾い、説明は静的な文言。"""
+    """① 実行の種類とその特徴。軸の「いまの値」だけ runs/ から拾い、説明は静的な文言。"""
     values: dict[str, list] = {axis: [] for axis, _ in AXIS_NOTES}
     for r in idx["runs"] + idx["leak_runs"]:
         for axis, v in (("種類", r["kind"]), ("粒度", r["gran"]),
                         ("先", r["horizon"]), ("層", r["layer_label"])):
             if v not in values[axis]:
                 values[axis].append(v)
-    body = ["<h2>検証方法とその特徴</h2>",
-            "<p class='meta'>検証方法 ＝ 種類・粒度・先・層の 4 軸の組。一覧のタイトルもこの組から"
+    body = ["<h2>実行の種類とその特徴</h2>",
+            "<p class='meta'>実行の種類 ＝ 種類・粒度・先・層の 4 軸の組。一覧のタイトルもこの組から"
             "組み立てている。正本は rules.md（§6 層・§7 先読み・§9 検証）と dashboard.md §10。</p>"]
     body.append(table(["軸", "いまの値", "意味"],
                       [[esc(axis), " ／ ".join(esc(v) for v in values[axis]) or "—", esc(note)]
@@ -252,8 +265,8 @@ def _traits_html(idx: dict) -> str:
 
 
 def _methods_html(groups: list[dict]) -> str:
-    """② 検証方法ごとの成績。数字は各組の最良実行の写し。"""
-    body = ["<h2>検証方法ごとの成績</h2>"]
+    """② 実行の種類ごとの成績。数字は各組の最良実行の写し。"""
+    body = ["<h2>実行の種類ごとの成績</h2>"]
     if not groups:
         body.append("<p class='meta'>実行がまだ無い。</p>")
         return "\n".join(body)
@@ -269,7 +282,7 @@ def _methods_html(groups: list[dict]) -> str:
             fmt((b.get("dsr") or {}).get("DSR"), 3),
             fmt((b.get("breadth") or {}).get("実効観測数"), 0),
         ])
-    body.append(table(["検証方法", "実行", "4 検査 ✅", "最良 純利bp", "fold", "上乗せ t", "DSR", "実効観測数"],
+    body.append(table(["実行の種類", "実行", "4 検査 ✅", "最良 純利bp", "fold", "上乗せ t", "DSR", "実効観測数"],
                       rows, {1, 3, 5, 6, 7}))
     body.append("<p class='meta'>数字は各組で最もスコアの高い実行の checks.json の写し（組では数え直さない）。"
                 "4 検査 ＝ 純利・fold・上乗せ・DSR（層を除く）。"
@@ -278,20 +291,20 @@ def _methods_html(groups: list[dict]) -> str:
 
 
 def _analysis_html(idx: dict, groups: list[dict]) -> str:
-    """③ どの検証が有効か。⚠ 文面の分岐だけがここにあり、判定は marks の数え上げで決まる。"""
+    """③ どの実行が有効か。⚠ 文面の分岐だけがここにあり、判定は marks の数え上げで決まる。"""
     real, leaks = idx["runs"], idx["leak_runs"]
     items: list[str] = []
 
     # 1) 配線: 先読みの検査（対照実験）が跳ねているか
     if not leaks:
         items.append("⏳ <b>配線の確認がまだ無い。</b>先読みの検査（対照実験）を先に回す。"
-                     "跳ねる先読みが無いうちは、実検証の数字を読まない（rules.md §7）。")
+                     "跳ねる先読みが無いうちは、本番の実行の数字を読まない（rules.md §7）。")
     else:
         ng = [r for r in leaks if not _passes(r)]
         if ng:
             items.append("⚠ <b>跳ねない先読みの検査がある</b>（"
                          + "、".join(esc(r["run_id"]) for r in ng)
-                         + "）。実検証の数字より先に、検証の配線を疑う（rules.md §7）。")
+                         + "）。本番の実行の数字より先に、検証の配線を疑う（rules.md §7）。")
         else:
             scores = sorted(r["score"] for r in leaks if r["score"] is not None)
             rng = (f"純利 {_bp(scores[0])}〜{_bp(scores[-1])}bp" if len(scores) > 1
@@ -300,21 +313,21 @@ def _analysis_html(idx: dict, groups: list[dict]) -> str:
                          f"（{rng}）。わざと先読みさせるとこれだけ跳ねるので、"
                          "分割・パージ・コストの配線は先読みを見逃していない。")
 
-    # 2) 実検証に「発見あり」と言えるものがあるか
+    # 2) 本番の実行に「発見あり」と言えるものがあるか
     passed = [r for r in real if _passes(r)]
     if not real:
-        items.append("⏳ 実検証の実行がまだ無い。")
+        items.append("⏳ 本番の実行がまだ無い。")
     elif not passed:
-        items.append(f"⚠ <b>「発見あり」と言える検証はまだ無い。</b>実検証 {len(real)} 件のうち"
+        items.append(f"⚠ <b>「発見あり」と言える実行はまだ無い。</b>本番の実行 {len(real)} 件のうち"
                      f"純利 &gt; 0 は {idx['positive']} 件あるが、4 検査を同時に満たす実行は 0 件。"
                      "スコアが正でも、fold の符号が割れる・基準線への上乗せが小さい・DSR が低いうちは"
                      "偶然と区別できない（rules.md §11: 良い数字は根拠「中」が上限）。")
     else:
         items.append(f"✅ <b>4 検査を満たす実行が {len(passed)} 件ある</b>（"
                      + "、".join(f"{esc(r['title'])}〔{esc(r['run_id'])}〕" for r in passed)
-                     + "）。⚠ n_trials は増え続けるので、確定は台帳（ledger.md）を正とする。")
+                     + "）。⚠ n_trials は増え続けるので、確定は検証結果一覧（ledger.md）を正とする。")
 
-    # 3) 組の比較（層 ✅ の実検証だけ。groups は最良スコアの降順に並んでいる）
+    # 3) 組の比較（層 ✅ の本番の実行だけ。groups は最良スコアの降順に並んでいる）
     valid = [g for g in groups
              if g["kind"] != "先読みの検査" and (g["best"].get("marks") or {}).get("層") == "✅"]
     if len(valid) >= 2:
@@ -336,7 +349,7 @@ def _analysis_html(idx: dict, groups: list[dict]) -> str:
                      + f" の {sum(g['count'] for g in invalid)} 件は有効性の比較から外す。</b>"
                      "調整前の層は分割調整の誤りを含む（層 ⚠）。過去の数字の再現用としてだけ残す。")
 
-    return ("<h2>どの検証が有効か</h2>\n<ul>"
+    return ("<h2>どの実行が有効か</h2>\n<ul>"
             + "".join(f"<li>{i}</li>" for i in items)
             + "</ul>\n<p class='meta'>この節は runs/ の写し（✅ / ⚠ / ⏳ は仕様 §10-3 の条件）から"
               "機械的に組む。run が増えれば文面も変わる。</p>")
@@ -345,7 +358,7 @@ def _analysis_html(idx: dict, groups: list[dict]) -> str:
 def exp_sidebar(runs_dir: Path) -> dict:
     idx = experiments.index(runs_dir)
     items = [{"id": "overview", "label": "まとめ",
-              "sub": f"検証 {idx['total']} 件・純利>0 は {idx['positive']} 件", "group": "まとめ"}]
+              "sub": f"実行 {idx['total']} 件・純利>0 は {idx['positive']} 件", "group": "まとめ"}]
     # ⚠ index() はスコアの降順。サイドバーは種類でまとめないと group 見出しが繰り返されるので、
     # 種類の並び（kinds の順）を保ったまま各種類の中をスコア順にする
     for kind in idx["kinds"]:
@@ -392,25 +405,25 @@ def _gate_html(run: dict) -> str:
     out = [f"<h2>前置きの門（診断・水準は事前固定 {_gate_levels(gate)}）</h2>",
            table(["手法", "holdout AUC", "買い% 幅", "fold ごとの AUC", "fold ごとの幅", "門", "注記"],
                  rows, {1, 2}),
-           "<p class='meta'>2 値は訓練分割の内側の tail holdout で測る（検証 fold には特徴量にも"
-           "触っていないので、門は検証データの選別にならない）。⚠ 門の値は採否に使わない。"
-           "⚠ 既定では回すかどうかも門で決めない（門前の手法も回し、普通の試行として数える。"
+           "<p class='meta'>2 値は訓練分割の内側の tail holdout で測る（評価期間には特徴量にも"
+           "触っていないので、門は評価期間のデータの選別にならない）。⚠ 門の値は採否に使わない。"
+           "⚠ 既定では回すかどうかも門で決めない（門前の手法も回し、普通の検証として数える。"
            "rules.md 14-10 規約 2）。<code>--gate</code> で足切りした実行だけ、回さなかった手法を"
-           "試行数（n_trials）に数えない（14-5 の経緯）。</p>"]
+           "検証数（n_trials）に数えない（14-5 の経緯）。</p>"]
     return "\n".join(out)
 
 
 def exp_overview_html(runs_dir: Path) -> str:
     idx = experiments.index(runs_dir)
     groups = exp_methods(idx)
-    body = ["<h1>検証のまとめ</h1>",
+    body = ["<h1>実行のまとめ</h1>",
             f"<div class='meta'>{esc(idx['runs_dir'])}</div>"]
     body.append(kv_table([
-        ("検証（先読みの検査を除く）", fmt(idx["total"])),
+        ("実行（先読みの検査を除く）", fmt(idx["total"])),
         ("スコア（最良手法の純利 bp）が正", fmt(idx["positive"])),
         ("種類", " ・ ".join(f"{esc(k)} {v} 件" for k, v in idx["kinds"].items()) or "—"),
         ("先読みの検査", fmt(len(idx["leak_runs"]))),
-        # ⚠ 門前は「検証」に数えない（回していない。rules.md 14-5）が、件数は出す
+        # ⚠ 門前は実行の件数に数えない（回していない。rules.md 14-5）が、件数は出す
         ("⚠ 門前（検証を回していない）", fmt(len(idx["gated_runs"]))),
         ("checks.json が無い実行", esc(", ".join(idx["missing_checks"]) or "なし")),
     ]))
@@ -424,7 +437,7 @@ def exp_overview_html(runs_dir: Path) -> str:
         rows.append([esc(r["title"]), esc(r["run_id"]),
                      ("—" if r["score"] is None else f"{r['score']:+.2f}"),
                      esc(" ".join(marks.values()))])
-    body.append(table(["検証", "実行", "純利bp", "層 純利 fold 上乗せ DSR"], rows, {2}))
+    body.append(table(["中身", "実行", "純利bp", "層 純利 fold 上乗せ DSR"], rows, {2}))
     body.append("<p class='meta'>スコアは最良手法（基準線を除く）の純利 bp。"
                 "1 つの数字なので、検査の列（fold の符号・上乗せ t・実効標本数・デフレーテッド SR）を必ず横に見る。</p>")
     if idx["gated_runs"]:
@@ -435,13 +448,13 @@ def exp_overview_html(runs_dir: Path) -> str:
             for m in r["gate_blocked"]:
                 rows.append([esc(r["title"]), esc(r["run_id"]), esc(m["method"]),
                              fmt(m["auc"], 3), fmt(m["width_pt"], 1)])
-        body.append(table(["検証", "実行", "回さなかった手法", "holdout AUC", "買い% 幅"],
+        body.append(table(["中身", "実行", "回さなかった手法", "holdout AUC", "買い% 幅"],
                           rows, {3, 4}))
         body.append("<p class='meta'>確率に情報が無い手法は閾値売買を回さない。水準は事前固定で "
                     + _gate_levels((idx["gated_runs"][0].get("gate") or {})) +
-                    "。⚠ 回していないので上の件数にも、採否の判定にも、試行数（n_trials）にも"
-                    "数えない。⚠ それでも隠さずここに出す（rules.md 14-5・台帳の「門前」の行と同じ）。</p>")
-    return page("検証のまとめ", "\n".join(body))
+                    "。⚠ 回していないので上の件数にも、採否の判定にも、検証数（n_trials）にも"
+                    "数えない。⚠ それでも隠さずここに出す（rules.md 14-5・検証結果一覧の「門前」の行と同じ）。</p>")
+    return page("実行のまとめ", "\n".join(body))
 
 
 def exp_run_html(runs_dir: Path, run_id: str) -> str | None:
@@ -456,7 +469,7 @@ def exp_run_html(runs_dir: Path, run_id: str) -> str | None:
         body.append("<p class='warn'>⚠ <b>全手法が門前 ＝ 閾値売買を回していない実行。</b>"
                     "成績（スコア・fold の符号・上乗せ・DSR）は無い。"
                     "⚠ 「計算していない」のではなく「回していない」。"
-                    "検証としても試行数（n_trials）としても数えないが、隠さずここに残す。</p>")
+                    "実行の件数にも検証数（n_trials）にも数えないが、隠さずここに残す。</p>")
         body.append(_gate_html(run))
         body.append("<h2>設定</h2>")
         body.append(kv_table([
@@ -545,11 +558,11 @@ def exp_run_html(runs_dir: Path, run_id: str) -> str | None:
         # 門前の手法も回した実行（既定）か、`--gate` で一部を外した実行。⚠ 回さなかった手法を隠さない
         if run["gate_forced"]:
             body.append("<p class='warn'>⚠ 門前の手法も回した実行。門は診断なので、"
-                        "普通の試行として数える（rules.md 14-10 規約 2）。</p>")
+                        "普通の検証として数える（rules.md 14-10 規約 2）。</p>")
         elif run["gate_blocked"]:
             body.append(f"<p class='warn'>⚠ 門前の手法が {len(run['gate_blocked'])} 件あり、"
                         "その手法は回していない（<code>--gate</code> で足切りした実行。"
-                        "上の成績には出ず、試行数にも数えない）。</p>")
+                        "上の成績には出ず、検証数にも数えない）。</p>")
         body.append(_gate_html(run))
     return page(run["title"], "\n".join(body))
 
@@ -747,7 +760,7 @@ def data_section_html(paths: ExpPaths, section: str) -> str | None:
             note = ("⚠ <b>重みは全部【推測】</b>（出典のある売上の地域内訳ではない。"
                     f"{esc(x['selected_on'] or '—')} 時点の主業種と拠点から振ったもの）。")
             if x["hindsight"]:
-                note += "⚠ <b>後知恵あり</b> — 検証の期間の中で起きた出来事を知って振っている（偽薬でも消えない限界）。"
+                note += "⚠ <b>後知恵あり</b> — 評価期間の中で起きた出来事を知って振っている（偽薬でも消えない限界）。"
             note += "⚠ 割り当てそのものが仮説であり、外れれば効かない。"
             body.append(f"<p class='warn'>{note}</p>")
             body.append(f"<p class='meta'>曝露を持つ銘柄 {len(x['symbols'])} 本"
@@ -878,21 +891,9 @@ def hw_html(item: str, sampler: hwstat.Sampler) -> str | None:
 
 
 def exp_fingerprint(runs_dir: Path) -> dict[str, float]:
-    """run ごとの更新時刻。⚠ dir の mtime はファイルの上書きでは動かないので、中の記録も見る。"""
-    out: dict[str, float] = {}
-    if not runs_dir.is_dir():
-        return out
-    for d in runs_dir.iterdir():
-        if not d.is_dir():
-            continue
-        mt = d.stat().st_mtime
-        for name in ("summary.csv", "checks.json", "config.json", "inputs.json", "env.json"):
-            try:
-                mt = max(mt, (d / name).stat().st_mtime)
-            except OSError:
-                pass
-        out[d.name] = mt
-    return out
+    """run ごとの指紋（記録は DB。中の 5 ファイルの sha256 から作る ＝ 中身が変われば動く）。"""
+    with experiments.Store(runs_dir) as store:
+        return store.digests()
 
 
 def data_fingerprint(paths: ExpPaths) -> dict[str, float]:
@@ -926,9 +927,13 @@ def glossary_fingerprint(path: Path | None = None) -> dict[str, float]:
 # ---------------------------------------------------------------- HTTP
 
 
-def make_handler(runs_dir: Path, paths: ExpPaths, sampler: hwstat.Sampler | None = None):
+def make_handler(runs_dir: Path, paths: ExpPaths, sampler: hwstat.Sampler | None = None,
+                 trader_paths: traderview.TraderPaths | None = None):
     # ⚠ ここでは見張りを起こさない（起こすのは main()）。止まっている Sampler は要求のたびにその場で読む
     sampler = sampler or hwstat.Sampler()
+    trader_paths = trader_paths or traderview.TraderPaths.default()
+    if trader_paths.research_db is None:         # 予測モデルのタブも、実行タブと同じ置き場の DB を読む
+        trader_paths = dataclasses.replace(trader_paths, research_db=Path(runs_dir) / experiments.DB_NAME)
 
     class Handler(BaseHTTPRequestHandler):
         protocol_version = "HTTP/1.1"
@@ -958,7 +963,7 @@ def make_handler(runs_dir: Path, paths: ExpPaths, sampler: hwstat.Sampler | None
             if url.path == "/":
                 self._send(200, "text/plain; charset=utf-8", "vibetab ok\n")
                 return
-            if tab not in ("experiments", "data", "glossary", "hardware"):
+            if tab not in ("experiments", "data", "glossary", "hardware", "traders", "models", "system"):
                 self._send(404, "text/plain; charset=utf-8", "not found\n")
                 return
             if rest == "":
@@ -967,7 +972,10 @@ def make_handler(runs_dir: Path, paths: ExpPaths, sampler: hwstat.Sampler | None
                 sidebar = {"experiments": lambda: exp_sidebar(runs_dir),
                            "data": lambda: data_sidebar(paths),
                            "glossary": glossary_sidebar,
-                           "hardware": hw_sidebar}[tab]()
+                           "hardware": hw_sidebar,
+                           "traders": lambda: traderview.sidebar(trader_paths),
+                           "models": lambda: modelview.sidebar(trader_paths),
+                           "system": lambda: systemview.sidebar(trader_paths)}[tab]()
                 self._send(200, "application/json; charset=utf-8",
                            json.dumps(sidebar, ensure_ascii=False))
             elif rest == "view":
@@ -978,6 +986,15 @@ def make_handler(runs_dir: Path, paths: ExpPaths, sampler: hwstat.Sampler | None
                     body = glossary_html(item)
                 elif tab == "hardware":
                     body = hw_html(item, sampler)
+                elif tab == "traders":
+                    inner = traderview.body(trader_paths, item)
+                    body = None if inner is None else page("トレーダー", inner, traderview.CSS)
+                elif tab == "models":
+                    inner = modelview.body(trader_paths, item)
+                    body = None if inner is None else page("予測モデル", inner, modelview.CSS)
+                elif tab == "system":
+                    inner = systemview.body(trader_paths, item)
+                    body = None if inner is None else page("システム説明", inner, systemview.CSS)
                 else:
                     body = data_section_html(paths, item)
                 if body is None:
@@ -1001,7 +1018,10 @@ def make_handler(runs_dir: Path, paths: ExpPaths, sampler: hwstat.Sampler | None
             take = {"experiments": lambda: exp_fingerprint(runs_dir),
                     "data": lambda: data_fingerprint(paths),
                     "glossary": glossary_fingerprint,
-                    "hardware": dict}[tab]
+                    "hardware": dict,
+                    "traders": lambda: traderview.fingerprint(trader_paths),
+                    "models": lambda: modelview.fingerprint(trader_paths),
+                    "system": lambda: systemview.fingerprint(trader_paths)}[tab]
             last = take()
             last_ping = time.monotonic()
             try:
@@ -1019,6 +1039,12 @@ def make_handler(runs_dir: Path, paths: ExpPaths, sampler: hwstat.Sampler | None
                             ids = changed + removed
                         elif tab == "glossary":
                             ids = [GLOSSARY_ALL] + [s["id"] for s in load_glossary()]
+                        elif tab == "traders":
+                            ids = [i["id"] for i in traderview.sidebar(trader_paths)["items"]]
+                        elif tab == "models":
+                            ids = [i["id"] for i in modelview.sidebar(trader_paths)["items"]]
+                        elif tab == "system":
+                            ids = [i["id"] for i in systemview.sidebar(trader_paths)["items"]]
                         else:
                             ids = [sec for sec, _ in DATA_SECTIONS]
                         for i in ids:

@@ -1,0 +1,9 @@
+[Unit]
+Description=ai-income-lab 実売買: 朝の準備を平日 09:00 ET に
+
+[Timer]
+OnCalendar=Mon..Fri 09:00 America/New_York
+Persistent=false
+
+[Install]
+WantedBy=timers.target

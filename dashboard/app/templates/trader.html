@@ -9,6 +9,14 @@
   <span class="muted small">{{ b.period.label }}{% if b.period.first %}（{{ b.period.first }}〜{{ b.period.last }}）{% endif %}</span>
   <span class="helprow">言葉: <span>予算{{ info("予算（トレーダーの持ち金）") }}</span><span>合成{{ info("合成規則") }}</span><span>θ{{ info("θ（閾値）") }}</span></span></div>
 {% if t.note %}<p class="small muted">{{ t.note }}</p>{% endif %}
+
+{% if t.paper_real %}
+<div class="sec"><h2>紙上の対照（日次）{{ simmark(machine) }}</h2><span class="muted small">同じ合図を公式終値・片道 2.5bp で回した紙上と、実物・B&amp;H · bp は予算に対して · 新しい順{% if t.close_source == 'quotes' %} · ⚠ 終値は気配の代役（モック ／ シミュレーション）{% endif %}</span></div>
+<div class="panel"><div class="scroll-x"><table class="small orders">
+  <tr><th>日付</th><th class="num">紙上 bp</th><th class="num">実物 bp</th><th class="num">差 3 bp</th><th class="num">差 3 累計</th><th class="num">B&amp;H bp</th><th class="num">紙上の保有</th><th class="num">約定 ／ 注文</th><th class="num">執行できず</th><th class="num">差 1 気配→約定</th><th class="num">約定→終値</th><th class="num">終値なし</th></tr>
+  {% for r in t.daily %}<tr><td>{{ r.date }}</td><td class="num">{{ r.paper_bp if r.paper_bp is not none else '—' }}</td><td class="num">{{ r.real_bp if r.real_bp is not none else '—' }}</td><td class="num">{{ r.diff3_bp if r.diff3_bp is not none else '—' }}</td><td class="num">{{ r.diff3_cum_bp if r.diff3_cum_bp is not none else '—' }}</td><td class="num">{{ r.bh_bp if r.bh_bp is not none else '—' }}</td><td class="num">{{ r.paper_held }} ／ {{ r.n_symbols }}</td><td class="num">{{ r.filled }} ／ {{ r.orders }}</td><td class="num">{{ r.unexecuted }}</td><td class="num">{{ r.diff1_quote_to_fill_bp if r.diff1_quote_to_fill_bp is not none else '—' }}</td><td class="num">{{ r.diff1_fill_to_close_bp if r.diff1_fill_to_close_bp is not none else '—' }}</td><td class="num">{{ r.close_missing }}</td></tr>
+  {% endfor %}</table></div></div>
+{% endif %}
 {# ⚠ 3 秒ごとに取り直すのは数字と図だけ（シミュレーションモードのとき）。注文の履歴はこの囲いの外 ＝ 開いた月が閉じない・長い HTML を送らない #}
 <div{% if machine.mode == 'sim' %} data-poll="/traders/{{ t.name }}?partial=live" data-interval="3000"{% endif %}>
 {% include "trader_live.html" %}

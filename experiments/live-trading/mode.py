@@ -142,12 +142,15 @@ class RunLock:
 
 def open_real_positions(state_dir: str | None = None) -> list[str]:
     """本物の状態（`state/prod/*.json`）に残っている建玉。「トレーダー:銘柄」の一覧。"""
+    if state_dir is None:
+        _ensure_record_db()
     state_dir = state_dir or os.path.join(base_dir(), "state", "prod")
     found = []
-    for path in sorted(glob.glob(os.path.join(state_dir, "*.json"))):
+    from _livefs import livefs
+
+    for path in livefs.find(state_dir, "*.json"):
         try:
-            with open(path, encoding="utf-8") as f:
-                doc = json.load(f)
+            doc = json.loads(livefs.read_doc(path) or "")
         except (OSError, ValueError):
             found.append(f"{os.path.basename(path)}:（読めない）")
             continue
@@ -155,6 +158,17 @@ def open_real_positions(state_dir: str | None = None) -> list[str]:
             if float((h or {}).get("shares") or 0) > 0:
                 found.append(f"{doc.get('name') or os.path.basename(path)}:{sym}")
     return found
+
+
+def _ensure_record_db() -> None:
+    """機械の置き場の記録（`mode.log`・`state/prod`）が入る DB。⚠ テスト・作業用の置き場（LT_MODE_DIR）に DB が無ければそこに作る
+    （本物の live.sqlite には落とさない。本物の置き場はリポジトリ直下の live.sqlite に入る）。"""
+    from _livefs import livefs
+
+    try:
+        livefs.locate(os.path.join(base_dir(), "mode.log"))
+    except livefs.LiveFsError:
+        livefs.init(base_dir(), "sim")
 
 
 def switch(to: str, name: str | None = None, by: str = "cli", real_trading_will_stop: bool = False) -> Mode:
@@ -172,6 +186,7 @@ def switch(to: str, name: str | None = None, by: str = "cli", real_trading_will_
     if not lock.acquire(before.mode, f"switch→{to}"):
         raise ModeError(f"切り替えを拒否: 何かが動いている（run.lock の持ち主 {lock.holder()}）")
     try:
+        _ensure_record_db()
         if to == "sim":
             held = open_real_positions()
             if held and not real_trading_will_stop:
@@ -184,9 +199,11 @@ def switch(to: str, name: str | None = None, by: str = "cli", real_trading_will_
         with open(tmp, "w", encoding="utf-8") as f:
             json.dump({"mode": after.mode, "name": after.name, "since": after.since, "by": after.by}, f, ensure_ascii=False)
         os.replace(tmp, mode_file())
-        with open(os.path.join(base_dir(), "mode.log"), "a", encoding="utf-8") as f:
-            f.write(json.dumps({"at": now, "from": before.mode, "from_name": before.name, "to": after.mode, "name": after.name, "by": by,
-                                "real_trading_will_stop": bool(real_trading_will_stop)}, ensure_ascii=False) + "\n")
+        from _livefs import livefs
+
+        livefs.append(os.path.join(base_dir(), "mode.log"),
+                      json.dumps({"at": now, "from": before.mode, "from_name": before.name, "to": after.mode, "name": after.name, "by": by,
+                                  "real_trading_will_stop": bool(real_trading_will_stop)}, ensure_ascii=False))
         return after
     finally:
         lock.release()

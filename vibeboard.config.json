@@ -4,8 +4,23 @@
   },
   "customTabs": [
     {
+      "name": "system",
+      "label": "システム説明",
+      "baseUrl": "http://127.0.0.1:3015/system"
+    },
+    {
+      "name": "models",
+      "label": "予測モデル",
+      "baseUrl": "http://127.0.0.1:3015/models"
+    },
+    {
+      "name": "traders",
+      "label": "トレーダー",
+      "baseUrl": "http://127.0.0.1:3015/traders"
+    },
+    {
       "name": "experiments",
-      "label": "検証",
+      "label": "実行",
       "baseUrl": "http://127.0.0.1:3015/experiments",
       "command": ["python3", "dashboard/vibetab.py"]
     },

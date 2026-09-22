@@ -76,7 +76,7 @@ python3 -m venv .venv && ./.venv/bin/pip install -r requirements.txt
 | `config/legacy.toml` | 旧配線の結果表の**読み場所**（⚠ **数字は書かない**） | 触らない |
 | `config/catalog_notes.toml` | ⚠ **未実施の手法の「次の一手」**（人が書く唯一の列） | ⚠ **実装したら行を消す** |
 | `data/` | ⚠ **git 管理外**。`raw/` は書き換えない | — |
-| `runs/` | ⚠ **git 管理外**。1 実行 1 ディレクトリ | — |
+| `runs/` | ⚠ **git 管理外**。実行の記録の DB `research.sqlite`（1 実行 1 記録・上書きしない。2026-09-21 までは 1 実行 1 ディレクトリ）と作業の置き場 `work/`。道具は `python3 -m cli.db`（stats ／ import ／ verify ／ remove-dirs ／ sweep ／ export ／ backup） | — |
 
 ## 手法を 1 つ足す
 

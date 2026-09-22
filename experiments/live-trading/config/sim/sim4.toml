@@ -1,0 +1,14 @@
+# シミュレーション sim4（live-trading.md §0-7 (k)）＝ 端株が通らなかったときの形（整数株・T・PFE・NKE・VZ・BAC の 5 本。1 銘柄の枠 $60）。
+# ⚠ トレーダーのモデルは `kind = "experiment"`。先に予測を作り置く:  python simpredict.py make sim4（出来ているものは飛ばす。sim3 と sim4 は同じ作り置きを使う）
+# ⚠ 日付は仮・値段は過去の実物 ＝ 損益に意味は無い（判定に混ぜない）。期間・出どころ・気配の作り方は sim1 と同じ。筋書き（故障の注入）は無し
+name = "sim4"
+traders = ["sim_S1", "sim_S2", "sim_S3"]
+start = "2026-10-01"
+end = "2026-12-31"
+source_start = "2026-06-01"
+windows = ["15:45:30"]
+speed = 60
+skip_outside_window = true
+spread_bp = 2.0
+fill_noise = 0.003
+seed = 0

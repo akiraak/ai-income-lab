@@ -1,13 +1,18 @@
-"""台帳の markdown を組み立てる。⚠ **中身は `ail/catalog.py` が作る。ここは並べるだけ。**
+"""検証結果一覧の markdown を組み立てる。⚠ **中身は `ail/catalog.py` が作る。ここは並べるだけ。**
 
-呼び出しは `python3 -m cli.report --catalog`。
+呼び出しは `python3 -m cli.report --catalog`。同じ行と判定を DB の `ledger_rows` にも入れる（`store`。
+⚠ `ledger.md` と同じ生成物 ＝ 吐き直すたびにまるごと入れ直す。読み手は vibeboard の予測モデルのタブ）。
 """
 
 from __future__ import annotations
 
+import json
+import math
+import re
+import sqlite3
 import time
 
-from ail import catalog
+from ail import catalog, names, rundb, runs
 
 DOC = "docs/specs/experiments/feature-discovery.md"
 RULES = "rules.md"
@@ -38,12 +43,55 @@ def _sort_key(r: dict):
     return (g, -net)
 
 
-def build() -> str:
-    d = catalog.ledger()
+_RUN_DAY = re.compile(r"^(\d{4}-\d{2}-\d{2})T")
+
+
+def _plain(v):
+    """JSON に入れられる形へ（numpy の数 → Python の数・NaN → None）。"""
+    if isinstance(v, dict):
+        return {str(k): _plain(x) for k, x in v.items()}
+    if isinstance(v, (list, tuple, set)):
+        return [_plain(x) for x in v]
+    if hasattr(v, "item") and not isinstance(v, (str, bytes)):
+        v = v.item()
+    if isinstance(v, float) and not math.isfinite(v):
+        return None
+    return v if v is None or isinstance(v, (str, int, float, bool)) else str(v)
+
+
+def ledger_items(d: dict) -> list[dict]:
+    """`ledger_rows` の行（本体 ＋ leak 対照）。⚠ 名前は識別項目から作る（`ail/names.py`。綴りの無いものは止まる）。"""
+    items = []
+    for leak, rows in ((0, d["rows"]), (1, d["leak"])):
+        for r in rows:
+            days = sorted(m.group(1) for x in r.get("実行一覧") or [] if (m := _RUN_DAY.match(str(x))))
+            items.append({"leak": leak, "trial_name": names.trial_name(r), "model_name": names.model_name(r),
+                          "is_trial": int(bool(catalog.is_trial(r))), "verdict": str(r["判定"]),
+                          "closed": int(bool(r.get("閉じる"))),
+                          "first_run": days[0] if days else None, "last_run": days[-1] if days else None,
+                          "runs": json.dumps(list(r.get("実行一覧") or []), ensure_ascii=False),
+                          "doc": json.dumps(_plain(r), ensure_ascii=False)})
+    return items
+
+
+def store(d: dict, conn: sqlite3.Connection | None = None) -> int:
+    """検証結果一覧の行と判定を DB（`ledger_rows`）へまるごと入れ直し、`n_trials` を返す。
+
+    ⚠ 数え方は `catalog.is_trial`（`build` の「検証の行」と同じ）。⚠ 判定の規則をここに書かない。
+    """
+    items = ledger_items(d)
+    n_trials = sum(i["is_trial"] for i in items if not i["leak"])
+    rundb.write_ledger(conn or rundb.connect(runs.db_path()), items,
+                       {"ledger_built_at": rundb.now(), "ledger_n_trials": str(n_trials)})
+    return n_trials
+
+
+def build(d: dict | None = None) -> str:
+    d = d or catalog.ledger()
     rows = sorted(d["rows"], key=_sort_key)
-    # ⚠ **試行の行 = カタログ ID の行 ＋ モデルが処置の行**（catalog.is_trial が正本）
+    # ⚠ **検証の行 = カタログ ID の行 ＋ モデルが処置の行**（catalog.is_trial が正本）
     methods = [r for r in rows if catalog.is_trial(r)]
-    # ⚠ 門前の行は試行でも基準線でもない（検証を回していない。rules.md 14-5）
+    # ⚠ 門前の行は検証でも基準線でもない（検証を回していない。rules.md 14-5）
     gated = [r for r in rows if r.get("門前")]
     base_n = len(rows) - len(methods) - len(gated)
     counts = {k: sum(1 for r in methods if r["判定"] == k) for k in ("採る", "落とす", "保留")}
@@ -55,7 +103,7 @@ def build() -> str:
     L: list[str] = []
     a = L.append
 
-    a("# 試した分析手法の台帳")
+    a("# 試した分析手法の検証結果一覧")
     a("")
     a("⚠ **このファイルは生成物である。手で書き換えない。**")
     a("")
@@ -73,7 +121,7 @@ def build() -> str:
     a("> ⚠ **数字はすべて【実測】**（自前の検証で出したもの）。⚠ **良い数字は根拠「中」が上限**で、"
       "デフレーテッド SR とパージ CV を通していないものは報告しない（[rules.md 11 章](rules.md)）。")
     a("")
-    a("> この図の主張: ⚠ **台帳は 3 つの正本を突き合わせた生成物である。** 手で書き写す欄はひとつも無い。")
+    a("> この図の主張: ⚠ **検証結果一覧は 3 つの正本を突き合わせた生成物である。** 手で書き写す欄はひとつも無い。")
     a("")
     a("```mermaid")
     a("flowchart LR")
@@ -93,7 +141,7 @@ def build() -> str:
     a("")
     held = [r for r in methods if r["判定"] == "保留"]
     invalid = [r for r in held if "無効" in (r["理由"] or "")]
-    a(f"⚠ **試行は {len(methods)} 行（手法）＋ {base_n} 行（基準線）"
+    a(f"⚠ **検証は {len(methods)} 行（手法）＋ {base_n} 行（基準線）"
       + (f" ＋ {len(gated)} 行（門前）" if gated else "") + "。**"
       f" ⚠ **「採る」は {counts['採る']} 件。** 落とす {counts['落とす']} 行 ／ "
       f"保留 {counts['保留']} 行。")
@@ -113,35 +161,35 @@ def build() -> str:
         a("")
         a(f"⚠ **門前が {len(gated)} 行**（前置きの門を通らず、閾値売買を回していない。"
           "検証の数字を持たず、⚠ **n_trials に数えない** — [rules.md 14-5](rules.md)。"
-          "後から回したら普通の試行として数える）。")
+          "後から回したら普通の検証として数える）。")
     a("")
-    a("| 何を聞かれたら | この台帳のどこで答えるか |")
+    a("| 何を聞かれたら | この検証結果一覧のどこで答えるか |")
     a("| --- | --- |")
     a("| その手法は試したか | §2 に行があるか。無ければ §3 に「未実施」で載っている |")
     a("| なぜ落としたか | §2 の「判定」と「理由」（⚠ **落ちた理由は E8 の失敗の型 X1〜X12 で書く**） |")
     a("| その数字はどの実行のものか | §2 の「実行」→ §4 の一覧（層・行数・種・commit・入力の指紋） |")
     a("| ⚠ **次に何を試すか** | §3。⚠ **手間の小さい順に並べてあり、上から読めば決まる** |")
     a("")
-    a(f"⚠ **多重検定に使う `n_trials` は {len(methods)}**（= 試行の行数。基準線 "
+    a(f"⚠ **多重検定に使う `n_trials` は {len(methods)}**（= 検証の行数。基準線 "
       f"{len(rows) - len(methods)} 行は数えない。⚠ **「全部使う × Ridge 以外のモデル」は"
-      "モデルが処置なので試行として数える** — [plans/archive/gpu-models.md §3-4](../../../plans/archive/gpu-models.md)）。"
+      "モデルが処置なので検証として数える** — [plans/archive/gpu-models.md §3-4](../../../plans/archive/gpu-models.md)）。"
       "⚠ **[rules.md 11 章](rules.md) の規約 4 は"
       "「手法 × 粒度 × 地平 × 銘柄集合」を全部数えることを求める。この数を数え落とすと必ず甘くなる。**")
     a("")
 
     # --- 1. 読み方 ---
-    a("## 1. 台帳の読み方")
+    a("## 1. 検証結果一覧の読み方")
     a("")
-    a("単位（実行 → 手法 → 試行 → fold → セル）の関係は [units.md](units.md) に図解がある（初見はそちらを先に読む）。")
+    a("単位（実行 → 手法 → 検証 → fold → セル）の関係は [units.md](units.md) に図解がある（初見はそちらを先に読む）。")
     a("")
-    a("⚠ **1 行 = 1 回の試行。** 鍵は **手法 × モデル × 粒度 × 地平 × 特徴量の層 × データの層 × "
+    a("⚠ **1 行 = 1 回の検証。** 識別項目は **手法 × モデル × 粒度 × 地平 × 特徴量の層 × データの層 × "
       "期間 × 検証方式 × 形式 × 較正 × 閾値** である"
       "（[利用者の指示](../../../plans/archive/feature-discovery-ledger.md)。"
-      "⚠ **モデルは 2026-09-09 に鍵へ足した** — それまでは Ridge 1 本。"
+      "⚠ **モデルは 2026-09-09 に識別項目へ足した** — それまでは Ridge 1 本。"
       "⚠ **検証方式・形式・閾値は 2026-09-10 に足した** — 旧実行は（毎日往復・共通・—）として読むので"
       "既存の行は割れない。[rules.md 13-9](rules.md)。"
       "⚠ **期間は 2026-09-11 に足し、2026-09-12 に記録の無い実行へも遡って当てた**"
-      "（利用者の決定。[rules.md 14-4](rules.md)） — ⚠ **39 行が割れて 94 → 139 試行**になった。"
+      "（利用者の決定。[rules.md 14-4](rules.md)） — ⚠ **39 行が割れて 94 → 139 検証**になった。"
       "⚠ **数字は 1 つも再計算していない**: 代表 1 本に隠れていた実行が表に出ただけである。"
       "⚠ **較正は 2026-09-12 に足した** — Platt の数値解が止まっていた不具合の処置で、"
       "⚠ **既存の実行は記録を持たないので全部「旧」に寄り、行はどれも割れない**"
@@ -152,7 +200,7 @@ def build() -> str:
     a("| --- | --- | --- |")
     a("| 実装 | `ail/registry.py` に在るか | ⚠ **無いものは「効かない」ではなく「試していない」** |")
     a("| 層 | データの層（`raw` / `adjusted`） | ⚠ **日足の `raw` は分割調整の誤りを含む＝ 無効**（[§6-3](../feature-discovery.md)） |")
-    a("| 期間 | 使った表の開始日（その実行が読んだ表の最古の日） | ⚠ **開始日が違えば別の試行**（同じ鍵にまとめると期間差が「再現の幅」に化ける）。実行が記録していなければ表の実物から遡って読む。⚠ **「—」は遡れなかったという意味** — 表が消えている・行数が実行の記録と合わない（＝ 作り直された表）・行数の記録が無い（[rules.md 14-4](rules.md)） |")
+    a("| 期間 | 使った表の開始日（その実行が読んだ表の最古の日） | ⚠ **開始日が違えば別の検証**（同じ識別項目にまとめると期間差が「再現の幅」に化ける）。実行が記録していなければ表の実物から遡って読む。⚠ **「—」は遡れなかったという意味** — 表が消えている・行数が実行の記録と合わない（＝ 作り直された表）・行数の記録が無い（[rules.md 14-4](rules.md)） |")
     a("| 本数 | 選んだ特徴量の本数（fold の平均） | 絞るほど良いとは限らない |")
     a("| 的中率 | 符号が当たった割合 | ⚠ **株は上がる日が多い。** 基準「常に上」と必ず比べる |")
     a("| IC | 予測とラベルの相関 | ⚠ **IC が正でも粗利が最下位のことがある**（[§3-3](../feature-discovery.md)） |")
@@ -161,9 +209,9 @@ def build() -> str:
     a("| fold | ⚠ **純利が正だった fold / 全 fold と符号の並び** | ⚠ **平均が正でも符号が割れるなら実力ではない**（[rules.md 11 章](rules.md) 規約 5） |")
     a("| 検証方式 | 毎日往復（旧）／ 閾値売買（[rules.md 13 章](rules.md)） | ⚠ **新旧の純利 bp は別の物差しで、直接比べない**（13-8）。閾値売買の純利は fold のポートフォリオ累計 |")
     a("| 形式 | 共通（63 銘柄で 1 モデル）／ 銘柄別（銘柄ごとに 1 本） | 閾値売買だけ。違うのは fit の範囲だけ（13-6） |")
-    a("| 較正 | Platt をどう解いたか。⚠ **旧**（〜2026-09-12。⚠ **数値解が 1 反復で止まっていた**）／ **std**（標準化して解く）／ **—**（較正を通らない＝ 毎日往復） | ⚠ **旧の行の買い% はほぼ定数**（幅 0.00002 点）で、θ を跨がず「ずっと持つ / ずっと休む」に潰れている（[buy-pct-width-collapse.md](../buy-pct-width-collapse.md)）。⚠ **旧行は再計算しない・消さない。回し直した分は別の試行として数える** |")
-    a("| 閾値 | θ（%）。買い% > θ で建て、売り% > θ で手仕舞う | ⚠ **1 水準 = 1 試行**（13-9）。3 水準とも載せる（良かった閾値だけ報告しない） |")
-    a("| 再現 | 同じ鍵の実行が何本あり、一致したか | ⚠ **数字が動いたら、まず配線を疑う**（規約 7） |")
+    a("| 較正 | Platt をどう解いたか。⚠ **旧**（〜2026-09-12。⚠ **数値解が 1 反復で止まっていた**）／ **std**（標準化して解く）／ **—**（較正を通らない＝ 毎日往復） | ⚠ **旧の行の買い% はほぼ定数**（幅 0.00002 点）で、θ を跨がず「ずっと持つ / ずっと休む」に潰れている（[buy-pct-width-collapse.md](../buy-pct-width-collapse.md)）。⚠ **旧行は再計算しない・消さない。回し直した分は別の検証として数える** |")
+    a("| 閾値 | θ（%）。買い% > θ で建て、売り% > θ で手仕舞う | ⚠ **1 水準 = 1 検証**（13-9）。3 水準とも載せる（良かった閾値だけ報告しない） |")
+    a("| 再現 | 同じ識別項目の実行が何本あり、一致したか | ⚠ **数字が動いたら、まず配線を疑う**（規約 7） |")
     a("| 実行 | 出所の実行 ID | §4 で層・種・commit・入力の指紋が引ける |")
     a("")
     a("> この図の主張: ⚠ **判定は数字から機械的に決める。** 手で「良さそう」とは書かない。")
@@ -188,14 +236,14 @@ def build() -> str:
         a(f"| {cond} | **{verdict}** | {why} |")
     a("| registry に無い | **未実施** | §3 |")
     a("")
-    a("⚠ **失敗の型は E8 の台帳と同じもの**（[E8 §6](../e8-signal-methods/failures.md)）。"
+    a("⚠ **失敗の型は E8 の検証結果一覧と同じもの**（[E8 §6](../e8-signal-methods/failures.md)）。"
       "**X2** コストで消える ／ **X9** 標本不足。")
     a("⚠ **1 分足の `raw` は保留にしない。** 目盛りの誤りは日足にしか無い"
       "（[§3 の注記](../feature-discovery.md)）。")
     a("")
 
-    # --- 2. 台帳 ---
-    a("## 2. 台帳（試した結果）")
+    # --- 2. 検証結果一覧 ---
+    a("## 2. 検証結果一覧（試した結果）")
     a("")
     a(f"⚠ **{len(rows)} 行。** うち手法 {len(methods)} 行・基準線 {base_n} 行"
       + (f"・門前 {len(gated)} 行" if gated else "") + "。")
@@ -259,7 +307,7 @@ def build() -> str:
                 ["---", "---:", "---:", "---:", "---:"], prog)
     a("")
     # ⚠ **断定を手で書かない**（2026-09-12。F5-1 を回したのに「1 件も触っていない」と出ていた）。
-    # ⚠ **表の数から言い直す** — 生成物の本文が表と食い違うのは、台帳がいちばんやってはいけないこと
+    # ⚠ **表の数から言い直す** — 生成物の本文が表と食い違うのは、検証結果一覧がいちばんやってはいけないこと
     untouched = [f"{f}（{cs[0]['系統名']}）" for f, cs in sorted(fam.items())
                  if not any(c["ID"] in tried_ids for c in cs)]
     if untouched:
@@ -286,15 +334,15 @@ def build() -> str:
                   f"`{r['指紋']}`" if r.get("指紋") else "—", r["先読み"]]
                  for r in d["runs"]])
     a("")
-    a("⚠ **`runs/` は git 管理外である。** ⚠ **この台帳を同じ内容で再生成できるのは、"
+    a("⚠ **`runs/` は git 管理外である。** ⚠ **この検証結果一覧を同じ内容で再生成できるのは、"
       "その実行を持っている手元だけ**である（clone しただけの環境では旧配線の行しか出ない）。")
     a("")
 
     # --- 5. 先読みの検査 ---
-    a("## 5. ⚠ 配線の検査（台帳の対象外）")
+    a("## 5. ⚠ 配線の検査（検証結果一覧の対象外）")
     a("")
-    a("⚠ **わざと未来の値を混ぜた実行は、台帳の本体に入れない。** "
-      "⚠ **的中率 99% の行が混ざると、台帳全体が嘘になる。**")
+    a("⚠ **わざと未来の値を混ぜた実行は、検証結果一覧の本体に入れない。** "
+      "⚠ **的中率 99% の行が混ざると、検証結果一覧全体が嘘になる。**")
     a("⚠ **ここが跳ね上がらなければ、§2 の「効かない」は「配線が壊れていて測れていない」と読むべきである**"
       "（[rules.md 7 章](rules.md)）。")
     a("")
@@ -323,16 +371,16 @@ def build() -> str:
     placebo = [r for r in d["runs"] if r.get("偽薬")]
     if placebo:
         shifts = sorted(int(r["偽薬"]) for r in placebo)
-        a("### 5-2. ⚠ 日付をずらした偽薬（台帳の対象外）")
+        a("### 5-2. ⚠ 日付をずらした偽薬（検証結果一覧の対象外）")
         a("")
         a(f"⚠ **`ex_` の系列の日付だけを過去へずらした実行が {len(placebo)} 本ある**"
-          f"（ずらし幅 {shifts[0]:,}〜{shifts[-1]:,} 日）。⚠ **試行ではなく対照なので、§2 の行と試行数に入れない**"
-          "（鍵が本物と同じなので、混ぜると代表の行を乗っ取る）。§4 の出所に印を付けてある。")
+          f"（ずらし幅 {shifts[0]:,}〜{shifts[-1]:,} 日）。⚠ **検証ではなく対照なので、§2 の行と検証数に入れない**"
+          "（識別項目が本物と同じなので、混ぜると代表の行を乗っ取る）。§4 の出所に印を付けてある。")
         a("読み方と判定は [daily-data-sources.md §15](../daily-data-sources.md)。")
         a("")
 
     # --- 6. 限界 ---
-    a("## 6. ⚠ この台帳で埋まらないもの")
+    a("## 6. ⚠ この検証結果一覧で埋まらないもの")
     a("")
     a("| # | 限界 | ⚠ 効き方 |")
     a("| ---: | --- | --- |")

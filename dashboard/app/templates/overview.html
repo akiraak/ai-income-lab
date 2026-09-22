@@ -39,7 +39,7 @@
     <div class="legend"><span class="item">差 1（気配 → 約定）の中央値 <span class="chip {{ st }}">{{ {'ok': '✅', 'warn': '⚠', 'ng': '❌', 'na': '—'}[st] }} {{ m if m is not none else '—' }} bp</span> · n={{ sm.diff1_n }}</span></div>
     {{ charts.diff1_dots(b.traders) }}
     <div class="legend"><span class="item">差 2 手数料 {{ usd(sm.fees_usd) }}{{ info("差 2（実コスト）") }}</span>
-      <span class="item">差 3 紙上 − 実物 <span class="chip placeholder">仮データ {{ b.placeholder.diff3_bp_per_day }} bp/日</span>{{ info("差 3（紙上 − 実物）") }}</span></div>
+      <span class="item">差 3 紙上 − 実物 {% if b.placeholder.paper %}<span class="chip placeholder">仮データ {{ b.placeholder.diff3_bp_per_day }} bp/日</span>{% else %}日次の中央値 <b class="num">{{ b.diff3_median_bp if b.diff3_median_bp is not none else '—' }}</b> bp{% if b.close_source == 'quotes' %} <span class="chip placeholder">終値は気配の代役</span>{% endif %}{% endif %}{{ info("差 3（紙上 − 実物）") }}</span></div>
     <div class="legend"><span class="item">差 4 問題のあった日 {{ sm.problem_days }} · 再送 {{ sm.retries }} · <b class="{{ 'ng' if b.missing else '' }}">起動なし {{ b.missing|length }} 日</b>{{ info("差 4（無人運転）") }}</span></div>
   </div>
 </div>

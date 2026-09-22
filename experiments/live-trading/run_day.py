@@ -8,7 +8,8 @@
     TT_ALLOW_PROD_ORDERS=1 python run_day.py --traders test_a --env prod --mode submit --i-know-this-is-real-money
 
 ⚠ 本番の鍵は `ttclient.Client` の 3 段そのまま。⚠ **鍵を入れて起動するのは利用者**（CLAUDE.md の例外）。
-⚠ 記録は `out/<日付>/*.jsonl`（`Masker` 経由。口座番号・トークンは出ない）。状態は `state/<トレーダー>.json`。
+⚠ 記録は `out/<日付>/*.jsonl`（`Masker` 経由。口座番号・トークンは出ない）。状態は `state/<env>/<トレーダー>.json`。
+   ⚠ 2026-09-21 から、どちらも道はそのままで中身は DB（`livefs`。本物はリポジトリ直下の live.sqlite・シミュレーションは木の sim.sqlite）。
 ⚠ `--mode submit` 以外では状態を書き換えない。
 ⚠ **実売買とシミュレーションは排他**（live-trading.md §0-7 (a)）: 起動時に `MODE` を見て `run.lock` を取る。`MODE` が無ければ real ＝ 今までどおり。
    `--sim-clock`（仮の時計）は MODE が sim ＆ 接続先がループバックのモック ＆ prod でない ＆ 本番の鍵が無いときだけ受け付ける。
@@ -41,8 +42,9 @@ import recovery  # noqa: E402
 import simclock  # noqa: E402
 from journal import Journal  # noqa: E402
 import signals as signalling  # noqa: E402
-from execute import Executor, allocate_fills  # noqa: E402
+from execute import UNKNOWN, Executor, allocate_fills  # noqa: E402
 from state import load_state, save_state  # noqa: E402
+from _livefs import livefs  # noqa: E402
 from trader import load_traders  # noqa: E402
 
 ET = ZoneInfo("America/New_York")
@@ -105,31 +107,28 @@ def sim_clock_refusal(machine: modes.Mode, cfg: dict, env: str, args) -> str | N
 
 
 class DayRecorder:
-    """`out/<日付>/<種類>.jsonl` に 1 行ずつ。全行が Masker を通る。"""
+    """`out/<日付>/<種類>.jsonl` に 1 行ずつ（⚠ 道はそのまま・中身は DB の lines）。全行が Masker を通る。"""
 
     def __init__(self, out_dir: str, date: str, env: str, run_id: str, mock: bool, sim: bool = False):
         self.dir = os.path.join(out_dir, date)
-        os.makedirs(self.dir, exist_ok=True)
         self.date, self.env, self.run_id, self.mock, self.sim = date, env, run_id, mock, sim
         self.mask = record.Masker()
 
     def read(self, kind: str) -> list[dict]:
-        """その日の記録を読み直す（⚠ **同じ日に何度起動しても合計で数えるため**。壊れた行と欠けたファイルは飛ばす）。"""
+        """その日の記録を読み直す（⚠ **同じ日に何度起動しても合計で数えるため**。壊れた行は飛ばす）。
+        ⚠ 中身は DB の lines（`write` と同じ道）。⚠ **どの DB にも当たらない道は止まる**（missing_ok にしない ＝
+        設定の誤りで「今日はまだ買っていない」と読み、上限を 0 から数え直さない）。"""
         rows: list[dict] = []
-        try:
-            with open(os.path.join(self.dir, f"{kind}.jsonl"), encoding="utf-8") as f:
-                for line in f:
-                    line = line.strip()
-                    if not line:
-                        continue
-                    try:
-                        row = json.loads(line)
-                    except ValueError:
-                        continue
-                    if isinstance(row, dict):
-                        rows.append(row)
-        except OSError:
-            pass
+        for line in livefs.read_lines(os.path.join(self.dir, f"{kind}.jsonl")):
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                row = json.loads(line)
+            except ValueError:
+                continue
+            if isinstance(row, dict):
+                rows.append(row)
         return rows
 
     def write(self, kind: str, row: dict) -> None:
@@ -138,8 +137,7 @@ class DayRecorder:
             row.update(sim=True, test=True)   # シミュレーションの全行に sim・mock・test（§0-7 (a)）
         if self.mock:
             row["mock"] = True
-        with open(os.path.join(self.dir, f"{kind}.jsonl"), "a", encoding="utf-8") as f:
-            f.write(json.dumps(self.mask(row), ensure_ascii=False) + "\n")
+        livefs.append(os.path.join(self.dir, f"{kind}.jsonl"), json.dumps(self.mask(row), ensure_ascii=False))
 
 
 def make_client(cfg: dict, env: str, allow_prod_dry_run: bool, allow_prod_orders: bool, rec: DayRecorder, auth_retry_wait: float = 30.0) -> Client:
@@ -186,6 +184,7 @@ def main() -> int:
     ap.add_argument("--retry-interval", type=float, default=60.0, help="Session offline ／ 5xx の再送間隔（秒）")
     ap.add_argument("--auth-retry-wait", type=float, default=30.0, help="認証が 5xx のとき 1 回だけ待って取り直す秒数（401 は再試行しない）")
     ap.add_argument("--cancel-after", type=float, default=600.0, help="未約定を取り消すまでの秒数（既定 10 分 ＝ 16:05）")
+    ap.add_argument("--serial", action="store_true", help="発注を 1 本ずつ約定まで待つ元の形に戻す（既定は 2 段 ＝ 先に全部出してから約定を確かめる）")
     ap.add_argument("--max-day-usd", type=float, default=float(os.environ.get("LT_MAX_DAY_USD") or DEFAULT_MAX_DAY_USD))
     ap.add_argument("--max-total-budget", type=float, default=float(os.environ.get("LT_MAX_TOTAL_BUDGET_USD") or DEFAULT_MAX_TOTAL_BUDGET))
     ap.add_argument("--sim-clock", action="store_true", default=os.environ.get("LT_SIM_CLOCK") == "1",
@@ -412,6 +411,14 @@ def main() -> int:
         fills_by_trader.extend(fills)
         if args.mode != "submit":
             return
+        if res.final_status == UNKNOWN:
+            # ⚠ 控えを閉じない: 注文は届いた（か分からない）のに状態を読めなかった。次の起動が注文番号（無ければ external-identifier）で
+            #    照会して、その人の台帳に戻す（§0-8 の段 1）。ここで「約定 0」と書くと、約定していたとき台帳から漏れる
+            rec.write("events", {"kind": "order_unknown", "trader": o.parts[0]["trader"] if o.parts else None, "symbol": o.symbol, "side": o.side,
+                                 "external_id": res.external_id, "order_id": (res.submitted or {}).get("order_id"),
+                                 "note": "状態を読めなかった注文。控えは開いたまま ＝ 次の起動が照会して台帳に戻す。急ぐなら口座の注文履歴を見て reconcile.py で合わせる"})
+            print(f"⚠ 状態を読めなかった注文: {o.side} {o.symbol}（控えは開いたまま。次の起動が照会して台帳に戻す）", file=sys.stderr)
+            return
         for f in fills:
             # ⚠ 1 件の食い違いで落ちない: ここで落ちると、約定済みのほかの売買まで状態に残らない
             try:
@@ -427,7 +434,7 @@ def main() -> int:
         journal.done(res.external_id, str(res.final_status), shares=sum(f["shares"] for f in fills))
 
     ex = Executor(client, account, None, halt_file, mode=args.mode, retries=args.retries, retry_interval=args.retry_interval, cancel_after=args.cancel_after,
-                  sleep=CLOCK.sleep, clock=CLOCK if sim else None, journal=journal)
+                  sleep=CLOCK.sleep, clock=CLOCK if sim else None, journal=journal, pipeline=not args.serial)
     results = ex.run_all(orders, quotes_raw, on_result=settle)
 
     if args.mode == "submit":
@@ -450,7 +457,7 @@ def main() -> int:
                                  "note": "含み損が予算の 20% 以上。執行器は止めない（投げ売りもしない）。止めるなら停止ボタン（HALT）"})
             print(f"⚠ 含み損の警告: {t.name} が予算の {dd}%（線 {DRAWDOWN_WARN_PCT}%）。執行器は止めない ＝ 止めるなら停止ボタン（HALT）", file=sys.stderr)
 
-    bad = [r for r in results if r.final_status in ("error", "guarded", "halted", "not_submitted")]
+    bad = [r for r in results if r.final_status in ("error", "guarded", "halted", "not_submitted", UNKNOWN)]
     rec.write("events", {"kind": "end", "now_et": now_et().isoformat(timespec="seconds"), "orders": len(results), "bad": len(bad), "fills": len(fills_by_trader),
                          "day_spent_usd": round(day_cap.spent, 2), "day_cap_usd": args.max_day_usd, **({"ledger_errors": ledger_errors} if ledger_errors else {}),
                          **({"blocked_symbols": sorted(blocked)} if blocked else {})})

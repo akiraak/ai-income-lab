@@ -94,7 +94,7 @@ import simdata
 from trader import load_traders
 cfg = simdata.load_config(sys.argv[1])
 symbols = sorted({s for t in load_traders(cfg.traders) for s in t.symbols})
-print(" ".join(s for s in symbols if not os.path.exists(os.path.join(sys.argv[2], f"{s}.csv"))))
+print(" ".join(s.replace("/", "-") for s in symbols if not os.path.exists(os.path.join(sys.argv[2], f"{s.replace('/', '-')}.csv"))))   # BRK/B → BRK-B.csv
 PYCODE
 )" || die "設定を読めない"
 if [ -n "$missing" ] && [ -n "$FETCH" ]; then

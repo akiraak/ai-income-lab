@@ -11,6 +11,7 @@ import json
 from dataclasses import dataclass, field
 from functools import lru_cache
 from pathlib import Path
+from .livestore import livefs
 
 SKIP_LISTS = {"messages", "events_head", "events_tail", "warnings", "errors", "cases", "response_keys"}
 
@@ -87,32 +88,25 @@ def step_brief(row: dict) -> dict:
     }
 
 
-@lru_cache(maxsize=256)
-def _read_file(path_str: str, mtime_ns: int, size: int) -> tuple:
+def _read_file(path_str: str) -> tuple:
+    """記録 1 本の行（⚠ 2026-09-21 から DB の lines ＝ `livefs`。道はそのまま）。"""
     rows = []
-    with open(path_str, encoding="utf-8") as f:
-        for line in f:
-            line = line.strip()
-            if not line:
-                continue
-            try:
-                rows.append(json.loads(line))
-            except json.JSONDecodeError:
-                rows.append({"step": None, "name": "(壊れた行)", "ok": False, "result": "unparsable", "raw": line[:200]})
+    for line in livefs.read_lines(path_str, missing_ok=True):
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            rows.append(json.loads(line))
+        except json.JSONDecodeError:
+            rows.append({"step": None, "name": "(壊れた行)", "ok": False, "result": "unparsable", "raw": line[:200]})
     return tuple(rows)
 
 
 def load_runs(records_dir: Path) -> list[Run]:
-    """新しい順。ファイルの mtime・サイズが変わらなければキャッシュを使う。"""
+    """新しい順。"""
     runs: list[Run] = []
-    if not records_dir.is_dir():
-        return runs
-    for path in records_dir.glob("*.jsonl"):
-        try:
-            st = path.stat()
-        except OSError:
-            continue
-        rows = list(_read_file(str(path), st.st_mtime_ns, st.st_size))
+    for path in map(Path, livefs.find(records_dir, "*.jsonl", missing_ok=True)):
+        rows = list(_read_file(str(path)))
         if not rows:
             continue
         head = next((r for r in rows if r.get("run_id")), rows[0])

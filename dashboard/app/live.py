@@ -7,6 +7,7 @@
   - トレーダーの定義        → `config/traders/*.toml`
   - 台帳（持ち分・実現損益） → `state/<env>/<名前>.json`
   - 日次の記録              → `out/<日付>/{signals,quotes,orders,transfers,ledger,events,positions,balances}.jsonl`
+  ⚠ 2026-09-21 から、台帳と日次の記録は道はそのままで中身は DB（`livefs`。プラン db-model-facts.md §11）
 
 ⚠ **標準ライブラリだけ**。⚠ **どのファイルが無くても落とさない**（g3plus には執行器の記録を置かないので空でも 200）。
 ⚠ 記録は執行器が `Masker` を通して書いているが、画面の応答はさらに `Redactor` を通す。
@@ -14,10 +15,13 @@
 
 from __future__ import annotations
 
+import csv
+import io
 import json
-import os
 import tomllib
 from pathlib import Path
+
+from .livestore import livefs
 
 DAYS = 20              # 人を横に比べる面（概要・全体の詳細・/api/live）が読む営業日。⚠ ここは動かさない
 DAY_CACHE_MAX = 400    # 1 人を縦に追う面（トレーダーの詳細）は全期間を読むので、日ごとに覚えておく（§2）
@@ -30,29 +34,24 @@ STATUS_CLASS = {"Filled": "ok", "dry-run": "na", "planned": "na", "Cancelled": "
 
 def _read_jsonl(path: Path) -> list[dict]:
     rows: list[dict] = []
-    try:
-        with path.open(encoding="utf-8") as f:
-            for line in f:
-                line = line.strip()
-                if not line:
-                    continue
-                try:
-                    row = json.loads(line)
-                except ValueError:
-                    continue
-                if isinstance(row, dict):
-                    rows.append(row)
-    except OSError:
-        pass
+    for line in livefs.read_lines(path, missing_ok=True):
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            row = json.loads(line)
+        except ValueError:
+            continue
+        if isinstance(row, dict):
+            rows.append(row)
     return rows
 
 
 def _read_json(path: Path) -> dict:
     try:
-        with path.open(encoding="utf-8") as f:
-            data = json.load(f)
+        data = json.loads(livefs.read_doc(path, missing_ok=True) or "")
         return data if isinstance(data, dict) else {}
-    except (OSError, ValueError):
+    except ValueError:
         return {}
 
 
@@ -104,15 +103,13 @@ def states(live_dir: Path) -> dict[str, dict[str, dict]]:
     """env → トレーダー名 → 台帳。"""
     out: dict[str, dict[str, dict]] = {}
     root = live_dir / "state"
-    if not root.is_dir():
-        return out
-    for env_dir in sorted(p for p in root.iterdir() if p.is_dir()):
-        for path in sorted(env_dir.glob("*.json")):
+    for env in livefs.listdir(root, missing_ok=True):
+        for path in map(Path, livefs.find(root / env, "*.json", missing_ok=True)):
             st = _read_json(path)
             if not st:
                 continue
             holdings = st.get("holdings") or {}
-            out.setdefault(env_dir.name, {})[path.stem] = {
+            out.setdefault(env, {})[path.stem] = {
                 "holdings": holdings,
                 "cost_in_use_usd": round(sum(float(h.get("shares", 0)) * float(h.get("avg_price", 0)) for h in holdings.values()), 2),
                 "realized_usd": round(float(st.get("realized_usd", 0) or 0), 2),
@@ -146,12 +143,8 @@ _DAY_CACHE: dict[tuple[str, str], tuple[tuple, dict]] = {}
 
 
 def _day_stamp(d: Path) -> tuple:
-    """その日のディレクトリの指紋（名前・mtime・大きさ）。⚠ 過ぎた日は変わらないので、これが同じなら読み直さない。"""
-    try:
-        with os.scandir(d) as it:
-            return tuple(sorted((e.name, e.stat().st_mtime_ns, e.stat().st_size) for e in it if e.name.endswith(".jsonl")))
-    except OSError:
-        return ()
+    """その日の記録の指紋（道・行数。⚠ 行は足すだけ ＝ 行数が同じなら中身も同じ）。過ぎた日は変わらないので、同じなら読み直さない。"""
+    return livefs.stamp(d)
 
 
 def day(live_dir: Path, date: str, *, cache: bool = True) -> dict:
@@ -277,9 +270,32 @@ def history(b: dict, who: str | None = None) -> list[dict]:
 
 def dates(live_dir: Path) -> list[str]:
     root = live_dir / "out"
-    if not root.is_dir():
+    return sorted((n for n in livefs.listdir(root, missing_ok=True) if len(n) == 10 and n[4] == "-" and livefs.isdir(root / n, missing_ok=True)), reverse=True)
+
+
+DAILY_NUM = ("budget_usd", "paper_bp", "paper_cum_bp", "real_usd", "real_bp", "real_cum_bp", "diff3_bp", "diff3_cum_bp", "bh_bp", "bh_cum_bp",
+             "diff1_quote_to_fill_bp", "diff1_fill_to_close_bp", "diff2_half_spread_bp", "diff2_fees_usd")
+DAILY_INT = ("n_symbols", "n_signals", "paper_held", "paper_trades", "orders", "filled", "not_filled", "unexecuted", "diff4_events", "close_missing")
+
+
+def daily_rows(live_dir: Path) -> list[dict]:
+    """紙上の対照（実売買の Phase 3。執行器の `paper.py` が書く `out/daily.csv`）。⚠ **読むだけ**（ここで計算しない）。無ければ空。"""
+    text = livefs.read_doc(live_dir / "out" / "daily.csv", missing_ok=True)
+    if text is None:
         return []
-    return sorted((p.name for p in root.iterdir() if p.is_dir() and len(p.name) == 10 and p.name[4] == "-"), reverse=True)
+    rows = []
+    try:
+        for r in csv.DictReader(io.StringIO(text, newline="")):
+            row: dict = {"date": r.get("date"), "trader": r.get("trader"), "test": r.get("test") == "True",
+                         "close_source": r.get("close_source") or ""}
+            for k in DAILY_NUM:
+                row[k] = float(r[k]) if r.get(k) not in (None, "") else None
+            for k in DAILY_INT:
+                row[k] = int(float(r[k])) if r.get(k) not in (None, "") else None
+            rows.append(row)
+    except (OSError, ValueError, KeyError):
+        return []
+    return rows
 
 
 def index(live_dir: Path, days: int = DAYS) -> dict:
@@ -310,7 +326,10 @@ def index(live_dir: Path, days: int = DAYS) -> dict:
         "diff1_n": len(all_diff1),
         "real_days": sum(1 for dd in recent if not dd["mock"] and not dd["test"] and "submit" in dd["modes"]),
     }
+    daily = daily_rows(live_dir)
     return {
+        # ⚠ 紙上の対照は本物（daily.csv）があるときだけ出す。仮データは出さない
+        **({"daily": daily[-days * max(1, len(tr)):]} if daily else {}),
         "live_dir": str(live_dir),
         "empty": not tr and not recent,
         "traders": tr,
@@ -379,6 +398,7 @@ def board(live_dir: Path, days: int | None = DAYS, today=None) -> dict:
     # today: シミュレーションでは仮の今日（暦の残り日数を仮の時計で数える）。None なら本物の今日
     cal_info = calendar_info(ds[0], ds[-1], today=today) if ds else calendar_info(None, None, today=today)
     missing = [d for d in bd if d not in dd]
+    daily = daily_rows(live_dir)
     for i, t in enumerate(tr):
         name = t["name"]
         t["cls"] = f"s{i % N_SERIES + 1}"
@@ -387,16 +407,28 @@ def board(live_dir: Path, days: int | None = DAYS, today=None) -> dict:
         t["pnl_usd"] = [round(ledger[d].get("realized_usd", 0) + ledger[d].get("unrealized_usd", 0), 2) if d in ledger else None for d in bd]
         t["pnl_pct"] = [round(v / t["budget_usd"] * 100, 4) if v is not None and t["budget_usd"] else None for v in t["pnl_usd"]]
         t["last"] = next((ledger[d] for d in reversed(ds) if d in ledger), {})
-        # ⚠ 仮データ: 紙上の損益 ＝ 実物の損益に 1 営業日あたり 2bp（予算に対して）を足した線。本物ではない
-        k = 0
-        paper = []
-        for v in t["pnl_pct"]:
-            if v is None:
-                paper.append(None)
-                continue
-            k += 1
-            paper.append(round(v + PAPER_PLACEHOLDER_BP_PER_DAY / 100 * k, 4))
-        t["paper_pct"] = paper
+        mine = {r["date"]: r for r in daily if r["trader"] == name}
+        t["paper_real"] = bool(mine)
+        if mine:
+            # ✅ 本物: 執行器の paper.py が書いた daily.csv（同じ合図を公式終値・片道 2.5bp で回した累計。予算に対する %）
+            t["paper_pct"] = [round(mine[d]["paper_cum_bp"] / 100, 4) if d in mine and mine[d]["paper_cum_bp"] is not None else None for d in bd]
+            t["bh_pct"] = [round(mine[d]["bh_cum_bp"] / 100, 4) if d in mine and mine[d]["bh_cum_bp"] is not None else None for d in bd]
+            t["daily"] = [mine[d] for d in sorted(mine, reverse=True)][:days]
+            last_row = next((mine[d] for d in sorted(mine, reverse=True) if mine[d]["diff3_cum_bp"] is not None), None)
+            t["diff3_cum_bp"] = last_row["diff3_cum_bp"] if last_row else None
+            t["diff3_median_bp"] = _median([r["diff3_bp"] for r in mine.values() if r["diff3_bp"] is not None])
+            t["close_source"] = next(iter(mine.values()))["close_source"]
+        else:
+            # ⚠ 仮データ: 紙上の損益 ＝ 実物の損益に 1 営業日あたり 2bp（予算に対して）を足した線。本物ではない（daily.csv がまだ無いとき）
+            k = 0
+            paper = []
+            for v in t["pnl_pct"]:
+                if v is None:
+                    paper.append(None)
+                    continue
+                k += 1
+                paper.append(round(v + PAPER_PLACEHOLDER_BP_PER_DAY / 100 * k, 4))
+            t["paper_pct"] = paper
         grid: dict[str, list[dict]] = {s: [] for s in t["symbols"]}
         diff1: list[list] = []
         n_orders = n_filled = n_transfers = 0
@@ -473,5 +505,8 @@ def board(live_dir: Path, days: int | None = DAYS, today=None) -> dict:
         },
         "calendar": cal_info,
         # ⚠ 仮データの印（画面はこれを見てバッジを出す）。暦は、見ている範囲が NYSE の暦の外に出たときだけ仮（平日＝営業日）
-        "placeholder": {"paper": True, "diff3_bp_per_day": PAPER_PLACEHOLDER_BP_PER_DAY, "calendar": not cal_info["covered"]},
+        # ⚠ 紙上の損益・差 3 は、daily.csv（実売買の Phase 3）がある人は本物・無い人は仮データ（`t.paper_real` で人ごとに分かれる）
+        "placeholder": {"paper": not any(t.get("paper_real") for t in tr), "diff3_bp_per_day": PAPER_PLACEHOLDER_BP_PER_DAY, "calendar": not cal_info["covered"]},
+        "diff3_median_bp": _median([r["diff3_bp"] for r in daily if r["diff3_bp"] is not None and not r["test"]]),
+        "close_source": daily[0]["close_source"] if daily else None,
     }

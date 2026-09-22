@@ -2,7 +2,7 @@
 #
 # ⚠ 1 語 1〜2 行の索引であって、解説書ではない。詳しい定義は doc 側にあり、
 #    ⚠ 食い違ったら doc（リンク先）が勝つ。
-# ⚠ 動く数字（試行数・DSR の値・行数など）を書かない。数字は検証タブと spec が持つ。
+# ⚠ 動く数字（検証数・DSR の値・行数など）を書かない。数字は実行タブと spec が持つ。
 # ⚠ doc はリポジトリ直下からの相対パス。実在はテストが固定する（tests/test_vibetab.py）。
 #    where は節の番号や見出しを文字で書く（vibeboard は節アンカーへ飛べない）。
 
@@ -73,12 +73,12 @@ note = "このプロジェクトの決めごと。文書を読む前に知って
 
 [[section]]
 id = "units"
-label = "検証の単位と台帳"
-note = "台帳（ledger.md）の行を読むための単位。図解は units.md にある。"
+label = "検証結果一覧の単位"
+note = "検証結果一覧（ledger.md）の行を読むための単位。図解は units.md にある。"
 
   [[section.term]]
   name = "実行（run）"
-  short = "`cli.run` を 1 回回したもの。1 実行 1 ディレクトリで、設定・入力の指紋・種・結果・ログを残す。"
+  short = "`cli.run` を 1 回回したもの。1 実行 1 記録（`runs/research.sqlite`。上書きしない）で、設定・入力の指紋・種・結果・ログを残す。"
   doc = "docs/specs/experiments/feature-discovery/units.md"
   where = "§2 実行"
 
@@ -92,19 +92,19 @@ note = "台帳（ledger.md）の行を読むための単位。図解は units.md
   name = "手法"
   short = "1 つの実行の中で比べた選別手法・基準線の 1 つ。実体は summary.csv の 1 行。"
   doc = "docs/specs/experiments/feature-discovery/units.md"
-  where = "§3 手法 → 試行"
+  where = "§3 手法 → 検証"
 
   [[section.term]]
-  name = "試行"
-  short = "台帳の 1 行。同じ鍵の手法を実行をまたいでまとめたもので、多重検定の n_trials はこの数。"
+  name = "検証（旧: 試行）"
+  short = "検証結果一覧の 1 行。同じ識別項目の手法を実行をまたいでまとめたもので、多重検定の n_trials はこの数。"
   doc = "docs/specs/experiments/feature-discovery/units.md"
-  where = "§5 試行の数え方"
+  where = "§5 検証の数え方"
 
   [[section.term]]
-  name = "鍵"
-  short = "試行を分ける自由度の組（手法・モデル・粒度・地平・層・期間・検証方式・形式・閾値）。1 列でも違えば別の試行。"
+  name = "識別項目（旧: 鍵）"
+  short = "検証を分ける自由度の組（手法・モデル・粒度・地平・層・期間・検証方式・形式・閾値）。1 列でも違えば別の検証。"
   doc = "docs/specs/experiments/feature-discovery/units.md"
-  where = "§4 鍵の列"
+  where = "§4 識別項目の列"
 
   [[section.term]]
   name = "fold"
@@ -120,19 +120,19 @@ note = "台帳（ledger.md）の行を読むための単位。図解は units.md
 
   [[section.term]]
   name = "再現の幅"
-  short = "同じ鍵の実行が複数あるときの数字のばらつき。⚠ 幅が出たら実力ではなく配線をまず疑う。"
+  short = "同じ識別項目の実行が複数あるときの数字のばらつき。⚠ 幅が出たら実力ではなく配線をまず疑う。"
   doc = "docs/specs/experiments/feature-discovery/units.md"
-  where = "§3 手法 → 試行"
+  where = "§3 手法 → 検証"
 
   [[section.term]]
-  name = "台帳（ledger）"
+  name = "検証結果一覧（ledger。旧: 台帳）"
   short = "試した全手法の結果と判定の一覧。⚠ 多重検定の分母（n_trials）の正本で、生成物なので手で書き換えない。"
   doc = "docs/specs/experiments/feature-discovery/ledger-role.md"
   where = "§2 4 つの役割"
 
   [[section.term]]
   name = "判定（採る / 保留 / 落とす）"
-  short = "台帳の 3 値。基準線への上乗せが正で fold の符号が全部正なら採る、平均だけ正なら保留、上乗せが 0 以下なら落とす。"
+  short = "検証結果一覧の 3 値。基準線への上乗せが正で fold の符号が全部正なら採る、平均だけ正なら保留、上乗せが 0 以下なら落とす。"
   doc = "docs/specs/experiments/feature-discovery/rules.md"
   where = "§13-7 採否の物差し"
 
@@ -144,7 +144,7 @@ note = "台帳（ledger.md）の行を読むための単位。図解は units.md
 
   [[section.term]]
   name = "門前"
-  short = "前置きの門を通らず、検証を回していない手法の判定。隠さず台帳に残すが、試行には数えない。"
+  short = "前置きの門を通らず、検証を回していない手法の判定。隠さず検証結果一覧に残すが、検証数には数えない。"
   doc = "docs/specs/experiments/feature-discovery/rules.md"
   where = "§14-5 前置きの門"
 
@@ -167,7 +167,7 @@ note = "良い数字が偶然かどうかを見る道具。DSR の図解は dsr.
 
   [[section.term]]
   name = "SR0"
-  short = "真の実力がゼロの手法を試行数だけ回したとき、最良の SR がどこまで上がるかの期待値。偶然の下駄。"
+  short = "真の実力がゼロの手法を検証数だけ回したとき、最良の SR がどこまで上がるかの期待値。偶然の下駄。"
   doc = "docs/specs/experiments/feature-discovery/dsr.md"
   where = "§2-1 SR0"
 
@@ -179,7 +179,7 @@ note = "良い数字が偶然かどうかを見る道具。DSR の図解は dsr.
 
   [[section.term]]
   name = "n_trials"
-  short = "DSR に入れる試した手法の総数。正本は台帳で、⚠ 数え落とすと必ず甘くなる。"
+  short = "DSR に入れる試した手法の総数。正本は検証結果一覧で、⚠ 数え落とすと必ず甘くなる。"
   doc = "docs/specs/experiments/feature-discovery/rules.md"
   where = "§11 規約 4"
 
@@ -209,7 +209,7 @@ note = "良い数字が偶然かどうかを見る道具。DSR の図解は dsr.
 
   [[section.term]]
   name = "実効観測数"
-  short = "検証に回った行数を実効系列数で割り引いた標本数。⚠ 素の行数を標本数と読むと t も DSR も甘くなる。"
+  short = "評価期間に回った行数を実効系列数で割り引いた標本数。⚠ 素の行数を標本数と読むと t も DSR も甘くなる。"
   doc = "docs/specs/experiments/feature-discovery/dsr.md"
   where = "§3 入力の 4 つ"
 
@@ -221,13 +221,13 @@ note = "良い数字が偶然かどうかを見る道具。DSR の図解は dsr.
 
   [[section.term]]
   name = "ウォークフォワード"
-  short = "時刻順に発注できる時間帯を伸ばしながら、前を訓練・後ろを検証にする分割。⚠ 時系列を無作為に切らない。"
+  short = "時刻順に期間を伸ばしながら、前を訓練・後ろを評価期間にする分割。⚠ 時系列を無作為に切らない。"
   doc = "docs/specs/experiments/feature-discovery/rules.md"
   where = "§9 規約 1"
 
   [[section.term]]
   name = "パージ"
-  short = "ラベルが検証期間に食い込む訓練行を捨てること。重なりを残すと訓練と検証が繋がる。"
+  short = "ラベルが評価期間に食い込む訓練行を捨てること。重なりを残すと訓練と評価期間が繋がる。"
   doc = "docs/specs/experiments/feature-discovery/rules.md"
   where = "§9 規約 2"
 
@@ -274,7 +274,7 @@ note = "2026-09-10 からの検証方式。予測の後ろだけが旧方式と�
 
   [[section.term]]
   name = "買い%"
-  short = "モデルの予測値を較正して 0〜100 にしたもの。売り% は 100 から引いた残りで、独立には出さない。"
+  short = "モデルの予測値を較正して 0〜100 にしたもの。売り% は 100 から引いた残りで、独立には出さない。説明のタブでは「出力スコア」と呼ぶ。"
   doc = "docs/specs/experiments/feature-discovery/rules.md"
   where = "§13-2 確率化"
 
@@ -286,7 +286,7 @@ note = "2026-09-10 からの検証方式。予測の後ろだけが旧方式と�
 
   [[section.term]]
   name = "θ（閾値）"
-  short = "建てる・手仕舞う境目の確率。50・55・60% の 3 水準を事前固定し、3 つとも台帳に載せる。"
+  short = "建てる・手仕舞う境目の確率。画面の言葉では「売買基準値」（超えたら買い・100 − θ を下回ったら売る）。50・55・60% を事前固定し、3 つとも検証結果一覧に載せる。"
   doc = "docs/specs/experiments/feature-discovery/rules.md"
   where = "§13-3 閾値"
 
@@ -304,7 +304,7 @@ note = "2026-09-10 からの検証方式。予測の後ろだけが旧方式と�
 
   [[section.term]]
   name = "形式 (A) / (B)"
-  short = "(A) は銘柄共通の 1 モデル、(B) は銘柄ごとのモデル。違うのは fit の範囲だけで、どちらも別の試行として数える。"
+  short = "(A) は銘柄共通の 1 モデル、(B) は銘柄ごとのモデル。違うのは fit の範囲だけで、どちらも別の検証として数える。"
   doc = "docs/specs/experiments/feature-discovery/rules.md"
   where = "§13-6 形式"
 
@@ -411,9 +411,9 @@ note = "特徴量の表（パネル）がどう作られているか。層の接
 
   [[section.term]]
   name = "1995 表 / 2018 表"
-  short = "検証に使う特徴量の表の期間違い。⚠ 期間は台帳の鍵なので、同じ手法でも別の試行になる。"
+  short = "検証に使う特徴量の表の期間違い。⚠ 期間は検証結果一覧の識別項目なので、同じ手法でも別の検証になる。"
   doc = "docs/specs/experiments/feature-discovery/rules.md"
-  where = "§14-4 検証期間の延長"
+  where = "§14-4 評価期間の延長"
 
   [[section.term]]
   name = "own / ownex（表の呼び名）"
@@ -430,7 +430,7 @@ note = "特徴量の表（パネル）がどう作られているか。層の接
 [[section]]
 id = "methods"
 label = "手法とモデル"
-note = "台帳に並ぶ選別手法とモデルの名前。カタログは feature-discovery.md にある。"
+note = "検証結果一覧に並ぶ選別手法とモデルの名前。カタログは feature-discovery.md にある。"
 
   [[section.term]]
   name = "選別手法（F 番号）"
@@ -446,19 +446,19 @@ note = "台帳に並ぶ選別手法とモデルの名前。カタログは featu
 
   [[section.term]]
   name = "Ridge / LightGBM / MLP"
-  short = "比べている予測モデル 3 種。⚠ モデルは台帳の鍵なので、替えれば別の試行として数える。"
+  short = "比べている予測モデル 3 種。⚠ モデルは検証結果一覧の識別項目なので、替えれば別の検証として数える。"
   doc = "docs/specs/experiments/gpu-models.md"
   where = "§3 モデル比較"
 
   [[section.term]]
   name = "モデル名（+GAN増強・(batch16k)）"
-  short = "台帳の鍵になる名前。基底に増強を「+」で足し、既定から外した水準だけ括弧で付ける。⚠ 計算が変われば名前も変える。"
+  short = "検証結果一覧の識別項目になる名前。基底に増強を「+」で足し、既定から外した水準だけ括弧で付ける。⚠ 計算が変われば名前も変える。"
   doc = "docs/specs/experiments/feature-discovery/rules.md"
   where = "§10-1 名前の付け方（モデル名）"
 
   [[section.term]]
   name = "実験名（trade_ownex_mlpgan16k_b）"
-  short = "config と実行ディレクトリの名前。表・モデル略・水準・形式（_a 共通 / _b 銘柄別）を並べる。⚠ 台帳の鍵ではない。"
+  short = "config と実行ディレクトリの名前。表・モデル略・水準・形式（_a 共通 / _b 銘柄別）を並べる。⚠ 検証結果一覧の識別項目ではない。"
   doc = "docs/specs/experiments/feature-discovery/rules.md"
   where = "§10-1 名前の付け方（実験名）"
 
@@ -488,19 +488,19 @@ note = "台帳に並ぶ選別手法とモデルの名前。カタログは featu
 
   [[section.term]]
   name = "選抜の位置"
-  short = "探索の勝敗をどこで決めるか。⚠ 訓練の内側なら試行は代表だけ、検証 fold で決めると全個体が試行。"
+  short = "探索の勝敗をどこで決めるか。⚠ 訓練の内側なら検証は代表だけ、評価期間で決めると全個体が検証。"
   doc = "docs/specs/experiments/feature-discovery/rules.md"
   where = "§14-11"
 
   [[section.term]]
   name = "champion（代表）"
-  short = "探索が最後に出す 1 体。⚠ 検証 fold に出るのはこれだけで、試行に数えるのもこれだけ。"
+  short = "探索が最後に出す 1 体。⚠ 評価期間に出るのはこれだけで、検証数に数えるのもこれだけ。"
   doc = "docs/specs/experiments/evolutionary-search.md"
   where = "§3 数え方"
 
   [[section.term]]
   name = "適合度（fitness）"
-  short = "探索が候補を比べる物差し。⚠ いまは訓練内 holdout の順位相関で、替えれば試行が増える。"
+  short = "探索が候補を比べる物差し。⚠ いまは訓練内 holdout の順位相関で、替えれば検証が増える。"
   doc = "docs/specs/experiments/evolutionary-search.md"
   where = "§2 探索は何を見つけたか"
 
@@ -529,7 +529,7 @@ note = "tastytrade の API サンプルと、会場を選んだときの語。"
 
   [[section.term]]
   name = "access token / refresh token"
-  short = "短命の認証トークンと、それを無人で取り直すための鍵。寿命は実測で確かめてある。"
+  short = "短命の認証トークンと、それを無人で取り直すための資格情報。寿命は実測で確かめてある。"
   doc = "docs/specs/experiments/tastytrade-api-sample.md"
   where = "§0-4 access token の失効"
 
@@ -546,10 +546,10 @@ note = "tastytrade の API サンプルと、会場を選んだときの語。"
   where = "§0-2 着金前でも買付余力は使える"
 
   [[section.term]]
-  name = "3 段の鍵"
-  short = "本番で dry-run・取消・発注を開ける環境変数の 3 段。⚠ 取消の鍵で発注は開かない。"
+  name = "3 段の許可"
+  short = "本番で dry-run・取消・発注を許す環境変数の 3 段。⚠ 取消の許可では発注できない。"
   doc = "docs/specs/dashboard.md"
-  where = "§2 本番の鍵"
+  where = "§2 本番の許可"
 
   [[section.term]]
   name = "HALT（停止ボタン）"
@@ -775,19 +775,19 @@ note = "管理画面の概要・全体の詳細・トレーダーの詳細に出
   name = "口座の建玉"
   short = "口座が実際に持っている株（銘柄ごとの株数）。口座は 1 つなので合計しか見えず、誰のぶんかは分からない。現金は入らない。"
   doc = "docs/specs/experiments/live-trading.md"
-  where = "§0-8 口座の建玉と台帳の帳尻を合わせる"
+  where = "§0-8 口座の建玉と売買履歴の帳尻を合わせる"
 
   [[section.term]]
-  name = "台帳（トレーダーの持ち分）"
+  name = "売買履歴（トレーダーの持ち分。旧: 台帳）"
   short = "執行器が付けている「誰が何株・いくらで持っているか」の記録。口座の建玉と食い違うと、少ない銘柄だけその日は売買しない。"
   doc = "docs/specs/experiments/live-trading.md"
-  where = "§0-8 口座の建玉と台帳の帳尻を合わせる"
+  where = "§0-8 口座の建玉と売買履歴の帳尻を合わせる"
 
   [[section.term]]
   name = "控え"
-  short = "発注の直前に書く注文の覚え書き。発注の後に落ちても、次の起動で照会して約定をその人の台帳に戻せる。"
+  short = "発注の直前に書く注文の覚え書き。発注の後に落ちても、次の起動で照会して約定をその人の売買履歴に戻せる。"
   doc = "docs/specs/experiments/live-trading.md"
-  where = "§0-8 口座の建玉と台帳の帳尻を合わせる"
+  where = "§0-8 口座の建玉と売買履歴の帳尻を合わせる"
 
 [[section]]
 id = "screen"

@@ -173,8 +173,16 @@ class Settings:
         return None
 
     def ensure_dirs(self) -> None:
+        from .livestore import ensure_db, load_fixture
+
         for d in (self.data_dir, self.records_dir, self.monitor_dir, self.jobs_dir, self.ops_dir):
             d.mkdir(parents=True, exist_ok=True)
+        # ⚠ 記録は DB（2026-09-21。プラン db-model-facts.md §11）: 開発機の既定の置き場はリポジトリ直下の live.sqlite。
+        #    デモ（data/demo）・Docker（/data）・テストの置き場には、そこに自分の DB を作る
+        ensure_db(self.data_dir, "demo" if self.demo else "live")
+        ensure_db(self.records_dir, "demo" if self.demo else "live")
+        if self.demo and self.live_dir == (DASHBOARD_DIR / "demo" / "live").resolve():
+            load_fixture(self.live_dir)            # git に入っているデモの執行器の記録 → demo.sqlite
 
 
 def load_settings(environ: dict | None = None) -> Settings:

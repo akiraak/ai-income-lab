@@ -96,12 +96,12 @@ def test_quote_delay_prefers_server_clock_and_uses_absolute_value(tmp_path, sett
     from tests.conftest import good_run, make_row, write_run
 
     def write(detail, run_id):
-        for f in settings.records_dir.glob("*.jsonl"):
-            f.unlink()
+        # ⚠ 記録は足すだけ（消せない）ので、回ごとに別の置き場に 1 本だけ置いて判定する
+        where = settings.records_dir / run_id
         rows = [r for r in good_run(run_id=run_id) if not (r["step"] == 3 and r["env"] == "prod")]
         rows.append(make_row(3, "現在値", env="prod", detail={"bid": 1.0, "ask": 1.1, **detail}, run_id=run_id))
-        write_run(settings.records_dir, rows)
-        return judge(load_runs(settings.records_dir), [])["cells"]["tastytrade"]["C"]
+        write_run(where, rows)
+        return judge(load_runs(where), [])["cells"]["tastytrade"]["C"]
 
     # こちらの時計では 1 秒超でも、サーバの時計で 1 秒未満なら ✅（WSL2 のずれを外す）
     c = write({"delay_s": -1.218, "delay_corrected_s": -0.132}, "20260908T140000Z")

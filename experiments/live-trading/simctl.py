@@ -66,14 +66,15 @@ def show_status(machine: modes.Mode) -> int:
 def check(machine: modes.Mode) -> int:
     root = modes.sim_root(machine.name)
     rows, bad, leaks = 0, 0, 0
-    for path in glob.glob(os.path.join(root, "out", "*", "*.jsonl")):
-        with open(path, encoding="utf-8") as f:
-            for line in f:
-                rows += 1
-                row = json.loads(line)
-                bad += not (row.get("sim") is True and row.get("mock") is True and row.get("test") is True)
-                leaks += any(s in line for s in SECRETS)
-    names = [os.path.basename(p)[:-5] for p in glob.glob(os.path.join(root, "state", "*", "*.json"))]
+    from _livefs import livefs
+
+    for path in livefs.find(os.path.join(root, "out"), "*/*.jsonl"):     # ⚠ 木の記録は木の sim.sqlite（道はそのまま）
+        for line in livefs.read_lines(path):
+            rows += 1
+            row = json.loads(line)
+            bad += not (row.get("sim") is True and row.get("mock") is True and row.get("test") is True)
+            leaks += any(s in line for s in SECRETS)
+    names = [os.path.basename(p)[:-5] for p in livefs.find(os.path.join(root, "state"), "*/*.json")]
     misnamed = [n for n in names if not n.startswith(modes.SIM_TRADER_PREFIX)]
     print(f"記録 {rows} 行: 印（sim ／ mock ／ test）の無い行 {bad}・秘密の出ている行 {leaks}・sim_ で始まらない状態 {misnamed or 0}")
     return 0 if rows and not bad and not leaks and not misnamed else 1

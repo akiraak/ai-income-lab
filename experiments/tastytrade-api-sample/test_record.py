@@ -52,6 +52,9 @@ def test_masker() -> None:
 def test_recorder() -> None:
     print("Recorder:")
     with tempfile.TemporaryDirectory() as tmp:
+        import livefs
+
+        livefs.init(tmp, "demo")                   # ⚠ 記録は DB（2026-09-21）。一時置き場に自分の DB を作る
         rec = record.Recorder(tmp, venue="tastytrade", env="cert")
         rec.mask.add("token-abcdef", "<access_token:masked>")
         with rec.step(1, "テスト手順") as row:
@@ -63,7 +66,7 @@ def test_recorder() -> None:
         except ValueError:
             pass
 
-        rows = [json.loads(line) for line in open(rec.path, encoding="utf-8")]
+        rows = [json.loads(line) for line in livefs.read_lines(rec.path)]
         check("2 手順が 2 行になる", len(rows) == 2)
         check("会場名を持つ", rows[0]["venue"] == "tastytrade")
         check("環境を持つ", rows[0]["env"] == "cert")

@@ -18,9 +18,11 @@ from collections import Counter
 
 import pytest
 
+import livefs
 import mode as modes
 import simdata
 from state import QTY_TOL
+from tests._records import jsonl
 
 HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CONF = os.path.join(HERE, "config", "sim")
@@ -67,13 +69,12 @@ def ran(request, tmp_path_factory):
 
 
 def rows(root: str, day: str, kind: str) -> list[dict]:
-    path = os.path.join(root, "out", day, f"{kind}.jsonl")
-    return [json.loads(line) for line in open(path, encoding="utf-8")] if os.path.exists(path) else []
+    return jsonl(os.path.join(root, "out", day, f"{kind}.jsonl"))       # ⚠ 記録は DB（livefs。道はそのまま）
 
 
 def days_of(root: str) -> list[str]:
-    out = pathlib.Path(root, "out")
-    return sorted(p.name for p in out.iterdir() if p.is_dir()) if out.is_dir() else []
+    out = os.path.join(root, "out")
+    return [n for n in livefs.listdir(out, missing_ok=True) if livefs.isdir(os.path.join(out, n), missing_ok=True)]
 
 
 def traders_of(root: str) -> dict[str, dict]:
@@ -174,10 +175,7 @@ def test_every_row_is_marked_and_no_secret_leaks(ran):
     n = bad = leaks = 0
     for d in days_of(root):
         for kind in ("events", "signals", "orders", "ledger", "quotes", "positions", "balances"):
-            path = os.path.join(root, "out", d, f"{kind}.jsonl")
-            if not os.path.exists(path):
-                continue
-            for line in open(path, encoding="utf-8"):
+            for line in livefs.read_lines(os.path.join(root, "out", d, f"{kind}.jsonl")):
                 n += 1
                 r = json.loads(line)
                 bad += not (r.get("sim") is True and r.get("mock") is True and r.get("test") is True)
@@ -195,7 +193,9 @@ def test_scenarios_left_their_marks(ran):
         for kind in ("auth_failed", "auth_5xx_retry", "journal_recovered", "position_short", "drawdown_warning", "halted"):
             assert ev[kind] == 0, (kind, ev)                # 故障なしの基準線
         return
-    assert ev["auth_failed"] == 1 and ev["auth_5xx_retry"] == 1 and ev["journal_recovered"] == 1, ev
+    # ⚠ journal_recovered は 2（2026-09-22）: 発注が 2 段（先に全部出す → 約定をまとめて確かめる）になったので、落ちた日（11-19）の
+    #    sim_b の買い 2 本（VZ・XLU）が両方とも口座に届いてから落ちる ＝ 翌日に 2 本とも控えから戻る（直列のときは 1 本だけ）
+    assert ev["auth_failed"] == 1 and ev["auth_5xx_retry"] == 1 and ev["journal_recovered"] == 2, ev
     assert ev["drawdown_warning"] > 0 and ev["position_short"] > 0
     who = {r.get("trader") for d in days_of(root) for r in rows(root, d, "events") if r.get("kind") == "drawdown_warning"}
     assert who == {"sim_b"}, who                            # 含み損 20% 超は金額指定の人だけ（⚠ 執行器は止めない）

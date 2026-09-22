@@ -29,13 +29,13 @@ sys.path.insert(0, HERE)
 import mode as modes  # noqa: E402
 import recovery  # noqa: E402
 from journal import Journal  # noqa: E402
-from state import QTY_TOL, load_state, save_state, state_path  # noqa: E402
+from _livefs import livefs  # noqa: E402
+from state import QTY_TOL, has_state, load_state, save_state, state_path  # noqa: E402
 
 
 def last_recorded_positions(out_dir: str) -> tuple[str | None, list[dict]]:
-    for path in sorted(glob.glob(os.path.join(out_dir, "*", "positions.jsonl")), reverse=True):
-        with open(path, encoding="utf-8") as f:
-            rows = [json.loads(line) for line in f if line.strip()]
+    for path in reversed(livefs.find(out_dir, "*/positions.jsonl")):
+        rows = [json.loads(line) for line in livefs.read_lines(path) if line.strip()]
         if rows:
             return f"{rows[-1].get('date')}（{rows[-1].get('when')}）", rows[-1].get("positions") or []
     return None, []
@@ -130,7 +130,7 @@ def main() -> int:
             if shares <= 0 or (price is not None and price <= 0):
                 print("拒否: 株数と価格は正の数", file=sys.stderr)
                 return 2
-            if not os.path.exists(state_path(state_dir, trader)):
+            if not has_state(state_dir, trader):
                 print(f"拒否: {trader} の台帳が無い（{state_path(state_dir, trader)}）", file=sys.stderr)
                 return 2
         st = load_state(state_dir, trader)
@@ -158,8 +158,7 @@ def main() -> int:
             journal.close(args.ext, "manual_not_filled" if args.not_filled else "manual_filled", shares=shares, price=price, by=log["by"])
         after = st.holdings[symbol].shares if symbol in st.holdings else 0.0
         log.update(trader=trader, symbol=symbol, side=side, shares=shares, price=price, date=date, before=before, after=after, ext=getattr(args, "ext", None))
-        with open(os.path.join(state_dir, "reconcile.log"), "a", encoding="utf-8") as f:
-            f.write(json.dumps(log, ensure_ascii=False) + "\n")
+        livefs.append(os.path.join(state_dir, "reconcile.log"), json.dumps(log, ensure_ascii=False))
         print(f"{trader} の {symbol}: {before:g} 株 → {after:g} 株（{args.cmd}。台帳 {state_path(state_dir, trader)}・履歴 reconcile.log）")
         return 0
     finally:

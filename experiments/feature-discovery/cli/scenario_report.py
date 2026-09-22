@@ -15,6 +15,7 @@ import os
 import numpy as np
 import pandas as pd
 
+from ail import runs
 from ail.scenario import data, evaluate, figures, metrics, model
 from cli.scenario import TEST_Z_SEED, _prepare
 
@@ -55,17 +56,18 @@ def main() -> None:
     ap.add_argument("--fold", default="f5")
     ap.add_argument("--seed", type=int, default=0)
     args = ap.parse_args()
-    df = pd.read_csv(os.path.join(args.run, "origins.csv"))
+    name = runs.resolve(args.run)                  # 実行の名前（記録は runs/research.sqlite）
+    df = runs.read_csv(name, "origins.csv")
     rel, cov = tables(df)
     for k, rows in rel.items():
         print(f"== 上昇確率の帯（{figures.SERIES[k][0]}）")
         print(pd.DataFrame(rows).round(4).to_string(index=False))
     print("== 被覆率", json.dumps(cov, ensure_ascii=False))
-    rep = reproduce(args.run, df, args.fold, args.seed)
+    with runs.materialized(name) as d:             # ⚠ 重みを読むための写し（出たら消す）
+        rep = reproduce(d, df, args.fold, args.seed)
     print(f"== 再現: {args.fold} 種 {args.seed}・{rep['n']} 起点・{rep['device']}  CRPS の平均 {rep['mean_crps_then']:.8f} → "
           f"{rep['mean_crps_now']:.8f}  起点ごとの差の最大 {rep['max_abs_diff']:.2e}")
     os.makedirs(args.out, exist_ok=True)
-    name = os.path.basename(os.path.normpath(args.run))
     with open(os.path.join(args.out, "cgan-calibration.svg"), "w", encoding="utf-8") as fh:
         fh.write(figures.calibration(rel, cov))
     with open(os.path.join(args.out, "cgan-intervals.svg"), "w", encoding="utf-8") as fh:

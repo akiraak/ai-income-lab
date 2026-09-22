@@ -65,7 +65,8 @@ def sim_days(cfg: SimConfig) -> list[date]:
 
 def load_closes(symbol: str, data_dir: str = DATA_DIR) -> list[tuple[date, float]]:
     out = []
-    with open(os.path.join(data_dir, f"{symbol}.csv"), encoding="utf-8", newline="") as f:
+    # ファイル名は `BRK/B` → `BRK-B.csv`（feature-discovery の流儀。paper.py と同じ）
+    with open(os.path.join(data_dir, f"{symbol.replace('/', '-')}.csv"), encoding="utf-8", newline="") as f:
         for row in csv.DictReader(f):
             out.append((datetime.fromtimestamp(int(row["time_ms"]) / 1000, timezone.utc).date(), float(row["close"])))
     return out
@@ -118,6 +119,9 @@ def write_tree(root: str, cfg: SimConfig, traders_dir: str, data_dir: str = DATA
     traders = load_traders(cfg.traders, traders_dir)
     symbols = sorted({s for t in traders for s in t.symbols})
     data = build(cfg, symbols, data_dir=data_dir)
+    # ⚠ 木の記録（out/・state/）は木の中の sim.sqlite に入る（本物の live.sqlite に混ぜない。プラン db-model-facts.md §11）
+    from _livefs import livefs
+    livefs.init(root, "sim")
     os.makedirs(os.path.join(root, "config", "traders"), exist_ok=True)
     os.makedirs(os.path.join(root, "config", "signals"), exist_ok=True)
     os.makedirs(os.path.join(root, "sim"), exist_ok=True)

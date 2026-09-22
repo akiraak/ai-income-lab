@@ -1,13 +1,13 @@
-"""`runs/` を横に並べて比べる。⚠ **「昨日より良くなったか」はここで見る**（rules.md 10 章）。
+"""実行の記録（`runs/research.sqlite`）を横に並べて比べる。⚠ **「昨日より良くなったか」はここで見る**（rules.md 10 章）。
 
     python3 -m cli.report                      # 直近 10 実行の見出し
     python3 -m cli.report --metric 純利bp      # 手法 × 実行 の表
     python3 -m cli.report --diff A B           # ⚠ 2 実行の差分（入力の指紋も並べる）
-    python3 -m cli.report --catalog            # ⚠ 台帳（試した結果の一覧）を markdown で吐く
-    python3 -m cli.report --recheck            # ⚠ 既存の実行に checks.json を後から書く
+    python3 -m cli.report --catalog            # ⚠ 検証結果一覧（旧: 台帳）を markdown で吐く
+    python3 -m cli.report --recheck            # ⚠ checks.json の無い実行に後から足す（⚠ ある実行は書き換えない）
 
 ⚠ **`--catalog` は「試した結果」の一覧である**（spec §2 の「手法の一覧」とは別物）。
-⚠ **カタログ・registry・`runs/` の 3 つを突き合わせて生成する。手で書き写す欄はひとつも無い。**
+⚠ **カタログ・registry・実行の記録の 3 つを突き合わせて生成する。手で書き写す欄はひとつも無い。**
 """
 
 from __future__ import annotations
@@ -22,15 +22,12 @@ from ail import runs
 
 
 def _load(name: str) -> dict:
-    d = os.path.join(runs.RUNS, name)
-    doc = {"run": name, "dir": d}
+    doc = {"run": name}
     for f in ("config.json", "inputs.json", "env.json"):
-        path = os.path.join(d, f)
-        if os.path.exists(path):
-            with open(path, encoding="utf-8") as fh:
-                doc[f[:-5]] = json.load(fh)
-    s = os.path.join(d, "summary.csv")
-    doc["summary"] = pd.read_csv(s, index_col=0) if os.path.exists(s) else None
+        v = runs.read_json(name, f)
+        if v is not None:
+            doc[f[:-5]] = v
+    doc["summary"] = runs.read_csv(name, "summary.csv", index_col=0)
     return doc
 
 
@@ -65,16 +62,23 @@ def _panel_for(doc: dict) -> "tuple | None":
 
 
 def recheck() -> None:
-    """既存の実行に `checks.json` を書く。⚠ **埋められない鍵は書かない**（0 や null で埋めない）。"""
-    import pandas as pd
+    """`checks.json` の無い実行に足す。⚠ **埋められない鍵は書かない**（0 や null で埋めない）。
+
+    ⚠ **`checks.json` のある実行は書き換えない**（1 実行 1 記録・上書きしない。rules.md 10 章。
+    2026-09-21 まではディレクトリの `checks.json` をいまの n_trials で書き直していた）。
+    """
+    from ail import rundb
     from ail.validation import checks
 
     n_trials = checks.n_trials_now()
+    conn = rundb.connect(runs.db_path())
     for name in runs.list_runs():
-        d = os.path.join(runs.RUNS, name)
-        res, summ = os.path.join(d, "result.csv"), os.path.join(d, "summary.csv")
-        if not (os.path.exists(res) and os.path.exists(summ)):
+        res, summ = runs.read_csv(name, "result.csv"), runs.read_csv(name, "summary.csv", index_col=0)
+        if res is None or summ is None:
             print(f"  {name}: result/summary が無い → とばす")
+            continue
+        if runs.exists(name, "checks.json"):
+            print(f"  {name}: checks.json がある → 書き換えない")
             continue
         doc = _load(name)
         # ⚠ **閾値売買の実行はとばす。** checks.compute は閾値で行が割れた result を扱えず、
@@ -84,14 +88,12 @@ def recheck() -> None:
             continue
         pair = _panel_for(doc)
         panel, full = pair if pair else (None, None)
-        out = checks.compute(pd.read_csv(res), pd.read_csv(summ, index_col=0),
-                             doc.get("config", {}), panel=panel, full_panel=full,
+        out = checks.compute(res, summ, doc.get("config", {}), panel=panel, full_panel=full,
                              n_trials=n_trials, leak=name.endswith("_leak"))
         if panel is None:
             # ⚠ **パネルを確かめられなかったことを記録に残す。** 「計算し忘れ」と区別する
             out["panel"] = "⚠ 当時のパネルを確かめられないので、実効標本数と DSR は出していない"
-        with open(os.path.join(d, "checks.json"), "w", encoding="utf-8") as f:
-            json.dump(out, f, ensure_ascii=False, indent=2)
+        rundb.put(conn, name, "checks.json", json.dumps(out, ensure_ascii=False, indent=2).encode("utf-8"))
         b = out.get("best") or {}
         print(f"  {name}: 最良 {b.get('method', '—')} 純利 {b.get('純利bp', float('nan')):+.2f}bp"
               + ("" if panel is not None else "  ⚠ パネル無し"))
@@ -103,14 +105,18 @@ def main() -> None:
     ap.add_argument("--diff", nargs=2, metavar=("A", "B"))
     ap.add_argument("--limit", type=int, default=10)
     ap.add_argument("--catalog", action="store_true",
-                    help="⚠ 台帳（試した結果の一覧）を markdown で吐く")
+                    help="⚠ 検証結果一覧（旧: 台帳。試した結果の一覧）を markdown で吐く")
     ap.add_argument("--recheck", action="store_true",
                     help="⚠ 既存の実行に checks.json を後から書く（パネルが一致する実行だけ全部）")
     args = ap.parse_args()
 
     if args.catalog:
+        from ail import catalog
         from cli import ledger
-        print(ledger.build(), end="")
+        d = catalog.ledger()
+        text = ledger.build(d)
+        ledger.store(d)                  # ⚠ 同じ行と判定を DB の ledger_rows にも（ledger.md と同じ生成物）
+        print(text, end="")
         return
 
     if args.recheck:
@@ -119,7 +125,7 @@ def main() -> None:
 
     names = runs.list_runs()
     if not names:
-        raise SystemExit("runs/ が空")
+        raise SystemExit(f"実行の記録が空（{runs.db_path()}）")
 
     if args.diff:
         for name in args.diff:

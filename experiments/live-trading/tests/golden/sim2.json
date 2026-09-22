@@ -6,8 +6,8 @@
   "blocked_symbol": 14,
   "drawdown_warning": 10,
   "end": 59,
-  "hold": 547,
-  "journal_recovered": 1,
+  "hold": 548,
+  "journal_recovered": 2,
   "out_of_window": 2,
   "position_short": 7,
   "skip": 328,
@@ -15,15 +15,15 @@
   "too_small": 12
  },
  "orders": {
-  "total": 57,
-  "filled": 53,
+  "total": 56,
+  "filled": 52,
   "error": 3,
   "cancelled": 1,
-  "buy": 36,
+  "buy": 35,
   "sell": 21,
   "by_trader": {
    "sim_a": 8,
-   "sim_b": 42,
+   "sim_b": 41,
    "sim_c": 7
   }
  }

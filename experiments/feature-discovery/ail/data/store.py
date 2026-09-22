@@ -24,7 +24,10 @@ import pandas as pd
 from ail.contracts import BAR_COLUMNS, SERIES_COLUMNS
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
-DATA = os.path.join(ROOT, "data")
+# ⚠ **`AIL_DATA_DIR` は実売買用の置き場（`data-live/`）へ差し替えるためだけにある**（`live_update.sh`・`cli.predict`）。
+# ⚠ **未指定なら今までどおり `data/`**。研究用の `data/` は実売買の更新で 1 バイトも書き換えない
+# （足を伸ばすと表の「期間」＝ 台帳の鍵と、入力の指紋が動く）
+DATA = os.path.abspath(os.environ.get("AIL_DATA_DIR") or os.path.join(ROOT, "data"))
 
 
 # ---------------------------------------------------------------- 名前

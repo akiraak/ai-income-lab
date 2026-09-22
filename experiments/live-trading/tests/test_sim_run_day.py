@@ -14,6 +14,8 @@ import pytest
 
 import mode as modes
 import simclock
+import livefs
+from tests._records import blob, db_tree, doc, exists, jsonl, put_doc
 
 HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 MOCK = os.path.normpath(os.path.join(HERE, "..", "tastytrade-api-sample", "mock_server.py"))
@@ -83,6 +85,7 @@ def setup_sim(base, monkeypatch, when_et, speed=60):
     monkeypatch.setenv("LT_MODE_DIR", str(base))
     modes.switch("sim", "sim1", by="test")
     root = modes.sim_root("sim1")
+    livefs.init(root, "sim")                   # 木の記録は木の sim.sqlite（simdata.write_tree と同じ）
     os.makedirs(os.path.join(root, "config", "traders"))
     os.makedirs(os.path.join(root, "config", "signals"))
     open(os.path.join(root, "config", "traders", "sim_x.toml"), "w").write(TRADER)
@@ -92,15 +95,14 @@ def setup_sim(base, monkeypatch, when_et, speed=60):
 
 
 def rows(root, date, kind):
-    path = os.path.join(root, "out", date, f"{kind}.jsonl")
-    return [json.loads(line) for line in open(path, encoding="utf-8")] if os.path.exists(path) else []
+    return jsonl(os.path.join(root, "out", date, f"{kind}.jsonl"))
 
 
 def test_one_day_under_the_sim_clock(tmp_path, monkeypatch, mock_server):
     # ⚠ 本物の木（記録・状態・機械のモード）が 1 バイトも動かないこと。⚠ **「MODE が無い」を前提にしない**
     #    （この機械はふだんシミュレーションモード ＝ MODE がある。live-trading.md §0-7 (f)）
     real_mode = pathlib.Path(HERE, "MODE").read_bytes() if os.path.exists(os.path.join(HERE, "MODE")) else None
-    real_before = tree(os.path.join(HERE, "out")), tree(os.path.join(HERE, "state"))
+    real_before = db_tree(os.path.join(HERE, "out")), db_tree(os.path.join(HERE, "state"))
     root = setup_sim(tmp_path, monkeypatch, datetime(2026, 10, 1, 15, 46, tzinfo=ET))
     r = run_day(tmp_path, ["--traders", "sim_x", "--mode", "submit", "--sim-clock"], mock_server)      # ⚠ --date も --ignore-window も渡さない
     assert r.returncode == 0, r.stdout + r.stderr
@@ -114,11 +116,11 @@ def test_one_day_under_the_sim_clock(tmp_path, monkeypatch, mock_server):
     assert start["now_et"].startswith("2026-10-01T15:4") and start["sim_name"] == "sim1" and start["sim_speed"] == 60
     assert start["halt_file"] == os.path.join(root, "HALT")
     assert not [e for e in rows(root, "2026-10-01", "events") if e["kind"] == "drawdown_warning"]
-    state = json.load(open(os.path.join(root, "state", "cert", "sim_x.json")))
+    state = doc(os.path.join(root, "state", "cert", "sim_x.json"))
     assert state["last_date"] == "2026-10-01" and "SPY" in state["holdings"]
-    blob = "".join(open(os.path.join(d, f)).read() for d, _, fs in os.walk(root) for f in fs)
-    assert "MOCK-SECRET" not in blob and "MOCK-REFRESH" not in blob
-    assert (tree(os.path.join(HERE, "out")), tree(os.path.join(HERE, "state"))) == real_before           # 本物の木は動かない
+    blob_ = blob(root) + "".join(open(os.path.join(d, f), errors="replace").read() for d, _, fs in os.walk(root) for f in fs if not f.endswith((".sqlite", ".sqlite-wal", ".sqlite-shm")))
+    assert "MOCK-SECRET" not in blob_ and "MOCK-REFRESH" not in blob_
+    assert (db_tree(os.path.join(HERE, "out")), db_tree(os.path.join(HERE, "state"))) == real_before           # 本物の木は動かない
     assert (pathlib.Path(HERE, "MODE").read_bytes() if os.path.exists(os.path.join(HERE, "MODE")) else None) == real_mode
 
 
@@ -128,8 +130,7 @@ def test_drawdown_is_a_warning_only(tmp_path, monkeypatch, mock_server):
     open(os.path.join(root, "config", "traders", "sim_x.toml"), "w").write(TRADER.replace('symbols = ["SPY"]', 'symbols = ["SPY", "QQQ"]'))
     open(os.path.join(root, "config", "signals", "sim_x.csv"), "w").write("date,symbol,buy,exit\n2026-10-01,SPY,0,0\n2026-10-01,QQQ,100,0\n")
     os.makedirs(os.path.join(root, "state", "cert"))
-    json.dump({"name": "sim_x", "holdings": {"SPY": {"shares": 0.2, "avg_price": 1000.0, "opened": "2026-09-30"}}},      # 原価 $200 → 時価 約 $112 ＝ 予算 $300 の 29% の含み損
-              open(os.path.join(root, "state", "cert", "sim_x.json"), "w"))
+    put_doc(os.path.join(root, "state", "cert", "sim_x.json"), {"name": "sim_x", "holdings": {"SPY": {"shares": 0.2, "avg_price": 1000.0, "opened": "2026-09-30"}}})
     post(mock_server, "/_mock/positions", {"positions": {"SPY": 0.2}})                                 # 口座にも同じ株がある（帳尻は合っている）
     r = run_day(tmp_path, ["--traders", "sim_x", "--mode", "submit", "--sim-clock"], mock_server)
     assert r.returncode == 0 and "含み損の警告" in r.stderr, r.stdout + r.stderr                        # ⚠ rc は変えない
@@ -137,7 +138,7 @@ def test_drawdown_is_a_warning_only(tmp_path, monkeypatch, mock_server):
     assert len(warn) == 1 and warn[0]["trader"] == "sim_x" and warn[0]["drawdown_pct_of_budget"] >= 20 and warn[0]["threshold_pct"] == 20.0
     bought = rows(root, "2026-10-01", "orders")
     assert [(o["symbol"], o["side"], o["final_status"]) for o in bought] == [("QQQ", "buy", "Filled")]   # 警告が出ていても買いは続く
-    assert "SPY" in json.load(open(os.path.join(root, "state", "cert", "sim_x.json")))["holdings"]      # 投げ売りしない
+    assert "SPY" in doc(os.path.join(root, "state", "cert", "sim_x.json"))["holdings"]      # 投げ売りしない
 
 
 def test_window_and_calendar_follow_the_sim_clock(tmp_path, monkeypatch, mock_server):
@@ -175,24 +176,24 @@ def test_driver_held_lock_lets_its_own_child_through(tmp_path, monkeypatch, mock
 
 def seed_state(root, holdings):
     os.makedirs(os.path.join(root, "state", "cert"), exist_ok=True)
-    json.dump({"name": "sim_x", "holdings": holdings}, open(os.path.join(root, "state", "cert", "sim_x.json"), "w"))
+    put_doc(os.path.join(root, "state", "cert", "sim_x.json"), {"name": "sim_x", "holdings": holdings})
 
 
 def test_crash_after_submit_is_recovered_on_the_next_start(tmp_path, monkeypatch, mock_server):
     """段 1: 発注の後・台帳の保存の前に落ちる → 次の起動で控えから照会し、約定をその人の台帳に入れる。二重に買わない。"""
     root = setup_sim(tmp_path, monkeypatch, datetime(2026, 10, 1, 15, 46, tzinfo=ET))
     r = run_day(tmp_path, ["--traders", "sim_x", "--mode", "submit", "--sim-clock"], mock_server, extra_env={"LT_SIM_CRASH": "after_submit"})
-    assert r.returncode == 137 and not os.path.exists(os.path.join(root, "state", "cert", "sim_x.json"))     # 買えているのに台帳は空
-    entry = [json.loads(line) for line in open(os.path.join(root, "state", "cert", "journal.jsonl"))]
+    assert r.returncode == 137 and not exists(os.path.join(root, "state", "cert", "sim_x.json"))     # 買えているのに台帳は空
+    entry = jsonl(os.path.join(root, "state", "cert", "journal.jsonl"))
     assert [e["op"] for e in entry] == ["intent", "submitted"] and entry[0]["trader"] == "sim_x" and entry[0]["symbol"] == "SPY"
     r = run_day(tmp_path, ["--traders", "sim_x", "--mode", "submit", "--sim-clock"], mock_server)             # 同じ日に起こし直す
     assert r.returncode == 0, r.stdout + r.stderr
     ev = [e for e in rows(root, "2026-10-01", "events") if e["kind"] == "journal_recovered"]
     assert len(ev) == 1 and ev[0]["outcome"] == "recovered_filled" and ev[0]["shares"] > 0 and ev[0]["applied"] is True
-    state = json.load(open(os.path.join(root, "state", "cert", "sim_x.json")))
+    state = doc(os.path.join(root, "state", "cert", "sim_x.json"))
     assert state["holdings"]["SPY"]["shares"] == ev[0]["shares"] and state["history"][0]["note"] == "recovered"
     assert rows(root, "2026-10-01", "orders") == []                                                            # 持っているので買い直さない
-    assert [e["op"] for e in (json.loads(line) for line in open(os.path.join(root, "state", "cert", "journal.jsonl")))] == ["intent", "submitted", "done"]
+    assert [e["op"] for e in jsonl(os.path.join(root, "state", "cert", "journal.jsonl"))] == ["intent", "submitted", "done"]
 
 
 def test_short_position_blocks_only_that_symbol(tmp_path, monkeypatch, mock_server):

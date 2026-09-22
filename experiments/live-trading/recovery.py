@@ -13,6 +13,7 @@ import glob
 import json
 import os
 
+from _livefs import livefs
 from journal import Journal
 from state import TraderState, load_state, save_state
 
@@ -84,10 +85,9 @@ def recover_unfinished(journal: Journal, client, account: str, state_dir: str, t
 def load_all_states(state_dir: str) -> dict[str, TraderState]:
     """その回に動かさないトレーダーも含めた全員の台帳（口座は全員ぶんの合計しか見せない）。"""
     out = {}
-    for path in sorted(glob.glob(os.path.join(state_dir, "*.json"))):
+    for path in livefs.find(state_dir, "*.json"):
         try:
-            with open(path, encoding="utf-8") as f:
-                st = TraderState.from_dict(json.load(f))
+            st = TraderState.from_dict(json.loads(livefs.read_doc(path) or ""))
         except (OSError, ValueError, KeyError, TypeError):
             continue
         out[st.name] = st

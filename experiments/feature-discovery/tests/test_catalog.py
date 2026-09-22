@@ -225,10 +225,9 @@ def test_each_row_reports_the_numbers_of_its_own_run():
 
     checked = 0
     for r in catalog.ledger()["rows"]:
-        p = os.path.join(runs.RUNS, r["実行"], "summary.csv")
-        if not os.path.exists(p):
+        s = runs.read_csv(r["実行"], "summary.csv", index_col=0)
+        if s is None:
             continue                                   # 旧配線の表・門前の実行は summary を持たない
-        s = pd.read_csv(p, index_col=0)
         hit = s[s.index.astype(str) == r["手法名"]]
         if r.get("閾値") not in (None, "—") and "閾値" in s.columns:
             hit = hit[hit["閾値"] == float(r["閾値"])]
@@ -332,7 +331,7 @@ def test_every_unimplemented_method_says_what_it_needs():
 def test_ledger_markdown_renders():
     from cli import ledger
     text = ledger.build()
-    assert text.startswith("# 試した分析手法の台帳")
+    assert text.startswith("# 試した分析手法の検証結果一覧")          # 2026-09-21 に「台帳」→「検証結果一覧」
     assert "## 3. まだ試していない手法" in text
     assert text.count("```mermaid") >= 2          # ⚠ 図を最低 1 枚（CLAUDE.md）
     assert "0/5 −−−−−" in text                    # fold の符号が出ている
@@ -364,13 +363,19 @@ def test_skipped_is_distinguished_from_not_yet_tried():
 
 
 def _fake_run(root, name, net, config):
+    """偽の実行を 1 つ DB に入れる（⚠ 記録は DB。いままでのディレクトリの形で作って取り込む）。"""
     import json
-    d = root / name
-    d.mkdir()
+
+    from ail import rundb, runs
+    d = root / "src" / name
+    d.mkdir(parents=True)
     (d / "config.json").write_text(json.dumps(config, ensure_ascii=False), encoding="utf-8")
     (d / "summary.csv").write_text(
         "手法,本数,的中率,IC,粗利bp,純利bp,fold数\n"
         f"F1-1 相関,16.0,0.51,0.01,{net + 5},{net},5\n", encoding="utf-8")
+    conn = rundb.connect(runs.db_path())
+    rundb.ingest_dir(conn, str(d), name)
+    conn.close()
 
 
 def test_shift_placebo_runs_never_become_trials(tmp_path, monkeypatch):
@@ -380,6 +385,7 @@ def test_shift_placebo_runs_never_become_trials(tmp_path, monkeypatch):
     試行数（DSR の分母）も見かけだけ動く。** 名前の末尾でも config でも見分ける。
     """
     from ail import runs
+    monkeypatch.setattr(runs, "RUNS", str(tmp_path))
     cfg = {"dataset": "daily", "horizon": 1, "bar_minutes": 1440.0, "k": 16, "cost_bp": 5.0,
            "feature_layers": ["own", "ex"], "features": {}}
     _fake_run(tmp_path, "2026-09-16T00-00-00_impact_ex_2018", 3.0, cfg)
@@ -387,7 +393,6 @@ def test_shift_placebo_runs_never_become_trials(tmp_path, monkeypatch):
               {**cfg, "features": {"ex_shift_days": 365}})
     _fake_run(tmp_path, "2026-09-16T02-00-00_hand_written_placebo", -7.0,
               {**cfg, "features": {"ex_shift_days": 101}})
-    monkeypatch.setattr(runs, "RUNS", str(tmp_path))
     monkeypatch.setattr(catalog, "legacy_tables", lambda *a, **k: [])
     rows, leak, run_list = catalog.trials()
     assert [r["純利bp"] for r in rows] == [3.0]

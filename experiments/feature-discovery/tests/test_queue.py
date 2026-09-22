@@ -45,7 +45,8 @@ class Runner:
 
 @pytest.fixture
 def q(tmp_path, monkeypatch):
-    monkeypatch.setattr(queue, "STATE_DIR", str(tmp_path / "state"))
+    from ail import runs
+    monkeypatch.setattr(runs, "RUNS", str(tmp_path / "runs"))      # ⚠ 状態は DB（本物の runs/ を汚さない）
     return tmp_path
 
 
@@ -72,7 +73,7 @@ def test_dry_run_は実行も状態の書き込みもしない(q):
     queue.run_queue("q", dry_run=True, runner=r, ledger_writer=lambda: 1,
                     log=lambda *a: None, config_path=_cfg(q))
     assert r.calls == []
-    assert not os.path.exists(queue.state_path("q"))
+    assert queue.load_state("q") is None
 
 
 def test_済んだ実行は_2_度回さない(q):
@@ -141,7 +142,7 @@ def test_途中で殺された項目は_pending_に戻る(q):
     assert merged["items"][0]["attempts"] == 1     # ⚠ 何回目かは覚えている
 
 
-def test_実行ディレクトリを最後の行から拾う():
-    out = "fold 1: 訓練 100 / 検証 20\n→ runs/2026-09-16T10-00-00_x\n"
-    assert queue.parse_run_dir(out) == "runs/2026-09-16T10-00-00_x"
+def test_実行の名前を最後の行から拾う():
+    out = "fold 1: 訓練 100 / 検証 20\n→ 2026-09-16T10-00-00_x          # 実行の名前（記録は runs/research.sqlite）\n"
+    assert queue.parse_run_dir(out) == "2026-09-16T10-00-00_x"
     assert queue.parse_run_dir("何も出なかった") is None      # ⚠ 失敗にはしない

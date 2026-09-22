@@ -10,6 +10,8 @@ import sys
 import pytest
 
 import mode as modes
+from tests._records import isdir, jsonl, put_doc
+import livefs
 
 HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CERT = {"TT_CLIENT_SECRET": "s", "TT_REFRESH_TOKEN": "r"}
@@ -28,12 +30,7 @@ def run_day(base, args, env_extra):
 
 
 def events(base, sub="out"):
-    rows = []
-    for root, _, files in os.walk(base / sub):
-        for f in files:
-            if f == "events.jsonl":
-                rows += [json.loads(line) for line in open(os.path.join(root, f), encoding="utf-8")]
-    return rows
+    return [r for p in livefs.find(base / sub, "*/events.jsonl") for r in jsonl(p)]
 
 
 # ---------- モードの正本
@@ -54,7 +51,7 @@ def test_switch_writes_mode_and_log(base):
     m = modes.switch("sim", "sim1", by="test")
     assert m.is_sim and modes.read_mode().name == "sim1"
     assert modes.switch("real").mode == "real" and modes.read_mode().name is None
-    log = [json.loads(line) for line in open(base / "mode.log", encoding="utf-8")]
+    log = jsonl(base / "mode.log")
     assert [(r["from"], r["to"]) for r in log] == [("real", "sim"), ("sim", "real")]
     for bad in ("", "../x", "Sim 1", None):
         with pytest.raises(modes.ModeError):
@@ -72,8 +69,7 @@ def test_switch_refused_while_something_runs(base):
 
 
 def test_switch_with_open_real_positions_needs_confirmation(base):
-    os.makedirs(base / "state" / "prod")
-    (base / "state" / "prod" / "T1.json").write_text(json.dumps({"name": "T1", "holdings": {"KO": {"shares": 2, "avg_price": 70, "opened": "2026-10-01"}}}))
+    put_doc(base / "state" / "prod" / "T1.json", {"name": "T1", "holdings": {"KO": {"shares": 2, "avg_price": 70, "opened": "2026-10-01"}}})
     with pytest.raises(modes.ModeError, match="手仕舞いも出ない"):
         modes.switch("sim", "sim1")
     assert modes.read_mode().mode == "real"
@@ -90,7 +86,7 @@ def test_sim_mode_refuses_real_run_day_even_with_prod_keys(base):
     assert "シミュレーション sim1" in r.stdout                    # 1 行目にモード
     ev = events(base)
     assert [e["kind"] for e in ev] == ["refused_mode_sim"] and ev[0]["sim_name"] == "sim1" and "sim" not in ev[0]   # 本物の記録に理由が残る
-    assert not (base / "sim").exists() and not (base / "state" / "x").exists()
+    assert not (base / "sim").exists() and not isdir(base / "sim") and not isdir(base / "state" / "x")
 
 
 def test_sim_mode_refuses_cert_and_plan_too(base):
@@ -110,7 +106,7 @@ def test_real_mode_refuses_sim_clock(base):
     for env in (MOCK, {**MOCK, "LT_SIM_CLOCK": "1"}):
         r = run_day(base, SIM_ARGS if "LT_SIM_CLOCK" not in env else SIM_ARGS[:-1], env)
         assert r.returncode == 2 and "MODE が real" in r.stderr
-    assert not (base / "out").exists()
+    assert not isdir(base / "out")
 
 
 @pytest.mark.parametrize("args,env,why", [
@@ -126,7 +122,7 @@ def test_sim_clock_only_against_loopback_mock_without_prod_keys(base, args, env,
     modes.switch("sim", "sim1")
     r = run_day(base, args, env)
     assert r.returncode == 2 and "仮の時計は使えない" in r.stderr and why in r.stderr, r.stderr
-    assert not (base / "out").exists() and not (base / "sim").exists()
+    assert not isdir(base / "out") and not (base / "sim").exists() and not isdir(base / "sim")
 
 
 def test_trader_names_cannot_cross(base):
@@ -147,7 +143,7 @@ def test_sim_clock_cannot_write_outside_its_tree(base):
     from datetime import datetime, timezone
     simclock.init_control(modes.control_file("sim1"), datetime(2026, 10, 1, 19, 46, tzinfo=timezone.utc))
     r = run_day(base, SIM_ARGS, MOCK)                                                          # LT_OUT_DIR ＝ base/out（本物の側）
-    assert r.returncode == 2 and "置き場" in r.stderr and not (base / "out").exists()
+    assert r.returncode == 2 and "置き場" in r.stderr and not isdir(base / "out")
 
 
 def test_real_clock_cannot_write_into_sim_tree(base):

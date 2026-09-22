@@ -94,6 +94,93 @@ def evaluate(panel: pd.DataFrame, feats: list[str], exp: dict, run: runs.Run) ->
     return pd.DataFrame(out)
 
 
+def fold_buy_pct(tr: pd.DataFrame, te: pd.DataFrame, feats: list[str], exp: dict, ctx: dict, *,
+                 model, selectors: dict, detectors: dict, baselines: dict, form: str, k: int,
+                 groups: dict, f, picked: list[dict], log=print):
+    """訓練 1 塊 → 検証 1 塊の **買い% ／ 出口%**（手法ごと）。⚠ **`evaluate_trading` の fold の中身をそのまま切り出したもの**。
+
+    ⚠ **バックテストの fold と、実売買の「今日の買い%」（`cli/predict.py`）が同じ 1 本を通る**ための口。
+    ⚠ **ここでモデル・較正・変換の式を変えない**（変えると既定経路の指紋が動く。`tests/test_trading_run.py`）。
+    戻り値は (buy, exits, n_cols, fitted_doc)。`picked` には選んだ列を足す（呼び出し側の一覧）。
+    """
+    from ail.models import calibrate
+
+    buy: dict[str, np.ndarray] = {}
+    # ⚠ **出口%**（rules.md 16-1）。⚠ **None の手法は 100 − 入口% で回る ＝ 既存と完全一致**
+    exits: dict[str, np.ndarray | None] = {}
+    n_cols: dict[str, float] = {}
+    fitted_doc: dict[str, dict] = {}
+    # ⚠ 基準線は「買い% の定数指標」としてシミュレータを共有する（13-5。別実装を作らない）
+    for bname, bfn in baselines.items():
+        p = np.asarray(bfn(tr, te, feats, ctx), dtype=float)
+        buy[f"基準 {bname}"] = np.where(p > 0, 100.0, 0.0)
+        n_cols[f"基準 {bname}"] = 0.0
+
+    if detectors:
+        # ⚠ **検知器は買い% を直接返す**（rules.md 14-1 の出力の契約）。選別もモデルも中に隠れる。
+        # ⚠ **シミュレータから先は選別 × モデルの経路とまったく同じものを使う**（物差しを揃える）
+        for name, fn in detectors.items():
+            res = fn(tr, te, feats, ctx)
+            # ⚠ **3 つ返すのは出口% を別に持つ検知器**（rules.md 16-1。`ail/detectors/pair.py`）
+            bp, ep, doc = res if len(res) == 3 else (res[0], None, res[1])
+            buy[name] = np.asarray(bp, dtype=float)
+            exits[name] = None if ep is None else np.asarray(ep, dtype=float)
+            n_cols[name] = float(len(doc.get("columns", [])))
+            fitted_doc[name] = doc
+    elif form == "per_symbol":
+        # (B) 銘柄別: fit も較正も銘柄ごと（13-6 の 2）。fold の切れ目は上で決めた日付を共有
+        labels = {n: prep.label(exp, n) for n in selectors}   # ⚠ 変換名を混ぜた手法名
+        sel_sum: dict[str, float] = {l: 0.0 for l in labels.values()}
+        sel_cnt: dict[str, int] = {l: 0 for l in labels.values()}
+        for lab in labels.values():
+            buy[lab] = np.full(len(te), np.nan)
+        for s, idx in groups.items():
+            tr_s = tr[tr["symbol"] == s]
+            te_s = te.iloc[idx]
+            if len(tr_s) < 30:
+                log(f"  ⚠ fold {f} {s}: 訓練 {len(tr_s)} 行しか無いので飛ばす")
+                continue
+            sc = StandardScaler().fit(tr_s[feats])
+            Xtr = pd.DataFrame(sc.transform(tr_s[feats]), columns=feats)
+            Xte = pd.DataFrame(sc.transform(te_s[feats]), columns=feats)
+            ytr = tr_s["y"].values
+            # ⚠ **(B) は銘柄ごとに fit する**ので、変換も銘柄ごとに fit し直す（3 章 B）
+            Xtr, Xte, tdoc = prep.apply(exp, Xtr, Xte, ctx, ytr)
+            if tdoc is not None:
+                fitted_doc.setdefault("_transform", {})[str(s)] = tdoc
+            for name, fn in selectors.items():
+                lab = labels[name]
+                cols = fn(Xtr, ytr, k, ctx)
+                cal = calibrate.fit(model, Xtr[cols], ytr, ctx)
+                pred = model(Xtr[cols], ytr, Xte[cols], ctx)
+                buy[lab][idx] = cal.buy_pct(pred)
+                sel_sum[lab] += len(cols)
+                sel_cnt[lab] += 1
+                fitted_doc.setdefault(lab, {})[str(s)] = cal.doc
+        for lab in labels.values():
+            n_cols[lab] = sel_sum[lab] / sel_cnt[lab] if sel_cnt[lab] else 0.0
+    else:
+        # (A) 共通 1 本: 63 銘柄をプールして 1 モデル（現行の形）
+        sc = StandardScaler().fit(tr[feats])
+        Xtr = pd.DataFrame(sc.transform(tr[feats]), columns=feats)
+        Xte = pd.DataFrame(sc.transform(te[feats]), columns=feats)
+        ytr = tr["y"].values
+        # ⚠ **標本から学ぶ変換の 1 段**（3 章 B）。⚠ **config に `transform` が無ければ素通り**
+        Xtr, Xte, tdoc = prep.apply(exp, Xtr, Xte, ctx, ytr)
+        if tdoc is not None:
+            fitted_doc["_transform"] = tdoc
+        for name, fn in selectors.items():
+            lab = prep.label(exp, name)             # ⚠ 変換名を手法名に混ぜる（台帳の ID）
+            cols = fn(Xtr, ytr, k, ctx)
+            cal = calibrate.fit(model, Xtr[cols], ytr, ctx)
+            pred = model(Xtr[cols], ytr, Xte[cols], ctx)
+            buy[lab] = cal.buy_pct(pred)
+            n_cols[lab] = float(len(cols))
+            fitted_doc[lab] = cal.doc
+            picked.extend({"手法": lab, "fold": f, "列": c} for c in cols)
+    return buy, exits, n_cols, fitted_doc
+
+
 def evaluate_trading(panel: pd.DataFrame, feats: list[str], exp: dict, run: runs.Run):
     """閾値つき売買（rules.md 13 章）: 較正 → 閾値 → 状態機械 → 銘柄別 bp ＋ ポートフォリオ。
 
@@ -143,79 +230,9 @@ def evaluate_trading(panel: pd.DataFrame, feats: list[str], exp: dict, run: runs
         ts_te = pd.to_datetime(te["ts"])
         groups = te.groupby("symbol").indices          # 銘柄 → 行位置（時刻順のまま）
 
-        buy: dict[str, np.ndarray] = {}
-        # ⚠ **出口%**（rules.md 16-1）。⚠ **None の手法は 100 − 入口% で回る ＝ 既存と完全一致**
-        exits: dict[str, np.ndarray | None] = {}
-        n_cols: dict[str, float] = {}
-        fitted_doc: dict[str, dict] = {}
-        # ⚠ 基準線は「買い% の定数指標」としてシミュレータを共有する（13-5。別実装を作らない）
-        for bname, bfn in baselines.items():
-            p = np.asarray(bfn(tr, te, feats, ctx), dtype=float)
-            buy[f"基準 {bname}"] = np.where(p > 0, 100.0, 0.0)
-            n_cols[f"基準 {bname}"] = 0.0
-
-        if detectors:
-            # ⚠ **検知器は買い% を直接返す**（rules.md 14-1 の出力の契約）。選別もモデルも中に隠れる。
-            # ⚠ **シミュレータから先は選別 × モデルの経路とまったく同じものを使う**（物差しを揃える）
-            for name, fn in detectors.items():
-                res = fn(tr, te, feats, ctx)
-                # ⚠ **3 つ返すのは出口% を別に持つ検知器**（rules.md 16-1。`ail/detectors/pair.py`）
-                bp, ep, doc = res if len(res) == 3 else (res[0], None, res[1])
-                buy[name] = np.asarray(bp, dtype=float)
-                exits[name] = None if ep is None else np.asarray(ep, dtype=float)
-                n_cols[name] = float(len(doc.get("columns", [])))
-                fitted_doc[name] = doc
-        elif form == "per_symbol":
-            # (B) 銘柄別: fit も較正も銘柄ごと（13-6 の 2）。fold の切れ目は上で決めた日付を共有
-            labels = {n: prep.label(exp, n) for n in selectors}   # ⚠ 変換名を混ぜた手法名
-            sel_sum: dict[str, float] = {l: 0.0 for l in labels.values()}
-            sel_cnt: dict[str, int] = {l: 0 for l in labels.values()}
-            for lab in labels.values():
-                buy[lab] = np.full(len(te), np.nan)
-            for s, idx in groups.items():
-                tr_s = tr[tr["symbol"] == s]
-                te_s = te.iloc[idx]
-                if len(tr_s) < 30:
-                    run.log(f"  ⚠ fold {f} {s}: 訓練 {len(tr_s)} 行しか無いので飛ばす")
-                    continue
-                sc = StandardScaler().fit(tr_s[feats])
-                Xtr = pd.DataFrame(sc.transform(tr_s[feats]), columns=feats)
-                Xte = pd.DataFrame(sc.transform(te_s[feats]), columns=feats)
-                ytr = tr_s["y"].values
-                # ⚠ **(B) は銘柄ごとに fit する**ので、変換も銘柄ごとに fit し直す（3 章 B）
-                Xtr, Xte, tdoc = prep.apply(exp, Xtr, Xte, ctx, ytr)
-                if tdoc is not None:
-                    fitted_doc.setdefault("_transform", {})[str(s)] = tdoc
-                for name, fn in selectors.items():
-                    lab = labels[name]
-                    cols = fn(Xtr, ytr, k, ctx)
-                    cal = calibrate.fit(model, Xtr[cols], ytr, ctx)
-                    pred = model(Xtr[cols], ytr, Xte[cols], ctx)
-                    buy[lab][idx] = cal.buy_pct(pred)
-                    sel_sum[lab] += len(cols)
-                    sel_cnt[lab] += 1
-                    fitted_doc.setdefault(lab, {})[str(s)] = cal.doc
-            for lab in labels.values():
-                n_cols[lab] = sel_sum[lab] / sel_cnt[lab] if sel_cnt[lab] else 0.0
-        else:
-            # (A) 共通 1 本: 63 銘柄をプールして 1 モデル（現行の形）
-            sc = StandardScaler().fit(tr[feats])
-            Xtr = pd.DataFrame(sc.transform(tr[feats]), columns=feats)
-            Xte = pd.DataFrame(sc.transform(te[feats]), columns=feats)
-            ytr = tr["y"].values
-            # ⚠ **標本から学ぶ変換の 1 段**（3 章 B）。⚠ **config に `transform` が無ければ素通り**
-            Xtr, Xte, tdoc = prep.apply(exp, Xtr, Xte, ctx, ytr)
-            if tdoc is not None:
-                fitted_doc["_transform"] = tdoc
-            for name, fn in selectors.items():
-                lab = prep.label(exp, name)             # ⚠ 変換名を手法名に混ぜる（台帳の ID）
-                cols = fn(Xtr, ytr, k, ctx)
-                cal = calibrate.fit(model, Xtr[cols], ytr, ctx)
-                pred = model(Xtr[cols], ytr, Xte[cols], ctx)
-                buy[lab] = cal.buy_pct(pred)
-                n_cols[lab] = float(len(cols))
-                fitted_doc[lab] = cal.doc
-                picked.extend({"手法": lab, "fold": f, "列": c} for c in cols)
+        buy, exits, n_cols, fitted_doc = fold_buy_pct(
+            tr, te, feats, exp, ctx, model=model, selectors=selectors, detectors=detectors,
+            baselines=baselines, form=form, k=k, groups=groups, f=f, picked=picked, log=run.log)
         run.fitted(f"calibration_f{f}", fitted_doc)     # ⚠ 再現用。次の実行では読み込まない（13-2 の 3）
 
         for mname, bp in buy.items():
@@ -434,7 +451,7 @@ def apply_gate(exp: dict, gate_doc: dict, enforce: bool, run: runs.Run) -> dict 
         return exp
     run.log("⚠ --gate: 門で足切りする（14-10 規約 2 に反する使い方。rules.md 14-5 の経緯）")
     if not gate_doc.get("passed"):
-        run.log("⚠ **全手法が門前 ＝ 閾値売買を回さない**（台帳には「門前」で残す・"
+        run.log("⚠ **全手法が門前 ＝ 閾値売買を回さない**（検証結果一覧には「門前」で残す・"
                 "n_trials に数えない。rules.md 14-5）")
         return None
     if blocked:
@@ -528,7 +545,7 @@ def main() -> None:
                         "cost_bp": float(exp.get("cost_bp", 5.0)),
                         "thresholds": [float(x) for x in t.get("thresholds", (50.0, 55.0, 60.0))],
                         "gate": gate_doc})
-            print(f"→ {os.path.relpath(run.close(), store.ROOT)}")
+            print(f"→ {run.close()}")          # 実行の名前（記録は runs/research.sqlite）
             return
         exp = gated_exp
         res, per_sym, g, daily, extra = evaluate_trading(panel, feats, exp, run)
@@ -553,7 +570,7 @@ def main() -> None:
         doc["gate"] = gate_doc                       # ⚠ 記録するだけ。採否には使わない（14-5）
         run.checks(doc)
         run.log(_checks_line_trading(doc))
-        print(f"→ {os.path.relpath(run.close(), store.ROOT)}")
+        print(f"→ {run.close()}")          # 実行の名前（記録は runs/research.sqlite）
         return
 
     res = evaluate(panel, feats, exp, run)
@@ -573,7 +590,7 @@ def main() -> None:
                          n_trials=checks.n_trials_now(), leak=args.leak)
     run.checks(doc)
     run.log(_checks_line(doc))
-    print(f"→ {os.path.relpath(run.close(), store.ROOT)}")
+    print(f"→ {run.close()}")          # 実行の名前（記録は runs/research.sqlite）
 
 
 def _checks_line_trading(doc: dict) -> str:

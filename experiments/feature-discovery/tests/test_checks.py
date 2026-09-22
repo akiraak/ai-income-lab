@@ -164,14 +164,14 @@ def test_the_ledger_already_counts_the_run_that_just_wrote_its_summary(tmp_path,
     count = lambda: len([r for r in catalog.trials()[0] if catalog.is_trial(r)])  # noqa: E731
     before = count()
 
-    d = tmp_path / "2026-01-01T00-00-00_x"
-    d.mkdir()
-    (d / "config.json").write_text(json.dumps(
-        {"model": "Ridge", "bar_minutes": 1440.0, "horizon": 1, "feature_layers": ["own"],
-         "trading": {"style": "threshold", "thresholds": [50]}}), encoding="utf-8")
-    (d / "summary.csv").write_text("手法,閾値,純利bp\n全部使う（基準）,50.0,1.0\n", encoding="utf-8")
+    # ⚠ 記録は DB。**実行中（閉じる前）に書いた `summary.csv` も、書いたその場で台帳に見える**（`cli.run` はここで数える）
+    import pandas as pd
+    run = runs.Run("x", {"model": "Ridge", "bar_minutes": 1440.0, "horizon": 1, "feature_layers": ["own"],
+                         "trading": {"style": "threshold", "thresholds": [50]}}, seed=0)
+    run.result(pd.DataFrame({"手法": ["全部使う（基準）"]}),
+               pd.DataFrame({"閾値": [50.0], "純利bp": [1.0]}, index=pd.Index(["全部使う（基準）"], name="手法")))
 
-    assert count() == before + 1                      # ⚠ 置いただけで台帳が数える
+    assert count() == before + 1                      # ⚠ 書いただけで台帳が数える（閉じる前）
     assert checks.n_trials_now() == before + 1        # ⚠ 足さないのが正しい
 
 

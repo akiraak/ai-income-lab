@@ -3,7 +3,7 @@
 作成日: 2026-09-20。利用者の指示（2026-09-20）: **「見た目は分かったので自動でテストを回せるものはある？」→ 提案の 1・2・3 とも「やります」**。
 関連: [live-trading.md §0-7](../../specs/experiments/live-trading.md)（シミュレーションの決めごと・筋書き）・[dashboard.md §13-7](../../specs/dashboard.md)。
 
-✅ **2026-09-20 に Phase 1〜4 を実装して閉じた**。仕様の正本は [live-trading.md §0-7 (k)](../../specs/experiments/live-trading.md)。
+✅ **2026-09-20 に Phase 1〜4 を実装して閉じた**。仕様の正本は [live-trading.md §0-7 (l)](../../specs/experiments/live-trading.md)。
 
 | 段 | 結果【実測 2026-09-20・Sx360】 |
 | --- | --- |

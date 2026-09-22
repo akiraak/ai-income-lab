@@ -6,7 +6,7 @@
 | --- | --- | --- |
 | `docs/.../feature-discovery.md` §2 | ⚠ **手法のカタログ 25 件** | 表から `F1-1` などの ID を読む |
 | `ail/registry.py` | ⚠ **実装の有無** | 選別手法の名前の先頭から ID を読む |
-| `runs/<実行>/summary.csv` | ⚠ **結果** | 実行ごとに読む（fold の符号は `result.csv`） |
+| 実行の記録（`runs/research.sqlite`。実行ごとの `summary.csv`） | ⚠ **結果** | 実行ごとに読む（fold の符号は `result.csv`）。⚠ 2026-09-21 にディレクトリから DB へ移した |
 
 ⚠ **旧配線（`evaluate.py`）の結果は `runs/` に無い。** spec の表をその場で読む
 （どこを読むかと、その表を出した条件は `config/legacy.toml` に 1 か所だけ宣言する）。
@@ -19,7 +19,6 @@
 from __future__ import annotations
 
 import functools
-import json
 import os
 import re
 import tomllib
@@ -224,20 +223,19 @@ def _sign_pattern(result: pd.DataFrame | None, method: str) -> str | None:
 
 
 def _read_run(name: str) -> dict | None:
-    d = os.path.join(runs.RUNS, name)
-    s = os.path.join(d, "summary.csv")
-    c = os.path.join(d, "config.json")
-    if not os.path.exists(c):
+    """⚠ 記録は DB（`runs/research.sqlite`。2026-09-21 にディレクトリから移した）。読み方はいままでと同じ。"""
+    config = runs.read_json(name, "config.json")
+    if config is None:
         return None
-    doc = {"実行": name, "leak": name.endswith("_leak")}
-    for f in ("config", "inputs", "env", "checks"):
-        p = os.path.join(d, f + ".json")
-        doc[f] = json.load(open(p, encoding="utf-8")) if os.path.exists(p) else {}
+    doc = {"実行": name, "leak": name.endswith("_leak"), "config": config}
+    for f in ("inputs", "env", "checks"):
+        doc[f] = runs.read_json(name, f + ".json") or {}
     # ⚠ **日付をずらした偽薬**（`_shift<S>`）。⚠ **試行ではなく対照なので台帳の行に入れない**
     doc["shift_days"] = runs.shift_days_of(name, doc["config"])
     gate = doc["checks"].get("gate") or {}
-    if os.path.exists(s):
-        doc["summary"] = pd.read_csv(s, index_col=0)
+    summary = runs.read_csv(name, "summary.csv", index_col=0)
+    if summary is not None:
+        doc["summary"] = summary
     elif gate.get("blocked") and not gate.get("forced"):
         # ⚠ **全手法が門前の実行は summary を持たない**（検証を回していない）。
         # ⚠ **台帳に「門前」で残すために拾う**（隠さない。rules.md 14-5）。
@@ -246,8 +244,7 @@ def _read_run(name: str) -> dict | None:
         doc["summary"] = pd.DataFrame()
     else:
         return None
-    r = os.path.join(d, "result.csv")
-    doc["result"] = pd.read_csv(r) if os.path.exists(r) else None
+    doc["result"] = runs.read_csv(name, "result.csv")
     return doc
 
 

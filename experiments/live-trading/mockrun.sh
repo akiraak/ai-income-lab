@@ -9,13 +9,17 @@ PY="../tastytrade-api-sample/.venv/bin/python"; [ -x "$PY" ] || PY=python3
 PORT=${PORT:-8865}
 WORK=$(mktemp -d)
 FAIL=0
+LIVEFS=../tastytrade-api-sample/livefs.py
+# ⚠ 記録は DB（2026-09-21）。作業の置き場に自分の DB を作る ＝ 本物の live.sqlite に書かない
+$PY "$LIVEFS" init "$WORK" demo > /dev/null
 fail() { echo "  NG: $1"; FAIL=1; }
 # KEEP_DIR（任意）: 管理画面が読む形（config/traders・state/<env>・out/<日付>）で記録を残す。⚠ 指定しなければ今までどおり消す
 keep() {
-  [ -n "${KEEP_DIR:-}" ] && [ -d "$WORK/out" ] || return 0
-  mkdir -p "$KEEP_DIR/state/cert" "$KEEP_DIR/config"
-  cp -r "$WORK/out" "$KEEP_DIR/" && cp "$WORK"/state/*.json "$KEEP_DIR/state/cert/" && cp -r config/traders "$KEEP_DIR/config/"
-  echo "記録を残した: $KEEP_DIR"
+  [ -n "${KEEP_DIR:-}" ] || return 0
+  # 記録はファイルの形で書き出す（dashboard/demo/live のようにデモの正本にするとき）。管理画面はデモの起動で demo.sqlite に読み込む
+  mkdir -p "$KEEP_DIR/config"
+  $PY "$LIVEFS" export "$WORK/out" --to "$KEEP_DIR/out" > /dev/null && $PY "$LIVEFS" export "$WORK/state" --to "$KEEP_DIR/state/cert" > /dev/null \
+    && cp -r config/traders "$KEEP_DIR/config/" && echo "記録を残した: $KEEP_DIR（ファイルの形）"
 }
 cleanup() { [ -n "${MOCK_PID:-}" ] && kill "$MOCK_PID" 2>/dev/null; keep; rm -rf "$WORK"; }
 trap cleanup EXIT
@@ -54,11 +58,13 @@ done
 
 echo "=== 検査 ==="
 $PY - "$WORK/out" "$WORK/state" <<'PY' || FAIL=1
-import glob, json, os, sys
+import json, os, sys
+sys.path.insert(0, "../tastytrade-api-sample")
+import livefs                                    # ⚠ 記録は DB（道はそのまま）
 out, state = sys.argv[1], sys.argv[2]
-orders = [json.loads(l) for f in sorted(glob.glob(f"{out}/*/orders.jsonl")) for l in open(f)]
-transfers = [json.loads(l) for f in sorted(glob.glob(f"{out}/*/transfers.jsonl")) for l in open(f)]
-ledgers = [json.loads(l) for f in sorted(glob.glob(f"{out}/*/ledger.jsonl")) for l in open(f)]
+def rows(kind):
+    return [json.loads(l) for f in livefs.find(out, f"*/{kind}.jsonl") for l in livefs.read_lines(f)]
+orders, transfers, ledgers = rows("orders"), rows("transfers"), rows("ledger")
 bad = False
 def ok(cond, msg):
     global bad
@@ -86,7 +92,7 @@ ok(all(len(o["parts"]) == 1 for o in orders), "1 注文 1 トレーダー")
 last = {l["trader"]: l for l in ledgers}
 ok(all(l["cost_in_use_usd"] <= l["budget_usd"] + 1e-6 for l in ledgers), "全日・全員で原価が予算を超えない")
 for name in ("mock_a", "mock_b"):
-    st = json.load(open(f"{state}/{name}.json"))
+    st = json.loads(livefs.read_doc(f"{state}/{name}.json"))
     ok(st["last_date"] == "2026-10-28" and len(st["history"]) >= 2, f"{name}: 状態が最終日まで進み売買 {len(st['history'])} 行")
 print(f"  台帳の最終日: " + ", ".join(f"{n}: 原価 ${l['cost_in_use_usd']} 実現 ${l['realized_usd']} 建玉 {list(l['holdings'])}" for n, l in last.items()))
 sys.exit(1 if bad else 0)
@@ -94,7 +100,7 @@ PY
 
 echo "=== 秘密が記録に出ていないか ==="
 for secret in MOCK-SECRET MOCK-REFRESH 5WT00042 eyJ; do
-  hits=$(grep -rc -- "$secret" "$WORK/out" | awk -F: '{s+=$2} END {print s+0}')
+  hits=$($PY "$LIVEFS" dump "$WORK" | grep -c -- "$secret" || true)
   [ "$hits" = "0" ] && echo "  ok   $secret は出ていない" || fail "$secret が $hits 行に出ている"
 done
 [ "$FAIL" = "0" ] && echo "すべて通った" || echo "NG あり"

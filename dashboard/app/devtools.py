@@ -130,9 +130,9 @@ class JobRunner:
     def _append_history(self, job: Job) -> None:
         import json
 
-        self.jobs_dir.mkdir(parents=True, exist_ok=True)
-        with open(self.jobs_dir / "history.jsonl", "a", encoding="utf-8") as f:
-            f.write(json.dumps(job.brief(), ensure_ascii=False) + "\n")
+        from .livestore import livefs
+
+        livefs.append(self.jobs_dir / "history.jsonl", json.dumps(job.brief(), ensure_ascii=False))    # ⚠ 2026-09-21 から DB（livefs）
 
     def get(self, job_id: str) -> Job | None:
         return self.jobs.get(job_id)

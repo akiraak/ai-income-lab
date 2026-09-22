@@ -5,9 +5,10 @@
     python3 -m cli.calibdiag --curve            # AUC → 幅 の対応だけ引く
     python3 -m cli.calibdiag --experiment trend_scales_1995 --theta   # θ の置き方 3 案を比べる
 
-⚠ **これは検証ではなく診断である。** ⚠ **`runs/` には 1 バイトも書かない** — 出力は
-`out/diag/<時刻>/` に落とす。⚠ **`config.json` を持つディレクトリを作らないので
-`catalog._read_run` が拾わず、`n_trials` も台帳も動かない**（rules.md 10 章・13-9）。
+⚠ **これは検証ではなく診断である。** ⚠ **実行（DB の `runs`）には 1 バイトも書かない** — 出力は
+DB の `outputs` の `diag/<時刻>_<名前>/` に入れる（2026-09-21 までは `out/diag/<時刻>/` のファイル）。
+⚠ **実行ではないので `catalog` が拾わず、`n_trials` も台帳も動かない**（rules.md 10 章・13-9）。
+読み戻すのは `python3 -m cli.db export-out --prefix diag/<時刻>_<名前>/ --to <置き場>`。
 
 切り分ける容疑は 3 つ（プラン §2）。
 
@@ -52,7 +53,7 @@ import ail.bootstrap  # noqa: F401
 
 warnings.filterwarnings("ignore")
 
-OUT = os.path.join(runs.ROOT, "out", "diag")
+OUT = "diag"                     # DB の outputs の中の道の頭（いままでの out/diag/）
 THRESHOLDS = (50.0, 55.0, 60.0)
 
 
@@ -353,14 +354,13 @@ def main() -> None:
 
     stamp = time.strftime("%Y-%m-%dT%H-%M-%S")
     tag = args.tag or (args.experiment or "curve") + ("_leak" if args.leak else "")
-    d = os.path.join(OUT, f"{stamp}_{tag}")
-    os.makedirs(d, exist_ok=True)
+    d = f"{OUT}/{stamp}_{tag}"
 
     if args.curve:
         c = curve()
-        c.to_csv(os.path.join(d, "auc_width.csv"), index=False)
+        runs.put_output(f"{d}/auc_width.csv", c.to_csv(index=False))
         print(c.to_string(index=False))
-        print(f"→ {os.path.relpath(d, runs.ROOT)}")
+        print(f"→ DB の outputs/{d}/")
         return
 
     exp = config.resolve_experiment(args.experiment)
@@ -379,16 +379,16 @@ def main() -> None:
     rows = (_detector_rows(panel, feats, exp, edges, v, ctx, bank) if exp.get("detectors")
             else _selector_rows(panel, feats, exp, edges, v, ctx, k, model, bank))
     df = pd.DataFrame(rows)
-    df.to_csv(os.path.join(d, "folds.csv"), index=False)
-    json.dump({"実験": args.experiment, "leak": args.leak,
-               "表": os.path.relpath(path, store.ROOT), "行": int(len(panel)),
-               "⚠ 注記": "診断であって検証ではない。runs/ に書かないので n_trials は動かない"},
-              open(os.path.join(d, "meta.json"), "w", encoding="utf-8"),
-              ensure_ascii=False, indent=1)
+    runs.put_output(f"{d}/folds.csv", df.to_csv(index=False))
+    runs.put_output(f"{d}/meta.json", json.dumps(
+        {"実験": args.experiment, "leak": args.leak,
+         "表": os.path.relpath(path, store.ROOT), "行": int(len(panel)),
+         "⚠ 注記": "診断であって検証ではない。実行に書かないので n_trials は動かない"},
+        ensure_ascii=False, indent=1))
 
     if bank:
         th = _theta_rows(bank)
-        th.to_csv(os.path.join(d, "theta.csv"), index=False)
+        runs.put_output(f"{d}/theta.csv", th.to_csv(index=False))
         g = (th.groupby(["系統", "手法", "案", "θ"])
                [["帯下", "帯上", "買い%中央", "入口が立つ", "出口が立つ"]].mean().round(3))
         with pd.option_context("display.width", 200, "display.max_rows", 400):

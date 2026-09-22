@@ -15,6 +15,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app import simmode
+from app.livestore import livefs
 from app.main import create_app
 from tests.test_app import assert_clean
 from tests.test_live import build_live_dir
@@ -44,16 +45,15 @@ def build_sim_tree(mode_dir: Path, name: str = "sim1", *, paused: bool = False, 
     (root / "sim" / "control.json").write_text(json.dumps({"sim_epoch": 1791230000.0 + 1000, "real_epoch": time.time(), "speed": speed, "paused": paused, "step": 0, "stop": False}))
     (root / "sim" / "status.json").write_text(json.dumps({"name": name, "sim": True, "state": "窓の中", "day_index": 3, "days_total": 64, "sim_date": "2026-10-05",
                                                            "source_date": "2026-06-03", "updated_at": time.time(), "last_rc": 0}))
-    day = root / "out" / "2026-10-05"
-    day.mkdir(parents=True)
+    day = root / "out" / "2026-10-05"          # ⚠ 記録は DB（livefs。道はそのまま）
     tag = {"date": "2026-10-05", "env": "cert", "run_id": "20261005T194530Z", "sim": True, "mock": True, "test": True}
-    (day / "orders.jsonl").write_text(json.dumps({**tag, "symbol": "T", "side": "buy", "sizing": "shares", "shares": 4, "value_usd": 98.2, "mode": "submit",
+    livefs.append(day / "orders.jsonl", json.dumps({**tag, "symbol": "T", "side": "buy", "sizing": "shares", "shares": 4, "value_usd": 98.2, "mode": "submit",
                                                   "parts": [{"trader": "sim_a", "shares": 4, "usd": 98.2}], "quote_at_signal": {"mid": 24.55}, "final_status": "Filled",
-                                                  "fills": [{"symbol": "T", "side": "buy", "shares": 4, "price": 24.61}], "attempts": 1}) + "\n")
-    (day / "ledger.jsonl").write_text(json.dumps({**tag, "trader": "sim_a", "budget_usd": 300.0, "cost_in_use_usd": 98.44, "realized_usd": 0.0, "unrealized_usd": -0.24,
+                                                  "fills": [{"symbol": "T", "side": "buy", "shares": 4, "price": 24.61}], "attempts": 1}))
+    livefs.append(day / "ledger.jsonl", json.dumps({**tag, "trader": "sim_a", "budget_usd": 300.0, "cost_in_use_usd": 98.44, "realized_usd": 0.0, "unrealized_usd": -0.24,
                                                   "fees_usd": 0.0, "market_value_usd": 98.2, "unsettled_usd": 0.0, "holdings_priced": 1, "drawdown_pct_of_budget": 0.08,
-                                                  "holdings": {"T": {"shares": 4, "avg_price": 24.61, "opened": "2026-10-05"}}}) + "\n")
-    (day / "events.jsonl").write_text(json.dumps({**tag, "kind": "start", "mode": "submit", "traders": ["sim_a"]}) + "\n")
+                                                  "holdings": {"T": {"shares": 4, "avg_price": 24.61, "opened": "2026-10-05"}}}))
+    livefs.append(day / "events.jsonl", json.dumps({**tag, "kind": "start", "mode": "submit", "traders": ["sim_a"]}))
     return root
 
 

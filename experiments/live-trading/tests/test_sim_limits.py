@@ -18,6 +18,7 @@ import pytest
 import mode as modes
 import simclock
 import simdata
+from tests._records import doc, jsonl
 from tests.test_simrun import make_bars
 
 HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -82,8 +83,7 @@ def drive(name, child, *, days):
 
 
 def rows(root, day, kind):
-    path = os.path.join(root, "out", day, f"{kind}.jsonl")
-    return [json.loads(line) for line in open(path, encoding="utf-8")] if os.path.exists(path) else []
+    return jsonl(os.path.join(root, "out", day, f"{kind}.jsonl"))       # ⚠ 記録は DB（livefs。道はそのまま）
 
 
 @pytest.fixture(autouse=True)
@@ -156,7 +156,7 @@ def test_the_second_window_does_not_buy_again(twice):
     assert len(rows(root, first, "orders")) == 1, rows(root, first, "orders")
     holds = [e for e in rows(root, first, "events") if e["kind"] == "hold" and e["symbol"] == "T"]
     assert holds, rows(root, first, "events")
-    state = json.load(open(os.path.join(root, "state", "cert", "sim_two.json"), encoding="utf-8"))
+    state = doc(os.path.join(root, "state", "cert", "sim_two.json"))
     assert state["holdings"]["T"]["shares"] == int(state["holdings"]["T"]["shares"])
     assert all(len(rows(root, d, "orders")) <= 1 for d in days)
 

@@ -18,6 +18,8 @@ import mode as modes
 import simclock
 import simdata
 import simrun
+import livefs
+from tests._records import db_tree, doc, isdir, jsonl
 
 HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 ET = ZoneInfo("America/New_York")
@@ -56,7 +58,7 @@ def cli(script, args, child, **kw):
 
 
 def rows(root, kind):
-    return [json.loads(line) for f in sorted(glob.glob(os.path.join(root, "out", "*", f"{kind}.jsonl"))) for line in open(f, encoding="utf-8")]
+    return [r for f in livefs.find(os.path.join(root, "out"), f"*/{kind}.jsonl") for r in jsonl(f)]
 
 
 def strip_time(row):
@@ -139,13 +141,13 @@ def test_driver_refuses_another_name_and_a_busy_lock(env):
 
 def test_three_days_at_max_speed(env):
     base, _, child = env
-    real_before = sorted(glob.glob(os.path.join(HERE, "out", "*", "*"))), sorted(glob.glob(os.path.join(HERE, "state", "*", "*")))
+    real_before = db_tree(os.path.join(HERE, "out")), db_tree(os.path.join(HERE, "state"))
     assert cli("simctl.py", ["mode", "sim", "sim1"], child).returncode == 0
     r = cli("simrun.py", ["sim1", "--speed", "max", "--days", "3"], child)
     assert r.returncode == 0, r.stdout + r.stderr
     assert r.stdout.startswith("=== シミュレーション sim1 — 実売買ではない ===")
     root = modes.sim_root("sim1")
-    assert sorted(os.listdir(os.path.join(root, "out"))) == ["2026-10-01", "2026-10-02", "2026-10-05"]
+    assert livefs.listdir(os.path.join(root, "out")) == ["2026-10-01", "2026-10-02", "2026-10-05"]
     for kind in ("events", "signals", "quotes", "ledger"):
         got = rows(root, kind)
         assert got and all(x.get("sim") is True and x.get("mock") is True and x.get("test") is True for x in got), kind
@@ -155,7 +157,7 @@ def test_three_days_at_max_speed(env):
     assert all(len(o["parts"]) == 1 for o in orders)
     assert len({(o["date"], o["symbol"], o["side"]) for o in orders}) < len(orders)                # 同じ銘柄を同じ日に 2 人が買っている
     for name in ("sim_a", "sim_c"):
-        st = json.load(open(os.path.join(root, "state", "cert", f"{name}.json")))
+        st = doc(os.path.join(root, "state", "cert", f"{name}.json"))
         assert st["holdings"] and all(float(h["shares"]).is_integer() for h in st["holdings"].values()), name
     # 金額の内訳が注文ごとに残り、売りの手数料はその人の台帳に入る
     assert all(set(o["amounts"]) >= {"gross_usd", "fee_usd", "net_usd", "fee_breakdown", "buying_power_effect"} and "total-fees" in o["amounts"]["fee_breakdown"] for o in orders)
@@ -165,11 +167,11 @@ def test_three_days_at_max_speed(env):
     assert status["state"] == "終了" and status["day_index"] == 3 and status["days_total"] == 64 and status["sim"] is True
     assert simclock.read_control(modes.control_file("sim1"))["paused"] is True                    # 運転手がいない間は時計を止める
     assert cli("simctl.py", ["check"], child).returncode == 0
-    assert sorted(os.listdir(os.path.join(root, "state", "cert"))) == ["journal.jsonl", "sim_a.json", "sim_b.json", "sim_c.json"]
+    assert livefs.listdir(os.path.join(root, "state", "cert")) == ["journal.jsonl", "sim_a.json", "sim_b.json", "sim_c.json"]
     assert simrun  # 控え（journal.jsonl）は全部閉じている ＝ 未完なし
     import journal as jn
     assert jn.Journal(os.path.join(root, "state", "cert")).unfinished() == []
-    assert (sorted(glob.glob(os.path.join(HERE, "out", "*", "*"))), sorted(glob.glob(os.path.join(HERE, "state", "*", "*")))) == real_before
+    assert (db_tree(os.path.join(HERE, "out")), db_tree(os.path.join(HERE, "state"))) == real_before
     # 続きから: 流した発注できる時間帯は流し直さない
     r = cli("simrun.py", ["sim1", "--speed", "max", "--days", "1"], child)
     assert r.returncode == 0 and "続きから" in r.stdout and "2026-10-06" in r.stdout and "2026-10-05（" not in r.stdout
@@ -197,8 +199,8 @@ def test_half_day_is_refused_and_recorded(env):
     simclock.init_control(modes.control_file("sim1"), datetime(2026, 11, 25, 9, 30, tzinfo=ET), speed="max", paused=True)   # 途中の日から（過ぎた発注できる時間帯は流さない）
     r = cli("simrun.py", ["sim1", "--days", "3"], child)
     assert r.returncode == 0, r.stdout + r.stderr
-    assert sorted(os.listdir(os.path.join(root, "out"))) == ["2026-11-25", "2026-11-27", "2026-11-30"]     # 11-26 は休場 ＝ 起こさない
-    half = [json.loads(line) for line in open(os.path.join(root, "out", "2026-11-27", "events.jsonl"))]
+    assert livefs.listdir(os.path.join(root, "out")) == ["2026-11-25", "2026-11-27", "2026-11-30"]     # 11-26 は休場 ＝ 起こさない
+    half = jsonl(os.path.join(root, "out", "2026-11-27", "events.jsonl"))
     assert [e["kind"] for e in half] == ["out_of_window"] and "半日立会" in half[0]["reason"]
     status = json.load(open(os.path.join(root, "sim", "status.json")))
     assert status["rcs"] == {"2026-11-25 15:45": 0, "2026-11-27 15:45": 4, "2026-11-30 15:45": 0}
@@ -221,11 +223,11 @@ def test_step_runs_one_day_then_pauses_and_stop_ends_the_driver(env):
             raise AssertionError(what)
         wait_for(lambda: os.path.exists(os.path.join(root, "sim", "status.json")), "運転手が起きない")
         time.sleep(0.5)
-        assert not os.path.isdir(os.path.join(root, "out"))                                         # 止まっている間は何も起きない
+        assert not isdir(os.path.join(root, "out"))                                                 # 止まっている間は何も起きない
         assert cli("simctl.py", ["step"], child).returncode == 0
-        wait_for(lambda: os.path.isdir(os.path.join(root, "out", "2026-10-01")) and simclock.read_control(control)["paused"], "step が 1 日で止まらない")
+        wait_for(lambda: isdir(os.path.join(root, "out", "2026-10-01")) and simclock.read_control(control)["paused"], "step が 1 日で止まらない")
         time.sleep(0.5)
-        assert os.listdir(os.path.join(root, "out")) == ["2026-10-01"]
+        assert livefs.listdir(os.path.join(root, "out")) == ["2026-10-01"]
         assert cli("simctl.py", ["stop"], child).returncode == 0
         assert proc.wait(timeout=30) == 0
         assert json.load(open(os.path.join(root, "sim", "status.json")))["state"] == "終了"

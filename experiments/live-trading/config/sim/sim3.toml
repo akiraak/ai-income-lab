@@ -1,0 +1,14 @@
+# シミュレーション sim3（live-trading.md §0-7 (k)）＝ 本番の第 1 候補の形（金額指定・us63 の 63 本 ／ 会社株 48 本。1 銘柄の枠 $4.76 ／ $6.25）。
+# ⚠ トレーダーのモデルは `kind = "experiment"`。先に予測を作り置く:  python simpredict.py make sim3（出来ているものは飛ばす。sim3 と sim4 は同じ作り置きを使う）
+# ⚠ 日付は仮・値段は過去の実物 ＝ 損益に意味は無い（判定に混ぜない）。期間・出どころ・気配の作り方は sim1 と同じ。筋書き（故障の注入）は無し
+name = "sim3"
+traders = ["sim_T1", "sim_T2", "sim_T3"]
+start = "2026-10-01"
+end = "2026-12-31"
+source_start = "2026-06-01"
+windows = ["15:45:30"]
+speed = 60
+skip_outside_window = true
+spread_bp = 2.0
+fill_noise = 0.003
+seed = 0

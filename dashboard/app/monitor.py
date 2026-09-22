@@ -26,6 +26,7 @@ from ttclient import ApiError, Client
 
 from .config import Settings
 from .masking import Redactor
+from .livestore import livefs
 
 log = logging.getLogger("ail.monitor")
 
@@ -103,10 +104,9 @@ class EventLog:
     """監視で得たイベントの追記。1 日 1 ファイル（UTC）。"""
 
     def __init__(self, directory: Path, redactor: Redactor) -> None:
-        self.dir = directory
+        self.dir = directory                       # ⚠ 2026-09-21 から中身は DB（`livefs`。道はそのまま）
         self.redactor = redactor
         self._lock = threading.Lock()
-        self.dir.mkdir(parents=True, exist_ok=True)
 
     def append(self, venue: str, env: str, kind: str, detail: dict | None = None, mock: bool = False) -> dict:
         row = {"at": utcnow_iso(), "venue": venue, "env": env, "kind": kind, "detail": self.redactor(detail or {})}
@@ -114,26 +114,19 @@ class EventLog:
             row["mock"] = True  # 接続先を差し替えた監視のイベント。判定から外す
         path = self.dir / f"{venue}-{env}-{datetime.now(timezone.utc).strftime('%Y%m%d')}.jsonl"
         with self._lock:
-            with open(path, "a", encoding="utf-8") as f:
-                f.write(json.dumps(row, ensure_ascii=False) + "\n")
+            livefs.append(path, json.dumps(row, ensure_ascii=False))
         return row
 
     def load(self) -> list[dict]:
         rows: list[dict] = []
-        if not self.dir.is_dir():
-            return rows
-        for path in sorted(self.dir.glob("*.jsonl")):
-            try:
-                with open(path, encoding="utf-8") as f:
-                    for line in f:
-                        line = line.strip()
-                        if line:
-                            try:
-                                rows.append(json.loads(line))
-                            except json.JSONDecodeError:
-                                continue
-            except OSError:
-                continue
+        for path in livefs.find(self.dir, "*.jsonl", missing_ok=True):
+            for line in livefs.read_lines(path, missing_ok=True):
+                line = line.strip()
+                if line:
+                    try:
+                        rows.append(json.loads(line))
+                    except json.JSONDecodeError:
+                        continue
         rows.sort(key=lambda r: r.get("at") or "")
         return rows
 

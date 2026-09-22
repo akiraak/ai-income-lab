@@ -1,0 +1,9 @@
+[Unit]
+Description=ai-income-lab 実売買: 平日 15:40 ET に執行を起こす
+
+[Timer]
+OnCalendar=Mon..Fri 15:40 America/New_York
+Persistent=false
+
+[Install]
+WantedBy=timers.target

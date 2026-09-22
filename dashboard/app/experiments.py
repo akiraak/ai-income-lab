@@ -1,4 +1,8 @@
-"""検証（`experiments/feature-discovery/runs/`）を一覧にする。
+"""実行の記録（`experiments/feature-discovery/runs/research.sqlite`）を一覧にする（vibeboard の「実行」タブ）。
+
+⚠ **記録は DB**（2026-09-21 にディレクトリから移した。書き手は実験側の `ail/rundb.py`）。
+⚠ **読み取り専用で開く**（`mode=ro`。無ければ作らない ＝ git 管理外なので別環境では空）。
+実行の名前・中のファイルの道（`summary.csv`・`checks.json` …）・中身は、いままでのディレクトリと同じ。
 
 ⚠ **読むだけ。** 検査（fold の符号・上乗せ・実効標本数・デフレーテッド SR）は
 ⚠ **実験側が `checks.json` に書いたものをそのまま出す**（[プラン §2](../../docs/plans/archive/dashboard-experiments.md)）。
@@ -10,18 +14,87 @@
 ⚠ **1 つの数字なので fold の偏りも多重検定も出ない。** だから検査の列を必ず横に並べる。
 
 ⚠ **前置きの門（rules.md 14-5）を通らなかった実行も出す**（2026-09-11。仕様 §10-6）。
-⚠ **`summary.csv` を持たないので黙って落ちていた。** 台帳には「門前」で残るので、画面からも消さない。
-⚠ **ただし検証としては数えない**（回していないから）ので、`index` が別枠（`gated_runs`）に出す。
+⚠ **`summary.csv` を持たないので黙って落ちていた。** 検証結果一覧には「門前」で残るので、画面からも消さない。
+⚠ **ただし実行の件数には数えない**（回していないから）ので、`index` が別枠（`gated_runs`）に出す。
 """
 
 from __future__ import annotations
 
 import csv
+import io
 import json
 import re
+import sqlite3
+import zlib
 from pathlib import Path
 
-# 特徴量の層 → 検証の種類
+# ⚠ 実験側 `ail/rundb.py` の `FILE_NAME` と同じ（`runs_dir` の中に置く）
+DB_NAME = "research.sqlite"
+# 見張り（`vibetab.exp_fingerprint`）が見るファイル
+WATCHED = ("summary.csv", "checks.json", "config.json", "inputs.json", "env.json")
+
+
+class Store:
+    """実行の記録を読むだけ。⚠ **DB が無い・開けないときは空**（落とさない）。
+
+    ⚠ 中身の形は実験側 `ail/rundb.py` と同じ（`codec` が 'text' ＝ UTF-8 の文字列のまま ／ 'zlib'）。
+    """
+
+    def __init__(self, runs_dir: Path):
+        self.path = Path(runs_dir) / DB_NAME
+        self.conn: sqlite3.Connection | None = None
+        if self.path.is_file():
+            try:
+                self.conn = sqlite3.connect(f"file:{self.path}?mode=ro", uri=True, timeout=10)
+                self.conn.execute("SELECT 1 FROM files LIMIT 1")
+            except sqlite3.Error:
+                self.close()
+
+    def __enter__(self) -> "Store":
+        return self
+
+    def __exit__(self, *exc) -> None:
+        self.close()
+
+    def close(self) -> None:
+        if self.conn is not None:
+            self.conn.close()
+            self.conn = None
+
+    def names(self) -> list[str]:
+        if self.conn is None:
+            return []
+        return [n for (n,) in self.conn.execute("SELECT name FROM runs ORDER BY name")]
+
+    def has(self, run: str) -> bool:
+        return self.conn is not None and self.conn.execute(
+            "SELECT 1 FROM runs WHERE name = ?", (run,)).fetchone() is not None
+
+    def get(self, run: str, path: str) -> bytes | None:
+        if self.conn is None:
+            return None
+        row = self.conn.execute("SELECT codec, body FROM files WHERE run = ? AND path = ?", (run, path)).fetchone()
+        if row is None:
+            return None
+        codec, body = row
+        if codec == "text":
+            return body.encode("utf-8") if isinstance(body, str) else bytes(body)
+        if codec == "zlib":
+            return zlib.decompress(body)
+        return None
+
+    def digests(self) -> dict[str, float]:
+        """実行ごとの指紋（見張りの 5 ファイルの sha256 から）。中身が変われば値が変わる。"""
+        if self.conn is None:
+            return {}
+        acc: dict[str, int] = {}
+        q = ("SELECT run, path, sha256 FROM files WHERE path IN (" + ",".join("?" * len(WATCHED)) + ")"
+             " ORDER BY run, path")
+        for run, path, sha in self.conn.execute(q, WATCHED):
+            acc[run] = zlib.crc32(f"{path}:{sha}".encode(), acc.get(run, 0))
+        return {n: float(acc.get(n, 0)) for n in self.names()}
+
+# 特徴量の層 → 実行の種類
 CROSS_LAYERS = ("cs", "rel", "ll")
 LAYER_LABEL = {"adjusted": "調整後", "raw": "調整前"}
 # ⚠ **日付をずらした偽薬**（実験側 `ail/runs.py` の `variant` が付ける末尾）。⚠ **本物と同じタイトルになるので、
@@ -39,20 +112,20 @@ def shift_days_of(name: str, config: dict) -> int:
     return (int(m.group(1)) if m else 0) or by_config
 
 
-def _read_json(path: Path) -> dict:
+def _read_json(data: bytes | None) -> dict:
     try:
-        with path.open(encoding="utf-8") as f:
-            return json.load(f)
-    except (OSError, ValueError):
+        return json.loads(data.decode("utf-8")) if data is not None else {}
+    except (UnicodeDecodeError, ValueError):
         return {}
 
 
-def _read_summary(path: Path) -> list[dict]:
+def _read_summary(data: bytes | None) -> list[dict]:
     """`summary.csv` を辞書の一覧にする。⚠ **数に直せない欄は None のまま残す。**"""
+    if data is None:
+        return []
     try:
-        with path.open(encoding="utf-8", newline="") as f:
-            rows = list(csv.DictReader(f))
-    except OSError:
+        rows = list(csv.DictReader(io.StringIO(data.decode("utf-8"), newline="")))
+    except (UnicodeDecodeError, csv.Error):
         return []
     out = []
     for r in rows:
@@ -101,14 +174,14 @@ def base_kind(config: dict) -> str:
 
 
 def kind_of(config: dict, leak: bool) -> str:
-    """⚠ **検証の種類。** 先読みの検査は種類として別に立てる（一覧に混ぜないため）。"""
+    """⚠ **実行の種類。** 先読みの検査は種類として別に立てる（一覧に混ぜないため）。"""
     return "先読みの検査" if leak else base_kind(config)
 
 
 def title_of(config: dict, inputs: dict, leak: bool) -> str:
     """⚠ **タイトルは付けずに設定から組み立てる。** 手で書くと実行のたびにずれる。
 
-    ⚠ **先読みの検査でも、どの検証の対照なのかが読めるようにする**
+    ⚠ **先読みの検査でも、どの実行の対照なのかが読めるようにする**
     （「先読みの検査」だけだと、断面のものかプーリングのものか分からない）。
     """
     gran, bar = granularity(config)
@@ -148,30 +221,30 @@ def gate_methods(gate: dict) -> list[dict]:
 def is_gated(summary: list[dict], gate: dict) -> bool:
     """⚠ **全手法が門前 ＝ 閾値売買を回していない実行か**（`summary.csv` を持たない）。
 
-    ⚠ **条件は台帳（`ail/catalog.py`）と同じ。** `forced`（門前の手法も回した印。既定・
+    ⚠ **条件は検証結果一覧（`ail/catalog.py`）と同じ。** `forced`（門前の手法も回した印。既定・
     `--ignore-gate`）で summary が無いのは「回したのに結果が無い」なので門前とは読まない。
     ⚠ 2026-09-14 から門は既定で止めないので、門前の実行は `--gate` で足切りしたときだけ生まれる。
     """
     return not summary and bool(gate.get("blocked")) and not gate.get("forced")
 
 
-def load_run(d: Path) -> dict | None:
+def load_run(store: Store, name: str) -> dict | None:
     """1 実行ぶん。⚠ **summary.csv が無い実行は「門前」だけ拾う**（rules.md 14-5）。
 
-    ⚠ **門前は「計算していない」ではなく「回していない」。** 台帳には残るので、
-    ⚠ **画面からも消さない**（隠さない）。検証としては数えないので `index` が別枠に出す。
+    ⚠ **門前は「計算していない」ではなく「回していない」。** 検証結果一覧には残るので、
+    ⚠ **画面からも消さない**（隠さない）。実行の件数には数えないので `index` が別枠に出す。
     """
-    summary = _read_summary(d / "summary.csv")
-    ch = _read_json(d / "checks.json")
+    summary = _read_summary(store.get(name, "summary.csv"))
+    ch = _read_json(store.get(name, "checks.json"))
     gate = ch.get("gate") or {}
     gated = is_gated(summary, gate)
     if not summary and not gated:
         return None
     methods = gate_methods(gate)
-    config, inputs = _read_json(d / "config.json"), _read_json(d / "inputs.json")
-    env = _read_json(d / "env.json")
-    leak = bool(ch.get("leak")) or d.name.endswith("_leak")
-    shift = shift_days_of(d.name, config)
+    config, inputs = _read_json(store.get(name, "config.json")), _read_json(store.get(name, "inputs.json"))
+    env = _read_json(store.get(name, "env.json"))
+    leak = bool(ch.get("leak")) or name.endswith("_leak")
+    shift = shift_days_of(name, config)
     best = ch.get("best") or {}
     # ⚠ 閾値つき売買の実行は「上乗せ」が対 B&H（edge_vs_bh。rules.md 13-7）。旧実行は対「常に上」
     folds, edge, dsr, breadth = (ch.get("folds"),
@@ -179,7 +252,7 @@ def load_run(d: Path) -> dict | None:
                                  ch.get("dsr"), ch.get("breadth"))
     gran, bar = granularity(config)
     return {
-        "run_id": d.name,
+        "run_id": name,
         "title": title_of(config, inputs, leak) + (f"（偽薬: 日付 −{shift:,} 日）" if shift else ""),
         "kind": "偽薬（日付ずらし）" if shift else kind_of(config, leak),
         "leak": leak,
@@ -196,7 +269,7 @@ def load_run(d: Path) -> dict | None:
         "cost_bp": config.get("cost_bp"),
         "seed": env.get("seed"),
         "commit": env.get("git_commit"),
-        "started_at": env.get("started_at") or d.name.split("_")[0],
+        "started_at": env.get("started_at") or name.split("_")[0],
         # ⚠ スコア = 最良手法（基準線を除く）の純利 bp
         "score": best.get("純利bp"),
         "best": best,
@@ -225,14 +298,9 @@ def load_run(d: Path) -> dict | None:
 
 
 def load_all(runs_dir: Path) -> list[dict]:
-    """⚠ **`runs/` が無くても落とさない**（git 管理外なので別環境では空になる）。"""
-    if not runs_dir.is_dir():
-        return []
-    out = []
-    for d in sorted(runs_dir.iterdir()):
-        if d.is_dir() and (run := load_run(d)):
-            out.append(run)
-    return out
+    """⚠ **DB が無くても落とさない**（git 管理外なので別環境では空になる）。"""
+    with Store(runs_dir) as store:
+        return [run for name in store.names() if (run := load_run(store, name))]
 
 
 def with_marks(run: dict) -> dict:
@@ -263,7 +331,7 @@ def index(runs_dir: Path) -> dict:
     """一覧。⚠ **スコアの降順。先読みの検査・偽薬・門前は別枠に出す**（混ぜると全部が嘘になる）。
 
     ⚠ **門前の実行は `total` / `positive` / `kinds` に数えない**（rules.md 14-5）。
-    ⚠ **検証を回していないので「検証 N 件」に足すと水増しになる**（n_trials に数えないのと同じ）。
+    ⚠ **検証を回していないので「実行 N 件」に足すと水増しになる**（n_trials に数えないのと同じ）。
     ⚠ **日付をずらした偽薬も数えない**（本物と同じ設定・同じタイトルなので、混ぜると本物が埋もれる）。
     """
     runs = [with_marks(r) for r in load_all(runs_dir)]
@@ -289,16 +357,14 @@ def index(runs_dir: Path) -> dict:
         "total": len(real),
         "positive": sum(1 for r in real if (r["score"] or 0) > 0),
         "missing_checks": [r["run_id"] for r in runs if not r["has_checks"]],
-        "runs_dir": str(runs_dir),
+        "runs_dir": str(Path(runs_dir) / DB_NAME),
     }
 
 
 def one(runs_dir: Path, run_id: str) -> dict | None:
-    """1 検証の詳細。⚠ **`..` を含む run_id は受けない。**"""
+    """1 実行の詳細。⚠ **`..` を含む run_id は受けない。**"""
     if not run_id or "/" in run_id or "\\" in run_id or run_id.startswith("."):
         return None
-    d = runs_dir / run_id
-    if not d.is_dir() or d.parent != runs_dir:
-        return None
-    run = load_run(d)
+    with Store(runs_dir) as store:
+        run = load_run(store, run_id) if store.has(run_id) else None
     return with_marks(run) if run else None

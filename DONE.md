@@ -1,4 +1,19 @@
 # DONE
+- 2026-09-22 管理画面を別の機械から見るトンネルを 1 コマンドに（`run-dashboard-tunnel.sh`）[plan](docs/plans/dashboard-remote-tunnel.md)
+  - 利用者の指示「`ssh -N -L 3013:127.0.0.1:3012 titan` を実行する `run_xxxx.sh` を作る。接続アドレスも表示させる」。きっかけは「管理画面は IP でアクセスできるか」＝ **できない**（`AIL_BIND=127.0.0.1` ＝ titan のループバックにだけ口を開けている）
+  - ⚠ **走らせるのは Sx360（見る側）**。titan 側は `AIL_BIND` も `AIL_AUTH_MODE` も変えない ＝ 面の規則に触らない
+  - 中身: ポートの確認 → ssh を後ろで起こす → 繋がるまで待つ（最大 15 秒）→ `curl` で応答を確かめる → **接続アドレスを表示** → Ctrl+C で後片付け。⚠ アドレスは繋がってから出す
+  - ポートの扱いは `run-server.sh` の作法（⚠ 名前ではなくポートから引く・自分自身と親は殺さない）。⚠ **自動で止めるのは古い ssh のトンネルだけ**（手元の関係ないプロセスは殺さない）
+  - ⚠ **Tailscale の IPv4（100.64.0.0/10）は Python の `ipaddress` でプライベート扱いにならない**【実測】＝ `AIL_AUTH_MODE=local` で tailnet の IPv4 から繋ぐと 403、IPv6（`fd7a:…` ＝ ULA）なら通る。IP を開ける案を採るときはここを踏む
+  - 試した道: 成功（URL ＋ HTTP 200）・Ctrl+C の後片付け・ssh 以外がポートを掴む（rc=1）・`--no-kill`（rc=1）・ポートが不正（rc=2）。⚠ **本物の ssh で繋がる所は titan では試せない**（自分自身にパスワードなしで ssh できない）→ 残りは TODO
+- 2026-09-22 実売買: 本番投入の前に、新しい記録の作り（DB）を cert で通しで確かめた → ✅ **全部通った（`acc5f9f` に戻さない）** [plan](docs/plans/db-model-facts.md)
+  - cert の `test_a` を往復【実測 11:33 PDT】: 買い 1665665 @ $25.08（起動から 10.4 秒）／ 売り 1665671 @ $25.07（4.0 秒）・どちらも `Filled`・問題 0。控え（`intent` → `submitted` → `done`）が 2 組とも閉じ、売買履歴は持ち株 0・履歴 4 行
+  - ⚠ **買いの約定確認で 429 が出たが、待って取り直して `Filled` を読めた**（`transitions` の `poll retry:429`）＝ 9/21 に直した穴が本番の前にもう 1 度効いた
+  - `reconcile.py --env cert show` ＝ 口座 − 売買履歴 の差 0・控えの未完 0 ／ `paper.py` → `daily.csv` 5 行が DB に入り読み戻せた
+  - 管理画面（3012）＝ `/`・`/overall`・`/traders/test_a`・`/traders/T1`・`/records`・`/judge`・`/ops`・`/api/live` が全部 200・`mode: real`・今日の cert の 2 回の起動と売買履歴が出る
+  - 秘密の grep ＝ `.env` の 7 項目のどれも `livefs.py dump` に現れない・`Bearer` 0 件・口座番号 50 か所ともマスク済み（⚠ `refresh_token_rotated` 88 件はイベント名で値ではない）
+  - ✅ **前営業日の注文は注文番号で読める**【実測】: cert の 1663195（`Filled` 1 株 $25.59）・1663301（同 $25.55）＝ 控えからの復元（[live-trading.md §0-8](docs/specs/experiments/live-trading.md) の段 1）が成立 → TODO の「前の営業日の注文を注文番号で照会できるかを sandbox で確かめる」を閉じた
+  - ⚠ 残るのは本番の dry-run（`./run-live.sh --traders T1,T2,T3 -- --env prod --allow-prod-dry-run`）＝ **利用者**。記録は [live-trading.md §0-11・§1](docs/specs/experiments/live-trading.md)
 - 2026-09-21 「買う線」「売る線」を **売買基準値** にした（利用者の決定「意味が分からない」。候補 ＝ 売買条件 → 売買基準値）
   - 意味: θ（閾値）。出力スコアが売買基準値を超えたら買い、「100 − 売買基準値」を下回ったら売る（例 55 なら 55 超で買い・45 未満で売る。その間は何もしない）
   - 直した所: `models.toml`（約 60 か所。「線に届く」「線をまたぐ」などの略も）・`traders.toml`（決まりの文は「売買基準値は 55。…」の形に）・`system.toml`・トレーダーのページの見出し「売買基準値」と表「売買基準値（θ）」・用語タブの θ・`dashboard.md`・CLAUDE.md の言葉の表。⚠ 「60 日の線」など θ でない「線」は残した。管理画面の pytest 225 本・sidecar 入れ替え済み

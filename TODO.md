@@ -187,8 +187,9 @@
       期日: 2026-09-21
     - [ ] 9/22（火）: 本番投入
       期日: 2026-09-22
-      - [ ] 06:35 sandbox で月曜の注文を注文番号で照会する ＋ cert の `test_a` を手仕舞い
+      - [x] 06:35 sandbox で月曜の注文を注文番号で照会する ＋ cert の `test_a` を手仕舞い
         期日: 06:35
+        ✅ 2026-09-22 11:55 PDT: 両方とも照会できた【実測】＝ 1663195 `Filled` 受付 18:59:01Z 約定 1 株 $25.59 ／ 1663301 `Filled` 受付 19:12:59Z 約定 1 株 $25.55。⚠ **前営業日の注文は注文番号で読める** ＝ 控えからの復元（§0-8 の段 1）が成立する
         ⚠ cert の `test_a` は 9/21 に手仕舞い済み（1663301）。照会するのは 1663195（買い）・1663301（売り）
         関連: 「前の営業日の注文を注文番号で照会できるかを sandbox で確かめる（控えからの復元 ＝ [live-trading.md §0-8](docs/specs/experiments/live-trading.md) の段 1。だめなら日をまたいだ未完は人が `reconcile.py resolve` で閉じる）」
       - [ ] 朝: 日足の更新 → 訓練（9/21 までの足で fit）
@@ -197,8 +198,13 @@
       - [ ] 12:45〜13:05 `T1`〜`T3` を規模 A で本番投入（⚠ **利用者**。案 A のときは先に `test_a` の売り）
         期日: 12:45〜13:05
         関連: 「Phase 5-2: 3 人を予算どおりに本番投入（**利用者が行う**。複数モデルのトレーダーを足すならその後）」
-      - [ ] 06:45 新しい記録の作り（DB。2026-09-21 夜に替えた）を通しで確かめる（⚠ 1 つでも外れたら `git revert` で `acc5f9f` の作りに戻して、本番は今までの作りで行う）
+      - [~] 06:45 新しい記録の作り（DB。2026-09-21 夜に替えた）を通しで確かめる（⚠ 1 つでも外れたら `git revert` で `acc5f9f` の作りに戻して、本番は今までの作りで行う）
         期日: 06:45〜07:30
+        ✅ 2026-09-22 11:33〜11:58 PDT に 1・2・3・5 を流して**全部通った**（⚠ 戻す必要なし）。残るのは 4（本番の dry-run）＝ ⚠ **利用者**（`TT_ALLOW_PROD_DRY_RUN` の許可を出して起動するのは利用者。CLAUDE.md）
+        - 1. cert の `test_a` の往復【実測】: 買い 1665665 @ $25.08（10.4 秒）／ 売り 1665671 @ $25.07（4.0 秒）・どちらも `Filled`・問題 0。⚠ **買いの約定確認で 429 が出たが、待って取り直して `Filled` を読めた**（`transitions` に `poll retry:429`）＝ 9/21 に直した穴が本番前にもう 1 度効いた
+        - 2. `livefs.py cat` で `out/2026-09-22/orders.jsonl`（2 行）・`state/cert/test_a.json`（持ち株 0・履歴 4 行）・`journal.jsonl`（intent → submitted → done が 2 組とも閉じた）を読めた ／ `reconcile.py --env cert show` ＝ 口座 − 売買履歴 の行なし（差 0）・控えの未完 0
+        - 3. `paper.py` → `daily.csv` 5 行が DB に入り読み戻せた ／ 管理画面（3012）は `/`・`/overall`・`/traders/test_a`・`/traders/T1`・`/records`・`/judge`・`/ops`・`/api/live` が全部 200・`mode: real`・今日の cert の 2 回の起動と売買履歴が出る
+        - 5. 秘密の grep ＝ `.env` の 7 項目のどれも `livefs.py dump` に現れない・`Bearer` 0 件・口座番号は 50 か所ともマスク済み。⚠ `refresh_token_rotated` の 88 件はイベント名で値ではない
         1. cert の `test_a` を往復（`test_signal.py buy` → `run_day.py --traders test_a --env cert --mode submit --ignore-window` → `test_signal.py exit` → もう 1 回）＝ 控え → 発注 → 約定 → 売買履歴 → 控えを閉じる が DB の上で通る
         2. `livefs.py cat experiments/live-trading/out/<今日>/orders.jsonl`・`state/cert/test_a.json`・`state/cert/journal.jsonl` を読む ／ `reconcile.py --env cert show`（口座 − 売買履歴 ＝ 0・控えの未完 0）
         3. `paper.py`（`daily.csv` が DB に入る）・管理画面（3012）の `/`・`/traders/test_a`・`/records`・`/judge`・`/ops` の履歴
@@ -233,7 +239,6 @@
   - [ ] Phase 6: 20 営業日の記録と判定（`live-trading.md`。続ける・止める・予算を変えるは利用者。モデルや合成規則の入れ替えは新しい検証として n_trials に足す）
   - [ ] 約定後の実際の手数料を読む（いまは dry-run の見積り ＝ `orders.jsonl` の `amounts.fee_source: "dry_run_estimate"`。`/accounts/{n}/transactions`【記憶・未確認】を sandbox で確かめてから）
     派生元: [plan](docs/plans/archive/live-trading-executor-fixes.md)（利用者の指示 2026-09-19「手数料など金額の内訳も保存するように」）
-  - [ ] 前の営業日の注文を注文番号で照会できるかを sandbox で確かめる（控えからの復元 ＝ [live-trading.md §0-8](docs/specs/experiments/live-trading.md) の段 1。だめなら日をまたいだ未完は人が `reconcile.py resolve` で閉じる）
   - [ ] Sx360 でシミュレーションを立ち上げる（⚠ **利用者**。`git pull` → プロジェクト直下で `./run-sim.sh --fetch titan --fresh --speed max` の 1 本 ＝ 依存・日足の写し・モード・管理画面・運転手・検査まで。⚠ `.env` は置かない。手順は [live-trading.md §0-7 (h)](docs/specs/experiments/live-trading.md)）
     本番と同じ形の `sim3`（金額指定）・`sim4`（整数株 5 本）を回すなら、titan の `experiments/live-trading/sim-predict/`（予測の作り置き。git 管理外）を写す ＝ Sx360 に LightGBM は要らない（2026-09-20）
   - [ ] 予想の時にg3plusを使った場合の処理時間を計測。遅すぎる場合はtitanで処理を動かすのを考える
@@ -322,6 +327,14 @@
   ✅ 2026-09-20: 本体（akiraak/vibeboard）へ push 済み（`ca8134c`。vendor と本体は一致）
   - [ ] 動いている vibeboard（3010）を入れ直す（✅ 2026-09-21 15:58 に入れ直されている ＝ 残りは画面で見るだけ。⚠ **利用者**。`./run-vibeboard.sh`、または `node vibeboard/dist/cli.js update --restart`。入れ直すまで `ツリー ｜ タイムライン` の切り替えは出ない ＝ `todo.ts` の読み手は起動時に読み込まれる）→ 画面で見たら、プランを archive へ・この親を消す（`DONE.md` には 2026-09-20 に記録済み）
 
+- [ ] 管理画面を別の機械から見るトンネル `run-dashboard-tunnel.sh` の残り [plan](docs/plans/dashboard-remote-tunnel.md)
+  利用者の指示（2026-09-22）: **`ssh -N -L 3013:127.0.0.1:3012 titan` を実行する `run_xxxx.sh` を作る。接続アドレスも表示させる**
+  ✅ 2026-09-22 に作った（[DONE.md](DONE.md)）。⚠ **走らせるのは Sx360**（titan では要らない）
+  - [ ] Sx360 で 1 度流して本物の ssh で繋がることを確かめる（⚠ **利用者**。`./run-dashboard-tunnel.sh` → `http://127.0.0.1:3013/`）
+    ⚠ titan では自分自身にパスワードなしで ssh できないので、**成功の道は代役の ssh でしか試していない**（失敗の道・ポートの扱い・表示・後片付けは本物で確認済み）
+  - [ ] 繋がらないホストのときに 2 分居残るのを直す（`ConnectTimeout` を入れる）
+    ⚠ 終了の番号と文面は正しい（rc=1 ＋「ssh が終了した」）。遅いだけ。titan（WSL2）で知らない名前の DNS 解決に 10 秒かかるのが引き金【実測 2026-09-22】
+
 - [ ] 既存の仕組みをCodex GPT6 Astraに分析と評価をさせる
   利用者の指示（2026-09-16）。着手時にプランを作る
   ⚠ **外部サービスにコードを渡す**ので、git 管理外の資格情報・記録（`.env`・`out/` など）を含めない
@@ -380,6 +393,7 @@
       ✅ 2026-09-21 夜: 本物 93 ・作り置き 384 ＝ 一致 477 ／ 477。本物の DB はリポジトリ直下の `live.sqlite`
     - [x] 回帰（執行器の pytest・`mockrun.sh`・`sim2`・`selftest.sh`・管理画面の pytest）
       ✅ 2026-09-21 夜: 執行器 142 本・管理画面 222 本・mockrun・sim2（64 日 18 秒・差は注入した BAC だけ）・selftest・`run-live.sh --mode plan`（作業用の置き場）・本物の管理画面の全ページ 200。[プラン §11-1](docs/plans/db-model-facts.md)
-    - [ ] 明日の朝のテスト（下の「9/22（火）: 本番投入」の 06:45 の段。⚠ 1 つでも外れたら `acc5f9f` に戻して本番は今までの作りで）
+    - [~] 朝のテスト（上の「9/22（火）: 本番投入」の 06:45 の段。⚠ 1 つでも外れたら `acc5f9f` に戻して本番は今までの作りで）
       期日: 2026-09-22 06:45
+      ✅ 2026-09-22: 1・2・3・5 が通った（⚠ **戻さない**。cert の往復・控え・突き合わせ・紙上の対照・管理画面・秘密の grep が DB の上で成立）。残るのは 4（本番の dry-run）＝ ⚠ **利用者**
     - [ ] いままでのファイル（`experiments/live-trading/out`・`state`・`experiments/tastytrade-api-sample/out`・`dashboard/data`・`sim-predict`）を消す（⚠ **本番投入が新しい作りで済んでから・利用者の了承のあと**。`livefs.py remove --i-verified <ディレクトリ>…`。それまでは `acc5f9f` に戻すときの足場）

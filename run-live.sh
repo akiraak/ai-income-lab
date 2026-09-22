@@ -4,6 +4,9 @@
 #   ./run-live.sh --traders T1,T2,T3                           # 既定は --mode dry-run・接続先は .env の TT_ENV（無ければ cert）
 #   ./run-live.sh --traders T1,T2,T3 --wait                    # 15:50:00 ET まで待ってから流す（窓の中で使う形）
 #
+# ⚠ **起動してすぐ 2 つを見る**（どちらも本体は run_day.py 側にあり、ここは 95 秒むだにしないための早見）:
+#    シミュレーションモードなら rc=5 ／ 別の執行器・運転手が動いていれば rc=6。
+#
 # ⚠ **--mode submit ＋ 今日の日付のときは、引けに間に合わなければ起動を拒否する（rc=11）。**
 #    準備（日足の更新 ＋ 予測）に約 120 秒かかるので、発注の開始が刻限（既定 15:58 ET）を過ぎる時刻に起こすと止まる。
 #    ⚠ 引けは 16:00 ET で、引け後の成行は拒否される。刻限は AIL_SUBMIT_DEADLINE、準備の見積りは AIL_PREP_SECONDS。
@@ -53,6 +56,41 @@ fi
 [ -n "$TRADERS" ] || { echo "--traders が要る" >&2; exit 64; }
 TODAY=$(TZ=America/New_York date +%F)
 DATE=${DATE:-$TODAY}
+
+# ---- シミュレーションと二重起動を**先に**見る（⚠ 排他の本体は run_day.py。ここは「95 秒むだにしない」ための早見）
+# ⚠ **ここで run.lock を持ち続けない**（持つと後で起こす run_day.py が自分で取れなくなる）＝ 取れるかだけ見てすぐ放す。
+# ⚠ **確かめられなくても止めない**（この早見の不具合で実売買を止めない。本物の関門は run_day.py の側）。
+PRECHECK=$(cd "$LT" && "$PY_LT" - <<'PY' 2>/dev/null
+import json, sys
+try:
+    import mode as modes
+    m = modes.read_mode()
+    if m.is_sim:
+        print(json.dumps({"stop": "sim", "name": m.name, "since": m.since}, ensure_ascii=False)); sys.exit(0)
+    lock = modes.RunLock()
+    if lock.acquire(m.mode, "run-live.sh の早見"):
+        lock.release()                      # ⚠ すぐ放す（run_day.py が取り直す）
+        print(json.dumps({"stop": None}, ensure_ascii=False))
+    else:
+        print(json.dumps({"stop": "lock", "holder": lock.holder()}, ensure_ascii=False))
+except Exception as exc:                    # ⚠ 早見が壊れても実売買を止めない
+    print(json.dumps({"stop": None, "warn": f"{type(exc).__name__}: {exc}"}, ensure_ascii=False))
+PY
+) || PRECHECK=""
+case "$PRECHECK" in
+  *'"stop": "sim"'*)
+    say "拒否: この機械はシミュレーションモード"
+    echo "  $PRECHECK" >&2
+    echo "  ⚠ 本物の執行器は起動しない（run_day.py も rc=5 で拒む）。戻すのは:" >&2
+    echo "     cd experiments/live-trading && ../tastytrade-api-sample/.venv/bin/python simctl.py mode real" >&2
+    exit 5 ;;
+  *'"stop": "lock"'*)
+    say "拒否: 別の執行器 ／ 運転手が動いている（run.lock）"
+    echo "  $PRECHECK" >&2
+    echo "  ⚠ 終わるのを待つか、止めてから起こす。" >&2
+    exit 6 ;;
+esac
+case "$PRECHECK" in *'"warn"'*) say "⚠ 早見ができなかった（そのまま進む。関門は run_day.py の側）: $PRECHECK" ;; esac
 
 if [ "$WAIT" = 1 ]; then
   TARGET=$(TZ=America/New_York date -d "$DATE 15:50:00" +%s)

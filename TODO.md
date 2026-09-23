@@ -372,11 +372,14 @@
   ⚠ **裁定を待つ論点はプラン §2 の K1〜K10**（下の「決めること」の 4 つは K4〜K6・K10 に入れた）
   - [x] Phase 0: プラン §2 の K1〜K10 を決める（⚠ **利用者**。K4 二重発注・K6 記録は Phase 3 より前に必須）
     ✅ 2026-09-22: K1〜K9 は推す案のとおり（利用者「案通りでよい」）・K10 ＝ 13500t は常時起動
-  - [~] Phase 1: 作業の場所を titan に移す（Sx360 の鍵を持ち続ける仕組み・`run-titan-session.sh`・CLAUDE.md とメモリ）
+  - [x] Phase 1: 作業の場所を titan に移す（Sx360 の鍵を持ち続ける仕組み・`run-titan-session.sh`・CLAUDE.md とメモリ）
+    ✅ 2026-09-22 夜: 子 3 つが済んだ（[DONE.md](DONE.md)）。Sx360 から `./run-titan-session.sh` がパスフレーズなしで通った【実測】
     - [x] `run-titan-session.sh` と CLAUDE.md（titan の Claude。プラン §4 1-1）
-      ✅ 2026-09-22 夜: 引数の検査・tmux の中で叩いたときの拒否・`--pull` の形の tmux の命令を使い捨てのセッションで確かめた【実測・titan】。⚠ Sx360 からの ssh 越しはまだ通していない
-    - [ ] Sx360 に keychain を入れる（⚠ **利用者**。プラン §4 1-2 の `.bashrc` 4 行）→ `wsl --shutdown` の後に端末を 1 つ開いてパスフレーズ 1 回 → 別の端末で `./run-titan-session.sh` が通る
-    - [ ] Sx360 のメモリ（titan-remote-access）を直す（⚠ **Sx360 の Claude**。メモリは機械ごと ＝ titan からは書けない。直す中身: 作業は titan の Claude・13500t と g3plus-ops は Sx360 の Claude・鍵は keychain で `~/.ssh/agent.sock` に別名）
+      ✅ 2026-09-22 夜: 引数の検査・tmux の中で叩いたときの拒否・`--pull` の形の tmux の命令を使い捨てのセッションで確かめた【実測・titan】。Sx360 からの ssh 越しも 2026-09-22 夜に通った【実測】
+    - [x] Sx360 に keychain を入れる（⚠ **利用者**。プラン §4 1-2 の `.bashrc` 4 行）→ `wsl --shutdown` の後に端末を 1 つ開いてパスフレーズ 1 回 → 別の端末で `./run-titan-session.sh` が通る
+      ✅ 2026-09-22 夜: keychain で `ssh -o BatchMode=yes titan` が ok・Sx360 から `./run-titan-session.sh` がパスフレーズなしで通った【実測】
+    - [x] Sx360 のメモリ（titan-remote-access）を直す（⚠ **Sx360 の Claude**。メモリは機械ごと ＝ titan からは書けない。直す中身: 作業は titan の Claude・13500t と g3plus-ops は Sx360 の Claude・鍵は keychain で `~/.ssh/agent.sock` に別名）
+      ✅ 2026-09-22 夜: Sx360 の Claude が直した（利用者の報告）
   - [ ] Phase 2: 13500t に本番の器を作る — まだ発注しない（g3plus-ops の `ail-live/`・`ail-dashboard/`・`auto-update.sh`・`--mode plan` と本番の dry-run・日足の取得の時間を測る）
   - [ ] Phase 3: 切り替えの手順を決めて cert で試す（「本番の機械ではない」印で titan の submit を拒む・`live.sqlite` を移す・`reconcile.py` の差 0）
   - [ ] Phase 4: 本番を 13500t に切り替える（⚠ **利用者**。市場の外の日に）

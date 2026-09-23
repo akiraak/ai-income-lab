@@ -1,4 +1,9 @@
 # DONE
+- 2026-09-22 3 台の役割分け Phase 1: 作業の場所を titan に移した（Sx360 ＝ 端末・titan の Claude で作業）[plan](docs/plans/three-machines.md)
+  - `run-titan-session.sh`（Sx360 → `ssh -t titan` → tmux `ail` で claude）と CLAUDE.md の「作業の場所」（titan の Claude が書いた・`a365e51`）
+  - Sx360 に keychain を入れた（利用者。プラン §4 1-2）→ keychain で `ssh -o BatchMode=yes titan` が ok・Sx360 から `./run-titan-session.sh` がパスフレーズなしで通った【実測 2026-09-22 夜】
+  - Sx360 のメモリ（titan-remote-access）を Sx360 の Claude が直した（作業は titan の Claude・13500t と g3plus-ops は Sx360 の Claude・鍵は keychain）
+  - 残るのは Phase 2〜5（13500t に本番の器 → 切り替えの手順を cert で → 切り替え → 戻し方）。親タスクは TODO に残す
 - 2026-09-22 13500T で「今日の買い%」の予測にかかる時間を測った → **間に合う** [plan](docs/plans/archive/predict-timing-13500t.md)
   - 利用者の指示（2026-09-19・09-22）「予想の時にg3plusを使った場合の処理時間を計測。遅すぎる場合はtitanで処理を動かすのを考える」→ 置き先を 13500t に替えた（g3plus は撤去済み）。線は測る前に固定（60 秒 ／ 180 秒）
   - 同じスナップショット（titan の `data-live/`・63 銘柄・sha256 `863f95b7…`）・同じ `bench_predict.py` で 3 本並列 × asof 2 日 × 6 回。温まった状態の中央値 **titan 37.41 ／ 37.60 秒・13500T 47.93 ／ 48.41 秒**【実測】＝ 線 60 秒の内側（余裕 15 秒ほど）。差はほぼ表づくり（32〜35 → 42〜44 秒）。冷えた状態の上乗せは無い

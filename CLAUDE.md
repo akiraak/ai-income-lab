@@ -79,6 +79,7 @@ tastytrade の本口座で、**トレーダー（Trader）3 人に予算を割�
 
 ドキュメント中心。アプリ実装は `dashboard/`（売買システムの管理画面。2026-09-05）が最初の 1 つ。
 
+- **機械の役割（2026-09-22 利用者決定。[プラン](docs/plans/three-machines.md) §2）**: Sx360 ＝ 端末（ssh・ブラウザ・シミュレーション）／ titan ＝ Claude Code を動かす場所・研究の計算（CPU・GPU）／ 13500t ＝ 本番（毎日の売買・管理画面のローカル面。GitHub から pull してデプロイ）。⚠ **切り替え（プランの Phase 4）までは売買は titan のまま**。⚠ 切り替えた後は **13500t 以外で発注しない**（titan は「本番の機械ではない」印で submit を拒む）
 - `TODO.md` / `DONE.md` — タスク管理
 - `docs/plans/` — 作業プラン（完了したものは `docs/plans/archive/` へ）
 - `docs/specs/` — 成果物となる仕様・体系

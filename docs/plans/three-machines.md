@@ -1,0 +1,141 @@
+# 3 台の役割分け — Sx360 で作業し、titan で計算し、13500t で本番を動かす
+
+> 2026-09-22 作成。利用者の指示: **「Sx360 で作業をするけど計算などの処理は CPU と GPU が強い titan でやりたい。デプロイは 13500t。そんな環境は作れる？」→「書いて」**
+> TODO「`~/g3plus-ops` を使って 13500T に管理画面と毎日の売買を動かす環境を作る」（着手時にプランを作る）のプランを兼ねる。
+
+## 1. 目的・背景
+
+- 作業する機械（Sx360・ノート）と、計算する機械（titan・7950X ＋ RTX 3090 Ti）と、本番の機械（13500t・i5-13500T の家庭サーバ）を分ける
+- いまは **titan が全部を兼ねている**（研究の計算・日足の取得・毎日の売買・管理画面・vibeboard）。Sx360 は titan へ ssh する端末で、シミュレーションだけを回す（資格情報を置かない機械。2026-09-19 の利用者決定）
+- 13500t は予測を 3 本並列で **約 48 秒【実測 2026-09-22】** で済ませる ＝ 毎日の売買は載せられる（[live-trading.md §0-12](../specs/experiments/live-trading.md)）
+
+> この図の主張: 人は Sx360 の前に座るが、手を動かすのは titan の上の Claude。本番は 13500t だけが口座に触る。
+
+```mermaid
+flowchart LR
+  U[利用者<br/>Sx360] -- "ssh（tmux）" --> C[Claude Code<br/>titan]
+  U -- "ブラウザ" --> V[vibeboard<br/>titan]
+  C --> R[(研究の DB・日足<br/>titan)]
+  C -- "git push" --> G[GitHub]
+  G -- "pull（13500t が取りに来る）" --> P[毎日の売買 ＋ 管理画面<br/>13500t]
+  P --> T[tastytrade 口座]
+  U -- "ssh ／ Cloudflare Access" --> P
+```
+
+### 役割（案）
+
+| 機械 | 役割 | 置くもの | 置かないもの |
+| --- | --- | --- | --- |
+| Sx360 | 端末（ssh・ブラウザ）。シミュレーション（いまの決定のまま） | 鍵・研究 DB の控え | tastytrade の `.env` |
+| titan | **Claude Code を動かす場所**・研究の計算（`cli.run`・`cli.queue`・GPU の学習）・研究用の `data/`・`runs/research.sqlite`・vibeboard | コード・研究のデータ | ⚠ 切り替えの後は**本番の発注の許可**（§4 Phase 4） |
+| 13500t | **本番**: 毎日の売買（`run-live.sh`）・管理画面・`data-live/`・`live.sqlite` | 本番の `.env`（利用者が置く）・`live.sqlite` | 研究のデータ・GPU の仕事 |
+
+## 2. 決めること（✅ 2026-09-22 に全部決まった）
+
+✅ **利用者の裁定（2026-09-22 夜）: K1〜K9 は「推す案」のとおり**（「案通りでよい」）。K10 は常時起動の回答。以下の表の「推す案」が決定。
+
+| # | 論点 | 決定（推した案） | 理由 ／ ほかの案 |
+| --- | --- | --- | --- |
+| K1 | Claude Code をどこで動かすか | **titan**（Sx360 から `ssh titan` → tmux の中で `claude`） | コード・データ・GPU・研究の DB が手元にある。Sx360 で動かして毎回 `ssh titan '…'` で計算させる案は、コードとデータが 2 台に分かれて写し違いが起きる（2026-09-22 の計測で、スナップショットを 3 台に写した） |
+| K2 | 13500t へのデプロイの形 | **13500t が GitHub から pull する**（g3plus-ops の `daily-ai-music/auto-update.sh` と同じ型・host cron） | titan から 13500t への経路が要らない（いまは届かない【実測】）。⚠ **main への push ＝ 本番に反映**になるので、売買の時間帯（12:30〜13:15 PDT）は pull しない前チェックが要る |
+| K3 | titan から 13500t へ ssh を通すか | **通さない**（K2 で足りる。操作は Sx360 から） | 通すなら (a) 13500t を tailnet に入れる ／ (b) titan に Cloudflare Access の ssh を置く。⚠ どちらも本番に届く経路が増える |
+| K4 | ⚠ **二重発注をどう防ぐか**（いちばん重い） | **(a) 売買は 13500t だけ。titan の売買の timer ・許可を外す** | 排他（`MODE`・`run.lock`）は機械の中のファイル。両方が起きると同じ口座に 2 回注文が出る。(b) 口座の側で重複を弾く ＝ 設計から ／ (c) 手で切り替える ＝ 事故が起きる |
+| K5 | 管理画面と売買を同じ機械に置くか | **同じ 13500t。ただし公開面（Cloudflare）は出さず、ローカル面だけ**（Sx360 からトンネル） | 公開面のある機械に発注の許可と資格情報が載るのを避ける。公開面も出すなら [dashboard.md §7](../specs/dashboard.md) の「置かない env」を書き換える |
+| K6 | 記録（`live.sqlite`）をどうするか | **切り替えの日に titan から 13500t へ移し、titan の側は読むだけの写しにする** | 1 つの口座の記録は 1 か所（「2 か所には置かない」の利用者の裁定と同じ考え）。両方を読む案は管理画面の作りが変わる |
+| K7 | 日足の `data-live/` | **13500t が自分で取る**（`.env` があれば DXLink で取れる）。初回だけ titan から写す | 研究用の `data/` とは別物のまま。titan は研究の `data/` だけ |
+| K8 | Sx360 から titan の鍵 | **keychain か Windows 側の ssh-agent に預ける**（WSL の再起動で `ssh-add` をやり直さない） | 2026-09-22 に `~/.ssh/agent.sock` が消えていた。パスフレーズなしの鍵にはしない |
+| K9 | シミュレーションの機械 | **Sx360 のまま**（いまの決定） | 8 秒で済む軽い仕事・資格情報の無い機械で回す決定がある。titan に寄せるなら `run-sim.sh` の scratch の道（`~/.cache/ai-income-lab-sim`）で回る |
+| K10 | 13500t が常に起きているか | ✅ **常時起動**（2026-09-22 利用者の回答） | それでも落ちた日（停電・更新の再起動）は 1 日飛ぶ。titan に戻す手順（Phase 5）で埋める |
+
+## 3. 対応方針
+
+### 3-1. 作業の流れ（Sx360 → titan）
+
+> この図の主張: 作業の出入り口は Sx360 だが、コードを書く・計算する・コミットするのは全部 titan の上。
+
+```mermaid
+sequenceDiagram
+  participant S as Sx360（利用者）
+  participant T as titan（Claude Code）
+  participant G as GitHub
+  S->>T: ssh titan → tmux attach
+  T->>T: 実装・研究の計算（GPU）・テスト
+  T->>G: git push（利用者が頼んだとき）
+  S->>T: vibeboard（http://titan-income-vibeboard）で見る
+```
+
+- tmux のセッションを 1 つ決める（例 `ail`）。切れても計算は続く
+- vibeboard の Tasks タブから titan のセッションへ投函できる（いまの仕組みのまま）
+- Sx360 の作業ツリーは**読むだけ**にする（`git pull` で追う）。Sx360 で書いたものがあれば push してから titan で pull
+
+### 3-2. 本番（13500t）の器
+
+> この図の主張: 13500t は自分で pull して、自分の時計で売買する。titan とはつながらない。
+
+```mermaid
+flowchart TB
+  subgraph N13500t["13500t"]
+    AU["auto-update（host cron）<br/>売買の時間帯は止める"] --> CL[ai-income-lab の clone]
+    CR["host cron: 朝の準備 ／ 15:40 ET の売買"] --> RL["run-live.sh（使い捨てコンテナ）"]
+    CL --> RL
+    RL --> DB[(live.sqlite)]
+    RL --> DL[(data-live/)]
+    DB --> DS["管理画面（常駐コンテナ・3012・ローカル面）"]
+  end
+  G[GitHub] --> AU
+```
+
+| 部品 | 形 | 置き場 |
+| --- | --- | --- |
+| 毎日の売買 | 使い捨てコンテナを host cron から起こす（g3plus-ops の受け入れ準備の (b) 案。`ail-predict-bench` の Dockerfile を土台に `tastytrade-api-sample` の依存を足す） | g3plus-ops `ail-live/` |
+| 管理画面 | 常駐コンテナ（§7 の契約。3012） | g3plus-ops `ail-dashboard/`（`5dea5eb` から戻す） |
+| 自動デプロイ | `auto-update.sh`（前チェック: 売買の時間帯・`run.lock`・`HALT` のあいだは pull しない） | g3plus-ops |
+| 許可 | `.env` と `live.env`（`TT_ALLOW_PROD_ORDERS=1` など）は**利用者が置く** | 13500t のみ |
+
+⚠ デプロイ設定・ホスト名・Tunnel は **g3plus-ops 側にだけ書く**（CLAUDE.md）。このリポジトリには契約（何を置く・置かない）と判定だけ。
+
+## 4. Phase
+
+### Phase 0: 決める（利用者）
+- ✅ 2026-09-22: K1〜K9 は推す案のとおり・K10 は常時起動
+
+### Phase 1: 作業の場所を titan に移す（K1・K8）
+- Sx360 に鍵を持ち続ける仕組み（keychain か Windows の ssh-agent）を入れる（⚠ 入れるのは利用者）
+- titan で tmux ＋ `claude` を起こす段取りを `run-titan-session.sh`（Sx360 で叩く 1 本。`ssh -t titan tmux new -A -s ail`）にする
+- CLAUDE.md に「作業は titan の Claude で。Sx360 は端末」を書く。メモリ（titan-remote-access）も直す
+
+### Phase 2: 13500t に本番の器を作る — まだ発注しない（K2・K5・K7）
+- 依存: 「9/23（水）: 本番投入」＋ titan で数日通ったこと
+- g3plus-ops: `ail-live/`（売買のコンテナ）・`ail-dashboard/` を戻して §7 に追従（`glossary.toml`）・`auto-update.sh`
+- 13500t で `--mode plan`（過去の日）→ 本番の dry-run（利用者が `.env` を置いてから）。⚠ **発注の許可はまだ置かない**
+- 管理画面はローカル面だけで起動し、Sx360 からトンネルで見る（`run-dashboard-tunnel.sh` の宛先を選べるようにする）
+
+### Phase 3: 切り替えの手順を決めて試す（K4・K6）
+- 手順書（`live-trading.md` に節を足す）: ① titan の timer を止め、titan の `live.env` から発注の許可を外す → ② `live.sqlite` と `state/` を 13500t へ（sha256 を確かめる）→ ③ 13500t の `reconcile.py show` で口座と売買履歴の差 0 → ④ 13500t の timer を入れる
+- ⚠ **「titan で発注しない」を仕組みで守る**: titan に `experiments/live-trading/` の「本番の機械ではない」印を置き、`run_day.py` が submit を拒む（`MODE` と同じ型のファイル）。⚠ 印の有無を 13500t と取り違えない書き方をプランで詰める
+- cert（sandbox）で切り替えを 1 往復して確かめる
+
+### Phase 4: 本番を 13500t に切り替える（利用者）
+- 市場の外の日（週末）に Phase 3 の手順で。許可を置いて timer を入れるのは利用者
+
+### Phase 5: 戻し方と見張り（K10）
+- 13500t が落ちた日に titan へ戻す手順（Phase 3 の逆）
+- 管理画面の監視（`/api/live`）で「今日の起動が無い」を見つけたら知らせる
+
+## 5. 影響範囲
+
+- このリポジトリ: CLAUDE.md（作業の場所・機械の役割）・`live-trading.md`（切り替えの手順・本番の機械の印）・`dashboard.md` §7（K5 で公開面を出すなら）・`run_day.py`（本番の機械の印を読む）・`run-dashboard-tunnel.sh`（宛先）
+- g3plus-ops: `ail-live/`・`ail-dashboard/`・`auto-update.sh`・13500t の host cron
+- 実売買: ⚠ 切り替えまでは titan のまま。9/23 の本番投入には触らない
+
+## 6. テスト方針
+
+- Phase 1: Sx360 を再起動しても `ssh titan` がパスフレーズなしで通る（エージェントが残る）・tmux から戻れる
+- Phase 2: 13500t で `./run-tests.sh --fast` がコンテナで通る・`--mode plan` が titan と同じ計画を出す（同じ日・同じ `data-live/` なら売買の判定が一致。⚠ 指紋は CPU で変わる ＝ §0-12）・管理画面が 200・秘密の grep 0 件
+- Phase 3: 「本番の機械ではない」印がある機械で submit が拒まれる（テスト）・cert で切り替えを往復して `reconcile.py` の差 0・`live.sqlite` の sha256 一致
+- 全体: 13500t 以外に `TT_ALLOW_PROD_ORDERS` が置かれていないこと
+
+## 7. まだ分かっていないこと
+
+- ~~13500t が常に起きているか~~ → ✅ 常時起動（K10。利用者の回答）。2026-09-22 20:31 PDT の `up 1:25` は、その日にカーネルと GPU ドライバを入れ替えて再起動したため
+- 13500t の `data-live/` の日足の取得（DXLink）が市場時間中に何秒かかるか（titan は 54〜55 秒【実測】）。予測 48 秒と足して準備の見積り 120 秒に収まるか ＝ Phase 2 で測る

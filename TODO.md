@@ -380,7 +380,12 @@
       ✅ 2026-09-22 夜: keychain で `ssh -o BatchMode=yes titan` が ok・Sx360 から `./run-titan-session.sh` がパスフレーズなしで通った【実測】
     - [x] Sx360 のメモリ（titan-remote-access）を直す（⚠ **Sx360 の Claude**。メモリは機械ごと ＝ titan からは書けない。直す中身: 作業は titan の Claude・13500t と g3plus-ops は Sx360 の Claude・鍵は keychain で `~/.ssh/agent.sock` に別名）
       ✅ 2026-09-22 夜: Sx360 の Claude が直した（利用者の報告）
-  - [ ] Phase 2: 13500t に本番の器を作る — まだ発注しない（g3plus-ops の `ail-live/`・`ail-dashboard/`・`auto-update.sh`・`--mode plan` と本番の dry-run・日足の取得の時間を測る）
+  - [~] Phase 2: 13500t に本番の器を作る — まだ発注しない（g3plus-ops の `ail-live/`・`ail-dashboard/`・`auto-update.sh`・`--mode plan` と本番の dry-run・日足の取得の時間を測る）
+    - [x] Step 2-1: 器の契約を書く（live-trading.md §0-13・dashboard.md §7-1・`run-dashboard-tunnel.sh` の宛先の案内）
+      ✅ 2026-09-22 夜（titan の Claude）
+    - [ ] Step 2-2: g3plus-ops に `ail-live/`・`ail-dashboard/`（§7 ・ §7-1 に追従）・`auto-update.sh`・host cron を作る（⚠ **Sx360 の Claude**。契約は §0-13・§7-1）
+    - [ ] Step 2-3: 13500t で §0-13 の合否 ①〜⑤ を確かめる（⚠ `.env` を置くのは**利用者**。本番 dry-run と市場時間中の日足の計測は 9/23 の本番投入の後）
+      依存: 「Step 2-2: g3plus-ops に `ail-live/`・`ail-dashboard/`（§7 ・ §7-1 に追従）・`auto-update.sh`・host cron を作る（⚠ **Sx360 の Claude**。契約は §0-13・§7-1）」
   - [ ] Phase 3: 切り替えの手順を決めて cert で試す（「本番の機械ではない」印で titan の submit を拒む・`live.sqlite` を移す・`reconcile.py` の差 0）
   - [ ] Phase 4: 本番を 13500t に切り替える（⚠ **利用者**。市場の外の日に）
   - [ ] Phase 5: 戻し方（13500t が落ちた日に titan へ）と見張り

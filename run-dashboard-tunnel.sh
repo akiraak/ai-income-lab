@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# 管理画面（titan の dashboard）を、別の機械から ssh のトンネル越しに見る。
+# 管理画面（titan か 13500t の dashboard）を、別の機械から ssh のトンネル越しに見る。
 #
 #   ./run-dashboard-tunnel.sh                    # http://127.0.0.1:3013/ → titan の 127.0.0.1:3012
 #   ./run-dashboard-tunnel.sh --port 3014        # 手元のポートを変える
-#   ./run-dashboard-tunnel.sh --host titan2      # 繋ぎ先を変える
+#   ./run-dashboard-tunnel.sh --host 13500t      # 繋ぎ先を変える（⚠ 13500t へは Sx360 からだけ届く。名前は Sx360 の ~/.ssh/config のもの）
 #   ./run-dashboard-tunnel.sh --remote-port 3019 # 向こうのポートを変える
 #   ./run-dashboard-tunnel.sh --no-kill          # ⚠ ポートが塞がっていたら止めずに終わる
 #
@@ -186,8 +186,13 @@ case "$status" in
   200) echo "  ✅ 管理画面が応答した（HTTP 200）" ;;
   "")  echo "  … curl が無いので確かめていない。ブラウザで開く" ;;
   000) echo "  ⚠ 応答が無い。${HOST} で管理画面が動いているか確かめる:"
-       echo "       ssh ${HOST} 'cd ~/ai-income-lab && ./run-server.sh'" ;;
-  403) echo "  ⚠ HTTP 403（面に弾かれた）。${HOST} の dashboard/.env の AIL_AUTH_MODE を確かめる" ;;
+       if [ "$HOST" = "titan" ]; then
+         echo "       ssh ${HOST} 'cd ~/ai-income-lab && ./run-server.sh'"
+       else
+         echo "       ${HOST} では常駐コンテナ（g3plus-ops の ail-dashboard。docs/specs/dashboard.md §7-1）"
+       fi ;;
+  403) echo "  ⚠ HTTP 403（面に弾かれた）。${HOST} の dashboard/.env の AIL_AUTH_MODE を確かめる"
+       echo "     （コンテナなら network_mode: host か。ブリッジ越しはループバックに見えない ＝ dashboard.md §7-1）" ;;
   *)   echo "  ⚠ HTTP $status が返った" ;;
 esac
 echo

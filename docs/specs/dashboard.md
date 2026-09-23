@@ -175,6 +175,20 @@ g3plus-ops 側の `ail-dashboard/`（Dockerfile・compose・手順書）はこ�
 | 段階的な有効化 | Access の AUD が無いうちは `AIL_AUTH_MODE=loopback`（非ループバックは全部 403 = fail-safe）で起動しておき、Access アプリ → `.env` に 3 変数と `cloudflare` → Tunnel hostname の順で開ける |
 | エッジキャッシュ | ホスト全体 Bypass の Cache Rule を入れる（キャッシュ HIT は認証評価前に配信される。アプリ側も `no-store` を返す） |
 
+### 7-1. 13500t のローカル面（2026-09-22 夜。[プラン](../plans/three-machines.md) K5・Phase 2）
+
+13500t では毎日の売買と**同じ機械**に管理画面を置く（K5）。⚠ **公開面（Cloudflare）は出さず、ローカル面だけ**（Sx360 から `run-dashboard-tunnel.sh --host <13500t の ssh 名>` で見る）＝ 上の表の「置かない env」はそのまま守られる（この面にも発注の経路は無い）。上の表との差だけを書く。
+
+| 項目 | 13500t の値 | 上の表との差の理由 |
+| --- | --- | --- |
+| build context ／ 置き場 | 売買と**同じ clone を bind mount**（[live-trading.md §0-13](experiments/live-trading.md)）。COPY しない | 実売買の画面が読む `live.sqlite`・`experiments/live-trading/`・停止ボタンが書く `experiments/tastytrade-api-sample/out/HALT` を売買と共有する（F21 の「記録を届ける経路」が要らなくなる） |
+| 面 | `AIL_AUTH_MODE=loopback` | 公開面を出さない（K5） |
+| ネットワーク | ⚠ **`network_mode: host` ＋ `AIL_BIND=127.0.0.1`** | ⚠ `ports: 127.0.0.1:3012:3012` の形だと、要求は docker のブリッジの IP から届く ＝ ループバックに見えず**全部 403**（loopback 面は接続元で判定する）。host のループバックに直に口を開ける |
+| uid | clone の持ち主と同じ | 停止ボタンが書く `HALT` と記録の DB を root の持ち物にしない |
+| 資格情報 | 売買と同じ `experiments/tastytrade-api-sample/.env`（`config.py` が既定で読む） | 取消の許可（停止ボタン）は `ops.py` が開ける。⚠ dry-run ・ 発注の許可はこの面に渡らない（いまのとおり） |
+| 実行・データの画面 | 空のまま（研究のデータは 13500t に置かない） | 研究は titan |
+| 常駐 | 常駐コンテナ（`restart: unless-stopped`）・healthcheck は上の表のまま | — |
+
 ## 8. 検証（2026-09-05）
 
 | # | 検証 | 結果 |

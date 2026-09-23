@@ -752,6 +752,44 @@ flowchart LR
 - ⚠ **余裕は 15 秒ほど**。表づくりは銘柄数と日数に比例して延びる【推測】ので、銘柄を増やす・観測期間を延ばすときは測り直す
 - 13500T には tastytrade の `.env` も `live.sqlite` も無いことを最後に確かめた。結果の JSONL は git 管理外（titan ／ 13500T ／ Sx360 の `~/ail-bench/`）
 
+### 0-13. 本番の機械（13500t）の器 — デプロイ契約（正本。2026-09-22 夜。[プラン](../../plans/three-machines.md) Phase 2）
+
+g3plus-ops 側の `ail-live/`（毎日の売買）・`auto-update.sh`・13500t の host cron はここに従う。契約が変わったらあちらを追従させる（管理画面は [dashboard.md §7](../dashboard.md) の「13500t のローカル面」）。⚠ **デプロイ設定・ホスト名・Tunnel は g3plus-ops 側にだけ書く**。⚠ **Phase 2 では発注しない**（発注の許可は切り替え ＝ Phase 4 で利用者が置く）。
+
+> この図の主張: コンテナは使い捨てで、記録・日足・許可・排他のファイルは全部ホストの clone の中にある ＝ コンテナを作り直しても何も失わない。
+
+```mermaid
+flowchart LR
+  subgraph H["13500t の host"]
+    CRON["host cron<br/>09:00 ET ／ 15:40 ET"] --> RUN["ail-live（使い捨てコンテナ）<br/>run-live.sh"]
+    AU["auto-update.sh"] --> CL
+    CL[("clone<br/>live.sqlite ・ data-live/ ・ MODE ・ run.lock ・ HALT ・ .env")]
+    RUN -- "bind mount（読み書き）" --> CL
+  end
+  G[GitHub] --> AU
+  RUN --> TT["tastytrade ・ DXLink ・ 外部系列"]
+```
+
+| 項目 | 値 |
+| --- | --- |
+| 置き場 | 13500t の host に**このリポジトリの clone を 1 つ**（public なので `git clone`）。⚠ **コンテナには COPY せず bind mount（読み書き）** ＝ 本物の記録 `live.sqlite`（リポジトリ直下）・`experiments/feature-discovery/data-live/`・`experiments/live-trading/{MODE,run.lock,mode.log,state-backup/}`・`experiments/tastytrade-api-sample/out/HALT`・資格情報 `.env` が全部 clone の中の決まった道にある（§0-11。道を変えると `livefs` の「本物に入れてよい置き場」から外れて止まる） |
+| ベース | `python:3.12-slim`（`ail-predict-bench` と同じ。13500t の予測 48 秒は この形の【実測】＝ §0-12） |
+| 依存 | `experiments/feature-discovery/requirements.txt` ＋ `requirements-nodeps.txt`（`--no-deps`）＋ `experiments/tastytrade-api-sample/requirements.txt`。⚠ `torch` は今日の買い% の経路（T1〜T3）では import されない【実測 titan 2026-09-22 ＝ `-X importtime` に出ない】＝ 入れるなら CPU 版で足りる。版は requirements の固定のまま（2 台で売買の判定が一致した組 ＝ §0-12） |
+| python の道 | ⚠ **`run-live.sh`・`live_update.sh` は `experiments/feature-discovery/.venv/bin/python` と `experiments/tastytrade-api-sample/.venv/bin/python` を決め打ち**で読む ＝ コンテナの中でこの 2 つの道が動くこと。推す形: image の venv を `/opt/venv` に作り、clone の 2 つの `.venv` を `/opt/venv` への symlink にする（どちらも git 管理外。host では宙に浮くが host では使わない） |
+| uid | ⚠ **コンテナはホストの clone の持ち主と同じ uid:gid で動かす**（root で書くと `live.sqlite`・`data-live/` が root の持ち物になり、auto-update の `git pull` と次の起動が壊れる） |
+| TZ | コンテナ・host cron とも時刻は **ET で決める**（`run-live.sh` は中で `TZ=America/New_York` を使う。host cron の TZ が PDT なら 06:00 ／ 12:40 に読み替える。⚠ 夏時間の切り替えで両方が同じだけずれることを確かめる） |
+| 起動 | 朝 ＝ `./run-live.sh --prepare`（平日 09:00 ET）／ 売買 ＝ `./run-live.sh --traders T1,T2,T3 --mode <MODE> --wait -- --env prod <追加>`（平日 15:40 ET）。`experiments/live-trading/systemd/` の雛形と同じ時刻・同じ引数（中身は `live.env` の `AIL_LIVE_*`） |
+| Phase 2 の `MODE` | ⚠ **`plan` か `dry-run` だけ**（本番の dry-run には `--allow-prod-dry-run` と `TT_ALLOW_PROD_DRY_RUN=1`）。⚠ **`TT_ALLOW_PROD_ORDERS` と `--i-know-this-is-real-money` は置かない**（Phase 4 で利用者が置く。§0-2 の許可の 3 段は変えない） |
+| 機械のモード | ⚠ **13500t は常に `real`**（シミュレーションは Sx360 ＝ K9）。`experiments/live-trading/MODE` を置かない ＝ 既定の `real` |
+| 資格情報 | `experiments/tastytrade-api-sample/.env`（⚠ **置くのは利用者**・git 管理外・image に焼かない） |
+| 外向き通信 | ⚠ **ネットワーク無しでは動かない**（`ail-predict-bench` と違う）。`api.tastyworks.com`・`streamer.tastyworks.com`・`*.dxfeed.com`（日足 ＝ DXLink）・外部系列の取得先（`exog_live` ＝ 為替・金利・気象・地震の公開 API） |
+| 排他 | `run.lock`（flock）はホストの clone の中のファイル ＝ ⚠ **同じ clone を mount するコンテナどうしでしか効かない**。13500t の中で執行器を 2 つの置き場から起こさない。⚠ **titan との二重発注は防げない**（K4 ＝ Phase 3 の「本番の機械ではない」印） |
+| auto-update | 13500t が GitHub から pull（K2）。⚠ **pull しないとき**: ① 売買の時間帯（15:30〜16:15 ET）② `run.lock` が取れない（`flock -n` で確かめてすぐ放す）③ `HALT` がある ④ 作業ツリーが汚れている（`git status --porcelain` が空でない）。pull は `--ff-only`。⚠ **main への push ＝ 次の pull から本番に反映** |
+| healthcheck | 常駐しない（使い捨て）ので無し。代わりに `run-live.sh` の rc を host の log に残す（rc の意味は `run-live.sh` の頭の注記: 5 ＝ sim ／ 6 ＝ 二重起動 ／ 11 ＝ 引けに間に合わない） |
+
+**Phase 2 の合否**（プラン §6）: ① コンテナで `./run-tests.sh --fast` が通る ② titan と同じ `data-live/` の写しで `--date <過去の日> --mode plan -- --ignore-window` が**同じ売買の判定**を出す（⚠ 入力の指紋は CPU で変わる ＝ §0-12。比べるのは判定）③ 本番の dry-run が通り、何もルーティングされない ④ 市場時間中の `live_update.sh` の所要時間（titan 54〜55 秒【実測】）＋ 予測 48 秒【実測】が準備の見積り 120 秒に収まる ⑤ 13500t の `live.sqlite` の `livefs.py dump` に `.env` の値が 0 件。
+⚠ **Phase 2 の間に 13500t の `live.sqlite` に入る記録は dry-run ／ plan のものだけ**。切り替え（Phase 3・K6）で titan の `live.sqlite` を持ってくるときは、上書きせず `live.sqlite.phase2-<日付>` に名前を変えて脇へ退ける（1 つの口座の記録は 1 か所）。
+
 ### 0-9. 1 日に複数回の発注に広げるか — ⚠ **広げない**（2026-09-20 利用者決定）
 
 利用者の指示（2026-09-20）: **「1 日に複数回広げても意味がないので広げない。ただし 1 日に別銘柄を購入したり、買いと売りを同時に出すのは問題ない」**。

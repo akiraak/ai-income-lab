@@ -148,6 +148,23 @@ fi
 - 13500t で `--mode plan`（過去の日）→ 本番の dry-run（利用者が `.env` を置いてから）。⚠ **発注の許可はまだ置かない**
 - 管理画面はローカル面だけで起動し、Sx360 からトンネルで見る（`run-dashboard-tunnel.sh` の宛先を選べるようにする）
 
+> この図の主張: Phase 2 は「titan で契約を書く → Sx360 の Claude が g3plus-ops に作る → 13500t で確かめる」の順で、⚠ 本番の注文が出る段は無い。
+
+```mermaid
+flowchart LR
+  A["2-1 契約（titan の Claude）<br/>live-trading.md §0-13 ・ dashboard.md §7-1"] --> B["2-2 g3plus-ops に作る（Sx360 の Claude）<br/>ail-live ・ ail-dashboard ・ auto-update"]
+  B --> C["2-3 13500t で確かめる<br/>tests ・ plan ・ 本番 dry-run ・ 日足の時間"]
+  U["利用者: 13500t に .env を置く"] --> C
+```
+
+| Step | 中身 | だれ | 依存 |
+| --- | --- | --- | --- |
+| 2-1 | 器の契約（正本）を書く: 売買 ＝ [live-trading.md §0-13](../specs/experiments/live-trading.md)・管理画面 ＝ [dashboard.md §7-1](../specs/dashboard.md)。`run-dashboard-tunnel.sh` の宛先（`--host 13500t` の案内） | titan の Claude | なし（✅ 2026-09-22 夜） |
+| 2-2 | g3plus-ops: `ail-live/`（Dockerfile ＝ `ail-predict-bench` ＋ tastytrade の依存・clone の bind mount・uid・`.venv` の symlink）・`ail-dashboard/` を戻して §7 ・ §7-1 に追従・`auto-update.sh`（pull しない 4 条件）・host cron（`--mode plan` か dry-run だけ） | ⚠ **Sx360 の Claude**（K1 の例外） | 2-1 |
+| 2-3 | 13500t で §0-13 の合否 ①〜⑤（tests ／ `--mode plan` の判定が titan と一致 ／ 本番 dry-run ／ 市場時間中の日足 ＋ 予測が 120 秒に収まるか ／ 秘密の grep） | Sx360 の Claude ＋ 利用者（`.env` を置く） | 2-2 ・ ⚠ 本番 dry-run と市場時間中の計測は **9/23 の本番投入の後**（冒頭の依存） |
+
+⚠ **2-1 と 2-2 の器づくりは冒頭の依存（9/23 の本番投入 ＋ titan で数日）を待たなくてよい**（13500t には発注の許可を置かない ＝ titan の実売買に触らない）。待つのは 2-3 の本番の資格情報を使う段だけ。
+
 ### Phase 3: 切り替えの手順を決めて試す（K4・K6）
 - 手順書（`live-trading.md` に節を足す）: ① titan の timer を止め、titan の `live.env` から発注の許可を外す → ② `live.sqlite` と `state/` を 13500t へ（sha256 を確かめる）→ ③ 13500t の `reconcile.py show` で口座と売買履歴の差 0 → ④ 13500t の timer を入れる
 - ⚠ **「titan で発注しない」を仕組みで守る**: titan に `experiments/live-trading/` の「本番の機械ではない」印を置き、`run_day.py` が submit を拒む（`MODE` と同じ型のファイル）。⚠ 印の有無を 13500t と取り違えない書き方をプランで詰める

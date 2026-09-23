@@ -104,6 +104,44 @@ flowchart TB
 - titan で tmux ＋ `claude` を起こす段取りを `run-titan-session.sh`（Sx360 で叩く 1 本。`ssh -t titan tmux new -A -s ail`）にする
 - CLAUDE.md に「作業は titan の Claude で。Sx360 は端末（13500t と g3plus-ops の操作だけ Sx360 の Claude）」を書く。メモリ（titan-remote-access）も直す
 
+#### 1-1. 済んだもの（2026-09-22 夜・titan の Claude）
+
+- `run-titan-session.sh`（プロジェクト直下。Sx360 で叩く）: 鍵で入れるかを `BatchMode` で先に見る（入れなければ手順を出して止まる）→ `ssh -t titan` → `tmux new-session -A -s ail`。セッションが無ければ `~/ai-income-lab` で `claude` を起こし、抜けてもシェルを残す。`--pull`（新しく作るときだけ `git pull --ff-only`）・`--shell`・`--session`・`--host titan-lan`。titan の上で叩けば ssh しない。tmux の中で叩くと止まる（入れ子）
+- CLAUDE.md の「機械の役割」の行に入口（`run-titan-session.sh`）と「書いたら push ／ 始める前に pull」を足した
+
+#### 1-2. 鍵を持ち続ける（K8。⚠ **入れるのは利用者・Sx360 で**）
+
+> この図の主張: 鍵のパスフレーズを入れるのは WSL が起きた最初の端末の 1 回だけ。あとの端末と Claude は同じエージェントを使う。
+
+```mermaid
+flowchart LR
+  B[WSL の起動] --> K["最初の端末<br/>keychain がパスフレーズを 1 回聞く"]
+  K --> A[(ssh-agent)]
+  A --- L["~/.ssh/agent.sock<br/>（いつもの道への別名）"]
+  L --> S1["2 つ目以降の端末"]
+  L --> S2["Sx360 の Claude<br/>SSH_AUTH_SOCK=~/.ssh/agent.sock"]
+```
+
+推す案は **keychain**（apt で入る・鍵はディスクに平文で置かない）。`~/.bashrc` の末尾に:
+
+```bash
+# titan の鍵を WSL の起動ごとに 1 回だけ聞く（docs/plans/three-machines.md 1-2）
+if command -v keychain >/dev/null 2>&1; then
+  eval "$(keychain --eval --quiet --agents ssh titan-ed25519)"
+  ln -sfn "$SSH_AUTH_SOCK" ~/.ssh/agent.sock   # いままでの手順（SSH_AUTH_SOCK=~/.ssh/agent.sock）をそのまま使う
+fi
+```
+
+入れ方: `sudo apt install keychain` → 上を足す → 新しい端末を開いてパスフレーズを 1 回 → `ssh -o BatchMode=yes titan true && echo ok`。
+
+| 案 | WSL を再起動した後 | 手間 | ⚠ |
+| --- | --- | --- | --- |
+| **keychain（推す）** | 最初の端末で 1 回だけ聞かれる（`ssh-add` を手で叩かない） | apt 1 本 ＋ `.bashrc` 4 行 | Claude が端末より先に起きるとエージェントが無い（端末を 1 つ開けば直る） |
+| Windows の ssh-agent ＋ 橋渡し（`wsl2-ssh-agent` など） | 聞かれない（Windows が鍵を覚えている） | Windows のサービスを自動起動・橋渡しの道具を別に入れる | 外の道具を 1 本足す。Windows にログオンしている間は誰でも鍵を使える |
+
+- ⚠ パスフレーズなしの鍵にはしない（K8）
+- テスト（§6）: Sx360 の WSL を `wsl --shutdown` → 端末を開いてパスフレーズを 1 回 → 別の端末で `./run-titan-session.sh` がパスフレーズなしで入れる
+
 ### Phase 2: 13500t に本番の器を作る — まだ発注しない（K2・K5・K7）
 - 依存: 「9/23（水）: 本番投入」＋ titan で数日通ったこと
 - g3plus-ops: `ail-live/`（売買のコンテナ）・`ail-dashboard/` を戻して §7 に追従（`glossary.toml`）・`auto-update.sh`

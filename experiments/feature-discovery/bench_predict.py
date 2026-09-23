@@ -1,4 +1,4 @@
-"""「今日の買い%」の予測にかかる時間を測る（[プラン](../../docs/plans/predict-timing-13500t.md)）。
+"""「今日の買い%」の予測にかかる時間を測る（[プラン](../../docs/plans/archive/predict-timing-13500t.md)）。
 
     AIL_DATA_DIR=data-live .venv/bin/python bench_predict.py --asof 2026-09-18,2026-09-22 --repeat 6 --out <置き場>/bench.jsonl
     .venv/bin/python bench_predict.py --compare a.jsonl b.jsonl      # 2 台の結果を並べる（時間と売買の判定の一致）

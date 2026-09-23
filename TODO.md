@@ -279,27 +279,6 @@
     派生元: [plan](docs/plans/archive/live-trading-executor-fixes.md)（利用者の指示 2026-09-19「手数料など金額の内訳も保存するように」）
   - [ ] Sx360 でシミュレーションを立ち上げる（⚠ **利用者**。`git pull` → プロジェクト直下で `./run-sim.sh --fetch titan --fresh --speed max` の 1 本 ＝ 依存・日足の写し・モード・管理画面・運転手・検査まで。⚠ `.env` は置かない。手順は [live-trading.md §0-7 (h)](docs/specs/experiments/live-trading.md)）
     本番と同じ形の `sim3`（金額指定）・`sim4`（整数株 5 本）を回すなら、titan の `experiments/live-trading/sim-predict/`（予測の作り置き。git 管理外）を写す ＝ Sx360 に LightGBM は要らない（2026-09-20）
-  - [~] 予想の時にg3plusを使った場合の処理時間を計測。遅すぎる場合はtitanで処理を動かすのを考える [plan](docs/plans/predict-timing-13500t.md)
-    利用者の指示（2026-09-22）: **`../g3plus-ops` が管理する 13500t にデプロイして速度計測する**（置き先を g3plus から 13500t に替えた。g3plus は 2026-09-22 に管理画面ごと撤去済み）
-    ⚠ 測るのは予測だけ（3 本並列の経過時間）。13500t に資格情報（`.env`）を置かない・売買しない。「遅すぎる」の線はプラン §2-3（60 秒 ／ 180 秒）で測る前に固定
-    - [x] Phase 0: プラン §7 の裁定（Python の入れ方 ／ 線 ／ `data-live/` を写す経路・titan での測り直し）（⚠ **利用者**）
-      ✅ 2026-09-22: Docker（`python:3.12-slim`）／ 線は 60 秒 ／ 180 秒 ／ `data-live/` の写しと titan での測り直しは titan で起こした Claude が行う
-    - [x] Phase 1: 測るスクリプト `experiments/feature-discovery/bench_predict.py`
-      ✅ 2026-09-22: `--compare A B` で 2 台を並べる・テスト 2 本
-    - [~] Phase 2: 13500t に載せる（g3plus-ops に `ail-predict-bench/`・clone・イメージ・`data-live/` の写し〔titan の Claude〕・`tests/test_predict.py`）
-      ✅ 2026-09-22: g3plus-ops に `ail-predict-bench/`（Dockerfile・compose・手順書）・13500t に clone（`7f4c68e`）・イメージ 2.67GB（作るのに 1 分 55 秒）。コンテナの中は Python 3.12.14・numpy 2.4.2・lightgbm 4.7.0・numba 0.67.0・aeon 1.5.0・torch 2.14.0+cpu で `tests/test_predict.py` 8 通過 ／ 1 skip。✅ 13500t で `git pull` 済み（`bda2fcd`）
-      ✅ 2026-09-22 夜: titan で `data-live/` のスナップショットを作った（`~/ail-bench/data-live-20260922-2000`・70MB・63 銘柄・足は 09-22 まで〔⚠ 途中の足〕）。固めたもの `…tar.gz`（24MB）＋ SHA256 も置いた。⚠ 残り: 13500t へ写す
-      ⚠ **titan から 13500t に直接は入れない**【実測 2026-09-22】（ssh config に無い・tailnet は titan と sx360 の 2 台だけ・`~/g3plus-ops` も titan に無い）＝ **Sx360 を経由する**
-      ⚠ **引き継ぎの手順はプラン §8**（次の作業者は**手順 4 から**。スナップショットを 13500t へ → 13500t で計測 → `--compare`）
-    - [~] Phase 3: titan と 13500t で測る（asof 2026-09-18・09-22 × 6 回。titan は市場時間の外）
-      ✅ **titan 側は 2026-09-22 20:01〜20:09 PDT に済み**（12 回とも `ok`）＝ 温まった状態の中央値 **37.41 秒**（asof 09-18）／ **37.60 秒**（09-22）・冷えた状態の上乗せは 2 秒（§2-3 の 30 秒に当たらない）。内訳は表づくり 31.8 秒 ／ 学習と予測 0.12 秒【実測】。結果は `~/ail-bench/out/titan-20260922-2000.jsonl`（⚠ git 管理外）
-      ⚠ **手順 6 で rc=1 が出やすい**: asof 2026-09-22 は売買基準値のすぐそばに銘柄が固まっている（`trade_own_ridge_a` の CAT が θ=50 と **0.0006** 差）＝ CPU の違いで 0.001 揺れれば判定が入れ替わる。出たら**時間の比較より先に原因を調べる**（プラン §8 手順 6 の表）
-      - [ ] 13500t 側で測る（⚠ **Sx360 で起こした Claude か利用者**。titan からは届かない）
-    - [ ] Phase 4: `live-trading.md` に記録・判定を「13500T で予測にかかる時間を測る」へ写す
-    利用者の指示（2026-09-19）。着手時にプランを作る（何を「予想」の 1 回と数えるか ＝ モデルの更新 ＋ 今日の買い% の算出・どのモデルで測るか・「遅すぎる」の線を、測る前に決める）
-    ⚠ g3plus のデプロイ設定・ホスト名は g3plus-ops（private）側にだけ書く（CLAUDE.md）。記録には処理時間と機械の仕様だけを残す
-    関連: 「A4: 4 役をそれぞれどの機械で動かすか（いまは全部 titan の予定。予測は GPU を使う）」
-    関連: 「Phase 1: 「今日の買い%」の経路（`cli/predict.py --asof`。`evaluate_trading` と同じ関数群で訓練 ＝ 昨日まで・予測する行 ＝ 今日の 63 行。既定経路は 1 ビットも変えない・先読みテスト・決定性）⚠ トレーダーの属性が決まってから」
   - [ ] 管理画面（`dashboard/`）全体を設計しなおす
     利用者の指示（2026-09-18）。着手時にプランを作る（見直す範囲 ＝ 画面の構成・導線・見た目のどこまでかは、プランで利用者と決める）
     ⚠ **設計しなおしても守るもの**（CLAUDE.md の決まり）: 面の規則（公開面は監視と停止だけ・操作と開発はローカル面だけ）・秘密をブラウザに送らない・停止ボタン（`HALT`）（[dashboard.md §2・§3](docs/specs/dashboard.md)）
@@ -397,13 +376,14 @@
     - [ ] 管理画面と売買を**同じ機械**に置くか（⚠ §7 は「公開面 ＝ 監視と停止だけ」。同居させると、公開面のある機械に発注の許可と資格情報が載る）
     - [ ] 記録（`live.sqlite`）をどうするか（⚠ **機械ごとのローカルファイル**なので、動かす機械を替えると記録が分かれる。移すのか・両方を読むのか）
     - [ ] 13500T の素性（OS・常時起動か・GPU の有無・tailnet に居るか）。⚠ **予測は 3 モデルで 38 秒【実測 titan】**なので、遅い機械だと発注できる時間帯に収まらない
+      分かったこと【実測 2026-09-22】: Intel Core i5-13500T（20 論理・AVX-512 なし）・メモリ 30.6 GiB・Linux（Docker あり）・GPU は GTX TITAN X（Maxwell ＝ torch 2.14 の CUDA 13 版に載らない）・tailnet には居ない（Sx360 から Cloudflare Tunnel 経由の ssh。titan からは届かない）。⚠ 残り: 常時起動か
   - [ ] 調べること（決まってから）
     - [ ] `~/g3plus-ops` の `ail-dashboard/` がいまの契約（§7）にどこまで追従しているか（⚠ **`glossary.toml` の追従が要る**と §7 に書いてある ＝ 追従までは i マークが出ない）
-    - [ ] 13500T で予測にかかる時間を測る（⚠ **「遅すぎる」の線を測る前に決める** ＝ 既存の TODO と同じ作法）
-      関連: [plan](docs/plans/predict-timing-13500t.md)（「予想の時にg3plusを使った場合の処理時間を計測。遅すぎる場合はtitanで処理を動かすのを考える」で測る）
+    - [x] 13500T で予測にかかる時間を測る（⚠ **「遅すぎる」の線を測る前に決める** ＝ 既存の TODO と同じ作法）
+      ✅ 2026-09-22 夜: **間に合う**（3 本並列・温まった状態の中央値 47.93 ／ 48.41 秒【実測】≤ 線 60 秒。titan は 37.41 ／ 37.60 秒）。売買の判定は titan と 1 銘柄も変わらない。⚠ 余裕は 15 秒ほど・入力の指紋は CPU で変わる。記録は [live-trading.md §0-12](docs/specs/experiments/live-trading.md)・[plan](docs/plans/archive/predict-timing-13500t.md)
     - [ ] 資格情報の置き方（⚠ **`.env` を新しい機械に置く ＝ 実売買が物理的に起きる機械が増える**。Sx360 に置かない決定の裏返し）
   依存: 「9/23（水）: 本番投入」（⚠ **titan で 1 日でも通してから機械を増やす**）
-  関連: 「売買（`run-live.sh`）が自動で動くようにする（無人運転）」／ 「予想の時にg3plusを使った場合の処理時間を計測。遅すぎる場合はtitanで処理を動かすのを考える」／ [dashboard.md §7](docs/specs/dashboard.md)
+  関連: 「売買（`run-live.sh`）が自動で動くようにする（無人運転）」／ [live-trading.md §0-12](docs/specs/experiments/live-trading.md)（13500T の予測の時間。2026-09-22 済み）／ [dashboard.md §7](docs/specs/dashboard.md)
 
 - [ ] 管理画面を別の機械から見るトンネル `run-dashboard-tunnel.sh` の残り [plan](docs/plans/dashboard-remote-tunnel.md)
   利用者の指示（2026-09-22）: **`ssh -N -L 3013:127.0.0.1:3012 titan` を実行する `run_xxxx.sh` を作る。接続アドレスも表示させる**
@@ -440,6 +420,7 @@
     - [x] 控えを Sx360 にも写す（⚠ **利用者**。titan から Sx360 へは ssh が届かないので、Sx360 から `scp titan:/mnt/c/Users/akira/ai-income-lab-backup/research-2026-09-21-2.sqlite <置き場>/`。⚠ 新しいほう ＝ `-2` は診断の出力 `outputs` と `ledger_rows` も入った 320.1 MB）
       C ドライブは WSL の仮想ディスクと同じ物理ディスクの可能性がある（ディスクの故障に効かない）
       ✅ 2026-09-21: 利用者が Sx360 へ scp した（利用者の報告。⚠ titan から Sx360 へは届かないので、Claude は中身を確かめていない ＝ 突き合わせるなら Sx360 で `sha256sum` が `f8d5fcfe9aba58a5…c99649`）
+      ✅ 2026-09-22 夜: Sx360 の写しの `sha256sum` が `f8d5fcfe…c99649` と一致【実測】。リポジトリ直下に置かれていたので `~/ai-income-lab-backup/` へ移した（⚠ 320MB ＝ GitHub の上限 100MB を超えるのでコミットしない）
     - [x] sidecar を入れ直したのを確かめてから（下の子タスク）、`runs/` の実行ディレクトリ 255 と `runs/queue/` を消す（⚠ **利用者の了承のあと**。`python3 -m cli.db remove-dirs --i-verified`）
       ✅ 2026-09-21: 消した 255 ／ 食い違い 0。`runs/` 2.5 GB → 303 MB・消した後の DB だけの検証結果一覧は前と 1 文字も違わない・研究側 497 本 ／ 管理画面 218 本
     - [x] sidecar（3015）を入れ直す（⚠ **利用者**。`vibetab.py`・`app/experiments.py` を直したので。実行タブが DB を読む）

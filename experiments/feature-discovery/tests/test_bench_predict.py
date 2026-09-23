@@ -1,4 +1,4 @@
-"""`bench_predict.py`（13500t で予測の時間を測る。docs/plans/predict-timing-13500t.md）の拾い方と比べ方。"""
+"""`bench_predict.py`（13500t で予測の時間を測る。docs/plans/archive/predict-timing-13500t.md）の拾い方と比べ方。"""
 
 import json
 import os

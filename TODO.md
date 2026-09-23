@@ -279,7 +279,18 @@
     派生元: [plan](docs/plans/archive/live-trading-executor-fixes.md)（利用者の指示 2026-09-19「手数料など金額の内訳も保存するように」）
   - [ ] Sx360 でシミュレーションを立ち上げる（⚠ **利用者**。`git pull` → プロジェクト直下で `./run-sim.sh --fetch titan --fresh --speed max` の 1 本 ＝ 依存・日足の写し・モード・管理画面・運転手・検査まで。⚠ `.env` は置かない。手順は [live-trading.md §0-7 (h)](docs/specs/experiments/live-trading.md)）
     本番と同じ形の `sim3`（金額指定）・`sim4`（整数株 5 本）を回すなら、titan の `experiments/live-trading/sim-predict/`（予測の作り置き。git 管理外）を写す ＝ Sx360 に LightGBM は要らない（2026-09-20）
-  - [ ] 予想の時にg3plusを使った場合の処理時間を計測。遅すぎる場合はtitanで処理を動かすのを考える
+  - [~] 予想の時にg3plusを使った場合の処理時間を計測。遅すぎる場合はtitanで処理を動かすのを考える [plan](docs/plans/predict-timing-13500t.md)
+    利用者の指示（2026-09-22）: **`../g3plus-ops` が管理する 13500t にデプロイして速度計測する**（置き先を g3plus から 13500t に替えた。g3plus は 2026-09-22 に管理画面ごと撤去済み）
+    ⚠ 測るのは予測だけ（3 本並列の経過時間）。13500t に資格情報（`.env`）を置かない・売買しない。「遅すぎる」の線はプラン §2-3（60 秒 ／ 180 秒）で測る前に固定
+    - [x] Phase 0: プラン §7 の裁定（Python の入れ方 ／ 線 ／ `data-live/` を写す経路・titan での測り直し）（⚠ **利用者**）
+      ✅ 2026-09-22: Docker（`python:3.12-slim`）／ 線は 60 秒 ／ 180 秒 ／ `data-live/` の写しと titan での測り直しは titan で起こした Claude が行う
+    - [x] Phase 1: 測るスクリプト `experiments/feature-discovery/bench_predict.py`
+      ✅ 2026-09-22: `--compare A B` で 2 台を並べる・テスト 2 本
+    - [~] Phase 2: 13500t に載せる（g3plus-ops に `ail-predict-bench/`・clone・イメージ・`data-live/` の写し〔titan の Claude〕・`tests/test_predict.py`）
+      ✅ 2026-09-22: g3plus-ops に `ail-predict-bench/`（Dockerfile・compose・手順書）・13500t に clone（`7f4c68e`）・イメージ 2.67GB（作るのに 1 分 55 秒）。コンテナの中は Python 3.12.14・numpy 2.4.2・lightgbm 4.7.0・numba 0.67.0・aeon 1.5.0・torch 2.14.0+cpu で `tests/test_predict.py` 8 通過 ／ 1 skip。⚠ 残り: 13500t で `git pull`（2026-09-22 夜に push 済み）・`data-live/` のスナップショットの写し（titan の Claude）
+      ⚠ **引き継ぎの手順はプラン §8**（スナップショットを作ってから titan と 13500t に同じものを読ませる・titan の計測は 12:40〜13:10 PDT を避ける）
+    - [ ] Phase 3: titan と 13500t で測る（asof 2026-09-18・09-22 × 6 回。titan は市場時間の外）
+    - [ ] Phase 4: `live-trading.md` に記録・判定を「13500T で予測にかかる時間を測る」へ写す
     利用者の指示（2026-09-19）。着手時にプランを作る（何を「予想」の 1 回と数えるか ＝ モデルの更新 ＋ 今日の買い% の算出・どのモデルで測るか・「遅すぎる」の線を、測る前に決める）
     ⚠ g3plus のデプロイ設定・ホスト名は g3plus-ops（private）側にだけ書く（CLAUDE.md）。記録には処理時間と機械の仕様だけを残す
     関連: 「A4: 4 役をそれぞれどの機械で動かすか（いまは全部 titan の予定。予測は GPU を使う）」
@@ -384,6 +395,7 @@
   - [ ] 調べること（決まってから）
     - [ ] `~/g3plus-ops` の `ail-dashboard/` がいまの契約（§7）にどこまで追従しているか（⚠ **`glossary.toml` の追従が要る**と §7 に書いてある ＝ 追従までは i マークが出ない）
     - [ ] 13500T で予測にかかる時間を測る（⚠ **「遅すぎる」の線を測る前に決める** ＝ 既存の TODO と同じ作法）
+      関連: [plan](docs/plans/predict-timing-13500t.md)（「予想の時にg3plusを使った場合の処理時間を計測。遅すぎる場合はtitanで処理を動かすのを考える」で測る）
     - [ ] 資格情報の置き方（⚠ **`.env` を新しい機械に置く ＝ 実売買が物理的に起きる機械が増える**。Sx360 に置かない決定の裏返し）
   依存: 「9/23（水）: 本番投入」（⚠ **titan で 1 日でも通してから機械を増やす**）
   関連: 「売買（`run-live.sh`）が自動で動くようにする（無人運転）」／ 「予想の時にg3plusを使った場合の処理時間を計測。遅すぎる場合はtitanで処理を動かすのを考える」／ [dashboard.md §7](docs/specs/dashboard.md)

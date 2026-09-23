@@ -188,6 +188,7 @@ g3plus-ops 側の `ail-dashboard/`（Dockerfile・compose・手順書）はこ�
 | 資格情報 | 売買と同じ `experiments/tastytrade-api-sample/.env`（`config.py` が既定で読む） | 取消の許可（停止ボタン）は `ops.py` が開ける。⚠ dry-run ・ 発注の許可はこの面に渡らない（いまのとおり） |
 | 実行・データの画面 | 空のまま（研究のデータは 13500t に置かない） | 研究は titan |
 | 常駐 | 常駐コンテナ（`restart: unless-stopped`）・healthcheck は上の表のまま | — |
+| イメージ | ⚠ **売買の `ail-live` のイメージを共用**（`/opt/venv` に研究・tastytrade・管理画面の依存。上の表の「依存 7 つの `python:3.12-slim`」ではない。2026-09-22 夜 Step 2-2） | [live-trading.md §0-13](experiments/live-trading.md) の合否 ①（`run-tests.sh --fast`）が `dashboard/.venv` と研究の `.venv` を同じ環境で要る。build は 1 本で済む |
 
 ## 8. 検証（2026-09-05）
 

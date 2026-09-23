@@ -383,7 +383,8 @@
   - [~] Phase 2: 13500t に本番の器を作る — まだ発注しない（g3plus-ops の `ail-live/`・`ail-dashboard/`・`auto-update.sh`・`--mode plan` と本番の dry-run・日足の取得の時間を測る）
     - [x] Step 2-1: 器の契約を書く（live-trading.md §0-13・dashboard.md §7-1・`run-dashboard-tunnel.sh` の宛先の案内）
       ✅ 2026-09-22 夜（titan の Claude）
-    - [ ] Step 2-2: g3plus-ops に `ail-live/`・`ail-dashboard/`（§7 ・ §7-1 に追従）・`auto-update.sh`・host cron を作る（⚠ **Sx360 の Claude**。契約は §0-13・§7-1）
+    - [x] Step 2-2: g3plus-ops に `ail-live/`・`ail-dashboard/`（§7 ・ §7-1 に追従）・`auto-update.sh`・host cron を作る（⚠ **Sx360 の Claude**。契約は §0-13・§7-1）
+      ✅ 2026-09-22 夜: g3plus-ops の `ail-live/`（Dockerfile・compose・`run.sh`〔Phase 2 の留め金 ＝ submit と発注の許可を拒む〕・`auto-update.sh`・`live.env.example`）と `ail-dashboard/`（ローカル面・イメージは ail-live と共用）。13500t で build・管理画面 healthy（ループバック 200 ／ LAN 接続不可 ／ Sx360 のトンネル 200）・host cron 3 行（PT 06:00 prepare ／ 12:40 trade ／ 15 分おき auto-update）。`.env` が無いので cron は「SKIP」を書いて終わる。手順書は g3plus-ops の `docs/workflows/ail-live.md`・`ail-dashboard.md`
     - [ ] Step 2-3: 13500t で §0-13 の合否 ①〜⑤ を確かめる（⚠ `.env` を置くのは**利用者**。本番 dry-run と市場時間中の日足の計測は 9/23 の本番投入の後）
       依存: 「Step 2-2: g3plus-ops に `ail-live/`・`ail-dashboard/`（§7 ・ §7-1 に追従）・`auto-update.sh`・host cron を作る（⚠ **Sx360 の Claude**。契約は §0-13・§7-1）」
   - [ ] Phase 3: 切り替えの手順を決めて cert で試す（「本番の機械ではない」印で titan の submit を拒む・`live.sqlite` を移す・`reconcile.py` の差 0）

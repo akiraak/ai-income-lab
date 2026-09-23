@@ -287,9 +287,14 @@
     - [x] Phase 1: 測るスクリプト `experiments/feature-discovery/bench_predict.py`
       ✅ 2026-09-22: `--compare A B` で 2 台を並べる・テスト 2 本
     - [~] Phase 2: 13500t に載せる（g3plus-ops に `ail-predict-bench/`・clone・イメージ・`data-live/` の写し〔titan の Claude〕・`tests/test_predict.py`）
-      ✅ 2026-09-22: g3plus-ops に `ail-predict-bench/`（Dockerfile・compose・手順書）・13500t に clone（`7f4c68e`）・イメージ 2.67GB（作るのに 1 分 55 秒）。コンテナの中は Python 3.12.14・numpy 2.4.2・lightgbm 4.7.0・numba 0.67.0・aeon 1.5.0・torch 2.14.0+cpu で `tests/test_predict.py` 8 通過 ／ 1 skip。✅ 13500t で `git pull` 済み（`bda2fcd`）。⚠ 残り: `data-live/` のスナップショットの写し（titan の Claude）
-      ⚠ **引き継ぎの手順はプラン §8**（スナップショットを作ってから titan と 13500t に同じものを読ませる・titan の計測は 12:40〜13:10 PDT を避ける）
-    - [ ] Phase 3: titan と 13500t で測る（asof 2026-09-18・09-22 × 6 回。titan は市場時間の外）
+      ✅ 2026-09-22: g3plus-ops に `ail-predict-bench/`（Dockerfile・compose・手順書）・13500t に clone（`7f4c68e`）・イメージ 2.67GB（作るのに 1 分 55 秒）。コンテナの中は Python 3.12.14・numpy 2.4.2・lightgbm 4.7.0・numba 0.67.0・aeon 1.5.0・torch 2.14.0+cpu で `tests/test_predict.py` 8 通過 ／ 1 skip。✅ 13500t で `git pull` 済み（`bda2fcd`）
+      ✅ 2026-09-22 夜: titan で `data-live/` のスナップショットを作った（`~/ail-bench/data-live-20260922-2000`・70MB・63 銘柄・足は 09-22 まで〔⚠ 途中の足〕）。固めたもの `…tar.gz`（24MB）＋ SHA256 も置いた。⚠ 残り: 13500t へ写す
+      ⚠ **titan から 13500t に直接は入れない**【実測 2026-09-22】（ssh config に無い・tailnet は titan と sx360 の 2 台だけ・`~/g3plus-ops` も titan に無い）＝ **Sx360 を経由する**
+      ⚠ **引き継ぎの手順はプラン §8**（次の作業者は**手順 4 から**。スナップショットを 13500t へ → 13500t で計測 → `--compare`）
+    - [~] Phase 3: titan と 13500t で測る（asof 2026-09-18・09-22 × 6 回。titan は市場時間の外）
+      ✅ **titan 側は 2026-09-22 20:01〜20:09 PDT に済み**（12 回とも `ok`）＝ 温まった状態の中央値 **37.41 秒**（asof 09-18）／ **37.60 秒**（09-22）・冷えた状態の上乗せは 2 秒（§2-3 の 30 秒に当たらない）。内訳は表づくり 31.8 秒 ／ 学習と予測 0.12 秒【実測】。結果は `~/ail-bench/out/titan-20260922-2000.jsonl`（⚠ git 管理外）
+      ⚠ **手順 6 で rc=1 が出やすい**: asof 2026-09-22 は売買基準値のすぐそばに銘柄が固まっている（`trade_own_ridge_a` の CAT が θ=50 と **0.0006** 差）＝ CPU の違いで 0.001 揺れれば判定が入れ替わる。出たら**時間の比較より先に原因を調べる**（プラン §8 手順 6 の表）
+      - [ ] 13500t 側で測る（⚠ **Sx360 で起こした Claude か利用者**。titan からは届かない）
     - [ ] Phase 4: `live-trading.md` に記録・判定を「13500T で予測にかかる時間を測る」へ写す
     利用者の指示（2026-09-19）。着手時にプランを作る（何を「予想」の 1 回と数えるか ＝ モデルの更新 ＋ 今日の買い% の算出・どのモデルで測るか・「遅すぎる」の線を、測る前に決める）
     ⚠ g3plus のデプロイ設定・ホスト名は g3plus-ops（private）側にだけ書く（CLAUDE.md）。記録には処理時間と機械の仕様だけを残す

@@ -141,23 +141,23 @@ flowchart LR
 | 「遅すぎる」の線 | **§2-3 のとおり 60 秒 ／ 180 秒** |
 | `data-live/` の写しと titan での測り直し | **Claude が titan で行う**（titan で Claude Code を起こして作業する。Sx360 からは titan に鍵なしで入れない） |
 
-## 8. 引き継ぎ（2026-09-22 夜の時点。次の作業者はここから）
+## 8. 引き継ぎ（2026-09-22 夜に手順 3 まで済み。次の作業者は手順 4 から）
 
-済んだもの: Phase 0・Phase 1・Phase 2 の途中まで（13500t にイメージがあり、コンテナの中で `tests/test_predict.py` が通る）。
+済んだもの: Phase 0・Phase 1・**Phase 3 の titan 側**（下の手順 1〜3）。残りは **13500t 側（手順 4・5）と突き合わせ（6・7）**。
 13500t 側の手順書の正本は g3plus-ops の `docs/workflows/ail-predict-bench.md`（ホスト名・置き場はそちらにだけ書く）。
 
 ⚠ **守ること**
 - 13500t に tastytrade の `.env` を置かない・`live.sqlite` を作らない（コードは読み取り専用で差し込んである）
 - **titan で重い計測を流すのは 12:40〜13:10 PDT を避ける**（9/23 から T1〜T3 の本番の執行がこの時間帯に動く）
-- **`data-live/` を直接写さず、先に固定した写し（スナップショット）を作る**。titan の `data-live/` は毎日の `run-live.sh` が書き足す（9/22 の足は 12:14 PDT の途中の足のまま）。titan と 13500t で**同じスナップショット**を読ませないと比較にならない
+- **`data-live/` を直接写さず、先に固定した写し（スナップショット）を作る**。titan の `data-live/` は毎日の `run-live.sh` が書き足す。titan と 13500t で**同じスナップショット**を読ませないと比較にならない
 - 結果を見てから §2-3 の線・asof・回数を動かさない
 
 ### 次の手順
 
 ```mermaid
 flowchart TD
-  A[1. 13500t で git pull] --> B[2. titan: data-live のスナップショット]
-  B --> C[3. titan: 冷えた状態から計測]
+  A[1. 13500t で git pull ✅] --> B[2. titan: スナップショット ✅]
+  B --> C[3. titan: 計測 ✅]
   B --> D[4. スナップショットを 13500t へ]
   D --> E[5. 13500t: 冷えた状態から計測]
   C --> F[6. --compare で並べる]
@@ -166,15 +166,42 @@ flowchart TD
 ```
 
 1. ✅ 2026-09-22 夜に済み（`bda2fcd`・コンテナで `tests/test_bench_predict.py` 2 通過）。コードを更新したときだけやり直す ── **13500t に新しいコードを入れる**（13500t に入れる機械から。Sx360 は入れる）: 13500t の clone（`/home/ubuntu/ai-income-lab`）で `git pull --ff-only`（宛先の書き方は g3plus-ops の手順書の 2）
-2. **titan で日足を固定する**（titan で起こした Claude）: `cp -a experiments/feature-discovery/data-live ~/ail-bench/data-live-<日時>`。どの日の足まで入っているか（`adjusted/d` の最終日）を控える
-3. **titan で測る**（numba のキャッシュを空の場所に向けて冷えた状態から）:
-   ```bash
-   cd experiments/feature-discovery
-   NUMBA_CACHE_DIR=$(mktemp -d) AIL_DATA_DIR=~/ail-bench/data-live-<日時> \
-     .venv/bin/python bench_predict.py --asof 2026-09-18,2026-09-22 --repeat 6 --out ~/ail-bench/out/titan-<日時>.jsonl
-   ```
-   ⚠ 同じ NUMBA_CACHE_DIR を 2 つの asof で使い回すので、冷えた状態は最初の asof の 1 回目だけになる。2 つ目の asof の 1 回目はデータのキャッシュだけ冷えた状態として読む
-4. **スナップショットを 13500t へ写す**: titan から直接入れれば `rsync -a --delete ~/ail-bench/data-live-<日時>/ <13500t>:/home/ubuntu/ail-bench/data-live/`。入れなければ Sx360 を経由する（titan → Sx360 の作業用の置き場 → 13500t）
+2. ✅ **2026-09-22 20:01 PDT に titan で済み** ── スナップショット `~/ail-bench/data-live-20260922-2000`（70MB・63 銘柄）。`diff -rq` で元と差分なし。**足は 2026-09-22（火）まで**で、⚠ **最後の足は途中の足**（`adjusted_d.json` の更新は 13:01 PDT ＝ 16:01 ET）。全 63 銘柄とも最終 `time_ms = 1790035200000`
+3. ✅ **2026-09-22 20:01〜20:09 PDT に titan で済み**（12 回すべて `ok: true`）── 結果は `~/ail-bench/out/titan-20260922-2000.jsonl`（⚠ git 管理外）
+
+   | asof | 冷えた状態（1 回目） | 温まった状態（2〜6 回目の中央値） | 最小 | 最大 |
+   | --- | --- | --- | --- | --- |
+   | 2026-09-18 | 39.46 秒 | **37.41 秒** | 36.67 | 37.92 |
+   | 2026-09-22 | 37.62 秒 | **37.60 秒** | 37.31 | 38.66 |
+
+   - 機械: AMD Ryzen 9 7950X 16-Core（32 論理・47GiB）・Python 3.12.3・numpy 2.4.2 / pandas 2.3.3 / sklearn 1.7.2 / lightgbm 4.7.0 / numba 0.67.0 / aeon 1.5.0・コンテナ無し
+   - ⚠ **冷えた状態の上乗せは 2 秒（§2-3 の「30 秒以上」に当たらない）** ＝ titan では 1 回目でも表を引き直さない。13500t でも同じか確かめる
+   - **内訳は表づくりが占める**: `seconds.table` 約 31.8 秒 ／ `seconds.fit_predict` 約 0.12 秒【実測】＝ 機械の速さの差はほぼ表づくりに出る
+   - 入力の指紋は 12 回とも同じ（`trade_own_ridge_a` = `ac70e2df0b439b61` ／ `trade_ownex_lgbm_a` = `6eff6b572ae4a61d` ／ `trade_ownseq_ridge_a` = `a3a11a3cb16b2bce`）。titan の中では 6 回とも買い% が完全一致（63 銘柄）
+4. **スナップショットを 13500t へ写す** ── ⚠ **titan から直接は入れない**【実測 2026-09-22】: titan の `~/.ssh/config` に 13500t が無い・tailnet に居るのは titan と sx360 の 2 台だけ・`~/g3plus-ops` も titan に無い。**Sx360 を経由する**（プランの当初の代案）。titan 側は固めて置いてある:
+
+   | もの | 道 | 大きさ |
+   | --- | --- | --- |
+   | 写し（そのまま） | `~/ail-bench/data-live-20260922-2000/` | 70MB |
+   | 固めたもの | `~/ail-bench/data-live-20260922-2000.tar.gz` | 24MB |
+   | 指紋 | `~/ail-bench/data-live-20260922-2000.tar.gz.sha256` | `863f95b7105bc0ce9f3c915a2ee2c76b341956787a8a7f40547d97121de1dd22` |
+
+   Sx360 から tailnet 越しに引く（titan は `100.82.194.13` ／ sx360 は `100.119.134.116`）→ `sha256sum -c` で確かめる → 13500t の `/home/ubuntu/ail-bench/data-live/` へ展開する。⚠ **展開した後に `adjusted/d/*.csv` の最終 `time_ms` が 63 銘柄とも `1790035200000` であることを確かめる**（途中で切れていたら比較にならない）
 5. **13500t で測る**（g3plus-ops の手順書の 5・6。`numba-cache/` を消してから）
-6. **並べる**: 2 つの JSONL を 1 台に集めて `bench_predict.py --compare titan-….jsonl 13500t-….jsonl`。⚠ rc=1（判定が変わった銘柄がある）なら時間の比較より先に原因を調べる
+6. **並べる**: 2 つの JSONL を 1 台に集めて `bench_predict.py --compare titan-20260922-2000.jsonl 13500t-….jsonl`。⚠ rc=1（判定が変わった銘柄がある）なら時間の比較より先に原因を調べる
+
+   ⚠ **判定が揺れやすい銘柄が実際にある**【実測 titan 2026-09-22】。asof 2026-09-22 は売買基準値のすぐそばに固まっている:
+
+   | asof | 予測モデル | θ | 売買基準値に最も近い銘柄（差） |
+   | --- | --- | --- | --- |
+   | 2026-09-22 | `trade_own_ridge_a` | 50 | CAT 49.9994（**0.0006**）／ INTC 50.0041 ／ NVDA 50.0169 |
+   | 2026-09-22 | `trade_ownseq_ridge_a` | 50 | INTC 50.0061 ／ MRK 50.0364 ／ AMD 50.1465 |
+   | 2026-09-18 | `trade_own_ridge_a` | 50 | XLRE 49.9755 ／ NFLX 50.0422 ／ HD 50.1205 |
+
+   ＝ CPU の命令の違いで 0.001 揺れるだけで CAT の買い ／ 見送りが入れ替わる。**rc=1 が出たら、まず「どの銘柄がどれだけ動いたか」を見る**。動いた幅が 0.01 未満で、動いたのが上の表の銘柄なら**丸めの差**（原因は分かったと見てよい）。⚠ **それでも §2-3 の「1 銘柄も変わらないこと」は満たさない** ので、⚠ **時間だけ採って判定の一致を ✅ にしない**（利用者の裁定を仰ぐ）
 7. **記録と判定**（Phase 4）: `docs/specs/experiments/live-trading.md` に節を足す（機械の仕様・冷えた ／ 温まった の表・§2-3 の判定・判定の一致・スナップショットの最終日）。TODO の Phase 2〜4 に印、判定を「13500T で予測にかかる時間を測る」へ写す。済んだらこのプランを archive へ
+
+### ⚠ まだ分かっていないこと（手順 5 の前に確かめる）
+
+- 13500t の素性（CPU・コア数・メモリ・常時起動か）。titan は **7950X の 32 論理**で、表づくりが 31.8 秒。⚠ **コア数の少ない機械だと §2-3 の 60 秒を超えうる**
+- 13500t はコンテナ（`python:3.12-slim`）で動く ＝ titan は**コンテナ無し**。⚠ この違いも時間に乗る（同じ土俵ではない点を記録に残す）

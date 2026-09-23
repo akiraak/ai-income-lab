@@ -386,6 +386,9 @@
     - [x] Step 2-2: g3plus-ops に `ail-live/`・`ail-dashboard/`（§7 ・ §7-1 に追従）・`auto-update.sh`・host cron を作る（⚠ **Sx360 の Claude**。契約は §0-13・§7-1）
       ✅ 2026-09-22 夜: g3plus-ops の `ail-live/`（Dockerfile・compose・`run.sh`〔Phase 2 の留め金 ＝ submit と発注の許可を拒む〕・`auto-update.sh`・`live.env.example`）と `ail-dashboard/`（ローカル面・イメージは ail-live と共用）。13500t で build・管理画面 healthy（ループバック 200 ／ LAN 接続不可 ／ Sx360 のトンネル 200）・host cron 3 行（PT 06:00 prepare ／ 12:40 trade ／ 15 分おき auto-update）。`.env` が無いので cron は「SKIP」を書いて終わる。手順書は g3plus-ops の `docs/workflows/ail-live.md`・`ail-dashboard.md`
     - [ ] Step 2-3: 13500t で §0-13 の合否 ①〜⑤ を確かめる（⚠ `.env` を置くのは**利用者**。本番 dry-run と市場時間中の日足の計測は 9/23 の本番投入の後）
+      🔶 2026-09-22 夜（`.env` なしでできる分）: ① ✅ コンテナで `run-tests.sh --fast` 通過（執行器 ✅・管理画面 231 passed ／ 2 skipped）。⚠ 通すまでにイメージを 2 か所直した: uid 1000 に名前が無いと `getpass.getuser()` が落ちる（＝ **本番の `reconcile.py` も落ちていた**）／ 管理画面のテストが要る `httpx` が `dashboard/requirements.txt` に無い（titan・Sx360 の venv には手で 0.28.1 が入っている）
+      🔶 ② は半分: `--mode plan` でも執行器は認証して口座を読む（`run_day.py` の 1.）＝ `.env` が要る。予測 → 判定の部分は `bench_predict.py --compare` で、titan と一致を確かめた bench の結果と **3 モデル × 2 日すべて 入力の指紋 同じ・最大の差 0・判定が変わった銘柄なし**。温まった状態 48.29 ／ 49.31 秒【実測 2026-09-22 22:40 PDT・ail-live のイメージ】
+      残り（`.env` を置いた後・⚠ 9/23 の本番投入の後）: ② の `run_day` 部分 ／ ③ 本番 dry-run ／ ④ 市場時間中の日足 ＋ 予測 ／ ⑤ 秘密の grep
       依存: 「Step 2-2: g3plus-ops に `ail-live/`・`ail-dashboard/`（§7 ・ §7-1 に追従）・`auto-update.sh`・host cron を作る（⚠ **Sx360 の Claude**。契約は §0-13・§7-1）」
   - [ ] Phase 3: 切り替えの手順を決めて cert で試す（「本番の機械ではない」印で titan の submit を拒む・`live.sqlite` を移す・`reconcile.py` の差 0）
   - [ ] Phase 4: 本番を 13500t に切り替える（⚠ **利用者**。市場の外の日に）

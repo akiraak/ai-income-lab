@@ -26,7 +26,7 @@ flowchart LR
 
 | 機械 | 役割 | 置くもの | 置かないもの |
 | --- | --- | --- | --- |
-| Sx360 | 端末（ssh・ブラウザ）。シミュレーション（いまの決定のまま） | 鍵・研究 DB の控え | tastytrade の `.env` |
+| Sx360 | 端末（ssh・ブラウザ）。シミュレーション（いまの決定のまま）。**13500t と g3plus-ops の操作**（K1 の例外） | 鍵・研究 DB の控え | tastytrade の `.env` |
 | titan | **Claude Code を動かす場所**・研究の計算（`cli.run`・`cli.queue`・GPU の学習）・研究用の `data/`・`runs/research.sqlite`・vibeboard | コード・研究のデータ | ⚠ 切り替えの後は**本番の発注の許可**（§4 Phase 4） |
 | 13500t | **本番**: 毎日の売買（`run-live.sh`）・管理画面・`data-live/`・`live.sqlite` | 本番の `.env`（利用者が置く）・`live.sqlite` | 研究のデータ・GPU の仕事 |
 
@@ -36,7 +36,7 @@ flowchart LR
 
 | # | 論点 | 決定（推した案） | 理由 ／ ほかの案 |
 | --- | --- | --- | --- |
-| K1 | Claude Code をどこで動かすか | **titan**（Sx360 から `ssh titan` → tmux の中で `claude`） | コード・データ・GPU・研究の DB が手元にある。Sx360 で動かして毎回 `ssh titan '…'` で計算させる案は、コードとデータが 2 台に分かれて写し違いが起きる（2026-09-22 の計測で、スナップショットを 3 台に写した） |
+| K1 | Claude Code をどこで動かすか | **titan**（Sx360 から `ssh titan` → tmux の中で `claude`） | コード・データ・GPU・研究の DB が手元にある。Sx360 で動かして毎回 `ssh titan '…'` で計算させる案は、コードとデータが 2 台に分かれて写し違いが起きる（2026-09-22 の計測で、スナップショットを 3 台に写した）。⚠ **例外: 13500t と g3plus-ops の操作は Sx360 の Claude**（K3 で titan から 13500t へ届かない・`~/g3plus-ops` は Sx360 にだけある）。シミュレーションも Sx360（K9）。⚠ Claude のメモリは機械ごとに別 ・ 2 台で同じリポジトリを触るので、書いたら push ／ 始める前に pull |
 | K2 | 13500t へのデプロイの形 | **13500t が GitHub から pull する**（g3plus-ops の `daily-ai-music/auto-update.sh` と同じ型・host cron） | titan から 13500t への経路が要らない（いまは届かない【実測】）。⚠ **main への push ＝ 本番に反映**になるので、売買の時間帯（12:30〜13:15 PDT）は pull しない前チェックが要る |
 | K3 | titan から 13500t へ ssh を通すか | **通さない**（K2 で足りる。操作は Sx360 から） | 通すなら (a) 13500t を tailnet に入れる ／ (b) titan に Cloudflare Access の ssh を置く。⚠ どちらも本番に届く経路が増える |
 | K4 | ⚠ **二重発注をどう防ぐか**（いちばん重い） | **(a) 売買は 13500t だけ。titan の売買の timer ・許可を外す** | 排他（`MODE`・`run.lock`）は機械の中のファイル。両方が起きると同じ口座に 2 回注文が出る。(b) 口座の側で重複を弾く ＝ 設計から ／ (c) 手で切り替える ＝ 事故が起きる |
@@ -102,7 +102,7 @@ flowchart TB
 ### Phase 1: 作業の場所を titan に移す（K1・K8）
 - Sx360 に鍵を持ち続ける仕組み（keychain か Windows の ssh-agent）を入れる（⚠ 入れるのは利用者）
 - titan で tmux ＋ `claude` を起こす段取りを `run-titan-session.sh`（Sx360 で叩く 1 本。`ssh -t titan tmux new -A -s ail`）にする
-- CLAUDE.md に「作業は titan の Claude で。Sx360 は端末」を書く。メモリ（titan-remote-access）も直す
+- CLAUDE.md に「作業は titan の Claude で。Sx360 は端末（13500t と g3plus-ops の操作だけ Sx360 の Claude）」を書く。メモリ（titan-remote-access）も直す
 
 ### Phase 2: 13500t に本番の器を作る — まだ発注しない（K2・K5・K7）
 - 依存: 「9/23（水）: 本番投入」＋ titan で数日通ったこと

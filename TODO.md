@@ -287,7 +287,7 @@
     - [x] Phase 1: 測るスクリプト `experiments/feature-discovery/bench_predict.py`
       ✅ 2026-09-22: `--compare A B` で 2 台を並べる・テスト 2 本
     - [~] Phase 2: 13500t に載せる（g3plus-ops に `ail-predict-bench/`・clone・イメージ・`data-live/` の写し〔titan の Claude〕・`tests/test_predict.py`）
-      ✅ 2026-09-22: g3plus-ops に `ail-predict-bench/`（Dockerfile・compose・手順書）・13500t に clone（`7f4c68e`）・イメージ 2.67GB（作るのに 1 分 55 秒）。コンテナの中は Python 3.12.14・numpy 2.4.2・lightgbm 4.7.0・numba 0.67.0・aeon 1.5.0・torch 2.14.0+cpu で `tests/test_predict.py` 8 通過 ／ 1 skip。⚠ 残り: 13500t で `git pull`（2026-09-22 夜に push 済み）・`data-live/` のスナップショットの写し（titan の Claude）
+      ✅ 2026-09-22: g3plus-ops に `ail-predict-bench/`（Dockerfile・compose・手順書）・13500t に clone（`7f4c68e`）・イメージ 2.67GB（作るのに 1 分 55 秒）。コンテナの中は Python 3.12.14・numpy 2.4.2・lightgbm 4.7.0・numba 0.67.0・aeon 1.5.0・torch 2.14.0+cpu で `tests/test_predict.py` 8 通過 ／ 1 skip。✅ 13500t で `git pull` 済み（`bda2fcd`）。⚠ 残り: `data-live/` のスナップショットの写し（titan の Claude）
       ⚠ **引き継ぎの手順はプラン §8**（スナップショットを作ってから titan と 13500t に同じものを読ませる・titan の計測は 12:40〜13:10 PDT を避ける）
     - [ ] Phase 3: titan と 13500t で測る（asof 2026-09-18・09-22 × 6 回。titan は市場時間の外）
     - [ ] Phase 4: `live-trading.md` に記録・判定を「13500T で予測にかかる時間を測る」へ写す

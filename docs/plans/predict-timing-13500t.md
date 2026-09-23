@@ -165,7 +165,7 @@ flowchart TD
   F --> G[7. 記録と判定]
 ```
 
-1. **13500t に新しいコードを入れる**（13500t に入れる機械から。Sx360 は入れる）: 13500t の clone（`/home/ubuntu/ai-income-lab`）で `git pull --ff-only`（宛先の書き方は g3plus-ops の手順書の 2）
+1. ✅ 2026-09-22 夜に済み（`bda2fcd`・コンテナで `tests/test_bench_predict.py` 2 通過）。コードを更新したときだけやり直す ── **13500t に新しいコードを入れる**（13500t に入れる機械から。Sx360 は入れる）: 13500t の clone（`/home/ubuntu/ai-income-lab`）で `git pull --ff-only`（宛先の書き方は g3plus-ops の手順書の 2）
 2. **titan で日足を固定する**（titan で起こした Claude）: `cp -a experiments/feature-discovery/data-live ~/ail-bench/data-live-<日時>`。どの日の足まで入っているか（`adjusted/d` の最終日）を控える
 3. **titan で測る**（numba のキャッシュを空の場所に向けて冷えた状態から）:
    ```bash

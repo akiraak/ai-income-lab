@@ -792,7 +792,7 @@ flowchart LR
 **Phase 2 の合否**（プラン §6）: ① コンテナで `./run-tests.sh --fast` が通る ② titan と同じ `data-live/` の写しで `--date <過去の日> --mode plan -- --ignore-window` が**同じ売買の判定**を出す（⚠ 入力の指紋は CPU で変わる ＝ §0-12。比べるのは判定）③ 本番の dry-run が通り、何もルーティングされない ④ 市場時間中の `live_update.sh` の所要時間（titan 54〜55 秒【実測】）＋ 予測 48 秒【実測】が準備の見積り 120 秒に収まる ⑤ 13500t の `live.sqlite` の `livefs.py dump` に `.env` の値が 0 件。
 ⚠ **Phase 2 の間に 13500t の `live.sqlite` に入る記録は dry-run ／ plan のものだけ**。切り替え（Phase 3・K6）で titan の `live.sqlite` を持ってくるときは、上書きせず `live.sqlite.phase2-<日付>` に名前を変えて脇へ退ける（1 つの口座の記録は 1 か所）。
 
-**合否の結果**（🔶 途中。2026-09-23 夜・Sx360 の Claude。[プラン](../../plans/three-machines.md) の「2-3 の手順」の順 0〜3・6・7。③ ④ は 9/24 の市場時間中に足す）
+**合否の結果**（🔶 途中。2026-09-23 夜・Sx360 の Claude。[プラン](../../plans/three-machines.md) の「2-3 の手順」の順 0〜3・6・7 は済み。③ ④ は 9/24 の市場時間中に足す）
 
 前提の確認【実測 2026-09-23 夜 PDT】: 順 0 ＝ 3 台とも `dbde869`（13500t の auto-update が 19:45:02 に pull・管理画面を起こし直して `done`）／ 順 1 ＝ 利用者が titan の `.env` を 13500t へ（600・1,478 バイト ＝ titan と同じ・`git status --porcelain` は空のまま）／ 順 2 ＝ clone の `data-live/` は bench の写しと `diff -rq` で一致・tar の sha256 `863f95b7…` OK・`seed.json` あり・63 銘柄。
 
@@ -803,7 +803,7 @@ flowchart LR
 | ③ 本番 dry-run | ⏳ 9/24 の市場時間中 | — |
 | ④ 市場時間中の所要 | ⏳ 9/24 12:40 PT の host cron（dry-run）の log | — |
 | ⑤ 秘密の grep | ✅ 2026-09-23 夜 | `livefs.py dump .`（216 行・75,791 字）に `.env` の **7 項目とも 0 件**（本番 ・ sandbox の client secret 40 字・refresh token 557 ／ 586 字・client id 36 字・口座番号 8 桁・`TT_ENV`）・`eyJ` 0 件・`Bearer` 0 件 |
-| 管理画面（順 7） | 🔶 | Sx360 から `./run-dashboard-tunnel.sh --host 13500t.lan --port 3017` → `/` ・ `/overall` ・ `/records` ・ `/judge` ・ `/ops` ・ `/api/live` が 200・`mode: real`。⚠ ただし `.env` を置く前の**デモ**（帯「デモ」・`/traders/T1〜T3` は 404 ＝ トレーダーが mock_a〜c）。`.env` の後の `up -d --force-recreate` は Claude の実行を分類器が止めた（Production Deploy）ので**利用者が叩く** → そのあと 9 ページを見直す |
+| 管理画面（順 7） | ✅ 2026-09-23 20:05 PDT | Sx360 から `./run-dashboard-tunnel.sh --host 13500t.lan --port 3017`。`.env` を置く前は**デモ**（帯「デモ」・`/traders/T1〜T3` は 404 ＝ トレーダーが mock_a〜c）。利用者が `up -d --force-recreate`（⚠ Claude の実行は分類器が「Production Deploy」で止めた）→ healthy・`demo=False` → **9 ページとも 200**（`/` ・ `/overall` ・ `/traders/T1〜T3` ・ `/records` ・ `/judge` ・ `/ops` ・ `/api/live`）・`mode: real`・帯なし・9/22 の plan の起動（合図 15 ・ planned 10 ・ 口座の持ち株 5 銘柄）が出る。dry-run の起動が出ることは 9/24 の ③ の後に見る |
 
 ⚠ 順 3 で分かったこと: **plan の突き合わせ相手を「同じ日の titan の合図」にできるのは、titan がその日の合図を写しと同じ足で出しているときだけ**。titan の当日の合図は 15:50 ET の途中の足、写しは引け後の足なので、ふつうは bench（同じ写し）と比べる。
 

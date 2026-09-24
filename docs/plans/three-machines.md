@@ -185,6 +185,8 @@ flowchart LR
 
 ✅ **2026-09-23 夜の進み**（Sx360 の Claude）: 順 0 〜 3 ・ 6 ・ 7 は ✅（順 7 は利用者が管理画面を起こし直した後に 9 ページとも 200 ・ `mode: real` ・ plan の起動が出た）、順 4 ・ 5 は 9/24 の市場時間中。結果は [live-trading.md §0-13](../specs/experiments/live-trading.md) の「合否の結果」。⚠ **順 3 の突き合わせ相手は titan の `signals.jsonl` ではなく bench の 9/22**（titan の 9/22 は 15:14 ET の途中の足で計算した予測しか無く〔dry-run は `out_of_window`〕、写しの 16:01 ET の足と違う ＝ 買い% が最大 0.175 ずれる。判定は同じ・bench とは 15 行とも差 0）。
 
+✅ **2026-09-24 12:55 PDT: Step 2-3 の ①〜⑤ が全部 ✅ ＝ Phase 2 済み**（③ 本番 dry-run 10 本・`submitted` 無し ／ ④ 無人の cron で 更新 56 ＋ 予測 44 秒 ＝ 100 秒 ≤ 120 ／ ⑤ 0 件。結果は [live-trading.md §0-13](../specs/experiments/live-trading.md) の「合否の結果」）。同じ 15:50 ET に titan の timer（初日 dry-run）も rc=0 で通り、2 台が同じ資格情報で同時にログインしても 429 は出なかった。⚠ 13500t の 9/24 の記録は dry-run 2 回（11:05 ET 手動・15:51 ET cron）。
+
 ⚠ **Phase 3 で titan の Claude がやるもの**（2-3 と並行できる）: 「本番の機械ではない」印（`experiments/live-trading/NOT_PRODUCTION` のような `MODE` と同じ型のファイル）を `run_day.py` が読んで submit を拒む仕組み ＋ テスト ＋ `live-trading.md` の切り替えの手順書。⚠ 印は titan に置くもので、13500t には置かない（取り違えないよう、印の中身に機械名を書かせ、`hostname` と突き合わせる案）。
 
 ### 2026-09-24 の決定 — 切り替えまでの運転の形（利用者。「まず titan, 13500t ともに timer で動かすけど、最初は 13500t は dry-run だけで後で切り替える」）

@@ -1,4 +1,8 @@
 # DONE
+- 2026-09-24 3 台の役割分け Phase 2 済み: 13500t で §0-13 の合否 ①〜⑤ が全部 ✅（Step 2-3。Sx360 の Claude ＋ 利用者）。同じ日に titan の timer の初日（dry-run）も通った
+  - ③ 本番 dry-run（11:04 ET 手動 ＋ 15:51 ET cron）: 10 本とも `mode: dry-run`・`submitted` 無し・買付余力の効果 $35.65〜$57.44・T2 は skip・口座の持ち株は「売買履歴の外」／ ④ 無人の cron で 15:50 から 更新 56 ＋ 予測 44 ＋ 執行器 4 ＝ 104 秒（準備の線 120 秒の内側）／ ⑤ 秘密の grep 0 件（`TT_ENV`＝`cert` は監視の記録の環境名に当たるだけ）。② は bench と 15 行とも差 0（9/23 夜）
+  - 15:50 ET に titan の timer（dry-run・合図 15 → 意図 0 ＝ 持ち株は hold）と 13500t の cron（dry-run・10 本）が同じ資格情報で同時に動いても 429 も認証の失敗も無し
+  - 気づいたこと: `.env` を置くと 13500t の管理画面も API の監視（cert・prod）を回し始める（titan と 2 台で並ぶ。回転なし・害なし。Phase 4 で titan の管理画面を止めるかは別に決める）。記録は [live-trading.md §0-13](docs/specs/experiments/live-trading.md)「合否の結果」・[three-machines.md](docs/plans/three-machines.md)。次は Phase 4（利用者・週末）
 - 2026-09-24 3 台の役割分け Phase 3: 「本番の機械ではない」印と、本番を titan → 13500t へ切り替える手順書・稽古（利用者の指示「phase3進めて」。プランは [production-switch-mark.md](docs/plans/archive/production-switch-mark.md)。正本は [live-trading.md §0-14](docs/specs/experiments/live-trading.md)）
   - 印 ＝ `experiments/live-trading/NOT_PRODUCTION`（git 管理外・`MODE` と同じ型の JSON `{"machine": hostname, "since", "by", "reason"}`）。あると `run_day.py` は **本番の発注（`--env prod --mode submit`）だけ**を許可の 3 段より前で拒む（rc=7・本物の `events.jsonl` に `refused_not_production`）。`sample.py` の本番の発注系の手順 4・5・5limit・6 も同じ印で拒む（発注の経路 2 本とも）。plan・dry-run・cert は通る。hostname が違う印・壊れた印でも拒み、理由を出す（読めない印を「無い」と読まない）。`run-live.sh` は早見で rc=7
   - 操作は `notprod.py status ／ set ／ clear`（CLI だけ・⚠ 置くのも外すのも利用者。`set` は自分の hostname を書く。`mode.log` に 1 行）。管理画面は全ページに灰の帯「本番の機械ではない」・`/api/*` に `not_production`（表示だけ・公開面は読まない。`dashboard.md` §13-6）

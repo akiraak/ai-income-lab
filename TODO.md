@@ -143,12 +143,14 @@
     ✅ 2026-09-23: 手で 1 回の成功を見た（本番投入 ＝ [DONE.md](DONE.md)。10 本 Filled・口座 − 売買履歴 ＝ 0）＝ D4 の前提は満たした → **timer は 9/24（木）から**（⚠ 入れるのも許可を置くのも**利用者**。雛形は `experiments/live-trading/systemd/`）
     関連: 「D16: 毎日自動で起動する仕組み（titan の timer ／ cron）。まだ入れていない」（決めごとの側）／ [live-trading.md §0-9](docs/specs/experiments/live-trading.md)
     ✅ 2026-09-24 利用者決定: **運転の形 ＝ titan と 13500t の両方を timer で動かし（13500t は host cron）、13500t は切り替え（Phase 4）まで dry-run だけ**。表と図は [three-machines.md](docs/plans/three-machines.md) の「2026-09-24 の決定」
-    - [ ] titan に timer を入れる（⚠ **利用者**。`systemd/README.md` の 8 行。`live.env` は雛形のまま dry-run で 1 日）
+    - [x] titan に timer を入れる（⚠ **利用者**。`systemd/README.md` の 8 行。`live.env` は雛形のまま dry-run で 1 日）
       期日: 2026-09-24
+      ✅ 2026-09-24: 利用者が 08:2x PDT に入れ、12:40 の回が dry-run で通った（15:50 待ち → 更新 55 秒 → 予測 44 秒 → 執行器 2 秒・rc=0・合図 15 → 意図 0 ＝ 持ち株は hold・T2 は skip。`out/timer-run.log`）
       ⚠ **timer の dry-run の日は手動の本番発注を重ねない**（両方 15:50 ET に動いて日足を同時に書き、執行器は片方が `run.lock` で拒否）＝ 9/24 は本物の注文なし。最初から submit で入れるなら利用者の判断
     - [ ] `~/.config/ai-income-lab/live.env` を submit に書き換え、timer で本番の発注に切り替える（⚠ **利用者**。dry-run の `out/timer-run.log` を見てから。以後 Phase 4 まで titan の timer が発注）
       期日: 2026-09-25
     - [ ] 13500t の host cron の dry-run が毎日起きているかを見る（`~/g3plus-ops/ail-live/logs/{prepare,trade}.log` の `end rc=`。⚠ Phase 4 までは dry-run だけ。起きなかった日はここから数え始める）
+      9/24 ✅ prepare 06:00 PDT rc=0（118 秒）／ trade 12:40 PDT rc=0（15:51:44 ET。10 本 dry-run）
     - [ ] 失敗したときに気づける形にする（⚠ **いまは誰も気づかない**。15:40 に起きて落ちても、人が記録を見るまで分からない）
       決めること: 何を「失敗」とするか（起動しなかった ／ rc≠0 ／ 注文 0 件 ／ 口座と売買履歴が食い違う）・どこへ知らせるか（管理画面の帯だけでよいか・機械の外へ出すか）
       ⚠ **外へ出すなら秘密が乗らない形にする**（CLAUDE.md の「秘密をブラウザに送らない」と同じ考え方）
@@ -285,12 +287,13 @@
       ✅ 2026-09-22 夜: keychain で `ssh -o BatchMode=yes titan` が ok・Sx360 から `./run-titan-session.sh` がパスフレーズなしで通った【実測】
     - [x] Sx360 のメモリ（titan-remote-access）を直す（⚠ **Sx360 の Claude**。メモリは機械ごと ＝ titan からは書けない。直す中身: 作業は titan の Claude・13500t と g3plus-ops は Sx360 の Claude・鍵は keychain で `~/.ssh/agent.sock` に別名）
       ✅ 2026-09-22 夜: Sx360 の Claude が直した（利用者の報告）
-  - [~] Phase 2: 13500t に本番の器を作る — まだ発注しない（g3plus-ops の `ail-live/`・`ail-dashboard/`・`auto-update.sh`・`--mode plan` と本番の dry-run・日足の取得の時間を測る）
+  - [x] Phase 2: 13500t に本番の器を作る — まだ発注しない（g3plus-ops の `ail-live/`・`ail-dashboard/`・`auto-update.sh`・`--mode plan` と本番の dry-run・日足の取得の時間を測る）
     - [x] Step 2-1: 器の契約を書く（live-trading.md §0-13・dashboard.md §7-1・`run-dashboard-tunnel.sh` の宛先の案内）
       ✅ 2026-09-22 夜（titan の Claude）
     - [x] Step 2-2: g3plus-ops に `ail-live/`・`ail-dashboard/`（§7 ・ §7-1 に追従）・`auto-update.sh`・host cron を作る（⚠ **Sx360 の Claude**。契約は §0-13・§7-1）
       ✅ 2026-09-22 夜: g3plus-ops の `ail-live/`（Dockerfile・compose・`run.sh`〔Phase 2 の留め金 ＝ submit と発注の許可を拒む〕・`auto-update.sh`・`live.env.example`）と `ail-dashboard/`（ローカル面・イメージは ail-live と共用）。13500t で build・管理画面 healthy（ループバック 200 ／ LAN 接続不可 ／ Sx360 のトンネル 200）・host cron 3 行（PT 06:00 prepare ／ 12:40 trade ／ 15 分おき auto-update）。`.env` が無いので cron は「SKIP」を書いて終わる。手順書は g3plus-ops の `docs/workflows/ail-live.md`・`ail-dashboard.md`
-    - [ ] Step 2-3: 13500t で §0-13 の合否 ①〜⑤ を確かめる（⚠ `.env` を置くのは**利用者**。本番 dry-run と市場時間中の日足の計測は 9/23 の本番投入の後）
+    - [x] Step 2-3: 13500t で §0-13 の合否 ①〜⑤ を確かめる（⚠ `.env` を置くのは**利用者**。本番 dry-run と市場時間中の日足の計測は 9/23 の本番投入の後）
+      ✅ 2026-09-24 12:55 PDT: ①〜⑤ 全部 ✅（③ 本番 dry-run 10 本 ／ ④ 無人の cron で 更新 56 ＋ 予測 44 秒 ＝ 100 秒 ／ ⑤ 0 件）＝ **Phase 2 済み**。結果は [live-trading.md §0-13](docs/specs/experiments/live-trading.md) の「合否の結果」
       🔶 2026-09-22 夜（`.env` なしでできる分）: ① ✅ コンテナで `run-tests.sh --fast` 通過（執行器 ✅・管理画面 231 passed ／ 2 skipped）。⚠ 通すまでにイメージを 2 か所直した: uid 1000 に名前が無いと `getpass.getuser()` が落ちる（＝ **本番の `reconcile.py` も落ちていた**）／ 管理画面のテストが要る `httpx` が `dashboard/requirements.txt` に無い（titan・Sx360 の venv には手で 0.28.1 が入っている）
       🔶 ② は半分: `--mode plan` でも執行器は認証して口座を読む（`run_day.py` の 1.）＝ `.env` が要る。予測 → 判定の部分は `bench_predict.py --compare` で、titan と一致を確かめた bench の結果と **3 モデル × 2 日すべて 入力の指紋 同じ・最大の差 0・判定が変わった銘柄なし**。温まった状態 48.29 ／ 49.31 秒【実測 2026-09-22 22:40 PDT・ail-live のイメージ】
       残り（`.env` を置いた後・⚠ 9/23 の本番投入の後）: ② の `run_day` 部分 ／ ③ 本番 dry-run ／ ④ 市場時間中の日足 ＋ 予測 ／ ⑤ 秘密の grep

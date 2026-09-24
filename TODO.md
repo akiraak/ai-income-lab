@@ -145,7 +145,8 @@
     ✅ 2026-09-24 利用者決定: **運転の形 ＝ titan と 13500t の両方を timer で動かし（13500t は host cron）、13500t は切り替え（Phase 4）まで dry-run だけ**。表と図は [three-machines.md](docs/plans/three-machines.md) の「2026-09-24 の決定」
     - [x] titan に timer を入れる（⚠ **利用者**。`systemd/README.md` の 8 行。`live.env` は雛形のまま dry-run で 1 日）
       期日: 2026-09-24
-      ✅ 2026-09-24: 利用者が 08:2x PDT に入れ、12:40 の回が dry-run で通った（15:50 待ち → 更新 55 秒 → 予測 44 秒 → 執行器 2 秒・rc=0・合図 15 → 意図 0 ＝ 持ち株は hold・T2 は skip。`out/timer-run.log`）
+      ✅ 2026-09-24 08:10 PDT 利用者が入れた【実測】: `ail-live-run.timer` 次回 12:40 PDT・`ail-live-prepare.timer` 次回 9/25 06:00 PDT・linger yes・`live.env` は雛形（`AIL_LIVE_MODE=dry-run`・`--allow-prod-dry-run`・発注の許可なし）
+      ✅ **2026-09-24 12:40 PDT に timer が無人で起きて通った【実測】**: 15:50 ET まで待つ → 日足 55 秒 → 予測 3 本 44 秒 → 執行器 2 秒 ＝ 起きてから 672 秒で `終了 rc=0`（`out/timer-run.log`）。合図 15 → 意図 0（T1・T3 は 5 銘柄とも hold〔買い% 50.05〜50.99・持ち株あり〕・T2 は 51.22 < θ 55 で skip）→ 注文 0。429 なし・口座と売買履歴の食い違いなし・今日の起動は timer の 1 回だけ（手動を重ねていない）→ **9/25 に `live.env` を submit へ**
       ⚠ **timer の dry-run の日は手動の本番発注を重ねない**（両方 15:50 ET に動いて日足を同時に書き、執行器は片方が `run.lock` で拒否）＝ 9/24 は本物の注文なし。最初から submit で入れるなら利用者の判断
     - [ ] `~/.config/ai-income-lab/live.env` を submit に書き換え、timer で本番の発注に切り替える（⚠ **利用者**。dry-run の `out/timer-run.log` を見てから。以後 Phase 4 まで titan の timer が発注）
       期日: 2026-09-25

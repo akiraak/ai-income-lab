@@ -183,6 +183,8 @@ flowchart LR
 | 7 | 管理画面: Sx360 から `./run-dashboard-tunnel.sh --host <13500t>` → 9 ページが 200・`mode: real`・dry-run の起動が出る | Sx360 の Claude | — |
 | 8 | 結果を `live-trading.md` §0-13 の下に「合否の結果」として書き、TODO の Step 2-3 を閉じる → **Phase 3 へ**（⚠ Phase 4 の切り替えは titan で数日通ってから・週末に） | Sx360 の Claude（push）→ titan の Claude が pull | — |
 
+✅ **2026-09-23 夜の進み**（Sx360 の Claude）: 順 0 〜 3 ・ 6 は ✅、順 7 は 🔶（`.env` の前のデモで 6 ページ 200 ・ `mode: real`。起こし直しの後に見直す）、順 4 ・ 5 は 9/24 の市場時間中。結果は [live-trading.md §0-13](../specs/experiments/live-trading.md) の「合否の結果」。⚠ **順 3 の突き合わせ相手は titan の `signals.jsonl` ではなく bench の 9/22**（titan の 9/22 は 15:14 ET の途中の足で計算した予測しか無く〔dry-run は `out_of_window`〕、写しの 16:01 ET の足と違う ＝ 買い% が最大 0.175 ずれる。判定は同じ・bench とは 15 行とも差 0）。
+
 ⚠ **Phase 3 で titan の Claude がやるもの**（2-3 と並行できる）: 「本番の機械ではない」印（`experiments/live-trading/NOT_PRODUCTION` のような `MODE` と同じ型のファイル）を `run_day.py` が読んで submit を拒む仕組み ＋ テスト ＋ `live-trading.md` の切り替えの手順書。⚠ 印は titan に置くもので、13500t には置かない（取り違えないよう、印の中身に機械名を書かせ、`hostname` と突き合わせる案）。
 
 ### Phase 3: 切り替えの手順を決めて試す（K4・K6）

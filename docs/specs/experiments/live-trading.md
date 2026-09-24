@@ -792,6 +792,22 @@ flowchart LR
 **Phase 2 の合否**（プラン §6）: ① コンテナで `./run-tests.sh --fast` が通る ② titan と同じ `data-live/` の写しで `--date <過去の日> --mode plan -- --ignore-window` が**同じ売買の判定**を出す（⚠ 入力の指紋は CPU で変わる ＝ §0-12。比べるのは判定）③ 本番の dry-run が通り、何もルーティングされない ④ 市場時間中の `live_update.sh` の所要時間（titan 54〜55 秒【実測】）＋ 予測 48 秒【実測】が準備の見積り 120 秒に収まる ⑤ 13500t の `live.sqlite` の `livefs.py dump` に `.env` の値が 0 件。
 ⚠ **Phase 2 の間に 13500t の `live.sqlite` に入る記録は dry-run ／ plan のものだけ**。切り替え（Phase 3・K6）で titan の `live.sqlite` を持ってくるときは、上書きせず `live.sqlite.phase2-<日付>` に名前を変えて脇へ退ける（1 つの口座の記録は 1 か所）。
 
+**合否の結果**（🔶 途中。2026-09-23 夜・Sx360 の Claude。[プラン](../../plans/three-machines.md) の「2-3 の手順」の順 0〜3・6・7。③ ④ は 9/24 の市場時間中に足す）
+
+前提の確認【実測 2026-09-23 夜 PDT】: 順 0 ＝ 3 台とも `dbde869`（13500t の auto-update が 19:45:02 に pull・管理画面を起こし直して `done`）／ 順 1 ＝ 利用者が titan の `.env` を 13500t へ（600・1,478 バイト ＝ titan と同じ・`git status --porcelain` は空のまま）／ 順 2 ＝ clone の `data-live/` は bench の写しと `diff -rq` で一致・tar の sha256 `863f95b7…` OK・`seed.json` あり・63 銘柄。
+
+| 合否 | 結果 | 実測 |
+| --- | --- | --- |
+| ① tests | ✅（2026-09-22 夜） | コンテナで `run-tests.sh --fast` 通過（執行器 ✅・管理画面 231 passed ／ 2 skipped。イメージを 2 か所直した ＝ [TODO](../../../TODO.md) の Step 2-3 の記録） |
+| ② 同じ判定 | ✅ 2026-09-23 22:58 ET | 13500t のコンテナで `./run-live.sh --traders T1,T2,T3 --date 2026-09-22 --mode plan -- --env prod --ignore-window`（plan は許可なしで認証して口座を読む）＝ **49 秒**（予測 3 本並列 48 秒 ＋ 執行器 1 秒）・rc=0。合図 15 → 意図 10（T1 5 ・ T3 5 ・ T2 は 5 銘柄とも 50.4155 < θ 55 で `skip`）→ planned 10（T 2 ・ PFE 2 ・ NKE 1 ・ VZ 1 ・ BAC 1 × 2 人・`day_spent` $491.66）。⚠ **買い% の突き合わせ相手は bench の 9/22**（同じ写し `data-live-20260922-2000` から出し、titan と最大の差 0 で一致済み ＝ §0-12）: **15 行とも差 0.000000**（`buy + exit = 100` も 15 行とも）。titan の `out/2026-09-22/signals.jsonl` に T1〜T3 の行は無い（15:14 ET の本番 dry-run が `out_of_window`）ので、残っている 15:14 ET の予測と比べると最大 0.175（T1 PFE）ずれるが、これは titan が **15:14 ET の途中の足**（T 25.03 ・ PFE 27.85 ・ BAC 56.4686）で計算し、写しには **16:01 ET の足**（T 25.12 ・ PFE 27.925 ・ BAC 56.21）が入っているため。**判定（買い ／ skip）は 15 行とも同じ**。T2 は足に依らず 50.415522 で 3 者とも一致。口座の 9/23 の持ち株（T 4 ・ PFE 4 ・ NKE 2 ・ VZ 2 ・ BAC 2）は `positions_outside_ledger`（口座のほうが多い ＝ 売買履歴の外）として記録され売買は続いた ＝ 期待どおり。`state/` は作られていない（plan は状態を書かない）。13500t の `live.sqlite` はこの plan で初めてでき（19:59 PDT・151,552 バイト）、中身は plan の記録だけ |
+| ③ 本番 dry-run | ⏳ 9/24 の市場時間中 | — |
+| ④ 市場時間中の所要 | ⏳ 9/24 12:40 PT の host cron（dry-run）の log | — |
+| ⑤ 秘密の grep | ✅ 2026-09-23 夜 | `livefs.py dump .`（216 行・75,791 字）に `.env` の **7 項目とも 0 件**（本番 ・ sandbox の client secret 40 字・refresh token 557 ／ 586 字・client id 36 字・口座番号 8 桁・`TT_ENV`）・`eyJ` 0 件・`Bearer` 0 件 |
+| 管理画面（順 7） | 🔶 | Sx360 から `./run-dashboard-tunnel.sh --host 13500t.lan --port 3017` → `/` ・ `/overall` ・ `/records` ・ `/judge` ・ `/ops` ・ `/api/live` が 200・`mode: real`。⚠ ただし `.env` を置く前の**デモ**（帯「デモ」・`/traders/T1〜T3` は 404 ＝ トレーダーが mock_a〜c）。`.env` の後の `up -d --force-recreate` は Claude の実行を分類器が止めた（Production Deploy）ので**利用者が叩く** → そのあと 9 ページを見直す |
+
+⚠ 順 3 で分かったこと: **plan の突き合わせ相手を「同じ日の titan の合図」にできるのは、titan がその日の合図を写しと同じ足で出しているときだけ**。titan の当日の合図は 15:50 ET の途中の足、写しは引け後の足なので、ふつうは bench（同じ写し）と比べる。
+
+
 ### 0-9. 1 日に複数回の発注に広げるか — ⚠ **広げない**（2026-09-20 利用者決定）
 
 利用者の指示（2026-09-20）: **「1 日に複数回広げても意味がないので広げない。ただし 1 日に別銘柄を購入したり、買いと売りを同時に出すのは問題ない」**。

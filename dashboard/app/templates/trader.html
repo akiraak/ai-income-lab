@@ -1,10 +1,10 @@
 {% extends "base.html" %}
-{% block title %}{{ t.name }} · ai-income-lab{% endblock %}
+{% block title %}{{ t.label }} · ai-income-lab{% endblock %}
 {% block content %}
 {# トレーダーの詳細（dashboard.md §13・§13-7。2026-09-18 ／ 2026-09-20 に全期間へ）。⚠ 読むだけ。⚠ 紙上の損益と差 3 は仮データ（実売買の Phase 3 の後で本物にする）
    ⚠ **この面だけ全期間**（1 人を縦に追う面）。概要・全体の詳細は直近 20 営業日（人を横に比べる面）＝ 見出しに `b.period.label` を必ず書く #}
 <div class="backs"><a href="/">← 概要</a> <a href="/overall">全体の詳細</a></div>
-<div class="sec"><h2><span class="tr-name"><i class="sw dot {{ t.cls }}"></i>{{ t.name }}</span>{% if t.test %} <span class="badge badge-mock">TEST</span>{{ info("試験用トレーダー（TEST）") }}{% else %}{{ info("トレーダー") }}{% endif %}{{ simmark(machine) }}</h2>
+<div class="sec"><h2><span class="tr-name"><i class="sw dot {{ t.cls }}"></i>{{ t.label }}</span>{% if t.test %} <span class="badge badge-mock">TEST</span>{{ info("試験用トレーダー（TEST）") }}{% if b.hidden_test %} <span class="muted small">一覧には出さない（本物の人がいるため）</span>{% endif %}{% else %}{{ info("トレーダー") }}{% endif %}{{ simmark(machine) }}</h2>
   <span class="muted small">予算 ${{ '{:,.0f}'.format(t.budget_usd) }} · 銘柄 {% if t.universe %}{{ t.universe }}{% else %}{{ t.symbols|join(' ') }}{% endif %} · モデル {% for mm in t.models %}{{ mm.kind_label }} {{ mm.name }}{{ ' ／ ' if not loop.last }}{% endfor %} · 合成 {{ t.combine_label }} · θ {{ t.threshold }} · 株数 {{ t.sizing_label }}</span>
   <span class="muted small">{{ b.period.label }}{% if b.period.first %}（{{ b.period.first }}〜{{ b.period.last }}）{% endif %}</span>
   <span class="helprow">言葉: <span>予算{{ info("予算（トレーダーの持ち金）") }}</span><span>合成{{ info("合成規則") }}</span><span>θ{{ info("θ（閾値）") }}</span></span></div>
@@ -21,6 +21,6 @@
 <div{% if machine.mode == 'sim' %} data-poll="/traders/{{ t.name }}?partial=live" data-interval="3000"{% endif %}>
 {% include "trader_live.html" %}
 </div>
-<div class="sec"><h2>注文の履歴{{ simmark(machine) }}</h2><span class="muted small">{{ t.name }} の分 · {{ b.period.label }} · 新しい順 · 月ごとにたたんである（最新の月だけ開く）</span></div>
+<div class="sec"><h2>注文の履歴{{ simmark(machine) }}</h2><span class="muted small">{{ t.label }} の分 · {{ b.period.label }} · 新しい順 · 月ごとにたたんである（最新の月だけ開く）</span></div>
 {% set who = t.name %}{% include "orders_history.html" %}
 {% endblock %}

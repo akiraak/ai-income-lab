@@ -66,8 +66,45 @@ def _median(xs: list[float]) -> float | None:
 
 # ---------------------------------------------------------------- トレーダー
 
+# 呼び名の正本（2026-09-23 利用者の指示「呼び名を表示する。T1,T2なども併記」）。vibeboard のトレーダーのタブと同じ 1 本（dashboard.md §16 の `[nicks]`）。
+# ⚠ 説明も名前も Python に書かない。無い人（sim_*・test_a）は識別名だけ
+NICKS_FILE = Path(__file__).resolve().parents[1] / "traders.toml"
+
+
+def nicks() -> dict[str, str]:
+    """識別名 → 呼び名（`dashboard/traders.toml` の `[nicks]`）。読めなければ空。"""
+    try:
+        with NICKS_FILE.open("rb") as f:
+            doc = tomllib.load(f)
+    except (OSError, ValueError):
+        return {}
+    return {str(k): str(v) for k, v in (doc.get("nicks") or {}).items() if v}
+
+
+def label_of(name: str, nick: str | None) -> str:
+    """画面に出す名前 ＝ `呼び名（識別名）`。呼び名が無ければ識別名（URL・記録・`name` は識別名のまま）。"""
+    return f"{nick}（{name}）" if nick else name
+
+
+def show_test_traders(tr: list[dict], *, mode: str | None, demo: bool) -> bool:
+    """試験用（`test = true`）の人を一覧に出すか（2026-09-23 利用者の指示「テストトレーダーは削除」）。
+
+    出さないのは **本物のモード（sim でない）＆ デモでない ＆ 本物の人が 1 人以上いる** とき。
+    ⚠ sim は `sim_*`（test）しか居ない・デモは `mock_*` しか居ない・本物の人が 0 人だったころは試験用だけを出していた ＝ どれも今までどおり出す。
+    ⚠ 隠すのは一覧（左ペイン・概要の段と凡例・`/api/live` の `traders`）だけ。`/traders/<名前>` を直接開けば見える（記録のリンクとテストが開く）。
+    """
+    if demo or mode == "sim":
+        return True
+    return not any(not t["test"] for t in tr)
+
+
+def visible(tr: list[dict], *, mode: str | None, demo: bool) -> list[dict]:
+    return tr if show_test_traders(tr, mode=mode, demo=demo) else [t for t in tr if not t["test"]]
+
+
 def traders(live_dir: Path) -> list[dict]:
     out = []
+    nk = nicks()
     for path in sorted((live_dir / "config" / "traders").glob("*.toml")):
         try:
             with path.open("rb") as f:
@@ -80,8 +117,11 @@ def traders(live_dir: Path) -> list[dict]:
             models.append({"kind": kind, "kind_label": KIND_LABEL.get(kind, kind), "name": str(m.get("name") or kind),
                            "buy": m.get("buy"), "exit": m.get("exit"), "path": m.get("path")})
         symbols = list(doc.get("symbols") or [])
+        name = str(doc.get("name") or path.stem)
         out.append({
-            "name": str(doc.get("name") or path.stem),
+            "name": name,
+            "nick": nk.get(name),
+            "label": label_of(name, nk.get(name)),
             "file": path.name,
             "test": bool(doc.get("test", False)),
             "budget_usd": float(doc.get("budget_usd", 0) or 0),
@@ -485,6 +525,7 @@ def board(live_dir: Path, days: int | None = DAYS, today=None) -> dict:
         "traders": tr,
         "configured": [t for t in tr if not t["test"]],
         "test_traders": [t for t in tr if t["test"]],
+        "labels": {t["name"]: t["label"] for t in tr},      # 識別名 → 画面の名前（注文の履歴の「同じ注文」「内部移転の相手」）
         "bd": bd,
         # 見ている期間（⚠ 画面は必ずこれを見出しに書く。20 日の面と全期間の面を取り違えないため）
         "period": {"all": days is None, "days": days, "n_bd": len(bd), "first": ds[0] if ds else None, "last": ds[-1] if ds else None,

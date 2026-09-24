@@ -73,6 +73,11 @@ def x_ticks(n: int, step: float, *, every: int = 5) -> list[int]:
     return idx or [n - 1]
 
 
+def _lab(t: dict) -> str:
+    """図に書く名前 ＝ 呼び名（識別名）。無ければ識別名（live.label_of）。"""
+    return t.get("label") or t["name"]
+
+
 def line_chart(series: list[dict], bd: list[str], missing: list[str], *, w: int, hgt: int, label_fmt=None,
                pad_l: int = 52, pad_r: int = 120, pad_t: int = 14, pad_b: int = 22, show_x: bool = True,
                end_labels: bool = True, aria: str = "", domain: tuple[float, float] | None = None, n_ticks: int = 4,
@@ -155,16 +160,16 @@ def pnl_tips(t: dict) -> list[str]:
 
 def pnl_overview(b: dict, *, hgt: int = 300) -> Markup:
     """概要: 全トレーダーの損益の推移（予算に対する %）。並びは設定の順。"""
-    series = [{"cls": t["cls"], "dash": t.get("dash"), "name": t["name"], "pts": t["pnl_pct"], "tips": pnl_tips(t)} for t in b["traders"]]
+    series = [{"cls": t["cls"], "dash": t.get("dash"), "name": _lab(t), "pts": t["pnl_pct"], "tips": pnl_tips(t)} for t in b["traders"]]
     return line_chart(series, b["bd"], b["missing"], w=760, hgt=hgt, label_fmt=lambda s, i: fmt_pct(s["pts"][i]),
                       aria="トレーダー別の損益の推移（予算に対する %）")
 
 
 def pnl_lane(b: dict, t: dict, *, k: int, hgt: int = 100) -> Markup:
     """トレーダーの段: 損益の推移（縦軸は全員で揃える）。"""
-    return line_chart([{"cls": t["cls"], "dash": t.get("dash"), "name": t["name"], "pts": t["pnl_pct"], "tips": pnl_tips(t)}],
+    return line_chart([{"cls": t["cls"], "dash": t.get("dash"), "name": _lab(t), "pts": t["pnl_pct"], "tips": pnl_tips(t)}],
                       b["bd"], b["missing"], w=1010, hgt=hgt, pad_l=52, pad_r=40, pad_b=4, show_x=False, end_labels=False,
-                      aria=f'{t["name"]} の損益の推移', domain=pnl_domain(b["traders"]), n_ticks=2, miss_text=(k == 0))
+                      aria=f'{_lab(t)} の損益の推移', domain=pnl_domain(b["traders"]), n_ticks=2, miss_text=(k == 0))
 
 
 def pnl_trader(b: dict, t: dict) -> Markup:
@@ -175,7 +180,7 @@ def pnl_trader(b: dict, t: dict) -> Markup:
         series.append({"cls": t["cls"], "dash": True, "name": "紙上" if real else "紙上・仮", "pts": t["paper_pct"],
                        "tips": [(f"紙上 {fmt_pct(v)}" if real else f"{fmt_pct(v)}（仮データ）") if v is not None else "" for v in t["paper_pct"]]})
     return line_chart(series, b["bd"], b["missing"], w=620, hgt=220, pad_r=150, label_fmt=lambda s, i: fmt_pct(s["pts"][i]),
-                      aria=f'{t["name"]} の損益の推移')
+                      aria=f'{_lab(t)} の損益の推移')
 
 
 def diff1_dots(traders: list[dict], *, w: int = 520) -> Markup:
@@ -184,7 +189,7 @@ def diff1_dots(traders: list[dict], *, w: int = 520) -> Markup:
     if not traders:
         return Markup("")
     lo, hi = min([0.0] + vals) - 2, max([15.0] + vals) + 3
-    pad_l, pad_r, row = 70, 70, 26
+    pad_l, pad_r, row = 96, 70, 26          # 左は 呼び名（識別名）が入る幅（2026-09-23）
     hgt = 22 + row * len(traders) + 18
     pw = w - pad_l - pad_r
 
@@ -203,13 +208,13 @@ def diff1_dots(traders: list[dict], *, w: int = 520) -> Markup:
     for k, t in enumerate(traders):
         cy = top + row * k + row / 2 + 2
         vs = [v for _, v in t["diff1"]]
-        o.append(f'<text class="lab" x="{pad_l - 8}" y="{cy + 4:.1f}" text-anchor="end">{h(t["name"])}</text>')
+        o.append(f'<text class="lab" x="{pad_l - 8}" y="{cy + 4:.1f}" text-anchor="end">{h(_lab(t))}</text>')
         if not vs:
             o.append(f'<text class="lab-m" x="{pad_l + 6}" y="{cy + 4:.1f}">約定なし</text>')
             continue
         o.append(f'<g class="{t["cls"]}"><path class="ln" d="M{x(min(vs)):.1f},{cy:.1f} L{x(max(vs)):.1f},{cy:.1f}"/></g>')
         m = t["diff1_median"]
-        o.append(f'<circle class="dt {t["cls"]}" cx="{x(m):.1f}" cy="{cy:.1f}" r="5"><title>{h(t["name"])}: 中央値 {m} bp（n={len(vs)}・最小 {min(vs)}・最大 {max(vs)}）</title></circle>')
+        o.append(f'<circle class="dt {t["cls"]}" cx="{x(m):.1f}" cy="{cy:.1f}" r="5"><title>{h(_lab(t))}: 中央値 {m} bp（n={len(vs)}・最小 {min(vs)}・最大 {max(vs)}）</title></circle>')
         o.append(f'<text class="lab" x="{w - pad_r + 8}" y="{cy + 4:.1f}">{m} bp</text>')
     o.append("</svg>")
     return Markup("".join(o))
@@ -231,7 +236,7 @@ def diff1_timeline(b: dict, t: dict) -> Markup:
     def Y(v: float) -> float:
         return pt + (hi - v) / (hi - lo) * (h2 - pt - pb)
 
-    o = [f'<svg class="chart" viewBox="0 0 {w2} {h2}" role="img" aria-label="{h(t["name"])} の差 1（注文ごと）">']
+    o = [f'<svg class="chart" viewBox="0 0 {w2} {h2}" role="img" aria-label="{h(_lab(t))} の差 1（注文ごと）">']
     for cls, a, b_ in (("band-ok", max(lo, 0), 5), ("band-warn", 5, 10), ("band-ng", 10, hi)):
         o.append(f'<rect class="{cls}" x="{pl}" y="{Y(b_):.1f}" width="{w2 - pl - pr}" height="{Y(a) - Y(b_):.1f}"/>')
     for tv in nice_ticks(lo, hi, 4):
@@ -269,7 +274,7 @@ def action_grid(b: dict, t: dict, *, w: int = 1010, pad_l: int = 52, pad_r: int 
         w = int(pad_l + pad_r + cw * n)
     hgt = cell_h * len(rows) + (16 if show_x else 2)
     size = f'width="{w}" height="{hgt}" ' if wide else ""
-    o = [f'<svg class="chart{" chart-wide" if wide else ""}" {size}viewBox="0 0 {w} {hgt}" role="img" aria-label="{h(t["name"])} の行動（銘柄 × 日）">']
+    o = [f'<svg class="chart{" chart-wide" if wide else ""}" {size}viewBox="0 0 {w} {hgt}" role="img" aria-label="{h(_lab(t))} の行動（銘柄 × 日）">']
     cls_of = {"none": "c-none", "hold": f'c-hold {t["cls"]}', "buy": f'c-buy {t["cls"]}', "sell": f'c-sell {t["cls"]}',
               "skip": "c-skip", "nostart": "c-nostart"}
     text_of = {"buy": ("c-t", "買"), "sell": ("c-t", "売"), "skip": ("c-t-m", "見"), "nostart": ("c-t-ng", "✕")}

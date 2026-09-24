@@ -258,21 +258,33 @@ def create_app(settings: Settings | None = None, start_monitors: bool = True) ->
         machine = machine or settings.machine()
         return NO_TREE if machine["mismatch"] else machine["live_dir"]
 
-    def board_now(days: int | None = lv.DAYS) -> dict:
+    def show_test(tr: list[dict], machine: dict) -> bool:
+        # 試験用の人を一覧に出すか（2026-09-23 利用者の指示「テストトレーダーは削除」。規則は live.show_test_traders）
+        return lv.show_test_traders(tr, mode=machine["mode"], demo=settings.demo)
+
+    def board_now(days: int | None = lv.DAYS, *, all_traders: bool = False) -> dict:
         # ⚠ 面ごとに期間が違う（dashboard.md §13-7）: 概要・全体の詳細 ＝ 直近 20 営業日（人を横に比べる）／
         #    トレーダーの詳細 ＝ days=None で全期間（1 人を縦に追う）。⚠ 見出しに `b.period.label` を必ず書く
         from datetime import date as _date
         machine = settings.machine()
         today = (machine["sim"] or {}).get("today")           # シミュレーションの「今日」＝ 仮の今日
-        return lv.board(live_dir_now(machine), days=days, today=_date.fromisoformat(today) if today else None)
+        b = lv.board(live_dir_now(machine), days=days, today=_date.fromisoformat(today) if today else None)
+        show = show_test(b["traders"], machine)
+        b["hidden_test"] = 0 if show else sum(1 for t in b["traders"] if t["test"])
+        if not show and not all_traders:                       # ⚠ 色（cls）は全員の並びで決めた後に外す ＝ 左ペインと同じ色のまま
+            b["traders"] = [t for t in b["traders"] if not t["test"]]
+        return b
 
     def api(payload: dict) -> JSONResponse:
         # `/api/*` は必ずモードを名乗る（シミュレーションの数字を本物と取り違えない）
         return JSONResponse(redactor({**payload, **simmode.public(settings.machine())}))
 
     def nav_traders(machine: dict) -> list[dict]:
-        # 左ペインのトレーダー（設定の順。色は系列の順。§15-6）
-        return [{"name": t["name"], "cls": f"s{i % lv.N_SERIES + 1}", "test": t["test"]} for i, t in enumerate(lv.traders(live_dir_now(machine)))]
+        # 左ペインのトレーダー（設定の順。色は系列の順。§15-6）。名前は 呼び名（識別名）。試験用は本物の人がいれば出さない
+        tr = lv.traders(live_dir_now(machine))
+        show = show_test(tr, machine)
+        return [{"name": t["name"], "label": t["label"], "cls": f"s{i % lv.N_SERIES + 1}", "test": t["test"]}
+                for i, t in enumerate(tr) if show or not t["test"]]
 
     def render(request: Request, name: str, **ctx):
         machine = settings.machine()
@@ -344,7 +356,7 @@ def create_app(settings: Settings | None = None, start_monitors: bool = True) ->
 
     @app.get("/traders/{name}", response_class=HTMLResponse)
     async def trader_page(request: Request, name: str):
-        b = board_now(days=None)                              # ⚠ この面だけ全期間（§13-7）
+        b = board_now(days=None, all_traders=True)            # ⚠ この面だけ全期間（§13-7）。試験用も URL で開ける
         t = next((x for x in b["traders"] if x["name"] == name), None)
         if t is None:
             raise HTTPException(404, "そのトレーダーは無い")
@@ -408,7 +420,11 @@ def create_app(settings: Settings | None = None, start_monitors: bool = True) ->
 
     @app.get("/api/live")
     async def api_live(request: Request):
-        return api(lv.index(live_dir_now()))
+        machine = settings.machine()
+        d = lv.index(live_dir_now(machine))
+        if not show_test(d["traders"], machine):
+            d["traders"] = [t for t in d["traders"] if not t["test"]]      # `test_traders` はそのまま（居ることは分かる）
+        return api(d)
 
     @app.get("/api/judge")
     async def api_judge(request: Request):

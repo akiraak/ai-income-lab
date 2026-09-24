@@ -30,7 +30,7 @@
 <div class="charts-2">
   <div class="panel">
     <h3>損益の推移{{ simmark(machine) }} {{ info("予算（トレーダーの持ち金）") }}<span class="small">予算に対する %（実現 ＋ 含み）· 並びは設定の順</span></h3>
-    <div class="legend">{% for t in b.traders %}<span class="item"><i class="sw {{ t.cls }}{{ ' dash' if t.dash else '' }}"></i>{{ t.name }}</span>{% endfor %}</div>
+    <div class="legend">{% for t in b.traders %}<span class="item"><i class="sw {{ t.cls }}{{ ' dash' if t.dash else '' }}"></i>{{ t.label }}</span>{% endfor %}</div>
     {{ charts.pnl_overview(b) }}
     <p class="rule">⚠ 損益で手法を採らない（20 営業日では統計的に判定できない）。勝ち負けの色は付けない。紙上の損益はトレーダーの詳細に（<span class="chip placeholder">仮データ</span>）</p>
   </div>
@@ -44,14 +44,14 @@
   </div>
 </div>
 
-<div class="sec"><h2>トレーダー{{ simmark(machine) }}{{ info("トレーダー") }}</h2><span class="muted small">{{ b.configured|length }} 人{% if b.test_traders %} ＋ 試験用 {{ b.test_traders|length }} 人{% endif %} · 1 人 1 段。損益と行動を同じ時間の軸で揃える · 並びは設定の順で固定（損益の順にしない）· <b>{{ b.period.label }}</b>（全期間は名前を押した先）</span></div>
+<div class="sec"><h2>トレーダー{{ simmark(machine) }}{{ info("トレーダー") }}</h2><span class="muted small">{{ b.configured|length }} 人{% if b.hidden_test %}（試験用 {{ b.hidden_test }} 人は本物の画面には出さない）{% elif b.test_traders %} ＋ 試験用 {{ b.test_traders|length }} 人{% endif %} · 1 人 1 段。損益と行動を同じ時間の軸で揃える · 並びは設定の順で固定（損益の順にしない）· <b>{{ b.period.label }}</b>（全期間は名前を押した先）</span></div>
 {% if not b.configured %}<p class="small warn">⚠ 実際に動かすトレーダーの属性はまだ設定していない（2026-09-17 の利用者決定）。下は試験用（<code>test = true</code>。記録に印が付き、判定に混ぜない）。</p>{% endif %}
 <div class="lanes">
 {% for t in b.traders %}
 {% set tm = t.diff1_median %}{% set ts = 'na' if tm is none else ('ok' if tm <= 5 else ('warn' if tm <= 10 else 'ng')) %}
 <div class="lane bl-{{ t.cls }}">
   <div class="info">
-    <span class="tr-name"><i class="sw dot {{ t.cls }}"></i><a href="/traders/{{ t.name }}">{{ t.name }}</a>{% if t.test %} <span class="badge badge-mock">TEST</span>{% endif %}</span>
+    <span class="tr-name"><i class="sw dot {{ t.cls }}"></i><a href="/traders/{{ t.name }}">{{ t.label }}</a>{% if t.test %} <span class="badge badge-mock">TEST</span>{% endif %}</span>
     <span class="big">{{ pct(t.pnl_now_pct) }}</span>
     <span class="muted">{{ usd(t.pnl_now_usd) }} · 予算 ${{ '{:,.0f}'.format(t.budget_usd) }}</span>
     <span><span class="k">差 1</span> <span class="chip {{ ts }}">{{ {'ok': '✅', 'warn': '⚠', 'ng': '❌', 'na': '—'}[ts] }} {{ tm if tm is not none else '—' }} bp</span></span>

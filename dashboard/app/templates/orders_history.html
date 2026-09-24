@@ -16,7 +16,7 @@
       <td class="num">{% if o.fill_price %}{{ '%.2f'|format(o.fill_price) }}{% else %}—{% endif %}</td>
       <td class="num">{{ o.diff1_bp|join(' ') or '—' }}</td>
       <td class="cell-{{ o.status_class }}">{{ o.final_status }}{% if o.cancelled %} <span class="warn">取消</span>{% endif %}</td>
-      <td class="small muted">{% if who %}{% set others = o.parts|rejectattr('trader', 'equalto', who)|map(attribute='trader')|list %}{{ ('同じ注文: ' ~ others|join(', ')) if others else '' }}{% else %}{% for p in o.parts %}{{ p.trader }} {{ p.shares }}{{ ' · ' if not loop.last }}{% endfor %}{% endif %}</td>
+      <td class="small muted">{% if who %}{% set others = o.parts|rejectattr('trader', 'equalto', who)|map(attribute='trader')|list %}{% if others %}同じ注文: {% for n in others %}{{ b.labels.get(n, n) }}{{ ', ' if not loop.last }}{% endfor %}{% endif %}{% else %}{% for p in o.parts %}{{ b.labels.get(p.trader, p.trader) }} {{ p.shares }}{{ ' · ' if not loop.last }}{% endfor %}{% endif %}</td>
       <td class="num">{{ o.attempts }}</td>
       <td class="num muted">{{ o.elapsed_ms }} ms</td>
       <td class="small {{ 'ng' if o.error else 'muted' }}">{% if o.error %}{{ o.error.code or o.error.type }}: {{ (o.error.message or '')[:120] }}{% else %}—{% endif %}</td>
@@ -27,7 +27,7 @@
       <td>{% if not who %}内部移転{% else %}{{ '買い' if x.buyer == who else '売り' }}{% endif %}</td>
       <td class="num">{{ x.shares }} 株</td><td class="num muted">—</td><td class="num">{{ '%.2f'|format(x.price|float) }}</td><td class="num">—</td>
       <td class="cell-na">内部移転</td>
-      <td class="small muted">{% if not who %}{{ x.seller }} → {{ x.buyer }}{% else %}相手 {{ x.seller if x.buyer == who else x.buyer }}{% endif %}（口座に出ない）</td>
+      <td class="small muted">{% if not who %}{{ b.labels.get(x.seller, x.seller) }} → {{ b.labels.get(x.buyer, x.buyer) }}{% else %}{% set other = x.seller if x.buyer == who else x.buyer %}相手 {{ b.labels.get(other, other) }}{% endif %}（口座に出ない）</td>
       <td class="num">—</td><td class="num">—</td><td class="muted">—</td>
     </tr>
     {% endif %}

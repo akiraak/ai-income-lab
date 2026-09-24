@@ -26,7 +26,7 @@
     <a href="/overall" class="{{ 'on' if page == 'overall' else '' }}">全体の詳細</a>
     <div class="grp">トレーダー</div>
     {% for t in nav_traders %}
-    <a href="/traders/{{ t.name }}" class="{{ 'on' if page == 'trader:' ~ t.name else '' }}"><i class="sw dot {{ t.cls }}"></i>{{ t.name }}{% if t.test %} <span class="muted small">test</span>{% endif %}</a>
+    <a href="/traders/{{ t.name }}" class="{{ 'on' if page == 'trader:' ~ t.name else '' }}"><i class="sw dot {{ t.cls }}"></i>{{ t.label }}{% if t.test %} <span class="muted small">test</span>{% endif %}</a>
     {% else %}
     <span class="side-empty muted small">執行器の定義が無い</span>
     {% endfor %}

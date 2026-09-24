@@ -10,7 +10,7 @@
   <div class="tile"><div class="k">手数料（差 2）{{ info("差 2（実コスト）") }}</div><div class="v num">{{ usd(t.last.fees_usd or 0) }}</div><div class="s">dry-run の写し</div></div>
   <div class="tile"><div class="k">差 3 紙上 − 実物{{ info("差 3（紙上 − 実物）") }}</div>{% if t.paper_real %}<div class="v num">{{ t.diff3_cum_bp if t.diff3_cum_bp is not none else '—' }} bp</div><div class="s">累計（予算に対して）· 日次の中央値 {{ t.diff3_median_bp if t.diff3_median_bp is not none else '—' }} bp{% if t.close_source == 'quotes' %} · <span class="chip placeholder">終値は気配の代役</span>{% endif %}</div>{% else %}<div class="v"><span class="chip placeholder">仮データ</span></div><div class="s">{{ b.placeholder.diff3_bp_per_day }} bp/日 · 紙上の対照（daily.csv）ができたら本物</div>{% endif %}</div>
 </div>
-{% if t.last.drawdown_pct_of_budget is not none and t.last.drawdown_pct_of_budget > 20 %}<div class="danger">⚠ 含み損 {{ t.last.drawdown_pct_of_budget }}% ＞ 20%（停止条件。live-trading.md §0-2。⚠ 自動では止めない。止めるのは人）{{ info("含み損の停止条件") }}</div>{% endif %}
+{% set dd_pct = t.last.get('drawdown_pct_of_budget') %}{% if dd_pct is not none and dd_pct > 20 %}<div class="danger">⚠ 含み損 {{ t.last.drawdown_pct_of_budget }}% ＞ 20%（停止条件。live-trading.md §0-2。⚠ 自動では止めない。止めるのは人）{{ info("含み損の停止条件") }}</div>{% endif %}
 <div class="dgrid">
   <div class="panel"><h3>損益の推移{{ simmark(machine) }} {{ info("紙上の損益") }}<span class="small">予算に対する % · {{ b.period.label }}</span></h3>
     <div class="legend"><span class="item"><i class="sw {{ t.cls }}"></i>実物</span><span class="item"><i class="sw dash"></i>紙上{% if not t.paper_real %} <span class="chip placeholder">仮データ</span>{% endif %}</span></div>

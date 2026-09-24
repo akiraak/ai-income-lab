@@ -412,3 +412,41 @@ def test_real_paper_control_replaces_the_placeholder_when_daily_csv_exists(setti
         assert api["daily"][0]["paper_cum_bp"] == -2.5 and api["daily"][0]["trader"] == "test_a"
     livefs.write_doc(path, "こわれた,ファイル\n1,2\n")
     assert lv.board(settings.live_dir)["placeholder"]["paper"]                   # 読めなければ仮に戻る（落ちない）
+
+
+def test_nicknames_and_hidden_test_traders(settings, tmp_path, monkeypatch):
+    """呼び名（traders.toml の [nicks]）を識別名と併記し、本物の人がいるときは試験用を一覧から外す（2026-09-23 利用者の指示）。
+    ⚠ 隠すのは一覧だけ ＝ URL を直接開けば test も見える。本物の人が 0 人なら今までどおり試験用を出す。"""
+    nk = tmp_path / "nicks.toml"
+    nk.write_text('[nicks]\nT1 = "アキ"\n', encoding="utf-8")
+    monkeypatch.setattr(lv, "NICKS_FILE", nk)
+    build_live_dir(settings.live_dir, with_real=True)
+    tr = {t["name"]: t for t in lv.traders(settings.live_dir)}
+    assert tr["T1"]["label"] == "アキ（T1）" and tr["T1"]["nick"] == "アキ"
+    assert tr["test_a"]["label"] == "test_a" and tr["test_a"]["nick"] is None
+    b = lv.board(settings.live_dir)
+    assert b["labels"] == {"T1": "アキ（T1）", "test_a": "test_a"} and len(b["traders"]) == 2      # ライブラリは全員を返す
+    with TestClient(create_app(settings, start_monitors=False), client=("127.0.0.1", 50000)) as c:
+        home = c.get("/").text
+        assert "アキ（T1）" in home and 'href="/traders/T1"' in home
+        assert 'href="/traders/test_a"' not in home and "試験用 1 人は本物の画面には出さない" in home
+        assert 'href="/traders/test_a"' not in c.get("/overall").text
+        page = c.get("/traders/test_a")
+        assert page.status_code == 200 and "TEST" in page.text and "一覧には出さない" in page.text
+        assert "アキ（T1）" in c.get("/traders/T1").text
+        j = c.get("/api/live").json()
+        assert [t["name"] for t in j["traders"]] == ["T1"] and j["traders"][0]["label"] == "アキ（T1）"
+        assert [t["name"] for t in j["test_traders"]] == ["test_a"]
+    (settings.live_dir / "config" / "traders" / "T1.toml").unlink()
+    with TestClient(create_app(settings, start_monitors=False), client=("127.0.0.1", 50000)) as c:
+        home = c.get("/").text
+        assert 'href="/traders/test_a"' in home and "本物の画面には出さない" not in home
+        assert [t["name"] for t in c.get("/api/live").json()["traders"]] == ["test_a"]
+
+
+def test_nicks_file_missing_or_broken_means_identifier_only(settings, tmp_path, monkeypatch):
+    monkeypatch.setattr(lv, "NICKS_FILE", tmp_path / "none.toml")
+    assert lv.nicks() == {}
+    (tmp_path / "bad.toml").write_text("[nicks\n", encoding="utf-8")
+    monkeypatch.setattr(lv, "NICKS_FILE", tmp_path / "bad.toml")
+    assert lv.nicks() == {} and lv.label_of("T1", None) == "T1" and lv.label_of("T1", "アキ") == "アキ（T1）"

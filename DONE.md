@@ -1,4 +1,11 @@
 # DONE
+- 2026-09-23 実売買: `T1`〜`T3` を規模 A（$300 × 3）で本番投入した → ✅ **「実運用」に入った**（Phase 5-2。1 日目の記録が残り、口座と売買履歴が一致）[plan](docs/plans/archive/live-trading-go-live-0922.md)
+  - 利用者が 10:04:51 ET に `TT_ALLOW_PROD_ORDERS=1 ./run-live.sh --traders T1,T2,T3 --mode submit --wait -- --env prod --i-know-this-is-real-money` を起動 → `--wait` が 15:50:00 ET まで待つ → 日足の更新 55 秒 → 予測 3 本 43 秒 → 執行器 10 秒 ＝ 起きてから 109 秒で終了・rc=0【実測】
+  - 合図 15 → 意図 10 → 注文 10・約定 10・問題 0: `T1`・`T3` が T 2 ・ PFE 2 ・ NKE 1 ・ VZ 1 ・ BAC 1 ずつ（代金 $245.145 ／ $245.164）・`T2` は 5 銘柄とも買い% 49.67 < θ 55 で `skip`。発注 → 約定 0.11〜0.16 秒・429 なし。1 日の上限 $490.29 ／ $1,000
+  - 差 1（気配の中値 → 約定）: `T1` は 5 本とも 0.00bp・`T3` は 0.00〜+1.79bp（中央値 +0.67bp。同じ気配で 1〜3 秒後に出た分）
+  - 確認（Claude・引け後）: `reconcile.py --env prod show` ＝ 5 銘柄とも口座 − 売買履歴 ＝ 0・控えの未完 0 ／ 口座の現金 $999.906 → $509.583（差 $490.323 ＝ 代金 ＋ 手数料の見積り $0.014 と一致）／ 管理画面の 9 ページが 200（⚠ 3012 は止まっていたので `run-server.sh` で起こした）／ 秘密の grep ＝ `.env` の 7 項目とも 0 件・`eyJ` 0 件（`Bearer` 88 件は `authenticated` の `token_type` の値）
+  - ⚠ 手数料は dry-run の見積りのまま（TODO「約定後の実際の手数料を読む」）。紙上の対照（`daily.csv`）の今日の行は翌朝の `--prepare` が公式終値で作る。データの検査の警告（`ohlc_inconsistent`・`scale_break`）は前日までと同じ種類
+  - 記録は [live-trading.md §1](docs/specs/experiments/live-trading.md)（3 行）。⚠ 9/22 は起動が遅れて見送り（前日の DONE）。次 ＝ 9/24（木）に timer を入れる（利用者）・Phase 6 の 20 営業日目は 2026-10-20【計算】。段取りのプランは archive へ
 - 2026-09-22 3 台の役割分け Phase 1: 作業の場所を titan に移した（Sx360 ＝ 端末・titan の Claude で作業）[plan](docs/plans/three-machines.md)
   - `run-titan-session.sh`（Sx360 → `ssh -t titan` → tmux `ail` で claude）と CLAUDE.md の「作業の場所」（titan の Claude が書いた・`a365e51`）
   - Sx360 に keychain を入れた（利用者。プラン §4 1-2）→ keychain で `ssh -o BatchMode=yes titan` が ok・Sx360 から `./run-titan-session.sh` がパスフレーズなしで通った【実測 2026-09-22 夜】
@@ -15,13 +22,13 @@
   - 直し: `run-live.sh` の頭で同じ 2 つを見る（sim なら rc=5 ／ ロックが取れなければ rc=6）。⚠ **ロックは取れるかだけ見てすぐ放す**（持ち続けると後で起こす `run_day.py` が取れなくなる）。⚠ **早見が壊れても実売買は止めない**（確かめられなければ進む ＝ 本物の関門は `run_day.py`）
   - 【実測】シミュレーションモードでの拒否が **95 秒 → 0.026 秒**。試した道 4 つ（本物は素通り ／ sim は rc=5 ／ ロックが埋まっていれば rc=6 ／ 早見の後にロックが空いている）。⚠ **本物の `MODE` と `run.lock` には触らず、`LT_MODE_DIR` を一時置き場に向けて試した**
   - `./run-tests.sh --fast` 233 本が通る。記録は [live-trading.md §1](docs/specs/experiments/live-trading.md)
-- 2026-09-22 実売買: `run-live.sh` に「引けに間に合わなければ起動しない」ブレーキを足し、本番投入を 9/23（水）へ持ち越した [plan](docs/plans/live-trading-go-live-0922.md)
+- 2026-09-22 実売買: `run-live.sh` に「引けに間に合わなければ起動しない」ブレーキを足し、本番投入を 9/23（水）へ持ち越した [plan](docs/plans/archive/live-trading-go-live-0922.md)
   - ⚠ **9/22 は投入しなかった。関門は Go のまま・技術的な問題は 1 つも出ていない**。ずれた理由は**発注できる時間帯に間に合う時刻に起動しなかった**ことだけ。⚠ **本番の注文は 0 件・口座は動いていない・記録も汚れていない**【実測】
   - ⚠ **踏んだ形**: `--wait` は「15:50 ET まで待つ」だけで**過ぎていたら素通りする** ＝ ブレーキではない。13:01 PDT（16:01 ET）に起こすと、準備の約 95 秒の後に**引け（16:00 ET）後の成行**を 10 本投げるところだった（利用者が準備の途中で中止）
   - 直し: `--mode submit` ＋ 今日の日付のとき、「いま ＋ 準備の見積り（既定 120 秒）」が刻限（既定 15:58 ET）を過ぎるなら **rc=11 で起動しない**。⚠ `plan` ／ `dry-run` ／ 過去の日付 ／ `--ignore-window` を書いた回は素通り。`AIL_PREP_SECONDS` ／ `AIL_SUBMIT_DEADLINE` で動かせる。`--wait` も「既に過ぎている ＝ 待たずに進む」と言うようにした
   - 試した道 6 つ【実測】: 遅い submit → rc=11 ／ dry-run ・ plan ・ 過去の日付 ・ `--ignore-window` ・ 刻限を緩めた submit → 素通り（⚠ スクリプトの写しをブレーキ直後で止めて確かめた ＝ 口座に触れていない）
   - ⚠ **D4 の前提が崩れた**: 「timer は水曜から」は**火曜に手で 1 回成功を見てから**が前提だったので、**timer は木曜（9/24）から**へ
-  - 記録は [live-trading.md §1](docs/specs/experiments/live-trading.md)、段取りは [プラン §4-1・§4-2](docs/plans/live-trading-go-live-0922.md)
+  - 記録は [live-trading.md §1](docs/specs/experiments/live-trading.md)、段取りは [プラン §4-1・§4-2](docs/plans/archive/live-trading-go-live-0922.md)
 - 2026-09-22 管理画面を別の機械から見るトンネルを 1 コマンドに（`run-dashboard-tunnel.sh`）[plan](docs/plans/dashboard-remote-tunnel.md)
   - 利用者の指示「`ssh -N -L 3013:127.0.0.1:3012 titan` を実行する `run_xxxx.sh` を作る。接続アドレスも表示させる」。きっかけは「管理画面は IP でアクセスできるか」＝ **できない**（`AIL_BIND=127.0.0.1` ＝ titan のループバックにだけ口を開けている）
   - ⚠ **走らせるのは Sx360（見る側）**。titan 側は `AIL_BIND` も `AIL_AUTH_MODE` も変えない ＝ 面の規則に触らない
@@ -74,7 +81,7 @@
   - 台帳（研究）→ 検証結果一覧 ／ 台帳（トレーダー）→ 売買履歴 ／ 試行 → 検証（検証数・検証名）／ 検証期間・検証 fold → 評価期間（重みを選ぶ期間は選定期間）／「検証」タブ → 「実行」タブ ／ 鍵 → 識別項目（①）・識別名（②）・許可（③）・資格情報（④）・項目名・ロック ／ 名前の部品 → 入力データ・数字の選び方・作り方・学習範囲 ／ 窓 → 観測期間・取引時間帯
   - 直した所: CLAUDE.md（言葉の表を足した）・rules.md ほか解説・dashboard.md・live-trading.md・3 つのタブと用語・`ledger.md`（文だけ。数字は同じ）・実行タブ・管理画面の i マーク「3 段の許可」。やさしい言葉の検査に 手法・形式・窓 を足した
   - ⚠ 変えていないもの: 列や登録名・ファイル名・コードの識別子・過去の記録・執行器のメッセージ（本番投入が落ち着いてから）
-- 2026-09-21 実売買: 月曜の段取り（本番の dry-run・sandbox のリハーサル・`test_a` の本番往復・通し稽古）→ **関門 Go**（利用者決定「火曜にする」）[plan](docs/plans/live-trading-go-live-0922.md)
+- 2026-09-21 実売買: 月曜の段取り（本番の dry-run・sandbox のリハーサル・`test_a` の本番往復・通し稽古）→ **関門 Go**（利用者決定「火曜にする」）[plan](docs/plans/archive/live-trading-go-live-0922.md)
   - 予定（06:35〜）より遅れて 12:00 PDT から市場時間内に詰めて回した。記録は [live-trading.md §0-3・§1](docs/specs/experiments/live-trading.md)
   - `dryrun2`（本番・12:10 PDT）: 金額指定は通るが **最低 $5**（$4.76 は `below_notional_value_minimum`）・**端株は 1 本 $0.10 の手数料**（整数株の成行は $0.001）・小数の指値は不可・MOC は無い・小数 4 桁の売りは持ち高で断られた（数量の形ではない）【実測】→ 「通れば notional」の規則が一意に決まらず、**利用者決定: 3 人とも `shares`・D3 の 5 本（T・PFE・NKE・VZ・BAC）**。`config/traders/T1〜T3.toml` を確定（`candidates/shares/` の写し・テスト 1 本）
   - cert のリハーサル: 約定した注文（1663195）の約定確認が **429** で「error・0 株」と確定し控えも閉じた ＝ 台帳から漏れる穴 → 執行器を直した（429 は待って取り直す・照会しきれない注文は `unknown` で控えを開けたまま・発注の再送は重複を探してから・最後にもう 1 度 external-identifier で探す）[plan](docs/plans/archive/live-trading-429-fix.md)。`reconcile.py add` で台帳を合わせ、直した後の cert の売り（1663301）で 429 が再び出て 5 秒待って約定を読めた【実測】。`sim2` の筋書き 15 日目（429）は × 3 に・シナリオのテストも新しい決まりに合わせた
@@ -152,7 +159,7 @@
   - ⚠ **執行器の穴は見つからなかった**（凍結の範囲は 1 行も変えていない）。直したのは仮データの読み手だけ ＝ `BRK/B` → `BRK-B.csv`（us63 を使う設定で初めて踏む）。⚠ 月曜に確かめるもの: 本物が `BRK/B` の綴りを受けるか・小数 4 桁の売りを受けるか（`TODO.md` の月曜の行にメモ）
   - ⚠ 読み: `sim_T2` は 61 日間 1 本も買わず最終日に 48 本を一度に買った（全銘柄の買い% がほぼ同点。仕様どおり ＝ 本番で T2 が何日も 0 本でも故障ではない）／ 整数株の形は枠を使い切れない（持ち高 $197〜$259 ／ $300。BAC は 2026-09-18 の終値 $57.73 で枠まで約 4%）
   - 確認【実測】: 執行器の pytest 135 本（129 ＋ 新 6）・`sim1`・管理画面 167 本・`./run-sim.sh sim3 --fresh --speed max --no-dashboard`。`runs/`・`data/` に増えたものなし（n_trials は動かない）。記録は [live-trading.md §0-7 (k)](docs/specs/experiments/live-trading.md)
-- 2026-09-20 実売買: 火曜（9/22）の本番投入までの「市場が要らない作業」を全部済ませた（今日の買い%・日足の置き場・2 段の発注・紙上の対照・手順書） [plan](docs/plans/live-trading-go-live-0922.md)
+- 2026-09-20 実売買: 火曜（9/22）の本番投入までの「市場が要らない作業」を全部済ませた（今日の買い%・日足の置き場・2 段の発注・紙上の対照・手順書） [plan](docs/plans/archive/live-trading-go-live-0922.md)
   - 利用者の指示（2026-09-19）:「TODO の実売買のテストを含めた実運用までを次の火曜日までに終わらせます。…明日までには市場での売買以外の作業を終わらせます」。裁定（2026-09-20 未明）＝ D1 案 B（`test_a` の往復を月曜 1 日で）／ D2 同時 ／ D3 端株が通らなければ T・PFE・NKE・VZ・BAC ／ D4 timer は水曜から ／ D5「できるものはすぐにやる」／ D6 発注を 2 段にする。⚠ 親タスクと月曜・火曜の子は [TODO.md](TODO.md) に残る（済んだ Phase 1・3・4 は、他のタスクの「依存」「関連」が文面で指しているので TODO に `[x]` のまま置いた）
   - Phase 1 `experiments/feature-discovery/cli/predict.py`: 表 ＝ `cli.build.assemble`・買い% ＝ `cli.run.fold_buy_pct`（どちらも既存のコードの切り出しで、切り出しの前後の own_2018 の表は 1 ビットも同じ）。訓練 ＝ ラベルが `asof` より前に確定している行。3 本とも 表 31〜34 秒 ＋ fit 0.1〜2.7 秒・並列で 36 秒【実測】＝ 訓練と推論を分ける必要は無かった。2026-09-18 の合図は T1 買い 58 ／ T2 0 ／ T3 62
   - 日足の置き場 `data-live/`（`live_update.sh`・`AIL_DATA_DIR`）: ⚠ **配信側が過去の足をさかのぼって変えていた**（小数 2 桁・権利落ち前日の終値が未調整 ＝ 41 銘柄に 2% 超【実測】）ので、研究用の写しを種にして後ろだけ継ぐ形にした。⚠ 研究用の `data/` に `cli.fetch --dataset daily` を流すと表が壊れる

@@ -165,6 +165,26 @@ flowchart LR
 
 ⚠ **2-1 と 2-2 の器づくりは冒頭の依存（9/23 の本番投入 ＋ titan で数日）を待たなくてよい**（13500t には発注の許可を置かない ＝ titan の実売買に触らない）。待つのは 2-3 の本番の資格情報を使う段だけ。
 
+#### 2-3 の手順（2026-09-23 夜。titan の Claude が書いた。⚠ 実行は Sx360 の Claude ＋ 利用者）
+
+前提【実測 2026-09-23】: titan で本番投入が 1 日通った（[DONE.md](../../DONE.md)）／ refresh token は回っていない（`refresh_token_rotated` は 88 件とも false・`.env` は 9/9 から不変）＝ **同じ `.env` を 2 台で使っても互いのログインを壊さない** ／ 日足の写しは `~/ail-bench/data-live-20260922-2000.tar.gz`（sha256 あり。13500t にも bench で写してある）。
+
+⚠ **守ること**: 13500t には `TT_ALLOW_PROD_ORDERS` も `--i-know-this-is-real-money` も置かない（g3plus-ops の `run.sh` の留め金も外さない）／ titan の売買（12:45 PDT の手動 ／ 9/24 からの timer）には触らない ／ 13500t の記録に入るのは dry-run ／ plan だけ。
+
+| 順 | 何を | だれ | 出口 |
+| ---: | --- | --- | --- |
+| 0 | titan の今日の変更（DONE・§1 の記録・プランの archive）を push → Sx360 の clone で `git pull` → 13500t の auto-update が pull したことを log で見る | titan の Claude → 利用者 | 3 台とも同じ commit |
+| 1 | 13500t の clone に `experiments/tastytrade-api-sample/.env` を置く（titan のものをそのまま。`chmod 600`・持ち主は clone と同じ uid） | ⚠ **利用者** | `.env` がある・`git status --porcelain` が空のまま（git 管理外） |
+| 2 | `data-live/` が clone の中に無ければ bench の写し（`data-live-20260922-2000.tar.gz`）を `experiments/feature-discovery/data-live/` に展開し sha256 を確かめる（⚠ 研究用の `data/` は無いので `live_update.sh` の「初回の種」は動かない ＝ 写しが要る） | Sx360 の Claude | `data-live/seed.json` がある・63 銘柄 |
+| 3 | ② `run_day` の部分: `./run-live.sh --traders T1,T2,T3 --date 2026-09-22 --mode plan -- --env prod --ignore-window`（コンテナの `run.sh` 経由）。titan の同じ日の `signals.jsonl`（`livefs.py cat experiments/live-trading/out/2026-09-22/signals.jsonl`）と **買い% ／ 出口% を突き合わせる**。⚠ 比べるのは合図（`buy`・`exit`）だけ。意図（intent）は 13500t の売買履歴が空で titan と違って当然（titan の T1・T3 は 9/23 から持ち株がある）。⚠ 口座に 9/23 の持ち株（T 4 ・ PFE 4 ・ NKE 2 ・ VZ 2 ・ BAC 2）が見える ＝ 執行器は「売買履歴の外」として記録するだけで正しい | Sx360 の Claude | 15 行とも買い% の差 ≤ 0.01（§0-12 の T3 の 0.003 と同じ桁） |
+| 4 | ③ 本番の dry-run: 市場時間中（9/24 06:30〜13:00 PDT）に `TT_ALLOW_PROD_DRY_RUN=1 ./run-live.sh --traders T1,T2,T3 -- --env prod --allow-prod-dry-run --ignore-window`。⚠ 閉場中は成行の dry-run が `tif_no_after_hours_opening_market_orders` で断られる（cert の【実測 2026-09-17】）ので、閉場中に流して「失敗」と読まない | Sx360 の Claude | `orders.jsonl` の全行が `mode: dry-run`・`submitted` 無し・買付余力の効果が $25〜$60 |
+| 5 | ④ 市場時間中の所要: 9/24 12:40 PT の host cron（dry-run）の log から 日足の更新 ＋ 予測 の秒数を読む（titan は 55 ＋ 43 秒【実測 9/23】）。⚠ 12:45 PDT に titan の本物も動く ＝ 同時にログインしても壊れない（前提）が、429 が出たら log に残す | Sx360 の Claude | 更新 ＋ 予測 ≤ 120 秒（超えるなら `AIL_PREP_SECONDS` を増やして刻限 15:58 ET に収まるか） |
+| 6 | ⑤ 秘密の grep: 13500t の clone で `python3 experiments/tastytrade-api-sample/livefs.py dump . \| grep -c <値>` を `.env` の 7 項目と `eyJ` で（⚠ `Bearer` は `token_type` の値として出る ＝ トークンではない） | Sx360 の Claude | 全部 0 件 |
+| 7 | 管理画面: Sx360 から `./run-dashboard-tunnel.sh --host <13500t>` → 9 ページが 200・`mode: real`・dry-run の起動が出る | Sx360 の Claude | — |
+| 8 | 結果を `live-trading.md` §0-13 の下に「合否の結果」として書き、TODO の Step 2-3 を閉じる → **Phase 3 へ**（⚠ Phase 4 の切り替えは titan で数日通ってから・週末に） | Sx360 の Claude（push）→ titan の Claude が pull | — |
+
+⚠ **Phase 3 で titan の Claude がやるもの**（2-3 と並行できる）: 「本番の機械ではない」印（`experiments/live-trading/NOT_PRODUCTION` のような `MODE` と同じ型のファイル）を `run_day.py` が読んで submit を拒む仕組み ＋ テスト ＋ `live-trading.md` の切り替えの手順書。⚠ 印は titan に置くもので、13500t には置かない（取り違えないよう、印の中身に機械名を書かせ、`hostname` と突き合わせる案）。
+
 ### Phase 3: 切り替えの手順を決めて試す（K4・K6）
 - 手順書（`live-trading.md` に節を足す）: ① titan の timer を止め、titan の `live.env` から発注の許可を外す → ② `live.sqlite` と `state/` を 13500t へ（sha256 を確かめる）→ ③ 13500t の `reconcile.py show` で口座と売買履歴の差 0 → ④ 13500t の timer を入れる
 - ⚠ **「titan で発注しない」を仕組みで守る**: titan に `experiments/live-trading/` の「本番の機械ではない」印を置き、`run_day.py` が submit を拒む（`MODE` と同じ型のファイル）。⚠ 印の有無を 13500t と取り違えない書き方をプランで詰める

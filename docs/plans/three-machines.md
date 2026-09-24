@@ -143,7 +143,7 @@ fi
 - テスト（§6）: Sx360 の WSL を `wsl --shutdown` → 端末を開いてパスフレーズを 1 回 → 別の端末で `./run-titan-session.sh` がパスフレーズなしで入れる
 
 ### Phase 2: 13500t に本番の器を作る — まだ発注しない（K2・K5・K7）
-- 依存: 「9/23（水）: 本番投入」＋ titan で数日通ったこと
+- 依存: 「9/23（水）: 本番投入」（✅ 2026-09-23）＋ titan で数日通ったこと（⚠ 「数日」は **titan の timer が submit で通った日数**で数える ＝ 下の「2026-09-24 の決定」）
 - g3plus-ops: `ail-live/`（売買のコンテナ）・`ail-dashboard/` を戻して §7 に追従（`glossary.toml`）・`auto-update.sh`
 - 13500t で `--mode plan`（過去の日）→ 本番の dry-run（利用者が `.env` を置いてから）。⚠ **発注の許可はまだ置かない**
 - 管理画面はローカル面だけで起動し、Sx360 からトンネルで見る（`run-dashboard-tunnel.sh` の宛先を選べるようにする）
@@ -187,13 +187,44 @@ flowchart LR
 
 ⚠ **Phase 3 で titan の Claude がやるもの**（2-3 と並行できる）: 「本番の機械ではない」印（`experiments/live-trading/NOT_PRODUCTION` のような `MODE` と同じ型のファイル）を `run_day.py` が読んで submit を拒む仕組み ＋ テスト ＋ `live-trading.md` の切り替えの手順書。⚠ 印は titan に置くもので、13500t には置かない（取り違えないよう、印の中身に機械名を書かせ、`hostname` と突き合わせる案）。
 
+### 2026-09-24 の決定 — 切り替えまでの運転の形（利用者。「まず titan, 13500t ともに timer で動かすけど、最初は 13500t は dry-run だけで後で切り替える」）
+
+> この図の主張: 発注するのは常に 1 台だけ。切り替えまでは titan の timer、切り替え後は 13500t の cron。13500t はそれまで毎日 dry-run で「無人で起きること」だけを積む。
+
+```mermaid
+flowchart LR
+  subgraph A["切り替えまで（9/24 〜 Phase 4 の前日）"]
+    T1["titan: systemd timer<br/>9/24 は dry-run → 9/25 から submit"]
+    S1["13500t: host cron<br/>毎日 dry-run（留め金あり）"]
+  end
+  A --> P4["Phase 4（週末・利用者）<br/>titan の許可を外し印を置く ／ 記録を移す ／ 留め金を外す"]
+  subgraph B["切り替え後"]
+    T2["titan: 印があり発注しない"]
+    S2["13500t: host cron が submit"]
+  end
+  P4 --> T2
+  P4 --> S2
+```
+
+| 機械 | 9/24（木） | 9/25（金）〜 Phase 4 の前日 | Phase 4（週末。利用者） | 切り替え後 |
+| --- | --- | --- | --- | --- |
+| titan | **timer を入れる**（`systemd/README.md` の 8 行）。初日は `live.env` が雛形の dry-run | 利用者が `live.env` を submit に書き換え、**timer が本番の発注** | 発注の許可を外し「本番の機械ではない」印を置く（Phase 3 の仕組み） | 発注しない（印で `run_day.py` が submit を拒む） |
+| 13500t | host cron の dry-run（Step 2-3 の ③④ ＝ 今日確かめる） | host cron の dry-run のまま（`run.sh` の留め金） | `live.sqlite` と `state/` を受け取り（sha256・Phase 2 の DB は `live.sqlite.phase2-<日付>` に退ける）→ `reconcile.py show` で差 0 → 留め金を外し `live.env` を submit | **host cron が発注** |
+
+- ⚠ **timer の dry-run の日（titan の 9/24）は、同じ日に手動の本番発注を重ねない**。どちらも 15:50 ET に日足の更新（ロック無し）→ 予測 → 執行器と進み、日足を同時に書き、執行器は片方が `run.lock` で拒否される（rc=6）＝ **9/24 は本物の注文なし**（持ち株はそのまま）。⚠ 最初から submit で入れて dry-run の日を省くのは利用者の判断
+- Phase 3（印の仕組み ＋ 切り替えの手順書 ＋ cert で 1 往復）は**切り替えの前に必須** ＝ 2026-09-24 から titan の Claude が着手する（Step 2-3 と並行。着手の指示は利用者）
+- Phase 4 の時期: **早ければ 9/26〜27**（timer の submit は 9/25 の 1 日だけ）／ 「数日」を守るなら **10/3〜4**。⚠ 利用者の裁定。13500t の cron の dry-run は Phase 4 まで毎日続く（無人で起きた日 ／ 起きなかった日はこの間に数え始める）
+- 無人運転の判定（プラン live-trading-three-models.md §2-3 の 2 本柱の 1 つ）は、切り替え後は 13500t の cron のログで測る（起動しなかった日の数え方 ＝ TODO「無人運転」の子タスク）
+
 ### Phase 3: 切り替えの手順を決めて試す（K4・K6）
+- ✅ 2026-09-24: **着手は titan の Claude・Step 2-3 と並行・切り替えの前に必須**（上の「2026-09-24 の決定」）
 - 手順書（`live-trading.md` に節を足す）: ① titan の timer を止め、titan の `live.env` から発注の許可を外す → ② `live.sqlite` と `state/` を 13500t へ（sha256 を確かめる）→ ③ 13500t の `reconcile.py show` で口座と売買履歴の差 0 → ④ 13500t の timer を入れる
 - ⚠ **「titan で発注しない」を仕組みで守る**: titan に `experiments/live-trading/` の「本番の機械ではない」印を置き、`run_day.py` が submit を拒む（`MODE` と同じ型のファイル）。⚠ 印の有無を 13500t と取り違えない書き方をプランで詰める
 - cert（sandbox）で切り替えを 1 往復して確かめる
 
 ### Phase 4: 本番を 13500t に切り替える（利用者）
-- 市場の外の日（週末）に Phase 3 の手順で。許可を置いて timer を入れるのは利用者
+- 市場の外の日（週末）に Phase 3 の手順で。時期は「2026-09-24 の決定」（早ければ 9/26〜27・「数日」なら 10/3〜4。⚠ 利用者の裁定）
+- 順: titan の timer を止め `live.env` から発注の許可を外し印を置く → `live.sqlite` と `state/` を 13500t へ（sha256。13500t の Phase 2 の DB は退ける）→ 13500t の `reconcile.py show` で差 0 → 13500t の `run.sh` の留め金を外し `live.env` を submit（発注の許可を置くのは利用者）→ 翌営業日の cron を見る
 
 ### Phase 5: 戻し方と見張り（K10）
 - 13500t が落ちた日に titan へ戻す手順（Phase 3 の逆）

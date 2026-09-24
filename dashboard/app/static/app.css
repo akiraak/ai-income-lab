@@ -55,6 +55,8 @@ b { font-weight:600; }
   background:repeating-linear-gradient(135deg, #0f5e5a 0 14px, #0b4a47 14px 28px); }
 .simbar .simclock { margin-left:14px; padding-left:14px; border-left:1px solid rgba(230,255,251,.4); } .simbar code { color:#e6fffb; background:rgba(0,0,0,.3); }
 .simbar-ng { background:#7a2e0e; border-bottom-color:#f59e0b; }
+/* 「本番の機械ではない」印の帯（§0-14）: 灰の縞。シミュレーション（青緑）・食い違い（橙）とは別の色 */
+.simbar-np { color:#f3f4f6; border-bottom-color:#9ca3af; background:repeating-linear-gradient(135deg, #374151 0 14px, #2b3442 14px 28px); }
 .sim-mark { font-size:11px; vertical-align:middle; }
 .haltbar { background:#b62324; color:#fff; padding:10px 18px; font-size:15px; } .haltbar a { color:#fff; text-decoration:underline; }
 .flash { background:var(--warn-bg); color:var(--warn-ink); border-bottom:1px solid rgba(210,153,34,.35); padding:8px 18px; }

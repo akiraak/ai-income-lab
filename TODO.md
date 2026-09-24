@@ -296,11 +296,12 @@
       残り（`.env` を置いた後・⚠ 9/23 の本番投入の後）: ② の `run_day` 部分 ／ ③ 本番 dry-run ／ ④ 市場時間中の日足 ＋ 予測 ／ ⑤ 秘密の grep
       🔶 2026-09-23 夜（Sx360 の Claude。利用者が `.env` を置いた後）: ② ✅ `run_day` の部分（13500t のコンテナで 9/22 の plan・49 秒・rc=0。買い% は bench と **15 行とも差 0**・判定同じ・口座の持ち株は「売買履歴の外」として記録）／ ⑤ ✅ 秘密の grep 7 項目 ＋ `eyJ` とも 0 件 ／ 管理画面 ✅（利用者が起こし直して `demo=False` → トンネルで 9 ページとも 200・`mode: real`・plan の起動が出る）。残り **③ ④ ＝ 9/24 の市場時間中**。結果は [live-trading.md §0-13](docs/specs/experiments/live-trading.md) の「合否の結果」
       依存: 「Step 2-2: g3plus-ops に `ail-live/`・`ail-dashboard/`（§7 ・ §7-1 に追従）・`auto-update.sh`・host cron を作る（⚠ **Sx360 の Claude**。契約は §0-13・§7-1）」
-  - [ ] Phase 3: 切り替えの手順を決めて cert で試す（「本番の機械ではない」印で titan の submit を拒む・`live.sqlite` を移す・`reconcile.py` の差 0）
-    ✅ 2026-09-24: **titan の Claude が着手**（Step 2-3 と並行。切り替えの前に必須 ＝ プランの「2026-09-24 の決定」。着手の指示は利用者）
+  - [x] Phase 3: 切り替えの手順を決めて cert で試す（「本番の機械ではない」印で titan の submit を拒む・`live.sqlite` を移す・`reconcile.py` の差 0）[plan](docs/plans/archive/production-switch-mark.md)
+    ✅ 2026-09-24（titan の Claude）: 印 `NOT_PRODUCTION`・`notprod.py`・rc=7・管理画面の帯・手順書 [live-trading.md §0-14](docs/specs/experiments/live-trading.md)・稽古（写しの sha256 一致・`reconcile.py show` 差 0・印で rc=7 → 外す）。記録は [DONE.md](DONE.md)。⚠ **印を置くのは Phase 4 の日に利用者**（今日は置いていない ＝ timer の dry-run と 9/25 の submit を邪魔しない）
   - [ ] Phase 4: 本番を 13500t に切り替える（⚠ **利用者**。市場の外の日に。titan の timer が submit で通ってから ＝ 早ければ 9/26〜27・「数日」なら 10/3〜4 の裁定）
     期日: 2026-09-26
     順（プラン Phase 4）: titan の timer を止め許可を外し印を置く → `live.sqlite` と `state/` を 13500t へ（sha256・Phase 2 の DB は `live.sqlite.phase2-<日付>` に退ける）→ 13500t の `reconcile.py show` で差 0 → `run.sh` の留め金を外し `live.env` を submit → 翌営業日の cron を見る。⚠ 10/3〜4 に延ばすなら期日を直す
+    ✅ 2026-09-24: **手順書は [live-trading.md §0-14 (b)](docs/specs/experiments/live-trading.md)**（順 ①〜⑦・だれ・出口。印は `notprod.py set`・写しは `livefs.py backup`〔`cp` しない〕・写すのは DB 1 つ）
   - [ ] Phase 5: 戻し方（13500t が落ちた日に titan へ）と見張り
   ⚠ **いまの状態**: `~/g3plus-ops` は titan に無い（private。⚠ Claude は中身を見ていない）／ 13500T はこのリポジトリのどの文書にも出てこない（⚠ **初出** ＝ 素性・OS・置き場所・常時起動かが分からない）
   ⚠ **いまの契約と食い違う**（[dashboard.md §7](docs/specs/dashboard.md)）: g3plus に載せるのは**公開面の管理画面だけ**で、⚠ **発注の許可（`TT_ALLOW_PROD_ORDERS` / `TT_ALLOW_PROD_DRY_RUN`）は「置かない env」に挙げられている**。⚠ **実売買をそこで動かすなら §7 を書き換える**（契約の正本はこのリポジトリ側）

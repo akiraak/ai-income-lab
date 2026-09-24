@@ -6,6 +6,11 @@
   - 切り替えは人が CLI で行う（`simctl.py mode …`）。`mode.log` に残す
 
 置き場は既定でこのディレクトリ。`LT_MODE_DIR` はテスト用の差し替え（⚠ モック以外への submit では使えない ＝ `run_day.py` が拒否する）。
+
+⚠ **「本番の機械ではない」印 `NOT_PRODUCTION`**（2026-09-24。3 台の役割分け Phase 3 ＝ docs/plans/production-switch-mark.md）:
+  `MODE` と同じ型の JSON `{"machine": <置いた機械の hostname>, "since", "by", "reason"}`。あると `run_day.py`・`sample.py` は
+  **本番の発注（`--env prod --mode submit`）だけ**を、許可の 3 段より前で拒む（plan・dry-run・cert は通る）。
+  `machine` が今の hostname と違っても・壊れていても**拒む**（読めない印を「無い」と読まない）。置く・外すは `notprod.py`（利用者）。
 """
 
 from __future__ import annotations
@@ -15,6 +20,7 @@ import glob
 import json
 import os
 import re
+import socket
 from dataclasses import dataclass
 from datetime import datetime, timezone
 
@@ -49,6 +55,86 @@ def overridden() -> bool:
 
 def mode_file() -> str:
     return os.path.join(base_dir(), "MODE")
+
+
+def not_production_file() -> str:
+    return os.path.join(base_dir(), "NOT_PRODUCTION")
+
+
+@dataclass(frozen=True)
+class NotProduction:
+    """「本番の機械ではない」印の中身。`error` があるときは読めなかった印（⚠ それでも「ある」として扱う）。"""
+    machine: str | None = None
+    since: str | None = None
+    by: str | None = None
+    reason: str | None = None
+    error: str | None = None
+
+    @property
+    def matches_host(self) -> bool:
+        return bool(self.machine) and self.machine == hostname()
+
+    def describe(self) -> str:
+        if self.error:
+            return f"印が読めない（{self.error}）"
+        host = "" if self.matches_host else f" ⚠ この機械（{hostname()}）の印ではない ＝ 写した・ホスト名を変えた？"
+        return f"機械 {self.machine}・{self.since} から・{self.by}{f'・{self.reason}' if self.reason else ''}{host}"
+
+    def as_dict(self) -> dict:
+        return {"machine": self.machine, "since": self.since, "by": self.by, "reason": self.reason, "error": self.error,
+                "host": hostname(), "matches_host": self.matches_host}
+
+
+def hostname() -> str:
+    return os.environ.get("LT_HOSTNAME") or socket.gethostname()
+
+
+def read_not_production() -> NotProduction | None:
+    """印を読む。無ければ None。⚠ 壊れていても None にしない（発注は拒む側に倒す）。"""
+    path = not_production_file()
+    if not os.path.exists(path):
+        return None
+    try:
+        with open(path, encoding="utf-8") as f:
+            doc = json.load(f)
+        machine = doc["machine"]
+        if not isinstance(machine, str) or not machine:
+            raise ValueError("machine が空")
+    except (OSError, ValueError, KeyError, TypeError) as exc:
+        return NotProduction(error=f"{path}: {exc}")
+    return NotProduction(machine=machine, since=doc.get("since"), by=doc.get("by"), reason=doc.get("reason"))
+
+
+def set_not_production(by: str = "cli", reason: str | None = None) -> NotProduction:
+    """印を置く（この機械の hostname を書く ＝ 他の機械の名前は書けない）。`mode.log` に 1 行。"""
+    now = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    mark = NotProduction(machine=hostname(), since=now, by=by, reason=reason)
+    os.makedirs(base_dir(), exist_ok=True)
+    tmp = not_production_file() + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        json.dump({"machine": mark.machine, "since": mark.since, "by": mark.by, "reason": mark.reason}, f, ensure_ascii=False)
+    os.replace(tmp, not_production_file())
+    _log_not_production("not_production_set", mark, by)
+    return mark
+
+
+def clear_not_production(by: str = "cli") -> NotProduction | None:
+    """印を外す（無ければ何もしない）。`mode.log` に 1 行。"""
+    before = read_not_production()
+    if before is None:
+        return None
+    os.remove(not_production_file())
+    _log_not_production("not_production_cleared", before, by)
+    return before
+
+
+def _log_not_production(kind: str, mark: NotProduction, by: str) -> None:
+    _ensure_record_db()
+    from _livefs import livefs
+
+    livefs.append(os.path.join(base_dir(), "mode.log"),
+                  json.dumps({"at": datetime.now(timezone.utc).isoformat(timespec="seconds"), "kind": kind, "by": by, **mark.as_dict()},
+                             ensure_ascii=False))
 
 
 def sim_base() -> str:

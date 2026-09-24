@@ -218,6 +218,7 @@ flowchart LR
 
 ### Phase 3: 切り替えの手順を決めて試す（K4・K6）
 - ✅ 2026-09-24: **着手は titan の Claude・Step 2-3 と並行・切り替えの前に必須**（上の「2026-09-24 の決定」）
+- ✅ **2026-09-24 に済んだ**（titan の Claude。プランは [production-switch-mark.md](archive/production-switch-mark.md)・正本は [live-trading.md §0-14](../specs/experiments/live-trading.md)）: 印 `NOT_PRODUCTION`（`notprod.py`。hostname を書き、違えば「この機械の印ではない」と出して拒む ＝ 下の「取り違え」の案のとおり）・`run_day.py`・`sample.py` の rc=7・`run-live.sh` の早見・管理画面の帯・手順書 ①〜⑦・稽古（写しの sha256・`reconcile.py show` 差 0・印で rc=7）。⚠ **印はまだ置いていない**（置くのは Phase 4 の日に利用者）
 - 手順書（`live-trading.md` に節を足す）: ① titan の timer を止め、titan の `live.env` から発注の許可を外す → ② `live.sqlite` と `state/` を 13500t へ（sha256 を確かめる）→ ③ 13500t の `reconcile.py show` で口座と売買履歴の差 0 → ④ 13500t の timer を入れる
 - ⚠ **「titan で発注しない」を仕組みで守る**: titan に `experiments/live-trading/` の「本番の機械ではない」印を置き、`run_day.py` が submit を拒む（`MODE` と同じ型のファイル）。⚠ 印の有無を 13500t と取り違えない書き方をプランで詰める
 - cert（sandbox）で切り替えを 1 往復して確かめる

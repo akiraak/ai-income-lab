@@ -79,7 +79,7 @@ tastytrade の本口座で、**トレーダー（Trader）3 人に予算を割�
 
 ドキュメント中心。アプリ実装は `dashboard/`（売買システムの管理画面。2026-09-05）が最初の 1 つ。
 
-- **機械の役割（2026-09-22 利用者決定。[プラン](docs/plans/three-machines.md) §2）**: Sx360 ＝ 端末（ssh・ブラウザ・シミュレーション）。⚠ **13500t と g3plus-ops の操作だけは Sx360 の Claude**（titan から 13500t へは届かない・`~/g3plus-ops` は Sx360 にだけある）／ titan ＝ Claude Code を動かす場所・研究の計算（CPU・GPU）／ 13500t ＝ 本番（毎日の売買・管理画面のローカル面。GitHub から pull してデプロイ）。⚠ **切り替え（プランの Phase 4）までは売買は titan のまま**。⚠ 切り替えた後は **13500t 以外で発注しない**（titan は「本番の機械ではない」印で submit を拒む）
+- **機械の役割（2026-09-22 利用者決定。[プラン](docs/plans/three-machines.md) §2）**: Sx360 ＝ 端末（ssh・ブラウザ・シミュレーション）。⚠ **13500t と g3plus-ops の操作だけは Sx360 の Claude**（titan から 13500t へは届かない・`~/g3plus-ops` は Sx360 にだけある）／ titan ＝ Claude Code を動かす場所・研究の計算（CPU・GPU）／ 13500t ＝ 本番（毎日の売買・管理画面のローカル面。GitHub から pull してデプロイ）。⚠ **切り替え（プランの Phase 4）までは売買は titan のまま**。⚠ 切り替えた後は **13500t 以外で発注しない**（titan は「本番の機械ではない」印 `experiments/live-trading/NOT_PRODUCTION` で prod の submit を拒む ＝ `notprod.py set`。✅ 2026-09-24 に仕組み・手順書・稽古まで済み。手順は `live-trading.md` §0-14。⚠ 印を置くのも外すのも利用者）
   - **作業は titan の Claude で**: Sx360 から `./run-titan-session.sh`（`ssh -t titan` → tmux `ail`。無ければ中で `claude` を起こす。抜けるのは Ctrl+B → D）。⚠ **2 台で同じリポジトリを触るので、書いたら push ／ 始める前に pull**（Sx360 の作業ツリーは読むだけ）。⚠ Claude のメモリは機械ごとに別。鍵はエージェントに持たせる（パスフレーズなしの鍵にしない。keychain の手順はプラン §4 1-2）
 - `TODO.md` / `DONE.md` — タスク管理
 - `docs/plans/` — 作業プラン（完了したものは `docs/plans/archive/` へ）
@@ -225,6 +225,7 @@ cd experiments/live-trading
   - 見る ＝ `python3 experiments/tastytrade-api-sample/livefs.py ls|cat <道>`・`dump <DB のあるディレクトリ>`（秘密の grep）・`stats`・`export <道> --to <置き場>`（ファイルの形に書き出す）
   - ⚠ **いままでのファイルは取り込んで 1 ビットずつ突き合わせたが、まだ消していない**（2026-09-22 の本番投入が新しい作りで済むまで、`acc5f9f` に戻すときの足場として残す）
 - 本番の許可は `ttclient.Client` の 3 段そのまま。発注は `TT_ALLOW_PROD_ORDERS=1` ＋ `--i-know-this-is-real-money`。⚠ **許可を出して起動するのは利用者**。`HALT` は管理画面の停止ボタンと同じファイル
+- **「本番の機械ではない」印**（2026-09-24。3 台の役割分け Phase 3）: `experiments/live-trading/NOT_PRODUCTION`（git 管理外・`{"machine": hostname, …}`）があると `run_day.py`・`sample.py` は **本番の発注（`--env prod --mode submit`）だけ**を許可の 3 段より前で拒む（rc=7・`refused_not_production`。plan・dry-run・cert は通る）。hostname が違う印・壊れた印でも拒む。操作は `notprod.py status|set|clear`（⚠ 利用者）。管理画面は灰の帯・`/api/*` に `not_production`。切り替えの手順（Phase 4）は `live-trading.md` §0-14
 - **シミュレーション（仮データと仮の時計で執行器を通しで動かす）は 2026-09-19 に実装した**（決めごと・使い方・筋書き・見つかったことは `live-trading.md` §0-7。プランは `docs/plans/archive/live-trading-sim-clock.md`）
 
   ```bash

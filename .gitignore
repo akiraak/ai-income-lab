@@ -24,6 +24,7 @@ experiments/live-trading/state/
 experiments/live-trading/state-backup/
 # シミュレーション（live-trading.md §0-7）: 機械のモード・起動の排他・仮データの記録は管理外
 experiments/live-trading/MODE
+experiments/live-trading/NOT_PRODUCTION
 experiments/live-trading/run.lock
 experiments/live-trading/mode.log
 experiments/live-trading/sim/

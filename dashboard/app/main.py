@@ -290,7 +290,7 @@ def create_app(settings: Settings | None = None, start_monitors: bool = True) ->
         machine = settings.machine()
         base = {
             "page": "",
-            "machine": {k: machine[k] for k in ("mode", "name", "since", "mismatch", "sim")},
+            "machine": {k: machine.get(k) for k in ("mode", "name", "since", "mismatch", "sim", "not_production")},
             "nav_traders": nav_traders(machine),
             "face": settings.face,
             "auth_mode": settings.auth_mode,

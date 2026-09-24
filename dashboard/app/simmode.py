@@ -2,6 +2,8 @@
 
 正本は執行器（`experiments/live-trading/`）が持つ:
   - `MODE`                          … `{"mode": "real" ／ "sim", "name": …, "since": …}`。⚠ **無ければ real**
+  - `NOT_PRODUCTION`                … 「本番の機械ではない」印 `{"machine": <hostname>, "since", "by", "reason"}`（live-trading.md §0-14）。
+                                      あると執行器は本番の発注を拒む ＝ 帯に出す。⚠ 壊れていても「ある」として出す（執行器と同じ向き）
   - `sim/<名前>/sim/control.json`   … 仮の時計（仮のいま ＝ sim_epoch ＋ 実時間の経過 × speed。`simclock.py` と同じ式）
   - `sim/<名前>/sim/status.json`    … 運転手の状態（何日目・発注できる時間帯の中 ／ 外）
 
@@ -14,6 +16,7 @@ from __future__ import annotations
 
 import json
 import re
+import socket
 import time
 from datetime import datetime
 from pathlib import Path
@@ -46,6 +49,20 @@ def read_mode(mode_dir: Path | None) -> dict:
     return {"mode": "sim", "name": doc["name"], "since": doc.get("since")}
 
 
+def read_not_production(mode_dir: Path | None) -> dict | None:
+    """「本番の機械ではない」印。無ければ None。{"machine", "since", "by", "reason", "host", "matches_host", "error"}。"""
+    if mode_dir is None or not (mode_dir / "NOT_PRODUCTION").exists():
+        return None
+    host = socket.gethostname()
+    doc = _json(mode_dir / "NOT_PRODUCTION")
+    machine = (doc or {}).get("machine")
+    if not doc or not isinstance(machine, str) or not machine:
+        return {"machine": None, "since": None, "by": None, "reason": None, "host": host, "matches_host": False,
+                "error": "NOT_PRODUCTION が読めない（執行器は本番の発注を拒む。直すか notprod.py clear で外す）"}
+    return {"machine": machine, "since": doc.get("since"), "by": doc.get("by"), "reason": doc.get("reason"), "host": host,
+            "matches_host": machine == host, "error": None}
+
+
 def is_sim_tree(path: Path) -> bool:
     return (path / "sim" / "control.json").exists() or (path / "sim" / "status.json").exists()
 
@@ -68,7 +85,8 @@ def clock(root: Path, real_now: float | None = None) -> dict | None:
 def resolve(mode_dir: Path | None, live_dir: Path, live_dir_explicit: bool) -> dict:
     """いまのモードと、画面が読む記録の木。`mismatch` があるとき、画面は数字を出さない。"""
     m = read_mode(mode_dir)
-    out = {"mode": m["mode"], "name": m.get("name"), "since": m.get("since"), "live_dir": live_dir, "mismatch": m.get("error"), "sim": None}
+    out = {"mode": m["mode"], "name": m.get("name"), "since": m.get("since"), "live_dir": live_dir, "mismatch": m.get("error"), "sim": None,
+           "not_production": read_not_production(mode_dir)}
     if m["mode"] == "sim":
         root = mode_dir / "sim" / m["name"]
         out["halt_file"] = root / "HALT"
@@ -94,4 +112,6 @@ def public(info: dict) -> dict:
         out["sim"] = {k: v for k, v in (info["sim"] or {}).items()}
     if info["mismatch"]:
         out["mode_mismatch"] = info["mismatch"]
+    if info.get("not_production"):
+        out["not_production"] = dict(info["not_production"])
     return out

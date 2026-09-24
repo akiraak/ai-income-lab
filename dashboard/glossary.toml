@@ -760,6 +760,12 @@ note = "管理画面の概要・全体の詳細・トレーダーの詳細に出
   where = "§0-7 (a) 実売買とシミュレーションは排他"
 
   [[section.term]]
+  name = "本番の機械ではない"
+  short = "印（NOT_PRODUCTION）のある機械では、執行器と CLI が本番の発注だけを許可より前で拒む。plan・dry-run・cert は通る。置く・外すは利用者。"
+  doc = "docs/specs/experiments/live-trading.md"
+  where = "§0-14 本番を titan → 13500t へ切り替える"
+
+  [[section.term]]
   name = "仮の時計"
   short = "シミュレーションの「いま」。実時間の何倍かで進み、止められる。執行器の発注できる時間帯・再送・取消の待ちをこの上で数える。モック以外の接続先では使えない。"
   doc = "docs/specs/experiments/live-trading.md"

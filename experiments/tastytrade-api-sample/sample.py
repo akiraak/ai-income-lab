@@ -960,6 +960,19 @@ def step_prod_dry_run_types(rec: record.Recorder, cfg: dict) -> None:
         row["result"] = "/".join(f"{c['key']}={'通る' if c['accepted'] else '弾かれる'}" for c in results)
 
 
+def not_production_mark() -> str | None:
+    """「本番の機械ではない」印の説明（無ければ None）。⚠ 読めない（import が壊れた）ときも「ある」側に倒す。"""
+    lt = os.path.normpath(os.path.join(HERE, "..", "live-trading"))
+    if lt not in sys.path:
+        sys.path.insert(0, lt)
+    try:
+        import mode as lt_mode
+        mark = lt_mode.read_not_production()
+    except Exception as exc:  # noqa: BLE001
+        return f"印を確かめられない: {type(exc).__name__}: {exc}"
+    return None if mark is None else mark.describe()
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="tastytrade API サンプル（6 手順）")
     parser.add_argument("--step", default="all", help="all / 1..6 / 5limit / cleanup / rate / probe / dryrun / dryrun2（注文種別・端株の dry-run）（カンマ区切り可）")
@@ -990,6 +1003,15 @@ def main() -> int:
             file=sys.stderr,
         )
         return 3
+
+    if env == "prod" and (set(steps) & ORDER_STEPS):
+        # ⚠ 「本番の機械ではない」印（experiments/live-trading/NOT_PRODUCTION。live-trading.md §0-14）。発注の経路は執行器とこの CLI の
+        #    2 本なので、こちらも同じ印で本番の発注系を拒む（許可の 3 段より前。壊れた印・他の機械の印でも拒む）
+        mark = not_production_mark()
+        if mark is not None:
+            print(f"拒否: この機械は本番の機械ではない（{mark}）。本番の発注系の手順 {sorted(set(steps) & ORDER_STEPS)} を実行しない。"
+                  "外すのは experiments/live-trading/notprod.py clear", file=sys.stderr)
+            return 7
 
     # probe / dryrun は本番の資格情報だけで動く（sandbox の準備を待たずに入金前の窓を押さえるため）
     if steps and set(steps) <= {"probe", "dryrun", "dryrun2"}:

@@ -536,6 +536,7 @@ flowchart TD
 | --- | --- |
 | 読む場所 | `AIL_MODE_DIR`（既定 `experiments/live-trading`）の `MODE`・`sim/<名前>/{config,state,out}`・`sim/<名前>/sim/{control,status}.json`。⚠ **公開面（cloudflare）は `MODE` を読まない** ＝ 常に実売買の側だけ（g3plus には `MODE` も `sim/` も載せない） |
 | 帯 | 全ページの最上部・`position: sticky`・**部分更新の外**（消せない）。「[SIM] シミュレーション <名前> — 仮データ・仮の時計。実売買ではない」＋ 仮の時刻 ／ 速さ ／ 停止中 ／ 何日目 ／ 運転手の状態（ここだけ 1 秒おきに `/?partial=simclock` で取り直す）。`<title>` の頭に `[SIM]`、左ペインの銘の下にも `[SIM] <名前>`。見た目は §15-11 |
+| 「本番の機械ではない」印（2026-09-24） | 執行器の `NOT_PRODUCTION`（[live-trading.md §0-14](experiments/live-trading.md)）があると、全ページの最上部に**灰の縞の帯**「本番の機械ではない — この機械では執行器が本番の発注を拒む」・`/api/*` に `not_production`（`machine`・`host`・`matches_host`・`since`・`error`）。印の hostname が違えば「この機械の印ではない」、壊れていれば「読めない」と出す（執行器と同じく「ある」側に倒す）。⚠ 表示だけ・`MODE` と同じく公開面は読まない（`mode_dir` なし）。`app/simmode.read_not_production` |
 | 「仮」の印 | 概要・全体の詳細・トレーダーの詳細の見出しと大きな数字に `.chip.placeholder.sim-mark`（テンプレートの `simmark(machine)`） |
 | 流れている途中を眺める | シミュレーションモードの概要・全体の詳細・トレーダーの詳細だけ、`<main data-poll-self="3000">` ＝ いまの URL を取り直して `main` の中身を差し替える（`app.js`。帯は `main` の外なので差し替わらない。ヘルプを開いている間は止まる） |
 | 「今日」 | 暦の残り日数は仮の今日で数える（`board(today=…)`）。記録の日付はもともと記録から来る |

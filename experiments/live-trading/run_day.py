@@ -13,6 +13,8 @@
 ⚠ `--mode submit` 以外では状態を書き換えない。
 ⚠ **実売買とシミュレーションは排他**（live-trading.md §0-7 (a)）: 起動時に `MODE` を見て `run.lock` を取る。`MODE` が無ければ real ＝ 今までどおり。
    `--sim-clock`（仮の時計）は MODE が sim ＆ 接続先がループバックのモック ＆ prod でない ＆ 本番の鍵が無いときだけ受け付ける。
+⚠ **「本番の機械ではない」印 `NOT_PRODUCTION`**（live-trading.md §0-14。2026-09-24）: あると **本番の発注（--env prod --mode submit）だけ** を
+   許可の 3 段より前で拒む（rc=7・`refused_not_production`）。plan・dry-run・cert は通る。印の `machine` が hostname と違っても壊れていても拒む。
 """
 
 from __future__ import annotations
@@ -246,6 +248,21 @@ def main() -> int:
     if total_budget > args.max_total_budget + 1e-9:
         print(f"拒否: 予算の合計 ${total_budget:.2f} が上限 ${args.max_total_budget:.2f} を超える（live-trading.md §0-2）", file=sys.stderr)
         return 2
+    rec = DayRecorder(args.out_dir, date, env, run_id, is_mock, sim=sim)
+    meta = {"kind": "start", "mode": args.mode, "traders": [t.name for t in traders], "test": any(t.test for t in traders),
+            "halt_file": halt_file, "now_et": now_et().isoformat(timespec="seconds"), "sdk": record.sdk_versions()}
+    if sim:
+        meta["sim_name"], meta["sim_speed"] = machine.name, CLOCK.control()["speed"]
+    if env == "prod" and args.mode == "submit":
+        # ⚠ 「本番の機械ではない」印（§0-14）。許可の 3 段より前 ＝ 許可があっても・無くても、印のある機械は本番に発注しない。
+        #    壊れた印・他の機械の印でも拒む（読めない印を「無い」と読まない）。本物の記録に残す ＝ 起動しなかった理由が後から分かる
+        mark = modes.read_not_production()
+        if mark is not None:
+            rec.write("events", {**meta, "kind": "refused_not_production", **mark.as_dict(),
+                                 "note": "「本番の機械ではない」印があるので本番の発注はしない（外すのは notprod.py clear。本番は 13500t）"})
+            print(f"拒否: この機械は本番の機械ではない（{modes.not_production_file()}: {mark.describe()}）。本番の発注は 13500t の cron が出す。"
+                  "外すのは notprod.py clear（⚠ 2 台で同時に発注しないことを確かめてから）", file=sys.stderr)
+            return 7
     if env == "prod" and args.mode == "submit" and not allow_prod_orders:
         print("拒否: 本番の発注には TT_ALLOW_PROD_ORDERS=1 と --i-know-this-is-real-money の両方が要る（取消・dry-run の鍵では開かない）", file=sys.stderr)
         return 2
@@ -253,11 +270,6 @@ def main() -> int:
         print("拒否: 本番の dry-run には --allow-prod-dry-run が要る", file=sys.stderr)
         return 2
 
-    rec = DayRecorder(args.out_dir, date, env, run_id, is_mock, sim=sim)
-    meta = {"kind": "start", "mode": args.mode, "traders": [t.name for t in traders], "test": any(t.test for t in traders),
-            "halt_file": halt_file, "now_et": now_et().isoformat(timespec="seconds"), "sdk": record.sdk_versions()}
-    if sim:
-        meta["sim_name"], meta["sim_speed"] = machine.name, CLOCK.control()["speed"]
     if machine.is_sim and not sim:
         # ⚠ 本番の鍵と確認の引数があっても起動しない。本物の記録に残す ＝「起動しなかった日」の理由が後から分かる
         rec.write("events", {**meta, "kind": "refused_mode_sim", "sim_name": machine.name, "since": machine.since,

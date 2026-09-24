@@ -5,7 +5,7 @@
 #   ./run-live.sh --traders T1,T2,T3 --wait                    # 15:50:00 ET まで待ってから流す（窓の中で使う形）
 #
 # ⚠ **起動してすぐ 2 つを見る**（どちらも本体は run_day.py 側にあり、ここは 95 秒むだにしないための早見）:
-#    シミュレーションモードなら rc=5 ／ 別の執行器・運転手が動いていれば rc=6。
+#    シミュレーションモードなら rc=5 ／ 別の執行器・運転手が動いていれば rc=6 ／「本番の機械ではない」印があって submit ＋ --env prod なら rc=7。
 #
 # ⚠ **--mode submit ＋ 今日の日付のときは、引けに間に合わなければ起動を拒否する（rc=11）。**
 #    準備（日足の更新 ＋ 予測）に約 120 秒かかるので、発注の開始が刻限（既定 15:58 ET）を過ぎる時刻に起こすと止まる。
@@ -60,13 +60,19 @@ DATE=${DATE:-$TODAY}
 # ---- シミュレーションと二重起動を**先に**見る（⚠ 排他の本体は run_day.py。ここは「95 秒むだにしない」ための早見）
 # ⚠ **ここで run.lock を持ち続けない**（持つと後で起こす run_day.py が自分で取れなくなる）＝ 取れるかだけ見てすぐ放す。
 # ⚠ **確かめられなくても止めない**（この早見の不具合で実売買を止めない。本物の関門は run_day.py の側）。
-PRECHECK=$(cd "$LT" && "$PY_LT" - <<'PY' 2>/dev/null
-import json, sys
+PROD_SUBMIT=0
+if [ "$MODE" = "submit" ]; then for a in "${PASS[@]}"; do [ "$a" = "--env" ] && PROD_SUBMIT=pending; [ "$PROD_SUBMIT" = pending ] && [ "$a" = "prod" ] && PROD_SUBMIT=1; done; fi
+[ "$PROD_SUBMIT" = 1 ] || PROD_SUBMIT=0
+PRECHECK=$(cd "$LT" && AIL_PROD_SUBMIT="$PROD_SUBMIT" "$PY_LT" - <<'PY' 2>/dev/null
+import json, os, sys
 try:
     import mode as modes
     m = modes.read_mode()
     if m.is_sim:
         print(json.dumps({"stop": "sim", "name": m.name, "since": m.since}, ensure_ascii=False)); sys.exit(0)
+    mark = modes.read_not_production()
+    if mark is not None and os.environ.get("AIL_PROD_SUBMIT") == "1":
+        print(json.dumps({"stop": "not_production", "mark": mark.describe()}, ensure_ascii=False)); sys.exit(0)
     lock = modes.RunLock()
     if lock.acquire(m.mode, "run-live.sh の早見"):
         lock.release()                      # ⚠ すぐ放す（run_day.py が取り直す）
@@ -84,6 +90,11 @@ case "$PRECHECK" in
     echo "  ⚠ 本物の執行器は起動しない（run_day.py も rc=5 で拒む）。戻すのは:" >&2
     echo "     cd experiments/live-trading && ../tastytrade-api-sample/.venv/bin/python simctl.py mode real" >&2
     exit 5 ;;
+  *'"stop": "not_production"'*)
+    say "拒否: この機械は本番の機械ではない（NOT_PRODUCTION の印。live-trading.md §0-14）"
+    echo "  $PRECHECK" >&2
+    echo "  ⚠ 本番の発注は 13500t の cron が出す。run_day.py も rc=7 で拒む。外すのは notprod.py clear（2 台で同時に発注しないことを確かめてから）" >&2
+    exit 7 ;;
   *'"stop": "lock"'*)
     say "拒否: 別の執行器 ／ 運転手が動いている（run.lock）"
     echo "  $PRECHECK" >&2

@@ -189,3 +189,33 @@ def test_stop_button_in_sim_mode_writes_only_the_sim_halt(world):
         c.get("/")
         c.post("/ops/halt", data={"csrf": c.cookies.get("ail_csrf")}, follow_redirects=False)
         assert real_halt.exists() and not sim_halt.exists()
+
+
+# ---------- 「本番の機械ではない」印（live-trading.md §0-14。表示だけ）
+
+def test_not_production_mark_shows_a_band_on_every_page(world):
+    import socket
+    s, mode_dir, _ = world
+    pages = [p if p != "/traders/sim_a" else "/traders/test_a" for p in PAGES]   # 実売買モードのまま ＝ 本物の人
+    with client_of(s) as c:
+        for path in pages:
+            assert "simbar-np" not in c.get(path).text, path                   # 印が無ければ 1 文字も変わらない
+        assert "not_production" not in c.get("/api/live").json()
+    (mode_dir / "NOT_PRODUCTION").write_text(json.dumps({"machine": socket.gethostname(), "since": "2026-09-27T00:00:00+00:00", "by": "u", "reason": "本番は 13500t"}))
+    with client_of(s) as c:
+        for path in pages:
+            r = c.get(path)
+            assert r.status_code == 200 and 'class="simbar simbar-np"' in r.text and "本番の機械ではない" in r.text, path
+            assert "[SIM]" not in r.text and "印ではない" not in r.text, path          # 実売買モードのまま・この機械の印
+            assert_clean(r.text, path)
+        for api in ("/api/state", "/api/live", "/api/records"):
+            np = c.get(api).json()["not_production"]
+            assert np["machine"] == socket.gethostname() and np["matches_host"] is True and np["error"] is None, api
+    # 他の機械の印・壊れた印は、それと分かる帯（執行器と同じく「ある」側に倒す）
+    (mode_dir / "NOT_PRODUCTION").write_text(json.dumps({"machine": "elsewhere", "since": "x"}))
+    with client_of(s) as c:
+        body = c.get("/").text
+        assert "印ではない" in body and "elsewhere" in body and c.get("/api/live").json()["not_production"]["matches_host"] is False
+    (mode_dir / "NOT_PRODUCTION").write_text("{")
+    with client_of(s) as c:
+        assert "NOT_PRODUCTION が読めない" in c.get("/").text and c.get("/api/live").json()["not_production"]["error"]

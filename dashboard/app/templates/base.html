@@ -16,6 +16,9 @@
 {% if machine.mismatch %}
 <div class="simbar simbar-ng" role="alert">⚠ <b>モードと記録が食い違っている</b> — {{ machine.mismatch }}。取り違えを防ぐため、実売買（トレーダー）の数字は出さない</div>
 {% endif %}
+{% if machine.not_production %}
+<div class="simbar simbar-np" role="status">🚫 <b>本番の機械ではない</b> — この機械では執行器が本番の発注を拒む（{% if machine.not_production.error %}⚠ {{ machine.not_production.error }}{% else %}印: {{ machine.not_production.machine }}・{{ machine.not_production.since }} から{% if not machine.not_production.matches_host %} ⚠ <b>この機械（{{ machine.not_production.host }}）の印ではない</b>{% endif %}{% endif %}）。記録は読むだけの写し。本番の発注は 13500t{{ info("本番の機械ではない") }}
+{% endif %}
 {# 左ペイン（dashboard.md §15-6。2026-09-18 の利用者の決定）: 見る ／ トレーダー ／ API 検証 ／ ローカル面だけ。停止ボタンは右の上 #}
 <div class="shell">
 <aside class="side">

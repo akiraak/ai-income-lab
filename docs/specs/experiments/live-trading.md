@@ -902,6 +902,73 @@ flowchart LR
 ⚠ **番人**: 「10:00 に起こしても `out_of_window` で拒む」テスト（`tests/test_sim_limits.py`）が、この決定を守る印になる。
 ✅ **残っていた宿題は同日に直した**（利用者の指示「その方法で直して」）: **1 日の買いの上限は、起動時にその日の `orders.jsonl` から数え直して全トレーダー・全起動で 1 つの上限を分け合う**（§0-2 の表。⚠ **DB は足さない ＝ 記録が正本**）。直す前は**トレーダーごと・1 起動ごとにリセット**されていた【実測 2026-09-20】＝ 3 人なら実質 3 倍。テストは `tests/test_day_cap.py`（6 件）。
 
+### 0-14. 本番を titan → 13500t へ切り替える手順と「本番の機械ではない」印（正本。2026-09-24。[プラン](../../plans/archive/production-switch-mark.md)・親は [three-machines.md](../../plans/three-machines.md) Phase 3〜5）
+
+決定の前提: K4 ＝ 発注するのは常に 1 台（切り替えまで titan の timer・切り替え後は 13500t の cron）／ K6 ＝ 記録は切り替えの日に移し、titan は読むだけの写し ／ 2026-09-24 の決定 ＝ Phase 4 は週末・利用者（早ければ 9/26〜27・「数日」なら 10/3〜4）。⚠ **切り替えを実行するのは利用者（＋ 13500t 側は Sx360 の Claude）**。titan の Claude は写しと手順まで。
+
+#### (a) 印 ＝ `experiments/live-trading/NOT_PRODUCTION`（git 管理外。`MODE` と同じ型の JSON）
+
+> この図の主張: 印は**本番の発注（`--env prod --mode submit`）だけ**を、許可の 3 段より前で拒む。plan・dry-run・cert は通る ＝ 印のある titan は読むだけの写し・手順の稽古・cert の試験に使える。
+
+```mermaid
+flowchart LR
+  S["run_day.py ／ sample.py"] --> M["MODE（sim なら rc=5）"]
+  M --> N{"NOT_PRODUCTION がある<br/>かつ prod の発注 ?"}
+  N -- "はい" --> R["拒否 rc=7<br/>events.jsonl に refused_not_production"]
+  N -- "いいえ" --> P["許可の 3 段 → run.lock → HALT → 時間帯 → 認証（今までどおり）"]
+```
+
+| 項目 | 決め |
+| --- | --- |
+| 中身 | `{"machine": <置いた機械の hostname>, "since", "by", "reason"}`。読むときに今の hostname と突き合わせる |
+| 拒むもの | **`--env prod` かつ `--mode submit`**（執行器 `run_day.py`）／ **本番の発注系の手順 4・5・5limit・6**（`sample.py`）。`TT_ALLOW_PROD_ORDERS=1` ＋ `--i-know-this-is-real-money` があっても拒む（**許可より印が先**）。rc=7・本物の `events.jsonl` に `refused_not_production`（`machine`・`host`・`matches_host`・`since`・`by`） |
+| 拒まないもの | `--mode plan`・`dry-run`・`--env cert`・`reconcile.py`・管理画面（読むだけ） |
+| 取り違え | 印の `machine` が今の hostname と違う（印を写した・ホスト名を変えた）→ **それでも拒む**が、メッセージ・記録・帯に「この機械の印ではない」と出る ＝ 13500t に titan の印が紛れ込んだら、起動しなかった理由がすぐ分かる（消すのは `notprod.py clear`）。壊れた印（JSON でない・`machine` が無い）も拒む ＝ 読めない印を「無い」と読まない |
+| 操作 | `notprod.py status ／ set [--reason …] ／ clear`（⚠ CLI だけ・**置くのも外すのも利用者**）。`set` は自分の hostname を書く（他の機械の名前は書けない）。置く・外すは `mode.log` に 1 行（`not_production_set` ／ `not_production_cleared`） |
+| 早見 | `run-live.sh` は submit ＋ `--env prod` ＋ 印 で 95 秒むだにせず rc=7（関門の本体は `run_day.py`） |
+| 管理画面 | 全ページの最上部に灰の帯「本番の機械ではない」・`/api/*` に `not_production`（[dashboard.md §13-6](../dashboard.md)）。⚠ 表示だけ・公開面は読まない |
+| 守り 2 枚 | 印（仕組み）＋ timer を止め `live.env` から許可を外す（運用）。⚠ 印は timer を止める代わりではない（timer が起きるたびに rc=7 の記録が増えるだけ） |
+
+#### (b) 切り替えの手順（Phase 4。市場の外の日。⚠ 発注しない日に）
+
+> この図の主張: 順は「titan を止める → 印 → 写す → 13500t で差 0 → 13500t を開ける」。逆にしない（13500t を先に開けると 2 台が同時に発注する日ができる）。
+
+```mermaid
+flowchart LR
+  A["① titan: timer を止め<br/>live.env の許可を外す"] --> B["② titan: 印を置く<br/>notprod.py set"]
+  B --> C["③ titan: 写し<br/>livefs.py backup ＋ sha256"]
+  C --> D["④ Sx360 → 13500t へ運ぶ<br/>Phase 2 の DB は脇へ"]
+  D --> E["⑤ 13500t: reconcile show 差 0<br/>印なし"]
+  E --> F["⑥ 13500t: 留め金を外し<br/>live.env を submit"]
+  F --> G["⑦ 翌営業日の cron を見る"]
+```
+
+| 順 | 機械・だれ | 何を | 出口 |
+| ---: | --- | --- | --- |
+| ① | titan・**利用者** | `systemctl --user disable --now ail-live-run.timer ail-live-prepare.timer` → `~/.config/ai-income-lab/live.env` を雛形の dry-run に戻す（`AIL_LIVE_MODE=submit`・`--i-know-this-is-real-money`・`TT_ALLOW_PROD_ORDERS=1` を消す）→ `simctl.py status`（動いているもの なし）→ `reconcile.py --env prod show` | `list-timers` に ail-live が無い・差 0・控えの未完 0 |
+| ② | titan・**利用者** | `cd experiments/live-trading && ../tastytrade-api-sample/.venv/bin/python notprod.py set --reason "本番は 13500t（Phase 4）"` | `notprod.py status` が「印あり」・管理画面（3012）に灰の帯 |
+| ③ | titan・titan の Claude か利用者 | `python3 experiments/tastytrade-api-sample/livefs.py backup --to ~/ai-income-lab-switch/live-<日付>.sqlite && sha256sum ~/ai-income-lab-switch/live-<日付>.sqlite > …sha256`。⚠ **`cp` しない**（WAL の途中を写すと壊れる。`backup` は書いている最中でも壊れない写し）。⚠ **写すのは DB 1 つ**（`state/<env>/*.json`・`out/`・`mode.log` は全部この中。`state-backup/` はファイルの控えで、13500t の submit の回が自分で作る。`data-live/` は 13500t が自分で取っている ＝ K7） | `livefs.py stats --db <写し>` の行数が titan の `livefs.py stats` と一致 |
+| ④ | Sx360 の Claude ＋ 利用者 | titan → Sx360 → 13500t へ運ぶ（titan から 13500t へは届かない ＝ K3）。13500t で `sha256sum -c`。13500t の clone の `live.sqlite`（Phase 2 の plan ／ dry-run の記録）を `live.sqlite.phase2-<日付>` に **`mv`**（⚠ `live.sqlite-wal` ／ `-shm` が残っていればコンテナが動いていないことを確かめてから一緒に退ける）→ 写しを `live.sqlite` に置く（持ち主は clone と同じ uid・`chmod 644`）。⚠ DB の中の道はリポジトリ直下からの相対（`livefs.locate`）＝ clone の絶対パスが違っても**そのまま読める** | `livefs.py stats` が ③ と一致・`git status --porcelain` は空のまま |
+| ⑤ | 13500t・Sx360 の Claude | コンテナで `reconcile.py --env prod show`（ネットワークなし）→ **差 0・控えの未完 0** ／ `notprod.py status` → **印なし**（紛れていたら `clear`）／ 管理画面（トンネル）にトレーダーの詳細が titan と同じ数字で出る | 差 0・印なし |
+| ⑥ | 13500t・**利用者** | g3plus-ops の `run.sh` の留め金（Phase 2 ＝ submit と発注の許可を拒む）を外し、`live.env` を submit（`AIL_LIVE_MODE=submit`・`AIL_LIVE_EXTRA=--i-know-this-is-real-money`・`TT_ALLOW_PROD_ORDERS=1`）。⚠ **①② が済んでいることを確かめてから**（2 台で同時に発注しない） | — |
+| ⑦ | 13500t | 翌営業日 15:40 ET の cron の log に `end rc=0`・`orders.jsonl` に `mode: submit`・約定・口座 − 売買履歴 ＝ 0。titan の管理画面は帯のまま・数字は ③ の日で止まる（読むだけの写し） | 13500t で 1 日通る |
+
+- ⚠ **titan の記録は ③ の日以降増えない**。titan で見たいときは 13500t の DB を `backup` で写して `AIL_LIVE_DIR` … ではなく、リポジトリ直下の `live.sqlite` を写しで置き換える（読むだけ。⚠ 印がある限り titan は発注しないので、置き換えても二重発注にはならない）
+- ⚠ **13500t 側（g3plus-ops の `run.sh`・`live.env`・cron）はこのリポジトリに無い**。留め金の外し方は g3plus-ops の `docs/workflows/ail-live.md`
+- 戻し方（Phase 5。13500t が落ちた日に titan へ）は逆順: 13500t の cron を止め留め金を戻す → 13500t の DB を `backup` で titan へ → titan で `reconcile.py --env prod show` 差 0 → `notprod.py clear` → `live.env` を submit に戻し timer を入れる。⚠ 詳しくは Phase 5 で書く
+
+#### (c) 稽古【実測 2026-09-24 07:41 PDT・titan・作業用の置き場 `~/.cache/ai-income-lab-switch/`。本物の `MODE`・`run.lock`・`live.sqlite`・`NOT_PRODUCTION` には触っていない】
+
+| 順 | 何を | 結果 |
+| ---: | --- | --- |
+| ③ | `livefs.py backup` → 13500t 役の `live.sqlite` | 0.045 秒・整合性 ok・写しの sha256 `d426d113…` が転送後も `OK`・`stats` は元と同じ **115 本・1,602 行 ／ 丸ごと 6（前の中身 14）** |
+| ⑤ | 13500t 役で `reconcile.py --env prod show`（`LT_MODE_DIR`・`LT_STATE_DIR`・`LT_OUT_DIR` を作業用の置き場へ） | 4 人・口座（9/23 の記録）− 売買履歴 ＝ **5 銘柄とも差 0**（T 4 ・ PFE 4 ・ NKE 2 ・ VZ 2 ・ BAC 2 ＝ T1 と T3 が半分ずつ）・控えの未完 0・rc=0 |
+| ② | titan 役に `notprod.py set --reason 稽古` → `run_day.py --traders T1,T2,T3 --env prod --mode submit --ignore-window`（⚠ 許可も資格情報も付けない） | **rc=7**「この機械は本番の機械ではない」・`events.jsonl` に `refused_not_production`（`machine: titan`・`matches_host: true`）。同じ印のまま `--mode plan` は印で止まらず「資格情報が無い」まで進む（rc=1） |
+| 戻し | `notprod.py clear` → `status` | 印なし。`mode.log` に `not_production_set` → `not_production_cleared` の 2 行 |
+
+⚠ 稽古で分かったこと: `reconcile.py --env cert show` は「口座の建玉」を `out/` の最後の記録から読むので、**cert の売買履歴に prod の口座の建玉が並ぶ**（差 2〜4 と出る）。切り替えで見るのは `--env prod` だけ ＝ 実害なし。cert の欄は読まない。
+テストは `experiments/live-trading/tests/test_not_production.py`（6 件。⚠ 印で止まらない経路も、接続先をループバックの閉じたポートに向けて外へ出ない）・`dashboard/tests/test_mode_banner.py`（帯）。
+
 ## 1. 記録（日次）
 
 Phase 5-1・Phase 6 で埋める。1 日 1 行 × トレーダー。数字は全部【実測】。

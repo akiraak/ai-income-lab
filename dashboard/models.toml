@@ -176,6 +176,7 @@ text = [
   "StandardScaler は訓練分割で fit（cli/run.py:164-166）。欠損は補完しない（build.py:139 で inf → NaN → dropna）。ラベル y ＝ 1 日先の終値との対数リターン（ail/features/labels.py:295-304）を回帰。",
   "Platt 較正（ail/models/calibrate.py）: 訓練分割の末尾 10% を holdout、頭との隙間 max(64, 行数//200) 行（holdout.py:150-164）。頭で学んだモデルの holdout での予測と y > 0 から、予測を標準化して LogisticRegression(C = 1e6, lbfgs) で解き、元のスケールに戻す（:118-127）。買い% ＝ 100 / (1 + exp(−clip(a·pred + b, ±500)))（:63-66）。本体は訓練分割の全部で fit し直す（run.py:175-177）。",
   "売買の規則（ail/validation/simulate.py:57-63 と live-trading/plan.py:58-63 で同じ）: 持っていなければ 買い% > θ で買い、持っていれば 出口% ＝ 100 − 買い% > θ（買い% < 100 − θ）で売る。不等号は厳密。θ < 50 は受け付けない。小さな例の傾き 20・ずらし 0.05 は作りもの（本物の a は fold 1〜5 で {{calib|2026-09-13T08-57-34_trade_own_ridge_a|全部使う（基準）|a|+2|−35.80 ／ ＋22.33 ／ ＋7.94 ／ −65.78 ／ ＋8.21}}）。",
+  "入出力の形（実売買）: 入力 1 行 ＝ 1 銘柄 × 1 営業日・own_ 35 列（float64。StandardScaler は訓練で fit）。訓練 ＝ 2018-01-31〜asof の 2 営業日前（asof 2026-09-22 で 136,529 行【実測】）・毎日 fit し直す（保存した重みは無い）。出力 ＝ predict.jsonl に 63 銘柄 × 1 行（buy ／ exit ＝ 0〜100・小数 6 桁・exit ＝ 100 − buy）。項目の一覧はしくみのページ「実際の売買で使う」の「モデルに入るものと出てくるもの」と live-trading.md §0-9 (f)。",
 ]
 
 [model.detail.score]
@@ -259,6 +260,7 @@ text = [
   "124 列 ＝ own 35 ＋ cs 26 ＋ rel 13 ＋ ex 50。cs ＝ own の 7 列（ret_1・ret_5・ret_20・vol_20・vratio_5・z_20・dollar_20）× 順位・z・平均との差の 21 列 ＋ 市場の姿 5 列（ail/features/cross.py。断面は ETF を含む 63 本）。rel ＝ SPY に対する 9 列（β・相関・残差 1/5/20・超過 1/5/20・市場リターン）＋ セクター ETF に対する 4 列（relative.py:127-149。窓 60）。",
   "ex ＝ 25 系列 × {前日差 d1, 20 日 z}（水準は入れない ＝ config/dataset/exog_daily.toml:12-39）: ECB の対ユーロ参照相場 7（USD・JPY・GBP・CHF・CNY・AUD・CAD）／ 米国債 7 年限（1M・3M・1Y・2Y・5Y・10Y・30Y）／ NOAA 3 地点 × 最高・最低気温・降水 9 ／ USGS M5.0 以上の件数・最大 M 2。気象と地震は偽薬の枠（exog_daily.toml:26・35）。1 日ずらし、前の値の引き継ぎは列ごとに 7 日まで（(足の日 − 1) − 最後に値があった日 > 7 なら欠損 ＝ exog.py:151-178）。地震は行の無い日を 0 件で埋める。",
   "LightGBM: num_leaves 31・learning_rate 0.05・n_estimators 500（上限）・min_child_samples 100・colsample_bytree 0.8・subsample 1.0・random_state 0・deterministic・force_row_wise・n_jobs 4。訓練の末尾 10%（隙間つき）で l2 を見て 30 回改善しなければ止める（末尾 10% は木の学習に使わない）。ハイパーパラメータは事前固定。較正（Platt）と売買の規則は own-ridge と同じ。",
+  "入出力の形（実売買）: 入力 1 行 ＝ 1 銘柄 × 1 営業日・124 列（ex_ は 1 日ずらした外部系列。今日の行で欠けた銘柄は外す ＝ ex_ が古いと 48 本とも）。訓練 ＝ 2018-01-31〜asof の 2 営業日前（asof 2026-09-22 で 101,589 行【実測】）・毎日 fit し直す。出力 ＝ predict.jsonl に会社株 48 本 × 1 行（buy ／ exit ＝ 0〜100・小数 6 桁）。項目の一覧はしくみのページ「実際の売買で使う」の「モデルに入るものと出てくるもの」と live-trading.md §0-9 (f)。",
 ]
 
 [model.detail.score]
@@ -336,6 +338,7 @@ text = [
   "4 つの表現（aeon の _quant.py:109-114）: 道筋そのもの（長さ 60・120 区間・191 列）／ 1 次差分を 5 点で均したもの（59・120・191）／ 2 次差分（58・120・191）／ FFT の振幅（31・57・80）。計 653 列（fitted と一致）。",
   "区間の規則（_quant.py:131-161）: 段 n ＝ 1, 2, 4, …（最大 min(6, floor(log2 L)+1) 段）・境目は linspace(0, L, n+1) の切り捨て・n>1 なら ceil(L/n/2) ずらした組を足す。1 区間の分位の数 q ＝ 1 + (長さ−1)//4。q ≥ 2 なら等間隔の分位で、奇数番の添字からは区間の平均を引く。小さな例の [3,1,4,1,5,9,2,6] → 丸ごとの区間は [1.0, 5.125]（コードから計算）。",
   "変換の fit（訓練だけ）→ StandardScaler（訓練で fit）→ Ridge → Platt 較正（訓練の尻 10%・隙間 max(64, n//200) 行。ail/models/holdout.py:23-37・calibrate.py:42-95）。",
+  "入出力の形（実売買）: 入力 1 行 ＝ 1 銘柄 × 1 営業日。表は 95 列（own 35 ＋ own_seq60_r0..r59）だが使うのは 60 日の道筋だけ → QUANT 653 列 → StandardScaler → Ridge。訓練 ＝ 2018-01-31〜asof の 2 営業日前（asof 2026-09-22 で 136,529 行【実測】）・毎日 fit し直す。出力 ＝ predict.jsonl に 63 銘柄 × 1 行（buy ／ exit ＝ 0〜100・小数 6 桁）。項目の一覧はしくみのページ「実際の売買で使う」の「モデルに入るものと出てくるもの」と live-trading.md §0-9 (f)。",
 ]
 
 [model.detail.score]
@@ -1180,6 +1183,35 @@ steps = [
   { t = "買えたかを確かめる", s = "1 本ずつ確かめて帳面に書く" },
   { t = "買えなかった注文は取り消す", s = "しばらく待っても買えないとき" },
   { t = "あとで見くらべる", s = "計画の値段・買えた値段・終わりの値段", kind = "note" },
+]
+
+[[page.section]]
+title = "モデルに入るものと出てくるもの"
+points = [
+  "モデルは、できあがった重みを保存して使い回すのではない。毎日、取引が終わる直前に、その日までの値段で学び直してから、今日の出力スコアを出す。学ぶのに使うのは 2018 年からの毎日の値段のうち、答え（次の日にどれだけ上がったか）がもう確かめられている日まで。",
+  "入るもの: 株 1 本 × 1 日が 1 行。前の日までの毎日の値段（始まり・高い・安い・終わり・売買された量）から作った数字と、今日の「いままでの値段」（終わりの値段の代わり）。世の中の数字を見るモデルは、それも 1 日遅れで入れる。何個の数字を見るかはモデルごとにちがう（各モデルのページの「このモデルの組み立て」）。",
+  "出てくるもの: 株 1 本につき 0〜100 の出力スコアが 1 つ。「上がる側」と「下がる側」の 2 つの数で残り、足すと 100 になる。モデルごと・株ごとに 1 行ずつ、その日の記録に書かれる。",
+  "トレーダーの使い方: 持っていない株は、「上がる側」が売買基準値を上回ったら買う。持っている株は、「下がる側」が売買基準値を上回ったら売る。それ以外は何もしない。買う金額は、予算を見る株の数で割った同じ金額で、いまは 1 株単位に切り捨てる。出力スコアが高くても多くは買わない。",
+]
+links = [{ label = "モデルの一覧（1 本ずつの組み立て）", tab = "models", item = "all" }]
+detail = [
+  "学習 ＝ cli.predict が毎営業日 15:50 ET 過ぎに fit し直す（保存した重みは無い・runs/ も作らない）。訓練 ＝ 2018-01-31 から、ラベル（1 日先の対数リターン）の終わりの足が asof より前の行 ＝ asof の 2 営業日前まで（asof 2026-09-22 なら train_end 2026-09-18・136,529 行〔T1・T3〕／ 101,589 行〔T2〕【実測】）。予測する行 ＝ asof の行（63 ／ 48 ／ 63 銘柄）。3 本並列で 43〜48 秒【実測 titan ／ 13500t】。",
+  "入力の 1 行 ＝ (symbol, ts) の 1 営業日。元は data-live/adjusted/d/<銘柄>.csv（time_ms・open・high・low・close・volume。分割だけ調整）＋ T2 は外部系列（ECB 為替・米国債・NOAA・USGS を 1 日ずらし）。末尾の行は 15:50 ET の途中の足（終値の代役 ＝ predict.jsonl の proxy_close）。列は T1 own_ 35 ／ T2 124（own 35 ＋ cs 26 ＋ rel 13 ＋ ex 50）／ T3 は表 95 列（own 35 ＋ own_seq60_r0..r59）のうち 60 日の道筋だけ → QUANT 653 列。float64・StandardScaler は訓練で fit・欠損（inf → NaN）の行は落とす。",
+  "出力 ＝ out/<日付>/predict-<時刻>.jsonl（2026-09-21 から中身は live.sqlite）の 1 行 1 銘柄。買い% は Platt 較正を通した 0〜100（小数 6 桁）・出口% ＝ 100 − 買い%。予測の記録 predict.meta.jsonl に訓練の範囲・列数・較正の版と係数・入力の指紋・所要時間が 1 モデル 1 行。項目は下の表。",
+  "執行器（run_day.py）: signals.py が今日の日付の行だけ読み（古い予測では売買しない・method が設定と違えば止まる）、トレーダーごとに合成 asis → plan.decide ＝ 持ち株 0 ＆ 買い% > θ で買い ／ 持ち株あり ＆ 出口% > θ で売り ／ それ以外は hold ・ skip の事象 → plan.size_intents ＝ 1 銘柄の枠 min(予算 ÷ 銘柄数, 空き) を気配の中値で割って整数株に切り捨て（1 株に満たなければ too_small）→ 1 注文 1 トレーダーの成行を 15:45〜16:05 ET に出す（売りが先）。正本は live-trading.md §0-9 (f)。",
+]
+detail_links = [{ label = "live-trading.md §0-9 (f)（入力と出力の形式の正本）", doc = "docs/specs/experiments/live-trading.md" }]
+
+[page.section.detail_table]
+head = ["項目（predict.jsonl の 1 行）", "型", "意味"]
+rows = [
+  ["date", "YYYY-MM-DD", "asof（予測した日 ＝ 今日）。執行器は今日と違う行を読まない"],
+  ["model ／ method", "文字列", "実験名（trade_own_ridge_a など）／ 数字の選び方・作り方の登録名（全部使う（基準）／ T3 QUANT（60日窓））。設定の [[models]] の name ／ method と突き合わせる"],
+  ["symbol", "文字列", "銘柄"],
+  ["buy ／ exit", "0〜100 の実数（小数 6 桁）", "買い% ／ 出口% ＝ 100 − 買い%。合成 asis ならそのまま合図"],
+  ["proxy_close ／ proxy", "実数 ／ 真偽", "その日の終値の代役に使った値 ／ --proxy で上書き・追加した足か"],
+  ["input_fingerprint ／ commit", "16 進 16 桁 ／ 7 桁", "訓練と予測の入力の指紋（⚠ CPU で変わる ＝ §0-12）／ コードの commit"],
+  ["predict.meta.jsonl", "1 モデル 1 行", "experiment・method・asof・table・layer・form・seed・calibration（較正の版）・features（列数）・input_fingerprint・commit・data_dir・train_rows・train_start・train_end・test_rows・dropped_symbols_nan_features・horizon・proxy_symbols・fitted（較正の係数など）・seconds（table ／ fit_predict）・log"],
 ]
 
 [[page.section]]

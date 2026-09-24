@@ -572,7 +572,7 @@ def test_guide_pages_are_plain_and_deep():
     assert not [(w, t) for w, t in texts if "点" in t or re.search(r"(?<!出力)スコア", t)]
     # 実際の売買で使う には、モデルの話の段だけ（帳面と口座・安全の仕掛け・何を見て判定するか は システム説明の概要へ）
     titles = [sec["title"] for sec in pages["live"]["section"]]
-    assert titles == ["トレーダー ＝ モデル ＋ 売買基準値 ＋ 予算", "1 日の流れ", "出力スコアから注文へ", "出力スコアの読み方"]
+    assert titles == ["トレーダー ＝ モデル ＋ 売買基準値 ＋ 予算", "1 日の流れ", "モデルに入るものと出てくるもの", "出力スコアから注文へ", "出力スコアの読み方"]
 
 
 def test_guide_page_ids_and_links():

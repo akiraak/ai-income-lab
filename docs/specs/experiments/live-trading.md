@@ -828,14 +828,14 @@ flowchart LR
 
 ### 0-13. 本番の機械（13500t）の器 — デプロイ契約（正本。2026-09-22 夜。[プラン](../../plans/three-machines.md) Phase 2）
 
-g3plus-ops 側の `ail-live/`（毎日の売買）・`auto-update.sh`・13500t の host cron はここに従う。契約が変わったらあちらを追従させる（管理画面は [dashboard.md §7](../dashboard.md) の「13500t のローカル面」）。⚠ **デプロイ設定・ホスト名・Tunnel は g3plus-ops 側にだけ書く**。⚠ **Phase 2 では発注しない**（発注の許可は切り替え ＝ Phase 4 で利用者が置く）。
+g3plus-ops 側の `trade-runner/`（旧 `ail-live/`。2026-09-24 に改名 ＝ g3plus-ops `a048b16`）（毎日の売買）・`auto-update.sh`・13500t の host cron はここに従う。契約が変わったらあちらを追従させる（管理画面は [dashboard.md §7](../dashboard.md) の「13500t のローカル面」）。⚠ **デプロイ設定・ホスト名・Tunnel は g3plus-ops 側にだけ書く**。⚠ **Phase 2 では発注しない**（発注の許可は切り替え ＝ Phase 4 で利用者が置く）。
 
 > この図の主張: コンテナは使い捨てで、記録・日足・許可・排他のファイルは全部ホストの clone の中にある ＝ コンテナを作り直しても何も失わない。
 
 ```mermaid
 flowchart LR
   subgraph H["13500t の host"]
-    CRON["host cron<br/>09:00 ET ／ 15:40 ET"] --> RUN["ail-live（使い捨てコンテナ）<br/>run-live.sh"]
+    CRON["host cron<br/>09:00 ET ／ 15:40 ET"] --> RUN["trade-runner（使い捨てコンテナ）<br/>run-live.sh"]
     AU["auto-update.sh"] --> CL
     CL[("clone<br/>live.sqlite ・ data-live/ ・ MODE ・ run.lock ・ HALT ・ .env")]
     RUN -- "bind mount（読み書き）" --> CL
@@ -951,9 +951,9 @@ flowchart LR
 | ① | titan・**利用者** | `systemctl --user disable --now ail-live-run.timer ail-live-prepare.timer` → `~/.config/ai-income-lab/live.env` を雛形の dry-run に戻す（`AIL_LIVE_MODE=submit`・`--i-know-this-is-real-money`・`TT_ALLOW_PROD_ORDERS=1` を消す）→ `simctl.py status`（動いているもの なし）→ `reconcile.py --env prod show` | `list-timers` に ail-live が無い・差 0・控えの未完 0 |
 | ② | titan・**利用者** | `cd experiments/live-trading && ../tastytrade-api-sample/.venv/bin/python notprod.py set --reason "本番は 13500t（Phase 4）"` | `notprod.py status` が「印あり」・管理画面（3012）に灰の帯 |
 | ③ | titan・titan の Claude か利用者 | `python3 experiments/tastytrade-api-sample/livefs.py backup --to ~/ai-income-lab-switch/live-<日付>.sqlite && sha256sum ~/ai-income-lab-switch/live-<日付>.sqlite > …sha256`。⚠ **`cp` しない**（WAL の途中を写すと壊れる。`backup` は書いている最中でも壊れない写し）。⚠ **写すのは DB 1 つ**（`state/<env>/*.json`・`out/`・`mode.log` は全部この中。`state-backup/` はファイルの控えで、13500t の submit の回が自分で作る。`data-live/` は 13500t が自分で取っている ＝ K7） | `livefs.py stats --db <写し>` の行数が titan の `livefs.py stats` と一致 |
-| ④ | Sx360 の Claude ＋ 利用者 | titan → Sx360 → 13500t へ運ぶ（titan から 13500t へは届かない ＝ K3）。13500t で `sha256sum -c`。13500t の clone の `live.sqlite`（Phase 2 の plan ／ dry-run の記録）を `live.sqlite.phase2-<日付>` に **`mv`**（⚠ `live.sqlite-wal` ／ `-shm` が残っていればコンテナが動いていないことを確かめてから一緒に退ける）→ 写しを `live.sqlite` に置く（持ち主は clone と同じ uid・`chmod 644`）。⚠ DB の中の道はリポジトリ直下からの相対（`livefs.locate`）＝ clone の絶対パスが違っても**そのまま読める** | `livefs.py stats` が ③ と一致・`git status --porcelain` は空のまま |
+| ④ | Sx360 の Claude ＋ 利用者 | titan → Sx360 → 13500t へ運ぶ（titan から 13500t へは届かない ＝ K3）。13500t で `sha256sum -c`。13500t の clone の `live.sqlite`（Phase 2 の plan ／ dry-run の記録）を `live.sqlite.phase2-<日付>` に **`mv`** し、⚠ **clone の外（`~/ai-income-lab-switch/`）へ移す**（clone に残すと未追跡のファイルになり、auto-update が「汚れている」で pull を止め続ける。2026-09-25 に踏んだ）（⚠ `live.sqlite-wal` ／ `-shm` が残っていればコンテナが動いていないことを確かめてから一緒に退ける）→ 写しを `live.sqlite` に置く（持ち主は clone と同じ uid・`chmod 644`）。⚠ DB の中の道はリポジトリ直下からの相対（`livefs.locate`）＝ clone の絶対パスが違っても**そのまま読める** | `livefs.py stats` が ③ と一致・`git status --porcelain` は空のまま |
 | ⑤ | 13500t・Sx360 の Claude | コンテナで `reconcile.py --env prod show`（ネットワークなし）→ **差 0・控えの未完 0** ／ `notprod.py status` → **印なし**（紛れていたら `clear`）／ 管理画面（トンネル）にトレーダーの詳細が titan と同じ数字で出る | 差 0・印なし |
-| ⑥ | 13500t・**利用者** | g3plus-ops の `run.sh` の留め金（Phase 2 ＝ submit と発注の許可を拒む）を外し、`live.env` を submit（`AIL_LIVE_MODE=submit`・`AIL_LIVE_EXTRA=--i-know-this-is-real-money`・`TT_ALLOW_PROD_ORDERS=1`）。⚠ **①② が済んでいることを確かめてから**（2 台で同時に発注しない） | — |
+| ⑥ | 13500t・**利用者** | g3plus-ops の `run.sh` の留め金（Phase 2 ＝ submit と発注の許可を拒む）を外し（⚠ Phase 2 の `run.sh` は `TT_ALLOW_PROD_ORDERS` をコンテナに渡していなかった ＝ 留め金を外すだけでは許可の段で止まる。2026-09-25 に渡す 1 行を足した）、`live.env` を submit（`AIL_LIVE_MODE=submit`・`AIL_LIVE_EXTRA=--i-know-this-is-real-money`・`TT_ALLOW_PROD_ORDERS=1`）。⚠ **①② が済んでいることを確かめてから**（2 台で同時に発注しない） | — |
 | ⑦ | 13500t | 翌営業日 15:40 ET の cron の log に `end rc=0`・`orders.jsonl` に `mode: submit`・約定・口座 − 売買履歴 ＝ 0。titan の管理画面は帯のまま・数字は ③ の日で止まる（読むだけの写し） | 13500t で 1 日通る |
 
 - ⚠ **titan の記録は ③ の日以降増えない**。titan で見たいときは 13500t の DB を `backup` で写して `AIL_LIVE_DIR` … ではなく、リポジトリ直下の `live.sqlite` を写しで置き換える（読むだけ。⚠ 印がある限り titan は発注しないので、置き換えても二重発注にはならない）
@@ -1013,6 +1013,33 @@ flowchart LR
 | 確認 | 本物 | `notprod.py status` 印なし（今日はまだ置いていない）・`MODE` なし（real）・`run.lock` は空の flock 用（持ち主なし）・`git status` に作業用の置き場は出ない |
 
 ⚠ ⑤（`live.env` を submit に戻し timer を入れる）と ①（13500t を止める）は稽古できない（利用者と Sx360 の Claude の操作）。手順書の文だけ。
+
+#### (f) 切り替えの実施【実測 2026-09-25（金）引け後 15:40〜16:10 PDT・利用者 ＋ Sx360 の Claude。利用者の決定「13500t 切り替えはすぐにやってしまう。問題があれば 13500t の方で直す。titan から日常の作業を切り離すのが目的」】
+
+> この図の主張: (b) の順のとおりに進め、13500t の最初の本番の回は **9/28（月）15:40 ET の cron**（⑦ はまだ）。
+
+```mermaid
+flowchart LR
+  A["① ② titan<br/>timer 0 本・dry-run・印"] --> B["③ 写し<br/>133 本・2,038 行"]
+  B --> C["④ 13500t へ<br/>sha256 一致"]
+  C --> D["⑤ 差 0・未完 0<br/>印なし"]
+  D --> E["⑥ 留め金を外し<br/>live.env を submit"]
+  E --> F["⑦ 9/28 の cron<br/>（未）"]
+```
+
+| 順 | 結果 |
+| ---: | --- |
+| 前 | titan の timer は 9/25 に submit で無人で通っていた（15:51 ET・rc=0・NKE 1 株の売り 1 件 Filled）。13500t の cron は 9/24・9/25 とも dry-run で prepare ／ trade rc=0 |
+| ① | 利用者: `systemctl --user disable --now` で timer 2 本を外した（`list-timers` に ail-live 0 本）・`live.env` を dry-run（`--allow-prod-dry-run`・`TT_ALLOW_PROD_ORDERS` の行を消した） |
+| ② | 利用者: `notprod.py set --reason "本番は 13500t（Phase 4・2026-09-25）"` → 印あり（22:43:02 UTC） |
+| ③ | titan で `simctl.py status` 動いているもの なし・`reconcile.py --env prod show` 5 銘柄とも差 0（T 4 ・ PFE 4 ・ NKE 1 ・ VZ 2 ・ BAC 2）・未完 0 → `livefs.py backup --to ~/ai-income-lab-switch/live-2026-09-25.sqlite`（1.66 MB・整合性 ok）・sha256 `cebb28e9…`・`stats` は元と写しで同じ **133 本・2,038 行 ／ 丸ごと 6（前の中身 19）** |
+| ④ | titan → Sx360 → 13500t の `~/ai-income-lab-switch/`（sha256 OK 2 回）→ 利用者が管理画面のコンテナ `trade-dashboard` を止め、Phase 2 の DB を退け、写しを `live.sqlite` に置き、起こし直した（healthy）。13500t の `stats` も 133 本・2,038 行。⚠ 退けた `live.sqlite.phase2-2026-09-25` が `git status` に `??` で出た → clone の外（`~/ai-income-lab-switch/`）へ移して作業ツリーは空（上の ④ の注） |
+| ⑤ | 13500t（ホストの python3）で `reconcile.py --env prod show` 5 銘柄とも差 0・未完 0 ／ `notprod.py status` 印なし ／ `MODE`・`HALT`（2 か所）なし ／ 資格情報あり |
+| ⑥ | g3plus-ops の `trade-runner/run.sh`（旧 `ail-live/`）の留め金を外した: `AIL_LIVE_MODE` は plan ／ dry-run ／ submit、submit は `TT_ALLOW_PROD_ORDERS=1` と `--i-know-this-is-real-money` が揃わなければ rc=3・⚠ `TT_ALLOW_PROD_ORDERS` をコンテナに渡す 1 行を足した（無いと許可の段で止まる）→ 13500t へ送り構文 OK・一致。`live.env` は控え `live.env.dry-run-2026-09-25` を取ってから submit（利用者）。cron は平日 06:00 PDT prepare ／ 12:40 PDT trade のまま |
+| ⑦ | ⚠ **未**: 9/28（月）の `trade-runner/logs/trade.log` の `end rc=0`・`orders.jsonl` の `mode: submit`・口座 − 売買履歴 ＝ 0 を見る |
+
+- titan は ③ の日（9/25）で止まった読むだけの写し。titan の管理画面（3012）は灰の帯
+- 13500t を止めたいときは管理画面の停止ボタン（`HALT`）か、`live.env` を控え `live.env.dry-run-2026-09-25` に戻す。titan へ戻すのは (d)
 
 ## 1. 記録（日次）
 

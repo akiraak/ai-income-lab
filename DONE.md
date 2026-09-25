@@ -1,4 +1,9 @@
 # DONE
+- 2026-09-25 3 台の役割分け Phase 4（⑦ を除く）: 本番を titan → 13500t へ切り替えた（利用者の決定「13500t 切り替えはすぐにやってしまう。問題があれば 13500t の方で直す。titan から日常の作業を切り離すのが目的」。利用者 ＋ Sx360 の Claude。記録は [live-trading.md §0-14 (f)](docs/specs/experiments/live-trading.md)）
+  - 前: titan の timer が 9/25 に submit で無人で通った（15:51 ET・rc=0・NKE 1 株の売り Filled）＝ TODO「`live.env` を submit に書き換え、timer で本番の発注に切り替える」も済み。13500t の cron は 9/24・9/25 とも dry-run で rc=0
+  - ① ② titan: timer 2 本を外し `live.env` を dry-run・印 `NOT_PRODUCTION` を置いた（利用者）／ ③ `livefs.py backup` の写し 133 本・2,038 行が元と一致・sha256 `cebb28e9…` ／ ④ Sx360 経由で 13500t へ・管理画面のコンテナを止めて差し替え（利用者）／ ⑤ 13500t で差 0・未完 0・印なし ／ ⑥ `trade-runner/run.sh` の留め金を外し `live.env` を submit（利用者。控えは `live.env.dry-run-2026-09-25`）
+  - 踏んだこと 2 つ（手順書に足した）: 退けた `live.sqlite.phase2-*` を clone に残すと未追跡で auto-update が止まる → clone の外へ ／ Phase 2 の `run.sh` は `TT_ALLOW_PROD_ORDERS` をコンテナに渡していなかった → 渡す 1 行を足した
+  - 残り: ⑦ 9/28（月）の cron を見る（TODO）
 - 2026-09-25 `run-dashboard-tunnel.sh`: 繋がらないホストで居残るのを直した（ssh に `ConnectTimeout=10`・待つ上限 15 → 25 秒）[plan](docs/plans/dashboard-remote-tunnel.md)
   - 【実測 titan】届かない IP（192.0.2.1）: 17 秒でスクリプトの打ち切り（理由なし）→ **10 秒で ssh 自身の `Connection timed out`**・rc=1 ／ 引けない名前: 0.3 秒・rc=1（変わらず）
   - ⚠ 9/22 の「2 分」はこの日の titan では再現しなかった（DNS が速い）。接続の制限時間が無い ssh は届かない相手に約 127 秒（SYN の再送 6 回）居残るので、その形をふさいだ

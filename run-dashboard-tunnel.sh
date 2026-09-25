@@ -192,7 +192,7 @@ case "$status" in
        if [ "$HOST" = "titan" ]; then
          echo "       ssh ${HOST} 'cd ~/ai-income-lab && ./run-server.sh'"
        else
-         echo "       ${HOST} では常駐コンテナ（g3plus-ops の ail-dashboard。docs/specs/dashboard.md §7-1）"
+         echo "       ${HOST} では常駐コンテナ（g3plus-ops の trade-dashboard。docs/specs/dashboard.md §7-1）"
        fi ;;
   403) echo "  ⚠ HTTP 403（面に弾かれた）。${HOST} の dashboard/.env の AIL_AUTH_MODE を確かめる"
        echo "     （コンテナなら network_mode: host か。ブリッジ越しはループバックに見えない ＝ dashboard.md §7-1）" ;;

@@ -155,7 +155,7 @@ flowchart LR
 
 ## 7. デプロイ契約（正本）
 
-g3plus-ops 側の `ail-dashboard/`（Dockerfile・compose・手順書）はここに従う。契約が変わったらあちらを追従させる。
+g3plus-ops 側の `trade-dashboard/`（旧 `ail-dashboard/`。2026-09-24 に改名）（Dockerfile・compose・手順書）はここに従う。契約が変わったらあちらを追従させる。
 
 | 項目 | 値 |
 | --- | --- |
@@ -188,7 +188,7 @@ g3plus-ops 側の `ail-dashboard/`（Dockerfile・compose・手順書）はこ�
 | 資格情報 | 売買と同じ `experiments/tastytrade-api-sample/.env`（`config.py` が既定で読む） | 取消の許可（停止ボタン）は `ops.py` が開ける。⚠ dry-run ・ 発注の許可はこの面に渡らない（いまのとおり） |
 | 実行・データの画面 | 空のまま（研究のデータは 13500t に置かない） | 研究は titan |
 | 常駐 | 常駐コンテナ（`restart: unless-stopped`）・healthcheck は上の表のまま | — |
-| イメージ | ⚠ **売買の `ail-live` のイメージを共用**（`/opt/venv` に研究・tastytrade・管理画面の依存。上の表の「依存 7 つの `python:3.12-slim`」ではない。2026-09-22 夜 Step 2-2） | [live-trading.md §0-13](experiments/live-trading.md) の合否 ①（`run-tests.sh --fast`）が `dashboard/.venv` と研究の `.venv` を同じ環境で要る。build は 1 本で済む |
+| イメージ | ⚠ **売買の `trade-runner`（旧 `ail-live`）のイメージを共用**（`/opt/venv` に研究・tastytrade・管理画面の依存。上の表の「依存 7 つの `python:3.12-slim`」ではない。2026-09-22 夜 Step 2-2） | [live-trading.md §0-13](experiments/live-trading.md) の合否 ①（`run-tests.sh --fast`）が `dashboard/.venv` と研究の `.venv` を同じ環境で要る。build は 1 本で済む |
 
 ## 8. 検証（2026-09-05）
 
@@ -609,7 +609,7 @@ flowchart LR
 | 今日・いま | 本物 ＝ `datetime.now(ET)`（`live.now_et()`。⚠ テストは conftest がこれを 2026-09-01 09:00 ET に止める ＝ 止めないと 16:15 ET 以降にテストを流すと列が延びて落ちる）／ シミュレーション ＝ 仮の時計の `today`・`now_et`（`simmode.clock`） |
 | 外へ出す | **出さない**（表示だけ・POST は増やさない）。メールなど機械の外へ知らせるかは利用者の裁定（TODO「失敗したときに気づける形にする」。⚠ 出すなら秘密が乗らない形） |
 | 面 | 公開面にも出す（監視の範囲。読むだけの値） |
-| 13500t | 同じ管理画面（g3plus-ops の `ail-dashboard/`）が pull で追従するので、13500t のローカル面にも同じ帯が出る（確認は Sx360 の Claude。Phase 4 の後） |
+| 13500t | 同じ管理画面（g3plus-ops の `trade-dashboard/`）が pull で追従するので、13500t のローカル面にも同じ帯が出る（確認は Sx360 の Claude。Phase 4 の後） |
 
 テストは `tests/test_live.py` の `test_watch_*`（4 本: 営業日・窓の後・記録なし ／ 窓の前と記録あり ／ 休場日と週末 ／ 印・HALT・デモ・仮の時計）。
 

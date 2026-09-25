@@ -226,6 +226,7 @@ flowchart LR
 - cert（sandbox）で切り替えを 1 往復して確かめる
 
 ### Phase 4: 本番を 13500t に切り替える（利用者）
+- ✅ **2026-09-25 引け後に ①〜⑥ を済ませた**（利用者の決定「すぐにやってしまう。問題があれば 13500t の方で直す」）。13500t の最初の本番の回は 9/28（月）の cron（⑦）。記録は [live-trading.md §0-14 (f)](../specs/experiments/live-trading.md)
 - 市場の外の日（週末）に Phase 3 の手順で。時期は「2026-09-24 の決定」（早ければ 9/26〜27・「数日」なら 10/3〜4。⚠ 利用者の裁定）
 - 順: titan の timer を止め `live.env` から発注の許可を外し印を置く → `live.sqlite` と `state/` を 13500t へ（sha256。13500t の Phase 2 の DB は退ける）→ 13500t の `reconcile.py show` で差 0 → 13500t の `run.sh` の留め金を外し `live.env` を submit（発注の許可を置くのは利用者）→ 翌営業日の cron を見る
 

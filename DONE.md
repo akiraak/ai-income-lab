@@ -1,4 +1,7 @@
 # DONE
+- 2026-09-25 `run-dashboard-tunnel.sh`: 繋がらないホストで居残るのを直した（ssh に `ConnectTimeout=10`・待つ上限 15 → 25 秒）[plan](docs/plans/dashboard-remote-tunnel.md)
+  - 【実測 titan】届かない IP（192.0.2.1）: 17 秒でスクリプトの打ち切り（理由なし）→ **10 秒で ssh 自身の `Connection timed out`**・rc=1 ／ 引けない名前: 0.3 秒・rc=1（変わらず）
+  - ⚠ 9/22 の「2 分」はこの日の titan では再現しなかった（DNS が速い）。接続の制限時間が無い ssh は届かない相手に約 127 秒（SYN の再送 6 回）居残るので、その形をふさいだ
 - 2026-09-24 3 台の役割分け Phase 2 済み: 13500t で §0-13 の合否 ①〜⑤ が全部 ✅（Step 2-3。Sx360 の Claude ＋ 利用者）。同じ日に titan の timer の初日（dry-run）も通った
   - ③ 本番 dry-run（11:04 ET 手動 ＋ 15:51 ET cron）: 10 本とも `mode: dry-run`・`submitted` 無し・買付余力の効果 $35.65〜$57.44・T2 は skip・口座の持ち株は「売買履歴の外」／ ④ 無人の cron で 15:50 から 更新 56 ＋ 予測 44 ＋ 執行器 4 ＝ 104 秒（準備の線 120 秒の内側）／ ⑤ 秘密の grep 0 件（`TT_ENV`＝`cert` は監視の記録の環境名に当たるだけ）。② は bench と 15 行とも差 0（9/23 夜）
   - 15:50 ET に titan の timer（dry-run・合図 15 → 意図 0 ＝ 持ち株は hold）と 13500t の cron（dry-run・10 本）が同じ資格情報で同時に動いても 429 も認証の失敗も無し

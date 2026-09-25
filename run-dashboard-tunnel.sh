@@ -23,6 +23,8 @@ PORT=""            # 手元のポート
 REMOTE_PORT=""     # titan 側のポート
 HOST="titan"
 KILL=1
+CONNECT_TIMEOUT=10   # ssh が相手に繋がるまで待つ秒数（無いと届かない相手に約 2 分 ＝ SYN の再送が尽きるまで居残る）
+WAIT_S=25            # 手元のポートが開くまで待つ秒数（⚠ 名前解決 ＋ CONNECT_TIMEOUT より長くする ＝ ssh 自身に理由を言わせる）
 
 usage() {
   sed -n '3,12p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
@@ -142,6 +144,7 @@ echo "$TAG ${HOST} の 127.0.0.1:${REMOTE_PORT} → 手元の ${PORT} に繋ぐ"
 # ⚠ ssh は後ろで起こし、繋がったのを確かめてからアドレスを出す（繋がる前に URL を出して「開けない」と言わせない）
 ssh -N \
     -o ExitOnForwardFailure=yes \
+    -o ConnectTimeout="$CONNECT_TIMEOUT" \
     -o ServerAliveInterval=30 \
     -o ServerAliveCountMax=3 \
     -L "127.0.0.1:${PORT}:127.0.0.1:${REMOTE_PORT}" \
@@ -154,9 +157,9 @@ cleanup() {
 }
 trap cleanup EXIT INT TERM
 
-# ---- 繋がるのを待つ（最大 15 秒）
+# ---- 繋がるのを待つ（最大 WAIT_S 秒）
 ready=0
-for i in $(seq 1 60); do
+for i in $(seq 1 $(( WAIT_S * 4 ))); do
   if ! kill -0 "$SSH_PID" 2>/dev/null; then
     echo "$TAG ⚠ ssh が終了した（${HOST} に繋がらない・鍵・ポートの衝突など。上の ssh のメッセージを読む）" >&2
     wait "$SSH_PID" 2>/dev/null || true
@@ -167,7 +170,7 @@ for i in $(seq 1 60); do
 done
 
 if (( ! ready )); then
-  echo "$TAG ⚠ 15 秒たってもポート ${PORT} が開かない" >&2
+  echo "$TAG ⚠ ${WAIT_S} 秒たってもポート ${PORT} が開かない" >&2
   exit 1
 fi
 

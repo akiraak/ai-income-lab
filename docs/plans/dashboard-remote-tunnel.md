@@ -40,3 +40,11 @@ titan 上では「Sx360 → titan」を再現できないので、**titan から
 | titan のポート | `dashboard/.env` の `AIL_PORT`（無ければ 3012） | `--remote-port N` |
 | 繋ぎ先 | `titan` | `--host NAME` |
 | ポートが塞がっていたら | ssh のトンネルなら止めて張り直す。⚠ ほかのプロセスなら止めずに終わる | `--no-kill` で常に終わる |
+| 相手に繋がるまで待つ | 10 秒（ssh の `ConnectTimeout`。2026-09-25 に足した） | スクリプトの `CONNECT_TIMEOUT` |
+| 手元のポートが開くまで待つ | 25 秒（⚠ 名前解決 ＋ `ConnectTimeout` より長くする ＝ ssh 自身に理由を言わせる） | スクリプトの `WAIT_S` |
+
+## 追記（2026-09-25）: 繋がらないホストで居残るのを直した
+
+- 形: ssh に接続の制限時間が無い（`connecttimeout none`）と、届かない相手には SYN の再送が尽きるまで約 127 秒居残る（9/22 の「2 分」）
+- 直し: `-o ConnectTimeout=10` と、待つ上限 15 → 25 秒
+- 【実測 titan】届かない IP（192.0.2.1）: 17 秒で打ち切り（理由なし）→ 10 秒で `Connection timed out`・rc=1 ／ 引けない名前: 0.3 秒・rc=1（変わらず）

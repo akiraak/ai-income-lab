@@ -450,3 +450,81 @@ def test_nicks_file_missing_or_broken_means_identifier_only(settings, tmp_path, 
     (tmp_path / "bad.toml").write_text("[nicks\n", encoding="utf-8")
     monkeypatch.setattr(lv, "NICKS_FILE", tmp_path / "bad.toml")
     assert lv.nicks() == {} and lv.label_of("T1", None) == "T1" and lv.label_of("T1", "アキ") == "アキ（T1）"
+
+
+# ---------------- 見張り「今日の起動が無い」（3 台の役割分け Phase 5。dashboard.md §13-8）
+
+def _et(s: str):
+    from datetime import datetime
+    from zoneinfo import ZoneInfo
+    return datetime.fromisoformat(s).replace(tzinfo=ZoneInfo("America/New_York"))
+
+
+def _watch_day(settings, d: str) -> None:
+    build_live_dir(settings.live_dir)
+    base = {"date": d, "env": "prod", "run_id": f"{d.replace('-', '')}T195500Z"}
+    _jsonl(settings.live_dir / "out" / d / "events.jsonl", [{**base, "kind": "start", "mode": "submit", "traders": ["test_a"], "test": True}])
+
+
+def test_watch_today_missing_after_window_on_a_trading_day(settings, monkeypatch):
+    """営業日（2026-09-24 木）・16:15 ET を過ぎた・今日の記録が無い → 今日の起動が無い。営業日の列が今日まで延び、起動しなかった日・マス目・日次の表・帯・/api/live に出る。"""
+    _watch_day(settings, "2026-09-23")
+    monkeypatch.setattr(lv, "now_et", lambda: _et("2026-09-24T16:20:00"))
+    b = lv.board(settings.live_dir)
+    assert b["watch"]["checked"] and b["watch"]["missing"] and b["watch"]["date"] == "2026-09-24"
+    assert b["bd"][-1] == "2026-09-24" and b["missing"][-1] == "2026-09-24"
+    assert [c["a"] for c in b["traders"][0]["grid"]["T"]][-1] == "nostart"
+    with TestClient(create_app(settings, start_monitors=False), client=("127.0.0.1", 50000)) as c:
+        top = c.get("/").text
+        assert "今日の起動が無い" in top and "今日（2026-09-24）を含む" in top
+        assert "今日の起動が無い" in c.get("/?partial=strip").text
+        assert "2026-09-24" in c.get("/overall").text and "起動なし" in c.get("/overall").text
+        w = c.get("/api/live").json()["watch"]
+        assert w["missing"] and w["date"] == "2026-09-24" and w["after_et"] == "16:15"
+
+
+def test_watch_is_quiet_before_the_window_and_when_today_has_records(settings, monkeypatch):
+    """16:15 ET の前は出さない（timer はまだこれから）。今日の記録があれば出さない。どちらも営業日の列は延びない。"""
+    _watch_day(settings, "2026-09-23")
+    monkeypatch.setattr(lv, "now_et", lambda: _et("2026-09-24T15:30:00"))
+    b = lv.board(settings.live_dir)
+    assert b["watch"] == {"date": "2026-09-24", "after_et": "16:15", "checked": True, "missing": False, "why": "窓の前"}
+    assert b["bd"][-1] == "2026-09-23" and "2026-09-24" not in b["missing"]
+    _jsonl(settings.live_dir / "out" / "2026-09-24" / "events.jsonl",
+           [{"date": "2026-09-24", "env": "prod", "run_id": "x", "kind": "start", "mode": "submit", "traders": ["test_a"], "test": True}])
+    monkeypatch.setattr(lv, "now_et", lambda: _et("2026-09-24T16:20:00"))
+    b = lv.board(settings.live_dir)
+    assert b["watch"]["why"] == "記録あり" and not b["watch"]["missing"] and "2026-09-24" not in b["missing"]
+    with TestClient(create_app(settings, start_monitors=False), client=("127.0.0.1", 50000)) as c:
+        assert "今日の起動が無い" not in c.get("/").text
+        assert not c.get("/api/live").json()["watch"]["missing"]
+
+
+def test_watch_skips_holidays_and_weekends(settings, monkeypatch):
+    """休場日（2026-09-07 Labor Day）と週末は「起動しない」のが正しい ＝ 見張らない（checked は True・why は 休場日）。"""
+    _watch_day(settings, "2026-09-04")
+    for now in ("2026-09-07T17:00:00", "2026-09-05T17:00:00"):
+        monkeypatch.setattr(lv, "now_et", lambda now=now: _et(now))
+        w = lv.watch(settings.live_dir)
+        assert w["checked"] and not w["missing"] and w["why"] == "休場日"
+
+
+def test_watch_is_suppressed_by_the_mark_halt_and_demo(settings, monkeypatch):
+    """印のある機械（読むだけの写し）・HALT の日・デモでは判定しない（checked False・why に理由）。⚠ 停止中は「起動しない」が正しい。"""
+    _watch_day(settings, "2026-09-23")
+    monkeypatch.setattr(lv, "now_et", lambda: _et("2026-09-24T16:20:00"))
+    assert lv.watch(settings.live_dir, suppress="not_production") == {"date": "2026-09-24", "after_et": "16:15", "checked": False, "missing": False, "why": "not_production"}
+    # HALT（管理画面の停止ボタンが書くファイル）
+    settings.halt_file.parent.mkdir(parents=True, exist_ok=True)
+    settings.halt_file.write_text('{"since": "2026-09-24T20:00:00+00:00", "actor": "test", "reason": "test"}', encoding="utf-8")
+    with TestClient(create_app(settings, start_monitors=False), client=("127.0.0.1", 50000)) as c:
+        w = c.get("/api/live").json()["watch"]
+        assert not w["checked"] and not w["missing"] and w["why"] == "halt"
+        assert "今日の起動が無い" not in c.get("/").text and "今日は見張らない（halt）" in c.get("/").text
+    settings.halt_file.unlink()
+    # シミュレーション: 仮の時計の今日・いまで判定する（本物の時計は読まない）
+    from datetime import date
+    w = lv.watch(settings.live_dir, today=date(2026, 9, 24), now_et_=_et("2026-09-24T16:30:00"))
+    assert w["missing"] and w["date"] == "2026-09-24"
+    w = lv.watch(settings.live_dir, today=date(2026, 9, 24))          # 時刻が無ければ判定できない
+    assert not w["checked"] and w["why"] == "時刻が分からない"

@@ -731,9 +731,15 @@ note = "管理画面の概要・全体の詳細・トレーダーの詳細に出
 
   [[section.term]]
   name = "起動しなかった日"
-  short = "NYSE の営業日なのに執行器の記録が無い日。timer ／ cron が動かなかった疑いで、無人運転の判定に効く。"
+  short = "NYSE の営業日なのに執行器の記録が無い日。timer ／ cron が動かなかった疑いで、無人運転の判定に効く。今日は 16:15 ET を過ぎたら数える（見張り）。"
   doc = "docs/specs/dashboard.md"
-  where = "§13・§15-8 営業日の暦"
+  where = "§13・§13-8・§15-8 営業日の暦"
+
+  [[section.term]]
+  name = "今日の起動が無い"
+  short = "営業日で 16:15 ET（発注できる時間帯の終わり ＋ 猶予）を過ぎても今日の執行器の記録が無い ＝ timer ／ cron が起きなかった疑い。表示だけ。"
+  doc = "docs/specs/dashboard.md"
+  where = "§13-8 見張り"
 
   [[section.term]]
   name = "含み損の停止条件"

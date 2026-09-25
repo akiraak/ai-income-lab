@@ -181,3 +181,14 @@ def _record_db(tmp_path):
     livefs.init(tmp_path, "live")
     yield
     livefs.forget()
+
+
+@pytest.fixture(autouse=True)
+def _pin_watch_clock(monkeypatch):
+    """見張り「今日の起動が無い」の時計を止める（§13-8）。⚠ 止めないと、本物の時計が 16:15 ET を過ぎた時刻にテストを流すと
+    営業日の列が今日まで延び、記録の日付を固定したテストが落ちる（2026-09-24 に 1 件落ちた）。
+    2026-09-01（火・営業日）09:00 ET ＝ 窓の前 ＝ 何も延びない。時刻を変えるテストは自分で `lv.now_et` を差し替える。"""
+    from datetime import datetime
+    from zoneinfo import ZoneInfo
+    from app import live as _live
+    monkeypatch.setattr(_live, "now_et", lambda: datetime(2026, 9, 1, 9, 0, tzinfo=ZoneInfo("America/New_York")))

@@ -20,6 +20,8 @@ tail -f experiments/live-trading/out/timer-run.log
 ```
 
 - 止める: `systemctl --user disable --now ail-live-run.timer`。⚠ **本番を 13500t へ切り替える日（Phase 4）は、止めたあと `live.env` から発注の許可を外し、`notprod.py set` で「本番の機械ではない」印を置く**（手順は [live-trading.md §0-14](../../../docs/specs/experiments/live-trading.md)。印があれば timer が残っていても本番の発注は rc=7 で拒まれる）。⚠ **急ぐときは管理画面の停止ボタン（`HALT`）が先**（timer が起こしても執行器は発注しない）
+- 戻す（Phase 5。13500t が落ちた日に titan へ）: **13500t を止めたことを確かめてから** `notprod.py clear` → `live.env` を submit → `enable --now`。手順は [live-trading.md §0-14 (d)](../../../docs/specs/experiments/live-trading.md)。⚠ 戻す日の 15:40 ET を過ぎていたらその日は発注しない（`--wait` は素通り）
+- 起きなかった日は管理画面が見つける: 営業日の 16:15 ET を過ぎて `out/<今日>/` に記録が無ければ、概要の帯に「⚠ 今日の起動が無い」（[dashboard.md §13-8](../../../docs/specs/dashboard.md)。表示だけ）
 - 休場日・半日立会は執行器が自分で拒否して `events.jsonl` に `out_of_window` を残す（暦は `nyse_calendar.py`。⚠ 年に 1 度、次の年を足す）
 - ⚠ **titan は WSL2**: Windows を再起動したら WSL が起きているか（`systemctl --user list-timers` が返るか）を確かめる。寝ていた時刻の回は実行されない（`Persistent=false` ＝ 窓を過ぎてから起きても発注させない）
 - ⚠ シミュレーションモード（`MODE` が sim）の機械では、執行器が鍵があっても起動を拒否する（rc=5）

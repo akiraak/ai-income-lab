@@ -97,3 +97,28 @@ if __name__ == "__main__":
         print(f"NG: {len(FAILED)} 件 — {FAILED}")
         raise SystemExit(1)
     print("すべて通った")
+
+
+def test_livefs_leaves_timer_screen_copies_alone() -> None:
+    """systemd の画面の写し（out/timer-*.log）は記録ではない ＝ 取り込まない・突き合わせない・remove で消さない。
+    ⚠ `StandardOutput=append:` は親ディレクトリが無いと書けないので、`remove` が `out/` 自体を消さないことも固定する。"""
+    import livefs
+    with tempfile.TemporaryDirectory() as tmp:
+        livefs.init(tmp, "demo")
+        out = os.path.join(tmp, "out")
+        os.makedirs(os.path.join(out, "2026-09-24"))
+        with open(os.path.join(out, "timer-run.log"), "w") as f:
+            f.write("[15:51:42 ET ＋672秒] 終了 rc=0\n")
+        with open(os.path.join(out, "timer-prepare.log"), "w") as f:
+            f.write("prepare\n")
+        assert livefs.is_record_file("orders.jsonl")
+        assert livefs.is_record_file("rehearsal-2026-09-18.log")
+        assert not livefs.is_record_file("timer-run.log")
+        assert not livefs.is_record_file("HALT")
+        assert livefs._files(out) == []
+        assert livefs.cmd_verify([out]) == 0
+        assert livefs.cmd_remove([out], True) == 0
+        assert os.path.isdir(out)
+        assert os.path.isfile(os.path.join(out, "timer-run.log"))
+        assert os.path.isfile(os.path.join(out, "timer-prepare.log"))
+        assert not os.path.isdir(os.path.join(out, "2026-09-24"))   # 空の日付ディレクトリだけ畳む

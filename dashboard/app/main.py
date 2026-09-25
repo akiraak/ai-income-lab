@@ -262,13 +262,33 @@ def create_app(settings: Settings | None = None, start_monitors: bool = True) ->
         # 試験用の人を一覧に出すか（2026-09-23 利用者の指示「テストトレーダーは削除」。規則は live.show_test_traders）
         return lv.show_test_traders(tr, mode=machine["mode"], demo=settings.demo)
 
+    def watch_args(machine: dict) -> dict:
+        # 見張り「今日の起動が無い」の材料（§13-8）: シミュレーションは仮の時計の今日・いま。本物は ET のいま。
+        # 判定しないとき（suppress）: 印のある機械（読むだけの写し）／ HALT の日（止めたのは人）／ デモ（記録は過去の日付）
+        from datetime import date as _date, datetime as _dt
+        sim = machine["sim"] or {}
+        args: dict = {}
+        if sim.get("today"):
+            args["today"] = _date.fromisoformat(sim["today"])
+        if sim.get("now_et"):
+            args["now_et_"] = _dt.fromisoformat(sim["now_et"])
+        if machine.get("not_production"):
+            args["suppress"] = "not_production"
+        elif ops.halt_status()["halted"]:
+            args["suppress"] = "halt"
+        elif settings.demo:
+            args["suppress"] = "demo"
+        return args
+
+    def watch_now(machine: dict | None = None) -> dict:
+        machine = machine or settings.machine()
+        return lv.watch(live_dir_now(machine), **watch_args(machine))
+
     def board_now(days: int | None = lv.DAYS, *, all_traders: bool = False) -> dict:
         # ⚠ 面ごとに期間が違う（dashboard.md §13-7）: 概要・全体の詳細 ＝ 直近 20 営業日（人を横に比べる）／
         #    トレーダーの詳細 ＝ days=None で全期間（1 人を縦に追う）。⚠ 見出しに `b.period.label` を必ず書く
-        from datetime import date as _date
         machine = settings.machine()
-        today = (machine["sim"] or {}).get("today")           # シミュレーションの「今日」＝ 仮の今日
-        b = lv.board(live_dir_now(machine), days=days, today=_date.fromisoformat(today) if today else None)
+        b = lv.board(live_dir_now(machine), days=days, **watch_args(machine))
         show = show_test(b["traders"], machine)
         b["hidden_test"] = 0 if show else sum(1 for t in b["traders"] if t["test"])
         if not show and not all_traders:                       # ⚠ 色（cls）は全員の並びで決めた後に外す ＝ 左ペインと同じ色のまま
@@ -334,7 +354,7 @@ def create_app(settings: Settings | None = None, start_monitors: bool = True) ->
     def monitor_ctx() -> dict:
         snap = monitors.snapshot()
         n_working = sum(len(m.get("live_orders") or []) for m in snap.values())
-        return {"monitors": snap, "events": events.tail(30), "n_working": n_working}
+        return {"monitors": snap, "events": events.tail(30), "n_working": n_working, "watch": watch_now()}
 
     # ⚠ 概要・全体の詳細・トレーダーの詳細は読むだけ（両面）。発注は画面から出さない。停止は既存の /ops/halt（§13）
 
@@ -424,6 +444,7 @@ def create_app(settings: Settings | None = None, start_monitors: bool = True) ->
         d = lv.index(live_dir_now(machine))
         if not show_test(d["traders"], machine):
             d["traders"] = [t for t in d["traders"] if not t["test"]]      # `test_traders` はそのまま（居ることは分かる）
+        d["watch"] = watch_now(machine)                                    # 見張り「今日の起動が無い」（§13-8。読むだけ・公開面にも出す）
         return api(d)
 
     @app.get("/api/judge")

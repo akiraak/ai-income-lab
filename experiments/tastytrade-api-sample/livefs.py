@@ -54,6 +54,18 @@ REAL_EXCLUDED = ("dashboard/data/demo",)
 LINE_SUFFIXES = (".jsonl", ".log")
 # ⚠ 取り込まない（ファイルのまま）: 止める・切り替える・排他の仕組み・シミュレーションの制御と入力
 NOT_RECORDS = {"HALT", "MODE", "run.lock", "control.json", "status.json", "data.json", "env.empty"} | set(DB_NAMES)
+# ⚠ プロセスの画面の写し（systemd の `StandardOutput=append:…/out/timer-run.log`・`timer-prepare.log`）もファイルのまま
+#    （CLAUDE.md「ファイルのまま」）。取り込まない・突き合わせない・`remove` で消さない（2026-09-24。TODO「timer の記録の置き場を確かめる」）
+SCREEN_COPY_PREFIX = "timer-"
+
+
+def is_record_file(name: str) -> bool:
+    """記録としてDB に入れる／突き合わせる対象か（ファイル名だけで判定）。"""
+    if name in NOT_RECORDS or name.endswith(".tmp") or name.endswith((".sqlite-wal", ".sqlite-shm")):
+        return False
+    if name.startswith(SCREEN_COPY_PREFIX) and name.endswith(".log"):
+        return False
+    return True
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
@@ -331,7 +343,7 @@ def _files(root: str) -> list[str]:
     out = []
     for d, _dirs, fs in os.walk(root):
         for f in fs:
-            if f in NOT_RECORDS or f.endswith(".tmp") or f.endswith((".sqlite-wal", ".sqlite-shm")):
+            if not is_record_file(f):
                 continue
             out.append(os.path.join(d, f))
     return sorted(out)

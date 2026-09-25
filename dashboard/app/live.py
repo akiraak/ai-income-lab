@@ -401,6 +401,42 @@ def _calendar():
     return market_calendar.nyse()
 
 
+WATCH_AFTER_ET = "16:15"   # 見張り: 窓の終わり 16:05 ET ＋ 猶予 10 分。これを過ぎて今日の記録が無ければ「今日の起動が無い」
+
+
+def now_et():
+    """いま（ET・tz つき）。テストは monkeypatch でここを差し替える。"""
+    from datetime import datetime
+    import market_calendar
+    return datetime.now(market_calendar.ET)
+
+
+def watch(live_dir: Path, *, today=None, now_et_=None, suppress: str | None = None) -> dict:
+    """見張り「今日の起動が無い」（3 台の役割分け Phase 5。dashboard.md §13-8）。⚠ 記録と暦と時刻だけで決める（timer ／ cron の状態は読まない）。
+
+    checked ＝ 判定したか（suppress があれば判定しない: not_production ／ halt ／ demo）。missing ＝ 営業日・WATCH_AFTER_ET を過ぎた・`out/<今日>/` に記録が無い。
+    ⚠ 表示だけ。機械の外へ知らせるかは利用者の裁定（TODO「失敗したときに気づける形にする」）。
+    """
+    from datetime import time as _time
+    now = now_et_ or (None if today else now_et())
+    d = today or now.date()
+    out = {"date": d.isoformat(), "after_et": WATCH_AFTER_ET, "checked": False, "missing": False, "why": ""}
+    if suppress:
+        out["why"] = suppress
+        return out
+    cal = _calendar()
+    if not cal.is_trading_day(d):
+        return {**out, "checked": True, "why": "休場日"}
+    if now is None:
+        return {**out, "why": "時刻が分からない"}
+    hh, mm = WATCH_AFTER_ET.split(":")
+    if now.time() < _time(int(hh), int(mm)):
+        return {**out, "checked": True, "why": "窓の前"}
+    if d.isoformat() in dates(live_dir):
+        return {**out, "checked": True, "why": "記録あり"}
+    return {**out, "checked": True, "missing": True, "why": "営業日なのに記録が無い"}
+
+
 def business_days(first: str, last: str) -> list[str]:
     """NYSE の営業日（休場日を除く平日）。⚠ 暦に載っていない年は平日をすべて営業日とみなす（`calendar_info` の `covered` が False）。"""
     from datetime import date as _date
@@ -425,7 +461,7 @@ def calendar_info(first: str | None, last: str | None, today=None) -> dict:
             "days_left": left, "expiring": left < CALENDAR_WARN_DAYS, "holidays": holidays}
 
 
-def board(live_dir: Path, days: int | None = DAYS, today=None) -> dict:
+def board(live_dir: Path, days: int | None = DAYS, today=None, now_et_=None, suppress: str | None = None) -> dict:
     """概要・全体の詳細・トレーダーの詳細が使う形。トレーダー別の推移（損益・行動のマス目・差 1）と起動しなかった日。
 
     ⚠ `days=None` ＝ **全期間**（トレーダーの詳細。1 人を縦に追う面）。既定の 20 日は概要・全体の詳細（人を横に比べる面）。
@@ -434,7 +470,10 @@ def board(live_dir: Path, days: int | None = DAYS, today=None) -> dict:
     tr = traders(live_dir)
     ds = dates(live_dir)[:days][::-1]          # 古い順の直近 days 日（days=None なら全部）
     dd = {d: day(live_dir, d) for d in ds}
-    bd = business_days(ds[0], ds[-1]) if ds else []
+    # 見張り: 今日が「営業日・窓の後・記録なし」なら、営業日の列を今日まで延ばす ＝ 起動しなかった日・マス目・日次の表に今日が出る
+    w = watch(live_dir, today=today, now_et_=now_et_, suppress=suppress)
+    last = w["date"] if (w["missing"] and ds and w["date"] > ds[-1]) else (ds[-1] if ds else None)
+    bd = business_days(ds[0], last) if ds else []
     # today: シミュレーションでは仮の今日（暦の残り日数を仮の時計で数える）。None なら本物の今日
     cal_info = calendar_info(ds[0], ds[-1], today=today) if ds else calendar_info(None, None, today=today)
     missing = [d for d in bd if d not in dd]
@@ -531,6 +570,7 @@ def board(live_dir: Path, days: int | None = DAYS, today=None) -> dict:
         "period": {"all": days is None, "days": days, "n_bd": len(bd), "first": ds[0] if ds else None, "last": ds[-1] if ds else None,
                    "label": (f"全期間（{len(bd)} 営業日）" if days is None else f"直近 {days} 営業日") if ds else "記録なし"},
         "missing": missing,
+        "watch": w,
         "dates": ds,
         "days": [dd[d] for d in ds],
         "latest": dd[ds[-1]] if ds else None,

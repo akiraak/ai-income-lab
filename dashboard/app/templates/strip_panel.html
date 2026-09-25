@@ -15,5 +15,6 @@
   {% endif %}
   <span>働いている注文 <b>{{ n_working }}</b>{{ info("働いている注文") }}</span><span class="sep"></span>
   <span>事象 <b>{{ events|length }}</b>{{ info("監視のイベント") }}</span>
+  {% if watch and watch.missing %}<span class="sep"></span><span class="ng"><b>⚠ 今日の起動が無い</b>（{{ watch.date }} · {{ watch.after_et }} ET を過ぎても記録なし）{{ info("今日の起動が無い") }}</span>{% endif %}
   <span class="grow"></span><a href="/overall#monitor" class="small">口座と接続の詳細 →</a>
 </div>

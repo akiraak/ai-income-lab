@@ -148,16 +148,21 @@
       ✅ 2026-09-24 08:10 PDT 利用者が入れた【実測】: `ail-live-run.timer` 次回 12:40 PDT・`ail-live-prepare.timer` 次回 9/25 06:00 PDT・linger yes・`live.env` は雛形（`AIL_LIVE_MODE=dry-run`・`--allow-prod-dry-run`・発注の許可なし）
       ✅ **2026-09-24 12:40 PDT に timer が無人で起きて通った【実測】**: 15:50 ET まで待つ → 日足 55 秒 → 予測 3 本 44 秒 → 執行器 2 秒 ＝ 起きてから 672 秒で `終了 rc=0`（`out/timer-run.log`）。合図 15 → 意図 0（T1・T3 は 5 銘柄とも hold〔買い% 50.05〜50.99・持ち株あり〕・T2 は 51.22 < θ 55 で skip）→ 注文 0。429 なし・口座と売買履歴の食い違いなし・今日の起動は timer の 1 回だけ（手動を重ねていない）→ **9/25 に `live.env` を submit へ**
       ⚠ **timer の dry-run の日は手動の本番発注を重ねない**（両方 15:50 ET に動いて日足を同時に書き、執行器は片方が `run.lock` で拒否）＝ 9/24 は本物の注文なし。最初から submit で入れるなら利用者の判断
+    - [x] timer の記録の置き場を確かめる（⚠ **記録を DB に移した後の穴**。`StandardOutput=append:…/out/timer-run.log` は**本物のファイル**に書く ＝ プロセスの画面の写しはファイルのままでよい〔CLAUDE.md〕が、⚠ **`out/` のファイルを消す TODO** を実行すると書けなくなる可能性がある）
+      期日: 2026-09-24
+      ✅ 2026-09-24（titan の Claude・前倒し）: **書けなくならない**。`livefs.py remove` は突き合わせで一致したファイルだけ消し、`out/` 自体は残す（空の日付ディレクトリだけ畳む）。`timer-run.log` は DB に無いので消されないが、`verify` が「食い違い 1」（rc=1）になっていた → `livefs.py` に「`timer-*.log` は画面の写し ＝ 記録ではない」を入れた（`is_record_file`。取り込まない・突き合わせない・消さない）。本物の `out/` は 一致 17 ／ 食い違い 0【実測】。テスト `test_record.py`（4 本）。仕様は [live-trading.md §0-9 (d)](docs/specs/experiments/live-trading.md)
     - [ ] `~/.config/ai-income-lab/live.env` を submit に書き換え、timer で本番の発注に切り替える（⚠ **利用者**。dry-run の `out/timer-run.log` を見てから。以後 Phase 4 まで titan の timer が発注）
       期日: 2026-09-25
     - [ ] 13500t の host cron の dry-run が毎日起きているかを見る（`~/g3plus-ops/ail-live/logs/{prepare,trade}.log` の `end rc=`。⚠ Phase 4 までは dry-run だけ。起きなかった日はここから数え始める）
       9/24 ✅ prepare 06:00 PDT rc=0（118 秒）／ trade 12:40 PDT rc=0（15:51:44 ET。10 本 dry-run）
+    - [ ] 起動しなかった日を数える（⚠ 無人運転の成立はこれで測る。管理画面に「起動しなかった日」の考えは既にある ＝ [dashboard.md §13](docs/specs/dashboard.md)）
+      ⚠ WSL2 の穴: **Windows を再起動して WSL が寝ていた時刻の回は実行されない**（`Persistent=false` ＝ 発注できる時間帯を過ぎてから起きても発注させない）。⚠ これは正しい挙動だが、**起動しなかった日として数える**必要がある
+      関連: 「Phase 5: 戻し方（13500t が落ちた日に titan へ）と見張り」（見張りが「今日の起動が無い」を出す）
+      ✅ 2026-09-24 に尻尾はふさいだ: 16:15 ET を過ぎて今日の記録が無ければ、その日から「起動しなかった日」に数える（[dashboard.md §13-8](docs/specs/dashboard.md)）。⚠ 残り: 数えた日を Phase 6 の 20 営業日の記録にどう書くか（`live-trading.md` §1 に「起動なし」の行を足す規則）
     - [ ] 失敗したときに気づける形にする（⚠ **いまは誰も気づかない**。15:40 に起きて落ちても、人が記録を見るまで分からない）
       決めること: 何を「失敗」とするか（起動しなかった ／ rc≠0 ／ 注文 0 件 ／ 口座と売買履歴が食い違う）・どこへ知らせるか（管理画面の帯だけでよいか・機械の外へ出すか）
       ⚠ **外へ出すなら秘密が乗らない形にする**（CLAUDE.md の「秘密をブラウザに送らない」と同じ考え方）
-    - [ ] 起動しなかった日を数える（⚠ 無人運転の成立はこれで測る。管理画面に「起動しなかった日」の考えは既にある ＝ [dashboard.md §13](docs/specs/dashboard.md)）
-      ⚠ WSL2 の穴: **Windows を再起動して WSL が寝ていた時刻の回は実行されない**（`Persistent=false` ＝ 発注できる時間帯を過ぎてから起きても発注させない）。⚠ これは正しい挙動だが、**起動しなかった日として数える**必要がある
-    - [ ] timer の記録の置き場を確かめる（⚠ **記録を DB に移した後の穴**。`StandardOutput=append:…/out/timer-run.log` は**本物のファイル**に書く ＝ プロセスの画面の写しはファイルのままでよい〔CLAUDE.md〕が、⚠ **`out/` のファイルを消す TODO** を実行すると書けなくなる可能性がある）
+      関連: 「Phase 5: 戻し方（13500t が落ちた日に titan へ）と見張り」（知らせ方の候補はそのプランに並べる。⚠ 決めるのは利用者）
       関連: 「いままでのファイル（`experiments/live-trading/out`・`state`…）を消す」
   - [x] Phase 0: 定義・停止条件・執行の窓を `docs/specs/experiments/live-trading.md` §0 に書く（⚠ 実際に動かす 3 人の属性は書かない ＝「未設定」）＋ 本番の読み取り・dry-run（端株・小数株・成行・MOC 相当。`sample.py --step dryrun2 --allow-prod-dry-run`。⚠ **利用者が流す**）
     2026-09-17: §0-1〜§0-5 を書いた（定義・上限・窓・停止条件・閾値・試験用 `test_a`・手順書）。`sample.py` に `dryrun2`（手順 10。6 通り）を足した。⚠ **残るのは利用者が `dryrun2` を流して §0-3 の表を埋めること**（結果で `sizing` が決まる）
@@ -303,11 +308,22 @@
       依存: 「Step 2-2: g3plus-ops に `ail-live/`・`ail-dashboard/`（§7 ・ §7-1 に追従）・`auto-update.sh`・host cron を作る（⚠ **Sx360 の Claude**。契約は §0-13・§7-1）」
   - [x] Phase 3: 切り替えの手順を決めて cert で試す（「本番の機械ではない」印で titan の submit を拒む・`live.sqlite` を移す・`reconcile.py` の差 0）[plan](docs/plans/archive/production-switch-mark.md)
     ✅ 2026-09-24（titan の Claude）: 印 `NOT_PRODUCTION`・`notprod.py`・rc=7・管理画面の帯・手順書 [live-trading.md §0-14](docs/specs/experiments/live-trading.md)・稽古（写しの sha256 一致・`reconcile.py show` 差 0・印で rc=7 → 外す）。記録は [DONE.md](DONE.md)。⚠ **印を置くのは Phase 4 の日に利用者**（今日は置いていない ＝ timer の dry-run と 9/25 の submit を邪魔しない）
+  - [ ] Phase 5: 戻し方（13500t が落ちた日に titan へ）と見張り [plan](docs/plans/three-machines-phase5.md)
+    ⚠ **順は 5 → 4**（2026-09-24 利用者「TODO の順番を直す。そのあとに作業する」）: 手順書と見張りは Phase 4 を待たずに titan の Claude が前倒しで作り、cert で稽古する（Phase 3 と同じ作法）。13500t が本番になってからの稽古の残りは Phase 4 の後
+    期日: 2026-09-24
+    - [x] Step 5-1: 戻し方の手順書を `live-trading.md` §0-14 (d) に書く（Phase 4 の逆順 ＋ 13500t の DB が取れないときの決めごと。titan の Claude）
+      ✅ 2026-09-24: (d) ①〜⑥・②'③'（DB が取れない日 ＝ titan の最後の写しで発注・差は「売買履歴の外」）・「2 台が生きる日」は `HALT`・13500t が直ったら (b) をやり直す
+    - [x] Step 5-2: 戻し方を cert の記録と作業用の置き場で 1 往復稽古する（Phase 3 と同じ作法。本物の `MODE`・`live.sqlite`・印に触らない）
+      ✅ 2026-09-24 15:14 PDT【実測】: 13500t 役 → titan 役の `backup` 0.042 秒・sha256 OK・`stats` 115 本 ／ 1,602 行 一致 → `reconcile.py --env prod show` 5 銘柄とも差 0・未完 0 → 印あり submit rc=7 → `clear` → 許可なし submit rc=2（許可で止まる）。本物は無傷（印なし・`MODE` なし）。記録は [live-trading.md §0-14 (e)](docs/specs/experiments/live-trading.md)
+    - [x] Step 5-3: 見張り ＝ 管理画面に「今日の起動が無い」（営業日・窓が閉じた後・`out/<今日>/` に記録が無い）を出す（`live.py`・監視の帯・`/api/live`・テスト。⚠ 表示だけ。機械の外へ知らせるかは「失敗したときに気づける形にする」の利用者の裁定）
+      ✅ 2026-09-24: `live.watch()`（営業日・16:15 ET・記録なし。印 ／ `HALT` ／ デモ ／ 時刻不明は判定しない）→ 営業日の列を今日まで延ばす ＝ 帯・大きな数字「今日（日付）を含む」・日次の表・マス目・`/api/live` の `watch`。テスト 4 本（管理画面 240 本 ✅・執行器 ✅）。⚠ 動いている管理画面（3012）は起動し直すまで古いまま（⚠ 利用者。`../run-server.sh`）
+    - [x] Step 5-4: 仕様（`dashboard.md` §13・CLAUDE.md）を直す
+      ✅ 2026-09-24: [dashboard.md §13-8](docs/specs/dashboard.md)・CLAUDE.md（見張り・戻し方）・`systemd/README.md`・`glossary.toml`「今日の起動が無い」
+    - [ ] Step 5-5: 13500t のローカル面にも同じ帯が出ることを見る（⚠ **Sx360 の Claude**。Phase 4 の後・g3plus-ops の `auto-update.sh` が pull した後）
   - [ ] Phase 4: 本番を 13500t に切り替える（⚠ **利用者**。市場の外の日に。titan の timer が submit で通ってから ＝ 早ければ 9/26〜27・「数日」なら 10/3〜4 の裁定）
     期日: 2026-09-26
     順（プラン Phase 4）: titan の timer を止め許可を外し印を置く → `live.sqlite` と `state/` を 13500t へ（sha256・Phase 2 の DB は `live.sqlite.phase2-<日付>` に退ける）→ 13500t の `reconcile.py show` で差 0 → `run.sh` の留め金を外し `live.env` を submit → 翌営業日の cron を見る。⚠ 10/3〜4 に延ばすなら期日を直す
     ✅ 2026-09-24: **手順書は [live-trading.md §0-14 (b)](docs/specs/experiments/live-trading.md)**（順 ①〜⑦・だれ・出口。印は `notprod.py set`・写しは `livefs.py backup`〔`cp` しない〕・写すのは DB 1 つ）
-  - [ ] Phase 5: 戻し方（13500t が落ちた日に titan へ）と見張り
   ⚠ **いまの状態**: `~/g3plus-ops` は titan に無い（private。⚠ Claude は中身を見ていない）／ 13500T はこのリポジトリのどの文書にも出てこない（⚠ **初出** ＝ 素性・OS・置き場所・常時起動かが分からない）
   ⚠ **いまの契約と食い違う**（[dashboard.md §7](docs/specs/dashboard.md)）: g3plus に載せるのは**公開面の管理画面だけ**で、⚠ **発注の許可（`TT_ALLOW_PROD_ORDERS` / `TT_ALLOW_PROD_DRY_RUN`）は「置かない env」に挙げられている**。⚠ **実売買をそこで動かすなら §7 を書き換える**（契約の正本はこのリポジトリ側）
   - [x] 決めること（⚠ **利用者の裁定。プランより先**）

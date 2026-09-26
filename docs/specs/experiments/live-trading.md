@@ -958,7 +958,7 @@ flowchart LR
 
 - ⚠ **titan の記録は ③ の日以降増えない**。titan で見たいときは 13500t の DB を `backup` で写して `AIL_LIVE_DIR` … ではなく、リポジトリ直下の `live.sqlite` を写しで置き換える（読むだけ。⚠ 印がある限り titan は発注しないので、置き換えても二重発注にはならない）
 - ⚠ **13500t 側（g3plus-ops の `run.sh`・`live.env`・cron）はこのリポジトリに無い**。留め金の外し方は g3plus-ops の `docs/workflows/ail-live.md`
-- 戻し方（Phase 5。13500t が落ちた日に titan へ）は下の (d)
+- 戻し方（Phase 5。13500t が落ちた日に titan へ）は下の (d)（⚠ 2026-09-25 に廃止）
 
 #### (c) 稽古【実測 2026-09-24 07:41 PDT・titan・作業用の置き場 `~/.cache/ai-income-lab-switch/`。本物の `MODE`・`run.lock`・`live.sqlite`・`NOT_PRODUCTION` には触っていない】
 
@@ -972,7 +972,9 @@ flowchart LR
 ⚠ 稽古で分かったこと: `reconcile.py --env cert show` は「口座の建玉」を `out/` の最後の記録から読むので、**cert の売買履歴に prod の口座の建玉が並ぶ**（差 2〜4 と出る）。切り替えで見るのは `--env prod` だけ ＝ 実害なし。cert の欄は読まない。
 テストは `experiments/live-trading/tests/test_not_production.py`（6 件。⚠ 印で止まらない経路も、接続先をループバックの閉じたポートに向けて外へ出ない）・`dashboard/tests/test_mode_banner.py`（帯）。
 
-#### (d) 戻し方（Phase 5。13500t が落ちた日に titan へ。⚠ 市場の外の時間に。[プラン](../../plans/three-machines-phase5.md)）
+#### (d) 戻し方（Phase 5。13500t が落ちた日に titan へ。⚠ 市場の外の時間に。[プラン](../../plans/archive/three-machines-phase5.md)）
+
+⚠ **2026-09-25 に廃止**（利用者決定「13500t だけで動かすことにするので titan は使わない」）。この手順は使わない。記録として残す。
 
 > この図の主張: 戻し方は (b) の逆順。**先に 13500t を止め、DB を titan へ運び、差を見てから titan の印を外す**。13500t の DB が取れない日でも titan は発注できる（差は「売買履歴の外」として執行器が守り、推測で割り振らない）。
 
@@ -1039,7 +1041,7 @@ flowchart LR
 | ⑦ | ⚠ **未**: 9/28（月）の `trade-runner/logs/trade.log` の `end rc=0`・`orders.jsonl` の `mode: submit`・口座 − 売買履歴 ＝ 0 を見る |
 
 - titan は ③ の日（9/25）で止まった読むだけの写し。titan の管理画面（3012）は灰の帯
-- 13500t を止めたいときは管理画面の停止ボタン（`HALT`）か、`live.env` を控え `live.env.dry-run-2026-09-25` に戻す。titan へ戻すのは (d)
+- 13500t を止めたいときは管理画面の停止ボタン（`HALT`）か、`live.env` を控え `live.env.dry-run-2026-09-25` に戻す。titan へは戻さない（(d) は 2026-09-25 に廃止）
 
 ## 1. 記録（日次）
 

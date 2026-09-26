@@ -79,7 +79,7 @@ tastytrade の本口座で、**トレーダー（Trader）3 人に予算を割�
 
 ドキュメント中心。アプリ実装は `dashboard/`（売買システムの管理画面。2026-09-05）が最初の 1 つ。
 
-- **機械の役割（2026-09-22 利用者決定。[プラン](docs/plans/three-machines.md) §2）**: Sx360 ＝ 端末（ssh・ブラウザ・シミュレーション・「デプロイ」の関門）。⚠ **13500t と g3plus-ops の操作だけは Sx360 の Claude**（titan から 13500t へは届かない・`~/g3plus-ops` は Sx360 にだけある）／ titan ＝ Claude Code を動かす場所・研究の計算（CPU・GPU）／ 13500t ＝ 本番（毎日の売買・管理画面のローカル面。GitHub から pull してデプロイ）。✅ **2026-09-25 に本番を 13500t へ切り替えた**（Phase 4。利用者の決定「titan から日常の作業を切り離す」。記録は `live-trading.md` §0-14 (f)）＝ ⚠ **13500t 以外で発注しない**（発注は 13500t の host cron `~/g3plus-ops/trade-runner/run.sh trade`・`live.env` は `~/g3plus-ops/trade-runner/live.env`。titan は timer を外し「本番の機械ではない」印 `experiments/live-trading/NOT_PRODUCTION` で prod の submit を拒む ＝ `notprod.py`。⚠ 印を置くのも外すのも利用者）。⚠ **titan の `live.sqlite` は 9/25 で止まった読むだけの写し**。13500t が落ちた日に titan へ戻すのは §0-14 (d)。⚠ **ai-income-lab の `prod` を進める ＝ 13500t の auto-update が 15 分以内に pull し、管理画面のコンテナを起こし直す**（`main` への push では動かない ＝ 下の「Git 運用ルール」。売買の時間帯・売買のコンテナが動いている間は pull しない）
+- **機械の役割（2026-09-22 利用者決定。[プラン](docs/plans/three-machines.md) §2）**: Sx360 ＝ 端末（ssh・ブラウザ・シミュレーション・「デプロイ」の関門）。⚠ **13500t と g3plus-ops の操作だけは Sx360 の Claude**（titan から 13500t へは届かない・`~/g3plus-ops` は Sx360 にだけある）／ titan ＝ Claude Code を動かす場所・研究の計算（CPU・GPU）／ 13500t ＝ 本番（毎日の売買・管理画面のローカル面。GitHub から pull してデプロイ）。✅ **2026-09-25 に本番を 13500t へ切り替えた**（Phase 4。利用者の決定「titan から日常の作業を切り離す」。記録は `live-trading.md` §0-14 (f)）＝ ⚠ **13500t 以外で発注しない**（発注は 13500t の host cron `~/g3plus-ops/trade-runner/run.sh trade`・`live.env` は `~/g3plus-ops/trade-runner/live.env`。titan は timer を外し「本番の機械ではない」印 `experiments/live-trading/NOT_PRODUCTION` で prod の submit を拒む ＝ `notprod.py`。⚠ 印を置くのも外すのも利用者）。⚠ **titan の `live.sqlite` は 9/25 で止まった読むだけの写し**。⚠ **13500t が落ちても titan へは戻さない**（2026-09-25 利用者決定「13500t だけで動かす」。§0-14 (d) の手順は使わない）。⚠ **ai-income-lab の `prod` を進める ＝ 13500t の auto-update が 15 分以内に pull し、管理画面のコンテナを起こし直す**（`main` への push では動かない ＝ 下の「Git 運用ルール」。売買の時間帯・売買のコンテナが動いている間は pull しない）
   - **作業は titan の Claude で**: Sx360 から `./run-titan-session.sh`（`ssh -t titan` → tmux `ail`。無ければ中で `claude` を起こす。抜けるのは Ctrl+B → D）。⚠ **2 台で同じリポジトリを触るので、書いたら push ／ 始める前に pull**（Sx360 の作業ツリーは読むだけ）。⚠ Claude のメモリは機械ごとに別。鍵はエージェントに持たせる（パスフレーズなしの鍵にしない。keychain の手順はプラン §4 1-2）
 - `TODO.md` / `DONE.md` — タスク管理
 - `docs/plans/` — 作業プラン（完了したものは `docs/plans/archive/` へ）
@@ -267,7 +267,7 @@ cd experiments/live-trading
   - ⚠ **2026-09-21 に踏んだ落とし穴 2 つ**（どちらも本番で起きる前に直した。`docs/plans/archive/live-trading-429-fix.md`）
     - **429 Too Many Requests で約定が売買履歴から漏れた**: cert は認証から 3〜4 本目の照会で 429 を返す【実測】。執行器は約定確認の照会が 1 回失敗すると「error・0 株」と確定し控えも閉じていた → 429 は待って取り直す（`Retry-After` か 5 秒 × 回数）・照会しきれない注文は **`unknown`（控えを開けたまま次の起動が照会して売買履歴に戻す）**。⚠ 照会の失敗を「約定 0」と読まない
     - **市場時間中に日足の取得（DXLink）が終わらなかった**: 「8 秒データが来なければ終わり」だったが、市場が開いている間は今日の足の更新が 1 秒ごとに届き続けるので、1 束が上限 300 秒まで待った（63 銘柄で約 20 分【推測】＝ 窓を越える）→ 「新しい時刻の足が 8 秒来なければ終わり」に直した（`ail/data/sources/tastytrade.py`）。⚠ **閉場中に測った所要時間を市場時間中の見積りに使わない**
-- **戻し方**（2026-09-24。Phase 5。13500t が落ちた日に titan へ）: `live-trading.md` §0-14 (d)。⚠ **先に 13500t を止め、DB を運び、差を見てから titan の印を外す**。13500t の DB が取れない日は titan の最後の写しで発注し、差は「売買履歴の外」として執行器の 3 段が守る（推測で割り振らない）。2 台が生きる日の守りは `HALT`。稽古は (e)（作業用の置き場・本物に触らない）
+- **戻し方**: ⚠ **使わない**（2026-09-25 利用者決定「13500t だけで動かすことにするので titan は使わない」）。13500t が落ちた日は発注しない。`live-trading.md` §0-14 (d)・(e) は記録として残すだけ
 - 決めごと・手順書・記録は `docs/specs/experiments/live-trading.md`
 
 ## Git 運用ルール

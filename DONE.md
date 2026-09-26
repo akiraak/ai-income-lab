@@ -1,4 +1,7 @@
 # DONE
+- 2026-09-25 3 台の役割分け Phase 5「戻し方（13500t が落ちた日に titan へ）と見張り」を中止で閉じた（利用者の決定「13500t だけで動かすことにするので titan は使わない。なのでこのタスクは必要ない」）[plan](docs/plans/archive/three-machines-phase5.md)
+  - 済んでいた分は残す: 見張り「今日の起動が無い」（Step 5-3・`live.watch()`。機械を問わず効く）・仕様（Step 5-4）。手順書 §0-14 (d) と稽古 (e) は「使わない」の印をつけて記録として残した
+  - やらないことにした分: Step 5-5（13500t のローカル面に同じ帯が出るかを見る）
 - 2026-09-25 「デプロイ」の関門を Sx360 で流す（利用者の決定。titan が落ちていても Sx360 だけでデプロイが完結する）[plan](docs/plans/archive/prod-branch.md)
   - Sx360 の `experiments/feature-discovery/.venv` に LightGBM・numba・llvmlite・aeon（`--no-deps`）・torch `2.14.0+cpu`（13500t と同じ）を入れた。⚠ torch は最初「要らない」と見立てたが、T3 の QUANT が aeon 経由で使っていた
   - 【実測 Sx360】指紋テスト 20 passed（1 分 42 秒）／ `run-tests.sh` 全部 ✅（2 分 51 秒）。`run-deploy.sh` は titan への ssh をやめてその場で流す（流してよいのは `Sx360 titan`）

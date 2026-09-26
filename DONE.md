@@ -1,4 +1,7 @@
 # DONE
+- 2026-09-25 要らないと判断して 2 件を中止で閉じた（利用者の決定「必要ないと判断したので削除した」）
+  - 既存の仕組みを Codex GPT6 Astra に分析と評価をさせる（2026-09-16 の指示。着手前・プランなし）
+  - 予測モデルのタブの経緯の表に載っていない試しを載せるか決める（派生元「DBを使ったデータの永続化を行う」の Phase 3）＝ 載せない。`trend-gates` の直す前の 2 つ（42 検証）・`own-ridge` の期間や見る株を変えた形は経緯の表に足さない
 - 2026-09-25 実売買のいままでのファイル（titan）を消した（利用者の指示）[plan](docs/plans/archive/db-model-facts.md)
   - `livefs.py remove --i-verified` で一致したものだけ: `live-trading/out` 17 ／ `state` 2 ／ `tastytrade-api-sample/out` 65 ／ `sim-predict` 384 ／ `dashboard/data/monitor` 6（計 474）
   - 食い違った `state` の 3 本（9/21 の古い写し）は控えとの一致を `cmp` で確かめてから手で消した

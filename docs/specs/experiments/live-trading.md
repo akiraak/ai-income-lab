@@ -858,7 +858,7 @@ flowchart LR
 | 資格情報 | `experiments/tastytrade-api-sample/.env`（⚠ **置くのは利用者**・git 管理外・image に焼かない） |
 | 外向き通信 | ⚠ **ネットワーク無しでは動かない**（`ail-predict-bench` と違う）。`api.tastyworks.com`・`streamer.tastyworks.com`・`*.dxfeed.com`（日足 ＝ DXLink）・外部系列の取得先（`exog_live` ＝ 為替・金利・気象・地震の公開 API） |
 | 排他 | `run.lock`（flock）はホストの clone の中のファイル ＝ ⚠ **同じ clone を mount するコンテナどうしでしか効かない**。13500t の中で執行器を 2 つの置き場から起こさない。⚠ **titan との二重発注は防げない**（K4 ＝ Phase 3 の「本番の機械ではない」印） |
-| auto-update | 13500t が GitHub から pull（K2）。⚠ **pull しないとき**: ① 売買の時間帯（15:30〜16:15 ET）② `run.lock` が取れない（`flock -n` で確かめてすぐ放す）③ `HALT` がある ④ 作業ツリーが汚れている（`git status --porcelain` が空でない）。pull は `--ff-only`。⚠ **main への push ＝ 次の pull から本番に反映** |
+| auto-update | 13500t が GitHub の **`prod`** を pull（K2。⚠ 2026-09-25 から `main` ではない ＝ [プラン](../../plans/prod-branch.md)。`prod` を進めるのは `run-deploy.sh` だけ・fast-forward だけ。clone の HEAD が `origin/prod` の祖先でなければ何もせず ERROR）。⚠ **pull しないとき**: ① 売買の時間帯（15:30〜16:15 ET）② `run.lock` が取れない（`flock -n` で確かめてすぐ放す）③ `HALT` がある ④ 作業ツリーが汚れている（`git status --porcelain` が空でない）。pull は `--ff-only`。⚠ **`prod` を進める ＝ 次の pull から本番に反映**（`main` への push では動かない） |
 | healthcheck | 常駐しない（使い捨て）ので無し。代わりに `run-live.sh` の rc を host の log に残す（rc の意味は `run-live.sh` の頭の注記: 5 ＝ sim ／ 6 ＝ 二重起動 ／ 11 ＝ 引けに間に合わない） |
 
 **Phase 2 の合否**（プラン §6）: ① コンテナで `./run-tests.sh --fast` が通る ② titan と同じ `data-live/` の写しで `--date <過去の日> --mode plan -- --ignore-window` が**同じ売買の判定**を出す（⚠ 入力の指紋は CPU で変わる ＝ §0-12。比べるのは判定）③ 本番の dry-run が通り、何もルーティングされない ④ 市場時間中の `live_update.sh` の所要時間（titan 54〜55 秒【実測】）＋ 予測 48 秒【実測】が準備の見積り 120 秒に収まる ⑤ 13500t の `live.sqlite` の `livefs.py dump` に `.env` の値が 0 件。

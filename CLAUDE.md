@@ -79,7 +79,7 @@ tastytrade の本口座で、**トレーダー（Trader）3 人に予算を割�
 
 ドキュメント中心。アプリ実装は `dashboard/`（売買システムの管理画面。2026-09-05）が最初の 1 つ。
 
-- **機械の役割（2026-09-22 利用者決定。[プラン](docs/plans/three-machines.md) §2）**: Sx360 ＝ 端末（ssh・ブラウザ・シミュレーション）。⚠ **13500t と g3plus-ops の操作だけは Sx360 の Claude**（titan から 13500t へは届かない・`~/g3plus-ops` は Sx360 にだけある）／ titan ＝ Claude Code を動かす場所・研究の計算（CPU・GPU）／ 13500t ＝ 本番（毎日の売買・管理画面のローカル面。GitHub から pull してデプロイ）。✅ **2026-09-25 に本番を 13500t へ切り替えた**（Phase 4。利用者の決定「titan から日常の作業を切り離す」。記録は `live-trading.md` §0-14 (f)）＝ ⚠ **13500t 以外で発注しない**（発注は 13500t の host cron `~/g3plus-ops/trade-runner/run.sh trade`・`live.env` は `~/g3plus-ops/trade-runner/live.env`。titan は timer を外し「本番の機械ではない」印 `experiments/live-trading/NOT_PRODUCTION` で prod の submit を拒む ＝ `notprod.py`。⚠ 印を置くのも外すのも利用者）。⚠ **titan の `live.sqlite` は 9/25 で止まった読むだけの写し**。13500t が落ちた日に titan へ戻すのは §0-14 (d)。⚠ **ai-income-lab への push ＝ 13500t の auto-update が 15 分以内に pull し、管理画面のコンテナを起こし直す**（売買の時間帯・売買のコンテナが動いている間は pull しない）
+- **機械の役割（2026-09-22 利用者決定。[プラン](docs/plans/three-machines.md) §2）**: Sx360 ＝ 端末（ssh・ブラウザ・シミュレーション）。⚠ **13500t と g3plus-ops の操作だけは Sx360 の Claude**（titan から 13500t へは届かない・`~/g3plus-ops` は Sx360 にだけある）／ titan ＝ Claude Code を動かす場所・研究の計算（CPU・GPU）／ 13500t ＝ 本番（毎日の売買・管理画面のローカル面。GitHub から pull してデプロイ）。✅ **2026-09-25 に本番を 13500t へ切り替えた**（Phase 4。利用者の決定「titan から日常の作業を切り離す」。記録は `live-trading.md` §0-14 (f)）＝ ⚠ **13500t 以外で発注しない**（発注は 13500t の host cron `~/g3plus-ops/trade-runner/run.sh trade`・`live.env` は `~/g3plus-ops/trade-runner/live.env`。titan は timer を外し「本番の機械ではない」印 `experiments/live-trading/NOT_PRODUCTION` で prod の submit を拒む ＝ `notprod.py`。⚠ 印を置くのも外すのも利用者）。⚠ **titan の `live.sqlite` は 9/25 で止まった読むだけの写し**。13500t が落ちた日に titan へ戻すのは §0-14 (d)。⚠ **ai-income-lab の `prod` を進める ＝ 13500t の auto-update が 15 分以内に pull し、管理画面のコンテナを起こし直す**（`main` への push では動かない ＝ 下の「Git 運用ルール」。売買の時間帯・売買のコンテナが動いている間は pull しない）
   - **作業は titan の Claude で**: Sx360 から `./run-titan-session.sh`（`ssh -t titan` → tmux `ail`。無ければ中で `claude` を起こす。抜けるのは Ctrl+B → D）。⚠ **2 台で同じリポジトリを触るので、書いたら push ／ 始める前に pull**（Sx360 の作業ツリーは読むだけ）。⚠ Claude のメモリは機械ごとに別。鍵はエージェントに持たせる（パスフレーズなしの鍵にしない。keychain の手順はプラン §4 1-2）
 - `TODO.md` / `DONE.md` — タスク管理
 - `docs/plans/` — 作業プラン（完了したものは `docs/plans/archive/` へ）
@@ -272,9 +272,16 @@ cd experiments/live-trading
 
 ## Git 運用ルール
 
-- **作業ブランチは作らず、常に `main` 上で直接作業・コミットする**（個人プロジェクトのため、レビュー用のブランチ分岐は不要）
-- Claude は「デフォルトブランチでは先にブランチを切る」という既定の挙動を持つが、**このプロジェクトではそれを行わない**
-- コミット・push はユーザーから依頼されたときだけ行う
+- **ブランチは 2 本だけ: `main`（作業）と `prod`（本番の目印）**（2026-09-25 利用者決定。[プラン](docs/plans/prod-branch.md)）
+  - **作業は常に `main` 上で直接コミットする**（個人プロジェクトのため、レビュー用のブランチ分岐は不要）。Claude は「デフォルトブランチでは先にブランチを切る」という既定の挙動を持つが、**このプロジェクトではそれを行わない**
+  - **`prod` ＝ 13500t が取りに行く本番の目印**。⚠ `prod` に直接コミットしない・`main` の過去の点へ fast-forward でだけ進める（`--force` しない）。⚠ **`main` への push では本番は動かない**
+  - **利用者の「デプロイ」＝ 13500t を更新する依頼**（2026-09-25 利用者決定。その 1 回の `prod` を進めてよい、という意味）。Claude は次を順にやる:
+    1. 未コミットの変更があれば、`TODO.md` ／ `DONE.md` を整理してコミットし `main` に push する（⚠ 秘密・`live.sqlite`・`.env` を入れない）
+    2. `./run-deploy.sh` を流す（どの機械から叩いてもよい: titan 以外なら ssh で titan に関門を任せる。13500t の `auto-update.log` に `done <sha>` が出るまで最長 20 分待つ ＝ ⚠ 待てるのは 13500t に届く Sx360 だけ。titan からは「15 分以内に反映」と報告する）。⚠ Bash の制限時間を越えるので `run_in_background` で流す
+    3. 結果を報告する（進めたコミット・本番に効く道の変更・13500t の `done` ／ ERROR ／ SKIP の理由）。⚠ 不合格なら `prod` は動いていない ＝ 直してから利用者に聞き直す（勝手に回し直さない）
+    - ⚠ 15:00〜16:15 ET は `run-deploy.sh` が拒む ＝ 報告して待つ（許可を出して押し切る引数は無い）。g3plus-ops（`auto-update.sh`・`run.sh`）の変更は「デプロイ」に含まれない（Sx360 の Claude が scp。g3plus-ops の `docs/workflows/trade-runner.md`）
+  - **`prod` を進めるのは `./run-deploy.sh` だけ**（`main` が push 済み → `./run-tests.sh` ＋ 予測の経路の指紋テスト → `git push origin HEAD:prod`。⏭ も不合格 ＝ 依存のそろった titan で流す・15:00〜16:15 ET は拒む）。⚠ **`prod` を進める ＝ 15 分以内に本番に反映**なので、進めるのは利用者に頼まれたときだけ
+- コミット・push はユーザーから依頼されたときだけ行う（「デプロイ」も依頼に含む）
 
 <!-- vibeboard:begin -->
 ## 開発管理画面 (vibeboard)

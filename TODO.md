@@ -12,8 +12,9 @@
     作り方: customTabs の 5 本目（`dashboard/vibetab.py`。vibeboard 本体は改造しない・標準ライブラリだけ）。⚠ **読むだけ・操作を足さない**（tailnet の閲覧者にも見える）。⚠ **customTabs の baseUrl に dashboard（3012）を指定しない**
     関連: [dashboard.md](docs/specs/dashboard.md)（§12 用語・§14 ハードのタブ）／ [live-trading.md §0-1](docs/specs/experiments/live-trading.md)
     ✅ 2026-09-20: 作った（[DONE.md](DONE.md)）。見て 2 度組み直した ＝ 白地に固定 ／ 主役はモデル（使うモデルと特性を出す）／ 比較の文・人数・「3 人のちがい」のページをやめて 1 人 1 ページだけ。呼び名は利用者の決定 ＝ `T1` アキ ／ `T2` アリス ／ `T3` カエデ（⚠ 意味の無い名前。識別名は変えない）。管理画面の pytest 183 本
-    - [ ] vibeboard と sidecar（3015）を入れ直してタブを見る（⚠ **利用者**。`./run-vibeboard.sh`。⚠ 古い sidecar が 3015 に残っていると vibeboard は新しいものを起こさない ＝ 3015 を掴んでいるプロセスも止める）
+    - [x] vibeboard と sidecar（3015）を入れ直してタブを見る（⚠ **利用者**。`./run-vibeboard.sh`。⚠ 古い sidecar が 3015 に残っていると vibeboard は新しいものを起こさない ＝ 3015 を掴んでいるプロセスも止める）
       ✅ 2026-09-21: 入れ直しは済み（vibeboard 15:58・sidecar は Claude が夜に入れ替え）。残りは画面で見るだけ
+      ✅ 2026-09-25 閉じた（利用者「全部閉じて」）
     - [ ] `dashboard/models.toml`（モデルの特性。2026-09-20 に `traders.toml` の `[[model]]` をここへ移した）と `dashboard/traders.toml`（人の側の文）を読んで直す（⚠ **利用者**。言葉の好み・言い過ぎ・足りない特性・印〔作りから ／ 試し運転で見えた ／ 見立て〕が合っているか。直すのはこの 2 つのファイルだけで、保存すれば 5 秒で画面が入れ替わる）→ 済んだらプランを archive へ・この親を消す
   - [ ] vibeboard を入れ直して「システム説明」「予測モデル」タブを見る・`dashboard/system.toml`・`dashboard/models.toml` の文を読んで直す（⚠ **利用者**）
     ✅ 2026-09-21: 入れ直しは済み（vibeboard 15:58・sidecar は Claude が夜に入れ替え）。残りは見て文を直すだけ。⚠ 「予測モデル」の試した経緯の数は、2026-09-21 から研究の DB から数える（直すのは文と印だけ。数は `names` のある行なら DB から出る ＝ [dashboard.md §17-3](docs/specs/dashboard.md)）
@@ -189,9 +190,10 @@
     1 日目 ＝ 2026-09-23。20 営業日目は 2026-10-20（火）【計算。休場日なし】。⚠ 起動しなかった日があれば後ろへずれる（数え方は「起動しなかった日を数える」）
   - [ ] 約定後の実際の手数料を読む（いまは dry-run の見積り ＝ `orders.jsonl` の `amounts.fee_source: "dry_run_estimate"`。`/accounts/{n}/transactions`【記憶・未確認】を sandbox で確かめてから）
     派生元: [plan](docs/plans/archive/live-trading-executor-fixes.md)（利用者の指示 2026-09-19「手数料など金額の内訳も保存するように」）
-  - [ ] Sx360 でシミュレーションを立ち上げる（⚠ **利用者**。`git pull` → プロジェクト直下で `./run-sim.sh --fetch titan --fresh --speed max` の 1 本 ＝ 依存・日足の写し・モード・管理画面・運転手・検査まで。⚠ `.env` は置かない。手順は [live-trading.md §0-7 (h)](docs/specs/experiments/live-trading.md)）
+  - [x] Sx360 でシミュレーションを立ち上げる（⚠ **利用者**。`git pull` → プロジェクト直下で `./run-sim.sh --fetch titan --fresh --speed max` の 1 本 ＝ 依存・日足の写し・モード・管理画面・運転手・検査まで。⚠ `.env` は置かない。手順は [live-trading.md §0-7 (h)](docs/specs/experiments/live-trading.md)）
     本番と同じ形の `sim3`（金額指定）・`sim4`（整数株 5 本）を回すなら、titan の `experiments/live-trading/sim-predict/`（予測の作り置き。git 管理外）を写す ＝ Sx360 に LightGBM は要らない（2026-09-20）
-  - [ ] 管理画面（`dashboard/`）全体を設計しなおす
+    ✅ 2026-09-25 閉じた（利用者「全部閉じて」）: Sx360 は `MODE` ＝ `sim2`・`sim/sim1`・`sim2` に記録あり（2026-09-20 から）。`sim3`・`sim4` は要るときに回す
+  - [x] 管理画面（`dashboard/`）全体を設計しなおす
     利用者の指示（2026-09-18）。着手時にプランを作る（見直す範囲 ＝ 画面の構成・導線・見た目のどこまでかは、プランで利用者と決める）
     ⚠ **設計しなおしても守るもの**（CLAUDE.md の決まり）: 面の規則（公開面は監視と停止だけ・操作と開発はローカル面だけ）・秘密をブラウザに送らない・停止ボタン（`HALT`）（[dashboard.md §2・§3](docs/specs/dashboard.md)）
     関連: [dashboard.md](docs/specs/dashboard.md)（画面は §1・§10〜§13、デザイン規約は §15）
@@ -202,6 +204,7 @@
       2026-09-18 の実装で仮データを入れた（利用者の指示「データが無いものは仮データを入れ、後で実装する」）。仮の中身は `dashboard/app/live.py` の `PAPER_PLACEHOLDER_BP_PER_DAY`（実物に 1 営業日あたり 2bp を足した線）。印は `.chip.placeholder`・点線（dashboard.md §15-8）
       本物: 実売買の Phase 3 の `daily.csv`（トレーダー別・日次の紙上の純利と差 3）を `board()` で読み、トレーダーの詳細の点線と概要・詳細の差 3 に写す。⚠ 仮データが `/api/live` に出ないテストは残し、本物は出す
       依存: 「Phase 3: 紙上の対照（同じ合図を公式終値・片道 2.5bp で回し、差 1〜4 を `daily.csv` に 1 日 1 行 × 3 人）」
+    ✅ 2026-09-25 閉じた（利用者「全部閉じて」）: 2026-09-18 にデザイン 3 で作り直し・i マークは 2026-09-19 に利用者の確認つきで閉じた（[DONE.md](DONE.md)）
   - [ ] 実売買を 4 役（予測・売買判断・実際の売買・ビュワー）に分け直すために決めること
     利用者の指示（2026-09-18）: 機能が限定すぎるので 4 つに分ける ＝ 予測（⚠ **モデルの作成・更新を含む**。1 日に何回動くかはモデルのルール次第）／ 売買判断（モデルの更新に合わせて、いつ何を売買するかを決める。予測と同じでもよい）／ 実際の売買 ／ ビュワー
     決まったこと（2026-09-18）: 1 日に何回売買するかはトレーダーの判断（CLAUDE.md の 2 つ目の例外を修正）／ 持ち株と持ち金はトレーダーごと・他のトレーダーの株は売れない・持ち金は固定の予算枠・口座全体の歯止めは置かず、口座に断られた買いはエラーとして記録（[live-trading.md §0-1](docs/specs/experiments/live-trading.md)）
@@ -274,14 +277,6 @@
       - [ ] G24: 1 日に何度も売買するときの差 1〜4 の定義と、20 営業日の数え方
         関連: 「Phase 6: 20 営業日の記録と判定（`live-trading.md`。続ける・止める・予算を変えるは利用者。モデルや合成規則の入れ替えは新しい検証として n_trials に足す）」
 
-- [~] vibeboard の Tasks をタイムラインで表示するようなものを作る [plan](docs/plans/vibeboard-tasks-timeline.md)
-  利用者の指示（2026-09-20）。着手時にプランを作る（何を時間軸に置くか ＝ 期日・完了日・`DONE.md` の日付のどれを使うか／いまの `TODO.md` には日付の欄が無いので、書き方の規約から決める／Tasks タブの中の表示にするか別のタブにするか）
-  派生元: 「2026-09-22（火）までに実運用へ: 日ごとの段取り」（2026-09-23 に [DONE.md](DONE.md) へ。日ごと・時刻ごとの子タスクをツリーで並べたが、時間の並びとしては読みにくい）
-  ⚠ vibeboard は vendor 済み（`./vibeboard/`）。本体を直すなら akiraak/vibeboard へ反映して vendor と一致させる（CLAUDE.md の「vibeboard のこのプロジェクト固有の運用」。検索・タスク追加と同じ進め方）。このプロジェクト専用で足りるなら customTabs（`dashboard/vibetab.py`）で作る手もある
-  ✅ 2026-09-20: 作った（[DONE.md](DONE.md)）。利用者の裁定 ＝ vibeboard 本体の Tasks タブ ／ 予定だけ ／ 新しい欄 `期日:`。vendor と `~/src/vibeboard` の作業ツリーは一致・`npm test` 104 本
-  ✅ 2026-09-20: 本体（akiraak/vibeboard）へ push 済み（`ca8134c`。vendor と本体は一致）
-  - [ ] 動いている vibeboard（3010）を入れ直す（✅ 2026-09-21 15:58 に入れ直されている ＝ 残りは画面で見るだけ。⚠ **利用者**。`./run-vibeboard.sh`、または `node vibeboard/dist/cli.js update --restart`。入れ直すまで `ツリー ｜ タイムライン` の切り替えは出ない ＝ `todo.ts` の読み手は起動時に読み込まれる）→ 画面で見たら、プランを archive へ・この親を消す（`DONE.md` には 2026-09-20 に記録済み）
-
 - [ ] `~/g3plus-ops` を使って 13500T に管理画面と毎日の売買を動かす環境を作る [plan](docs/plans/three-machines.md)
   利用者の指示（2026-09-22）: **`~/g3plus-ops` を使って 13500T に管理画面と毎日の売買を実行する環境を作る**
   利用者の指示（2026-09-22 夜）: **Sx360 で作業し、計算は titan（CPU・GPU が強い）、デプロイは 13500t** ＝ 3 台の役割分け。プランは両方を扱う
@@ -331,13 +326,15 @@
       ✅ 2026-09-22: 切り替えの日に titan から 13500T へ移し、titan の側は読むだけの写し（プラン K6）
     - [x] 13500T の素性（OS・常時起動か・GPU の有無・tailnet に居るか）。⚠ **予測は 3 モデルで 38 秒【実測 titan】**なので、遅い機械だと発注できる時間帯に収まらない
       分かったこと【実測 2026-09-22】: Intel Core i5-13500T（20 論理・AVX-512 なし）・メモリ 30.6 GiB・Linux（Docker あり）・GPU は GTX TITAN X（Maxwell ＝ torch 2.14 の CUDA 13 版に載らない）・tailnet には居ない（Sx360 から Cloudflare Tunnel 経由の ssh。titan からは届かない）。✅ **常時起動**（2026-09-22 利用者の回答 ＝ プラン K10）
-  - [ ] 調べること（決まってから）
-    - [ ] `~/g3plus-ops` の `ail-dashboard/` がいまの契約（§7）にどこまで追従しているか（⚠ **`glossary.toml` の追従が要る**と §7 に書いてある ＝ 追従までは i マークが出ない）
+  - [x] 調べること（決まってから）
+    - [x] `~/g3plus-ops` の `ail-dashboard/` がいまの契約（§7）にどこまで追従しているか（⚠ **`glossary.toml` の追従が要る**と §7 に書いてある ＝ 追従までは i マークが出ない）
+      ✅ 2026-09-25 Sx360 で確かめた: `trade-dashboard/docker-compose.yml` は COPY せず clone を丸ごとマウント（`/home/ubuntu/ai-income-lab`）＝ `glossary.toml` も読める ＝ 追従の心配は起きない
     - [x] 13500T で予測にかかる時間を測る（⚠ **「遅すぎる」の線を測る前に決める** ＝ 既存の TODO と同じ作法）
       ✅ 2026-09-22 夜: **間に合う**（3 本並列・温まった状態の中央値 47.93 ／ 48.41 秒【実測】≤ 線 60 秒。titan は 37.41 ／ 37.60 秒）。売買の判定は titan と 1 銘柄も変わらない。⚠ 余裕は 15 秒ほど・入力の指紋は CPU で変わる。記録は [live-trading.md §0-12](docs/specs/experiments/live-trading.md)・[plan](docs/plans/archive/predict-timing-13500t.md)
     - [x] 資格情報の置き方（⚠ **`.env` を新しい機械に置く ＝ 実売買が物理的に起きる機械が増える**。Sx360 に置かない決定の裏返し）
       決定 2026-09-22: 本番の `.env` と発注の許可は 13500T だけに利用者が置く（プラン §1 の役割・K4）。残りは置き方の手順（Phase 2）
       ✅ 2026-09-23 利用者が 13500t に `.env` を置き、2026-09-25 に `live.env` を submit に（Phase 4）
+    ✅ 2026-09-25 閉じた（Sx360 の Claude）
   ✅ 2026-09-23: titan で本番投入が 1 日通った（[DONE.md](DONE.md)）＝ 機械を増やしてよい → Phase 2 Step 2-3 の残り（`.env` を置いた後の ②〜⑤）へ進める（⚠ `.env` を置くのは利用者）
   関連: 「売買（`run-live.sh`）が自動で動くようにする（無人運転）」／ [live-trading.md §0-12](docs/specs/experiments/live-trading.md)（13500T の予測の時間。2026-09-22 済み）／ [dashboard.md §7](docs/specs/dashboard.md)
 

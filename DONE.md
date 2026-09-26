@@ -1,4 +1,10 @@
 # DONE
+- 2026-09-25 閉じられるタスクをまとめて閉じた（利用者「全部閉じて」）
+  - vibeboard の Tasks をタイムラインで表示する [plan](docs/plans/archive/vibeboard-tasks-timeline.md)（作ったのは 2026-09-20・3010 の入れ直しは 2026-09-21 15:58）
+  - 管理画面（`dashboard/`）全体を設計しなおす（2026-09-18 にデザイン 3 で作り直し・i マークは 2026-09-19 に閉じた）
+  - Sx360 でシミュレーションを立ち上げる（`MODE` ＝ `sim2`・`sim/sim1`・`sim2` に記録。`sim3`・`sim4` は要るときに回す）
+  - vibeboard のタブにトレーダーを追加 の「入れ直してタブを見る」（`models.toml`・`traders.toml` を読んで直すのは残る）
+  - 13500T の「調べること」: `trade-dashboard/` は clone を丸ごとマウントするので `glossary.toml` の追従は要らない【Sx360 で確かめた】
 - 2026-09-25 DBを使ったデータの永続化を行う（予測モデルの解説といっしょに）を閉じた [plan](docs/plans/archive/db-model-facts.md)
   - Phase 0〜6 済み: 研究の記録 ＝ `runs/research.sqlite`（2026-09-21）／ 実売買・API 検証・管理画面・シミュレーション ＝ `live.sqlite` ほか（2026-09-21 夜に前倒し・9/22 朝のテスト・9/23 に DB の作りで本番投入・9/25 から 13500t）
   - 残りは別のタスクに分けた: titan のいままでのファイルを消す（利用者。突き合わせ済み・控え `live-files-2026-09-25.tar.gz`）／ 経緯の表に載っていない試しを載せるか（利用者）／ 執行器のメッセージの「台帳」→「売買履歴」
@@ -188,7 +194,7 @@
   - **呼び名**（利用者の決定）: `T1` ＝ アキ ／ `T2` ＝ アリス ／ `T3` ＝ カエデ。⚠ 意味の無い名前にする ＝ 性質に由来する名前だと、少し違うタイプの人を足すときに困る。鍵は `T1`〜`T3` のまま
   - ⚠ 言葉の正本は `dashboard/traders.toml`（特性 ＝ `[[model]]`・呼び名 ＝ `[nicks]`）・数字は `config/traders/`（無ければ `candidates/notional/` ＝「未確定」）から写すだけ・⚠ `out/`・`state/`・`.env` を開かない（テストが `open` を見張る）。customTabs の 5 本目（`dashboard/traderview.py`・`vibetab.py` の `/traders`。vibeboard 本体は変えていない）。やさしい言葉の言い換えの表は [dashboard.md §16-2](docs/specs/dashboard.md)
   - 確認【実測】: 新 16 本・管理画面の pytest 183 本・新しい sidecar を別のポートに起こして画面を読んだ（ブラウザを暗い設定にしても白地）。⚠ 残り（`TODO.md`）: vibeboard と sidecar の入れ直し・利用者が文を読んで直す
-- 2026-09-20 vibeboard の Tasks タブにタイムラインを足した（`期日:` の行 → 日ごと・時刻の順）[plan](docs/plans/vibeboard-tasks-timeline.md)
+- 2026-09-20 vibeboard の Tasks タブにタイムラインを足した（`期日:` の行 → 日ごと・時刻の順）[plan](docs/plans/archive/vibeboard-tasks-timeline.md)
   - 利用者の指示（2026-09-20）:「vibeboard の Tasks をタイムラインで表示するようなものを作る」。裁定 ＝ **vibeboard 本体の Tasks タブに作る**（customTabs ではない）／ **時間軸に置くのは予定だけ**（`DONE.md` の完了日は置かない）／ **日付は新しい欄 `期日:` の行で書く**
   - `vibeboard/src/todo.ts`: `parseWhenLine`・`node.when`（`期日: 2026-09-21` ／ `… 06:35` ／ `… 12:45〜13:05` ／ 時刻だけは親の期日の日付を借りる ／ 後ろの文字は添え書き。`予定`・`日時`・`due`・`when` も同じ）。⚠ 読めない行はふつうのメモのまま残る・タスクの id は動かない。テスト 7 本
   - 画面（`app.js`・`style.css`）: 左ペインの `ツリー` ｜ `タイムライン`（期日が 1 本も無ければ出ない）・日の見出し → 時刻の順・済んだ行も薄く・「今日」「いま」の線・「過ぎた」の印（1 分おき）・期日なしの件数 ／ 右ペインのその日の一覧（`#tasks/@day/<日付>`）／ タスクの詳細に期日のチップ

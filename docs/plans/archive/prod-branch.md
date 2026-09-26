@@ -80,3 +80,11 @@ flowchart LR
 - `run-deploy.sh --dry-run` を Sx360 で流す → 関門で ⏭ ／ 落ちて止まり、`prod` が動かないこと
 - 各検査の外れ（ブランチ違い・汚れ・未 push・時間帯）で止まること
 - auto-update: 13500t で `bash -n`・`main` だけ進んだ状態で 1 周 → log に何も書かない（変化なし）／ `prod` を進めて 1 周 → `update … done`
+
+## 7. 追記（2026-09-25 夜）: 関門は Sx360 で
+
+利用者の決定（「テストは Sx360 ですることはできる？」→「進めて」）。Sx360 の venv に `lightgbm==4.7.0`・`numba==0.67.0`・`llvmlite==0.49.0`・`aeon==1.5.0`（`--no-deps`。`Deprecated`・`wrapt`）・`torch==2.14.0+cpu`（13500t と同じ CPU 版。T3 の QUANT が aeon 経由で使う）を入れた。
+
+- 【実測 Sx360】指紋テスト 20 passed（skip なし・1 分 42 秒）／ `run-tests.sh` 全部 ✅（2 分 51 秒）
+- `run-deploy.sh` は ssh で titan に任せるのをやめ、**その場で流す**（流してよい機械 ＝ `AIL_DEPLOY_GATE_HOSTS`、既定 `Sx360 titan`。ほかは拒む）。titan から Sx360 へは ssh が届かないので、任せる向きを逆にはしない
+- §3 の追記の「titan 以外で叩くと関門は titan へ」は取り消し

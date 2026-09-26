@@ -1,4 +1,7 @@
 # DONE
+- 2026-09-25 「デプロイ」の関門を Sx360 で流す（利用者の決定。titan が落ちていても Sx360 だけでデプロイが完結する）[plan](docs/plans/archive/prod-branch.md)
+  - Sx360 の `experiments/feature-discovery/.venv` に LightGBM・numba・llvmlite・aeon（`--no-deps`）・torch `2.14.0+cpu`（13500t と同じ）を入れた。⚠ torch は最初「要らない」と見立てたが、T3 の QUANT が aeon 経由で使っていた
+  - 【実測 Sx360】指紋テスト 20 passed（1 分 42 秒）／ `run-tests.sh` 全部 ✅（2 分 51 秒）。`run-deploy.sh` は titan への ssh をやめてその場で流す（流してよいのは `Sx360 titan`）
 - 2026-09-25 2 ブランチ運用: 13500t は `main` ではなく本番の目印 `prod` を取りに行く・利用者の「デプロイ」＝ `run-deploy.sh` [plan](docs/plans/archive/prod-branch.md)
   - 利用者の決定「案 A にする。CLAUDE.md を修正し 2 ブランチに」「「デプロイ」この命令で 13500t を更新できるようにして」。きっかけは「push ＝ 15 分以内に本番」の分析（関門なし・研究の直しが本番の予測に入る・8 日で 70 コミット）
   - `run-deploy.sh`: main が push 済み → titan で `run-tests.sh` ＋ 予測の経路の指紋テスト（⏭ ／ skip も不合格）→ `git push origin HEAD:prod` → 13500t の `auto-update.log` の `done` を待つ。15:00〜16:15 ET は拒む。Sx360 から叩くと関門は ssh で titan へ（Sx360 の venv は LightGBM ／ aeon が無く指紋テストが落ちる【実測】）

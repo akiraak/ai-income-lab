@@ -8,11 +8,12 @@ set -uo pipefail
 #   ./run-deploy.sh --no-wait   # push したら待たずに終わる
 #
 # 利用者の「デプロイ」はこれ 1 本（CLAUDE.md の Git 運用ルール）。
-# ⚠ 関門は titan で流す: titan 以外（Sx360）で叩くと、main が push 済みかを確かめてから ssh titan で pull → 自分を流す。
+# ⚠ 関門はその場で流す ＝ ふだんは Sx360（2026-09-25 利用者決定。venv に LightGBM・aeon・torch〔CPU 版〕を入れた）。
+#    titan でも流せる（依存がそろっている）。それ以外の機械では拒む（依存が足りず ⏭ ／ 落ちる）。
 #    13500t の反映（auto-update.log の done <sha>）は 13500t に届く機械（Sx360）でだけ待つ（titan からは届かない）。
 #
 # ⚠ **prod を進める ＝ 15 分以内に 13500t の本番に反映**。進めるのは利用者に頼まれたときだけ。
-# ⚠ 関門を飛ばす引数は無い。⏭（依存が無くて飛ばした段）も不合格 ＝ 依存のそろった機械（titan）で流す。
+# ⚠ 関門を飛ばす引数は無い。⏭（依存が無くて飛ばした段）も不合格 ＝ 依存のそろった機械（Sx360 ／ titan）で流す。
 # ⚠ fast-forward だけ（--force しない）。15:00〜16:15 ET は拒む（見届けなしに 15:50 の回で動くのを避ける）。
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -30,7 +31,7 @@ done
 die() { echo "[run-deploy] ❌ $*" >&2; echo "[run-deploy] prod は動かしていない" >&2; exit 1; }
 say() { echo; echo "===== $* ====="; }
 cd "$HERE" || exit 1
-GATE_HOST="${AIL_DEPLOY_GATE_HOST:-titan}"       # 関門を流す機械（ssh の名前 ＝ hostname）
+GATE_HOSTS="${AIL_DEPLOY_GATE_HOSTS:-Sx360 titan}"   # 関門を流してよい機械（hostname）
 PROD_HOST="${AIL_DEPLOY_PROD_HOST:-13500t.lan}"  # 反映を待つ本番の機械
 SSHO=(-o BatchMode=yes -o ConnectTimeout=10)
 
@@ -59,26 +60,10 @@ wait_prod() {
   echo "[run-deploy] ⚠ 20 分で done が出ない（SKIP の理由は $PROD_HOST の $log）" >&2; return 1
 }
 
-# titan 以外で叩いたら、関門は titan に任せる
-if [ "$(hostname)" != "$GATE_HOST" ]; then
-  say "0. 関門は $GATE_HOST で流す（ここは $(hostname)）"
-  [ "$(git branch --show-current)" = "main" ] || die "main の上で流す"
-  [ -z "$(git status --porcelain)" ] || die "作業ツリーが汚れている（コミットしてから）"
-  git fetch origin main --quiet || die "git fetch に失敗"
-  [ "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)" ] || die "main が origin/main と違う（push してから）"
-  SHA="$(git rev-parse HEAD)"
-  ARGS=(--no-wait); (( DRY )) && ARGS+=(--dry-run)
-  ssh "${SSHO[@]}" "$GATE_HOST" "cd ~/ai-income-lab && git pull --ff-only -q && [ \"\$(git rev-parse HEAD)\" = $SHA ] && ./run-deploy.sh ${ARGS[*]}" \
-    || die "$GATE_HOST での関門 ／ push が不合格（上の出力）"
-  (( DRY || ! WAIT )) && exit 0
-  wait_prod "$SHA"; exit $?
-fi
-
-# 本番に効く道（変わっていれば一覧で見せる）
-PROD_PATHS=(experiments/live-trading experiments/tastytrade-api-sample
-            experiments/feature-discovery/cli experiments/feature-discovery/ail experiments/feature-discovery/config
-            experiments/feature-discovery/requirements.txt experiments/feature-discovery/requirements-nodeps.txt
-            dashboard/app dashboard/requirements.txt dashboard/glossary.toml run-live.sh)
+case " $GATE_HOSTS " in
+  *" $(hostname) "*) ;;
+  *) die "関門を流してよい機械ではない（ここは $(hostname)。流すのは $GATE_HOSTS）" ;;
+esac
 
 say "1. ブランチと作業ツリー"
 [ "$(git branch --show-current)" = "main" ] || die "main の上で流す（いま: $(git branch --show-current)）"
@@ -119,7 +104,7 @@ say "5. 関門: 予測の経路の指紋テスト（test_predict.py・test_tradi
 [ -x "$FD/.venv/bin/python" ] || die "$FD/.venv が無い"
 ( cd "$FD" && .venv/bin/python -m pytest -q -rs tests/test_predict.py tests/test_trading_run.py ) 2>&1 | tee "$OUT"
 RC=${PIPESTATUS[0]}
-[ "$RC" -eq 0 ] || die "指紋テストが不合格（rc=$RC。LightGBM ／ aeon が無い機械では落ちる ＝ titan で流す）"
+[ "$RC" -eq 0 ] || die "指紋テストが不合格（rc=$RC。LightGBM ／ aeon ／ torch が無い機械では落ちる ＝ venv を requirements どおりにする）"
 grep -qE "[0-9]+ skipped" "$OUT" && die "指紋テストに skip がある ＝ 依存のそろった機械で流す"
 
 if (( DRY )); then

@@ -752,7 +752,7 @@ $PY paper.py --out-dir <sim の out> --close-from quotes   # モック ／ シ�
 
 ### 0-11. 記録の置き場 — DB（2026-09-21。利用者の指示「本番投入前に進めて、明日テストする」）
 
-⚠ **道（`out/<日付>/*.jsonl`・`state/<env>/<名前>.json`・`journal.jsonl`・`reconcile.log`・`daily.csv`）はそのままで、中身は DB**。部品は `experiments/tastytrade-api-sample/livefs.py`（プラン [db-model-facts.md §11](../../plans/db-model-facts.md)）。
+⚠ **道（`out/<日付>/*.jsonl`・`state/<env>/<名前>.json`・`journal.jsonl`・`reconcile.log`・`daily.csv`）はそのままで、中身は DB**。部品は `experiments/tastytrade-api-sample/livefs.py`（プラン [db-model-facts.md §11](../../plans/archive/db-model-facts.md)）。
 
 > この図の主張: 執行器の段取り（控え → 発注 → 約定 → 売買履歴）は変えず、書く先だけが DB になった。止める・切り替える仕組みはファイルのまま。
 

@@ -175,12 +175,12 @@ cd experiments/feature-discovery
 .venv/bin/python -m cli.db export-out --prefix diag/<時刻>_<名前>/ --to <置き場>   # 診断の出力（いままでの out/）を書き戻す
 ```
 
-- ⚠ **実行の記録の正本は `runs/research.sqlite`**（利用者の裁定「2 か所には置かない。DB に入れたらファイルは削除」。プランは `docs/plans/db-model-facts.md`）。`ail/runs.Run` が**書くたびにその場で**入れ、閉じた実行は書き換え・削除をトリガーが拒む。読み手は `runs.read_json` ／ `read_csv` ／ `materialized`（道が要る読み手は一時ディレクトリに書き戻す）。`cli.queue` の状態も同じ DB（`queue_state`）。⚠ **実行ディレクトリは 2026-09-21 に全部消した**（一致 255 ／ 255 を確かめてから。利用者の了承）。控えは `/mnt/c/Users/akira/ai-income-lab-backup/research-<日付>.sqlite`（⚠ Dropbox・OneDrive の下に置かない ＝ 外に出る）
+- ⚠ **実行の記録の正本は `runs/research.sqlite`**（利用者の裁定「2 か所には置かない。DB に入れたらファイルは削除」。プランは `docs/plans/archive/db-model-facts.md`）。`ail/runs.Run` が**書くたびにその場で**入れ、閉じた実行は書き換え・削除をトリガーが拒む。読み手は `runs.read_json` ／ `read_csv` ／ `materialized`（道が要る読み手は一時ディレクトリに書き戻す）。`cli.queue` の状態も同じ DB（`queue_state`）。⚠ **実行ディレクトリは 2026-09-21 に全部消した**（一致 255 ／ 255 を確かめてから。利用者の了承）。控えは `/mnt/c/Users/akira/ai-income-lab-backup/research-<日付>.sqlite`（⚠ Dropbox・OneDrive の下に置かない ＝ 外に出る）
 - 診断・突き合わせの出力（`cli.calibdiag`・`cli.crosscheck`。いままでの `experiments/feature-discovery/out/`）も 2026-09-21 から DB の `outputs`（道は `out/` からの相対のまま・書き換えない）。記録の文書の `out/diag/…` は `outputs` の `diag/…`
 - 検証結果一覧を吐き直す（`cli.report --catalog`・`cli.queue`）と、同じ行と判定が DB の `ledger_rows` にも入る（⚠ 記録ではなく生成物。まるごと入れ直す）。vibeboard の予測モデルのタブが、試した経緯の数をここから予測モデル名のパターンで数える（`dashboard.md` §17-3）。「詳しく」の門の数字と較正の係数も、`models.toml` の差し込み（`{{gate|…}}`・`{{calib|…}}`）で実行の記録から引く（⚠ 控えは DB の値と同じでないとテストが落ちる）
 - ⚠ **検証結果一覧・`n_trials` の数え方は変えていない**（取り込み前後で `ledger.md` が 1 文字も変わらないことを確かめた）
 - 予測モデル名（検証結果一覧の識別項目の別名 `<入力データ>.<数字の選び方・作り方>.<学習器>.<学習範囲>[~…][@θ]`）は `ail/names.py`・綴りの一覧は `config/names.toml`。⚠ 名前の部品は「表・手法・形式・窓」と呼ばない（2026-09-21 の利用者の指示「分かりにくい」。検証結果一覧の列の名前との対応は rules.md 10-2）。規約は rules.md 10-2（綴りは 2026-09-21 に確定。学習範囲は `shared` ／ `each` ＝ 例 `T3` は `own-seq.t3-quant60.ridge.shared`）
-- ⚠ 実売買（`experiments/live-trading/`）の記録はまだファイル（DB に移すのはプランの Phase 6。20 営業日のあと）
+- 実売買（`experiments/live-trading/`）の記録も 2026-09-21 から DB（`live.sqlite`。下の「記録の置き場」）
 
 ### experiments/feature-discovery の `cli.scenario`（条件付き GAN のシナリオ予測。2026-09-19 に「落とす」）
 
@@ -218,13 +218,13 @@ cd experiments/live-trading
 - トレーダーは `config/traders/<名前>.toml`（予算・銘柄集合・モデルの一覧・合成規則・θ・`sizing`）。モデルの `kind` は `fixed` / `file`（試験用。`test = true` が要る）/ `experiment`（`predict.jsonl`。Phase 1 の後）
 - **実際に動かす 3 人は 2026-09-19 に確定**（利用者決定）: `T1` `trade_own_ridge_a` θ=50 ／ `T2` `trade_ownex_lgbm_a` θ=55 ／ `T3` `trade_ownseq_ridge_a` の T3 QUANT θ=50。予算は 2 つの規模を並べて持つ（2026-09-19 の利用者決定）＝ **規模 A $1,000**（$300 × 3 ＋ 予備 $100。口座の残高 ＝ 実際に使える。執行器の上限の既定）／ **規模 B $10,000**（$3,000 × 3 ＋ 予備 $1,000。⚠ **規模 B（$10,000）は実際の取引で使えない可能性がある** ＝ 数字を出すときは必ずそう添える。執行器では `--max-total-budget 10000 --max-day-usd 10000` を明示したときだけ。追加入金は利用者の判断）・合成 `asis`・種 0。✅ **銘柄集合と `sizing` は 2026-09-21 に確定**（利用者決定）＝ **3 人とも整数株（`shares`）・T・PFE・NKE・VZ・BAC の 5 本**。本番の `dryrun2` で、金額指定（`Notional Market`）は通るが**最低 $5**（T1・T3 の 1 銘柄の枠 $4.76 では買えない）・**端株は 1 本 $0.10 の手数料**（整数株の成行は $0.001）と分かったため（`live-trading.md` §0-3）。`config/traders/T1〜T3.toml` は `candidates/shares/` の写し。⚠ **ここから先にモデル・θ・合成規則・銘柄・`sizing` を替えるのは新しい検証**。✅ 本番 `test_a` の往復（買い → 窓の中で売り）は 2026-09-21 に通り、関門は Go → ✅ **2026-09-23（水）に規模 A で本番投入した**（初日 ＝ `T1`・`T3` が 5 本ずつ 10 本 Filled・`T2` は skip・口座 − 売買履歴 ＝ 0。記録は `live-trading.md` §1。⚠ 9/22 は起動が遅れて見送り）
 - 記録は `out/<日付>/*.jsonl`（`Masker` 経由・git 管理外）、状態は `state/<env>/<名前>.json`。`--mode submit` 以外は状態を書かない
-- ⚠ **記録の置き場は DB（2026-09-21。利用者の指示「本番投入前に進めて、明日テストする」。プランは `docs/plans/db-model-facts.md` §11）**: 道（`out/…`・`state/…`）の計算は今までと同じで、中身は `experiments/tastytrade-api-sample/livefs.py` を通して **道の近くの DB** に入る（道から親へたどって最初の `live.sqlite` ／ `sim.sqlite` ／ `demo.sqlite`）
+- ⚠ **記録の置き場は DB（2026-09-21。利用者の指示「本番投入前に進めて、明日テストする」。プランは `docs/plans/archive/db-model-facts.md` §11）**: 道（`out/…`・`state/…`）の計算は今までと同じで、中身は `experiments/tastytrade-api-sample/livefs.py` を通して **道の近くの DB** に入る（道から親へたどって最初の `live.sqlite` ／ `sim.sqlite` ／ `demo.sqlite`）
   - 本物 ＝ リポジトリ直下の `live.sqlite` 1 つ（執行器 ＋ API 検証 ＋ 管理画面。利用者の裁定）。⚠ 本物に入れてよいのは決まった置き場（`experiments/live-trading/out`・`state`・`mode.log`・`experiments/tastytrade-api-sample/out`・`dashboard/data`〔`demo` を除く〕）だけで、ほかは止まる
   - シミュレーションの木は木の中の `sim.sqlite`（`simdata.write_tree` が作る）・予測の作り置きは `sim-predict/sim.sqlite`・テストは一時置き場の DB（conftest）・mockrun ／ selftest は作業用の置き場の DB ＝ ⚠ **本物に落ちない**（どの DB にも当たらない道は止まる）
   - ⚠ **執行器の読みは厳しい**: どの DB にも当たらない道を読むと止まる（設定の誤りで「何も持っていない」と読んで買い直さない）。管理画面は `missing_ok=True`（無くても落とさない）
   - ⚠ **ファイルのまま**: `HALT`・`MODE`・`run.lock`・`control.json`・`status.json`・入力・設定・プロセスの画面の写し
   - 見る ＝ `python3 experiments/tastytrade-api-sample/livefs.py ls|cat <道>`・`dump <DB のあるディレクトリ>`（秘密の grep）・`stats`・`export <道> --to <置き場>`（ファイルの形に書き出す）
-  - ⚠ **いままでのファイルは取り込んで 1 ビットずつ突き合わせたが、まだ消していない**（2026-09-22 の本番投入が新しい作りで済むまで、`acc5f9f` に戻すときの足場として残す）
+  - ⚠ **いままでのファイル（titan）は取り込んで 1 ビットずつ突き合わせたが、まだ消していない**（`acc5f9f` に戻すときの足場だったが、2026-09-23 に DB の作りで本番投入し、2026-09-25 に titan へ戻さないと決めたので役目は終わった。控えは `/mnt/c/Users/akira/ai-income-lab-backup/live-files-2026-09-25.tar.gz`。消すのは利用者 ＝ TODO「実売買のいままでのファイルを消す」）
 - 本番の許可は `ttclient.Client` の 3 段そのまま。発注は `TT_ALLOW_PROD_ORDERS=1` ＋ `--i-know-this-is-real-money`。⚠ **許可を出して起動するのは利用者**。`HALT` は管理画面の停止ボタンと同じファイル
 - **「本番の機械ではない」印**（2026-09-24。3 台の役割分け Phase 3）: `experiments/live-trading/NOT_PRODUCTION`（git 管理外・`{"machine": hostname, …}`）があると `run_day.py`・`sample.py` は **本番の発注（`--env prod --mode submit`）だけ**を許可の 3 段より前で拒む（rc=7・`refused_not_production`。plan・dry-run・cert は通る）。hostname が違う印・壊れた印でも拒む。操作は `notprod.py status|set|clear`（⚠ 利用者）。管理画面は灰の帯・`/api/*` に `not_production`。切り替えの手順（Phase 4）は `live-trading.md` §0-14
 - **シミュレーション（仮データと仮の時計で執行器を通しで動かす）は 2026-09-19 に実装した**（決めごと・使い方・筋書き・見つかったことは `live-trading.md` §0-7。プランは `docs/plans/archive/live-trading-sim-clock.md`）

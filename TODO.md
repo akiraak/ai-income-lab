@@ -30,7 +30,7 @@
     - [ ] vibeboard と sidecar（3015）を入れ直して「予測モデル」タブを見る（✅ 入れ直しは 2026-09-21 に済み ＝ 残りは見るだけ。⚠ **利用者**。`modelview.py`・`figures.py`・`systemview.py` を直したので入れ直しが要る。⚠ 3015 を掴んでいる古い sidecar も止める ＝ dashboard.md §12-3）→ 文の直しは `dashboard/models.toml` だけ（保存すれば 5 秒で入れ替わる）
     - [ ] Phase 5: 一覧のページの形を決める（⚠ **利用者の裁定**。全体を作ったあとに考える ＝ いまがその時）
       案 A（推す）: 札はそのまま、頭に「このタブの読み方」（ページの大見出し 6 つの意味 ／ 共通の流れは「システム説明」へ）を 3〜4 行足す ／ 案 B: いまのまま札だけ ／ ⚠ 見くらべる表や順位は作らない（§17-2）
-    関連: 「DBを使ったデータの永続化を行う」（2026-09-21 の利用者の指示「同時にやった方が良い」。経緯の表の数と印・「詳しく」の【実測】を DB から引く ＝ [plan](docs/plans/db-model-facts.md)）
+    関連: 「DBを使ったデータの永続化を行う」（2026-09-25 に DONE へ。2026-09-21 の利用者の指示「同時にやった方が良い」。経緯の表の数と印・「詳しく」の【実測】を DB から引く ＝ [plan](docs/plans/archive/db-model-facts.md)）
     関連: 「「システム説明」タブの直し」（案 1〜3。① を「両方に出す」にしたので 6 段目は残る ＝ 案 1 の見出しの直しはまだ意味がある）／ [dashboard.md §17・§18](docs/specs/dashboard.md)
   - [ ] 「システム説明」タブの直し（⚠ **利用者の裁定待ち**。2026-09-20 の会話で出た案。決まったら `dashboard/models.toml` のしくみのページを直す）
     ⚠ 2026-09-21: 「モデルを作る」のページは予測モデルのタブのしくみのページへ移った（システム説明は概要だけ ＝ [DONE.md](DONE.md)）。下の案はそのまま、直す先が `models.toml` の `[[page]]` になった
@@ -345,63 +345,15 @@
   利用者の指示（2026-09-16）。着手時にプランを作る
   ⚠ **外部サービスにコードを渡す**ので、git 管理外の資格情報・記録（`.env`・`out/` など）を含めない
 
-- [~] DBを使ったデータの永続化を行う [plan](docs/plans/db-model-facts.md)
-  ⚠ **再開するときは [プラン §0](docs/plans/db-model-facts.md) を最初に読む**（状態・次の手順。2026-09-21 夜の時点）
-  ✅ 2026-09-21 夜: 利用者の返事 4 つ（綴り ＝ 学習範囲を `shared` ／ `each` に ／ 控え ＝ C ドライブ ＋ Sx360 ／ 実行ディレクトリ ＝ 消す〔sidecar も Claude〕／ `ledger_rows` ＝ 書いてよい）を受けて Phase 1〜4 を済ませた（[DONE.md](DONE.md)）。残る Phase 5・6 は実売買の本番投入が落ち着いてから（Phase 5 の `tastytrade-api-sample/out/`・`dashboard/data/` は停止ボタンと管理画面の置き場）
-  利用者の指示（2026-09-20）。着手時にプランを作る（何を DB に入れるか ＝ いまファイルで持っている記録〔`out/*.jsonl`・`state/`・`runs/` など〕のどれが対象か／どの DB を使うかは、プランで利用者と決める）
-  利用者の指示（2026-09-21）: **予測モデルの解説と DB での永続化を同時にやった方が良い** → 1 本のプランにした。接点 ＝ 解説の事実（試した結果の印・経緯の何通りと内訳・「詳しく」の【実測】）は生成物の `ledger.md` にしか無く、人が手で写している（dashboard.md §17-3。2026-09-20 に誤り 10 か所あまり ＝ §17-6）。DB を最初に読むのを解説のタブにする
-  ✅ 裁定（2026-09-21・利用者）: ① 予測モデルを作るときの入力データ以外を入れる ／ ② **2 か所に置かない ＝ DB に入れたらファイルは削除**（DB が正本）／ ③ **SQLite** ／ ④ **予測モデルの命名規則を作らないと解説に使えない** → 命名規則を Phase 1 に
-  ⚠ 実売買の執行器（`experiments/live-trading/`）の書き込みを DB に替えるのは最後（2026-09-22 本番投入。推す時期は Phase 6 の 20 営業日のあと ＝ プラン §4 の 4）
-  関連: 「vibeboard の「予測モデル」タブを、予測モデルを詳しく解説するものにする（「システム説明」の説明とのバランスをとる）」
-  関連: 「名前の付け方（英語名）をそろえるか決める」（裁定 ④ でこのプランの Phase 1 になった。✅ 2026-09-21 に綴りまで決まり [DONE.md](DONE.md) へ）
-  - [x] Phase 0: §3 の線引き（「データ」＝ 実行や売買が生んだ記録。設定・文書・秘密・`HALT`/`MODE`/`run.lock` は入れない）と §4 の 5 点（「1 実行 1 ディレクトリ」の書き換え ／ 消す前の書き戻しの一致 ／ DB の控え ／ 実売買を替える時期 ／ DB ファイルを 3 つに分ける）を確かめる
-    ✅ 2026-09-21: 利用者「5 点問題ないので進める」
-  - [x] Phase 1: 予測モデルの命名規則（型 ／ 予測モデル名 ／ 検証名の 3 段。下の 2 段は検証結果一覧の識別項目から機械で作る・既存の名前は変えない・検証結果一覧の全行で 1 対 1 を確かめる。⚠ 綴りは利用者の裁定）
-    ✅ 2026-09-21: `ail/names.py`・`config/names.toml`・rules.md 10-2・テスト 16 本。検証結果一覧 1,155 行 ＝ 検証名 1,155 ／ 予測モデル名 591 で 1 対 1【実測】
-    - [x] 綴りを決める（⚠ **利用者**。プラン §5）
-      ✅ 2026-09-21 利用者の裁定: 学習範囲を単語に（`a` ／ `b` → `shared` ／ `each`）＝ `T1` `own.all.ridge.shared` ／ `T2` `own-cs-rel-ex.all.lgbm.shared~n48` ／ `T3` `own-seq.t3-quant60.ridge.shared`。`config/names.toml` の 2 行・rules.md 10-2
-      2026-09-21: 利用者の指示「表・手法・形式・窓という単語が分かりにくい」→ 名前の部品を **入力データ ／ 数字の選び方・作り方 ／ 学習器 ／ 学習範囲**（予測モデルのタブの「このモデルの組み立て」と同じ言葉。入れるデータ → 入力データ・学ぶ範囲 → 学習範囲も利用者の決定）と呼び、窓は **観測期間**（モデルが過去何日分を見るか）／ **取引時間帯**（注文してよい時間）と呼ぶように rules.md 10-2・綴りの一覧・コードの説明・プラン・CLAUDE.md を直した。タブの本文（system.toml の「名前と識別名」・「時間の窓」）も直し、やさしい言葉の検査 `FORBIDDEN` に 手法・形式・窓 を足した（「表」は「表す」に当たるので目で見る）
-  - [x] Phase 2: 研究の DB（`research.sqlite`）。書き手・読み手を替え、255 本を取り込み、`ledger.md` 不変・`n_trials` 667 不変・書き戻しの一致を確かめてから、⚠ 利用者の了承のあと `runs/` のファイルを消す
-    ✅ 2026-09-21: `runs/research.sqlite`（`ail/rundb.py`・`cli/db.py`）。255 実行を取り込み **一致 255 ／ 255**・検証結果一覧は直す前と 1 文字も違わない・`n_trials` 667・書き手（`runs.Run`・`cli.queue` の状態）と読み手（検証結果一覧・`cli.report`・分析の道具・実行タブ）を DB に切り替え・rules.md 10 章と CLAUDE.md を「1 実行 1 記録」に。テスト 研究側 497 本・管理画面 218 本【実測】
-    - [x] 控えを取る（⚠ **利用者が置き場を決める**。`python3 -m cli.db backup --to <道>`）
-      ✅ 2026-09-21: `/mnt/c/Users/akira/ai-income-lab-backup/research-2026-09-21.sqlite`（316.7 MB・整合性 ok・sha256 一致。⚠ Dropbox・OneDrive の下には置かない）
-    - [x] 控えを Sx360 にも写す（⚠ **利用者**。titan から Sx360 へは ssh が届かないので、Sx360 から `scp titan:/mnt/c/Users/akira/ai-income-lab-backup/research-2026-09-21-2.sqlite <置き場>/`。⚠ 新しいほう ＝ `-2` は診断の出力 `outputs` と `ledger_rows` も入った 320.1 MB）
-      C ドライブは WSL の仮想ディスクと同じ物理ディスクの可能性がある（ディスクの故障に効かない）
-      ✅ 2026-09-21: 利用者が Sx360 へ scp した（利用者の報告。⚠ titan から Sx360 へは届かないので、Claude は中身を確かめていない ＝ 突き合わせるなら Sx360 で `sha256sum` が `f8d5fcfe9aba58a5…c99649`）
-      ✅ 2026-09-22 夜: Sx360 の写しの `sha256sum` が `f8d5fcfe…c99649` と一致【実測】。リポジトリ直下に置かれていたので `~/ai-income-lab-backup/` へ移した（⚠ 320MB ＝ GitHub の上限 100MB を超えるのでコミットしない）
-    - [x] sidecar を入れ直したのを確かめてから（下の子タスク）、`runs/` の実行ディレクトリ 255 と `runs/queue/` を消す（⚠ **利用者の了承のあと**。`python3 -m cli.db remove-dirs --i-verified`）
-      ✅ 2026-09-21: 消した 255 ／ 食い違い 0。`runs/` 2.5 GB → 303 MB・消した後の DB だけの検証結果一覧は前と 1 文字も違わない・研究側 497 本 ／ 管理画面 218 本
-    - [x] sidecar（3015）を入れ直す（⚠ **利用者**。`vibetab.py`・`app/experiments.py` を直したので。実行タブが DB を読む）
-      ✅ 2026-09-21: 利用者の指示で Claude が入れ替えた（3016 で確かめてから・vibeboard 3010 には触らない）。実行タブ ＝「実行 140 件」
-  - [~] 言葉を分かりやすくする（利用者の指示 2026-09-21「表・手法・形式・窓」「鍵」「台帳」「試行」が分かりにくい）
-    ✅ 2026-09-21: 台帳（研究）→ 検証結果一覧 ／ 鍵 ① → 識別項目 ／ 試行 → 検証（検証数・検証名）／ 検証期間・検証 fold → 評価期間（重みを選ぶ期間は選定期間）／「検証」タブ → 「実行」タブ ／ 台帳（トレーダー）→ 売買履歴 ／ 名前の部品 → 入力データ・数字の選び方・作り方・学習範囲 ／ 窓 → 観測期間・取引時間帯。直した所 ＝ CLAUDE.md・rules.md・units.md・ledger-role.md・dsr.md・validation-power.md・dashboard.md・live-trading.md・3 つのタブと用語・`ledger.md`（`cli/ledger.py` の文。数字は変わらない）・`vibetab.py`・`vibeboard.config.json`（タブの名前）。一覧は CLAUDE.md の「言葉」
-    ✅ 2026-09-21: 「鍵」の残りも利用者の決定（おすすめの言葉）で直した ＝ ② 識別名 ／ ③ 許可 ／ ④ 資格情報 ／ JSON・TOML の項目 → 項目名 ／ `run.lock` の錠 → ロック。管理画面の i マーク「3 段の鍵」→「3 段の許可」（`ops.html` と用語）・「システム説明」のページ名「名前と鍵」→「名前と識別名」
-    ✅ 2026-09-21 夜: 「買う線」「売る線」→ **売買基準値**（利用者の決定「意味が分からない」。θ ＝ 出力スコアが売買基準値を超えたら買い・「100 − 売買基準値」を下回ったら売る）。3 つのタブの文・トレーダーのページの見出しと表・用語・dashboard.md・CLAUDE.md の言葉の表
-    - [ ] 実売買の執行器（`run_day.py`・`reconcile.py`）のメッセージの「台帳」→「売買履歴」（⚠ 本番投入が落ち着いてから。執行器のテストを流す）
-    - [x] vibeboard を入れ直してタブの名前「実行」を見る（⚠ **利用者**。`vibeboard.config.json` は起動時に読む。sidecar 3015 も入れ直す）
-      ✅ 2026-09-21: vibeboard は 15:58 に入れ直されていて、タブの名前は「実行」（動いている 3010 の画面で確かめた）。sidecar も入れ替え済み
-  - [x] Phase 3: 予測モデルのタブが DB を読む（試した経緯の数と印を予測モデル名で引く・TOML と DB の食い違いを記録で確かめて直す・DB が無くても壊れない）
-    ✅ 2026-09-21: `ledger_rows`（1,155 行・`n_trials` 667）・`models.toml` の経緯 24 行に `names`・人が写した数は DB と全部同じ（食い違い 0）。テスト 研究側 499 本 ／ 管理画面 220 本。[プラン §10](docs/plans/db-model-facts.md)
-    - [ ] 経緯の表に載っていない試しを載せるか決める（⚠ **利用者**。`models.toml` を読むとき。数の誤りではない）
-      `trend-gates` の計算を直す前の「見る株の組を変えた 2 つ」（42 検証・2026-09-12）／ `own-ridge` の期間や見る株を変えた形（1995 年から・48 本など）。載せるなら経緯の行を 1 つ足して `names` を書く（数は DB から出る）
-  - [x] Phase 4: 「詳しく」の【実測】（較正の係数・門）を DB から差し込む
-    ✅ 2026-09-21: `models.toml` の差し込み（`{{gate|…}}`・`{{calib|…}}`）32 か所・控えは DB の値と全部同じ（食い違い 0）。範囲・桁のそろわない並び・いくつもの実行にまたがる数字は人が写したまま。管理画面 222 本
-  - [x] Phase 5: 小さな置き場（`feature-discovery/out/`・`tastytrade-api-sample/out/`・`dashboard/data/`）
-    ✅ 2026-09-21: `feature-discovery/out/` を研究の DB の表 `outputs` へ（56 ファイル・一致 56 ／ 56・書き手 `cli/calibdiag.py`・`cli/crosscheck.py` を DB に）。[プラン §10](docs/plans/db-model-facts.md)
-    - [x] `feature-discovery/out/` のファイルを消す（⚠ **利用者の了承のあと**。`python3 -m cli.db remove-out --i-verified`）→ 控えを取り直す（C ドライブの控えは `outputs` を入れる前のもの）
-      ✅ 2026-09-21: 利用者の了承（「消す＋控え取り直し」）→ 消した 56 ／ 食い違い 0（`out/` ごと無くなった）→ 控え `/mnt/c/Users/akira/ai-income-lab-backup/research-2026-09-21-2.sqlite`（320.1 MB・sha256 一致・整合性 ok・実行 255 ／ 出力 56 ／ `ledger_rows` 2,147）。前の控え（`outputs` を入れる前）も残してある
-    - [x] `tastytrade-api-sample/out/` と `dashboard/data/`（⚠ 実売買の本番投入が落ち着いてから。停止ボタンの `HALT` と管理画面の記録が同じ置き場。`HALT` は DB に入れない ＝ プラン §3）
-      ✅ 2026-09-21 夜: 利用者の指示で前倒し（Phase 6 といっしょに `live.sqlite` へ。`HALT` はファイルのまま）
-  - [~] Phase 6: 実売買（`live.sqlite`）とシミュレーション（`sim.sqlite`）。⚠ 時期はプラン §4 の 4・本番で起動し直すのは利用者
-    ⚠ 2026-09-21 夜: 利用者の指示「本番投入前に進めて、明日テストするようにする」→ 前倒し。裁定 ＝ 実売買の DB は 1 つ ／ 範囲は全部（Phase 5 の残りも）／ 戻す点は `acc5f9f`。[プラン §11](docs/plans/db-model-facts.md)
-    - [x] `livefs.py`（道 → 近い DB）と執行器・紙上の対照・突き合わせ・シミュレーションの読み書き
-    - [x] API 検証の記録（`tastytrade-api-sample/out`）と管理画面の読み手・履歴（`dashboard/data`）
-    - [x] いまのファイルを取り込んで 1 ビットずつ突き合わせる（⚠ ファイルを消すのは利用者の了承のあと）
-      ✅ 2026-09-21 夜: 本物 93 ・作り置き 384 ＝ 一致 477 ／ 477。本物の DB はリポジトリ直下の `live.sqlite`
-    - [x] 回帰（執行器の pytest・`mockrun.sh`・`sim2`・`selftest.sh`・管理画面の pytest）
-      ✅ 2026-09-21 夜: 執行器 142 本・管理画面 222 本・mockrun・sim2（64 日 18 秒・差は注入した BAC だけ）・selftest・`run-live.sh --mode plan`（作業用の置き場）・本物の管理画面の全ページ 200。[プラン §11-1](docs/plans/db-model-facts.md)
-    - [x] 朝のテスト（上の「9/22（火）: 本番投入」の 06:45 の段。⚠ 1 つでも外れたら `acc5f9f` に戻して本番は今までの作りで）
-      期日: 2026-09-22 06:45
-      ✅ 2026-09-22: 1・2・3・5 が通った（⚠ **戻さない**。cert の往復・控え・突き合わせ・紙上の対照・管理画面・秘密の grep が DB の上で成立）。残るのは 4（本番の dry-run）＝ ⚠ **利用者**
-      ✅ 2026-09-25 閉じた: 4 も済み（9/23 に DB の作りで本番投入・9/24 に titan の timer と 13500t の cron で本番 dry-run が rc=0）
-    - [ ] いままでのファイル（`experiments/live-trading/out`・`state`・`experiments/tastytrade-api-sample/out`・`dashboard/data`・`sim-predict`）を消す（✅ 本番投入は 2026-09-23 に新しい作り〔DB〕で済んだ → ⚠ **残るのは利用者の了承**。`livefs.py remove --i-verified <ディレクトリ>…`。それまでは `acc5f9f` に戻すときの足場）
+- [ ] 実売買のいままでのファイル（titan）を消す（⚠ **利用者**。DB に移した後の残り。[plan §0](docs/plans/archive/db-model-facts.md)）
+  派生元: 「DBを使ったデータの永続化を行う」（2026-09-25 に DONE へ）
+  ✅ 2026-09-25 突き合わせ【実測・titan】: `live-trading/out` 一致 17 ／ `tastytrade-api-sample/out` 一致 65 ／ `sim-predict` 一致 384 ／ `dashboard/data`（`demo` を除く）一致 6 ／ `live-trading/state` 一致 2・食い違い 3（9/21 の古い写し。DB がその後に書き足された ＝ 欠けではない。`remove` は一致したものだけ消すので残る）
+  控え: titan の `/mnt/c/Users/akira/ai-income-lab-backup/live-files-2026-09-25.tar.gz`（555 項目・sha256 `673758753b4b…bcdbcf4f`）。`acc5f9f` に戻す足場の役目は終わった（9/23 に DB の作りで本番投入・9/25 に titan へ戻さないと決めた）
+  手順（titan で。⚠ `dashboard/data` はまとめて渡すと `demo` で止まる ＝ ディレクトリごと）: `for d in experiments/live-trading/out experiments/live-trading/state experiments/tastytrade-api-sample/out experiments/live-trading/sim-predict dashboard/data/jobs dashboard/data/monitor dashboard/data/ops; do python3 experiments/tastytrade-api-sample/livefs.py remove --i-verified $d; done`（`state` は食い違い 3 で rc=1 になる。残った 3 本は控えにあるので手で消してよい）
+
+- [ ] 予測モデルのタブの経緯の表に載っていない試しを載せるか決める（⚠ **利用者**。`models.toml` を読むとき。数の誤りではない）
+  派生元: 「DBを使ったデータの永続化を行う」の Phase 3（2026-09-25 に DONE へ）
+  `trend-gates` の計算を直す前の「見る株の組を変えた 2 つ」（42 検証・2026-09-12）／ `own-ridge` の期間や見る株を変えた形（1995 年から・48 本など）。載せるなら経緯の行を 1 つ足して `names` を書く（数は DB から出る）
+
+- [ ] 実売買の執行器（`run_day.py`・`reconcile.py`）のメッセージの「台帳」→「売買履歴」（⚠ 本番投入が落ち着いてから。執行器のテストを流す・本番に効くので「デプロイ」が要る）
+  派生元: 「DBを使ったデータの永続化を行う」の「言葉を分かりやすくする」（2026-09-25 に DONE へ）

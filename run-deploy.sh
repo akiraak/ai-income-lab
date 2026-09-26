@@ -60,6 +60,13 @@ wait_prod() {
   echo "[run-deploy] ⚠ 20 分で done が出ない（SKIP の理由は $PROD_HOST の $log）" >&2; return 1
 }
 
+# 本番に効く道（変わっていれば一覧で見せる）
+PROD_PATHS=(experiments/live-trading experiments/tastytrade-api-sample
+            experiments/feature-discovery/cli experiments/feature-discovery/ail experiments/feature-discovery/config
+            experiments/feature-discovery/requirements.txt experiments/feature-discovery/requirements-nodeps.txt
+            dashboard/app dashboard/requirements.txt dashboard/glossary.toml run-live.sh)
+(( ${#PROD_PATHS[@]} )) || die "PROD_PATHS が空（一覧が全ファイルになる）"
+
 case " $GATE_HOSTS " in
   *" $(hostname) "*) ;;
   *) die "関門を流してよい機械ではない（ここは $(hostname)。流すのは $GATE_HOSTS）" ;;

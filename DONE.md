@@ -1,10 +1,13 @@
 # DONE
+- 2026-09-25 管理画面を別の機械から見るトンネル `run-dashboard-tunnel.sh` の残りを閉じた [plan](docs/plans/archive/dashboard-remote-tunnel.md)
+  - 本物の ssh で繋がることは 2026-09-23 20:05 PDT に Sx360 から確かめ済み（`./run-dashboard-tunnel.sh --host 13500t.lan --port 3017` ＝ [live-trading.md §0-13](docs/specs/experiments/live-trading.md) の順 7）
+- 2026-09-25 TODO の棚卸し: 済んでいた子を閉じた ＝ DB の朝のテスト（4 の本番 dry-run も 9/24 に済み）／ B6（Step 1〜5）と B. 予測 ／ C9 ／ D15（整数株・5 本）／ D16（13500t の host cron）／ F21（K5 で公開面を出さないので不要）／ 13500t の資格情報の置き方
 - 2026-09-25 3 台の役割分け Phase 4（⑦ を除く）: 本番を titan → 13500t へ切り替えた（利用者の決定「13500t 切り替えはすぐにやってしまう。問題があれば 13500t の方で直す。titan から日常の作業を切り離すのが目的」。利用者 ＋ Sx360 の Claude。記録は [live-trading.md §0-14 (f)](docs/specs/experiments/live-trading.md)）
   - 前: titan の timer が 9/25 に submit で無人で通った（15:51 ET・rc=0・NKE 1 株の売り Filled）＝ TODO「`live.env` を submit に書き換え、timer で本番の発注に切り替える」も済み。13500t の cron は 9/24・9/25 とも dry-run で rc=0
   - ① ② titan: timer 2 本を外し `live.env` を dry-run・印 `NOT_PRODUCTION` を置いた（利用者）／ ③ `livefs.py backup` の写し 133 本・2,038 行が元と一致・sha256 `cebb28e9…` ／ ④ Sx360 経由で 13500t へ・管理画面のコンテナを止めて差し替え（利用者）／ ⑤ 13500t で差 0・未完 0・印なし ／ ⑥ `trade-runner/run.sh` の留め金を外し `live.env` を submit（利用者。控えは `live.env.dry-run-2026-09-25`）
   - 踏んだこと 2 つ（手順書に足した）: 退けた `live.sqlite.phase2-*` を clone に残すと未追跡で auto-update が止まる → clone の外へ ／ Phase 2 の `run.sh` は `TT_ALLOW_PROD_ORDERS` をコンテナに渡していなかった → 渡す 1 行を足した
   - 残り: ⑦ 9/28（月）の cron を見る（TODO）
-- 2026-09-25 `run-dashboard-tunnel.sh`: 繋がらないホストで居残るのを直した（ssh に `ConnectTimeout=10`・待つ上限 15 → 25 秒）[plan](docs/plans/dashboard-remote-tunnel.md)
+- 2026-09-25 `run-dashboard-tunnel.sh`: 繋がらないホストで居残るのを直した（ssh に `ConnectTimeout=10`・待つ上限 15 → 25 秒）[plan](docs/plans/archive/dashboard-remote-tunnel.md)
   - 【実測 titan】届かない IP（192.0.2.1）: 17 秒でスクリプトの打ち切り（理由なし）→ **10 秒で ssh 自身の `Connection timed out`**・rc=1 ／ 引けない名前: 0.3 秒・rc=1（変わらず）
   - ⚠ 9/22 の「2 分」はこの日の titan では再現しなかった（DNS が速い）。接続の制限時間が無い ssh は届かない相手に約 127 秒（SYN の再送 6 回）居残るので、その形をふさいだ
 - 2026-09-24 3 台の役割分け Phase 2 済み: 13500t で §0-13 の合否 ①〜⑤ が全部 ✅（Step 2-3。Sx360 の Claude ＋ 利用者）。同じ日に titan の timer の初日（dry-run）も通った
@@ -54,7 +57,7 @@
   - 試した道 6 つ【実測】: 遅い submit → rc=11 ／ dry-run ・ plan ・ 過去の日付 ・ `--ignore-window` ・ 刻限を緩めた submit → 素通り（⚠ スクリプトの写しをブレーキ直後で止めて確かめた ＝ 口座に触れていない）
   - ⚠ **D4 の前提が崩れた**: 「timer は水曜から」は**火曜に手で 1 回成功を見てから**が前提だったので、**timer は木曜（9/24）から**へ
   - 記録は [live-trading.md §1](docs/specs/experiments/live-trading.md)、段取りは [プラン §4-1・§4-2](docs/plans/archive/live-trading-go-live-0922.md)
-- 2026-09-22 管理画面を別の機械から見るトンネルを 1 コマンドに（`run-dashboard-tunnel.sh`）[plan](docs/plans/dashboard-remote-tunnel.md)
+- 2026-09-22 管理画面を別の機械から見るトンネルを 1 コマンドに（`run-dashboard-tunnel.sh`）[plan](docs/plans/archive/dashboard-remote-tunnel.md)
   - 利用者の指示「`ssh -N -L 3013:127.0.0.1:3012 titan` を実行する `run_xxxx.sh` を作る。接続アドレスも表示させる」。きっかけは「管理画面は IP でアクセスできるか」＝ **できない**（`AIL_BIND=127.0.0.1` ＝ titan のループバックにだけ口を開けている）
   - ⚠ **走らせるのは Sx360（見る側）**。titan 側は `AIL_BIND` も `AIL_AUTH_MODE` も変えない ＝ 面の規則に触らない
   - 中身: ポートの確認 → ssh を後ろで起こす → 繋がるまで待つ（最大 15 秒）→ `curl` で応答を確かめる → **接続アドレスを表示** → Ctrl+C で後片付け。⚠ アドレスは繋がってから出す

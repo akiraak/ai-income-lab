@@ -1,4 +1,9 @@
 # DONE
+- 2026-09-25 実売買のいままでのファイル（titan）を消した（利用者の指示）[plan](docs/plans/archive/db-model-facts.md)
+  - `livefs.py remove --i-verified` で一致したものだけ: `live-trading/out` 17 ／ `state` 2 ／ `tastytrade-api-sample/out` 65 ／ `sim-predict` 384 ／ `dashboard/data/monitor` 6（計 474）
+  - 食い違った `state` の 3 本（9/21 の古い写し）は控えとの一致を `cmp` で確かめてから手で消した
+  - 残したもの: `out/timer-*.log`（画面の写し ＝ 記録ではない）・`sim-predict/sim.sqlite`（DB そのもの）・`dashboard/data/demo`（デモ）
+  - 控え: titan の `/mnt/c/Users/akira/ai-income-lab-backup/live-files-2026-09-25.tar.gz`（sha256 `673758753b4b…bcdbcf4f`）
 - 2026-09-25 実売買の残りの決めごとを推す案で決めた（利用者「全部おススメで直して」）[plan](docs/plans/live-trading-open-decisions.md)・[live-trading.md §0-15](docs/specs/experiments/live-trading.md)
   - ⚠ 20 営業日のあいだは執行器を変えない（コードを変える案は 10/20 の後）
   - 起動しなかった日 ＝ §1 に 1 行「起動なし」・20 営業日は起動した営業日で数える ／ 失敗 ＝ `end rc=` が無い ／ rc≠0 → 13500t の見張り `check.sh`（16:20 ET・終了コードだけを healthchecks.io へ。g3plus-ops に書いて手元で 6 通り確かめた・入れるのは利用者の登録のあと）

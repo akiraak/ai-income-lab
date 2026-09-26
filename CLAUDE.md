@@ -224,7 +224,7 @@ cd experiments/live-trading
   - ⚠ **執行器の読みは厳しい**: どの DB にも当たらない道を読むと止まる（設定の誤りで「何も持っていない」と読んで買い直さない）。管理画面は `missing_ok=True`（無くても落とさない）
   - ⚠ **ファイルのまま**: `HALT`・`MODE`・`run.lock`・`control.json`・`status.json`・入力・設定・プロセスの画面の写し
   - 見る ＝ `python3 experiments/tastytrade-api-sample/livefs.py ls|cat <道>`・`dump <DB のあるディレクトリ>`（秘密の grep）・`stats`・`export <道> --to <置き場>`（ファイルの形に書き出す）
-  - ⚠ **いままでのファイル（titan）は取り込んで 1 ビットずつ突き合わせたが、まだ消していない**（`acc5f9f` に戻すときの足場だったが、2026-09-23 に DB の作りで本番投入し、2026-09-25 に titan へ戻さないと決めたので役目は終わった。控えは `/mnt/c/Users/akira/ai-income-lab-backup/live-files-2026-09-25.tar.gz`。消すのは利用者 ＝ TODO「実売買のいままでのファイルを消す」）
+  - いままでのファイル（titan）は 2026-09-25 に消した（突き合わせで一致したものだけ。控えは titan の `/mnt/c/Users/akira/ai-income-lab-backup/live-files-2026-09-25.tar.gz`）
 - 本番の許可は `ttclient.Client` の 3 段そのまま。発注は `TT_ALLOW_PROD_ORDERS=1` ＋ `--i-know-this-is-real-money`。⚠ **許可を出して起動するのは利用者**。`HALT` は管理画面の停止ボタンと同じファイル
 - **「本番の機械ではない」印**（2026-09-24。3 台の役割分け Phase 3）: `experiments/live-trading/NOT_PRODUCTION`（git 管理外・`{"machine": hostname, …}`）があると `run_day.py`・`sample.py` は **本番の発注（`--env prod --mode submit`）だけ**を許可の 3 段より前で拒む（rc=7・`refused_not_production`。plan・dry-run・cert は通る）。hostname が違う印・壊れた印でも拒む。操作は `notprod.py status|set|clear`（⚠ 利用者）。管理画面は灰の帯・`/api/*` に `not_production`。切り替えの手順（Phase 4）は `live-trading.md` §0-14
 - **シミュレーション（仮データと仮の時計で執行器を通しで動かす）は 2026-09-19 に実装した**（決めごと・使い方・筋書き・見つかったことは `live-trading.md` §0-7。プランは `docs/plans/archive/live-trading-sim-clock.md`）

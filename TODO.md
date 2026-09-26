@@ -357,12 +357,6 @@
   利用者の指示（2026-09-16）。着手時にプランを作る
   ⚠ **外部サービスにコードを渡す**ので、git 管理外の資格情報・記録（`.env`・`out/` など）を含めない
 
-- [ ] 実売買のいままでのファイル（titan）を消す（⚠ **利用者**。DB に移した後の残り。[plan §0](docs/plans/archive/db-model-facts.md)）
-  派生元: 「DBを使ったデータの永続化を行う」（2026-09-25 に DONE へ）
-  ✅ 2026-09-25 突き合わせ【実測・titan】: `live-trading/out` 一致 17 ／ `tastytrade-api-sample/out` 一致 65 ／ `sim-predict` 一致 384 ／ `dashboard/data`（`demo` を除く）一致 6 ／ `live-trading/state` 一致 2・食い違い 3（9/21 の古い写し。DB がその後に書き足された ＝ 欠けではない。`remove` は一致したものだけ消すので残る）
-  控え: titan の `/mnt/c/Users/akira/ai-income-lab-backup/live-files-2026-09-25.tar.gz`（555 項目・sha256 `673758753b4b…bcdbcf4f`）。`acc5f9f` に戻す足場の役目は終わった（9/23 に DB の作りで本番投入・9/25 に titan へ戻さないと決めた）
-  手順（titan で。⚠ `dashboard/data` はまとめて渡すと `demo` で止まる ＝ ディレクトリごと）: `for d in experiments/live-trading/out experiments/live-trading/state experiments/tastytrade-api-sample/out experiments/live-trading/sim-predict dashboard/data/jobs dashboard/data/monitor dashboard/data/ops; do python3 experiments/tastytrade-api-sample/livefs.py remove --i-verified $d; done`（`state` は食い違い 3 で rc=1 になる。残った 3 本は控えにあるので手で消してよい）
-
 - [ ] 予測モデルのタブの経緯の表に載っていない試しを載せるか決める（⚠ **利用者**。`models.toml` を読むとき。数の誤りではない）
   派生元: 「DBを使ったデータの永続化を行う」の Phase 3（2026-09-25 に DONE へ）
   `trend-gates` の計算を直す前の「見る株の組を変えた 2 つ」（42 検証・2026-09-12）／ `own-ridge` の期間や見る株を変えた形（1995 年から・48 本など）。載せるなら経緯の行を 1 つ足して `names` を書く（数は DB から出る）

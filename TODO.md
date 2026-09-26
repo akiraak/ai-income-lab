@@ -278,3 +278,13 @@
 
 - [ ] 実売買の執行器（`run_day.py`・`reconcile.py`）のメッセージの「台帳」→「売買履歴」（⚠ 本番投入が落ち着いてから。執行器のテストを流す・本番に効くので「デプロイ」が要る）
   派生元: 「DBを使ったデータの永続化を行う」の「言葉を分かりやすくする」（2026-09-25 に DONE へ）
+
+- [ ] 売買に使うトレーダーやモデルの設定などの説明を分かりやすく書く [plan](docs/plans/explain-trader-model-settings.md)
+  - 決定 2026-09-26: 説明は vibeboard に書く（利用者の指示）
+  - [x] Step 1: 既存の説明を棚卸し、必要なものをまとめる [plan](docs/plans/explain-settings-inventory.md)
+    - [x] Step 1-1: 説明のある場所を集める
+    - [x] Step 1-2: 設定項目 × 場所の表を作る
+    - [x] Step 1-3: 食い違い・古い・欠けを印す
+    - [x] Step 1-4: 説明に必要なものをまとめる
+  - [ ] Step 2: どのように説明するかのアウトラインを決める
+  関連: [dashboard.md §16](docs/specs/dashboard.md)（トレーダーのタブ）／ §17（予測モデルのタブ）／ `config/traders/T1〜T3.toml`

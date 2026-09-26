@@ -1,4 +1,9 @@
 # DONE
+- 2026-09-25 2 ブランチ運用: 13500t は `main` ではなく本番の目印 `prod` を取りに行く・利用者の「デプロイ」＝ `run-deploy.sh` [plan](docs/plans/archive/prod-branch.md)
+  - 利用者の決定「案 A にする。CLAUDE.md を修正し 2 ブランチに」「「デプロイ」この命令で 13500t を更新できるようにして」。きっかけは「push ＝ 15 分以内に本番」の分析（関門なし・研究の直しが本番の予測に入る・8 日で 70 コミット）
+  - `run-deploy.sh`: main が push 済み → titan で `run-tests.sh` ＋ 予測の経路の指紋テスト（⏭ ／ skip も不合格）→ `git push origin HEAD:prod` → 13500t の `auto-update.log` の `done` を待つ。15:00〜16:15 ET は拒む。Sx360 から叩くと関門は ssh で titan へ（Sx360 の venv は LightGBM ／ aeon が無く指紋テストが落ちる【実測】）
+  - g3plus-ops `41fb9f0`: `auto-update.sh` が `origin/prod` を ff・HEAD が祖先でなければ ERROR（作業用の置き場で 3 通り確かめた）→ 利用者が 13500t へ scp
+  - 最初のデプロイ【実測 2026-09-25】: `prod` `e43fda5` → `feaeb43`。titan の関門 ＝ 執行器 161 ／ 管理画面 240 ／ selftest ／ mockrun ／ 指紋 20 とも ✅ → 13500t が 18:00:02 PDT に pull・18:00:03 `done`（管理画面を起こし直した）
 - 2026-09-25 管理画面を別の機械から見るトンネル `run-dashboard-tunnel.sh` の残りを閉じた [plan](docs/plans/archive/dashboard-remote-tunnel.md)
   - 本物の ssh で繋がることは 2026-09-23 20:05 PDT に Sx360 から確かめ済み（`./run-dashboard-tunnel.sh --host 13500t.lan --port 3017` ＝ [live-trading.md §0-13](docs/specs/experiments/live-trading.md) の順 7）
 - 2026-09-25 TODO の棚卸し: 済んでいた子を閉じた ＝ DB の朝のテスト（4 の本番 dry-run も 9/24 に済み）／ B6（Step 1〜5）と B. 予測 ／ C9 ／ D15（整数株・5 本）／ D16（13500t の host cron）／ F21（K5 で公開面を出さないので不要）／ 13500t の資格情報の置き方

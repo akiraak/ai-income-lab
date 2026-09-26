@@ -4,7 +4,7 @@
 
 2026-09-25 の利用者の決定: **案 A にする。CLAUDE.md を修正し 2 ブランチに**。
 
-いまは `main` への push ＝ 13500t の auto-update（15 分おき）が pull ＝ 本番に反映（K2・[live-trading.md §0-13](../specs/experiments/live-trading.md)）。
+いまは `main` への push ＝ 13500t の auto-update（15 分おき）が pull ＝ 本番に反映（K2・[live-trading.md §0-13](../../specs/experiments/live-trading.md)）。
 同じ日に分析して分かったこと:
 
 | 問題 | 中身 |
@@ -59,9 +59,9 @@ flowchart LR
 | --- | --- | --- |
 | CLAUDE.md | 「Git 運用ルール」を 2 ブランチに・機械の役割の「push ＝ 本番」を「`prod` を進める ＝ 本番」に | titan / Sx360 の Claude |
 | `run-deploy.sh`（新規） | §3 | 同上 |
-| [live-trading.md §0-13](../specs/experiments/live-trading.md) | auto-update の行 | 同上 |
-| [three-machines.md](three-machines.md) K2 | 決めの追記 | 同上 |
-| [dashboard.md §7-1](../specs/dashboard.md) | 13500t の管理画面が追うのは `prod` | 同上 |
+| [live-trading.md §0-13](../../specs/experiments/live-trading.md) | auto-update の行 | 同上 |
+| [three-machines.md](../three-machines.md) K2 | 決めの追記 | 同上 |
+| [dashboard.md §7-1](../../specs/dashboard.md) | 13500t の管理画面が追うのは `prod` | 同上 |
 | g3plus-ops `trade-runner/auto-update.sh`・`docs/workflows/trade-runner.md` | `prod` を取りに行く・祖先の検査 | ⚠ **Sx360 の Claude**（13500t へは scp。⚠ 利用者の了承のあと） |
 
 ## 5. Step

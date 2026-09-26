@@ -182,7 +182,7 @@ g3plus-ops 側の `trade-dashboard/`（旧 `ail-dashboard/`。2026-09-24 に改�
 | 項目 | 13500t の値 | 上の表との差の理由 |
 | --- | --- | --- |
 | build context ／ 置き場 | 売買と**同じ clone を bind mount**（[live-trading.md §0-13](experiments/live-trading.md)）。COPY しない | 実売買の画面が読む `live.sqlite`・`experiments/live-trading/`・停止ボタンが書く `experiments/tastytrade-api-sample/out/HALT` を売買と共有する（F21 の「記録を届ける経路」が要らなくなる） |
-| 追う枝 | ⚠ **`prod`**（2026-09-25。`main` ではない）| `main` への push で管理画面を起こし直さない。`prod` を進めるのは `run-deploy.sh` だけ（[プラン](../plans/prod-branch.md)） |
+| 追う枝 | ⚠ **`prod`**（2026-09-25。`main` ではない）| `main` への push で管理画面を起こし直さない。`prod` を進めるのは `run-deploy.sh` だけ（[プラン](../plans/archive/prod-branch.md)） |
 | 面 | `AIL_AUTH_MODE=loopback` | 公開面を出さない（K5） |
 | ネットワーク | ⚠ **`network_mode: host` ＋ `AIL_BIND=127.0.0.1`** | ⚠ `ports: 127.0.0.1:3012:3012` の形だと、要求は docker のブリッジの IP から届く ＝ ループバックに見えず**全部 403**（loopback 面は接続元で判定する）。host のループバックに直に口を開ける |
 | uid | clone の持ち主と同じ | 停止ボタンが書く `HALT` と記録の DB を root の持ち物にしない |

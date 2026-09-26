@@ -37,7 +37,7 @@ flowchart LR
 | # | 論点 | 決定（推した案） | 理由 ／ ほかの案 |
 | --- | --- | --- | --- |
 | K1 | Claude Code をどこで動かすか | **titan**（Sx360 から `ssh titan` → tmux の中で `claude`） | コード・データ・GPU・研究の DB が手元にある。Sx360 で動かして毎回 `ssh titan '…'` で計算させる案は、コードとデータが 2 台に分かれて写し違いが起きる（2026-09-22 の計測で、スナップショットを 3 台に写した）。⚠ **例外: 13500t と g3plus-ops の操作は Sx360 の Claude**（K3 で titan から 13500t へ届かない・`~/g3plus-ops` は Sx360 にだけある）。シミュレーションも Sx360（K9）。⚠ Claude のメモリは機械ごとに別 ・ 2 台で同じリポジトリを触るので、書いたら push ／ 始める前に pull |
-| K2 | 13500t へのデプロイの形 | **13500t が GitHub から pull する**（g3plus-ops の `daily-ai-music/auto-update.sh` と同じ型・host cron） | titan から 13500t への経路が要らない（いまは届かない【実測】）。⚠ **main への push ＝ 本番に反映**になるので、売買の時間帯（12:30〜13:15 PDT）は pull しない前チェックが要る。⚠ **2026-09-25 追記: 取りに行くのは `main` ではなく本番の目印 `prod`**（関門を通した後に `run-deploy.sh` が進める ＝ [prod-branch.md](prod-branch.md)） |
+| K2 | 13500t へのデプロイの形 | **13500t が GitHub から pull する**（g3plus-ops の `daily-ai-music/auto-update.sh` と同じ型・host cron） | titan から 13500t への経路が要らない（いまは届かない【実測】）。⚠ **main への push ＝ 本番に反映**になるので、売買の時間帯（12:30〜13:15 PDT）は pull しない前チェックが要る。⚠ **2026-09-25 追記: 取りに行くのは `main` ではなく本番の目印 `prod`**（関門を通した後に `run-deploy.sh` が進める ＝ [prod-branch.md](archive/prod-branch.md)） |
 | K3 | titan から 13500t へ ssh を通すか | **通さない**（K2 で足りる。操作は Sx360 から） | 通すなら (a) 13500t を tailnet に入れる ／ (b) titan に Cloudflare Access の ssh を置く。⚠ どちらも本番に届く経路が増える |
 | K4 | ⚠ **二重発注をどう防ぐか**（いちばん重い） | **(a) 売買は 13500t だけ。titan の売買の timer ・許可を外す** | 排他（`MODE`・`run.lock`）は機械の中のファイル。両方が起きると同じ口座に 2 回注文が出る。(b) 口座の側で重複を弾く ＝ 設計から ／ (c) 手で切り替える ＝ 事故が起きる |
 | K5 | 管理画面と売買を同じ機械に置くか | **同じ 13500t。ただし公開面（Cloudflare）は出さず、ローカル面だけ**（Sx360 からトンネル） | 公開面のある機械に発注の許可と資格情報が載るのを避ける。公開面も出すなら [dashboard.md §7](../specs/dashboard.md) の「置かない env」を書き換える |

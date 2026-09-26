@@ -353,23 +353,6 @@
   ✅ 2026-09-23: titan で本番投入が 1 日通った（[DONE.md](DONE.md)）＝ 機械を増やしてよい → Phase 2 Step 2-3 の残り（`.env` を置いた後の ②〜⑤）へ進める（⚠ `.env` を置くのは利用者）
   関連: 「売買（`run-live.sh`）が自動で動くようにする（無人運転）」／ [live-trading.md §0-12](docs/specs/experiments/live-trading.md)（13500T の予測の時間。2026-09-22 済み）／ [dashboard.md §7](docs/specs/dashboard.md)
 
-- [ ] 13500t の更新を `main` ではなく本番用の `prod` ブランチから取るようにする（2 ブランチ運用） [plan](docs/plans/prod-branch.md)
-  利用者の決定（2026-09-25）: **案 A にする。CLAUDE.md を修正し 2 ブランチに**
-  背景（2026-09-25 の分析）: いまは `main` への push ＝ 15 分以内に本番（K2・[live-trading.md §0-13](docs/specs/experiments/live-trading.md) の auto-update の行）。⚠ 本番に入る前の関門が無い（CI なし・`run-tests.sh` は書き手の習慣）／ ⚠ 本番の予測は研究側のコード（`cli.build.assemble`・`cli.run.fold_buy_pct`・`ail/`）を読む ＝ 研究の直しが Phase 6 の途中で予測を黙って変えうる ／ push は 8 日で 70 コミット【実測】で、TODO の直しでも管理画面を起こし直す ／ 9/24 07:57 PDT の執行器の直しは見届けなしに同じ日の回で動いた
-  形: `main` ＝ ふだんの作業（今までどおり直接コミット）／ `prod` ＝ 本番の目印（`./run-tests.sh` が通ったあとに進めたときだけ 13500t に入る）。⚠ レビュー用の枝分かれではない
-  ⚠ 切り替えは売買の時間帯を避ける・⑦（2026-09-28 の最初の本番の回）の見届けを邪魔しない
-  関連: 「⑦ 13500t の最初の本番の回を見る（`trade-runner/logs/trade.log` の `end rc=0`・`orders.jsonl` の `mode: submit`・約定・`reconcile.py --env prod show` で差 0・未完 0。⚠ **Sx360 の Claude**）」／ [three-machines.md](docs/plans/three-machines.md) K2
-  - [x] CLAUDE.md の「Git 運用ルール」を 2 ブランチに直す（`main` ＝ 作業・`prod` ＝ 本番の目印。`prod` を進める条件と手順・「push ＝ 本番に反映」の記述を「`prod` を進める ＝ 本番に反映」に）
-  - [x] `prod` を進める手順を決めて書く（例: `./run-tests.sh` → `git push origin main:prod`。1 本のスクリプトにするか・`--full` を要るか・進めてよい時間帯）
-    ✅ 2026-09-25: `run-deploy.sh`（main が push 済み → `run-tests.sh` ＋ 予測の経路の指紋テスト → `git push origin HEAD:prod`。⏭ ／ skip も不合格・15:00〜16:15 ET は拒む・`--dry-run`）。⚠ Sx360 の venv は LightGBM ／ aeon が無く指紋テストが落ちる【実測】＝ 進めるのは titan
-  - [x] `prod` ブランチを作る（その時点の `main` から）
-    ✅ 2026-09-25: `e43fda5`（13500t がいま動かしているもの）で作って push。main まで進めるのは最初の「デプロイ」
-  - [~] g3plus-ops の `auto-update.sh` を `prod` を取りに行く形に直し、13500t の clone を `prod` に切り替える（⚠ **Sx360 の Claude**。売買の時間帯の外）
-    ✅ 2026-09-25: Sx360 の g3plus-ops で直した（`BRANCH=prod`・HEAD が `origin/prod` の祖先でなければ ERROR）。作業用の置き場の clone で 3 通りを確かめた（main だけ進む → 何もしない ／ prod を進める → ff ／ HEAD が先 → ERROR 1 度）。g3plus-ops `41fb9f0` を push。⚠ 残り ＝ 13500t への scp（分類器が止めた ＝ **利用者**が `!` で。⚠ **ai-income-lab の main を push するのはその後**）
-    ✅ 2026-09-25: 利用者の指示「「デプロイ」この命令で 13500t を更新できるようにして」→ CLAUDE.md に「デプロイ」の手順・`run-deploy.sh` が titan に関門を任せ 13500t の `done` を待つ
-  - [x] 仕様を直す（[live-trading.md §0-13](docs/specs/experiments/live-trading.md) の auto-update の行・§0-14 の戻し方・[three-machines.md](docs/plans/three-machines.md) K2・[dashboard.md §7-1](docs/specs/dashboard.md)）
-  - [ ] 確かめる（scp の後の最初の「デプロイ」で）: `main` だけの push では 13500t が動かない ／ `prod` を進めると 15 分以内に pull される（auto-update の log）
-
 - [ ] 既存の仕組みをCodex GPT6 Astraに分析と評価をさせる
   利用者の指示（2026-09-16）。着手時にプランを作る
   ⚠ **外部サービスにコードを渡す**ので、git 管理外の資格情報・記録（`.env`・`out/` など）を含めない

@@ -270,15 +270,17 @@
   - [x] Phase 3: 切り替えの手順を決めて cert で試す（「本番の機械ではない」印で titan の submit を拒む・`live.sqlite` を移す・`reconcile.py` の差 0）[plan](docs/plans/archive/production-switch-mark.md)
     ✅ 2026-09-24（titan の Claude）: 印 `NOT_PRODUCTION`・`notprod.py`・rc=7・管理画面の帯・手順書 [live-trading.md §0-14](docs/specs/experiments/live-trading.md)・稽古（写しの sha256 一致・`reconcile.py show` 差 0・印で rc=7 → 外す）。記録は [DONE.md](DONE.md)。⚠ **印を置くのは Phase 4 の日に利用者**（今日は置いていない ＝ timer の dry-run と 9/25 の submit を邪魔しない）
   - [~] Phase 4: 本番を 13500t に切り替える（⚠ **利用者**。市場の外の日に。titan の timer が submit で通ってから ＝ 早ければ 9/26〜27・「数日」なら 10/3〜4 の裁定）
-    期日: 2026-09-26
     ✅ 2026-09-25 引け後に ①〜⑥ を済ませた（利用者の決定「13500t 切り替えはすぐにやってしまう。問題があれば 13500t の方で直す」。記録は [live-trading.md §0-14 (f)](docs/specs/experiments/live-trading.md)・経緯は [DONE.md](DONE.md)）。残りは ⑦ だけ
     - [ ] ⑦ 13500t の最初の本番の回を見る（`trade-runner/logs/trade.log` の `end rc=0`・`orders.jsonl` の `mode: submit`・約定・`reconcile.py --env prod show` で差 0・未完 0。⚠ **Sx360 の Claude**）
-      期日: 2026-09-28 13:00
-      ⚠ rc≠0 なら 13500t の側で直す（利用者の方針）。titan へ戻すのは §0-14 (d)
+      期日: 2026-09-28
+      ✅ 2026-09-26（土）Sx360 の Claude: 月曜の cron の道を発注せずに事前確認 ＝ **全部通った**（`run.sh` の submit の分岐が組む命令は titan の 9/25 と同じ ＋ 許可の `-e`・許可はコンテナと執行器に届く・`live.env` の差は 3 行・差 0・未完 0・印と cron・コード差分に執行の経路なし）。記録は [live-trading.md §0-14 (g)](docs/specs/experiments/live-trading.md)。月曜より前にやることは無い
+      ⚠ 利用者は月曜のその時刻に居ない（2026-09-26「事前にやりたい。問題が起きてもさほど問題ではない」）＝ ⑦ は**後から記録を読む**（時刻は問わない。月曜の夜でも火曜でも同じ）。外へ知らせる見張り `check.sh` は未設置（実売買の親の下の別タスク）
+      ⚠ rc≠0 なら 13500t の側で直す（利用者の方針）。titan へ戻すのは §0-14 (d)（⚠ 2026-09-25 に廃止 ＝ 使わない）
+      閉じるとき: Phase 4 と親を [DONE.md](DONE.md) へ・プラン `three-machines.md` を `archive/` へ
     順（プラン Phase 4）: titan の timer を止め許可を外し印を置く → `live.sqlite` と `state/` を 13500t へ（sha256・Phase 2 の DB は `live.sqlite.phase2-<日付>` に退ける）→ 13500t の `reconcile.py show` で差 0 → `run.sh` の留め金を外し `live.env` を submit → 翌営業日の cron を見る。⚠ 10/3〜4 に延ばすなら期日を直す
     ✅ 2026-09-24: **手順書は [live-trading.md §0-14 (b)](docs/specs/experiments/live-trading.md)**（順 ①〜⑦・だれ・出口。印は `notprod.py set`・写しは `livefs.py backup`〔`cp` しない〕・写すのは DB 1 つ）
   ⚠ **いまの状態**: `~/g3plus-ops` は titan に無い（private。Sx360 にだけある）。2026-09-25 から本番は 13500t（g3plus-ops の `trade-runner/`・`trade-dashboard/` ＝ 旧 `ail-live/`・`ail-dashboard/`）
-  ⚠ **いまの契約と食い違う**（[dashboard.md §7](docs/specs/dashboard.md)）: g3plus に載せるのは**公開面の管理画面だけ**で、⚠ **発注の許可（`TT_ALLOW_PROD_ORDERS` / `TT_ALLOW_PROD_DRY_RUN`）は「置かない env」に挙げられている**。⚠ **実売買をそこで動かすなら §7 を書き換える**（契約の正本はこのリポジトリ側）
+  ✅ 2026-09-26 消したメモ「いまの契約（§7）と食い違う」: K5 で解決済み（公開面は出さずローカル面だけ ＝ [dashboard.md §7-1](docs/specs/dashboard.md)。発注の許可は管理画面ではなく trade-runner の `live.env` にある ＝ §7 の「置かない env」はそのまま守られている）
   - [x] 決めること（⚠ **利用者の裁定。プランより先**）
     ✅ 2026-09-22: プラン §2 で全部決まった（下の 3 つは K4・K5・K6）
     - [x] ⚠ **二重発注をどう防ぐか**（⚠ **いちばん重い**）: 排他（`MODE`・`run.lock`）は**その機械の中のファイル**なので、⚠ **titan と 13500T が両方起きていると、同じ口座に両方が注文を出す**。候補: (a) 売買は 13500T だけ・titan は止める（推す）／ (b) 口座の側で重複を弾く仕掛けを作る（⚠ 設計から）／ (c) 手で切り替える（⚠ 事故が起きる）

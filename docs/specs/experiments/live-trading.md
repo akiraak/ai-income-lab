@@ -1038,10 +1038,26 @@ flowchart LR
 | ④ | titan → Sx360 → 13500t の `~/ai-income-lab-switch/`（sha256 OK 2 回）→ 利用者が管理画面のコンテナ `trade-dashboard` を止め、Phase 2 の DB を退け、写しを `live.sqlite` に置き、起こし直した（healthy）。13500t の `stats` も 133 本・2,038 行。⚠ 退けた `live.sqlite.phase2-2026-09-25` が `git status` に `??` で出た → clone の外（`~/ai-income-lab-switch/`）へ移して作業ツリーは空（上の ④ の注） |
 | ⑤ | 13500t（ホストの python3）で `reconcile.py --env prod show` 5 銘柄とも差 0・未完 0 ／ `notprod.py status` 印なし ／ `MODE`・`HALT`（2 か所）なし ／ 資格情報あり |
 | ⑥ | g3plus-ops の `trade-runner/run.sh`（旧 `ail-live/`）の留め金を外した: `AIL_LIVE_MODE` は plan ／ dry-run ／ submit、submit は `TT_ALLOW_PROD_ORDERS=1` と `--i-know-this-is-real-money` が揃わなければ rc=3・⚠ `TT_ALLOW_PROD_ORDERS` をコンテナに渡す 1 行を足した（無いと許可の段で止まる）→ 13500t へ送り構文 OK・一致。`live.env` は控え `live.env.dry-run-2026-09-25` を取ってから submit（利用者）。cron は平日 06:00 PDT prepare ／ 12:40 PDT trade のまま |
-| ⑦ | ⚠ **未**: 9/28（月）の `trade-runner/logs/trade.log` の `end rc=0`・`orders.jsonl` の `mode: submit`・口座 − 売買履歴 ＝ 0 を見る |
+| ⑦ | ⚠ **未**: 9/28（月）の `trade-runner/logs/trade.log` の `end rc=0`・`orders.jsonl` の `mode: submit`・口座 − 売買履歴 ＝ 0 を見る。⚠ **時刻は問わない**（利用者は月曜のその時刻に居ない ＝ 後から記録を読む。事前確認は下の (g)） |
 
 - titan は ③ の日（9/25）で止まった読むだけの写し。titan の管理画面（3012）は灰の帯
 - 13500t を止めたいときは管理画面の停止ボタン（`HALT`）か、`live.env` を控え `live.env.dry-run-2026-09-25` に戻す。titan へは戻さない（(d) は 2026-09-25 に廃止）
+
+#### (g) ⑦ の前の事前確認【実測 2026-09-26（土）20:20〜20:35 PDT・Sx360 の Claude。利用者の指示「月曜のその時間はできないので、事前にやりたい。問題が起きてもさほど問題ではない」】
+
+月曜の回そのものは NYSE の暦と発注できる時間帯（15:45〜16:05 ET）に縛られるので前倒しできない。代わりに、月曜の cron が通る道のうち **13500t でまだ一度も動いていない部分**（`run.sh` の submit の分岐・許可の受け渡し）を発注せずに確かめた。全部通った ＝ 月曜より前にやることは無い。⑦ は「その時刻に見張る」のではなく後から記録を読む（`trade.log`・`orders.jsonl`・`reconcile.py show` は残る ＝ いつ読んでも同じ）。
+
+| 確かめたこと | やり方 | 結果 |
+| --- | --- | --- |
+| `run.sh` の submit の分岐 | compose の行だけ `echo` に替えた写しを 13500t で `trade` として通した（記録は `/tmp`・本物の `trade.log` は触っていない） | rc=0。組み立てた命令 ＝ `docker compose … run --rm -T -e TT_ALLOW_PROD_ORDERS=1 trade-runner ./run-live.sh --traders T1,T2,T3 --mode submit --wait -- --env prod --i-know-this-is-real-money`（titan の timer が 9/25 に発注を通した引数と同じ） |
+| `live.env` | dry-run の控え `live.env.dry-run-2026-09-25` と diff | 違いは 3 行だけ（`AIL_LIVE_MODE=submit`・`AIL_LIVE_EXTRA=--i-know-this-is-real-money`・`TT_ALLOW_PROD_ORDERS=1`） |
+| 許可がコンテナに届くか | 使い捨てのコンテナで環境変数を印字（何も書かない） | `TT_ALLOW_PROD_ORDERS=1`・uid 1000・cwd はリポジトリ・`live.sqlite` が見える・`/opt/venv` の Python 3.12 |
+| 執行器がその許可を読むか | `ttclient.load_env` を読んだ | `os.environ` を先に読み `.env` は足りない項目だけ ＝ `-e` で足りる（titan は systemd の `EnvironmentFile` で同じ経路を通っていた） |
+| submit の回が作るファイル | `.gitignore`・`auto-update.sh` | `state-backup/`・`run.lock`・`out/`・`live.sqlite*` は ignore ＝ auto-update は「汚れている」で止まらない。15:30〜16:15 ET と trade-runner のコンテナ稼働中は pull しない |
+| 直近の 13500t の回（9/25 dry-run・dafab8a）から `prod`（feaeb43）までのコード差分 | `git diff --name-only` | 10 ファイル全部が文書・`run-deploy.sh`・`run-dashboard-tunnel.sh` ＝ 執行の経路は 0 |
+| 状態（読むだけ） | ssh | 13500t: cron 3 行（06:00 ／ 12:40 PDT・auto-update 15 分おき）・印 ／ `MODE` ／ `HALT` なし・`reconcile.py --env prod show` 5 銘柄とも差 0・未完 0・`trade-dashboard` healthy ／ titan: 印あり（machine=titan・9/25 22:43 UTC）・timer 2 本 disabled・DB は 9/25 15:43 で止まっている |
+
+- ⚠ 月曜に失敗しても外へ知らせる仕組みはまだ無い（`check.sh` は 13500t に未設置 ＝ §0-15 の段 2。healthchecks.io の URL は利用者）。管理画面の帯は 16:15 ET 以降。起こり得るのは「その日は発注しない」か「注文が error で止まる」までで、規模 A の $1,000 の中（利用者「さほど問題ではない」）
 
 ### 0-15. 失敗の知らせ方と、残っていた決めごと（2026-09-25。利用者の指示「全部おススメで直して」。[プラン](../../plans/live-trading-open-decisions.md)）
 

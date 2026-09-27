@@ -86,6 +86,7 @@ tastytrade の本口座で、**トレーダー（Trader）3 人に予算を割�
 - `docs/plans/` — 作業プラン（完了したものは `docs/plans/archive/` へ）
 - `docs/specs/` — 成果物となる仕様・体系
 - `docs/specs/experiments/` — 検証タスクごとの調査結果・試算・判定の記録（1 手法 1 ファイル）
+  - `docs/specs/howto-model-trader.md` — **新しい予測モデルを足す・複数モデルのトレーダーを足す手順書**（2026-09-27。どこに何を書くか・落ちるテスト。しくみの説明は vibeboard の「システム説明」）
 - `experiments/` — 調査用コード（1 手法 1 ディレクトリ）。2026-08-27 の方針変更以降は新規追加の予定なし（例外: `experiments/live-trading/`。2026-09-17 の 2 つ目の例外の執行器）
 - `dashboard/` — **売買システムの管理画面**（実運用の監視 ＋ 開発時の検証）。仕様は `docs/specs/dashboard.md`
 - `vibeboard/` — 開発管理画面（vendor 済み）。`docs/` と `TODO.md` を見るためのもので、`dashboard/` とは別物

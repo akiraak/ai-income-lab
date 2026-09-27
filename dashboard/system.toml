@@ -712,7 +712,7 @@ detail = [
   "シミュレーション ＝ 機械のモード MODE（無ければ real）・run.lock・記録は sim/<名前>/（木の sim.sqlite）に分け全行 sim: true・トレーダー名は sim_ 始まり。sim のとき本物の run_day は許可があっても起動を拒否する（rc=5）。回す機械は資格情報を置かない Sx360（live-trading.md §0-7）。",
   "判定の閾値（20 営業日。プラン §2-4）: 執行価格の差 中央値 ≤ 5bp ／ 紙上 − 実物 ≤ 5bp/日 ／ 人手 0 回 ／ 執行できた日 95% 以上。損益で手法を採らない（数週間では実力とたまたまを見分けられない）。管理画面（dashboard/・3012）が執行器の記録を写して差 1〜4 と損益を出す（dashboard.md §13）。",
 ]
-detail_links = [{ label = "live-trading.md", doc = "docs/specs/experiments/live-trading.md" }, { label = "dashboard.md §13", doc = "docs/specs/dashboard.md" }]
+detail_links = [{ label = "live-trading.md", doc = "docs/specs/experiments/live-trading.md" }, { label = "dashboard.md §13", doc = "docs/specs/dashboard.md" }, { label = "新しいモデル・新しい人を足す手順（howto-model-trader.md）", doc = "docs/specs/howto-model-trader.md" }]
 
 # ================================================================ パート: 名前と識別名（技術的な定義）
 

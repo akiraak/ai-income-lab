@@ -29,6 +29,20 @@
     - [ ] GA の適合度を順位相関以外に替えて回す（⚠ **替えた数だけ n_trials が増えるので、回す前に水準を決める** — [14-9](docs/specs/experiments/feature-discovery/rules.md)）
     - [ ] 検知器に「変換済みの列を受け取る」口を足すか決める（⚠ **出力の契約 14-1 の変更**。設計から。半日〜1 日【推測】）
     - [ ] モデルの構造・ハイパラを進化させるか決める（⚠ **軽いモデルだけ**。⚠ **[13-6 規約 3](docs/specs/experiments/feature-discovery/rules.md)「ハイパーパラメータは動かさない」と 14-11 の書き換えが先**）
+  - [ ] 複数のデータから特定の銘柄のトレンドを当てる深層学習を机上で試す（「目的の系列 ＋ 外生系列」の型 2 本）
+    派生元: 利用者の指示（2026-09-26）: **DeepLearnigで複数のデータが入った中から特定の銘柄のトレンドの予測に使えそうなモデルを調べて** → 調査の結果（下のメモ）を受けて「まずは TODO 化のみ」
+    ⚠ **着手時にプランを作る**（`docs/plans/`。回すと決めるのは結果を見る前・試す形と数・地平を事前固定 ＝ [rules.md 14-9・14-10](docs/specs/experiments/feature-discovery/rules.md)）。TODO 化だけの段階で config・コードは書いていない
+    調査の結論（2026-09-26。【公表値】の取得日はすべて 2026-09-26）: 「複数のデータ → 特定の銘柄」の深層学習は 4 系統 ＝ A 目的 ＋ 外生（TimeXer・TFT・iTransformer・TiDE ／ TSMixer）／ B 断面・グラフ（MASTER・HIST・TRA・GATs・MTGNN）／ C 基盤モデル zero-shot ＋ 共変量（Chronos-2・Moirai-2・TimesFM-2.5 の XReg）／ D 線形対照（DLinear ＝ この案件では ownex の Ridge がその役）。前回の調査 [ts-trend-ai-survey.md](docs/specs/experiments/ts-trend-ai-survey.md) は単変量の系列モデルが中心で、多変量の入力はその空白
+    ⚠ **外部の一次評価は否定的で揃っている**: [QuantBench（arXiv:2504.18600）](https://arxiv.org/abs/2504.18600) ＝ 木 ＋ Alpha101 IC 2.31% ／ Sharpe 0.81 に対し LSTM IC 4.76% ／ Sharpe 0.77（IC は上でも Sharpe は下）・GCN は IC −0.10% ／ 収益 −13.07%・「グラフ構造で一貫した改善は無い」・3 か月ごとの学び直しが最良 ／ [Deep TS Models for Equity Portfolios（arXiv:2606.09420）](https://arxiv.org/abs/2606.09420) ＝ CRSP 2018〜24・15 構造で費用 20bp 後の Sharpe は全モデル負・TS-Ridge が上位と拮抗 ／ [Chronos-2 の多変量金融予測（arXiv:2605.21504）](https://arxiv.org/abs/2605.21504) ＝ Mag-7 の価格水準で共変量あり MAPE 0.0706 ／ 0.0728 対 なし 0.0844 ／ 0.0834（先 21 ／ 63 日）。⚠ 測ったのは水準の誤差で方向でもランダムウォーク対照でもない・著者が学習データに米株が混ざる先読みの可能性を注記・株と金利を混ぜると悪化
+    材料は揃っている: ownex の表（own ＋ cs ＋ rel ＋ ex の 6 源）・seq の 60 日の道筋・63 銘柄の日足 2018〜。⚠ 検知器の口（買い% を直接返す。[rules.md 14-1](docs/specs/experiments/feature-discovery/rules.md)）に PatchTST と同じ形で載せる
+    ⚠ 「トレンド」の長さ: どちらも先 h 日の道筋を分位点で出すので「先 10 営業日を当てにいく」と同じ実行で相乗りできるが、地平は回す前に固定する
+    見送り（理由つき）: 断面・グラフ（外部評価と [feature-discovery §8](docs/specs/experiments/feature-discovery.md) の両方が不振）／ TFT（TimeXer と同系で重い）／ TimesFM の XReg（線形なので Ridge と同じ）／ iTransformer（内生・外生の区別が無い。TimeXer が落ちたら次の候補）
+    関連: 「「今後 2 週間くらい上がりそう ／ 下がりそう」を当てにいく形を机上で試す（予測の対象を先 10 営業日にする）」／ [patchtst-threshold.md](docs/specs/experiments/patchtst-threshold.md)（同じ口・1 fold 19 分【実測】）／ [ts-trend-ai-survey.md §7](docs/specs/experiments/ts-trend-ai-survey.md)
+    - [ ] Chronos-2 zero-shot ＋ 共変量を 1 本（目的 ＝ 銘柄の終値・共変量 ＝ 他 62 銘柄 ＋ 金利・為替を past-only）
+      学習しないので事前固定は文脈長と分位点の読み方だけ。分位点から上がる確率を作り、既存の較正・θ・シミュレータへ。作業 半日〜1 日・実行 数分〜数十分の GPU【推測。公表の A10G で 300 系列/秒から】・n_trials ＋3。Apache 2.0・120M・CPU でも動く（[amazon/chronos-2](https://huggingface.co/amazon/chronos-2)・[arXiv:2510.15821](https://arxiv.org/abs/2510.15821)）
+      ⚠ 判定の前に leak 対照と「共変量なし」の行を並べ、共変量の効きと先読み（学習コーパスの米株）を切り分ける
+    - [ ] TimeXer（教師あり）を 1 本（内生 ＝ 目的銘柄の 60 日の道筋・外生 ＝ 他銘柄 ＋ 外部系列）
+      PatchTST と同じ検知器の口・同じ縮小側の大きさ。作業 1 日・1 fold 20 分前後の GPU【推測。PatchTST 19 分/fold の実測から】・n_trials ＋3。Time-Series-Library（MIT）に実装あり（[NeurIPS 2024](https://proceedings.neurips.cc//paper_files/paper/2024/hash/0113ef4642264adc2e6924a3cbbdf532-Abstract-Conference.html)・[thuml/TimeXer](https://github.com/thuml/TimeXer)）
 
 - [ ] 「今後 2 週間くらい上がりそう ／ 下がりそう」を当てにいく形を机上で試す（予測の対象を先 10 営業日にする）
   利用者の指示（2026-09-20）。きっかけは「システム説明」タブの「点に直す」の段への質問:「短期売買は手数料がかさむのと大きな上昇を見込めないので『明日は上がりそう』という予測は意味がない。『今後 2 週間くらい上がりそう下がりそう』というような予測はできるか？また既にあるか？」。着手時にプランを作る（⚠ 回すと決めるのは結果を見る前・試す形と数を事前に固定する）
@@ -312,7 +326,18 @@
     - [x] Step 3-5: 文書を直す（CLAUDE.md・dashboard.md §17-7 と §18・§9 更新履歴・TOML とコードの頭のコメント）
     - [x] Step 3-6: 通しで確かめる（pytest 4 本 → `run-tests.sh --fast` → sidecar の入れ直し → 3 タブを目で見る）
       ✅ 2026-09-26: pytest 4 本 67 ✅・`run-tests.sh --fast` 237 ✅・`vibetab.py --port 3016` で 4 ページと予測モデルのタブの一覧・リンクを確認。⚠ 動いている sidecar（3015）は古いコードのまま ＝ **vibeboard の入れ直しは利用者**（3010 は端末の前面）。⚠ `[common]` の札は merge でなく `system.toml` へ移した（段はそこにしか無い ＝ 正本 1 本のまま）
-  - [ ] Step 4: 「トレーダーのしくみ」のページを新しく書く（**4 つの集合 ＝ 材料に入れるもの〔株の外の数字も〕／ 学ぶ株 ／ 出力スコアを出す株 ／ 売買する株 の絞り込みの図と表**〔2026-09-26 利用者決定「4 つの集合は重要なので記載する」＝ dashboard.md §18-2〕／ 規模 A ／ B ／ 上限・停止 ／ 変えると新しい人 ／ 設定項目の表。⚠ 値を書かない）
+  - [x] Step 4: 「トレーダーのしくみ」のページを新しく書く（**4 つの集合 ＝ 材料に入れるもの〔株の外の数字も〕／ 学ぶ株 ／ 出力スコアを出す株 ／ 売買する株 の絞り込みの図と表**〔2026-09-26 利用者決定「4 つの集合は重要なので記載する」＝ dashboard.md §18-2〕／ 規模 A ／ B ／ 上限・停止 ／ 変えると新しい人 ／ 設定項目の表。⚠ 値を書かない） [plan](docs/plans/explain-settings-trader-page.md)
+    段は 9 つ（プラン §2-1）: トレーダーの持ち物 5 つ → 売買する株〔4 つの集合を売買する株の側から〕→ 選び方の考え方 → 売買基準値と合わせ方 → 予算と買い方 → 規模 A ／ B → 上限・含み損・停止〔表〕→ 変えると新しい人・呼び名と識別名 → 設定項目の一覧〔表〕。⚠ 各トレーダーの値・呼び名は本文に書かない（1 人ずつはトレーダーのタブ）
+    ✅ 2026-09-26 利用者決定「推しで進めて」＝ 4 つの集合の図は **入れ子の図 `kind = "nest"`**（`figures.py`。パートの塗り分けと凡例は流れ図と共有）。⚠ **Sx360 の作業ツリーで書いた・未コミット**（CLAUDE.md「書いたら push」＝ コミットと push は利用者の依頼で）
+    - [x] Step 4-1: テストを先に直す（`PART_PAGES` に `trader`〔並び overview → model → trader → live → names〕・手厚さ〔図・表・全段に詳しく〕・本文に呼び名 ／ `T\d` ／ くらべる文が無い・入口と描ける）
+      ✅ `test_trader_page_is_about_settings_not_people`（`COMPARING` を trader の本文に流す・4 つの集合の名前が §18-2 と同じ・設定項目の表 ＋ 詳しくの表）・`test_nest_figure`（最小の置き場に段 D）
+    - [x] Step 4-2: 図の種類 `nest`（入れ子の 4 つの四角。箱の文字は TOML・`parts` の塗り分けと凡例は流れ図と同じ）＋ テスト
+      ✅ `figures.nest_svg`・`figure_html` の出し分け。流れ図の塗りと凡例を `_colors` ／ `_legend` に切り出して共有（出力は変えていない ＝ `test_flow_figure_nodes_and_escape` そのまま）
+    - [x] Step 4-3: `system.toml` に `[[page]] trader` を書く（`model` と `live` の間。出どころは live-trading.md §0-1・§0-2・`trader.py`・`[nicks]` のコメント。値は詳しくにだけ【実測】つきで）
+    - [x] Step 4-4: 入口とリンク（`overview` の「準備中」を消して `trader` へのリンク・「全体の流れ」の 1 文・`live` の段 1 のリンクと詳しくの 1 行目を移す・`model` の「4 つの集合」から案内）
+    - [x] Step 4-5: 文書とコメント（dashboard.md §18-1・§18-2・§9・CLAUDE.md・`system.toml` ／ `systemview.py` ／ テストの頭の「Step 4 で書く」）
+    - [x] Step 4-6: 通しで確かめる（pytest 4 本 → `./run-tests.sh --fast` → `vibetab.py --port 3016` で `#system/trader` と入口を目で見る。⚠ sidecar〔3015〕と vibeboard〔3010〕の入れ直しは利用者）
+      ✅ 2026-09-26（Sx360）: `test_system_tab.py` 21 ✅・`run-tests.sh --fast` 239 ✅ ／ 1 ❌（`test_models_tab.py::test_real_detail_plugs_match_the_db`「DB から引けない」＝ ⚠ **この変更と無関係・元の状態でも落ちる**: Sx360 の `runs/research.sqlite` が 0.1 MB・実行 0 の空〔今日 16:57 にできた〕で、テストは「DB が無い ＝ 形だけ見る」に入らず引きに行く。⚠ 空の DB を消すか、テストを「空の DB も無いと同じ」にするかは利用者の裁定）。ページは HTML に描いて 9 段・図 1・表 4・詳しく 9・`<details>` 0 を確かめ、入れ子の図は PNG にして四角の入れ子と塗りを見た。⚠ 3016 ／ 3010 での目視は利用者（sidecar は古いコードのまま）
   - [ ] Step 5: 予測モデル一覧を直す（12 本とも残す。特性の出どころ sim3 を明記・各モデルの組み立てに **材料に入れるもの ／ 学ぶ株 ／ 出力スコアを出す株** を書き分け・「売買する株はトレーダーが決める」の 1 文）
   - [ ] Step 6: トレーダー一覧に文を足す（**売買する株**の本数と選び方・使うモデルが**出力スコアを出す株**との違い・予算の規模・共通のしくみへの案内・「変えるときは新しい人」・`unsettled` を消す・`step_learn` を直す）
   - [ ] Step 7: 用語タブに語を足す（売買基準値・出力スコア・整数株 ／ 金額指定・規模 A ／ B・呼び名・識別名・予測モデル名）と §0-1 を指す `where` の行き先

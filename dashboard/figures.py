@@ -1,7 +1,7 @@
 """vibeboard のタブで使う図（サーバで組むインライン SVG）。仕様は docs/specs/dashboard.md §18-2。
 
 「システム説明」（systemview.py）と「予測モデル」（modelview.py）の両方が使う ＝ 循環しない置き場。
-図は 2 種類 ＝ `flow`（箱と矢印）／ `folds`（期間を分けて、先へ進みながら試す図）。`figure_html` が出し分ける。
+図は 3 種類 ＝ `flow`（箱と矢印）／ `folds`（期間を分けて、先へ進みながら試す図）／ `nest`（入れ子の四角 ＝ 絞り込み。2026-09-26）。`figure_html` が出し分ける。
 
   - ⚠ **箱の文字は TOML・描き方だけがここ**（説明をこのコードに書かない）
   - ⚠ 1 図 1 主張（`claim` を図の直前に出す）・箱は 12 個以内（`MAX_NODES`。超えたぶんは描かない ＝ テストが数える）
@@ -45,6 +45,8 @@ def _wrap(text: str, limit: float) -> list[str]:
 
 # パート（箱の塗り分け。`parts` の並び順で色を当てる。凡例の文字は TOML）
 PART_FILLS = (("#ddf4ff", "#54aeff"), ("#dafbe1", "#4ac26b"), ("#fbefff", "#c297ff"), ("#fff1e5", "#fb8f44"))
+# 箱の種類ごとの塗りと線（`kind`）。無印は灰
+_KIND_FILLS = {"note": ("#fff8c5", "#d4a72c"), "out": ("#ddf4ff", "#2a78d6")}
 
 
 def _part_index(parts: list[dict] | None, key) -> int | None:
@@ -52,6 +54,35 @@ def _part_index(parts: list[dict] | None, key) -> int | None:
         if key and str(p.get("id") or "") == str(key):
             return i
     return None
+
+
+def _parts(parts: list[dict] | None) -> list[dict]:
+    """`[{id, label}, …]` のうち id と label のそろったものを、色の数まで。"""
+    return [p for p in parts or [] if p.get("id") and p.get("label")][:len(PART_FILLS)]
+
+
+def _used_parts(parts: list[dict], boxes: list[dict]) -> list[int]:
+    return [i for i, _p in enumerate(parts) if any(_part_index(parts, b.get("part")) == i for b in boxes)]
+
+
+def _colors(box: dict, parts: list[dict]) -> tuple[str, str]:
+    """箱の塗りと線。パートの色で塗る（`kind = "out"` の箱は線だけ濃いまま）。"""
+    fill, stroke = _KIND_FILLS.get(str(box.get("kind") or ""), ("#f6f8fa", "#8c959f"))
+    pi = _part_index(parts, box.get("part"))
+    if pi is not None:
+        fill, stroke = PART_FILLS[pi][0], (stroke if box.get("kind") == "out" else PART_FILLS[pi][1])
+    return fill, stroke
+
+
+def _legend(parts: list[dict], used: list[int], x: float, ly: float) -> list[str]:
+    """パートの凡例（塗りと文字。文字は TOML の `parts[].label`）。使ったパートだけ。"""
+    out = []
+    for i in used:
+        label = str(parts[i].get("label"))
+        out.append(f"<rect class='legend' x='{x:g}' y='{ly - 10:g}' width='14' height='12' rx='2' fill='{PART_FILLS[i][0]}' stroke='{PART_FILLS[i][1]}'/>"
+                   f"<text x='{x + 19:g}' y='{ly:g}' font-size='11.5' fill='#424a53'>{esc(label)}</text>")
+        x += 19 + _width(label) * 11.5 + 18
+    return out
 
 
 def flow_svg(steps: list[dict], per_row: int = 4, parts: list[dict] | None = None) -> str:
@@ -71,12 +102,11 @@ def flow_svg(steps: list[dict], per_row: int = 4, parts: list[dict] | None = Non
         boxes.append((s, title, sub, 16 + 18 * len(title) + 15 * len(sub) + (4 if sub else 0)))
     rows = [boxes[i:i + per_row] for i in range(0, len(boxes), per_row)]
     heights = [max(b[3] for b in row) for row in rows]
-    parts = [p for p in parts or [] if p.get("id") and p.get("label")][:len(PART_FILLS)]
-    used = [i for i, _p in enumerate(parts) if any(_part_index(parts, s.get("part")) == i for s in steps)]
+    parts = _parts(parts)
+    used = _used_parts(parts, steps)
     legend_h = 24 if used else 0
     width = pad * 2 + per_row * bw + (per_row - 1) * gap
     height = pad * 2 + sum(heights) + gap * (len(rows) - 1) + legend_h
-    fills = {"note": ("#fff8c5", "#d4a72c"), "out": ("#ddf4ff", "#2a78d6")}
     out = [f"<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 {width} {height}' width='{width}' height='{height}' role='img'>",
            "<defs><marker id='ah' viewBox='0 0 10 10' refX='9' refY='5' markerWidth='7' markerHeight='7' orient='auto'>"
            "<path d='M0,0 L10,5 L0,10 z' fill='#57606a'/></marker></defs>"]
@@ -85,10 +115,7 @@ def flow_svg(steps: list[dict], per_row: int = 4, parts: list[dict] | None = Non
         h = heights[r]
         for c, (s, title, sub, _h) in enumerate(row):
             x = pad + c * (bw + gap)
-            fill, stroke = fills.get(str(s.get("kind") or ""), ("#f6f8fa", "#8c959f"))
-            pi = _part_index(parts, s.get("part"))
-            if pi is not None:                   # パートの色で塗る。`kind = "out"` の箱は線だけ濃いまま
-                fill, stroke = PART_FILLS[pi][0], (stroke if s.get("kind") == "out" else PART_FILLS[pi][1])
+            fill, stroke = _colors(s, parts)
             out.append(f"<g class='node'><rect x='{x}' y='{y}' width='{bw}' height='{h}' rx='6' fill='{fill}' stroke='{stroke}'/>")
             ty = y + 22
             for line in title:
@@ -109,13 +136,51 @@ def flow_svg(steps: list[dict], per_row: int = 4, parts: list[dict] | None = Non
                 mid = y + h + gap / 2
                 out.append(f"<path d='M{x0:g},{y0 + 2:g} V{mid:g} H{x1:g} V{y1 - 3:g}' fill='none' stroke='#57606a' stroke-width='1.5' marker-end='url(#ah)'/>")
         y += h + gap
-    if used:                                     # パートの凡例（塗りと文字。文字は TOML の `parts[].label`）
-        x, ly = pad, y - gap + legend_h
-        for i in used:
-            label = str(parts[i].get("label"))
-            out.append(f"<rect class='legend' x='{x}' y='{ly - 10}' width='14' height='12' rx='2' fill='{PART_FILLS[i][0]}' stroke='{PART_FILLS[i][1]}'/>"
-                       f"<text x='{x + 19}' y='{ly}' font-size='11.5' fill='#424a53'>{esc(label)}</text>")
-            x += 19 + _width(label) * 11.5 + 18
+    if used:                                     # パートの凡例（図の下）
+        out += _legend(parts, used, pad, y - gap + legend_h)
+    out.append("</svg>")
+    return "".join(out)
+
+
+def nest_svg(fig: dict) -> str:
+    """入れ子の図（絞り込み ＝ 部分集合）。大きい集合から順に、内側へ小さい四角を描く。⚠ 箱は `MAX_NODES` 個まで。
+
+    箱 ＝ `sets = [{t = 見出し, s = 小さい字, kind = "" | "out", part = パートの id}, …]`（外側から順）。
+    `parts` は `flow_svg` と同じ（塗り分けと凡例）。文字は箱の左上に置き、内側の箱はその下に入る。
+    """
+    sets = [s for s in fig.get("sets") or [] if s.get("t")][:MAX_NODES]
+    if not sets:
+        return ""
+    pad, step, bottom, width = 10, 22, 12, 580
+    labels = []                                  # 集合ごとの見出しの行・小さい字の行・その高さ
+    for i, s in enumerate(sets):
+        inner = width - 2 * (pad + i * step) - 20
+        title, sub = _wrap(s.get("t"), inner / 16.8), _wrap(s.get("s"), inner / 13.0)
+        labels.append((title, sub, 8 + 18 * len(title) + 15 * len(sub) + (3 if sub else 0)))
+    parts = _parts(fig.get("parts"))
+    used = _used_parts(parts, sets)
+    legend_h = 24 if used else 0
+    height = pad * 2 + sum(lh for _t, _s, lh in labels) + bottom * len(sets) + legend_h
+    out = [f"<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 {width} {height}' width='{width}' height='{height}' role='img'>"]
+    y = pad
+    for i, (s, (title, sub, lh)) in enumerate(zip(sets, labels)):
+        x = pad + i * step
+        w = width - 2 * x
+        h = sum(labels[j][2] for j in range(i, len(sets))) + bottom * (len(sets) - i)
+        fill, stroke = _colors(s, parts)
+        out.append(f"<g class='set'><rect x='{x}' y='{y}' width='{w}' height='{h}' rx='8' fill='{fill}' stroke='{stroke}'/>")
+        ty = y + 20
+        for line in title:
+            out.append(f"<text x='{x + 10}' y='{ty}' font-size='14' font-weight='700' fill='#1f2328'>{esc(line)}</text>")
+            ty += 18
+        ty += 1
+        for line in sub:
+            out.append(f"<text x='{x + 10}' y='{ty}' font-size='11.5' fill='#57606a'>{esc(line)}</text>")
+            ty += 15
+        out.append("</g>")
+        y += lh
+    if used:
+        out += _legend(parts, used, pad, height - pad)
     out.append("</svg>")
     return "".join(out)
 
@@ -166,7 +231,12 @@ def figure_html(fig: dict | None) -> str:
     if not fig:
         return ""
     kind = str(fig.get("kind") or "flow")
-    svg = folds_svg(fig) if kind == "folds" else flow_svg(fig.get("steps") or [], int(fig.get("per_row") or 4), fig.get("parts"))
+    if kind == "folds":
+        svg = folds_svg(fig)
+    elif kind == "nest":
+        svg = nest_svg(fig)
+    else:
+        svg = flow_svg(fig.get("steps") or [], int(fig.get("per_row") or 4), fig.get("parts"))
     if not svg:
         return ""
     claim = f"<p class='claim'>{esc(fig.get('claim'))}</p>" if fig.get("claim") else ""

@@ -1,7 +1,8 @@
 """vibeboard の「システム説明」タブ（`dashboard/systemview.py`・`dashboard/system.toml`）の検査。仕様は dashboard.md §18。
 
 見るもの: 本文はやさしい言葉（⚠ `detail*` ＝ 「詳しく（用語あり）」の囲みは検査の外。⚠ 囲みは畳まない ＝ `<details>` にしない）／ 設定の数字と `$` が本文に無い ／
-⚠ **全体像 ＋ パートごとの詳細**（2026-09-26 の利用者の決定。ページは overview → model → live → names〔trader は Step 4〕。各モデル・各トレーダーの説明はしない）／ 図は主張つき・箱 12 個以内 ／
+⚠ **全体像 ＋ パートごとの詳細**（2026-09-26 の利用者の決定。ページは overview → model → trader → live → names。各モデル・各トレーダーの説明はしない ＝
+トレーダーのしくみの本文に呼び名・識別名・くらべる文が無い）／ 図は主張つき・箱 12 個以内（流れ図・期間の図・入れ子の図）／
 リンク先が在る ／ ページの描き方（段・図・表・型ごとの段・台帳の合計）は最小の置き場で ／ TOML と台帳しか開かない ／ 先頭のタブ ／ 経路 ／ 白地。
 """
 
@@ -19,15 +20,15 @@ import modelview
 import systemview
 import traderview
 import vibetab
-from tests.test_traders_tab import FORBIDDEN, _get, _walk
+from tests.test_traders_tab import COMPARING, FORBIDDEN, _get, _walk
 from tests.test_traders_tab import paths as _trader_paths  # noqa: F401（最小の置き場の fixture を借りる）
 
 REPO_ROOT = traderview.REPO_ROOT
 REAL = Path(traderview.DASHBOARD_DIR) / "system.toml"
 # 用語を使ってよい欄（画面では「詳しく」の囲みとリンク先）。ほかは全部、やさしい言葉の検査を受ける
 DETAIL_KEYS = ("detail", "detail_points", "detail_table", "detail_links", "links")
-# パートのページ（2026-09-26 に予測モデルのタブから戻した。system.toml の [[page]]。"trader" は Step 4 で入る）
-PART_PAGES = ("model", "live", "names")
+# パートのページ（2026-09-26 に予測モデルのタブから戻し、同日に "trader" を足した。system.toml の [[page]]）
+PART_PAGES = ("model", "trader", "live", "names")
 PAGES = ("overview", *PART_PAGES)
 
 
@@ -79,9 +80,9 @@ def test_pages_are_overview_then_parts():
 
 
 def test_part_pages_are_deep():
-    """予測モデルのしくみ ／ 実際の売買 は手厚く（前書き・図が 1 つ以上・どの段にも「詳しく」か型ごとのしくみ）＋ 名前と識別名は全段に「詳しく」。"""
+    """予測モデルのしくみ ／ トレーダーのしくみ ／ 実際の売買 は手厚く（前書き・図が 1 つ以上・どの段にも「詳しく」か型ごとのしくみ）＋ 名前と識別名は全段に「詳しく」。"""
     pages = {p["id"]: p for p in _real()["page"]}
-    for i in ("model", "live"):
+    for i in ("model", "trader", "live"):
         assert pages[i].get("lead") and sum(1 for sec in pages[i]["section"] if sec.get("figure")) >= 1, i
         for sec in pages[i]["section"]:
             assert sec.get("title") and (sec.get("detail") or sec.get("models")), (i, sec.get("title"))
@@ -97,6 +98,25 @@ def test_part_pages_are_deep():
     assert "1 日の流れ" in titles and "出力スコアから注文へ" in titles and "出力スコアの読み方" in titles
 
 
+def test_trader_page_is_about_settings_not_people():
+    """トレーダーのしくみ（2026-09-26。Step 4）＝ 共通のしくみと設定項目の意味だけ。本文（詳しくの外）に 呼び名・識別名 T1〜・
+    ほかの人とくらべる言い方が無い（各トレーダーの説明はしない ＝ 1 人ずつはトレーダーのタブ）／ 4 つの集合は入れ子の図 ＋ 表 ／ 設定項目は表 ＋ 詳しくの表。"""
+    page = next(p for p in _real()["page"] if p["id"] == "trader")
+    texts = [(w, t) for w, t in _plain({"page": [page]}) if not w.startswith("common")]
+    hits = [(where, pat) for where, text in texts for pat in COMPARING if re.search(pat, text)]
+    assert not hits, f"トレーダーのしくみの本文に人の名前・くらべる文を書かない: {hits}"
+    assert not [(w, t) for w, t in texts if re.search(r"\bT\d\b", t)], "識別名は詳しくにだけ"
+    secs = {s["title"]: s for s in page["section"]}
+    sets = next(s for t, s in secs.items() if "4 つの集合" in t)
+    assert sets["figure"].get("kind") == "nest" and sets.get("table") and len(sets["figure"]["sets"]) == 4
+    assert [x["t"] for x in sets["figure"]["sets"]] == ["材料に入れるもの", "学ぶ株", "出力スコアを出す株", "売買する株"]   # dashboard.md §18-2 の 4 つの名前
+    items = next(s for t, s in secs.items() if "設定項目" in t)
+    assert items.get("table") and items.get("detail_table")
+    heads = [s["title"] for s in page["section"]]
+    assert heads[0].startswith("トレーダー ＝ モデル ＋ 売買基準値 ＋ 予算") and any("規模" in h for h in heads) and any("停止" in h for h in heads)
+    assert any("新しい人" in h for h in heads) and heads[-1].startswith("設定項目")
+
+
 def test_figures_have_a_claim_and_few_nodes():
     """1 図 1 主張・箱は 12 個以内（CLAUDE.md の図の原則）。models.toml の型ごとの図も同じ。"""
     mdoc = tomllib.loads((Path(traderview.DASHBOARD_DIR) / "models.toml").read_text(encoding="utf-8"))
@@ -106,6 +126,8 @@ def test_figures_have_a_claim_and_few_nodes():
         assert fig.get("claim"), where
         if fig.get("kind", "flow") == "flow":
             assert 2 <= len(fig["steps"]) <= systemview.MAX_NODES and all(x.get("t") for x in fig["steps"]), where
+        elif fig.get("kind") == "nest":
+            assert 2 <= len(fig["sets"]) <= systemview.MAX_NODES and all(x.get("t") for x in fig["sets"]), where
     models = mdoc["model"]
     paths = traderview.TraderPaths.default()
     live = modelview.load(paths)["users"]
@@ -155,6 +177,10 @@ def test_real_part_pages_render():
     assert totals and f"<b>{totals['rows']}</b>" in model                                    # 検証結果一覧の合計は ledger.md から
     live = systemview.body(paths, "live")
     assert "守っていること</h2>" in live and "売買履歴" in live and "帳面" not in live          # O8: 言葉の表（帳面 → 売買履歴）
+    assert "<a href='/#system/trader' target='_top'>" in live and "<a href='/#system/trader' target='_top'>" in model   # 実際の売買・4 つの集合 → トレーダーのしくみ
+    trader = systemview.body(paths, "trader")
+    assert trader.count("<g class='set'>") == 4 and "<table" in trader and "class='legend'" in trader   # 4 つの集合の入れ子の図 ＋ 表
+    assert "<a href='/#traders' target='_top'>" in trader and "<a href='/#system/live' target='_top'>" in trader
     assert "own-seq.t3-quant60.ridge.shared" in systemview.body(paths, "names")              # 予測モデル名（rules.md 10-2）
     assert "ほかのページ" in model and "<a href='/#system/live' target='_top'>" in model
     first = modelview.body(paths, data["models"][0]["id"])
@@ -231,6 +257,15 @@ row = "試し"
 learn = "学ぶ"
 test = "答え合わせ"
 
+[[page.section]]
+title = "段 D"
+
+[page.section.figure]
+kind = "nest"
+claim = "入れ子の図"
+parts = [{ id = "p", label = "パート <P>" }, { id = "q", label = "パート Q" }, { id = "r", label = "使わないパート" }]
+sets = [{ t = "外 <1>", s = "小さい字", part = "p" }, { t = "中", part = "p" }, { t = "内", kind = "out", part = "q" }]
+
 [[page]]
 id = "two"
 label = "ページ 2"
@@ -266,7 +301,7 @@ def test_sidebar_and_unknown_pages(paths):
 def test_section_layout_plain_then_folded_detail(paths):
     body = systemview.body(paths, "one")
     heads = re.findall(r"<h2><span class='no'>(\d)</span>([^<]+)</h2>", body)
-    assert heads == [("1", "段 A"), ("2", "段 B"), ("3", "段 C")]
+    assert heads == [("1", "段 A"), ("2", "段 B"), ("3", "段 C"), ("4", "段 D")]
     assert "<h1>ページ 1 の題</h1>" in body and "前書き &lt;1&gt;" in body
     a = body.split("段 A</h2>")[1].split("<h2>")[0]
     # 本文 → 図（主張が直前）→ 図のあとの文 → 表 → 注意 → リンク → 「詳しく」の囲み（⚠ 畳まない・開いたままだけ ＝ 利用者の指示 2026-09-20）
@@ -304,6 +339,22 @@ def test_folds_figure(paths):
     assert "<p class='claim'>期間の図</p>" in c and c.count("class='learn'") == 3 and c.count("class='test'") == 3
     widths = [float(w) for w in re.findall(r"class='learn' x='\d+' y='\d+' width='([\d.]+)'", c)]
     assert widths == sorted(widths) and widths[0] < widths[-1]               # 学ぶ期間はだんだん長くなる
+
+
+def test_nest_figure(paths):
+    """入れ子の図（2026-09-26。4 つの集合の絞り込み）: 外から内へ四角が小さくなる・箱の文字は TOML・パートの塗りと凡例は流れ図と同じ・12 個まで。"""
+    body = systemview.body(paths, "one")
+    d = body.split("段 D</h2>")[1]
+    assert "<p class='claim'>入れ子の図</p><div class='fig'><svg" in d and d.count("<g class='set'>") == 3
+    assert "外 &lt;1&gt;" in d and "<1>" not in d and "小さい字" in d
+    rects = [(int(x), int(y), int(w), int(h)) for x, y, w, h in re.findall(r"<g class='set'><rect x='(\d+)' y='(\d+)' width='(\d+)' height='(\d+)'", d)]
+    assert [r[0] for r in rects] == sorted(r[0] for r in rects) and [r[2] for r in rects] == sorted((r[2] for r in rects), reverse=True)   # 内側ほど右・細い
+    assert all(a[1] < b[1] and a[1] + a[3] > b[1] + b[3] for a, b in zip(rects, rects[1:]))                                                # 内側は外側の中に収まる
+    assert d.count("class='legend'") == 2 and "パート &lt;P&gt;" in d and "パート Q" in d and "使わないパート" not in d
+    assert d.count(f"fill='{figures.PART_FILLS[0][0]}'") == 3 and d.count(f"fill='{figures.PART_FILLS[1][0]}'") == 2   # 外・中 ＋ 凡例 ／ 内 ＋ 凡例
+    assert figures.nest_svg({"sets": [{"t": f"箱 {i}"} for i in range(20)]}).count("<g class='set'>") == figures.MAX_NODES
+    assert figures.nest_svg({"sets": []}) == "" and figures.figure_html({"kind": "nest", "sets": []}) == ""
+    assert "class='legend'" not in figures.nest_svg({"sets": [{"t": "外"}, {"t": "内"}]})                   # parts が無ければ凡例も無い
 
 
 def test_model_types_come_from_models_toml(paths):

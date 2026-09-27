@@ -62,4 +62,5 @@ flowchart LR
 
 - [x] Phase 1: 決めて記録する（このプラン・TODO・live-trading.md）
 - [x] Phase 2: `check.sh` を作って手元で確かめる（g3plus-ops）
-- [ ] Phase 3: 13500t へ写して cron に 1 行足す・healthchecks.io に登録して URL を `live.env` に書く（⚠ 利用者）
+- [~] Phase 3: 13500t へ写して cron に 1 行足す・healthchecks.io に登録して URL を `live.env` に書く（⚠ 利用者）
+  ✅ 2026-09-27: 写しと cron の 1 行は済み（Sx360 の Claude・利用者の了承。写した `logs/` で 4 日ぶん試験 ＝ 営業日 rc 0 → `0`・土日 closed → `0`）。残るのは healthchecks.io の登録と `live.env` の `AIL_HC_URL`（利用者）

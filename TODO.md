@@ -103,6 +103,7 @@
     - [ ] 13500t の host cron が毎日起きているかを見る（`~/g3plus-ops/trade-runner/logs/{prepare,trade}.log` の `end rc=`。⚠ 2026-09-25 の切り替えから **submit**。起きなかった日はここから数える）
       9/24 ✅ prepare 06:00 PDT rc=0（118 秒）／ trade 12:40 PDT rc=0（15:51:44 ET。10 本 dry-run）
       9/25 ✅ prepare rc=0（117 秒）／ trade rc=0（15:51:44 ET。dry-run の最後の日）
+      9/26・27 は土日 ＝ cron（`1-5`）は起きない【実測 2026-09-27・journal に `run.sh` の行なし ＝ 正しい】。次は 9/28（月）06:00 prepare ／ 12:40 trade ＝ submit の初回（三台の役割分け Phase 4 ⑦）。見張り `check.sh` は 16:20 ET（下の子。9/28 から動く）
     - [x] 起動しなかった日を数える（⚠ 無人運転の成立はこれで測る。管理画面に「起動しなかった日」の考えは既にある ＝ [dashboard.md §13](docs/specs/dashboard.md)）
       ⚠ WSL2 の穴: **Windows を再起動して WSL が寝ていた時刻の回は実行されない**（`Persistent=false` ＝ 発注できる時間帯を過ぎてから起きても発注させない）。⚠ これは正しい挙動だが、**起動しなかった日として数える**必要がある
       関連: 管理画面の見張り「今日の起動が無い」（[dashboard.md §13-8](docs/specs/dashboard.md)）
@@ -115,7 +116,8 @@
       関連: 「いままでのファイル（`experiments/live-trading/out`・`state`…）を消す」
       ✅ 2026-09-25 推す案で決めた（利用者「全部おススメで直して」。[live-trading.md §0-15](docs/specs/experiments/live-trading.md)・[plan](docs/plans/live-trading-open-decisions.md)）: 失敗 ＝ 今日の `end rc=` が無い ／ rc≠0。段 1 ＝ 管理画面の帯（済み）・段 2 ＝ 13500t の cron に見張り `check.sh`（16:20 ET・終了コードだけを healthchecks.io へ。機械が落ちた日は向こうが「来ない」で知らせる）。`run.sh` は変えない
     - [ ] 見張り `check.sh` を入れる（⚠ **利用者**: healthchecks.io に登録 → 13500t の `live.env` に `AIL_HC_URL=https://hc-ping.com/<uuid>`・向こうの日程は Cron 式 `20 13 * * 1-5`・America/Los_Angeles・猶予 1 時間 ／ ⚠ Sx360 の Claude: `trade-runner/check.sh` を 13500t へ scp して crontab に `20 13 * * 1-5 /home/ubuntu/g3plus-ops/trade-runner/check.sh` を足す〔利用者の了承のあと〕）
-      ✅ 2026-09-25: `check.sh` を書いて手元で 6 通り確かめた（rc=0 ／ rc=1 ／ 行なし → `fail` ／ `.old` に回った日 ／ 休場日 ／ 半日立会・URL なし・http の外は拒否）。g3plus-ops はまだコミットしていない
+      ✅ 2026-09-25: `check.sh` を書いて手元で 6 通り確かめた（rc=0 ／ rc=1 ／ 行なし → `fail` ／ `.old` に回った日 ／ 休場日 ／ 半日立会・URL なし・http の外は拒否）。g3plus-ops へは 9/25 23:20 PDT にコミット済み（`55ecfbd`）
+      ✅ 2026-09-27（Sx360 の Claude。利用者の了承「2も了承する」）: `check.sh` を 13500t の `~/g3plus-ops/trade-runner/` へ scp（sha256 `952ed4f7…` ＝ 手元と一致・構文 OK）→ 13500t で `logs/` の写しに対して 4 日ぶん試験（9/24・9/25 ＝ open・rc 0 → `0` ／ 9/26・9/27 ＝ closed → `0`。本物の `checks.log` は書いていない）→ crontab に `20 13 * * 1-5 …/check.sh` を足した（6 行目。手順書 `trade-runner.md` の表と同じ）。**9/28（月）16:20 ET から動く**。⚠ **残るのは利用者**: healthchecks.io に登録（Cron 式 `20 13 * * 1-5`・America/Los_Angeles・猶予 1 時間）→ 13500t の `live.env` に `AIL_HC_URL=https://hc-ping.com/<uuid>`。URL が無い間は `logs/checks.log` に 1 行書くだけ（外へは何も送らない）
       関連: [plan](docs/plans/live-trading-open-decisions.md) Phase 3
   - [x] Phase 0: 定義・停止条件・執行の窓を `docs/specs/experiments/live-trading.md` §0 に書く（⚠ 実際に動かす 3 人の属性は書かない ＝「未設定」）＋ 本番の読み取り・dry-run（端株・小数株・成行・MOC 相当。`sample.py --step dryrun2 --allow-prod-dry-run`。⚠ **利用者が流す**）
     2026-09-17: §0-1〜§0-5 を書いた（定義・上限・窓・停止条件・閾値・試験用 `test_a`・手順書）。`sample.py` に `dryrun2`（手順 10。6 通り）を足した。⚠ **残るのは利用者が `dryrun2` を流して §0-3 の表を埋めること**（結果で `sizing` が決まる）
@@ -141,6 +143,7 @@
   - [ ] Phase 6: 20 営業日の記録と判定（`live-trading.md`。続ける・止める・予算を変えるは利用者。モデルや合成規則の入れ替えは新しい検証として n_trials に足す）
     期日: 2026-10-20
     1 日目 ＝ 2026-09-23。20 営業日目は 2026-10-20（火）【計算。休場日なし】。⚠ 起動しなかった日があれば後ろへずれる（数え方は「起動しなかった日を数える」）
+    ✅ 2026-09-27（Sx360 の Claude）: §1 に 2 日目（9/24）・3 日目（9/25）の行を足した（13500t の DB を読んだ ＝ titan から写した記録。9/24 は意図 0・9/25 は T1 の NKE 1 株の売りが Filled・差 1 0.00・T3 は同じ NKE を持ち続けた）。⚠ 9/24・9/25 は titan の timer の回（9/24 dry-run・9/25 submit）で、13500t の cron は両日とも dry-run（Phase 2 の DB ＝ 退けた）。4 日目は 9/28（月）＝ 13500t の初回
   - [ ] 約定後の実際の手数料を読む（いまは dry-run の見積り ＝ `orders.jsonl` の `amounts.fee_source: "dry_run_estimate"`。`/accounts/{n}/transactions`【記憶・未確認】を sandbox で確かめてから）
     派生元: [plan](docs/plans/archive/live-trading-executor-fixes.md)（利用者の指示 2026-09-19「手数料など金額の内訳も保存するように」）
     ✅ 2026-09-25 推す案で決めた（利用者「全部おススメで直して」。[live-trading.md §0-15](docs/specs/experiments/live-trading.md)・[plan](docs/plans/live-trading-open-decisions.md)）: **10/20 の判定の後**に入れる（20 営業日のあいだは執行器を変えない。整数株の成行の手数料は 1 注文 $0.001 級【実測 §0-3】で判定に効かない）

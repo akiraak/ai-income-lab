@@ -552,7 +552,9 @@ def test_detail_plugs_come_from_run_records(paths, tmp_path):
 
 def test_real_detail_plugs_match_the_db():
     """⚠ **本物の「詳しく」の差し込みはどれも形が正しく、控え（人が写した文字）が DB から引いた値と同じ**。
-    ⚠ 食い違ったら、記録で確かめてから控えを直す（DB を正とする）。`{{` の書き損じも見つける。DB の無い機械では形だけ見る。"""
+    ⚠ 食い違ったら、記録で確かめてから控えを直す（DB を正とする）。`{{` の書き損じも見つける。DB の無い機械では形だけ見る。
+    ⚠ **実行が 0 の DB（`cli.db stats` などが作る中身の無い器）も「DB の無い機械」として扱う**（2026-09-26 に Sx360 の関門が
+    これで落ちた ＝ 突き合わせる相手が無いのに「DB から引けない」と判定していた）。"""
     doc = _real()
     plugs, broken = [], []
     for m in doc["model"]:
@@ -569,6 +571,9 @@ def test_real_detail_plugs_match_the_db():
     facts = modelview.RunFacts(dataclasses.replace(traderview.TraderPaths.default(), research_db=REAL_DB))
     if facts.conn is None:
         pytest.skip("研究の DB が無い機械")
+    if facts.conn.execute("SELECT COUNT(*) FROM runs").fetchone()[0] == 0:
+        facts.close()
+        pytest.skip("研究の DB に実行が 0（中身の無い器）＝ DB の無い機械と同じ")
     bad = []
     for mid, part, x in plugs:
         kind, run, method, field, fmt, fallback = x.groups()

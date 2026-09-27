@@ -42,7 +42,7 @@
     {% endif %}
   </nav>
   <div class="side-foot">
-    {% if face == 'public' %}<span class="pill pill-public">公開面 · Access</span>{% elif auth_mode == 'local' %}<span class="pill pill-local">ローカル面 · 認証なし（LAN）</span>{% else %}<span class="pill pill-local">ローカル面 · ループバックのみ</span>{% endif %}
+    {% if face == 'public' %}<span class="pill pill-public">公開面 · Access</span>{% elif auth_mode == 'cloudflare-local' %}<span class="pill pill-local">ローカル面 · Access</span>{% elif auth_mode == 'local' %}<span class="pill pill-local">ローカル面 · 認証なし（LAN）</span>{% else %}<span class="pill pill-local">ローカル面 · ループバックのみ</span>{% endif %}
     {% if user %}<div class="muted small">{{ user }}</div>{% endif %}
   </div>
 </aside>

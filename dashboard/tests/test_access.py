@@ -95,6 +95,32 @@ async def test_guard_modes():
     bad = token_for(key, "team", "aud-1", "intruder@example.com")
     assert (await _run(g, "172.20.0.3", [(b"cf-access-jwt-assertion", bad.encode())]))[0] == 403
 
+    # cloudflare-local（2026-09-26。13500t の trade.chobi.me）: 検証は cloudflare と同じ・面だけローカル
+    g = AccessGuard(None, _Settings("cloudflare-local"), verifier=v)
+    assert (await _run(g, "127.0.0.1"))[0] == 200
+    assert (await _run(g, "172.18.0.2"))[0] == 403               # cloudflared からでも JWT が無ければ 403
+    assert (await _run(g, "10.0.1.5"))[0] == 403                 # LAN からも同じ（0.0.0.0 で受けても JWT が無ければ入れない）
+    status, state = await _run(g, "172.18.0.2", [(b"cf-access-jwt-assertion", good.encode())])
+    assert status == 200 and state["user"] == "me@example.com" and state["face"] == "local"
+    assert (await _run(g, "172.18.0.2", [(b"cf-access-jwt-assertion", bad.encode())]))[0] == 403
+
+
+def test_settings_modes(tmp_path):
+    """⚠ cloudflare-local も CF_ACCESS_* が 3 つそろわないと起動しない。CF_ACCESS_* があるのに面が違えば起動しない。"""
+    from app.config import ConfigError, load_settings
+    from tests.test_demo import _environ
+
+    cf = dict(CF_ACCESS_TEAM="team", CF_ACCESS_AUD="aud", CF_ACCESS_EMAIL="me@example.com")
+    s = load_settings(_environ(tmp_path, AIL_AUTH_MODE="cloudflare-local", **cf))
+    assert s.auth_mode == "cloudflare-local" and s.face == "local"
+    assert load_settings(_environ(tmp_path, AIL_AUTH_MODE="cloudflare", **cf)).face == "public"
+    with pytest.raises(ConfigError):
+        load_settings(_environ(tmp_path, AIL_AUTH_MODE="cloudflare-local", CF_ACCESS_TEAM="team"))
+    with pytest.raises(ConfigError):
+        load_settings(_environ(tmp_path, AIL_AUTH_MODE="loopback", **cf))
+    with pytest.raises(ConfigError):
+        load_settings(_environ(tmp_path, AIL_AUTH_MODE="access"))
+
 
 @pytest.fixture
 def anyio_backend():

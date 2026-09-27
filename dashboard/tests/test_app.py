@@ -133,6 +133,43 @@ def test_public_face_hides_ops_and_dev(settings):
         assert settings.halt_file.exists()
 
 
+def test_cloudflare_local_face_keeps_ops(settings, monkeypatch):
+    """⚠ cloudflare-local（2026-09-26。13500t の trade.chobi.me）: JWT が無ければ 403 のまま、通った人にはローカル面（/ops・解除も）。
+    履歴の actor は JWT の email。"""
+    import app.access as access
+
+    class _Verifier:
+        def __init__(self, team, aud, email):
+            self.email = email
+
+        def verify(self, token):
+            if token == "good":
+                return {"email": self.email}
+            raise access.AccessError("bad")
+
+    monkeypatch.setattr(access, "CloudflareVerifier", _Verifier)
+    settings.auth_mode = "cloudflare-local"
+    settings.cf_team, settings.cf_aud, settings.cf_email = "team", "aud", "me@example.com"
+    app = create_app(settings, start_monitors=False)
+    with TestClient(app, client=("172.18.0.2", 50000)) as c:          # cloudflared（ゲートウェイ越し）の体
+        assert c.get("/").status_code == 403                            # JWT が無ければ 403
+        assert c.post("/ops/halt", data={"reason": "x"}).status_code == 403
+        h = {"cf-access-jwt-assertion": "bad"}
+        assert c.get("/ops", headers=h).status_code == 403
+        h = {"cf-access-jwt-assertion": "good"}
+        r = c.get("/", headers=h)
+        assert r.status_code == 200 and "ローカル面 · Access" in r.text and "公開面" not in r.text.split("<footer")[0]
+        assert c.get("/ops", headers=h).status_code == 200              # ローカル面 ＝ 操作の画面がある
+        csrf = c.cookies.get("ail_csrf")
+        assert c.post("/ops/halt", data={"csrf": csrf, "reason": "remote"}, headers=h, follow_redirects=False).status_code == 303
+        assert settings.halt_file.exists()
+        assert "me@example.com" in c.get("/ops", headers=h).text        # 履歴の actor は JWT の email
+        assert c.post("/ops/resume", data={"csrf": csrf}, headers=h, follow_redirects=False).status_code == 303
+        assert not settings.halt_file.exists()
+    with TestClient(app, client=("10.0.1.5", 50000)) as c:             # LAN からは JWT が無いので 403（0.0.0.0 で受けても）
+        assert c.get("/").status_code == 403
+
+
 def test_working_orders_exclude_finished(settings, monkeypatch):
     """/orders/live は本日の注文を返し終わったものも混ざる。「働いている注文」はそれを含めない。"""
     from app.main import create_app

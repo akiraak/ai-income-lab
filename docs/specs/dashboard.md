@@ -48,6 +48,7 @@ flowchart TB
 | `loopback`（**既定**） | ループバックのみ | なし | ローカル |
 | `local` | ループバック ＋ RFC1918 | なし（ヘッダに「認証なし」と出す） | ローカル |
 | `cloudflare` | ループバックは免除。それ以外は **全リクエスト（GET 含む）で `Cf-Access-Jwt-Assertion` を検証**（JWKS で RS256、aud・iss・email を照合） | Cloudflare Access | 公開 |
+| `cloudflare-local`（2026-09-26） | `cloudflare` と同じ（検証を緩めない） | Cloudflare Access | **ローカル**（通った人に操作・解除・履歴も。13500t の `trade.chobi.me` ＝ 利用者決定「ローカルのものと同一の機能」。§7-2・[プラン](../plans/dashboard-public-face-13500t.md)） |
 
 - `cloudflare` は `CF_ACCESS_TEAM` / `CF_ACCESS_AUD` / `CF_ACCESS_EMAIL` が**全部そろわないと起動しない**。他のモードで CF_* が置かれていても起動しない（中途半端な設定で素通りさせない）
 - `X-Forwarded-For` は見ない。接続元は cloudflared のコンテナで、そこから先は JWT で決める

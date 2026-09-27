@@ -4,6 +4,8 @@
 - local: ループバックと RFC1918 だけ通す（WSL2 → Windows のブラウザは 172.x から来ることがある）
 - cloudflare: ループバックは免除、それ以外は全リクエスト（GET 含む）で `Cf-Access-Jwt-Assertion` を検証する。
   X-Forwarded-For は見ない（接続元は cloudflared のコンテナで、そこから先は JWT で判定する）
+- cloudflare-local: 判定は cloudflare と同じ。違いは面 ＝ 通った人に**ローカル面と同じ機能**（操作・解除・履歴も）。
+  13500t の trade.chobi.me 用（2026-09-26。docs/plans/dashboard-public-face-13500t.md）。⚠ JWT の検証を緩めない
 
 無認証の /health は作らない（healthcheck はコンテナ内のループバックから叩く）。
 """
@@ -148,7 +150,7 @@ class AccessGuard:
         self.mode = settings.auth_mode
         self.face = settings.face
         self.verifier = verifier
-        if self.mode == "cloudflare" and verifier is None:
+        if self.mode in ("cloudflare", "cloudflare-local") and verifier is None:
             self.verifier = CloudflareVerifier(settings.cf_team, settings.cf_aud, settings.cf_email)
 
     async def __call__(self, scope, receive, send):
@@ -177,7 +179,7 @@ class AccessGuard:
                 state["user"] = "lan"
                 return None
             return "プライベートネットワーク以外からの接続は受け付けない"
-        # cloudflare
+        # cloudflare ／ cloudflare-local（面が違うだけ。検証は同じ）
         token = token_from_scope(scope)
         if not token:
             return "Cf-Access-Jwt-Assertion が無い"

@@ -15,7 +15,10 @@ from pathlib import Path
 DASHBOARD_DIR = Path(__file__).resolve().parents[1]
 REPO_ROOT = DASHBOARD_DIR.parent
 VERSION = "0.1.0"
-AUTH_MODES = ("loopback", "local", "cloudflare")
+# 2026-09-26: cloudflare-local ＝ cloudflare と同じ JWT の検証で、通った人には**ローカル面と同じ機能**（13500t の trade.chobi.me。
+# docs/plans/dashboard-public-face-13500t.md）。公開面（監視と停止だけ）は cloudflare のまま
+AUTH_MODES = ("loopback", "local", "cloudflare", "cloudflare-local")
+CF_MODES = ("cloudflare", "cloudflare-local")
 # モックサーバ（experiments/tastytrade-api-sample/mock_server.py）のポート。開発画面とデモが共用する
 MOCK_PORTS = (8765, 8766, 8767)
 
@@ -72,7 +75,8 @@ class Settings:
 
     @property
     def face(self) -> str:
-        """公開面（cloudflare）かローカル面か。操作・開発の経路はローカル面でしか出さない。"""
+        """公開面（cloudflare）かローカル面か。操作・開発の経路はローカル面でしか出さない。
+        ⚠ cloudflare-local は JWT を検証するがローカル面（Access を通った人に全部の機能。2026-09-26）。"""
         return "public" if self.auth_mode == "cloudflare" else "local"
 
     @property
@@ -201,12 +205,12 @@ def load_settings(environ: dict | None = None) -> Settings:
     if auth_mode not in AUTH_MODES:
         raise ConfigError(f"AIL_AUTH_MODE は {'/'.join(AUTH_MODES)} のどれか: {auth_mode!r}")
     cf = {k: (env.get(k) or "").strip() or None for k in ("CF_ACCESS_TEAM", "CF_ACCESS_AUD", "CF_ACCESS_EMAIL")}
-    if auth_mode == "cloudflare" and not all(cf.values()):
+    if auth_mode in CF_MODES and not all(cf.values()):
         missing = [k for k, v in cf.items() if not v]
-        raise ConfigError(f"AIL_AUTH_MODE=cloudflare には {', '.join(missing)} が要る（3 つ全部そろえる）")
-    if auth_mode != "cloudflare" and any(cf.values()):
+        raise ConfigError(f"AIL_AUTH_MODE={auth_mode} には {', '.join(missing)} が要る（3 つ全部そろえる）")
+    if auth_mode not in CF_MODES and any(cf.values()):
         # 中途半端な設定は素通りより起動失敗のほうが安全
-        raise ConfigError("CF_ACCESS_* が設定されているのに AIL_AUTH_MODE が cloudflare でない")
+        raise ConfigError("CF_ACCESS_* が設定されているのに AIL_AUTH_MODE が cloudflare ／ cloudflare-local でない")
 
     data_dir = Path(env.get("AIL_DATA_DIR") or DASHBOARD_DIR / "data").resolve()
     # 記録の既定: 開発機ではサンプルの out/（sample.py の既定と同じ場所）、Docker では data/records

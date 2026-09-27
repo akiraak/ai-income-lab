@@ -109,7 +109,7 @@ cp .env.example .env                                   # AIL_AUTH_MODE=local（�
 - **シミュレーションモード**（2026-09-19）: 機械のモード（`experiments/live-trading/MODE`）が sim の間、管理画面は `sim/<名前>/` だけを読み、全ページの最上部に青緑の帯・`<title>` に `[SIM]`・数字に「仮」の印・`/api/*` に `mode`（`app/simmode.py`。リクエストごとに読む）。⚠ **表示だけ**（切り替え・速さ・停止は CLI の `simctl.py`）。⚠ **1 つの画面に本物とシミュレーションを混ぜない**（モードと木が食い違えば数字を出さない）。⚠ 公開面は `MODE` を読まない。仕様は `docs/specs/dashboard.md` §13-6・§15-11
 - **実行の一覧の部品**（`app/experiments.py`。画面は vibeboard の実行タブ。管理画面の `/experiments` は 2026-09-18 に消した）は `experiments/feature-discovery/runs/research.sqlite` を**読み取り専用で読むだけ**（`AIL_RUNS_DIR` ＝ DB の置き場）。**スコアは最良手法（基準線を除く）の純利 bp** で、fold の符号・上乗せ t・実効標本数・デフレーテッド SR を横に並べる。⚠ **検査は実験側が `checks.json` に書いたものを読むだけ**（管理画面に pandas / scipy を入れない）。仕様は `docs/specs/dashboard.md` §10
 - **資格情報なしでも動く（デモ）**: 資格情報が無いか `AIL_DEMO=1` なら、起動時にモックサーバを立てて全画面にモックのデータを出す（帯に「デモ」）。データは `data/demo/` に分ける。仕様 §6-2。実売買の画面は執行器のモックの記録（`dashboard/demo/live/`）を読む（`AIL_LIVE_DIR` を指定したときはそれ）
-- 面は `AIL_AUTH_MODE`: `loopback`（既定）/ `local`（＋ LAN）/ `cloudflare`（公開面。Access の JWT を全リクエストで検証。**監視と停止だけ**）
+- 面は `AIL_AUTH_MODE`: `loopback`（既定）/ `local`（＋ LAN）/ `cloudflare`（公開面。Access の JWT を全リクエストで検証。**監視と停止だけ**）/ `cloudflare-local`（2026-09-26。検証は `cloudflare` と同じで、通った人には**ローカル面と同じ機能**。13500t の `trade.chobi.me` 用 ＝ 利用者決定「ローカルのものと同一の機能」。[プラン](docs/plans/dashboard-public-face-13500t.md)）
 - **停止ボタン** ＝ 記録ディレクトリに `HALT` を書き、働いている注文を全部取り消す。`sample.py` も `HALT` があると発注系の手順を拒否する
 - 本番の許可はサンプルと同じ 3 段（dry-run `TT_ALLOW_PROD_DRY_RUN=1` / 取消 `allow_prod_cancel` / 発注 `TT_ALLOW_PROD_ORDERS=1` ＋ 確認文）。**取消の許可では発注できない**。⚠ **管理画面が使うのは取消の許可（停止ボタン）だけ**（2026-09-18。dry-run と発注の許可は執行器と `sample.py` のもの）
 - 秘密（client secret・トークン・口座番号）はブラウザに送らない。全応答が `Redactor` を通る

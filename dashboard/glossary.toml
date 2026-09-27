@@ -64,7 +64,7 @@ note = "このプロジェクトの決めごと。文書を読む前に知って
 
   [[section.term]]
   name = "面（loopback / local / cloudflare）"
-  short = "管理画面をどこまで開けるかの 3 段。公開面（cloudflare）では監視と停止だけを出す。"
+  short = "管理画面をどこまで開けるかの段。公開面（cloudflare）は監視と停止だけ。cloudflare-local は同じ検証で、通った人にローカル面と同じ機能。"
   doc = "docs/specs/dashboard.md"
   where = "§2 権限の設計"
 

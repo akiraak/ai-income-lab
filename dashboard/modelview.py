@@ -1,9 +1,9 @@
 """vibeboard の「予測モデル」タブの画面（HTML の body）。仕様は docs/specs/dashboard.md §17。
 
-**一覧 ＋ しくみのページ ＋ モデル 1 本 1 ページ**。モデルの「型」ごとに、何を見て・どう答えを出し・過去のデータで試したらどうだったかを、やさしい言葉で出す。
-⚠ **しくみのページ**（どのモデルにも共通 ＝ モデルを作る ／ 過去のデータで確かめる ／ 実際の売買で使う ／ 名前と識別名）は、2026-09-21 に
-「システム説明」タブから移した（利用者の指示「システム説明は概要だけにする」）。言葉は `models.toml` の `[[page]]`。ページの描き方
-（段・図・表・「詳しく」・検証結果一覧の合計・型ごとのしくみ）はここにあり、「システム説明」の概要（`systemview.py`）も同じものを使う。
+**一覧 ＋ モデル 1 本 1 ページ**。モデルの「型」ごとに、何を見て・どう答えを出し・過去のデータで試したらどうだったかを、やさしい言葉で出す。
+⚠ どのモデルにも共通のしくみ（予測モデルのしくみ ／ 実際の売買 ／ 名前と識別名）は「システム説明」タブ（`systemview.py`・`system.toml` の
+`[[page]]`）にある（2026-09-21 にこちらへ移し、2026-09-26 に戻した ＝ 利用者の決定「システム説明 ＝ 全体像 ＋ 各パートの詳細」）。
+ページの描き方（段・図・表・「詳しく」・検証結果一覧の合計・型ごとのしくみ ＝ `page_body`）はここにあり、「システム説明」がそれを使う。
 2026-09-20 に手厚くした（利用者の裁定）: 図（入れるもの → 計算 → 出力スコア）／ このモデルの組み立て（軸の表）／ 小さな例で段を追う ／
 出力スコアの出かたと読み方 ／ 試した経緯の表 ／ 大見出しごとの「詳しく（用語あり）」の囲み（⚠ **畳まない**）。⚠ **欄の無いモデルは、その部分を出さないだけ**。
 
@@ -125,16 +125,12 @@ def _paras(items) -> str:
     return "".join(f"<p>{esc(t)}</p>" for t in items or [] if t)
 
 
-# ---------------------------------------------------------------- ページ（しくみのページ・システム説明の概要）
+# ---------------------------------------------------------------- ページ（システム説明。`systemview.py` がここを使う）
 #
 # 形: [[page]]（id・label・sub・title・lead）→ [[page.section]]（title・text・points・after・note・models・ledger・links・
 #     detail・detail_points・detail_links）→ [page.section.figure] ／ [page.section.table] ／ [page.section.detail_table]。
 #     `models = true` の段 ＝ いま使っている型ごとのしくみ（文は [[model]] から写す）。`ledger = true` の段 ＝ 検証結果一覧の合計（ledger.md から読む）
-
-
-def guide_pages(paths: TraderPaths) -> list[dict]:
-    """しくみのページ（`models.toml` の `[[page]]`）。"""
-    return [p for p in traderview._load(paths.models).get("page", []) if ID_PATTERN.match(str(p.get("id") or ""))]
+#     ⚠ 段が使う札（`no_live_models`・`ledger_*`）はページのある TOML（system.toml）の [common]。`open_page` だけ models.toml の [common]
 
 
 def ledger_totals(paths: TraderPaths) -> dict | None:
@@ -258,12 +254,10 @@ def _verdict_tag(common: dict, m: dict) -> str:
 
 
 def sidebar(paths: TraderPaths) -> dict:
-    """一覧 → しくみのページ（どのモデルにも共通）→ いま使っている → 机上で試した。"""
+    """一覧 → いま使っている → 机上で試した（共通のしくみは「システム説明」タブ ＝ 2026-09-26）。"""
     data = load(paths)
     common, show = data["common"], _show_result(data["common"])
     items = [{"id": LIST_ID, "label": str(common.get("list_title") or "一覧")}]
-    items += [{"id": p["id"], "label": str(p.get("label") or p["id"]), "sub": str(p.get("sub") or ""),
-               "group": str(common.get("group_guide") or "")} for p in guide_pages(paths)]
     for m in data["models"]:
         group = common.get("group_live") if m["id"] in data["users"] else common.get("group_desk")
         items.append({"id": m["id"], "label": str(m.get("label") or m["id"]), "group": str(group or ""),
@@ -546,7 +540,7 @@ def _score(common: dict, m: dict) -> str:
     if score.get("read"):
         out.append(f"<h3>{esc(common.get('score_read') or '読み方')}</h3>{_paras(score['read'])}")
     if common.get("score_link"):
-        out.append(_links([{"label": common["score_link"], "tab": "models", "item": "live"}]))
+        out.append(_links([{"label": common["score_link"], "tab": "system", "item": "live"}]))
     return "".join(out)
 
 
@@ -613,7 +607,7 @@ def _model_body(paths: TraderPaths, data: dict, m: dict, facts: "RunFacts | None
     out.append(f"<h3>答えの出し方</h3><p>{esc(m.get('how'))}</p>")
     out.append(_walk(common, m))
     if common.get("flow_link"):                  # 全部のモデルに共通の流れは「システム説明」に書いてある（二重に書かない）
-        out.append(_links([{"label": common["flow_link"], "tab": "models", "item": "build"}]))
+        out.append(_links([{"label": common["flow_link"], "tab": "system", "item": "model"}]))
     out.append(_detail(common, m, "how", facts))
 
     no = 4
@@ -654,10 +648,6 @@ def _model_body(paths: TraderPaths, data: dict, m: dict, facts: "RunFacts | None
 def body(paths: TraderPaths, item: str) -> str | None:
     if item == LIST_ID:
         return list_body(paths)
-    pages = guide_pages(paths)
-    page = next((p for p in pages if p["id"] == item), None)
-    if page is not None:                             # しくみのページ（⚠ id は [[model]] と重ねない ＝ テスト）
-        return page_body(load(paths)["common"], paths, page, pages, traderview.MODEL_URL)
     return model_body(paths, item)
 
 

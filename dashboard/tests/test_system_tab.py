@@ -1,7 +1,7 @@
 """vibeboard の「システム説明」タブ（`dashboard/systemview.py`・`dashboard/system.toml`）の検査。仕様は dashboard.md §18。
 
 見るもの: 本文はやさしい言葉（⚠ `detail*` ＝ 「詳しく（用語あり）」の囲みは検査の外。⚠ 囲みは畳まない ＝ `<details>` にしない）／ 設定の数字と `$` が本文に無い ／
-⚠ **概要の 1 ページだけ**（2026-09-21 の利用者の指示。モデルの話は予測モデルのタブのしくみのページ ＝ test_models_tab.py）／ 図は主張つき・箱 12 個以内 ／
+⚠ **全体像 ＋ パートごとの詳細**（2026-09-26 の利用者の決定。ページは overview → model → live → names〔trader は Step 4〕。各モデル・各トレーダーの説明はしない）／ 図は主張つき・箱 12 個以内 ／
 リンク先が在る ／ ページの描き方（段・図・表・型ごとの段・台帳の合計）は最小の置き場で ／ TOML と台帳しか開かない ／ 先頭のタブ ／ 経路 ／ 白地。
 """
 
@@ -14,6 +14,7 @@ from pathlib import Path
 
 import pytest
 
+import figures
 import modelview
 import systemview
 import traderview
@@ -25,8 +26,9 @@ REPO_ROOT = traderview.REPO_ROOT
 REAL = Path(traderview.DASHBOARD_DIR) / "system.toml"
 # 用語を使ってよい欄（画面では「詳しく」の囲みとリンク先）。ほかは全部、やさしい言葉の検査を受ける
 DETAIL_KEYS = ("detail", "detail_points", "detail_table", "detail_links", "links")
-# しくみのページ（2026-09-21 にこのタブから予測モデルのタブへ移した。models.toml の [[page]]）
-GUIDE_PAGES = ("build", "verify", "live", "names")
+# パートのページ（2026-09-26 に予測モデルのタブから戻した。system.toml の [[page]]。"trader" は Step 4 で入る）
+PART_PAGES = ("model", "live", "names")
+PAGES = ("overview", *PART_PAGES)
 
 
 def _real() -> dict:
@@ -63,13 +65,36 @@ def test_the_model_output_is_called_output_score():
     assert not [(where, text) for where, text in texts if re.search(r"(?<!出力)スコア", text)]
 
 
-def test_only_the_overview():
-    """⚠ **概要の 1 ページだけ**（2026-09-21 の利用者の指示「システム説明は概要だけにする」）。モデルの話のページはここに無い。"""
+def test_pages_are_overview_then_parts():
+    """全体像 → パートごとの詳細（2026-09-26 の利用者の決定）。しくみのページは models.toml に無い。"""
     pages = [p["id"] for p in _real()["page"]]
-    assert pages == ["overview"]
-    assert not set(GUIDE_PAGES) & set(pages)
-    overview = _real()["page"][0]
-    assert overview.get("lead") and all(s.get("title") for s in overview["section"])
+    assert pages == list(PAGES)
+    mdoc = tomllib.loads((Path(traderview.DASHBOARD_DIR) / "models.toml").read_text(encoding="utf-8"))
+    assert not mdoc.get("page")
+    for p in _real()["page"]:
+        assert p.get("lead") and all(s.get("title") for s in p["section"]), p["id"]
+    # id はモデルのページの id と重ねない（URL の #system/<id>）・一覧の id でもない
+    model_ids = {m["id"] for m in mdoc["model"]}
+    assert not set(pages) & model_ids and modelview.LIST_ID not in pages and len(set(pages)) == len(pages)
+
+
+def test_part_pages_are_deep():
+    """予測モデルのしくみ ／ 実際の売買 は手厚く（前書き・図が 1 つ以上・どの段にも「詳しく」か型ごとのしくみ）＋ 名前と識別名は全段に「詳しく」。"""
+    pages = {p["id"]: p for p in _real()["page"]}
+    for i in ("model", "live"):
+        assert pages[i].get("lead") and sum(1 for sec in pages[i]["section"] if sec.get("figure")) >= 1, i
+        for sec in pages[i]["section"]:
+            assert sec.get("title") and (sec.get("detail") or sec.get("models")), (i, sec.get("title"))
+    assert pages["names"].get("lead") and all(sec.get("detail") for sec in pages["names"]["section"])
+    # 予測モデルのしくみ ＝ 作る（5 段・型ごとのしくみ）→ 確かめる（期間の図・検証結果一覧の合計）の 1 ページ（2026-09-26「1 と 2 はどちらもモデルの話」）
+    model = pages["model"]["section"]
+    assert any(sec.get("models") is True for sec in model) and any(sec.get("ledger") is True for sec in model)
+    kinds = [sec["figure"].get("kind", "flow") for sec in model if sec.get("figure")]
+    assert "flow" in kinds and "folds" in kinds
+    # 実際の売買 ＝ モデルの話の段 ＋ 守っていること（概要から移した）
+    titles = [sec["title"] for sec in pages["live"]["section"]]
+    assert titles[0].startswith("トレーダー ＝ モデル ＋ 売買基準値 ＋ 予算") and titles[-1] == "守っていること"
+    assert "1 日の流れ" in titles and "出力スコアから注文へ" in titles and "出力スコアの読み方" in titles
 
 
 def test_figures_have_a_claim_and_few_nodes():
@@ -106,16 +131,36 @@ def test_links_point_at_real_things():
                         assert link["item"] in model_ids, link
 
 
-def test_real_overview_renders_and_points_at_the_model_pages():
+def test_real_overview_is_the_entrance_to_the_parts():
     paths = traderview.TraderPaths.default()
-    assert [i["id"] for i in systemview.sidebar(paths)["items"]] == ["overview"]
+    assert [i["id"] for i in systemview.sidebar(paths)["items"]] == list(PAGES)
     overview = systemview.body(paths, "overview")
-    assert "<svg" in overview and "class='big'" not in overview and "<table" not in overview     # 全体は簡単に（結論の数字・タブの表は置かない ＝ 利用者の指示）
-    for page in GUIDE_PAGES:                                                                 # モデルの話は予測モデルのタブのしくみのページへ
-        assert f"<a href='/#models/{page}' target='_top'>" in overview, page
-    assert "/#system/" not in overview and "ほかのページ" not in overview                    # 1 ページだけ ＝ ほかのページの並びは出ない
-    for gone in GUIDE_PAGES:
-        assert systemview.body(paths, gone) is None
+    assert "<svg" in overview and "class='big'" not in overview and "<table" not in overview     # 全体は簡単に（結論の数字・表は置かない ＝ 利用者の指示）
+    for page in PART_PAGES:                                                                  # 各パートへの入口
+        assert f"<a href='/#system/{page}' target='_top'>" in overview, page
+    assert "class='legend'" in overview and "予測モデル" in overview                        # 流れの図はパートで塗り分け・凡例つき
+    assert "<a href='/#models/all' target='_top'>" in overview and "<a href='/#traders' target='_top'>" in overview
+    assert "/#models/build" not in overview and "/#models/live" not in overview
+
+
+def test_real_part_pages_render():
+    """作る ＝ 型ごとのしくみは [[model]] から ／ 確かめる ＝ 検証結果一覧の合計は ledger.md から ／ 名前 ＝ 予測モデル名 ／ モデルのページからここへ飛べる。"""
+    paths = traderview.TraderPaths.default()
+    data = modelview.load(paths)
+    model = systemview.body(paths, "model")
+    for m in data["models"]:
+        if m["id"] in data["users"]:
+            assert m["label"] in model and f"/#models/{m['id']}" in model                   # 型ごとのしくみは [[model]] から
+    totals = systemview.ledger_totals(paths)
+    assert totals and f"<b>{totals['rows']}</b>" in model                                    # 検証結果一覧の合計は ledger.md から
+    live = systemview.body(paths, "live")
+    assert "守っていること</h2>" in live and "売買履歴" in live and "帳面" not in live          # O8: 言葉の表（帳面 → 売買履歴）
+    assert "own-seq.t3-quant60.ridge.shared" in systemview.body(paths, "names")              # 予測モデル名（rules.md 10-2）
+    assert "ほかのページ" in model and "<a href='/#system/live' target='_top'>" in model
+    first = modelview.body(paths, data["models"][0]["id"])
+    assert "<a href='/#system/model' target='_top'>" in first and "/#models/build" not in first   # モデルのページから共通の流れへ
+    assert [i["id"] for i in modelview.sidebar(paths)["items"]][:1] == [modelview.LIST_ID]
+    assert not {"build", "verify"} & {i["id"] for i in modelview.sidebar(paths)["items"]}   # 予測モデルのタブにしくみの束は無い
 
 
 def test_system_tab_is_first_in_vibeboard_config():
@@ -245,6 +290,12 @@ def test_flow_figure_nodes_and_escape(paths):
     assert systemview.flow_svg([]) == "" and systemview.figure_html({"steps": []}) == ""
     long = systemview.flow_svg([{"t": "とても長い見出しの箱がここにあります", "s": "小さい字もとても長くて 1 行には入りきらない長さです"}])
     assert long.count("<text") >= 4                                          # 箱の中で折り返す
+    # パートで塗り分け（2026-09-26）: `part` の箱はパートの色・凡例は使ったパートだけ・文字は TOML から
+    parts = [{"id": "p", "label": "パート <P>"}, {"id": "q", "label": "使わないパート"}]
+    colored = systemview.flow_svg([{"t": "箱 1", "part": "p"}, {"t": "箱 2"}, {"t": "箱 3", "kind": "out", "part": "p"}], parts=parts)
+    assert colored.count("class='legend'") == 1 and "パート &lt;P&gt;" in colored and "使わないパート" not in colored
+    assert colored.count(f"fill='{figures.PART_FILLS[0][0]}'") == 3           # 箱 1・箱 3 ＋ 凡例。箱 2 は今までどおり
+    assert "class='legend'" not in svg                                        # parts が無ければ凡例も無い
 
 
 def test_folds_figure(paths):

@@ -43,10 +43,22 @@ def _wrap(text: str, limit: float) -> list[str]:
     return lines + [cur] if cur else lines
 
 
-def flow_svg(steps: list[dict], per_row: int = 4) -> str:
+# パート（箱の塗り分け。`parts` の並び順で色を当てる。凡例の文字は TOML）
+PART_FILLS = (("#ddf4ff", "#54aeff"), ("#dafbe1", "#4ac26b"), ("#fbefff", "#c297ff"), ("#fff1e5", "#fb8f44"))
+
+
+def _part_index(parts: list[dict] | None, key) -> int | None:
+    for i, p in enumerate(parts or []):
+        if key and str(p.get("id") or "") == str(key):
+            return i
+    return None
+
+
+def flow_svg(steps: list[dict], per_row: int = 4, parts: list[dict] | None = None) -> str:
     """箱と矢印の流れ図。左から右へ、`per_row` 個で折り返す。⚠ 箱は `MAX_NODES` 個まで。
 
-    箱 ＝ `{t = 見出し, s = 小さい字, kind = "" | "note" | "out"}`。
+    箱 ＝ `{t = 見出し, s = 小さい字, kind = "" | "note" | "out", part = パートの id}`。
+    `parts` ＝ `[{id, label}, …]`（2026-09-26。全体像の図でパートの境を塗り分ける。凡例を図の下に出す。`part` の無い箱は今までどおり）。
     """
     steps = [s for s in steps or [] if s.get("t")][:MAX_NODES]
     if not steps:
@@ -59,8 +71,11 @@ def flow_svg(steps: list[dict], per_row: int = 4) -> str:
         boxes.append((s, title, sub, 16 + 18 * len(title) + 15 * len(sub) + (4 if sub else 0)))
     rows = [boxes[i:i + per_row] for i in range(0, len(boxes), per_row)]
     heights = [max(b[3] for b in row) for row in rows]
+    parts = [p for p in parts or [] if p.get("id") and p.get("label")][:len(PART_FILLS)]
+    used = [i for i, _p in enumerate(parts) if any(_part_index(parts, s.get("part")) == i for s in steps)]
+    legend_h = 24 if used else 0
     width = pad * 2 + per_row * bw + (per_row - 1) * gap
-    height = pad * 2 + sum(heights) + gap * (len(rows) - 1)
+    height = pad * 2 + sum(heights) + gap * (len(rows) - 1) + legend_h
     fills = {"note": ("#fff8c5", "#d4a72c"), "out": ("#ddf4ff", "#2a78d6")}
     out = [f"<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 {width} {height}' width='{width}' height='{height}' role='img'>",
            "<defs><marker id='ah' viewBox='0 0 10 10' refX='9' refY='5' markerWidth='7' markerHeight='7' orient='auto'>"
@@ -71,6 +86,9 @@ def flow_svg(steps: list[dict], per_row: int = 4) -> str:
         for c, (s, title, sub, _h) in enumerate(row):
             x = pad + c * (bw + gap)
             fill, stroke = fills.get(str(s.get("kind") or ""), ("#f6f8fa", "#8c959f"))
+            pi = _part_index(parts, s.get("part"))
+            if pi is not None:                   # パートの色で塗る。`kind = "out"` の箱は線だけ濃いまま
+                fill, stroke = PART_FILLS[pi][0], (stroke if s.get("kind") == "out" else PART_FILLS[pi][1])
             out.append(f"<g class='node'><rect x='{x}' y='{y}' width='{bw}' height='{h}' rx='6' fill='{fill}' stroke='{stroke}'/>")
             ty = y + 22
             for line in title:
@@ -91,13 +109,20 @@ def flow_svg(steps: list[dict], per_row: int = 4) -> str:
                 mid = y + h + gap / 2
                 out.append(f"<path d='M{x0:g},{y0 + 2:g} V{mid:g} H{x1:g} V{y1 - 3:g}' fill='none' stroke='#57606a' stroke-width='1.5' marker-end='url(#ah)'/>")
         y += h + gap
+    if used:                                     # パートの凡例（塗りと文字。文字は TOML の `parts[].label`）
+        x, ly = pad, y - gap + legend_h
+        for i in used:
+            label = str(parts[i].get("label"))
+            out.append(f"<rect class='legend' x='{x}' y='{ly - 10}' width='14' height='12' rx='2' fill='{PART_FILLS[i][0]}' stroke='{PART_FILLS[i][1]}'/>"
+                       f"<text x='{x + 19}' y='{ly}' font-size='11.5' fill='#424a53'>{esc(label)}</text>")
+            x += 19 + _width(label) * 11.5 + 18
     out.append("</svg>")
     return "".join(out)
 
 
-def flow_html(steps: list[dict] | None, claim: str | None = None, per_row: int = 4) -> str:
+def flow_html(steps: list[dict] | None, claim: str | None = None, per_row: int = 4, parts: list[dict] | None = None) -> str:
     """主張（図の直前）＋ 流れ図。箱が無ければ何も出さない。"""
-    svg = flow_svg(steps or [], per_row)
+    svg = flow_svg(steps or [], per_row, parts)
     if not svg:
         return ""
     return (f"<p class='claim'>{esc(claim)}</p>" if claim else "") + f"<div class='fig'>{svg}</div>"
@@ -141,7 +166,7 @@ def figure_html(fig: dict | None) -> str:
     if not fig:
         return ""
     kind = str(fig.get("kind") or "flow")
-    svg = folds_svg(fig) if kind == "folds" else flow_svg(fig.get("steps") or [], int(fig.get("per_row") or 4))
+    svg = folds_svg(fig) if kind == "folds" else flow_svg(fig.get("steps") or [], int(fig.get("per_row") or 4), fig.get("parts"))
     if not svg:
         return ""
     claim = f"<p class='claim'>{esc(fig.get('claim'))}</p>" if fig.get("claim") else ""

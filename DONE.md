@@ -1,4 +1,16 @@
 # DONE
+- 2026-09-27 Phase 2-1b: 買う線と売る線を別に置く（先 10 日の 6 本 × 3 組 ＝ 18 検証）[plan](docs/plans/archive/threshold-pairs.md)（利用者の指示「ownex × Ridge 60 の判定で買い。ownex × Ridge 50 の判定で売り」→「買いと売りの閾値を別の値にしたもので検証してください」。titan の Claude）
+  - 事前固定（[rules.md 18 章](docs/specs/experiments/feature-discovery/rules.md)・記録 [forward10-target.md §7](docs/specs/experiments/forward10-target.md)。回す前）: 組 (55, 50)・(60, 50)・(60, 55)〔買い線, 売り線〕× Phase 2-1 の 6 本。売り ＝ 買い% < 100 − 売り線。表は作り直さない（`features_from`）。ownex × Ridge だけにすると結果を見て最良を選んだことになるので 6 本全部
+  - 足したコード（既定経路は 1 ビットも変えない ＝ `test_trading_run.py` の指紋）: `simulate(exit_threshold=)`・`cli/run.py` の `threshold_pairs`（`exit_line_pairs`・`exit_line_name`・`_row`）・`names.py` の `〔売り線N〕` → `-outN`。テスト `tests/test_exit_line.py` 8 本
+  - 結果【実測】: **18 検証とも落とす**。n_trials **685 → 703**。売る線を上げると 17 組で同じ買う線の対称の行より悪化（例 ownex × Ridge (60, 50) −1,030 対 θ60 −960bp/fold。取引 42 → 138 回/fold・保有の中央値 83 → 10 日）。見立て 5 つは 3 当たり・1 半分・1 外れ（「θ60 より負けが小さい」は 6 本中 5 本で逆）。leak 6/6 跳ねた。対称の 18 行は同じ実行で 1 つも動かず再現
+  - 読み: 線の置き方は情報を作らない。降りる合図に情報が無いまま早く降りると、休む日が増えたぶん上げを取り損ねる。本番に売る線を入れる理由は無い（親プラン §7 の `threshold_exit` は保留のまま）
+- 2026-09-27 Phase 2-1: 「今後 2 週間くらい上がりそう ／ 下がりそう」を当てにいく形を机上で試す（予測の対象を先 10 営業日にする）[記録](docs/specs/experiments/forward10-target.md)（親「titan を使って、新規の予測モデルと、複数の予測モデルを持ったトレーダーを作成する方法を確立する」[plan](docs/plans/new-model-trader.md) の Phase 2 の 1 つ目。titan の Claude）
+  - 利用者の指示（2026-09-20）「短期売買は手数料がかさむのと大きな上昇を見込めないので『明日は上がりそう』という予測は意味がない。『今後 2 週間くらい上がりそう下がりそう』というような予測はできるか？また既にあるか？」。答え: **無かった → 作れた → 効かなかった**
+  - 事前固定（K4・記録 §0。回す前）: 3 表（own 35 ／ ownex 124 ／ ownseq 95 ＝ T1〜T3 が見ている数字）× 学習器 2（Ridge ／ LightGBM）× θ 3 ＝ 18 検証。学習の対象 `y_fwd_10`・損益の対象は 1 日のまま・パージ 15 暦日・検知器 1 本 `H1 先10日ゲート（全列・学習）`（`ail/detectors/fwd.py`。⚠ D1〜D4 は 1 文字も変えない）・綴り `h1-gate10`
+  - 結果【実測】: **採る 0 ／ 保留 2 ／ 落とす 16**。最良 ownex × Ridge × θ50 ＋100.5bp/fold（2/5・t 0.90）。乱択ゲートには ＋307bp 勝つ（t 1.35）が対 B&H は fold 2/5 ＝ 多重検定を通していない良い数字。⚠ 最初の報告は `random_gate.mean_bp`（＝ 手法 − 乱択）を逆に読んで「乱択以下」と書いた → 同日に訂正（記録 §1 の訂正の注）。門は 6 本とも門前（AUC 0.487〜0.510）。leak 対照 6/6 跳ねた（＋7,194〜＋8,070bp・t 12.6〜15.9）。**n_trials 667 → 685**。見立て 5 つは 4 当たり・1 半分（取引は減ったが保有の中央値は 2 日のまま）。負けの主因は今回も手数料ではなく点に情報が無いこと
+  - かかった時間（titan）: 表 6 本 3 分 16 秒 ／ queue 12 本 2 分 44 秒 ／ `cli.predict` 63 行 32 秒 ／ 研究側テスト 148 本 65 秒 ／ dashboard 60 本。⚠ 見積り（1 時間）の 1/20
+  - 見つかったこと（手順書 Phase 6 に写す。記録 §4・§5）: (a) 先を当てる形（`label_scales`）の表は既存の表を `features_from` で読めない ＝ 表の持ち主を作り直す ／ (b) 表の尻が 10 本短くなるので fold の切れ目がずれ、検証結果一覧の基準線の行に「⚠ N 実行・幅 14.40bp」の印が付く（計算の変更ではない）／ (c) `cli.predict` の訓練は asof の 10 営業日前まで ＝ プラン §3 の「Phase 3 に効く穴」を実測で確認
+  - 作ったもの: `ail/detectors/fwd.py`・`tests/test_fwd.py`（6 本）・`config/experiment/trade_{own,ownex,ownseq}_fwd10_{ridge,lgbm}_a.toml`・`config/queue/fwd10.toml`・`config/names.toml` 1 行・`dashboard/models.toml` の `[[model]] fwd10-gate`・`ledger.md`（吐き直し）・記録 `forward10-target.md`
 - 2026-09-27 仕様書 `live-trading.md` の重複した説明を削る [plan](docs/plans/archive/explain-settings-spec-dedupe.md)（「売買に使うトレーダーやモデルの設定などの説明を分かりやすく書く」Step 8 の提案の実施）
   - 利用者決定 2026-09-27「全部おススメで直して」＝ 提案 §5 の 4 問: 削る 4（A2・B1・B7・B10）は削る ／ B4 は触らず B9 だけ行ごとに詰める ／ D3 は「T3 QUANT（60日窓）」に直す（登録名は CLAUDE.md「変えないもの」＝ 規則への回復）／ O6 に「いま売買するのは 5 本」の注
   - 直す前に確かめたこと（titan の Claude）: §0〜§0-2 は提案の 09-26 時点から無変更・A2 と B7 は 09-21 の確定で嘘・`aggregate` は実売買のコードに無い・属性の表は `system.toml`「設定項目の一覧」に検査の規則つきで載っている・誤記「60日発注できる時間帯」は仕様書の 1 か所だけ

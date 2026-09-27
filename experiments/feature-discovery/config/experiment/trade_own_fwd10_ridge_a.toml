@@ -1,0 +1,47 @@
+# ⚠ **先 10 営業日を当てにいく形**（記録 `docs/specs/experiments/forward10-target.md` §0。利用者の指示 2026-09-20
+# 「今後 2 週間くらい上がりそう下がりそう、というような予測はできるか？」）。決めごと K4 ＝ 3 表 × 2 学習器 × θ 3 ＝ 18 検証。
+#
+# ⚠ **動かす軸は 1 つだけ — 学習の対象**（1 日 → 先 10 営業日 `y_fwd_10`）。見る数字は T1 と同じ own 35 列を全部。
+# ⚠ **損益の対象は今までどおり 1 日**（13-4 のシミュレータを変えない。rules.md 15-3）。
+# ⚠ **この 1 本が表の持ち主**（`y_fwd_10` の列が要るので own_2018 を `features_from` で読めない。説明変数の式は同じ・尻が 10 本短い）。
+#    `trade_own_fwd10_lgbm_a` が features_from でこの表を読む。
+# ⚠ **パージは 10 営業日を暦で覆う 15 日**（rules.md 14-7・15-4。10 × 1.5 × 1440 分）。
+# ⚠ **門は測って記録するが、門前でも回す**（既定 ＝ 診断。回した 3 検証は全部数える。14-10 規約 2）。
+#
+# ⚠ **TOML の平の key はテーブル見出しより上に書く**（rules.md 10 章 規約 1）
+name = "trade_own_fwd10_ridge_a"
+dataset = "daily"
+horizon = 1                    # ⚠ 損益のラベルは 1 日のまま
+cost_bp = 5.0
+start_date = "2018-01-31"      # ⚠ own_2018 と同じ（期間を揃える）
+
+feature_layers = ["own"]
+label_scales = [10]            # ⚠ 学習の対象（先 10 本の累積リターン）。⚠ **説明変数ではない**（接頭辞 y_fwd_ で外れる）
+targets = "all"
+
+horizon_min = 21600.0          # ⚠ パージ = 15 日 × 1440 分（営業日 10 本を暦で覆う）
+bar_minutes = 1440.0
+
+# ⚠ **検知器 1 本**（rules.md 14-1 の契約 ＝ 買い% 1 本。表の全列 → model → Platt）。⚠ **1 × 3 閾値 = 3 検証**
+detectors = ["H1 先10日ゲート（全列・学習）"]
+
+model = "Ridge"
+baselines = ["常に上（ドリフト）", "直前リターンの符号"]
+
+[trading]
+style = "threshold"
+thresholds = [50, 55, 60]      # ⚠ 事前固定。結果を見て動かさない（rules.md 13-3）
+form = "shared"                # (A) 銘柄共通 1 本
+
+[validation]
+split = "walk_forward_dates"   # ⚠ fold の切れ目は日付で決める（rules.md 13-6 の 1）
+folds = 5
+purge = true
+embargo_bars = 0
+seed = 0
+
+[features]
+ex_lag_days = 1
+ex_zero_fill = ["usgs"]
+ex_transforms = ["d1", "z20"]
+ex_max_stale_days = 7

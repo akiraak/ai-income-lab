@@ -1,0 +1,40 @@
+# ⚠ **先 10 営業日を当てにいく形・own 35 列 × LightGBM**（記録 `docs/specs/experiments/forward10-target.md` §0。K4 の 18 検証の 3 つ）。
+# ⚠ **表は trade_own_fwd10_ridge_a のものを読む**（features_from。`y_fwd_10` を持つ表。作り直さない）。
+# ⚠ 学習器以外は trade_own_fwd10_ridge_a と同じ（そちらの頭の注意書きを読む）。
+#
+# ⚠ **TOML の平の key はテーブル見出しより上に書く**（rules.md 10 章 規約 1）
+name = "trade_own_fwd10_lgbm_a"
+dataset = "daily"
+horizon = 1
+cost_bp = 5.0
+features_from = "trade_own_fwd10_ridge_a"   # ⚠ 表は持ち主のものを読む（y_fwd_10 つき）
+
+feature_layers = ["own"]
+label_scales = [10]
+targets = "all"
+
+horizon_min = 21600.0          # ⚠ パージ = 15 日 × 1440 分（営業日 10 本を暦で覆う）
+bar_minutes = 1440.0
+
+detectors = ["H1 先10日ゲート（全列・学習）"]
+
+model = "LightGBM"
+baselines = ["常に上（ドリフト）", "直前リターンの符号"]
+
+[trading]
+style = "threshold"
+thresholds = [50, 55, 60]      # ⚠ 事前固定。結果を見て動かさない（rules.md 13-3）
+form = "shared"                # (A) 銘柄共通 1 本
+
+[validation]
+split = "walk_forward_dates"   # ⚠ fold の切れ目は日付で決める（rules.md 13-6 の 1）
+folds = 5
+purge = true
+embargo_bars = 0
+seed = 0
+
+[features]
+ex_lag_days = 1
+ex_zero_fill = ["usgs"]
+ex_transforms = ["d1", "z20"]
+ex_max_stale_days = 7

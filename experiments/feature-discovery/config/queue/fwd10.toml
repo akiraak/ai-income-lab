@@ -1,0 +1,14 @@
+# ⚠ **先 10 営業日を当てにいく形の 6 本**（記録 `docs/specs/experiments/forward10-target.md` §0。決めごと K4 ＝ 利用者決定 2026-09-27）。
+# 事前固定は記録の §0（⚠ **回すと決めたのは結果を見る前**。n_trials ＋18 ＝ 3 表 × 2 学習器 × θ 3）。
+# ⚠ 表 3 つ（＋ leak 対照の表 3 つ）は先に `cli.build` で作る（`y_fwd_10` の列が要る。記録 §0-4 のコマンド）。
+# ⚠ **順は手間の小さい順**（14-10 規約 4）: own → ownex → ownseq、各 Ridge → LightGBM。
+experiments = [
+  "trade_own_fwd10_ridge_a", "trade_own_fwd10_lgbm_a",
+  "trade_ownex_fwd10_ridge_a", "trade_ownex_fwd10_lgbm_a",
+  "trade_ownseq_fwd10_ridge_a", "trade_ownseq_fwd10_lgbm_a",
+]
+
+leak = true              # ⚠ 配線の穴に気づく唯一の手。切らない
+ledger = false           # ⚠ 台帳は終わってから 1 回吐く（キューの中で吐くと「閉じる」注記の SystemExit で止まりうる）
+max_failures = 2
+time_budget_s = 14400    # ⚠ 見積り 1 時間【推測。Ridge 6 本 × 1 分 ＋ LightGBM 6 本 × 10 分（門の 5 fit ＋ 5 fold × 2 fit）】の 4 倍

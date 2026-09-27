@@ -193,6 +193,9 @@ def evaluate_trading(panel: pd.DataFrame, feats: list[str], exp: dict, run: runs
 
     t = exp["trading"]
     thresholds = [float(x) for x in t.get("thresholds", (50.0, 55.0, 60.0))]
+    # ⚠ **買う線と売る線を別に置く**（rules.md 18 章。2026-09-27）: `threshold_pairs = [[買い線, 売り線], …]`。
+    # ⚠ **無い config は経路が 1 行も変わらない**（上位 K と同じ形。行は既存の行の後に足すだけ）
+    pairs = exit_line_pairs(t, thresholds)
     form = str(t.get("form", "shared"))
     v = exp.get("validation", {})
     k = int(exp.get("k", 8))
@@ -235,6 +238,83 @@ def evaluate_trading(panel: pd.DataFrame, feats: list[str], exp: dict, run: runs
             baselines=baselines, form=form, k=k, groups=groups, f=f, picked=picked, log=run.log)
         run.fitted(f"calibration_f{f}", fitted_doc)     # ⚠ 再現用。次の実行では読み込まない（13-2 の 3）
 
+        def _row(name: str, base: str, bp, ex, hit: float, ic: float, th: float, th_exit: float | None = None):
+            """手法 × 買う線 θ（× 売る線）の 1 行ぶん。⚠ **`th_exit` が None なら 2026-09-27 より前の経路と同一**
+            （`simulate` に `exit_threshold` を渡さない）。売る線を持つ行は名前を `〔売り線N〕` で分ける（rules.md 18-2）。"""
+            kw = {} if th_exit is None else {"exit_threshold": th_exit}
+            nets: dict[str, pd.Series] = {}
+            grosses: dict[str, pd.Series] = {}
+            rands: dict[str, pd.Series] = {}
+            poss: dict[str, pd.Series] = {}
+            revs: dict[str, pd.Series] = {}
+            trades, pos_days, days, rand_trades, rev_trades = 0, 0, 0, 0, 0
+            # ⚠ 乱択ゲートの種は config の種。⚠ **引く順は `groups` の並びで決まる**（再現する）
+            rng = np.random.default_rng(seed)
+            for s, idx in groups.items():
+                if np.isnan(bp[idx]).any():        # 飛ばした銘柄（(B) で訓練が無い）
+                    continue
+                if ex is not None and np.isnan(ex[idx]).any():
+                    continue                       # ⚠ 出口% が欠けた銘柄も同じく飛ばす
+                r = sim.simulate(bp[idx], y[idx], th, cost_bp,
+                                 exit_pct=None if ex is None else ex[idx], **kw)
+                rg = sim.shifted_gate(r["pos"], y[idx], cost_bp, rng)   # 14-6 の b
+                # ⚠ **逆売買**（rules.md 14-3 の (3)。診断列・採否に使わない・試行に数えない）:
+                # ⚠ **入口% と出口% を入れ替えて同じ状態機械を回すだけ**（`simulate` 本体は触らない）。
+                # θ ≥ 50 では元の売買の補集合になる（reverse-trading.md §1）
+                rv = sim.simulate(ex[idx] if ex is not None else 100.0 - bp[idx], y[idx], th, cost_bp,
+                                  exit_pct=bp[idx], **kw)
+                key, stamp = str(s), ts_te.iloc[idx].values
+                nets[key] = pd.Series(r["net_bp"], index=stamp)
+                grosses[key] = pd.Series(r["gross_bp"], index=stamp)
+                rands[key] = pd.Series(rg["net_bp"], index=stamp)
+                poss[key] = pd.Series(r["pos"].astype(float), index=stamp)
+                revs[key] = pd.Series(rv["net_bp"], index=stamp)
+                trades += r["trades"]
+                rand_trades += rg["trades"]
+                rev_trades += rv["trades"]
+                pos_days += int(r["pos"].sum())
+                days += len(idx)
+                hd = r["hold_days"]
+                sym_out.append({"手法": name, "閾値": th, "fold": f, "銘柄": key,
+                                "純利bp": round(float(r["net_bp"].sum()), 4),
+                                "粗利bp": round(float(r["gross_bp"].sum()), 4),
+                                "取引回数": r["trades"],
+                                "保有日率": round(r["hold_ratio"], 4),
+                                "見送り日数": r["skip_days"],
+                                # ⚠ 以下は 2026-09-17 に末尾へ足した列（既存列の値は変えない）
+                                "保有日数中央値": float(np.median(hd)) if hd else np.nan,
+                                "保有日数最短": int(min(hd)) if hd else np.nan,
+                                "保有日数最長": int(max(hd)) if hd else np.nan,
+                                "逆売買純利bp": round(float(rv["net_bp"].sum()), 4)})
+                # ⚠ **1 取引 1 行**（holds.csv）。強制清算は最後の 1 取引だけ（13-4 の 4）
+                for i, (k_days, e_idx) in enumerate(zip(hd, r["entry_idx"])):
+                    holds_out.append({"手法": name, "閾値": th, "fold": f, "銘柄": key,
+                                      "建てた日": str(pd.Timestamp(stamp[e_idx]).date()),
+                                      "保有日数": int(k_days),
+                                      "強制清算": bool(r["forced_close"] and i == len(hd) - 1)})
+            if not nets:
+                return
+            port_net = sim.portfolio_daily(nets)
+            port_gross = sim.portfolio_daily(grosses)
+            port_rand = sim.portfolio_daily(rands)
+            port_rev = sim.portfolio_daily(revs)
+            daily.setdefault((name, th), []).append(port_net)
+            extra["hold"].setdefault((name, th), []).append(sim.portfolio_daily(poss))
+            extra["rand"].setdefault((name, th), []).append(port_rand)
+            extra.setdefault("rev", {}).setdefault((name, th), []).append(port_rev)
+            out.append({"手法": name, "fold": f, "閾値": th,
+                        "選んだ本数": n_cols.get(base, 0.0), "的中率": hit, "IC": ic,
+                        "粗利bp": float(port_gross.sum()), "純利bp": float(port_net.sum()),
+                        "取引回数": trades,
+                        "保有日率": pos_days / days if days else 0.0,
+                        "検証日数": int(len(port_net)),
+                        # ⚠ **基準線の診断**（14-6 b）。⚠ **採否には使わない**
+                        "乱択ゲート純利bp": float(port_rand.sum()),
+                        "乱択ゲート取引回数": rand_trades,
+                        # ⚠ **逆売買の診断列**（14-3 の (3)）。⚠ **採否に使わない・試行に数えない**
+                        "逆売買純利bp": float(port_rev.sum()),
+                        "逆売買取引回数": rev_trades})
+
         for mname, bp in buy.items():
             ex = exits.get(mname)                  # ⚠ None なら 100 − 入口%（rules.md 16-1 の 4）
             ok = ~np.isnan(bp)
@@ -242,78 +322,12 @@ def evaluate_trading(panel: pd.DataFrame, feats: list[str], exp: dict, run: runs
             ic = (float(np.corrcoef(bp[ok], y[ok])[0, 1])
                   if ok.any() and np.std(bp[ok]) > 0 else 0.0)
             for th in thresholds:
-                nets: dict[str, pd.Series] = {}
-                grosses: dict[str, pd.Series] = {}
-                rands: dict[str, pd.Series] = {}
-                poss: dict[str, pd.Series] = {}
-                revs: dict[str, pd.Series] = {}
-                trades, pos_days, days, rand_trades, rev_trades = 0, 0, 0, 0, 0
-                # ⚠ 乱択ゲートの種は config の種。⚠ **引く順は `groups` の並びで決まる**（再現する）
-                rng = np.random.default_rng(seed)
-                for s, idx in groups.items():
-                    if np.isnan(bp[idx]).any():        # 飛ばした銘柄（(B) で訓練が無い）
-                        continue
-                    if ex is not None and np.isnan(ex[idx]).any():
-                        continue                       # ⚠ 出口% が欠けた銘柄も同じく飛ばす
-                    r = sim.simulate(bp[idx], y[idx], th, cost_bp,
-                                     exit_pct=None if ex is None else ex[idx])
-                    rg = sim.shifted_gate(r["pos"], y[idx], cost_bp, rng)   # 14-6 の b
-                    # ⚠ **逆売買**（rules.md 14-3 の (3)。診断列・採否に使わない・試行に数えない）:
-                    # ⚠ **入口% と出口% を入れ替えて同じ状態機械を回すだけ**（`simulate` 本体は触らない）。
-                    # θ ≥ 50 では元の売買の補集合になる（reverse-trading.md §1）
-                    rv = sim.simulate(ex[idx] if ex is not None else 100.0 - bp[idx], y[idx], th, cost_bp,
-                                      exit_pct=bp[idx])
-                    key, stamp = str(s), ts_te.iloc[idx].values
-                    nets[key] = pd.Series(r["net_bp"], index=stamp)
-                    grosses[key] = pd.Series(r["gross_bp"], index=stamp)
-                    rands[key] = pd.Series(rg["net_bp"], index=stamp)
-                    poss[key] = pd.Series(r["pos"].astype(float), index=stamp)
-                    revs[key] = pd.Series(rv["net_bp"], index=stamp)
-                    trades += r["trades"]
-                    rand_trades += rg["trades"]
-                    rev_trades += rv["trades"]
-                    pos_days += int(r["pos"].sum())
-                    days += len(idx)
-                    hd = r["hold_days"]
-                    sym_out.append({"手法": mname, "閾値": th, "fold": f, "銘柄": key,
-                                    "純利bp": round(float(r["net_bp"].sum()), 4),
-                                    "粗利bp": round(float(r["gross_bp"].sum()), 4),
-                                    "取引回数": r["trades"],
-                                    "保有日率": round(r["hold_ratio"], 4),
-                                    "見送り日数": r["skip_days"],
-                                    # ⚠ 以下は 2026-09-17 に末尾へ足した列（既存列の値は変えない）
-                                    "保有日数中央値": float(np.median(hd)) if hd else np.nan,
-                                    "保有日数最短": int(min(hd)) if hd else np.nan,
-                                    "保有日数最長": int(max(hd)) if hd else np.nan,
-                                    "逆売買純利bp": round(float(rv["net_bp"].sum()), 4)})
-                    # ⚠ **1 取引 1 行**（holds.csv）。強制清算は最後の 1 取引だけ（13-4 の 4）
-                    for i, (k_days, e_idx) in enumerate(zip(hd, r["entry_idx"])):
-                        holds_out.append({"手法": mname, "閾値": th, "fold": f, "銘柄": key,
-                                          "建てた日": str(pd.Timestamp(stamp[e_idx]).date()),
-                                          "保有日数": int(k_days),
-                                          "強制清算": bool(r["forced_close"] and i == len(hd) - 1)})
-                if not nets:
-                    continue
-                port_net = sim.portfolio_daily(nets)
-                port_gross = sim.portfolio_daily(grosses)
-                port_rand = sim.portfolio_daily(rands)
-                port_rev = sim.portfolio_daily(revs)
-                daily.setdefault((mname, th), []).append(port_net)
-                extra["hold"].setdefault((mname, th), []).append(sim.portfolio_daily(poss))
-                extra["rand"].setdefault((mname, th), []).append(port_rand)
-                extra.setdefault("rev", {}).setdefault((mname, th), []).append(port_rev)
-                out.append({"手法": mname, "fold": f, "閾値": th,
-                            "選んだ本数": n_cols.get(mname, 0.0), "的中率": hit, "IC": ic,
-                            "粗利bp": float(port_gross.sum()), "純利bp": float(port_net.sum()),
-                            "取引回数": trades,
-                            "保有日率": pos_days / days if days else 0.0,
-                            "検証日数": int(len(port_net)),
-                            # ⚠ **基準線の診断**（14-6 b）。⚠ **採否には使わない**
-                            "乱択ゲート純利bp": float(port_rand.sum()),
-                            "乱択ゲート取引回数": rand_trades,
-                            # ⚠ **逆売買の診断列**（14-3 の (3)）。⚠ **採否に使わない・試行に数えない**
-                            "逆売買純利bp": float(port_rev.sum()),
-                            "逆売買取引回数": rev_trades})
+                _row(mname, mname, bp, ex, hit, ic, th)
+            # ⚠ **買う線と売る線を別に置く行**（rules.md 18 章）。⚠ **既存の行を作り終えた後に足すだけ**。
+            # 基準線（常に上 ／ 直前符号 ／ 乱択）は通さない（0 か 100 の買い% では線の置き方が効かない）
+            if pairs and not (mname.startswith("基準 ") or mname == "乱択（基準）"):
+                for th_in, th_out in pairs:
+                    _row(exit_line_name(mname, th_out), mname, bp, ex, hit, ic, th_in, th_out)
         if t.get("top_k"):
             # ⚠ **上位 K**（rules.md 17 章）。⚠ **既存の行を作り終えた後に足すだけ**（`top_k` の無い config は
             # ここを通らないので、既存の経路は 1 行も変わらない）
@@ -336,6 +350,26 @@ def evaluate_trading(panel: pd.DataFrame, feats: list[str], exp: dict, run: runs
                   .reset_index().set_index("手法")
                   .sort_values("純利bp", ascending=False).round(4))
     return res, pd.DataFrame(sym_out), summary, daily, extra
+
+
+def exit_line_pairs(t: dict, thresholds: list[float]) -> list[tuple[float, float]]:
+    """`[trading] threshold_pairs = [[買い線, 売り線], …]`（rules.md 18-1）。⚠ **無ければ空 ＝ 既存の経路**。
+
+    買い線は `thresholds` に在るもの（対 B&H の上乗せは同じ θ の B&H 行と比べる）／ 売り線は 50 以上で買い線と別の値
+    （同じなら 13 章の行そのもの ＝ 二重に数える）。⚠ **組は事前固定。結果を見て足さない**（14-9）。
+    """
+    pairs = [(float(a), float(b)) for a, b in (t.get("threshold_pairs") or [])]
+    for a, b in pairs:
+        if a not in thresholds:
+            raise SystemExit(f"⚠ threshold_pairs の買い線 {a:g} が thresholds に無い（rules.md 18-1 の 2）")
+        if b < 50.0 or b == a:
+            raise SystemExit(f"⚠ threshold_pairs の売り線 {b:g} は 50 以上・買い線 {a:g} と別の値だけ（rules.md 18-1 の 3）")
+    return pairs
+
+
+def exit_line_name(method: str, th_out: float) -> str:
+    """⚠ **売る線は手法名に入れる**（rules.md 18-2。鍵に列は足さない。上位 K の `〔…〕` と同じ形）。閾値の列は買う線。"""
+    return f"{method}〔売り線{th_out:g}〕"
 
 
 TOPK_RANDOM_SEEDS = 5        # ⚠ 基準線「乱択上位 K」は種 5 つの平均（rules.md 17-4。事前固定）

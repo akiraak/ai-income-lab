@@ -19,7 +19,8 @@ import numpy as np
 import pandas as pd
 
 
-def simulate(buy_pct, y, threshold: float, cost_bp: float = 5.0, exit_pct=None) -> dict:
+def simulate(buy_pct, y, threshold: float, cost_bp: float = 5.0, exit_pct=None,
+             exit_threshold: float | None = None) -> dict:
     """1 銘柄 × 1 fold を状態機械で回す。
 
     buy_pct: 入口%（0〜100 の系列・時刻順。⚠ **未保有の日に読む**）。y: その日のリターン（対数）。
@@ -31,6 +32,8 @@ def simulate(buy_pct, y, threshold: float, cost_bp: float = 5.0, exit_pct=None) 
     hold_days（1 取引ごとの保有日数の list。足 t で建て t+k で手仕舞えば k。`sum == pos.sum()`・`len == trades`）・
     entry_idx（建てた足の添字の list。`hold_days` と同じ長さ）・
     forced_close（末尾で保有中のまま強制清算したか。True なら `hold_days[-1]` は右側で打ち切られた観測）。
+    ⚠ **2026-09-27 に `exit_threshold` を足した**（rules.md 18 章 ＝ 買う線と売る線を別に置く）: 出口% と比べる θ を
+    別に受ける（省けば `threshold` ＝ 既存と 1 ビットも変わらない）。買う線 ＝ 入口% > threshold ／ 売る線 ＝ 出口% > exit_threshold。
     """
     if threshold < 50.0:
         raise ValueError(f"θ = {threshold} は受けない。⚠ **θ は 50% 以上だけ**（rules.md 13-3 の 2。"
@@ -43,6 +46,10 @@ def simulate(buy_pct, y, threshold: float, cost_bp: float = 5.0, exit_pct=None) 
     e = (100.0 - b) if exit_pct is None else np.asarray(exit_pct, dtype=float)
     if e.shape != b.shape:
         raise ValueError(f"入口% と出口% の長さが違う（{b.shape} と {e.shape}）")
+    et = threshold if exit_threshold is None else float(exit_threshold)
+    if et < 50.0:
+        raise ValueError(f"exit_threshold = {et} は受けない。⚠ **売る線も 50% 以上だけ**（rules.md 18-1。"
+                         "50 未満だと売る線が買う線の上に来て、買った翌日に必ず売る形になる）")
     n = len(b)
     half = cost_bp / 2.0
     pos = np.zeros(n, dtype=int)
@@ -57,7 +64,7 @@ def simulate(buy_pct, y, threshold: float, cost_bp: float = 5.0, exit_pct=None) 
         if p == 0 and b[t] > threshold:             # 建てる（⚠ 未保有のときだけ入口% を読む）
             p, traded, trades = 1, True, trades + 1
             opened = t
-        elif p == 1 and e[t] > threshold:           # 手仕舞う（⚠ 保有中のときだけ出口% を読む）
+        elif p == 1 and e[t] > et:                  # 手仕舞う（⚠ 保有中のときだけ出口% を読む。線は et ＝ 既定で threshold）
             p, traded = 0, True
             hold_days.append(t - opened)            # pos は opened〜t−1 が 1 ＝ t − opened 日
             entry_idx.append(opened)

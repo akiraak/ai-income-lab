@@ -35,6 +35,8 @@ from ail.models import trees, deep, gan      # noqa: F401
 from ail.detectors import scale as _scale    # noqa: F401
 # ⚠ **入口と出口を別の窓で持つ検知器**（出力 2 本。rules.md 16 章）
 from ail.detectors import pair as _pair      # noqa: F401
+# ⚠ 先 10 営業日を当てにいく検知器（表の全列 × y_fwd_10。2026-09-27・forward10-target.md）
+from ail.detectors import fwd as _fwd        # noqa: F401
 # ⚠ **時系列分類器 3 本**（MiniRocket・Hydra・QUANT。plans/tsc-minirocket-hydra-quant.md）。
 # ⚠ **入力の窓は `seq` 層**（過去 60 営業日の `own_`）。⚠ **aeon は検知器の関数の中でだけ import する**
 from ail.features import seq                 # noqa: F401

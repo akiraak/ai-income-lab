@@ -1241,6 +1241,49 @@ flowchart LR
 
 ---
 
+## 18. ⚠ 買う線と売る線を別に置く（2026-09-27）
+
+利用者の指示（2026-09-27）: **「ownex × Ridge 60 の判定で買い。ownex × Ridge 50 の判定で売り」「買いと売りの閾値を別の値にしたもので検証してください」**。記録は [forward10-target.md §7](../forward10-target.md)。
+⚠ **この章は結果を見る前に書いた**（14-9・14-10 の「緩めないもの」）。⚠ **13 章の閾値売買は 1 行も変えない。** 足すのは、状態機械の売る側の線を買う側と別の値にできる任意引数 1 つと、その行の名前の付け方だけである。
+
+| 変更規約の問い | 答え |
+| --- | --- |
+| なぜ変えたか | 13-3 は θ 1 つで買う線（買い% > θ）と売る線（買い% < 100 − θ）を同時に決める。⚠ **「60 で買って 50 で売る」（帯 50〜60）は θ 1 つでは作れない**（θ=60 は 40 で売る・θ=50 は 50 で買う）。16 章は出口を別の**指標**にする章で、同じ指標の**線**を別にする口は無かった |
+| 変える前の結果をどう扱うか | ⚠ **既存の行は残す・再計算しない・消さない。** `simulate` の任意引数 `exit_threshold` は省けば `threshold`（既定経路の指紋 `tests/test_trading_run.py` が同一を固定）。`threshold_pairs` の無い config は `cli/run.py` の経路が 1 行も変わらない（17 章の `top_k` と同じ形。`tests/test_exit_line.py`） |
+
+> この図の主張: 変わるのは売る側の線の高さだけ。買う側・出口% の作り方・費用・fold・B&H・判定は 13 章のまま。
+
+```mermaid
+flowchart LR
+  A["13 章: θ 1 つ<br/>買い: 買い% &gt; θ<br/>売り: 出口% &gt; θ（＝ 買い% &lt; 100 − θ）"] --> C["同じ: 出口% の作り方・片道コスト<br/>強制清算・fold・B&amp;H・判定 13-7"]
+  B["18 章: 線 2 つ<br/>買い: 買い% &gt; 買い線<br/>売り: 出口% &gt; 売り線"] --> C
+```
+
+### 18-1. 規約
+
+| # | 規約 | ⚠ 理由 |
+| ---: | --- | --- |
+| 1 | 組は config の `[trading] threshold_pairs = [[買い線, 売り線], …]` に**回す前に書く**。⚠ **結果を見て組を足さない・動かさない** | 14-9。⚠ **線は 1 本ずつが自由度**（13-3 規約 4 と同じ） |
+| 2 | 買い線は `thresholds` に在る値だけ | 対 B&H の上乗せは**同じ θ の B&H 行**と比べる（13-7）。B&H は θ に依らないので、買い線の θ の行を使う |
+| 3 | 売り線は **50 以上**で、買い線と別の値 | 50 未満だと売る線（100 − 売り線）が 50 を超え、買った翌日に売る形になる（13-3 規約 2 と同じ理由）。同じ値なら 13 章の行そのもの ＝ 二重に数える |
+| 4 | 基準線（常に上 ／ 直前リターンの符号 ／ 乱択）には当てない | 買い% が 0 か 100 なので線の置き方が効かない |
+| 5 | 上位 K（17 章）の行には当てない | 軸を 2 つ同時に動かさない。要るなら別の検証 |
+| 6 | 乱択ゲート（14-6 b）・逆売買（14-3）・`holds.csv` はその行にも付く | 診断を同じ形で残す |
+
+### 18-2. 数え方と検証結果一覧の識別項目
+
+- ⚠ **1 組 × 1 手法 ＝ 1 検証**（`n_trials` に数える）。対称の行（`thresholds`）は同じ実行で出るが、既存の識別項目にまとまるので増えない（再現・一致の検算）
+- 識別項目には列を足さない: **売り線は手法名に `〔売り線N〕` で入れ、閾値の列は買い線**（17-5 の `〔上位K・…〕` と同じ形）。予測モデル名（10-2）は `<綴り>-outN`（例 `own-cs-rel-ex.h1-gate10-out50.ridge.shared~n48@60`）。⚠ 系統・実装の列は `〔…〕` を外した名前で引く（`catalog._VARIANT`）
+- ⚠ **売り線 θ_out の意味は「θ_out の判定で売る」** ＝ 出口% > θ_out ＝ 1 出力の契約なら 買い% < 100 − θ_out。(60, 50) ＝ 60 で買い 50 で売る／ (60, 55) ＝ 60 で買い 45 で売る ／ (55, 50) ＝ 55 で買い 50 で売る
+
+### 18-3. ⚠ 先に書く失敗モードと読み方
+
+| # | 予想 | 読み方 |
+| ---: | --- | --- |
+| 1 | 売る線を上げるほど（θ_out が 50 に近いほど）取引は増え保有日率は下がる | 作りから決まる。⚠ **これが出ても「効いた」ではない** |
+| 2 | 出力スコアに情報が無い手法（門前 ＝ AUC ≈ 0.5）では、線をどこに置いても対 B&H の上乗せは乱択ゲートと区別がつかない | 線の置き方は情報を作らない。[theta-placement.md](../theta-placement.md) 案 3 と同じ |
+| 3 | 帯が狭い組（55, 50）は θ=50 の「2 日で出入り」に近づき、費用で負ける側に寄る | 13-4 の費用は売買した日だけ |
+
 ## 付録: 本書と実装の対応
 
 ⚠ **試した結果の一覧は [ledger.md](ledger.md)**（`cli/report.py --catalog` の生成物）。
@@ -1267,4 +1310,5 @@ flowchart LR
 | ⚠ **14** | 14-3 診断列 = `ail/validation/checks.py` の `_edge_bins`・`_breadth_trading` ／ **14-4 期間延長 = `config/experiment/own_1995.toml`（表）＋ `trade_own_1995_ridge_a.toml`（橋渡し対）＋ `cli/build.py` の sidecar `start`/`end` ＋ `cli/run.py` の `panel_start`/`panel_end` ＋ `ail/catalog.py` の `_period_of`（遡りは `_table_period`。行数の突き合わせつき）と識別項目の「期間」** ／ 14-5 門 = `ail/validation/gate.py` ＋ `cli/run.py` の gate 節（`--ignore-gate` が規律 3 の「後から回す」）＋ `ail/catalog.py` の「門前」判定 ／ 閉じる注記 = `config/catalog_notes.toml` の `[[closed]]`（いずれも 2026-09-11 実装）。検討記録と実測は [validation-power.md](validation-power.md) |
 | ⚠ **15** | 15-1 検知器 = `ail/registry.py` の種類 `detector` ＋ `ail/detectors/scale.py` ＋ `cli/run.py` の `evaluate_trading` の分岐 ／ 15-2 スケール = `ail/features/trend.py`（`trend` 層・`scale_columns`）＋ `cli/build.py` の `ORDER` ／ 15-3 ラベル = `ail/features/labels.py` の `build_scales` ＋ `ail/contracts.py` の `META_PREFIXES`・`is_meta` ／ 15-4・15-5 パージ = `ail/models/holdout.py` の `CALENDAR_PER_BAR`・`purge_days`・`date_holdout` ／ 15-6 乱択ゲート = `ail/validation/simulate.py` の `shifted_gate` ＋ `ail/validation/checks.py` の `_random_gate` ／ 15-7 = `ail/runs.py` の `Run.daily` ＋ `checks._episodes` ／ 15-8 = `ail/validation/gate.py` の検知器の枝。表は `config/experiment/trend_scales_1995.toml`、検証の記録は [downtrend-detection.md](../downtrend-detection.md)（いずれも 2026-09-12 実装） |
 | ⚠ **16** | 16-1 契約 = `ail/validation/simulate.py` の `simulate`（`exit_pct` を受ける。⚠ **省くと 100 − 入口% ＝ 既存と完全一致**）＋ `cli/run.py` の `evaluate_trading`（⚠ **3 つ返す検知器だけ出口% を持つ**）／ 16-2・16-3 較正 = `ail/detectors/pair.py`（`scale.py` の `scale_gate`・`classic_filter` を窓ごとに 2 回呼ぶ）／ 16-4 構成 = `config/experiment/trend_pairs_1995.toml`（⚠ **表は `features_from` で `trend_scales_1995` から借りる**）／ 16-6 識別項目 = ⚠ **手法名に構成を入れるだけ**（`ail/catalog.py` は触っていない）／ 退化と失敗モードの検査 = `tests/test_pairs.py` 12 件（いずれも 2026-09-12 実装） |
+| ⚠ **18** | 18-1 = `ail/validation/simulate.py` の `simulate`（任意引数 `exit_threshold`。⚠ **省くと `threshold` ＝ 既存と完全一致**）＋ `cli/run.py` の `exit_line_pairs`・`exit_line_name`・`evaluate_trading` の `_row`（`threshold_pairs` の無い config は経路が 1 行も変わらない）／ 18-2 名前 = `ail/names.py` の `_EXIT_LINE`（`-outN`）／ テスト `tests/test_exit_line.py` |
 | ⚠ **検証結果一覧** | `ail/catalog.py` ／ `cli/ledger.py` ／ `config/legacy.toml` ／ `config/catalog_notes.toml` |

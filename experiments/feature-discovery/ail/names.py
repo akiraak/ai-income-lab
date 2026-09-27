@@ -32,6 +32,7 @@ _ID = re.compile(r"^F\d-\d+[a-z]?$")                                    # catalo
 _PAIR = re.compile(r"^入口([A-Z]\d)\(\d+\)×出口([A-Z]\d)\(\d+\)（[^）]+）$")  # rules.md 16 章の入口 × 出口
 _TOPK_BASE = re.compile(r"^([^〔]+)〔(.+)・上位(\d+)・([^・〕]+)〕$")      # ボラ上位〔<選び方・作り方>・上位3・端数〕
 _TOPK = re.compile(r"〔上位(\d+)・([^〕]+)〕$")                           # <選び方・作り方>〔上位3・端数〕
+_EXIT_LINE = re.compile(r"〔売り線(\d+)〕$")                              # <選び方・作り方>〔売り線50〕（rules.md 18-2）
 _LEARNER = re.compile(r"^([^+(]+)((?:\+[^+(]+)*)(?:\(([^)]+)\))?$")      # 基底 +増強… (水準)
 _HORIZON = re.compile(r"^(\d+) 本")
 _GRAN = re.compile(r"^(\d+) 分足$")
@@ -69,6 +70,9 @@ def method_slug(key: str) -> str:
         return _check(f"{method_slug(key[:m.start()])}-top{m.group(1)}-{_holding(m.group(2), key)}", "数字の選び方・作り方", key)
     if m := _PAIR.match(key):
         return f"in-{m.group(1).lower()}-out-{m.group(2).lower()}"
+    if m := _EXIT_LINE.search(key):
+        # 買う線と売る線を別に置いた行（rules.md 18-2）。買う線は θ（`@60`）、売る線は綴りに `-out50`
+        return _check(f"{method_slug(key[:m.start()])}-out{m.group(1)}", "数字の選び方・作り方", key)
     _stop("数字の選び方・作り方", key)
 
 

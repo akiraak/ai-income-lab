@@ -20,7 +20,8 @@ import pandas as pd
 
 
 def simulate(buy_pct, y, threshold: float, cost_bp: float = 5.0, exit_pct=None,
-             exit_threshold: float | None = None) -> dict:
+             exit_threshold: float | None = None, stop_loss_pct: float | None = None,
+             max_hold_days: int | None = None) -> dict:
     """1 銘柄 × 1 fold を状態機械で回す。
 
     buy_pct: 入口%（0〜100 の系列・時刻順。⚠ **未保有の日に読む**）。y: その日のリターン（対数）。
@@ -34,7 +35,17 @@ def simulate(buy_pct, y, threshold: float, cost_bp: float = 5.0, exit_pct=None,
     forced_close（末尾で保有中のまま強制清算したか。True なら `hold_days[-1]` は右側で打ち切られた観測）。
     ⚠ **2026-09-27 に `exit_threshold` を足した**（rules.md 18 章 ＝ 買う線と売る線を別に置く）: 出口% と比べる θ を
     別に受ける（省けば `threshold` ＝ 既存と 1 ビットも変わらない）。買う線 ＝ 入口% > threshold ／ 売る線 ＝ 出口% > exit_threshold。
+    ⚠ **2026-09-27 に位置を知る出口の口を 2 つ足した**（stoploss-as-model.md §0-3。⚠ **どちらも省けば 1 ビットも変わらない**）:
+    `stop_loss_pct=x` ＝ 保有中の足 t で、建ててからの累積対数リターン Σ_{u=opened}^{t−1} y_u が log(1 − x/100) を割ったら
+    足 t の終値で降りる（その日の y_t は取らない ＝ 13-4 の 1 と同じ時間の向き。形 B）／ `max_hold_days=d` ＝ 建ててから d 日たったら降りる
+    （固定日数の出口 ＝ 基準線）。⚠ **出口% > 売る線 とどちらかが立てば降りる**（本番の `unanimous` と同じ「どちらかが言ったら」）。
     """
+    if stop_loss_pct is not None and not (0.0 < float(stop_loss_pct) < 100.0):
+        raise ValueError(f"stop_loss_pct = {stop_loss_pct} は受けない（0 より大きく 100 未満の %）")
+    if max_hold_days is not None and int(max_hold_days) < 1:
+        raise ValueError(f"max_hold_days = {max_hold_days} は受けない（1 日以上）")
+    stop_line = None if stop_loss_pct is None else float(np.log1p(-float(stop_loss_pct) / 100.0))
+    hold_max = None if max_hold_days is None else int(max_hold_days)
     if threshold < 50.0:
         raise ValueError(f"θ = {threshold} は受けない。⚠ **θ は 50% 以上だけ**（rules.md 13-3 の 2。"
                          "θ < 50 は買いと売りが同時に立ち、優先規則という自由度が増える）")
@@ -59,12 +70,16 @@ def simulate(buy_pct, y, threshold: float, cost_bp: float = 5.0, exit_pct=None,
     hold_days: list[int] = []
     entry_idx: list[int] = []
     opened = -1
+    cum = 0.0                                       # ⚠ 建ててからの累積対数リターン（位置を知る出口にだけ使う。既定の経路では読まない）
     for t in range(n):
         traded = False
         if p == 0 and b[t] > threshold:             # 建てる（⚠ 未保有のときだけ入口% を読む）
             p, traded, trades = 1, True, trades + 1
             opened = t
-        elif p == 1 and e[t] > et:                  # 手仕舞う（⚠ 保有中のときだけ出口% を読む。線は et ＝ 既定で threshold）
+            cum = 0.0
+        elif p == 1 and (e[t] > et                  # 手仕舞う（⚠ 保有中のときだけ出口% を読む。線は et ＝ 既定で threshold）
+                         or (stop_line is not None and cum < stop_line)        # 形 B: 買値から −x%
+                         or (hold_max is not None and t - opened >= hold_max)):  # 基準線: 固定日数
             p, traded = 0, True
             hold_days.append(t - opened)            # pos は opened〜t−1 が 1 ＝ t − opened 日
             entry_idx.append(opened)
@@ -73,6 +88,8 @@ def simulate(buy_pct, y, threshold: float, cost_bp: float = 5.0, exit_pct=None,
         net[t] = p * yy[t] * 1e4 - (half if traded else 0.0)
         if traded:
             cost_total += half
+        if p == 1:
+            cum += yy[t]                            # 足 t の y を取ったので、翌足の判断では Σ_{opened..t} になる
     forced = False
     if p == 1:                                     # ⚠ fold 末尾の強制清算（13-4 の 4）
         net[-1] -= half

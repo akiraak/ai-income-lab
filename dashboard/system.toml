@@ -226,13 +226,15 @@ title = "学ぶ — ⑤ 出力スコアに直す"
 text = [
   "モデルの生の答えは「明日は少し上がりそう」くらいの小さな数で、そのままでは買う・買わないの線を引きにくい。そこで 0〜100 の出力スコアに直す。",
   "直し方: 学ぶ期間の終わりのほうを少し取り分けておき、「生の答えがこのくらいだった日に、実際に上がったのは何割か」を測って対応を作る。まん中の 50 は「どちらとも言えない」。",
+  "学ぶ対象は明日の値動きだが、売り買いは毎日ではない。出力スコアが売買基準値の上にあるあいだは持ち続け、売り買いするのは線をまたいだ日だけ。もっと先（10 日・20 日〜）を当てにいく型も試したが、効かなかった。",
 ]
 note = "過去のデータで試すと、どのモデルも出力スコアがまん中の近くのせまい幅に集まった。つまり「強く上がりそう」と言える日がほとんど無い。これが、売買基準値を上げるとほとんど買わなくなる理由。"
 detail = [
   "Platt 較正（ail/models/calibrate.py）: 買い% ＝ 100·σ(a·pred + b)。a・b は訓練分割の尻の holdout で fit する（rules.md 13-2）。出口% は 100 − 買い%（入口と出口を別に持つ検知器だけ別の窓で fit ＝ 16 章）。",
+  "先を当てにいく型【実測】: 先 10 営業日を学ぶ H1（forward10-target.md。3 表 × 2 学習器 × θ 3 ＝ 18 検証で採る 0 ／ 保留 2）・先 20 ／ 60 ／ 200 営業日の門 D1〜D4（downtrend-detection.md。21 検証で採る 0）。売買が毎日でない理由は 13-4 の状態機械（保有中は出口% > θ の日だけ売る）。",
   "門の診断【実測】: 時系列分類器 3 本の holdout AUC は 0.501〜0.508・買い% の幅は 0.5〜2.1 ポイント（tsc-threshold.md §3）。(A) 形式の Platt 係数は a ≈ 0 だった（threshold-trading.md）。⚠ 2026-09-12 より前は較正の数値解が止まっていた（較正「旧」。検証結果一覧では列で区別する）。",
 ]
-detail_links = [{ label = "tsc-threshold.md", doc = "docs/specs/experiments/tsc-threshold.md" }, { label = "threshold-trading.md", doc = "docs/specs/experiments/threshold-trading.md" }]
+detail_links = [{ label = "tsc-threshold.md", doc = "docs/specs/experiments/tsc-threshold.md" }, { label = "threshold-trading.md", doc = "docs/specs/experiments/threshold-trading.md" }, { label = "forward10-target.md", doc = "docs/specs/experiments/forward10-target.md" }, { label = "downtrend-detection.md", doc = "docs/specs/experiments/downtrend-detection.md" }]
 
 [[page.section]]
 title = "型ごとのしくみ（いま実際の売買の設定に出てくるモデル）"

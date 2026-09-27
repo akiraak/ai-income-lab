@@ -491,7 +491,7 @@ flowchart TD
 
 ⚠ **気づいたこと（2026-09-20）**: 執行器が出しうる出来事 25 種類のうち、通し運転で出ていたのは 12 種類だけだった【実測】。
 上の追加で `halted`・`too_small`（枠）・`out_of_window`（発注できる時間帯の外）が加わった。⚠ **`over_budget` は到達できない**（丸めが先に効く）ので、
-**消すか・別の守りに使うかは利用者の裁定**（いまはテストが「出ない」ことを固定している）。残る空白は `no_quote`・`no_signal`・`signal_error`・`ledger_error`・`quote_failed`・`quote_client_failed`・`after_read_failed`。
+**消すか・別の守りに使うかは利用者の裁定** → ✅ **2026-09-27 利用者決定「残す」**（プラン new-model-trader.md K8・[stoploss-as-model.md §0-7](stoploss-as-model.md)。テストが「出ない」ことを固定したまま ＝ 番人）。残る空白は `no_quote`・`no_signal`・`signal_error`・`ledger_error`・`quote_failed`・`quote_client_failed`・`after_read_failed`。
 
 ⚠ **テストの隔離漏れを 2 つ直した（2026-09-20）**: どちらも**シミュレーション専用機（Sx360 ＝ ふだん `MODE` が sim）では必ず落ちる**作りだった。
 `dashboard/tests/test_demo.py` が `AIL_MODE_DIR` を tmp に向けておらず、デモではなく `sim/<名前>/` を読んでいた ／

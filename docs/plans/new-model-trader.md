@@ -62,7 +62,7 @@ flowchart LR
 | K5 | 深層学習 2 本の地平と対照 | 地平は **先 10 日**（K4 と同じラベルに相乗り）。Chronos-2 は **共変量あり ／ なし** の 2 行 × θ 3 ＝ 6・TimeXer は 1 × θ 3 ＝ 3（＋ leak）。依存は titan の `.venv` にだけ足す（`chronos-forecasting`・TimeXer は PatchTST と同じ移植） | 「先読み（学習コーパスの米株）」は leak 対照と「共変量なし」の対で切り分ける。⚠ 13500t のイメージ（g3plus-ops）には入れない（本番に入れると決めるまで） ✅ **2026-09-27 利用者決定: 推す案のとおり** |
 | K6 | 新しい人の識別名・呼び名・置き場 | 識別名 `T4`（実例 A）・`T5`（実例 B）。呼び名は意味の無い名前を利用者が選ぶ（候補: ハル ／ ミオ）。置き場は **`config/traders/candidates/multi/<識別名>.toml`**（本番の形）＋ **`config/traders/sim_<識別名>.toml`**（`test = true`。sim 用の写し） | `config/traders/` の直下に置くと 13500t の管理画面と `run-live.sh` の一覧に「本物の人」として出る（`live.traders` は直下だけを読む）。`candidates/` なら vibeboard に「（候補）」で出て、本番には出ない。⚠ vibeboard の読み先を `candidates/notional/` から `candidates/*/` に広げる（管理画面側の小さな変更 ＝ 許される） ✅ **2026-09-27 利用者決定: 推す案のとおり**（呼び名 ＝ `T4` ハル ／ `T5` ミオ） |
 | K7 | 本番に入れるときの決めごと（⚠ 入れると決めたときでよい） | 4 人目の予算（執行器の上限 $1,000 ＝ `DEFAULT_MAX_TOTAL_BUDGET`。$300 × 4 ＝ $1,200 は拒まれる）／ 13500t の予測の時間（実例 A は予測が増えない・実例 B は ＋1 本 ＝ `bench_predict.py` で測ってから。線 60 秒・いま 48 秒【実測 §0-12】）／ 深層学習を本番で毎日学び直すのは CPU では無理 ＝ 「重みを写す道」が別に要る（§7） | このプランでは決めない |
-| K8 | `over_budget` の扱い（消す ／ 損切りの歯止めに作り替える ／ 残す） | 損切りの設計（Phase 2-2）と一緒に決める。推すのは **残す**（到達できないことをテストが固定している ＝ 変えない理由が無い限り触らない） | 利用者の指示 2026-09-20「1 についてはまとめて実行する」 |
+| K8 | `over_budget` の扱い（消す ／ 損切りの歯止めに作り替える ／ 残す） | 損切りの設計（Phase 2-2）と一緒に決める。推すのは **残す**（到達できないことをテストが固定している ＝ 変えない理由が無い限り触らない） | 利用者の指示 2026-09-20「1 についてはまとめて実行する」。⚠ 2026-09-27 Phase 2-2 を回した結果、損切りは予算の守り方（買いの丸め）に触れなかった ＝ 推す案「残す」のまま（[記録 §0-7](../specs/experiments/stoploss-as-model.md)）。✅ **2026-09-27 利用者決定: 残す**（何も変えない。`tests/test_sim_limits.py` が「出ないこと」を固定したまま ＝ 番人） |
 
 ## 3. 対応方針
 
@@ -104,7 +104,7 @@ flowchart LR
 - ⚠ **Phase 3 に効く穴**（2026-09-27 に読んで見つけた）: `cli.predict` の `split_asof` は `horizon`（1 日）の `y_elapsed_min` でしか訓練行を落とさない ＝ `y_fwd_10` の行は `asof` の 10 日前まで訓練に入る（答えの端が `asof` の終値に触れる）。研究側（`cli.run`）は `horizon_min` で fold をパージするので机上の検証には効かない。**Phase 3 で `split_asof` を「最長のラベルぶん落とす」に直す**（研究側のコード ＝ 執行器ではない。既定の指紋テスト `tests/test_predict.py` を流す）
 - 記録: `docs/specs/experiments/forward10-target.md`（新規）。関連: [entry-timing.md](../specs/experiments/entry-timing.md)
 - ✅ **2026-09-27 に回した**（titan の Claude。[記録](../specs/experiments/forward10-target.md)）: 18 検証 ＝ **採る 0 ／ 保留 2 ／ 落とす 16**（保留 2 行は乱択ゲートには勝つが対 B&H は 2/5）・n_trials 667 → 685・leak 6/6 跳ねた・門 6 本とも門前。時間: 表 6 本 3 分 16 秒 ＋ queue 12 本 2 分 44 秒（見積り 1 時間の 1/20）。⚠ 手順書（Phase 6）に足す注意 2 つ ＝ 記録 §5: `label_scales` の表は既存の表を `features_from` で読めない ／ 表の尻が短くなるので基準線の行に「幅」の印が付く。⚠ 「Phase 3 に効く穴」は `cli.predict` で実測（訓練は asof の 10 営業日前まで ＝ 記録 §4 の 7）
-- メモ（⚠ 利用者の裁定待ち・回す前後どちらでもよい）: 「システム説明」の「出力スコアに直す」の段が毎日売り買いするように読める → 「学ぶ対象は明日だが、売り買いは毎日ではなく、点が線の上にあるあいだ持ち続ける。もっと先（20 日〜）を当てにいく型も試したが効かなかった」を足すか
+- ✅ 2026-09-27 利用者決定「修正」＝ `dashboard/system.toml` の「⑤ 出力スコアに直す」に 1 文と「詳しく」1 行を足した。元のメモ: 「システム説明」の「出力スコアに直す」の段が毎日売り買いするように読める → 「学ぶ対象は明日だが、売り買いは毎日ではなく、点が線の上にあるあいだ持ち続ける。もっと先（20 日〜）を当てにいく型も試したが効かなかった」を足すか
 
 #### 2-2. 損切りを 1 つの予測モデルとして扱えるかを検証する（CPU・TODO の子 2 つ）
 
@@ -124,6 +124,7 @@ flowchart LR
 - ⚠ **予算の守り方もここでまとめて見直す**（K8。利用者の指示 2026-09-20「1 についてはまとめて実行する」）: `plan.size_intents` の `over_budget` は**到達できない**【実測 2026-09-20】（予算は `target = min(per_symbol, available)` の丸めで先に守られ、枠で 1 株も買えないときは `too_small`）。いまは「出ないこと」を `tests/test_sim_limits.py` が固定している（[live-trading.md §0-7 (l)](../specs/experiments/live-trading.md)）。作り替えるならそのテストも直す ＝ 執行器の変更 ＝ 10/20 の後
 - 守るもの: 実売買の `drawdown_warning`（含み損 20% は警告だけ・止めるのは人）はそのまま
 - 記録: `docs/specs/experiments/stoploss-as-model.md`（新規）。関連: [entry-timing.md](../specs/experiments/entry-timing.md)（入口と出口で見る長さを変える。落とす）／ [live-trading.md §0-2](../specs/experiments/live-trading.md)（停止条件・含み損）／ [rules.md 13-4・15-3・16 章](../specs/experiments/feature-discovery/rules.md)
+- ✅ **2026-09-27 に回した**（titan の Claude。[記録](../specs/experiments/stoploss-as-model.md)・[rules.md 19 章](../specs/experiments/feature-discovery/rules.md)）: 事前固定 ＝ 入口 1 本（T1 と同じ own 35 列 × Ridge）・出口 L0 損切りなし ／ L1 高値 20 日から −5 ／ 10 ／ 20% ／ L2 σ × 2 ／ 4 ／ 8 ／ L3 先 10 日の下げを学ぶ ／ 形 B 買値から −5 ／ 10 ／ 20%（`simulate` の口）・基準線 固定日数 5 ／ 10 日・合わせ方 max（＝ `unanimous`）。結果 **33 検証とも落とす**・n_trials 703 → 736・leak 全行で跳ねた（＋22,084bp・t 17.4）。**損切りを足した 27 行のうち θ=50 ／ 55 の 18 行が全部 損切りなし より純利が低く、4 行は fold 5/5**。減ったのは最悪の 1 取引と高値からの規則の最大ドローダウンだけで、⚠ **買値からの損切りは最大ドローダウンを悪化させた**。浅い損切りでは費用が負けの半分。時間: 表 64 秒 ／ queue 56 秒 ／ `cli.predict` 32 秒（4 銘柄で `exit` 100）。⚠ **本番に損切りモデルを入れる理由は出ていない**（`T5` は配線の確認 ＝ K1）。K8 は ✅ 2026-09-27 利用者決定「残す」（記録 §0-7）
 
 #### 2-3. 複数のデータから特定の銘柄のトレンドを当てる深層学習（GPU・titan・TODO の子「型 2 本」）
 
@@ -249,7 +250,7 @@ flowchart LR
 | 合成規則 `primary`（買いは 1 本目・出口は max） | 出口だけのモデルに「買い% 100」の約束を課さない形 | `trader.py` の `COMBINE_RULES`・`dashboard/app/live.py` の `COMBINE_LABEL`・`traders.toml` の `combine_*`・`system.toml`・`glossary.toml` |
 | 位置を知る損切り（形 B）を本番で | 買値からの下落 x% | ✅ 2026-09-27 利用者決定: **道 1 ＝ 状態を読むモデルの `kind`**（例 `stoploss`。持っていれば 今日の気配 ÷ `avg_price` − 1 が −x% を下回ったら出口% 100・それ以外 0・買い% は常に 100。合成は `unanimous` のまま）。変更は `trader.py`（kind と検証）・`signals.py`（売買履歴を受け取る）・`run_day.py`（呼び方）。⚠ 今日の気配が要るので、合図を集める段より前に気配を読む順番の入れ替えが要る（いまは状態機械の後）。道 2（`plan.decide` に規則を直接書く）は「モデルとして扱う」から外れるので採らない |
 | `signals.py` の行の引き方に `method` を足す | 同じ実験の違う手法を 1 人で 2 本持てるように | `signals.py`・`cli.predict` の `write_rows` |
-| `over_budget` の扱い（K8） | — | `plan.size_intents`・`tests/test_sim_limits.py` |
+| `over_budget` の扱い（K8） | ✅ 2026-09-27 利用者決定「残す」＝ 変更なし | `plan.size_intents`・`tests/test_sim_limits.py` |
 | 深層学習の「重みを写す道」 | 13500t で毎日学び直さず、titan で学んだ重みで予測する | `cli.predict --fitted`（`cli.scenario predict --run` と同じ形）・13500t のイメージ（g3plus-ops） |
 
 ## 8. 作業量・費用・期間【推測】

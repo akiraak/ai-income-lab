@@ -196,6 +196,10 @@ def evaluate_trading(panel: pd.DataFrame, feats: list[str], exp: dict, run: runs
     # ⚠ **買う線と売る線を別に置く**（rules.md 18 章。2026-09-27）: `threshold_pairs = [[買い線, 売り線], …]`。
     # ⚠ **無い config は経路が 1 行も変わらない**（上位 K と同じ形。行は既存の行の後に足すだけ）
     pairs = exit_line_pairs(t, thresholds)
+    # ⚠ **位置を知る出口**（stoploss-as-model.md §0-3・§0-4。2026-09-27）: `[trading.position_exits]` に
+    # `methods`（当てる検知器）・`stop_loss_pct = [5, 10, 20]`（形 B）・`max_hold_days = [5, 10]`（固定日数の基準線）。
+    # ⚠ **無い config は経路が 1 行も変わらない**（`threshold_pairs` と同じ形。行は既存の行の後に足すだけ）
+    pexits = position_exits(t)
     form = str(t.get("form", "shared"))
     v = exp.get("validation", {})
     k = int(exp.get("k", 8))
@@ -238,10 +242,16 @@ def evaluate_trading(panel: pd.DataFrame, feats: list[str], exp: dict, run: runs
             baselines=baselines, form=form, k=k, groups=groups, f=f, picked=picked, log=run.log)
         run.fitted(f"calibration_f{f}", fitted_doc)     # ⚠ 再現用。次の実行では読み込まない（13-2 の 3）
 
-        def _row(name: str, base: str, bp, ex, hit: float, ic: float, th: float, th_exit: float | None = None):
-            """手法 × 買う線 θ（× 売る線）の 1 行ぶん。⚠ **`th_exit` が None なら 2026-09-27 より前の経路と同一**
-            （`simulate` に `exit_threshold` を渡さない）。売る線を持つ行は名前を `〔売り線N〕` で分ける（rules.md 18-2）。"""
+        def _row(name: str, base: str, bp, ex, hit: float, ic: float, th: float, th_exit: float | None = None,
+                 stop: float | None = None, hold: int | None = None):
+            """手法 × 買う線 θ（× 売る線 ／ × 位置を知る出口）の 1 行ぶん。⚠ **`th_exit`・`stop`・`hold` が None なら
+            2026-09-27 より前の経路と同一**（`simulate` に任意引数を渡さない）。売る線を持つ行は名前を `〔売り線N〕` で分け
+            （rules.md 18-2）、位置を知る出口の行は `〔買値から−N%〕`・`基準 …〔N日で降りる〕` で分ける（stoploss-as-model.md §0-4）。"""
             kw = {} if th_exit is None else {"exit_threshold": th_exit}
+            if stop is not None:
+                kw["stop_loss_pct"] = stop
+            if hold is not None:
+                kw["max_hold_days"] = hold
             nets: dict[str, pd.Series] = {}
             grosses: dict[str, pd.Series] = {}
             rands: dict[str, pd.Series] = {}
@@ -328,6 +338,13 @@ def evaluate_trading(panel: pd.DataFrame, feats: list[str], exp: dict, run: runs
             if pairs and not (mname.startswith("基準 ") or mname == "乱択（基準）"):
                 for th_in, th_out in pairs:
                     _row(exit_line_name(mname, th_out), mname, bp, ex, hit, ic, th_in, th_out)
+            # ⚠ **位置を知る出口の行**（stoploss-as-model.md §0-4）。⚠ **`methods` に書いた検知器の行の後ろに足すだけ**
+            if mname in pexits["methods"]:
+                for th in thresholds:
+                    for x in pexits["stop_loss_pct"]:
+                        _row(stop_loss_name(mname, x), mname, bp, ex, hit, ic, th, stop=x)
+                    for d in pexits["max_hold_days"]:
+                        _row(hold_days_name(mname, d), mname, bp, ex, hit, ic, th, hold=d)
         if t.get("top_k"):
             # ⚠ **上位 K**（rules.md 17 章）。⚠ **既存の行を作り終えた後に足すだけ**（`top_k` の無い config は
             # ここを通らないので、既存の経路は 1 行も変わらない）
@@ -365,6 +382,41 @@ def exit_line_pairs(t: dict, thresholds: list[float]) -> list[tuple[float, float
         if b < 50.0 or b == a:
             raise SystemExit(f"⚠ threshold_pairs の売り線 {b:g} は 50 以上・買い線 {a:g} と別の値だけ（rules.md 18-1 の 3）")
     return pairs
+
+
+def position_exits(t: dict) -> dict:
+    """`[trading.position_exits]`（stoploss-as-model.md §0-3・§0-4）。⚠ **無ければ空 ＝ 既存の経路**。
+
+    `methods` ＝ 当てる検知器の登録名（⚠ 書かないと 1 行も足さない。基準線・上位 K には当てない）／
+    `stop_loss_pct` ＝ 買値からの下落 %（形 B。0 < x < 100）／ `max_hold_days` ＝ 固定日数の出口（基準線。1 以上）。
+    ⚠ **水準は事前固定。結果を見て足さない**（14-9）。
+    """
+    pe = t.get("position_exits") or {}
+    methods = [str(m) for m in (pe.get("methods") or [])]
+    stops = [float(x) for x in (pe.get("stop_loss_pct") or [])]
+    holds = [int(d) for d in (pe.get("max_hold_days") or [])]
+    if (stops or holds) and not methods:
+        raise SystemExit("⚠ position_exits には `methods`（当てる検知器の登録名）が要る（stoploss-as-model.md §0-4）")
+    for x in stops:
+        if not (0.0 < x < 100.0):
+            raise SystemExit(f"⚠ position_exits.stop_loss_pct = {x:g} は 0 より大きく 100 未満の %")
+    for d in holds:
+        if d < 1:
+            raise SystemExit(f"⚠ position_exits.max_hold_days = {d} は 1 日以上")
+    for m in methods:
+        if m.startswith("基準 ") or m == "乱択（基準）":
+            raise SystemExit(f"⚠ position_exits.methods に基準線 {m!r} は置けない（買い% が 0 か 100 なので出口の置き方が効かない）")
+    return {"methods": methods, "stop_loss_pct": stops, "max_hold_days": holds}
+
+
+def stop_loss_name(method: str, x: float) -> str:
+    """⚠ **買値からの下落の水準は手法名に入れる**（stoploss-as-model.md §0-4。識別項目に列は足さない）。"""
+    return f"{method}〔買値から−{x:g}%〕"
+
+
+def hold_days_name(method: str, d: int) -> str:
+    """固定日数の出口 ＝ ⚠ **基準線なので `基準 ` で始める**（数えない。17-4 と同じ扱い）。"""
+    return f"基準 {method}〔{d}日で降りる〕"
 
 
 def exit_line_name(method: str, th_out: float) -> str:

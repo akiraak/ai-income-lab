@@ -131,7 +131,7 @@ cp .env.example .env                                   # AIL_AUTH_MODE=local（�
 - **黄金の集計値**（`experiments/live-trading/tests/test_sim_golden.py` ＋ `tests/golden/sim{1,2}.json`）＝ 通し運転の**出来事の件数と注文の数**を覚えておき、変わったら落とす。⚠ **直す前に「なぜ変わったか」を確かめる**（更新は `AIL_UPDATE_GOLDEN=1` のときだけ）。⚠ 重いので `AIL_GOLDEN=1`（＝ `--full`）のときだけ・日足が無い機械では skip
 - **限界の通し運転**（`tests/test_sim_limits.py`）＝ 予算の上限 ／ 1 日に 2 回の発注（⚠ **二重に買わない**）／ 停止と解除が日をまたぐこと。⚠ **発注できる時間帯は 15:45〜16:05 ET の 1 日 1 回に固定**（その外は `out_of_window`。⚠ **2026-09-20 に「広げない」と決めた**）
 - ⚠ **テストは `LT_MODE_DIR` ／ `AIL_MODE_DIR` を必ず tmp に向ける**（この機械はふだんシミュレーションモード ＝ 向け忘れると本物の `MODE` を読んで落ちる。2026-09-20 に 2 件直した）
-- ⚠ **`over_budget` は現在の経路では出ない**（予算は `target = min(per_symbol, available)` の丸めで守られる）。テストが「出ないこと」を固定している。消すか別の守りに使うかは利用者の裁定
+- ⚠ **`over_budget` は現在の経路では出ない**（予算は `target = min(per_symbol, available)` の丸めで守られる）。テストが「出ないこと」を固定している。✅ **2026-09-27 利用者決定「残す」**（K8。番人として置いたまま・触らない）
 - 仕様は `docs/specs/experiments/live-trading.md` §0-7 (l)
 
 ## 実験コード

@@ -218,48 +218,43 @@
         関連: 「Phase 6: 20 営業日の記録と判定（`live-trading.md`。続ける・止める・予算を変えるは利用者。モデルや合成規則の入れ替えは新しい検証として n_trials に足す）」
         ✅ 2026-09-25 保留: 1 日 1 回に固定したので起きない。20 営業日の数え方は「起動した営業日」（§0-15）
 
-- [ ] titan を使って、新規の予測モデルと、複数の予測モデルを持ったトレーダーを作成する方法を確立する
-  利用者の指示（2026-09-27）: **titanを使って新規の予測モデルと複数の予測モデルを持ったトレーダーを作成する方法を確立させます**。着手時にプランを作る（⚠ 作るのは「方法」＝ 手順書と、それを 1 度通した実例。本番に新しい人を入れるかは別に利用者が決める）
-  確立するもの（見立て）: ① 新しい予測モデルを titan で作る道（研究の config → `cli.queue` ／ `cli.run` で検証 → 検証結果一覧に載る → 執行器が読める形 `kind = "experiment"`〔`cli.predict` の実験名 ＋ 手法〕まで）② 複数モデルを持つトレーダーの作り方（`config/traders/<識別名>.toml` の `[[models]]` を 2 本以上 ＋ `combine`）③ 通し方（`sim3` ／ `sim4` の形で作り置き `simpredict.py make` → 運転手で通す → 管理画面と vibeboard に出る）④ 手順書（どこに何を書くか・テスト・チェックリスト）
-  実例（利用者の指示 2026-09-27「TODOにある２週間後の予測モデルと、損切りのも含める。損切りは一つのモデルとして考えてもよいかも検証」）: 新しい予測モデルの実例は下の子 ＝ **先 10 営業日を当てにいくモデル**・**損切りをモデルとして扱う形**・**深層学習の型 2 本（Chronos-2 zero-shot ＋ 共変量 ／ TimeXer）**（後者は同日の利用者の指示で足した）。複数モデルの人の実例は「いまのモデル ＋ 損切りモデル」が自然な候補【見立て】（買いはいまのモデル・売りはどちらかが言ったら、の合成規則が要る ＝ いまの 4 つに無い）
-  いまあるもの（2026-09-27 に確かめた）: 合成規則は執行器に 4 つある（`trader.py` の `COMBINE_RULES` ＝ `asis` ／ `mean` ／ `majority` ／ `unanimous`。`asis` はモデル 1 本だけ・`majority` は奇数本だけ）。`run-live.sh` はトレーダーの設定から使うモデルを集めて `cli.predict` を本数ぶん並列に回す（3 人 1 本ずつ ＝ 3 本）＝ 配線はある。⚠ **複数モデルの人は 1 人も動かしたことがない**（2026-09-17「最初は 1 人 1 モデル・そのまま。複数モデルは Phase 5 の後」）
-  ⚠ 守るもの: モデル・θ・合成規則・銘柄・`sizing` を替えるのは**新しい検証**（`n_trials` に数える・回すと決めるのは結果を見る前）／ いまの人は編集しない ＝ **新しい識別名の新しい人**を作る（C11。呼び名は意味の無い名前・使い回さない）／ **10/20 の判定までは執行器を変えない**（[live-trading.md §0-15](docs/specs/experiments/live-trading.md)。設定を足すのは執行器の変更ではないが、本番へ入れるのは判定の後・利用者の決定）／ 新しいモデルの解説は `dashboard/models.toml` の `[[model]]`・人の側は `traders.toml` の `[nicks]`・`[symbols_why]`（説明を Python に書かない）
-  ⚠ 確かめること: 13500t の予測は CPU で 3 本並列 48 秒（線 60 秒。[live-trading.md §0-12](docs/specs/experiments/live-trading.md)）＝ 4 本目からは時間が要る（起動を早める ／ 前日の終値で予測する、は別の決めごと）／ 新しいモデルが LightGBM・torch 以外の依存を使うなら 13500t のイメージ（g3plus-ops の Dockerfile）と Sx360 の関門の `.venv` にも要る ／ 研究用の `data/` と GPU は titan にだけある（予測の作り置きは titan で作って写す ＝ `sim3` と同じ）
+- [ ] titan を使って、新規の予測モデルと、複数の予測モデルを持ったトレーダーを作成する方法を確立する [plan](docs/plans/new-model-trader.md)
+  利用者の指示（2026-09-27）: **titanを使って新規の予測モデルと複数の予測モデルを持ったトレーダーを作成する方法を確立させます**「TODOにある２週間後の予測モデルと、損切りのも含める。損切りは一つのモデルとして考えてもよいかも検証」「『複数のデータから特定の銘柄のトレンドを当てる深層学習を机上で試す』の２つのモデルもこのタスクに含める」
+  ⚠ 作るのは「方法」＝ 手順書（`docs/specs/howto-model-trader.md`）と、それを 1 度通した実例。本番に新しい人を入れるかは別に利用者が決める（10/20 の判定の後・[live-trading.md §0-15](docs/specs/experiments/live-trading.md) C11）
+  ✅ 2026-09-27 プランを作った（⚠ Sx360 の Claude）。確立するもの 4 つ・いまあるもの・守るもの・機械の役割はプラン §0、裁定を待つ論点はプラン §2 の K1〜K8、手順書の骨組みは §4。子は Phase の順に置き直し、元の 4 つの子の長いメモはプラン §3 Phase 2 へ移した
+  ⚠ 2026-09-27 に読んで分かったこと（プラン §0・§3）: 合成規則を足さなくても `unanimous`（買いは min・出口は max）で「買いは主モデル・売りはどちらか」が作れる ／ 同じ実験名の違う手法は 1 人の中で 2 本持てない（`signals.py` の行の引き方）／ 4 人目の $300 は執行器の上限 $1,000 に当たる ／ `cli.predict` の `split_asof` は先 10 日のラベルをパージしない（Phase 3 で直す）／ ⚠ Sx360 に `sim-predict/` が無い（sim3 ／ sim4 も回らない ＝ titan から写す）
   関連: 「予測モデルの検証のようにトレーダーの検証も行う（…）」（新しい人を本番に入れる前の机上の物差し）／ 「DeepLearning と進化的探索（遺伝的アルゴリズム）を使った検証をかなり増やす。…」（新しいモデルの候補の出どころ）／ 「トレーダー 3 人（…）に予算を割り振り、tastytrade の本口座で実際に売買して記録を残す（実売買の仕組み）」（Phase 6 の判定の後に足す）／ [live-trading-three-models.md §2-1](docs/plans/live-trading-three-models.md)（トレーダーの定義と合成規則）／ [live-trading.md §0-1・§0-7 (k)](docs/specs/experiments/live-trading.md)（3 人の設定・`sim3` の作り置き）／ [rules.md 10-2](docs/specs/experiments/feature-discovery/rules.md)（予測モデル名）／ [dashboard.md §16・§17](docs/specs/dashboard.md)（トレーダー・予測モデルのタブ）
-  - [ ] 「今後 2 週間くらい上がりそう ／ 下がりそう」を当てにいく形を机上で試す（予測の対象を先 10 営業日にする）
-    利用者の指示（2026-09-20）。きっかけは「システム説明」タブの「点に直す」の段への質問:「短期売買は手数料がかさむのと大きな上昇を見込めないので『明日は上がりそう』という予測は意味がない。『今後 2 週間くらい上がりそう下がりそう』というような予測はできるか？また既にあるか？」。着手時にプランを作る（⚠ 回すと決めるのは結果を見る前・試す形と数を事前に固定する）
-    いまあるもの（2026-09-20 に確かめた）: config 90 本は全部 `horizon = 1`（明日）。それより先を当てにいくのは ① 上がり調子の門 D1〜D4（先 20 ／ 60 ／ 200 営業日が上げか。⚠ 見ているのは `trend` の 6 列だけ。門の AUC 0.502〜0.512・20 日の門は買い% の幅 0.0008 点で B&H と 1 日も違わない。21 検証で採る 0【実測。[downtrend-detection.md](docs/specs/experiments/downtrend-detection.md)】）② 条件付き GAN（SPY の先 5 日の分布。落とす【[cgan-scenario.md](docs/specs/experiments/cgan-scenario.md)】）。⚠ **5 日と 20 日のあいだ（10 営業日）と、「いまの 3 本が見ている数字（own ／ ownex ／ ownseq）で先の日数を当てにいく形」はどちらも空白**
-    作り方の見立て: 先 W 本のラベル（`labels.build_scales` の `y_fwd_{W}`）・ラベルの長さに合わせたパージと較正の holdout（rules.md 14-7・15-4・15-5。`date_holdout(label_bars=w)`）は検知器のために既にある → 足すのは窓 10 と、見る数字を替えた検知器（⚠ 既存の `SCALES`・登録名は変えない ＝ rules.md 10-1。新しい名前で足す）。⚠ **学習の対象（先 10 日）と損益の対象（1 日）を分ける**（15-3。シミュレータ 13-4 は変えない）。試す数の目安 ＝ 見る数字 3 組 × 学び方 2 つ × θ 3 ＝ 18 検証【推測】。作業量 半日〜1 日・費用 0・GPU 不要【推測】
-    ⚠ 先に書く見立て: 見込みは高くない（両隣の 5 日・20 日が効いていない ／ 先 10 日の答えは毎日 9 日ぶん重なるので独立な標本が約 1/10 に減り、検出限界がさらに上がる ＝ [validation-power.md](docs/specs/experiments/feature-discovery/validation-power.md)）。それでも空白なので回す（CLAUDE.md・rules.md 14-10）
-    ⚠ 質問の前提への補足（記録から）: 閾値売買は毎日往復ではなく、点が線の上にあるあいだ持ち続ける（費用は売り買いした日だけ ＝ 13-4）。負けの主因は手数料ではなく、点に中身が無いことと、休んだあいだの上げの取り損ね（C3 のコストは負けの 7%【実測】）
-    メモ: 「モデルを作る」の「出力スコアに直す」の段（2026-09-26 からシステム説明の「予測モデルのしくみ」＝ `dashboard/system.toml` の `[[page]]`）は毎日売り買いするように読める → 「学ぶ対象は明日だが、売り買いは毎日ではなく、点が線の上にあるあいだ持ち続ける。もっと先（20 日〜）を当てにいく型も試したが効かなかった」を足すか（⚠ 利用者の裁定待ち）
-    関連: 「DeepLearning と進化的探索（遺伝的アルゴリズム）を使った検証をかなり増やす。進化的探索の実行を継続して回せる仕組みを入れる」／ [entry-timing.md](docs/specs/experiments/entry-timing.md)（入口と出口で見る長さを変える）／ [dashboard.md §18](docs/specs/dashboard.md)
-    派生元: 2026-09-27 利用者の指示「TODOにある２週間後の予測モデルと、損切りのも含める」＝ 独立の親タスクからここへ移した（文面・メモはそのまま）。この親の①「新しい予測モデルを titan で作る道」の 1 つ目の実例
-  - [ ] 損切りの手法や対応方法を考える。損切りしたほうが損を多く生む可能性の調査も行う
-    ⚠ **予算の守り方もここでまとめて見直す**（利用者の指示 2026-09-20「1 についてはまとめて実行する」）: `plan.size_intents` の `over_budget` は **到達できない**【実測 2026-09-20】— 予算は `target = min(per_symbol, available)` の**丸め**で先に守られ、枠で 1 株も買えないときは `too_small` になる。⚠ 消す ／ 別の守り（損切りの規則に合わせた歯止め）に作り替える ／ 残す、を損切りの設計と一緒に決める
-    ⚠ いまは「出ないこと」を `tests/test_sim_limits.py` が固定している（[live-trading.md §0-7 (l)](docs/specs/experiments/live-trading.md)）ので、作り替えるときはそのテストも直す
-    派生元: 「疑問に思ったことを登録し解決していく」の子（2026-09-27 に利用者の指示でここへ移した）。関連: 下の「損切りを 1 つの予測モデルとして扱えるかを検証する」（同じ答えを 2 か所で出さない ＝ 損切りの規則そのものはこちら、モデルとして合わせる形は下）
-  - [ ] 損切りを 1 つの予測モデルとして扱えるかを検証する
-    利用者の指示（2026-09-27）: **損切りは一つのモデルとして考えてもよいかも検証**。着手時にプランを作る（⚠ 回すと決めるのは結果を見る前・試す形と数を事前に固定する）
-    考え方: いまのモデルは 1 本で買いと売りの両方を決める（出力スコアが売買基準値を超えたら買い・「100 − 売買基準値」を下回ったら売る ＝ rules.md 13-4）。損切りをモデルにする ＝ **持ち株の出口だけを言うモデル**（例: 買値からの下落 x%・直近 N 日の下げ・値動きの大きさで割った下落、を出口% にする）を `[[models]]` の 1 本にして、いまのモデルと合わせる。⚠ いまの合成規則 4 つ（`asis` ／ `mean` ／ `majority` ／ `unanimous`）は買い% を混ぜるだけで「売りだけに効く 1 本」を合わせる形が無い ＝ 合成規則を 1 つ足す（執行器の変更 ＝ 10/20 の判定の後）
-    検証の形（見立て）: 机上は `simulate`（rules.md 13-4）に出口の規則を足し、損切りなし ／ 損切りモデルあり ／ 基準線（乱択の出口・固定日数の出口）で 純利・最大の含み損・回転の数 を比べる。「損切りしたほうが損を多く生む」の問い（上の子）にここで答える。⚠ 学習の対象を変えない形（規則の損切り）と、出口% を学ぶ形（rules.md 15-3 の「学習の対象と損益の対象を分ける」）は別の検証として数える
-    ⚠ 守るもの: 回したものは全部 `n_trials` に数える ／ 基準線を最初から置く（rules.md 17-7 と同じ教訓） ／ 実売買の `drawdown_warning`（含み損 20% は警告だけ・止めるのは人）はそのまま ／ 執行器を変えるのは 10/20 の後
-    関連: [entry-timing.md](docs/specs/experiments/entry-timing.md)（入口と出口で見る長さを変える）／ [live-trading.md §0-2](docs/specs/experiments/live-trading.md)（停止条件・含み損）／ [rules.md 13-4・15-3](docs/specs/experiments/feature-discovery/rules.md)
-  - [ ] 複数のデータから特定の銘柄のトレンドを当てる深層学習を机上で試す（「目的の系列 ＋ 外生系列」の型 2 本）
-    派生元: 利用者の指示（2026-09-26）: **DeepLearnigで複数のデータが入った中から特定の銘柄のトレンドの予測に使えそうなモデルを調べて** → 調査の結果（下のメモ）を受けて「まずは TODO 化のみ」
-    ⚠ **着手時にプランを作る**（`docs/plans/`。回すと決めるのは結果を見る前・試す形と数・地平を事前固定 ＝ [rules.md 14-9・14-10](docs/specs/experiments/feature-discovery/rules.md)）。TODO 化だけの段階で config・コードは書いていない
-    調査の結論（2026-09-26。【公表値】の取得日はすべて 2026-09-26）: 「複数のデータ → 特定の銘柄」の深層学習は 4 系統 ＝ A 目的 ＋ 外生（TimeXer・TFT・iTransformer・TiDE ／ TSMixer）／ B 断面・グラフ（MASTER・HIST・TRA・GATs・MTGNN）／ C 基盤モデル zero-shot ＋ 共変量（Chronos-2・Moirai-2・TimesFM-2.5 の XReg）／ D 線形対照（DLinear ＝ この案件では ownex の Ridge がその役）。前回の調査 [ts-trend-ai-survey.md](docs/specs/experiments/ts-trend-ai-survey.md) は単変量の系列モデルが中心で、多変量の入力はその空白
-    ⚠ **外部の一次評価は否定的で揃っている**: [QuantBench（arXiv:2504.18600）](https://arxiv.org/abs/2504.18600) ＝ 木 ＋ Alpha101 IC 2.31% ／ Sharpe 0.81 に対し LSTM IC 4.76% ／ Sharpe 0.77（IC は上でも Sharpe は下）・GCN は IC −0.10% ／ 収益 −13.07%・「グラフ構造で一貫した改善は無い」・3 か月ごとの学び直しが最良 ／ [Deep TS Models for Equity Portfolios（arXiv:2606.09420）](https://arxiv.org/abs/2606.09420) ＝ CRSP 2018〜24・15 構造で費用 20bp 後の Sharpe は全モデル負・TS-Ridge が上位と拮抗 ／ [Chronos-2 の多変量金融予測（arXiv:2605.21504）](https://arxiv.org/abs/2605.21504) ＝ Mag-7 の価格水準で共変量あり MAPE 0.0706 ／ 0.0728 対 なし 0.0844 ／ 0.0834（先 21 ／ 63 日）。⚠ 測ったのは水準の誤差で方向でもランダムウォーク対照でもない・著者が学習データに米株が混ざる先読みの可能性を注記・株と金利を混ぜると悪化
-    材料は揃っている: ownex の表（own ＋ cs ＋ rel ＋ ex の 6 源）・seq の 60 日の道筋・63 銘柄の日足 2018〜。⚠ 検知器の口（買い% を直接返す。[rules.md 14-1](docs/specs/experiments/feature-discovery/rules.md)）に PatchTST と同じ形で載せる
-    ⚠ 「トレンド」の長さ: どちらも先 h 日の道筋を分位点で出すので「先 10 営業日を当てにいく」と同じ実行で相乗りできるが、地平は回す前に固定する
-    見送り（理由つき）: 断面・グラフ（外部評価と [feature-discovery §8](docs/specs/experiments/feature-discovery.md) の両方が不振）／ TFT（TimeXer と同系で重い）／ TimesFM の XReg（線形なので Ridge と同じ）／ iTransformer（内生・外生の区別が無い。TimeXer が落ちたら次の候補）
-    関連: 「「今後 2 週間くらい上がりそう ／ 下がりそう」を当てにいく形を机上で試す（予測の対象を先 10 営業日にする）」／ [patchtst-threshold.md](docs/specs/experiments/patchtst-threshold.md)（同じ口・1 fold 19 分【実測】）／ [ts-trend-ai-survey.md §7](docs/specs/experiments/ts-trend-ai-survey.md)
-    派生元: 2026-09-27 利用者の指示「『複数のデータから特定の銘柄のトレンドを当てる深層学習を机上で試す』の２つのモデルもこのタスクに含める」＝「DeepLearning と進化的探索（…）」の子からここへ移した（文面・メモ・下の 2 本はそのまま）。この親の①「新しい予測モデルを titan で作る道」の実例（GPU を使う型）
-    - [ ] Chronos-2 zero-shot ＋ 共変量を 1 本（目的 ＝ 銘柄の終値・共変量 ＝ 他 62 銘柄 ＋ 金利・為替を past-only）
-      学習しないので事前固定は文脈長と分位点の読み方だけ。分位点から上がる確率を作り、既存の較正・θ・シミュレータへ。作業 半日〜1 日・実行 数分〜数十分の GPU【推測。公表の A10G で 300 系列/秒から】・n_trials ＋3。Apache 2.0・120M・CPU でも動く（[amazon/chronos-2](https://huggingface.co/amazon/chronos-2)・[arXiv:2510.15821](https://arxiv.org/abs/2510.15821)）
-      ⚠ 判定の前に leak 対照と「共変量なし」の行を並べ、共変量の効きと先読み（学習コーパスの米株）を切り分ける
-    - [ ] TimeXer（教師あり）を 1 本（内生 ＝ 目的銘柄の 60 日の道筋・外生 ＝ 他銘柄 ＋ 外部系列）
-      PatchTST と同じ検知器の口・同じ縮小側の大きさ。作業 1 日・1 fold 20 分前後の GPU【推測。PatchTST 19 分/fold の実測から】・n_trials ＋3。Time-Series-Library（MIT）に実装あり（[NeurIPS 2024](https://proceedings.neurips.cc//paper_files/paper/2024/hash/0113ef4642264adc2e6924a3cbbdf532-Abstract-Conference.html)・[thuml/TimeXer](https://github.com/thuml/TimeXer)）
+  - [ ] Phase 0: 決めごと K1〜K6 を決める（⚠ **利用者**。プラン §2。K7〔本番に入れるときの予算・13500t の予測の時間・深層学習の重みを写す道〕と K8〔`over_budget`〕は後でよい）
+    推す案: K1 実例 A（いまの 3 本を `mean`・`T4`）を先に・実例 B（主モデル ＋ 損切りモデルを `unanimous`・`T5`）を Phase 2-2 の後 ／ K2 合成規則は足さない（出口だけのモデルは買い% 100 を返す）／ K3 損切りは形 A（位置を知らない出口%）を先に・形 B（買値からの下落）は `simulate` に口を足してから別の検証 ／ K4 先 10 日は 3 表 × 2 学習器 × θ 3 ＝ 18 検証 ／ K5 深層学習の地平は先 10 日・Chronos-2 は共変量あり ／ なし の 2 行 ／ K6 置き場は `candidates/multi/` ＋ `sim_` の写し・呼び名は利用者（候補: ハル ／ ミオ）
+  - [ ] Phase 1: 手順書の骨組みを書く（`docs/specs/howto-model-trader.md`。プラン §4 の 2 本のチェックリスト。⚠ 実例より先に書き、実例で手順を試す。しくみの説明は書かない ＝ vibeboard の「システム説明」が正本・`system.toml` の「実際の売買」に案内 1 行）
+  - [ ] Phase 2: 新しい予測モデルを titan で作る道（実例 3 系統。事前固定 → 検知器・綴り → config → `cli.queue` → 記録 → 検証結果一覧 → `models.toml`。⚠ 回すと決めるのは結果を見る前・回したものは全部 `n_trials` に数える・基準線を最初から置く・leak は queue が足す）
+    - [ ] Phase 2-1: 「今後 2 週間くらい上がりそう ／ 下がりそう」を当てにいく形を机上で試す（予測の対象を先 10 営業日にする）
+      利用者の指示（2026-09-20）。きっかけは「システム説明」タブの「点に直す」の段への質問:「短期売買は手数料がかさむのと大きな上昇を見込めないので『明日は上がりそう』という予測は意味がない。『今後 2 週間くらい上がりそう下がりそう』というような予測はできるか？また既にあるか？」
+      いまあるもの・作り方・先に書く見立て・質問の前提への補足はプラン §3 Phase 2-1（2026-09-27 に TODO から移した）。空白 ＝ 5 日と 20 日のあいだ（10 営業日）と「いまの 3 本が見ている数字で先を当てにいく形」。足すのは見る数字を替えた検知器 1 つ（既存の `SCALES`・D1〜D4 の登録名は変えない）。学習の対象は `y_fwd_10`・損益の対象は 1 日のまま（rules.md 15-3）。試す数は K4（18 検証）。⚠ 見込みは高くないが空白なので回す（rules.md 14-10）
+      記録: `docs/specs/experiments/forward10-target.md`（新規）。関連: [entry-timing.md](docs/specs/experiments/entry-timing.md)／ [downtrend-detection.md](docs/specs/experiments/downtrend-detection.md)／ [cgan-scenario.md](docs/specs/experiments/cgan-scenario.md)
+      メモ（⚠ 利用者の裁定待ち）: 「システム説明」の「出力スコアに直す」の段は毎日売り買いするように読める → 「学ぶ対象は明日だが、売り買いは毎日ではなく、点が線の上にあるあいだ持ち続ける。もっと先（20 日〜）を当てにいく型も試したが効かなかった」を足すか
+      派生元: 2026-09-27 利用者の指示「TODOにある２週間後の予測モデルと、損切りのも含める」＝ 独立の親タスクからここへ移した。この親の①「新しい予測モデルを titan で作る道」の 1 つ目の実例
+    - [ ] Phase 2-2: 損切りを 1 つの予測モデルとして扱えるかを検証する
+      利用者の指示（2026-09-27）: **損切りは一つのモデルとして考えてもよいかも検証**
+      考え方・形の表（A-1 規則の出口 ／ A-2 学ぶ出口 ／ B 位置を知る損切り ／ 基準線 ＝ 乱択の出口・固定日数の出口）・机上と本番の器・数はプラン §3 Phase 2-2（2026-09-27 に TODO から移した）。⚠ 形 B は `simulate` に出口の口を足す（既定は 1 ビットも変えない ＝ 指紋テスト）。本番の器: 形 A はいまの執行器で読める（`exit` の欄 ＋ `unanimous`・買い% 100）・形 B は 10/20 の後（プラン §7）。実売買の `drawdown_warning`（含み損 20% は警告だけ・止めるのは人）はそのまま
+      記録: `docs/specs/experiments/stoploss-as-model.md`（新規）。関連: [entry-timing.md](docs/specs/experiments/entry-timing.md)（入口と出口で見る長さを変える）／ [live-trading.md §0-2](docs/specs/experiments/live-trading.md)（停止条件・含み損）／ [rules.md 13-4・15-3・16 章](docs/specs/experiments/feature-discovery/rules.md)
+      - [ ] 損切りの手法や対応方法を考える。損切りしたほうが損を多く生む可能性の調査も行う
+        ＝ この検証の**事前固定**: 規則の候補と水準・基準線・「損切りしたほうが損を多く生むか」の物差し（純利・最大の含み損・回転の数）を、回す前に記録の §0 に書く。同じ答えを 2 か所で出さない ＝ 損切りの規則そのものはここ・モデルとして合わせる形は親
+        ⚠ **予算の守り方もここでまとめて見直す**（K8。利用者の指示 2026-09-20「1 についてはまとめて実行する」）: `plan.size_intents` の `over_budget` は**到達できない**【実測 2026-09-20】— 予算は `target = min(per_symbol, available)` の**丸め**で先に守られ、枠で 1 株も買えないときは `too_small` になる。いまは「出ないこと」を `tests/test_sim_limits.py` が固定している（[live-trading.md §0-7 (l)](docs/specs/experiments/live-trading.md)）。消す ／ 別の守り（損切りの規則に合わせた歯止め）に作り替える ／ 残す を損切りの設計と一緒に決める（作り替えは執行器の変更 ＝ 10/20 の後。推すのは「残す」）
+        派生元: 「疑問に思ったことを登録し解決していく」の子（2026-09-27 に利用者の指示でここへ移した）
+    - [ ] Phase 2-3: 複数のデータから特定の銘柄のトレンドを当てる深層学習を机上で試す（「目的の系列 ＋ 外生系列」の型 2 本）
+      派生元: 利用者の指示（2026-09-26）: **DeepLearnigで複数のデータが入った中から特定の銘柄のトレンドの予測に使えそうなモデルを調べて** → 調査の結果を受けて「まずは TODO 化のみ」→ 2026-09-27 利用者の指示「『複数のデータから特定の銘柄のトレンドを当てる深層学習を机上で試す』の２つのモデルもこのタスクに含める」＝「DeepLearning と進化的探索（…）」の子からここへ移した。この親の①の実例（GPU を使う型）
+      調査の結論（4 系統・外部の一次評価 3 本【公表値 2026-09-26】・見送りの理由）と 2 本の事前固定・作業量はプラン §3 Phase 2-3（2026-09-27 に TODO から移した）。検知器の口（rules.md 14-1）に PatchTST と同じ形で載せる（`ail/detectors/seqmodel.py` が雛形）。地平は K5 ＝ 先 10 日（Phase 2-1 と同じラベル。⚠ 回す前に固定）。依存は titan の `.venv` にだけ足す（13500t のイメージには入れない）
+      記録: `docs/specs/experiments/exog-deep-models.md`（新規）。関連: [patchtst-threshold.md](docs/specs/experiments/patchtst-threshold.md)（同じ口。落とす）／ [ts-trend-ai-survey.md §7](docs/specs/experiments/ts-trend-ai-survey.md)
+      - [ ] Chronos-2 zero-shot ＋ 共変量を 1 本（目的 ＝ 銘柄の終値・共変量 ＝ 他 62 銘柄 ＋ 金利・為替を past-only）
+        学習しないので事前固定は文脈長と分位点の読み方だけ。分位点から上がる確率を作り、既存の較正・θ・シミュレータへ。⚠ 判定の前に leak 対照と「共変量なし」の行を並べ、共変量の効きと先読み（学習コーパスの米株）を切り分ける。2 行 × θ 3 ＝ 6 検証。作業 半日〜1 日・実行 数分〜数十分の GPU【推測。公表の A10G で 300 系列/秒から】。Apache 2.0・120M・CPU でも動く（[amazon/chronos-2](https://huggingface.co/amazon/chronos-2)・[arXiv:2510.15821](https://arxiv.org/abs/2510.15821)）。依存 `chronos-forecasting` は titan の `.venv` に足す（いまは無い）
+      - [ ] TimeXer（教師あり）を 1 本（内生 ＝ 目的銘柄の 60 日の道筋・外生 ＝ 他銘柄 ＋ 外部系列）
+        PatchTST と同じ検知器の口・同じ縮小側の大きさ。`ARCH` ／ `TRAIN` は事前固定（`model_args` は書かない）。1 × θ 3 ＝ 3 検証。作業 1 日・1 fold 20 分前後の GPU【推測。PatchTST の本番 1 時間 37 分 ／ 5 fold【実測】から】。Time-Series-Library（MIT）に実装あり（[NeurIPS 2024](https://proceedings.neurips.cc//paper_files/paper/2024/hash/0113ef4642264adc2e6924a3cbbdf532-Abstract-Conference.html)・[thuml/TimeXer](https://github.com/thuml/TimeXer)）
+  - [ ] Phase 3: 執行器が読める形にする（titan。`cli.predict --experiment … --method … --asof …` が 3 系統とも `predict.jsonl` の行を出す。⚠ 判定が「落とす」でも道は通す ／ 先 10 日: `split_asof` を「最長のラベルぶん落とす」に直す〔研究側のコード。`tests/test_predict.py`・指紋テスト〕／ 損切り: 出口だけの実験 config は `cli.predict` のためだけ〔queue に入れない〕・買い% 100・主モデルとは別の実験名）
+  - [ ] Phase 4: 複数モデルのトレーダーを作る（プラン §3 Phase 4 の Step 4-1〜4-5。vibeboard の読み先を `candidates/*/` に広げる → 実例 A `T4`〔いまの 3 本を `mean`・θ 50〕→ 実例 B `T5`〔主モデル ＋ 損切りモデルを `unanimous`〕→ `traders.toml` に呼び名と `[symbols_why]`・`models.toml` に損切りモデルの `[[model]]` → `test_trader.py` に追加 → `live-trading.md` §0-1 に候補の表。⚠ 執行器のコードは 0・実例の成績は測らない）
+    依存: 「Phase 0: 決めごと K1〜K6 を決める（…）」（識別名・呼び名・置き場 ＝ K6）
+  - [ ] Phase 5: 通し方（`config/sim/sim5.toml`〔`sim_T4`・`sim_T5`・予算の合計 $600〕→ titan `simpredict.py make sim5` → `sim-predict/` を Sx360 へ写す〔⚠ いま Sx360 に無い ＝ sim3 ／ sim4 のぶんも〕→ Sx360 `./run-sim.sh sim5 --fresh --speed max` → 管理画面 3012 `[SIM]` と vibeboard〔トレーダー 2 人（候補）・新しい `[[model]]`〕に出る → `live-trading.md` §0-7 (k) に記録。⚠ 黄金の集計値には足さない）
+  - [ ] Phase 6: 手順書を仕上げる（実測のコマンド・時間・落ちたテストと直し方をプラン §4 の表に入れて `howto-model-trader.md` へ → `./run-tests.sh` と `dashboard` のテスト〔`test_real_history_matches_the_db` は titan の DB で〕→ 親を `DONE.md`・プランを `archive/` へ。⚠ 残るのは利用者の決定 ＝ 本番に `T4` ／ `T5` を入れるか〔K7・10/20 の後〕）
 
 - [ ] `~/g3plus-ops` を使って 13500T に管理画面と毎日の売買を動かす環境を作る [plan](docs/plans/three-machines.md)
   利用者の指示（2026-09-22）: **`~/g3plus-ops` を使って 13500T に管理画面と毎日の売買を実行する環境を作る**

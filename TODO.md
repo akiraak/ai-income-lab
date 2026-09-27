@@ -303,6 +303,13 @@
   ✅ 2026-09-23: titan で本番投入が 1 日通った（[DONE.md](DONE.md)）＝ 機械を増やしてよい → Phase 2 Step 2-3 の残り（`.env` を置いた後の ②〜⑤）へ進める（⚠ `.env` を置くのは利用者）
   関連: 「売買（`run-live.sh`）が自動で動くようにする（無人運転）」／ [live-trading.md §0-12](docs/specs/experiments/live-trading.md)（13500T の予測の時間。2026-09-22 済み）／ [dashboard.md §7](docs/specs/dashboard.md)
 
+- [ ] Sx360 から 13500t の管理画面にアクセスしやすくする
+  利用者の指示（2026-09-26）: 「sx360から13500tの管理画面にアクセスしやすくする」
+  いま: Sx360 で `./run-dashboard-tunnel.sh --host 13500t.lan` → http://127.0.0.1:3013/（ssh は Cloudflare Tunnel 経由。端末を 1 つ占有し、Ctrl+C や回線の切れで止まる ＝ 見るたびに起こし直す）
+  守るもの: 公開面（Cloudflare Access）は出さない（K5・[dashboard.md §7-1](docs/specs/dashboard.md)）／ 13500t の管理画面はループバックだけ（LAN の IP では開かない）／ `tailscale serve` に出さない（接続元が全部ループバックに見え、停止・解除が無認証で開く）／ 13500t へ届くのは Sx360 だけ
+  候補（見立て。決めるのは利用者）: トンネルを `systemd --user` か autossh で常駐させ切れても戻す ／ Windows 側から 1 クリックで wsl のトンネルを起こすショートカット ＋ ブックマーク ／ 「開いているか」を確かめる 1 コマンド。⚠ 公開面を出す案は含めない
+  関連: 「`~/g3plus-ops` を使って 13500T に管理画面と毎日の売買を動かす環境を作る」／ `run-dashboard-tunnel.sh`
+
 - [ ] 実売買の執行器（`run_day.py`・`reconcile.py`）のメッセージの「台帳」→「売買履歴」（⚠ 本番投入が落ち着いてから。執行器のテストを流す・本番に効くので「デプロイ」が要る）
   派生元: 「DBを使ったデータの永続化を行う」の「言葉を分かりやすくする」（2026-09-25 に DONE へ）
 

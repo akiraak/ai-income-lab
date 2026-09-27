@@ -338,7 +338,18 @@
     - [x] Step 4-5: 文書とコメント（dashboard.md §18-1・§18-2・§9・CLAUDE.md・`system.toml` ／ `systemview.py` ／ テストの頭の「Step 4 で書く」）
     - [x] Step 4-6: 通しで確かめる（pytest 4 本 → `./run-tests.sh --fast` → `vibetab.py --port 3016` で `#system/trader` と入口を目で見る。⚠ sidecar〔3015〕と vibeboard〔3010〕の入れ直しは利用者）
       ✅ 2026-09-26（Sx360）: `test_system_tab.py` 21 ✅・`run-tests.sh --fast` 239 ✅ ／ 1 ❌（`test_models_tab.py::test_real_detail_plugs_match_the_db`「DB から引けない」＝ ⚠ **この変更と無関係・元の状態でも落ちる**: Sx360 の `runs/research.sqlite` が 0.1 MB・実行 0 の空〔今日 16:57 にできた〕で、テストは「DB が無い ＝ 形だけ見る」に入らず引きに行く。⚠ 空の DB を消すか、テストを「空の DB も無いと同じ」にするかは利用者の裁定）。ページは HTML に描いて 9 段・図 1・表 4・詳しく 9・`<details>` 0 を確かめ、入れ子の図は PNG にして四角の入れ子と塗りを見た。⚠ 3016 ／ 3010 での目視は利用者（sidecar は古いコードのまま）
-  - [ ] Step 5: 予測モデル一覧を直す（12 本とも残す。特性の出どころ sim3 を明記・各モデルの組み立てに **材料に入れるもの ／ 学ぶ株 ／ 出力スコアを出す株** を書き分け・「売買する株はトレーダーが決める」の 1 文）
+  - [x] Step 5: 予測モデル一覧を直す（12 本とも残す。特性の出どころ sim3 を明記・各モデルの組み立てに **材料に入れるもの ／ 学ぶ株 ／ 出力スコアを出す株** を書き分け・「売買する株はトレーダーが決める」の 1 文） [plan](docs/plans/explain-settings-models-list.md)
+    推し（プラン §2-3 の案 A）: 組み立ての表の直下に **3 つの集合の表**（`[[model]] sets`・行の名前は `[common] set_*` ＝ §18-2 の綴り）＋ 1 文 `sets_trade` ＋ 「トレーダーのしくみ」へのリンク。「試し運転の 64 日」の出どころ（作り置きの予測は本番と同じ ／ 売り買いは `sim3` ＝ 金額を決めて全部を買う形）は `[common] trial_note` に 1 か所で書き、売り買いの本数の話をしている特性 2 つ（T2・T3）は文の中で形を名指し・`sim4` の数は「詳しく」に【実測】で。⚠ 本文に本数・63・48 を書かない
+    ✅ 2026-09-26（Sx360）: 案 A で実装（結果はプラン §2-5）。⚠ **Sx360 の作業ツリーで書いた・未コミット**（コミットと push は利用者の依頼で）。⚠ `trial_note` は本文に「試し運転」があるモデルのページにだけ出す（`modelview._mentions_trial`）。⚠ `modelview.py` を変えたので **sidecar（3015）と vibeboard（3010）の入れ直しは利用者**
+    - [x] Step 5-1: テストを先に直す（`sets ⊆ SETS`・12 本とも 3 つの集合がある・`set_*` が §18-2 の綴り・最小の置き場に `sets` と `[common]` の項目・ページに表 → 1 文 → `/#system/trader`・2 の段に `trial_note`・トレーダーのページに出ない・「試し運転」の文に出どころが読める）
+      ✅ `test_deep_parts_are_well_formed` に足した ＋ 新しい `test_trial_sentences_say_which_trial`（特性・癖は `text` ＋ `why` で 1 つ） ＋ ページの検査 3 本を直した（赤 → 5-2〜5-4 で緑）
+    - [x] Step 5-2: `modelview.py` に `SETS`・`_sets()`・`trial_note` の描き方（案 A のとき。⚠ `traderview.py` は触らない・sidecar の入れ直しは利用者）
+    - [x] Step 5-3: `models.toml` — 3 つの集合（`[common]` 6 項目・12 本の `sets`〔プラン §2-1 の下書き〕・`axes` から集合の名指しの句を抜く・「見る株」を「学ぶ株」「出力スコアを出す株」に言い換え・`detail.about` に本数と `targets` を足す）
+    - [x] Step 5-4: `models.toml` — 出どころ `sim3` の明記（`trial_note`・T2 の traits[1]・T3 の traits[0] ほかプラン §2-2 の表・`detail.score` に `sim4` の【実測】と作り置きの出どころ。⚠ `history`・`{{gate}}`・`{{calib}}`・`result` に触れない）
+      ⚠ `sim4` の `too_small` 1 はどの人かを記録（live-trading.md §0-7 (k)）が書いていないので、人に割り振らず `sim4` 全体の数として書いた
+    - [x] Step 5-5: 文書とコメント（dashboard.md §17-2 の表と欄の一覧・§18-2 の「組み立ての `data`・`scope`」・§9・CLAUDE.md・`models.toml` ／ `modelview.py` の頭）
+    - [x] Step 5-6: 通しで確かめる（pytest 4 本 → `./run-tests.sh --fast` → `vibetab.py --port 3016` で 4 本のモデルのページと `#traders/T1` を目で見る。⚠ sidecar〔3015〕と vibeboard〔3010〕の入れ直しは利用者・Sx360 の空の `research.sqlite` の件は既知）
+      ✅ pytest 4 本 70 ✅ ／ 1 ❌（既知の `test_real_detail_plugs_match_the_db`「DB から引けない」＝ Sx360 の空の `research.sqlite`。直す前と同じ）／ 1 skip。`run-tests.sh --fast` ＝ 執行器 ✅・管理画面 240 ✅ ／ 同じ 1 ❌ ／ 1 skip（39.7 秒）。3016 で own-ridge・ownex-lgbm・seq-quant・cgan-scenario・mlp の 5 ページ（表・1 文・リンク・`<details>` 0・注は「試し運転」のある 3 本だけ）と `#traders/T1`・`T3`（表と注は出ず、特性の文だけ変わる）を HTML で確かめた。⚠ 3016 ／ 3010 での目視は利用者
   - [ ] Step 6: トレーダー一覧に文を足す（**売買する株**の本数と選び方・使うモデルが**出力スコアを出す株**との違い・予算の規模・共通のしくみへの案内・「変えるときは新しい人」・`unsettled` を消す・`step_learn` を直す）
   - [ ] Step 7: 用語タブに語を足す（売買基準値・出力スコア・整数株 ／ 金額指定・規模 A ／ B・呼び名・識別名・予測モデル名）と §0-1 を指す `where` の行き先
   - [ ] Step 8: 仕様書 `live-trading.md` の重複した説明を削る提案（正本 ＝ vibeboard。残すのは決定の日付・【実測】・数字。⚠ 見せてから削る）

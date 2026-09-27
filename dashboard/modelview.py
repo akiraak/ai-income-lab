@@ -6,6 +6,9 @@
 ページの描き方（段・図・表・「詳しく」・検証結果一覧の合計・型ごとのしくみ ＝ `page_body`）はここにあり、「システム説明」がそれを使う。
 2026-09-20 に手厚くした（利用者の裁定）: 図（入れるもの → 計算 → 出力スコア）／ このモデルの組み立て（軸の表）／ 小さな例で段を追う ／
 出力スコアの出かたと読み方 ／ 試した経緯の表 ／ 大見出しごとの「詳しく（用語あり）」の囲み（⚠ **畳まない**）。⚠ **欄の無いモデルは、その部分を出さないだけ**。
+2026-09-26 に足した（設定の説明 Step 5。利用者決定「4 つの集合は重要」）: 組み立ての直下に **3 つの集合の表**（`sets` ＝ 材料に入れるもの ／ 学ぶ株 ／
+出力スコアを出す株。行の名前は `[common] set_*` ＝ dashboard.md §18-2 の綴り）＋ 1 文「売買する株はトレーダーが決める」＋「トレーダーのしくみ」への
+リンク ／ 特性の段の印の意味の直後に **試し運転の注**（`[common] trial_note` ＝「試し運転の 64 日」が何だったか。⚠ 本文に「試し運転」があるモデルにだけ）。
 
   - ⚠ **言葉の正本は `dashboard/models.toml`**（トレーダーのタブと同じ 1 本。説明をこのコードに書かない）
   - ⚠ **どれが「いま使っている」かは実売買の設定から引く**（`traderview` の読み手。設定の `[[models]]` と
@@ -53,6 +56,12 @@ TAB_URLS = {"system": SYSTEM_URL, "models": traderview.MODEL_URL, "traders": tra
             "glossary": "/#glossary/", "experiments": "/#experiments/", "data": "/#data/"}
 # このモデルの組み立て（軸）。行の名前は `[common]` の `axis_<鍵>`
 AXES = ("data", "prep", "calc", "target", "scope")
+# 4 つの集合のうちモデルの側の 3 つ（材料に入れるもの ／ 学ぶ株 ／ 出力スコアを出す株。dashboard.md §18-2。2026-09-26）。
+# 行の名前は `[common]` の `set_<鍵>`。4 つ目の「売買する株」はトレーダーが決めるので、表の下の 1 文（`sets_trade`）とリンクだけ
+SETS = ("material", "learn", "output")
+# 「試し運転」の注（`[common] trial_note`）を出す合図 ＝ 本文にこの語があるモデルだけ（無いページに 64 日の話を出さない）
+TRIAL_WORD = "試し運転"
+TRIAL_KEYS = ("summary", "traits", "sees_note", "how", "axes", "walk", "score", "limits")
 # 「詳しく（用語あり）」の囲みを置ける大見出し（`[model.detail.<鍵>]`）
 DETAIL_PARTS = ("about", "how", "score", "result")
 
@@ -427,6 +436,31 @@ def _axes(common: dict, m: dict) -> str:
             + "".join(f"<tr><th>{esc(k)}</th><td>{esc(v)}</td></tr>" for k, v in rows) + f"</table>{note}")
 
 
+def _sets(common: dict, m: dict) -> str:
+    """3 つの集合（このモデルの側）＝ 材料に入れるもの ／ 学ぶ株 ／ 出力スコアを出す株 の表（組み立ての表の直下・同じ形）。
+    下に「売買する株は、この中からトレーダーが決める」の 1 文（`sets_trade`）と「トレーダーのしくみ」へのリンク（`sets_link`）。
+    ⚠ 文は全部 `[common]`・本数は書かない（詳しくにだけ）。`sets` の無いモデルは出さない。"""
+    sets = m.get("sets") or {}
+    rows = [(common.get("set_" + k) or k, sets[k]) for k in SETS if sets.get(k)]
+    if not rows:
+        return ""
+    trade = f"<p>{esc(common['sets_trade'])}</p>" if common.get("sets_trade") else ""
+    link = _links([common["sets_link"]]) if isinstance(common.get("sets_link"), dict) else ""
+    return (f"<h3>{esc(common.get('sets_title') or '3 つの集合')}</h3><table class='axes'>"
+            + "".join(f"<tr><th>{esc(k)}</th><td>{esc(v)}</td></tr>" for k, v in rows) + f"</table>{trade}{link}")
+
+
+def _mentions_trial(m: dict) -> bool:
+    """本文（`TRIAL_KEYS` の欄）に「試し運転」の話があるか。あるモデルにだけ `trial_note` を出す。"""
+    def walk(v) -> bool:
+        if isinstance(v, dict):
+            return any(walk(x) for x in v.values())
+        if isinstance(v, list):
+            return any(walk(x) for x in v)
+        return isinstance(v, str) and TRIAL_WORD in v
+    return any(walk(m.get(k)) for k in TRIAL_KEYS)
+
+
 def _walk(common: dict, m: dict) -> str:
     """計算を小さな例で、段を追って。⚠ 例の数字は作りもの（`walk_caution` が必ず付く）。"""
     walk = m.get("walk") or {}
@@ -589,14 +623,16 @@ def _model_body(paths: TraderPaths, data: dict, m: dict, facts: "RunFacts | None
         out.append(f"<p class='who'><b>{esc(common.get('used_by'))}</b>　{links}</p>")
     else:
         out.append(f"<p class='who sub'>{esc(common.get('used_by_none'))}</p>")
-    out.append(_axes(common, m) + _detail(common, m, "about", facts))
+    out.append(_axes(common, m) + _sets(common, m) + _detail(common, m, "about", facts))
 
     out.append(traderview._h2(2, "モデルの特性"))
     out.append("<ul>" + "".join(
         f"<li>{esc(t.get('text'))}{traderview._tag(common, str(t.get('basis') or ''))}"
         + (f"<span class='why'>理由: {esc(t['why'])}</span>" if t.get("why") else "") + "</li>"
         for t in m.get("traits") or []) + "</ul>")
-    out.append(f"<p class='sub'>{esc(common.get('basis_note'))}</p>")
+    # 印の意味の直後に「試し運転の 64 日」が何だったか（出どころ ＝ `trial_note`）。⚠ モデルのページだけ・本文に「試し運転」があるモデルだけ
+    trial = f"<p class='note'>{esc(common['trial_note'])}</p>" if common.get("trial_note") and _mentions_trial(m) else ""
+    out.append(f"<p class='sub'>{esc(common.get('basis_note'))}</p>{trial}")
 
     out.append(traderview._h2(3, "何を見て、どう答えを出すか"))
     out.append(figures.flow_html(m.get("flow"), m.get("flow_claim") or common.get("flow_claim"), per_row=5))

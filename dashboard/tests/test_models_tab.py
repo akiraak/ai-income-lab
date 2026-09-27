@@ -69,13 +69,16 @@ def test_every_model_has_words_result_and_files():
 
 
 def test_deep_parts_are_well_formed():
-    """図は箱 2〜12 個 ／ 組み立ては知っている軸だけ ／ 出力スコアの癖には印 ／ 経緯のいちばん良い印 ＝ 試した結果の印 ／
-    「詳しく」は決まった大見出しにだけ ／ 小さな例があるなら「作りもの」の注が出る。"""
+    """図は箱 2〜12 個 ／ 組み立ては知っている軸だけ ／ 3 つの集合（材料に入れるもの ／ 学ぶ株 ／ 出力スコアを出す株）は 12 本とも ／
+    出力スコアの癖には印 ／ 経緯のいちばん良い印 ＝ 試した結果の印 ／ 「詳しく」は決まった大見出しにだけ ／ 小さな例があるなら「作りもの」の注が出る。"""
     doc = _real()
     common = doc["common"]
     for m in doc["model"]:
         assert 2 <= len(m.get("flow") or []) <= figures.MAX_NODES and all(x.get("t") for x in m["flow"]), m["id"]
         assert set(m.get("axes") or {}) <= set(modelview.AXES), m["id"]
+        # 4 つの集合のうちモデルの側の 3 つ（2026-09-26 利用者決定「4 つの集合は重要」）。⚠ 12 本とも・知っている集合だけ
+        sets = m.get("sets") or {}
+        assert set(sets) == set(modelview.SETS) and all(sets[k] for k in modelview.SETS), (m["id"], sets)
         for t in (m.get("score") or {}).get("items") or []:
             assert t.get("basis") in traderview.BASES, (m["id"], t.get("text"))
             if t["basis"] == "guess":
@@ -87,6 +90,26 @@ def test_deep_parts_are_well_formed():
             assert common.get("walk_caution") and all(x.get("text") for x in m["walk"]["steps"]), m["id"]
     for k in modelview.AXES:
         assert common.get("axis_" + k), k
+    # 3 つの集合の行の名前は dashboard.md §18-2 の綴り（システム説明の「4 つの集合」と同じ）・1 文とリンク・試し運転の注
+    assert [common.get("set_" + k) for k in modelview.SETS] == ["材料に入れるもの", "学ぶ株", "出力スコアを出す株"]
+    assert common.get("sets_title") and "売買する株" in common["sets_trade"] and "トレーダー" in common["sets_trade"]
+    assert common["sets_link"] == {"label": common["sets_link"]["label"], "tab": "system", "item": "trader"}
+    assert "出力スコア" in common["trial_note"] and "金額を決めて" in common["trial_note"] and "1 株単位" in common["trial_note"]
+
+
+def test_trial_sentences_say_which_trial():
+    """「試し運転」の話は、どの形の試し運転かが読める（Step 5・O5）: 出力スコアの話（作り置きの予測 ＝ 本番と同じ作り方）か、
+    売り買いの本数の話（金額を決めて全部を買う形 ／ 決まった本数を 1 株単位で買う形）か。特性・癖は `text` ＋ `why` で 1 つと数える。
+    ⚠ `[common]` の札（`basis_trial`・`basis_note`）は検査の外（説明は `trial_note`）。"""
+    units: dict[str, str] = {}
+    for where, text in _texts(_real()):
+        if where.startswith("common"):
+            continue
+        units[re.sub(r"\.(text|why)$", "", where)] = units.get(re.sub(r"\.(text|why)$", "", where), "") + text
+    bad = [where for where, text in units.items()
+           if "試し運転" in text and not any(w in text for w in ("出力スコア", "金額を決めて", "1 株単位"))]
+    assert not bad, f"どの形の試し運転かを文の中で名指しする: {bad}"
+    assert any("金額を決めて" in t for t in units.values())
 
 
 def test_models_in_real_trader_configs_are_listed_as_live():
@@ -141,6 +164,13 @@ axis_prep = "下ごしらえ"
 axis_calc = "計算の仕方"
 axis_target = "当てにいく対象"
 axis_scope = "学習範囲"
+sets_title = "3 つの集合"
+set_material = "材料に入れるもの"
+set_learn = "学ぶ株"
+set_output = "出力スコアを出す株"
+sets_trade = "売買する株はトレーダーが決める"
+sets_link = { label = "トレーダーのしくみへ", tab = "system", item = "trader" }
+trial_note = "試し運転の注"
 walk_title = "小さな例"
 walk_caution = "例の数字は作りもの"
 score_read = "読み方"
@@ -174,13 +204,14 @@ formal = ["Formal A"]
 label = "<b>形</b>を読む型"
 summary = "モデル A のひとこと"
 card = { sees = "札の見るもの", decides = "札の決め方" }
-traits = [{ text = "特性 1", why = "理由 1", basis = "build" }, { text = "特性 3", why = "" }]
+traits = [{ text = "特性 1", why = "理由 1", basis = "build" }, { text = "特性 3", why = "" }, { text = "試し運転で見えた特性", why = "", basis = "trial" }]
 sees = [{ label = "まとまり 1", items = ["見るもの 1"] }]
 how = "答えの出し方 A"
 limits = ["苦手 A"]
 result = { verdict = "hold", text = "割れた" }
 flow = [{ t = "入れる" }, { t = "<計算>", s = "小さい字" }, { t = "出す", kind = "out" }]
 axes = { data = "軸のデータ", calc = "軸の計算", other = "知らない軸" }
+sets = { material = "集合の材料", learn = "集合の学ぶ株", output = "集合の<出す>株", other = "知らない集合" }
 walk = { lead = "例の前書き", steps = [{ t = "段 1", text = "一段目" }, { text = "二段目" }, { t = "空" }], note = "例の後書き" }
 score = { items = [{ text = "癖 1", why = "癖の理由", basis = "trial" }, { text = "癖 2" }], read = ["読み方 1"] }
 history = [
@@ -264,10 +295,17 @@ def test_model_page_deep_parts(paths):
     """図・組み立て・小さな例・出力スコアの段・経緯の表・「詳しく」の囲み（⚠ 畳まない）。"""
     body = modelview.body(paths, "a-type")
     part = {h: body.split(f"</span>{h}</h2>")[1].split("<h2>")[0] for h in (
-        "どんなモデルか", "何を見て、どう答えを出すか", "出力スコアの出かたと読み方", "過去のデータで試した結果")}
-    # 1: 組み立ての表（知らない軸は出さない）＋ 詳しく
-    assert "<tr><th>入力データ</th><td>軸のデータ</td></tr><tr><th>計算の仕方</th><td>軸の計算</td></tr>" in part["どんなモデルか"]
-    assert "知らない軸" not in body and "用語 Ridge の説明" in part["どんなモデルか"]
+        "どんなモデルか", "モデルの特性", "何を見て、どう答えを出すか", "出力スコアの出かたと読み方", "過去のデータで試した結果")}
+    # 1: 組み立ての表（知らない軸は出さない）→ 3 つの集合の表（§18-2 の綴りの行・知らない集合は出さない）→ 1 文 → トレーダーのしくみへ → 詳しく
+    about = part["どんなモデルか"]
+    assert "<tr><th>入力データ</th><td>軸のデータ</td></tr><tr><th>計算の仕方</th><td>軸の計算</td></tr>" in about
+    sets = ("<h3>3 つの集合</h3><table class='axes'><tr><th>材料に入れるもの</th><td>集合の材料</td></tr><tr><th>学ぶ株</th><td>集合の学ぶ株</td></tr>"
+            "<tr><th>出力スコアを出す株</th><td>集合の&lt;出す&gt;株</td></tr></table><p>売買する株はトレーダーが決める</p>"
+            "<div class='nav'><a href='/#system/trader' target='_top'>トレーダーのしくみへ</a></div>")
+    assert about.index("軸の計算") < about.index(sets) < about.index("用語 Ridge の説明")
+    assert "知らない軸" not in body and "知らない集合" not in body
+    # 2: 印の意味の直後に、試し運転の注（「試し運転」の話があるモデルにだけ ＝ 下の desk-one の検査）
+    assert "<p class='sub'>印の意味</p><p class='note'>試し運転の注</p>" in part["モデルの特性"]
     # 3: 図（主張が直前・箱の文字はエスケープ）→ 見るもの → 答えの出し方 → 小さな例 → 共通の流れへ → 詳しく
     how = part["何を見て、どう答えを出すか"]
     assert how.index("<p class='claim'>共通の図の主張</p><div class='fig'><svg") < how.index("まとまり 1") < how.index("答えの出し方 A")
@@ -297,14 +335,18 @@ def test_deep_parts_are_absent_when_not_written(paths):
     heads = [h for _n, h in re.findall(r"<h2><span class='no'>(\d)</span>([^<]+)</h2>", body)]
     assert "出力スコアの出かたと読み方" not in heads and heads[-1] == "気をつけること"
     assert "<svg" not in body and "小さな例" not in body and "試した経緯" not in body and "詳しく（用語あり）</div>" not in body
+    assert "3 つの集合" not in body and "売買する株はトレーダーが決める" not in body      # sets が無い
+    assert "試し運転の注" not in body and "印の意味" in body                              # 「試し運転」の話が無いモデルには注を出さない
     assert "正式な名前と設定（用語あり）" in body
 
 
 def test_trader_page_does_not_grow(paths):
-    """新しい欄（図・組み立て・小さな例・出力スコアの段・経緯・詳しく）はトレーダーのページに出ない。"""
+    """新しい欄（図・組み立て・3 つの集合・試し運転の注・小さな例・出力スコアの段・経緯・詳しく）はトレーダーのページに出ない。
+    ⚠ 特性の文（`traits`）だけは両方に出る ＝ 試し運転の話を直せば人のページにも効く。"""
     body = traderview.body(paths, "TA")
-    assert "モデル A のひとこと" in body
-    for word in ("軸のデータ", "一段目", "癖 1", "直した試し", "用語 Ridge の説明", "alpha = 1.0", "<svg"):
+    assert "モデル A のひとこと" in body and "試し運転で見えた特性" in body
+    for word in ("軸のデータ", "集合の材料", "売買する株はトレーダーが決める", "/#system/trader", "試し運転の注",
+                 "一段目", "癖 1", "直した試し", "用語 Ridge の説明", "alpha = 1.0", "<svg"):
         assert word not in body, word
 
 

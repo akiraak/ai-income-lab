@@ -650,7 +650,7 @@ note = "管理画面の概要・全体の詳細・トレーダーの詳細に出
   name = "試験用トレーダー（TEST）"
   short = "固定の合図で配線を確かめるためのトレーダー。記録に印が付き、判定には混ぜない。本物の人が居れば一覧に出ない。"
   doc = "docs/specs/experiments/live-trading.md"
-  where = "§0-1 トレーダーの定義"
+  where = "§0-1 トレーダーの定義（3 人の表の test_a）"
   see = { label = "トレーダーのしくみ — 変えるときは新しい人", tab = "system", item = "trader" }
 
   [[section.term]]
@@ -671,7 +671,7 @@ note = "管理画面の概要・全体の詳細・トレーダーの詳細に出
   name = "整数株 ／ 金額指定（sizing）"
   short = "株数の決め方。整数株（shares）＝ 1 株単位で、1 株も買えなければ見送る ／ 金額指定（notional）＝ 金額で注文し、1 株に満たない分も買える。"
   doc = "docs/specs/experiments/live-trading.md"
-  where = "§0-1 属性の表 ／ §0-3 本番の dry-run（最低の金額と端株の手数料【実測】）"
+  where = "§0-1 銘柄集合と sizing の規則（決めた経緯）／ §0-3 本番の dry-run（最低の金額と端株の手数料【実測】）"
   see = { label = "トレーダーのしくみ — 予算と買い方", tab = "system", item = "trader" }
 
   [[section.term]]

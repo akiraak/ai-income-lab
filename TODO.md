@@ -305,9 +305,3 @@
 
 - [ ] 実売買の執行器（`run_day.py`・`reconcile.py`）のメッセージの「台帳」→「売買履歴」（⚠ 本番投入が落ち着いてから。執行器のテストを流す・本番に効くので「デプロイ」が要る）
   派生元: 「DBを使ったデータの永続化を行う」の「言葉を分かりやすくする」（2026-09-25 に DONE へ）
-
-- [ ] 仕様書 `live-trading.md` の重複した説明を削る（⚠ 提案 [plan](docs/plans/explain-settings-spec-dedupe.md) の §5 を利用者が決めてから。決まったブロックだけ 1 つずつ）
-  派生元: 「売買に使うトレーダーやモデルの設定などの説明を分かりやすく書く」（Step 8 の提案。2026-09-26 に [DONE.md](DONE.md) へ）
-  正本の分け方（2026-09-26 利用者決定）: しくみの説明 ＝ vibeboard の TOML（`system.toml` ほか）／ 決めた経緯・利用者の言葉・【実測】・数字 ＝ 仕様書 ／ 値 ＝ `config/traders/*.toml`
-  提案の要点: 削る 4（§0 冒頭の O1・属性の表・O2・D2 の `aggregate` の行）／ 詰める 2（規模 A ／ B の表・お金と持ち株の表の説明の部分）／ 残す ＝ 3 人の表・規則と結果・K の表・⚠ の記録・§0-2 の表。削るなら `system.toml` の札 1 つと `glossary.toml` の `where` を直し、`test_vibetab.py`・`test_system_tab.py`・`test_help.py` を流す（提案 §3・§4）
-  関連: [live-trading.md §0-1](docs/specs/experiments/live-trading.md) ／ [dashboard.md §12-1 規約 7](docs/specs/dashboard.md)（用語の `see`）

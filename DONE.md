@@ -1,4 +1,8 @@
 # DONE
+- 2026-09-27 仕様書 `live-trading.md` の重複した説明を削る [plan](docs/plans/archive/explain-settings-spec-dedupe.md)（「売買に使うトレーダーやモデルの設定などの説明を分かりやすく書く」Step 8 の提案の実施）
+  - 利用者決定 2026-09-27「全部おススメで直して」＝ 提案 §5 の 4 問: 削る 4（A2・B1・B7・B10）は削る ／ B4 は触らず B9 だけ行ごとに詰める ／ D3 は「T3 QUANT（60日窓）」に直す（登録名は CLAUDE.md「変えないもの」＝ 規則への回復）／ O6 に「いま売買するのは 5 本」の注
+  - 直す前に確かめたこと（titan の Claude）: §0〜§0-2 は提案の 09-26 時点から無変更・A2 と B7 は 09-21 の確定で嘘・`aggregate` は実売買のコードに無い・属性の表は `system.toml`「設定項目の一覧」に検査の規則つきで載っている・誤記「60日発注できる時間帯」は仕様書の 1 か所だけ
+  - 参照の直し: `system.toml` 3 か所・`glossary.toml` 2 か所（⚠ 提案の「札 1 つ」は数え漏れで 4 か所。テストはリンク先の実在しか見ないので grep で拾った）。正本の分け方は CLAUDE.md「ドキュメントの書き方」に 1 行。テスト 4 本 95 passed【実測】。本番の道に効かないのでデプロイは不要（`glossary.toml` の `where` は次のデプロイで 13500t に届く）
 - 2026-09-27 Sx360 から 13500t の管理画面にアクセスしやすくする [plan](docs/plans/archive/dashboard-public-face-13500t.md)
   - 利用者決定 2026-09-26「Cでいく」（Cloudflare Access の後ろに出す。候補 A トンネル常駐 ／ B LAN 面 ／ C Access ／ D Tailscale）・「trade.chobi.me で見れる管理画面はローカルのものと同一の機能とする」＝ 3 台の役割分け K5「公開面は出さない」の見直し（[three-machines.md](docs/plans/three-machines.md) K5 に追記）
   - 作ったもの: 管理画面の面 `cloudflare-local`（検証は `cloudflare` と同じ・通った人にはローカル面。`config.py`・`access.py`・`base.html`・`glossary.toml`・テスト 2 本。9cbb3ae → `prod`）／ g3plus-ops `trade-dashboard` の compose を `.env` で面を切り替える形に（無ければ今までどおり loopback）／ 13500t に `.env`（600・13500t にだけ）／ 利用者が Access アプリ（Google のみ・1 人・24 時間）・Tunnel `13500t` の Public hostname（HTTP `172.18.0.1:3012` ＝ ゲートウェイ越し。コンテナは host network のまま）・Cache Rule Bypass

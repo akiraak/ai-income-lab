@@ -303,22 +303,6 @@
   ✅ 2026-09-23: titan で本番投入が 1 日通った（[DONE.md](DONE.md)）＝ 機械を増やしてよい → Phase 2 Step 2-3 の残り（`.env` を置いた後の ②〜⑤）へ進める（⚠ `.env` を置くのは利用者）
   関連: 「売買（`run-live.sh`）が自動で動くようにする（無人運転）」／ [live-trading.md §0-12](docs/specs/experiments/live-trading.md)（13500T の予測の時間。2026-09-22 済み）／ [dashboard.md §7](docs/specs/dashboard.md)
 
-- [ ] Sx360 から 13500t の管理画面にアクセスしやすくする [plan](docs/plans/dashboard-public-face-13500t.md)
-  利用者の指示（2026-09-26）: 「sx360から13500tの管理画面にアクセスしやすくする」「sx360のブラウザから分かりやすいurlでアクセスできるとよい」
-  ✅ 2026-09-26 利用者決定 **「Cでいく」** ＝ **Cloudflare Access の後ろに出す**（候補 A トンネル常駐 ／ B LAN 面 ／ C Access ／ D Tailscale の比較はプラン §1-2）。⚠ **K5「公開面は出さない」の見直し**
-  ✅ 2026-09-26 利用者決定 **「trade.chobi.me で見れる管理画面はローカルのものと同一の機能とする」** ＝ 公開面（監視と停止だけ）ではなく**ローカル面そのもの**を Access の後ろに。帰結（プラン §1-3）: 新しい面 `cloudflare-local`（検証は `cloudflare` と同じ・面だけローカル）をコードに足す ／ コンテナは今の 1 つのまま（2 つ目は作らない）／ 資格情報は売買と同じ `.env`（取消と監視に要る）／ `AIL_BIND=0.0.0.0` で Tunnel から `172.18.0.1:3012`（LAN からは JWT が無いので 403）
-  いま: Sx360 で `./run-dashboard-tunnel.sh --host 13500t.lan` → http://127.0.0.1:3013/（ssh は Cloudflare Tunnel 経由。端末を 1 つ占有し、Ctrl+C や回線の切れで止まる ＝ 見るたびに起こし直す）。⚠ トンネルは**残す**（予備の道）
-  守るもの: JWT の検証を緩めない（ループバック以外は全リクエスト・`X-Forwarded-For` を見ない）／ `tailscale serve` に出さない ／ `live.env`（発注の許可）はコンテナに渡さない ／ 管理画面に発注の経路を足さない ／ 執行器・cron・`run.sh` に触らない
-  - [ ] Phase 0: 決めること（⚠ **利用者**。残り D1 ホスト名〔推す `trade.chobi.me`〕・D2 Access アプリ〔Google のみ ／ Emails akiraak@gmail.com ／ セッション 24 時間〕→ AUD。D3 資格情報 ＝ 売買と同じ `.env`・D4 ＝ ローカル面と同じ・D5 トンネルは残す、は「同一の機能」で決まった。プラン §2）
-  - [x] Phase 1: 机上で確かめる（Sx360 の Claude。13500t を触らない。`test_access.py`・資格情報なし `AIL_DEMO=0` の見え方・cloudflare 面の fail-safe・compose の構文。プラン §5）
-    ✅ 2026-09-26 夜（Sx360）机上: `test_access.py` 3 passed ／ 資格情報なし・`AIL_DEMO=0` でも実売買の画面は本物の記録で 200・デモの帯なし ／ `cloudflare` 面（AUD は仮）＝ 非ループバックは GET も POST も 403・ループバックは 200・`/ops` は 404（前の設計の名残。記録として残す）
-    ✅ 2026-09-26 夜（Sx360）コード: 「同一の機能」の決定で **`cloudflare-local` 面を足した**（`config.py` の `AUTH_MODES`・`CF_MODES`・検証 ／ `access.py` ／ `base.html` の印「ローカル面 · Access」／ `glossary.toml` ／ `dashboard.md` §2 の表 ／ CLAUDE.md）＋ テスト 2 本（`test_access.py`: 判定と設定 ／ `test_app.py::test_cloudflare_local_face_keeps_ops`: `/ops` 200・停止 → `HALT`・actor は email・解除・LAN 403）。⚠ **本番に効く道 ＝ 「デプロイ」が要る（Phase 1'）**。✅ 2026-09-27 g3plus-ops の compose も書いた（`env_file: ./.env（required: false）` ＋ `${…:-既定}`。`.env` なしなら今までどおり loopback ＝ `docker compose config` で両方確かめた。未コミット・13500t へは未送信）
-    - [ ] Phase 1': デプロイ（⚠ **利用者の「デプロイ」** → `run-deploy.sh`。13500t の `.env` を置く前に済ませる ＝ コンテナが `cloudflare-local` を知らないと起動しない）
-  - [ ] Phase 2: Cloudflare 側（⚠ **利用者**。Zero Trust: Access アプリ → AUD ／ Tunnel `13500t` の Public hostname → `HTTP` **`172.18.0.1:3012`**〔⚠ Phase 3 ② の後〕／ Cache Rule Bypass）
-  - [ ] Phase 3: 13500t（⚠ **Sx360 の Claude**。compose と `.env`〔`cloudflare-local`・`0.0.0.0`・`CF_ACCESS_*`〕を送り `up -d --force-recreate` → cloudflared から `172.18.0.1:3012` が 403 → hostname の後に合否 ①〜⑦。⚠ 停止の試しは市場の外・終わったら解除）
-  - [ ] Phase 4: 契約と文書を直す（`dashboard.md` §7-1 → §7-2・`three-machines.md` K5・g3plus-ops の手順書と compose・`run-dashboard-tunnel.sh` の注記）
-  関連: 「`~/g3plus-ops` を使って 13500T に管理画面と毎日の売買を動かす環境を作る」／ `run-dashboard-tunnel.sh` ／ [dashboard.md §7](docs/specs/dashboard.md)
-
 - [ ] 実売買の執行器（`run_day.py`・`reconcile.py`）のメッセージの「台帳」→「売買履歴」（⚠ 本番投入が落ち着いてから。執行器のテストを流す・本番に効くので「デプロイ」が要る）
   派生元: 「DBを使ったデータの永続化を行う」の「言葉を分かりやすくする」（2026-09-25 に DONE へ）
 

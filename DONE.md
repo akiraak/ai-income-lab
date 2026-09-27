@@ -1,4 +1,10 @@
 # DONE
+- 2026-09-27 Sx360 から 13500t の管理画面にアクセスしやすくする [plan](docs/plans/archive/dashboard-public-face-13500t.md)
+  - 利用者決定 2026-09-26「Cでいく」（Cloudflare Access の後ろに出す。候補 A トンネル常駐 ／ B LAN 面 ／ C Access ／ D Tailscale）・「trade.chobi.me で見れる管理画面はローカルのものと同一の機能とする」＝ 3 台の役割分け K5「公開面は出さない」の見直し（[three-machines.md](docs/plans/three-machines.md) K5 に追記）
+  - 作ったもの: 管理画面の面 `cloudflare-local`（検証は `cloudflare` と同じ・通った人にはローカル面。`config.py`・`access.py`・`base.html`・`glossary.toml`・テスト 2 本。9cbb3ae → `prod`）／ g3plus-ops `trade-dashboard` の compose を `.env` で面を切り替える形に（無ければ今までどおり loopback）／ 13500t に `.env`（600・13500t にだけ）／ 利用者が Access アプリ（Google のみ・1 人・24 時間）・Tunnel `13500t` の Public hostname（HTTP `172.18.0.1:3012` ＝ ゲートウェイ越し。コンテナは host network のまま）・Cache Rule Bypass
+  - 合否 ①〜⑦ 全部 ✅【実測 2026-09-27 08:48〜09:05 PDT・Sx360 の Claude】: JWT なしは 302 ／ 403・Access 越しに 7 経路 200・停止 → `HALT`（actor ＝ email）→ 解除・秘密 0 件・cron ／ `live.env` ／ 印に変化なし。記録は [dashboard.md §7-2](docs/specs/dashboard.md)・g3plus-ops `docs/workflows/trade-dashboard.md`
+  - 決め: コンテナは 1 つのまま（2 つ目に同じ `.env` を渡すと監視の記録が 2 本）・売買と同じ `.env`・`AIL_BIND=0.0.0.0`（LAN からは JWT なしで 403。前は接続拒否）・ssh トンネルは予備で残す・`live.env`（発注の許可）は渡さない・管理画面に発注の経路は無いまま
+  - 途中で分かったこと: Sx360 に中身の無い研究 DB（実行 0）があり関門が 1 度落ちた → テストを「空の DB ＝ DB の無い機械」に直した（9918b2a）／ Cloudflare の Email Address Obfuscation が email を `[email protected]` に見せる（外すなら Configuration Rule。利用者）／ 公開ホスト名は DONE.md に 2026-09-08 から載っていたが、仕様書 §7-2 には書かず「g3plus-ops 側にだけ書く」の決まりのまま
 - 2026-09-26 売買に使うトレーダーやモデルの設定などの説明を分かりやすく書く [plan](docs/plans/archive/explain-trader-model-settings.md)（Step 1〜9。⚠ Step 8 の提案を受けた削除は TODO の新しいタスク「仕様書 `live-trading.md` の重複した説明を削る」）
   - 決定 2026-09-26: 説明は vibeboard に書く（利用者の指示）
   - Step 1: 既存の説明を棚卸し、必要なものをまとめる [plan](docs/plans/archive/explain-settings-inventory.md)

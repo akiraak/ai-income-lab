@@ -16,7 +16,7 @@ DASHBOARD_DIR = Path(__file__).resolve().parents[1]
 REPO_ROOT = DASHBOARD_DIR.parent
 VERSION = "0.1.0"
 # 2026-09-26: cloudflare-local ＝ cloudflare と同じ JWT の検証で、通った人には**ローカル面と同じ機能**（13500t の trade.chobi.me。
-# docs/plans/dashboard-public-face-13500t.md）。公開面（監視と停止だけ）は cloudflare のまま
+# docs/plans/archive/dashboard-public-face-13500t.md）。公開面（監視と停止だけ）は cloudflare のまま
 AUTH_MODES = ("loopback", "local", "cloudflare", "cloudflare-local")
 CF_MODES = ("cloudflare", "cloudflare-local")
 # モックサーバ（experiments/tastytrade-api-sample/mock_server.py）のポート。開発画面とデモが共用する

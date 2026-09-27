@@ -10,6 +10,8 @@ set -euo pipefail
 #   ./run-dashboard-tunnel.sh --no-kill          # ⚠ ポートが塞がっていたら止めずに終わる
 #
 # ⚠ **走らせるのは見る側の機械（Sx360 など）。titan では要らない**（titan なら http://127.0.0.1:3012/ で直接見る）。
+# ⚠ 2026-09-27 から 13500t の管理画面は **Cloudflare Access 越しにも同じローカル面**が開く（`AIL_AUTH_MODE=cloudflare-local`。
+#   公開ホスト名は g3plus-ops 側にだけ書く。dashboard.md §7-2）。13500t 向けのこのトンネルは予備の道。
 # ⚠ **titan 側は何も変えない。** 管理画面は titan のループバックにだけ口を開けている（`AIL_BIND=127.0.0.1`）ので、
 #   IP や Tailscale の名前では開かない。CLAUDE.md が指定している見方がこのトンネル。
 # ⚠ **dashboard（3012）を `tailscale serve` に出さない。** serve 経由は接続元が全部ループバックに見えるため、

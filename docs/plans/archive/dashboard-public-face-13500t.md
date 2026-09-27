@@ -1,11 +1,11 @@
 # 13500t の管理画面を `trade.chobi.me` で開く（Cloudflare Access の後ろにローカル面と同じ機能）
 
-- 状態: **コードは書いた（`cloudflare-local` 面。2026-09-26 夜・Sx360・未コミット）。Phase 0 の残り（D1・D2）と Phase 2 ①（Access アプリ → AUD）待ち。13500t はまだ触っていない**
+- 状態: ✅ **済み（2026-09-27 09:05 PDT）**。コード（9cbb3ae。`prod` に入れた）→ 利用者が Access アプリ・Public hostname・Cache Rule → 13500t に `.env` と compose → 合否 ①〜⑦ 全部 ✅（記録は [dashboard.md §7-2](../../specs/dashboard.md)・g3plus-ops の `docs/workflows/trade-dashboard.md`）。残る小さなこと: Cloudflare の Email Address Obfuscation が email を `[email protected]` に見せる（外すなら Configuration Rule。利用者）／ ⑦ は次のデプロイでもう一度見る
 - 親タスク: TODO「Sx360 から 13500t の管理画面にアクセスしやすくする」
 - 利用者の決定:
   - **2026-09-26「Cでいく」**（候補 A〜D の比較は §1-2。「sx360のブラウザから分かりやすいurlでアクセスできるとよい」）
   - **2026-09-26「trade.chobi.me で見れる管理画面はローカルのものと同一の機能とする」** ＝ 公開面（監視と停止だけ）ではなく、Access を通った人に**ローカル面そのもの**（操作・解除・履歴・取消も）
-- 関係する正本: [dashboard.md §2・§7・§7-1](../specs/dashboard.md)・[three-machines.md](three-machines.md) K5・g3plus-ops の `trade-dashboard/`（private。Sx360 にだけある）
+- 関係する正本: [dashboard.md §2・§7・§7-1](../../specs/dashboard.md)・[three-machines.md](../three-machines.md) K5・g3plus-ops の `trade-dashboard/`（private。Sx360 にだけある）
 
 ## 1. 目的・背景
 

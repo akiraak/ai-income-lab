@@ -40,7 +40,7 @@ flowchart LR
 | K2 | 13500t へのデプロイの形 | **13500t が GitHub から pull する**（g3plus-ops の `daily-ai-music/auto-update.sh` と同じ型・host cron） | titan から 13500t への経路が要らない（いまは届かない【実測】）。⚠ **main への push ＝ 本番に反映**になるので、売買の時間帯（12:30〜13:15 PDT）は pull しない前チェックが要る。⚠ **2026-09-25 追記: 取りに行くのは `main` ではなく本番の目印 `prod`**（関門を通した後に `run-deploy.sh` が進める ＝ [prod-branch.md](archive/prod-branch.md)） |
 | K3 | titan から 13500t へ ssh を通すか | **通さない**（K2 で足りる。操作は Sx360 から） | 通すなら (a) 13500t を tailnet に入れる ／ (b) titan に Cloudflare Access の ssh を置く。⚠ どちらも本番に届く経路が増える |
 | K4 | ⚠ **二重発注をどう防ぐか**（いちばん重い） | **(a) 売買は 13500t だけ。titan の売買の timer ・許可を外す** | 排他（`MODE`・`run.lock`）は機械の中のファイル。両方が起きると同じ口座に 2 回注文が出る。(b) 口座の側で重複を弾く ＝ 設計から ／ (c) 手で切り替える ＝ 事故が起きる |
-| K5 | 管理画面と売買を同じ機械に置くか | **同じ 13500t。ただし公開面（Cloudflare）は出さず、ローカル面だけ**（Sx360 からトンネル） | 公開面のある機械に発注の許可と資格情報が載るのを避ける。公開面も出すなら [dashboard.md §7](../specs/dashboard.md) の「置かない env」を書き換える |
+| K5 | 管理画面と売買を同じ機械に置くか | **同じ 13500t。ただし公開面（Cloudflare）は出さず、ローカル面だけ**（Sx360 からトンネル）。⚠ **2026-09-26 に利用者が見直し → 2026-09-27 から Cloudflare Access 越しにも同じローカル面を出す**（同じコンテナ・面 `cloudflare-local`・売買と同じ `.env`。[dashboard.md §7-2](../specs/dashboard.md)・[プラン](archive/dashboard-public-face-13500t.md)） | 公開面のある機械に発注の許可と資格情報が載るのを避ける。見直し後の守りは Access（Google ＋ 1 人の email）＋ JWT を全リクエストで検証 ＋ 発注の経路が無い ＋ 停止は `HALT`。「置かない env」（発注の許可）は書き換えていない |
 | K6 | 記録（`live.sqlite`）をどうするか | **切り替えの日に titan から 13500t へ移し、titan の側は読むだけの写しにする** | 1 つの口座の記録は 1 か所（「2 か所には置かない」の利用者の裁定と同じ考え）。両方を読む案は管理画面の作りが変わる |
 | K7 | 日足の `data-live/` | **13500t が自分で取る**（`.env` があれば DXLink で取れる）。初回だけ titan から写す | 研究用の `data/` とは別物のまま。titan は研究の `data/` だけ |
 | K8 | Sx360 から titan の鍵 | **keychain か Windows 側の ssh-agent に預ける**（WSL の再起動で `ssh-add` をやり直さない） | 2026-09-22 に `~/.ssh/agent.sock` が消えていた。パスフレーズなしの鍵にはしない |

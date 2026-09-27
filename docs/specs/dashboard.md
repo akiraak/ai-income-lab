@@ -48,7 +48,7 @@ flowchart TB
 | `loopback`（**既定**） | ループバックのみ | なし | ローカル |
 | `local` | ループバック ＋ RFC1918 | なし（ヘッダに「認証なし」と出す） | ローカル |
 | `cloudflare` | ループバックは免除。それ以外は **全リクエスト（GET 含む）で `Cf-Access-Jwt-Assertion` を検証**（JWKS で RS256、aud・iss・email を照合） | Cloudflare Access | 公開 |
-| `cloudflare-local`（2026-09-26） | `cloudflare` と同じ（検証を緩めない） | Cloudflare Access | **ローカル**（通った人に操作・解除・履歴も。13500t の `trade.chobi.me` ＝ 利用者決定「ローカルのものと同一の機能」。§7-2・[プラン](../plans/dashboard-public-face-13500t.md)） |
+| `cloudflare-local`（2026-09-26） | `cloudflare` と同じ（検証を緩めない） | Cloudflare Access | **ローカル**（通った人に操作・解除・履歴も。13500t の `trade.chobi.me` ＝ 利用者決定「ローカルのものと同一の機能」。§7-2・[プラン](../plans/archive/dashboard-public-face-13500t.md)） |
 
 - `cloudflare` は `CF_ACCESS_TEAM` / `CF_ACCESS_AUD` / `CF_ACCESS_EMAIL` が**全部そろわないと起動しない**。他のモードで CF_* が置かれていても起動しない（中途半端な設定で素通りさせない）
 - `X-Forwarded-For` は見ない。接続元は cloudflared のコンテナで、そこから先は JWT で決める
@@ -178,19 +178,36 @@ g3plus-ops 側の `trade-dashboard/`（旧 `ail-dashboard/`。2026-09-24 に改�
 
 ### 7-1. 13500t のローカル面（2026-09-22 夜。[プラン](../plans/three-machines.md) K5・Phase 2）
 
-13500t では毎日の売買と**同じ機械**に管理画面を置く（K5）。⚠ **公開面（Cloudflare）は出さず、ローカル面だけ**（Sx360 から `run-dashboard-tunnel.sh --host <13500t の ssh 名>` で見る）＝ 上の表の「置かない env」はそのまま守られる（この面にも発注の経路は無い）。上の表との差だけを書く。
+13500t では毎日の売買と**同じ機械**に管理画面を置く（K5）。2026-09-22〜26 は公開面を出さずローカル面だけ（Sx360 から `run-dashboard-tunnel.sh --host <13500t の ssh 名>`）だった。**2026-09-27 から Cloudflare Access 越しにも同じローカル面を出す（§7-2）**。上の表の「置かない env」はそのまま守られる（この面にも発注の経路は無い）。上の表との差だけを書く。
 
 | 項目 | 13500t の値 | 上の表との差の理由 |
 | --- | --- | --- |
 | build context ／ 置き場 | 売買と**同じ clone を bind mount**（[live-trading.md §0-13](experiments/live-trading.md)）。COPY しない | 実売買の画面が読む `live.sqlite`・`experiments/live-trading/`・停止ボタンが書く `experiments/tastytrade-api-sample/out/HALT` を売買と共有する（F21 の「記録を届ける経路」が要らなくなる） |
 | 追う枝 | ⚠ **`prod`**（2026-09-25。`main` ではない）| `main` への push で管理画面を起こし直さない。`prod` を進めるのは `run-deploy.sh` だけ（[プラン](../plans/archive/prod-branch.md)） |
-| 面 | `AIL_AUTH_MODE=loopback` | 公開面を出さない（K5） |
+| 面 | `AIL_AUTH_MODE=loopback`（2026-09-22〜26）→ **`cloudflare-local`**（2026-09-27。§7-2） | K5 は「公開面を出さない」だったが、2026-09-26 に利用者が見直した（§7-2） |
 | ネットワーク | ⚠ **`network_mode: host` ＋ `AIL_BIND=127.0.0.1`** | ⚠ `ports: 127.0.0.1:3012:3012` の形だと、要求は docker のブリッジの IP から届く ＝ ループバックに見えず**全部 403**（loopback 面は接続元で判定する）。host のループバックに直に口を開ける |
 | uid | clone の持ち主と同じ | 停止ボタンが書く `HALT` と記録の DB を root の持ち物にしない |
 | 資格情報 | 売買と同じ `experiments/tastytrade-api-sample/.env`（`config.py` が既定で読む） | 取消の許可（停止ボタン）は `ops.py` が開ける。⚠ dry-run ・ 発注の許可はこの面に渡らない（いまのとおり） |
 | 実行・データの画面 | 空のまま（研究のデータは 13500t に置かない） | 研究は titan |
 | 常駐 | 常駐コンテナ（`restart: unless-stopped`）・healthcheck は上の表のまま | — |
 | イメージ | ⚠ **売買の `trade-runner`（旧 `ail-live`）のイメージを共用**（`/opt/venv` に研究・tastytrade・管理画面の依存。上の表の「依存 7 つの `python:3.12-slim`」ではない。2026-09-22 夜 Step 2-2） | [live-trading.md §0-13](experiments/live-trading.md) の合否 ①（`run-tests.sh --fast`）が `dashboard/.venv` と研究の `.venv` を同じ環境で要る。build は 1 本で済む |
+
+### 7-2. 13500t の Access 越しのローカル面（`cloudflare-local`。2026-09-26〜27。[プラン](../plans/archive/dashboard-public-face-13500t.md)）
+
+利用者決定（2026-09-26）「Cでいく」「Access で見える管理画面はローカルのものと同一の機能とする」。K5 の「公開面は出さない」を見直し、**同じコンテナ**を Cloudflare Access の後ろに出した。⚠ **公開ホスト名・Access アプリ・Cache Rule は g3plus-ops 側にだけ書く**（§7 の決まりのまま。この表にも書かない）。
+
+| 項目 | 値 | 理由 |
+| --- | --- | --- |
+| 面 | `AIL_AUTH_MODE=cloudflare-local`（§2 の表）＋ `CF_ACCESS_TEAM` / `CF_ACCESS_AUD` / `CF_ACCESS_EMAIL`（g3plus-ops `trade-dashboard/.env`・600・13500t にだけ） | 検証は `cloudflare` と同じ（ループバック以外は全リクエスト）。通った人にローカル面（操作・解除・履歴も）。履歴の actor は JWT の email |
+| ネットワーク | `network_mode: host` のまま **`AIL_BIND=0.0.0.0`**。Tunnel の Public hostname は `HTTP` → `172.18.0.1:3012`（`n8n_default` のゲートウェイ ＝ ホスト。ssh と同じ届き方） | cloudflared はホストのループバックに届かない。⚠ LAN（10.0.1.x）からは JWT が無いので 403（2026-09-26 までは接続拒否） |
+| コンテナ | 1 つのまま（2 つ目は作らない） | 同一の機能には売買と同じ `.env` が要る。2 つに渡すと監視の記録が 2 本になる |
+| 資格情報 | 売買と同じ `.env`（変えない）。⚠ `live.env`（発注の許可）は渡らない | 取消（停止ボタン）と口座 ／ 接続の監視に要る。管理画面に発注の経路は無い |
+| fail-safe | g3plus-ops の compose は `env_file: ./.env（required: false）` ＋ `${AIL_AUTH_MODE:-loopback}`・`${AIL_BIND:-127.0.0.1}` ＝ `.env` が無ければ今までどおり | auto-update の起こし直し（`up -d --force-recreate`）を止めない・設定は保たれる |
+| ssh トンネル | 残す（ループバックは免除） | 予備の道 |
+| エッジ | Cache Rule でホスト全体 Bypass（上の表と同じ） | キャッシュ HIT は認証の前に配信される |
+| ⚠ 見え方 | Cloudflare の Email Address Obfuscation が email を `[email protected]` に書き換える（左ペイン・履歴の actor）。外すなら Configuration Rule でこのホストだけ Off（利用者） | 表示だけ。記録の中身は email のまま |
+
+合否【実測 2026-09-27 08:48〜09:05 PDT・Sx360 の Claude】: ① 利用者がブラウザで Google ログイン → 概要・左ペイン「ローカル面 · Access」／ ② JWT なし: Cloudflare 経由は Access へ 302・origin 直（`172.18.0.1:3012`・LAN `10.0.1.96:3012`）は 403・偽の JWT 403 ／ ③ Access 越し（`cloudflared access curl`）で `/` `/overall` `/traders/T1` `/records` `/judge` `/ops` `/api/live` が 200 ／ ④ 停止 303 → `out/HALT`（actor ＝ email）→ 履歴に出る → 解除 303 → `HALT` なし ／ ⑤ 取った全ページ ＋ `/api/live` に `eyJ`・資格情報 5 項目の値 0 件 ／ ⑥ cron 3 行・`live.env` submit・印 ／ `MODE` ／ `HALT` なし・healthy ／ ⑦ `.env` を置いた状態の `up -d --force-recreate`（auto-update と同じ 1 行）で設定が効いた。次のデプロイでもう一度見る。
 
 ## 8. 検証（2026-09-05）
 

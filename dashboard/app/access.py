@@ -5,7 +5,7 @@
 - cloudflare: ループバックは免除、それ以外は全リクエスト（GET 含む）で `Cf-Access-Jwt-Assertion` を検証する。
   X-Forwarded-For は見ない（接続元は cloudflared のコンテナで、そこから先は JWT で判定する）
 - cloudflare-local: 判定は cloudflare と同じ。違いは面 ＝ 通った人に**ローカル面と同じ機能**（操作・解除・履歴も）。
-  13500t の trade.chobi.me 用（2026-09-26。docs/plans/dashboard-public-face-13500t.md）。⚠ JWT の検証を緩めない
+  13500t の trade.chobi.me 用（2026-09-26。docs/plans/archive/dashboard-public-face-13500t.md）。⚠ JWT の検証を緩めない
 
 無認証の /health は作らない（healthcheck はコンテナ内のループバックから叩く）。
 """

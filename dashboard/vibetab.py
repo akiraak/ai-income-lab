@@ -817,14 +817,24 @@ def doc_url(rel: str) -> str:
 
 
 def _term_link(term: dict) -> str:
-    """「詳しく」の列。⚠ **iframe の中なので `target=_top`** で vibeboard ごと遷移させる。"""
+    """「詳しく」の列。⚠ **iframe の中なので `target=_top`** で vibeboard ごと遷移させる。
+
+    `see = { label, tab, item }`（任意。2026-09-26）＝ しくみの説明があるタブのページへの 2 本目のリンク（システム説明 ／ 予測モデル ／
+    トレーダー）。`doc` は決めた経緯と数字のある文書のまま残す（説明の正本は vibeboard・経緯の正本は spec ＝ 設定の説明の Step 7）。
+    """
     rel = str(term.get("doc") or "")
     if not rel:
         return "—"
     label = esc(rel.rsplit("/", 1)[-1])
     where = esc(term.get("where") or "")
     link = f"<a href=\"{esc(doc_url(rel))}\" target=\"_top\">{label}</a>"
-    return f"{link}<div class='meta'>{where}</div>" if where else link
+    out = f"{link}<div class='meta'>{where}</div>" if where else link
+    see = term.get("see")
+    if isinstance(see, dict) and see.get("tab"):
+        see_link = modelview._link(see)          # `{ label, tab, item }` → vibeboard のタブの URL（知らないタブなら空）
+        if see_link:
+            out += f"<div class='meta'>しくみ: {see_link}</div>"
+    return out
 
 
 def _section_html(section: dict) -> str:

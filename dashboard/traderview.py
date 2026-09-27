@@ -6,8 +6,10 @@
     直下に 1 人も居なければ `candidates/notional/` ＝「まだ確定していない」の印つき）。⚠ **人数を数えない・見くらべるページを作らない**
     （利用者の指示 2026-09-20。トレーダーは 1 人のときも 10 人のときもある）
   - ⚠ **言葉の正本は 2 本**: モデルの解説 ＝ `dashboard/models.toml` の `[[model]]`（「予測モデル」タブ `modelview.py` と同じ 1 本。
-    dashboard.md §17）／ 人の側の言葉 ＝ `dashboard/traders.toml`（呼び名 `[nicks]`・共通の文 `[common]`）。
-    説明をこのコードに書かない。⚠ **数字は設定から写すだけ**
+    dashboard.md §17）／ 人の側の言葉 ＝ `dashboard/traders.toml`（呼び名 `[nicks]`・共通の文 `[common]`・売買する株を選んだ理由
+    `[symbols_why]`〔識別名で引く。2026-09-26〕）。説明をこのコードに書かない。⚠ **数字は設定から写すだけ**（本数・株の名前も）
+  - 共通のしくみ（4 つの集合・規模 A ／ B・上限と停止・設定項目の意味）は「システム説明」の「トレーダーのしくみ」（`#system/trader`）に
+    あり、このページは案内のリンクを置くだけ（2026-09-26。設定の説明の Step 6）
   - ⚠ **売買結果は出さない**。⚠ **`out/`・`state/`・`.env` を読まない**（このモジュールが開くのは TOML だけ）
   - ⚠ **標準ライブラリだけ・読むだけ**（vibeboard の sidecar が `python3` で起こす。tailnet の閲覧者にも見える）
 """
@@ -27,6 +29,7 @@ SPEC_URL = "/#specs/experiments/live-trading.md"
 GLOSSARY_URL = "/#glossary/all"
 MODEL_URL = "/#models/"          # 「予測モデル」タブのモデルのページ（後ろに `[[model]]` の id）
 TRADER_URL = "/#traders/"        # このタブの人のページ（後ろに設定の鍵）
+SYSTEM_TRADER_URL = "/#system/trader"   # 「システム説明」の「トレーダーのしくみ」（共通のしくみと設定項目の意味。2026-09-26）
 # 人ごとの色（モデルの札の線と、出力スコアのものさしの「買う」の帯）。白地の上で読める濃さ。足りなくなったら頭から使い回す
 COLORS = ("#2a78d6", "#b0567a", "#2f8f6b", "#a8741a", "#6b5fc7")
 BASES = ("build", "trial", "guess")
@@ -134,9 +137,13 @@ def _load(path: Path) -> dict:
 
 
 def load_words(paths: TraderPaths) -> dict:
-    """`common`・`nicks` ＝ 人の側（traders.toml）／ `mcommon`・`models` ＝ モデルの側（models.toml）。"""
+    """`common`・`nicks`・`symbols_why` ＝ 人の側（traders.toml）／ `mcommon`・`models` ＝ モデルの側（models.toml）。
+
+    `symbols_why` ＝ 売買する株を選んだ理由（識別名 → 文。無い人は出ない。2026-09-26）。
+    """
     doc, mdoc = _load(paths.words), _load(paths.models)
     return {"common": doc.get("common") or {}, "nicks": doc.get("nicks") or {},
+            "symbols_why": doc.get("symbols_why") or {},
             "mcommon": mdoc.get("common") or {}, "models": list(mdoc.get("model", []))}
 
 
@@ -185,6 +192,7 @@ def load_facts(paths: TraderPaths, name: str) -> dict | None:
         "per": budget / n if n else 0.0, "line": line, "sell": 100.0 - line,
         "sizing": str(doc.get("sizing") or ""), "combine": str(doc.get("combine") or "asis"),
         "universe": (f"{universe}（{group}）" if group else str(universe or "")) or "、".join(symbols),
+        "symbols": [str(s) for s in symbols],
         "models": models,
     }
 
@@ -198,7 +206,8 @@ def find_model(words: dict, spec: dict) -> dict | None:
 def _fill(text: str, facts: dict) -> str:
     """文の中の {budget} などを設定の数字で埋める。⚠ 知らない札はそのまま残す（落とさない）。"""
     values = {"budget": _money(facts["budget"]), "n": str(facts["n"]), "per": _money(facts["per"]),
-              "line": _num(facts["line"]), "sell": _num(facts["sell"]), "k": str(facts["k"])}
+              "line": _num(facts["line"]), "sell": _num(facts["sell"]), "k": str(facts["k"]),
+              "symbols": "、".join(facts.get("symbols") or [])}
     out = str(text or "")
     for k, v in values.items():
         out = out.replace("{" + k + "}", v)
@@ -262,8 +271,7 @@ def trader_body(paths: TraderPaths, name: str) -> str | None:
     many = len(models) > 1
     out = [f"<div style='--who:{COLORS[index % len(COLORS)]}'>",
            f"<h1>{esc(nick or name)}" + (f"<small>{esc(name)}</small>" if nick else "") + "</h1>"]
-    if not facts["settled"]:
-        out.append(f"<p class='note'>⚠ {esc(common.get('unsettled'))}</p>")
+    # ⚠ 「まだ確定していない」の帯（`unsettled`）は 2026-09-26 に消した（役目を終えた）。候補の人は「正式な名前」の段の「（候補）」だけ
 
     out.append(_h2(1, "使うモデル"))
     for spec, m in models:
@@ -308,26 +316,59 @@ def trader_body(paths: TraderPaths, name: str) -> str | None:
                    f"<li><b>出力スコアをつける</b>　{esc(common.get('step_score'))}<br>{esc(m.get('how'))}</li></ol>")
 
     out.append(_h2(4, "この人の決まり"))
+    # どの株を（2026-09-26。売買する株 ＝ 4 つの集合のいちばん内側。本数と株の名前は設定から・選んだ理由は人ごと・
+    # 使うモデルが出力スコアを出す株は models.toml の `sets.output` を写す ＝ 本数を言葉の正本に書かない）
+    out.append(f"<h3>どの株を</h3><p>{esc(_fill(common.get('stocks_one'), facts))}"
+               + (f"{esc(words['symbols_why'][name])}" if words["symbols_why"].get(name) else "") + "</p>"
+               f"<p>{esc(_fill(common.get('stocks_vs_model'), facts))}</p>"
+               + _model_outputs(common, mcommon, models)
+               + _sub_link(common.get("stocks_link"), SYSTEM_TRADER_URL))
     out.append(f"<h3>売買基準値</h3><p>{esc(_line_text(common, facts))}</p>{ruler(common, facts)}")
     out.append(f"<h3>いつ</h3><p>{esc(common.get('when'))}</p>")
     out.append(f"<h3>いくら</h3><p>{esc(_fill(common.get('amount_one'), facts))}{esc(_buy_way(common, facts))}</p>"
-               + _ul(common.get("money")))
+               + _ul(common.get("money"))
+               + (f"<p class='sub'>{esc(common['budget_scale'])}</p>" if common.get("budget_scale") else ""))
 
     limits = [x for _spec, m in models if m for x in (m.get("limits") or [])]
     out.append(_h2(5, "気をつけること") + "<div class='care'>"
-               + _ul([common.get("limit_common"), common.get("limit_purpose"), *limits, common.get("limit_survivor")]) + "</div>")
+               + _ul([common.get("limit_common"), common.get("limit_purpose"), *limits, common.get("limit_survivor"),
+                      common.get("limit_stop"), common.get("limit_change")]) + "</div>"
+               + _sub_link(common.get("common_link"), SYSTEM_TRADER_URL))
 
-    rows = [("予測モデル", "、".join(f"<code>{esc(s['name'])}</code>（{esc(s['method'] or s['kind'])}）" for s, _m in models)),
-            ("売買基準値（θ）", esc(_num(facts["line"]))), ("合成規則", f"<code>{esc(facts['combine'])}</code>"),
-            ("銘柄集合", f"{esc(facts['universe'])}・{facts['n']} 本"),
-            ("株数の決め方（sizing）", f"<code>{esc(facts['sizing'])}</code>"), ("予算", esc(_money(facts["budget"]))),
-            ("設定のファイル", f"<code>{esc(facts['source'])}</code>" + ("" if facts["settled"] else "（候補）"))]
-    table = "<table>" + "".join(f"<tr><th>{k}</th><td>{v}</td></tr>" for k, v in rows) + "</table>"
+    hints = common.get("formal_hint") or {}
+    rows = [("model", "予測モデル", "、".join(f"<code>{esc(s['name'])}</code>（{esc(s['method'] or s['kind'])}）" for s, _m in models)),
+            ("line", "売買基準値（θ）", esc(_num(facts["line"]))), ("combine", "合成規則", f"<code>{esc(facts['combine'])}</code>"),
+            ("stocks", "銘柄集合", f"{esc(facts['universe'])}・{facts['n']} 本"),
+            ("sizing", "株数の決め方（sizing）", f"<code>{esc(facts['sizing'])}</code>"), ("budget", "予算", esc(_money(facts["budget"]))),
+            ("file", "設定のファイル", f"<code>{esc(facts['source'])}</code>" + ("" if facts["settled"] else "（候補）"))]
+    head = "<tr><th>項目</th><th>値</th>" + ("<th>意味</th>" if hints else "") + "</tr>"
+    table = "<table>" + head + "".join(
+        f"<tr><th>{k}</th><td>{v}</td>" + (f"<td class='sub'>{esc(hints.get(key))}</td>" if hints else "") + "</tr>"
+        for key, k, v in rows) + "</table>"
     out.append("<details><summary>正式な名前（記録や設定に出てくる呼び名）</summary>"
-               f"<p class='sub'>言葉の意味は <a href='{GLOSSARY_URL}' target='_top'>用語</a>、決めごとは "
+               f"<p class='sub'>言葉の意味は <a href='{GLOSSARY_URL}' target='_top'>用語</a>、項目の意味と共通のしくみは "
+               f"<a href='{SYSTEM_TRADER_URL}' target='_top'>トレーダーのしくみ</a>、決めた経緯と数字は "
                f"<a href='{SPEC_URL}' target='_top'>live-trading.md</a> §0-1。</p>{table}</details>")
     out.append("</div>")
     return "\n".join(out)
+
+
+def _model_outputs(common: dict, mcommon: dict, models) -> str:
+    """使うモデルが出力スコアを出す株（`[[model]] sets.output` を写す札。モデルが 2 本以上なら呼び方を頭に付ける）。"""
+    head = common.get("stocks_model_output") or mcommon.get("set_output") or ""
+    chips = []
+    for _spec, m in models:
+        text = ((m or {}).get("sets") or {}).get("output")
+        if not text:
+            continue
+        label = f"{esc(m.get('label'))} — " if len(models) > 1 and m.get("label") else ""
+        chips.append(f"<div class='chip'><b>{esc(head)}</b>{label}{esc(text)}</div>")
+    return f"<div class='chips'>{''.join(chips)}</div>" if chips else ""
+
+
+def _sub_link(label, url: str) -> str:
+    """小さな案内の 1 行（⚠ iframe の中なので target=_top）。文が無ければ出さない。"""
+    return f"<p class='sub'><a href='{url}' target='_top'>{esc(label)}</a></p>" if label else ""
 
 
 def body(paths: TraderPaths, item: str) -> str | None:

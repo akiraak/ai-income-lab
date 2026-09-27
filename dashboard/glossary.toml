@@ -5,6 +5,9 @@
 # ⚠ 動く数字（検証数・DSR の値・行数など）を書かない。数字は実行タブと spec が持つ。
 # ⚠ doc はリポジトリ直下からの相対パス。実在はテストが固定する（tests/test_vibetab.py）。
 #    where は節の番号や見出しを文字で書く（vibeboard は節アンカーへ飛べない）。
+# ⚠ see = { label, tab, item }（任意。2026-09-26）は、しくみの説明があるタブのページへの 2 本目のリンク（システム説明 ／ 予測モデル ／
+#    トレーダー）。⚠ **しくみの説明の正本は vibeboard（system.toml ほか）、決めた経緯と数字の正本は spec** なので、doc は spec のまま残し、
+#    説明は see で引く（設定の説明の Step 7。tab は modelview.TAB_URLS・system の item はページの id ＝ テストが見る）。
 
 [[section]]
 id = "project"
@@ -105,6 +108,13 @@ note = "検証結果一覧（ledger.md）の行を読むための単位。図解
   short = "検証を分ける自由度の組（手法・モデル・粒度・地平・層・期間・検証方式・形式・閾値）。1 列でも違えば別の検証。"
   doc = "docs/specs/experiments/feature-discovery/units.md"
   where = "§4 識別項目の列"
+
+  [[section.term]]
+  name = "予測モデル名"
+  short = "識別項目の別名 <入力データ>.<数字の選び方・作り方>.<学習器>.<学習範囲>[~…][@θ]。綴りは config/names.toml（ail/names.py）。"
+  doc = "docs/specs/experiments/feature-discovery/rules.md"
+  where = "10-2 予測モデル名（部品と列の対応）"
+  see = { label = "名前と識別名", tab = "system", item = "names" }
 
   [[section.term]]
   name = "fold"
@@ -277,6 +287,7 @@ note = "2026-09-10 からの検証方式。予測の後ろだけが旧方式と�
   short = "モデルの予測値を較正して 0〜100 にしたもの。売り% は 100 から引いた残りで、独立には出さない。説明のタブでは「出力スコア」と呼ぶ。"
   doc = "docs/specs/experiments/feature-discovery/rules.md"
   where = "§13-2 確率化"
+  see = { label = "予測モデルのしくみ — 出力スコアに直す", tab = "system", item = "model" }
 
   [[section.term]]
   name = "較正（Platt）"
@@ -289,6 +300,7 @@ note = "2026-09-10 からの検証方式。予測の後ろだけが旧方式と�
   short = "建てる・手仕舞う境目の確率。画面の言葉では「売買基準値」（超えたら買い・100 − θ を下回ったら売る）。50・55・60% を事前固定し、3 つとも検証結果一覧に載せる。"
   doc = "docs/specs/experiments/feature-discovery/rules.md"
   where = "§13-3 閾値"
+  see = { label = "予測モデルのしくみ — 売り買いのまねごと", tab = "system", item = "model" }
 
   [[section.term]]
   name = "状態機械"
@@ -629,27 +641,73 @@ note = "管理画面の概要・全体の詳細・トレーダーの詳細に出
 
   [[section.term]]
   name = "トレーダー"
-  short = "予算・銘柄集合・1 本以上の予測モデル・合成規則・θ を持つ売買判断の単位。擬人化した呼び名で、口座は 1 つ。"
+  short = "使うモデル・売買基準値・予算・売買する株・買い方を持つ売買判断の単位。擬人化した呼び名で、口座は 1 つ。"
   doc = "docs/specs/experiments/live-trading.md"
-  where = "§0-1 トレーダーの定義"
+  where = "§0-1 トレーダーの定義（3 人の表と決めた経緯）"
+  see = { label = "トレーダーのしくみ", tab = "system", item = "trader" }
 
   [[section.term]]
   name = "試験用トレーダー（TEST）"
-  short = "固定の合図で配線を確かめるためのトレーダー。記録に印が付き、判定には混ぜない。"
+  short = "固定の合図で配線を確かめるためのトレーダー。記録に印が付き、判定には混ぜない。本物の人が居れば一覧に出ない。"
   doc = "docs/specs/experiments/live-trading.md"
   where = "§0-1 トレーダーの定義"
+  see = { label = "トレーダーのしくみ — 変えるときは新しい人", tab = "system", item = "trader" }
 
   [[section.term]]
   name = "予算（トレーダーの持ち金）"
   short = "トレーダーごとの固定の枠。空き ＝ 予算 − 建玉の取得原価 − 受渡し待ちの代金。損益は空きに入れない。"
   doc = "docs/specs/experiments/live-trading.md"
   where = "§0-1 トレーダーのお金と持ち株"
+  see = { label = "トレーダーのしくみ — 予算と買い方", tab = "system", item = "trader" }
+
+  [[section.term]]
+  name = "規模 A ／ B（予算の規模）"
+  short = "予算の 2 つの規模。A ＝ 口座に実際にあるお金の範囲（実売買に使う）／ B ＝ 大きい規模の試算。⚠ B は実際の取引で使えない可能性がある。"
+  doc = "docs/specs/experiments/live-trading.md"
+  where = "§0-1 予算の規模 — A と B を並べて比べる（数字と決めた日）"
+  see = { label = "トレーダーのしくみ — 予算の規模", tab = "system", item = "trader" }
+
+  [[section.term]]
+  name = "整数株 ／ 金額指定（sizing）"
+  short = "株数の決め方。整数株（shares）＝ 1 株単位で、1 株も買えなければ見送る ／ 金額指定（notional）＝ 金額で注文し、1 株に満たない分も買える。"
+  doc = "docs/specs/experiments/live-trading.md"
+  where = "§0-1 属性の表 ／ §0-3 本番の dry-run（最低の金額と端株の手数料【実測】）"
+  see = { label = "トレーダーのしくみ — 予算と買い方", tab = "system", item = "trader" }
+
+  [[section.term]]
+  name = "売買基準値（θ。旧: 買う線 ／ 売る線）"
+  short = "出力スコアの境目。上回ったら買い、「100 − 売買基準値」を下回ったら売る。まん中（50）以上に置き、動かしながら変えない。"
+  doc = "docs/specs/dashboard.md"
+  where = "§16-2 やさしい言葉の決まり（θ の言い換え。2026-09-21 の決定）"
+  see = { label = "トレーダーのしくみ — 売買基準値と合わせ方", tab = "system", item = "trader" }
+
+  [[section.term]]
+  name = "出力スコア（買い%）"
+  short = "モデルが最後に出す 0〜100 の数。この先上がりそうかを表し、高いほど上がりそう。内部の名前は買い%（売る側は 100 − 出力スコア）。"
+  doc = "docs/specs/dashboard.md"
+  where = "§16-2 やさしい言葉の決まり（買い% の言い換え。2026-09-20 の決定）"
+  see = { label = "予測モデルのしくみ — 出力スコアに直す", tab = "system", item = "model" }
+
+  [[section.term]]
+  name = "呼び名"
+  short = "画面に出すトレーダーの名前。意味の無い名前にし、一度付けたら変えない・使い回さない。正本は dashboard/traders.toml の [nicks]。"
+  doc = "docs/specs/dashboard.md"
+  where = "§16-1 呼び名"
+  see = { label = "トレーダーのしくみ — 呼び名と識別名", tab = "system", item = "trader" }
+
+  [[section.term]]
+  name = "識別名（旧: 鍵）"
+  short = "変えるとつながらなくなる名前。トレーダーの設定のファイル名・実行の名前・ページの id。記録・URL・売買履歴はこれで引く。"
+  doc = "CLAUDE.md"
+  where = "ドキュメントの書き方 — 言葉の表"
+  see = { label = "トレーダーのしくみ — 呼び名と識別名", tab = "system", item = "trader" }
 
   [[section.term]]
   name = "建玉"
   short = "いま持っている株（銘柄・株数・取得単価）。トレーダーごとに分けて持ち、他のトレーダーの株は売れない。"
   doc = "docs/specs/experiments/live-trading.md"
   where = "§0-1 トレーダーのお金と持ち株"
+  see = { label = "トレーダーのしくみ — 予算と買い方", tab = "system", item = "trader" }
 
   [[section.term]]
   name = "損益（実現 ＋ 含み）"
@@ -674,6 +732,7 @@ note = "管理画面の概要・全体の詳細・トレーダーの詳細に出
   short = "複数のモデルの出力を 1 つの合図にまとめる規則（そのまま ／ 平均 ／ 多数決 ／ 全員一致）。事前に固定する。"
   doc = "docs/specs/experiments/live-trading.md"
   where = "§0-1 トレーダーの定義"
+  see = { label = "トレーダーのしくみ — 売買基準値と合わせ方", tab = "system", item = "trader" }
 
   [[section.term]]
   name = "差 1（執行価格）"
@@ -703,19 +762,22 @@ note = "管理画面の概要・全体の詳細・トレーダーの詳細に出
   name = "内部移転"
   short = "⚠ 2026-09-19 に廃止（成績が検証できない）。A の売りと B の買いが重なる日に口座へ出さず株を渡していた。古い記録にだけ出る。"
   doc = "docs/specs/experiments/live-trading.md"
-  where = "§0-1 トレーダーのお金と持ち株"
+  where = "§0-1 トレーダーのお金と持ち株（廃止の経緯）"
+  see = { label = "トレーダーのしくみ — 予算と買い方", tab = "system", item = "trader" }
 
   [[section.term]]
   name = "見送り"
   short = "自分の予算の空きが足りず、注文を出す前にやめた買い。エラーではなく事象として記録する。"
   doc = "docs/specs/experiments/live-trading.md"
   where = "§0-1 トレーダーのお金と持ち株"
+  see = { label = "トレーダーのしくみ — 上限・含み損・停止", tab = "system", item = "trader" }
 
   [[section.term]]
   name = "問題（注文）"
   short = "口座に断られた・エラーで終わった・発注されなかった注文の数。約定が無いので持ち株と損益は変わらない。"
   doc = "docs/specs/experiments/live-trading.md"
   where = "§0-1 口座に断られた買い"
+  see = { label = "実際の売買 — 守っていること", tab = "system", item = "live" }
 
   [[section.term]]
   name = "再送"
@@ -746,6 +808,7 @@ note = "管理画面の概要・全体の詳細・トレーダーの詳細に出
   short = "含み損が予算の決めた割合を超えたら発注をやめて持ち越す決めごと。⚠ 自動では止めない（止めるのは人）。"
   doc = "docs/specs/experiments/live-trading.md"
   where = "§0-2 停止"
+  see = { label = "トレーダーのしくみ — 上限・含み損・停止", tab = "system", item = "trader" }
 
   [[section.term]]
   name = "行動のマス目"

@@ -488,9 +488,10 @@ def small_glossary(tmp_path: Path) -> Path:
     p.write_text(
         '[[section]]\nid = "units"\nlabel = "検証の単位"\nnote = "単位の語"\n\n'
         '[[section.term]]\nname = "試行"\nshort = "台帳の 1 行"\n'
-        'doc = "docs/specs/experiments/feature-discovery/units.md"\nwhere = "§5"\n\n'
+        'doc = "docs/specs/experiments/feature-discovery/units.md"\nwhere = "§5"\n'
+        'see = { label = "しくみの<頁>", tab = "system", item = "trader" }\n\n'
         '[[section.term]]\nname = "TODO の語"\nshort = "カテゴリの外にある文書"\n'
-        'doc = "CLAUDE.md"\nwhere = "進め方"\n', encoding="utf-8")
+        'doc = "CLAUDE.md"\nwhere = "進め方"\nsee = { label = "知らないタブ", tab = "nope", item = "x" }\n', encoding="utf-8")
     return p
 
 
@@ -514,6 +515,26 @@ def test_glossary_view_links_to_vibeboard_hash(small_glossary):
     assert 'href="/#specs/experiments/feature-discovery/units.md" target="_top"' in body
     assert 'href="/#files/CLAUDE.md" target="_top"' in body
     assert "§5" in body
+    # `see`（2026-09-26）＝ しくみのページへの 2 本目のリンク。知らないタブは出さない（doc のリンクは残る）
+    assert "<div class='meta'>しくみ: <a href='/#system/trader' target='_top'>しくみの&lt;頁&gt;</a></div>" in body
+    assert "知らないタブ" not in body and body.count("しくみ: ") == 1
+
+
+def test_real_glossary_see_links_point_at_real_pages():
+    """`see` の行き先（タブとページ）が実在する。system の item はページの id（system.toml）、models の item はモデルの id か all。"""
+    import tomllib
+    import modelview
+    import traderview
+    pages = {p["id"] for p in tomllib.loads((REPO_ROOT / "dashboard" / "system.toml").read_text(encoding="utf-8"))["page"]}
+    model_ids = {i["id"] for i in modelview.sidebar(traderview.TraderPaths.default())["items"]}
+    seen = [(t["name"], t["see"]) for s in vibetab.load_glossary() for t in s["term"] if t.get("see")]
+    assert len(seen) >= 12                                                         # Step 7 で付けた分
+    for name, see in seen:
+        assert see.get("label") and see.get("tab") in modelview.TAB_URLS, (name, see)
+        if see["tab"] == "system":
+            assert see.get("item") in pages, (name, see)
+        elif see["tab"] == "models" and see.get("item"):
+            assert see["item"] in model_ids, (name, see)
 
 
 def test_glossary_view_unknown_item(small_glossary):

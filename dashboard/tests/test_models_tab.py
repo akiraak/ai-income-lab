@@ -341,13 +341,16 @@ def test_deep_parts_are_absent_when_not_written(paths):
 
 
 def test_trader_page_does_not_grow(paths):
-    """新しい欄（図・組み立て・3 つの集合・試し運転の注・小さな例・出力スコアの段・経緯・詳しく）はトレーダーのページに出ない。
-    ⚠ 特性の文（`traits`）だけは両方に出る ＝ 試し運転の話を直せば人のページにも効く。"""
+    """新しい欄（図・組み立て・3 つの集合の表・試し運転の注・小さな例・出力スコアの段・経緯・詳しく）はトレーダーのページに出ない。
+    ⚠ 特性の文（`traits`）だけは両方に出る ＝ 試し運転の話を直せば人のページにも効く。
+    ⚠ 3 つの集合のうち「出力スコアを出す株」の 1 行だけは、人のページの「どの株を」の札に写る（設定の説明の Step 6・2026-09-26。
+    売買する株との違いを見せるため）。「トレーダーのしくみ」への案内も人のページが自前で出す（traders.toml の `stocks_link` ほか）。"""
     body = traderview.body(paths, "TA")
     assert "モデル A のひとこと" in body and "試し運転で見えた特性" in body
-    for word in ("軸のデータ", "集合の材料", "売買する株はトレーダーが決める", "/#system/trader", "試し運転の注",
+    for word in ("軸のデータ", "集合の材料", "集合の学ぶ株", "売買する株はトレーダーが決める", "試し運転の注",
                  "一段目", "癖 1", "直した試し", "用語 Ridge の説明", "alpha = 1.0", "<svg"):
         assert word not in body, word
+    assert "集合の&lt;出す&gt;株" in body and "<h3>3 つの集合</h3>" not in body
 
 
 def test_desk_model_page(paths):

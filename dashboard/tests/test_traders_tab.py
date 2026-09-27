@@ -54,8 +54,8 @@ def _walk(where: str, v) -> list[tuple[str, str]]:
 
 def _texts(doc: dict) -> list[tuple[str, str]]:
     """本文の全部の文（入れ子の表・配列も）。⚠ モデルの正式な名前の欄（`FORMAL_KEYS`）・「詳しく」の欄（`DETAIL_KEYS`）・
-    印の鍵（`basis`・`verdict`・経緯の表の数と `old`）と呼び名は除く。"""
-    out = _walk("common", doc.get("common") or {})
+    印の鍵（`basis`・`verdict`・経緯の表の数と `old`）と呼び名は除く。人ごとの「売買する株を選んだ理由」（`[symbols_why]`）は本文。"""
+    out = _walk("common", doc.get("common") or {}) + _walk("symbols_why", doc.get("symbols_why") or {})
     for m in doc.get("model", []):
         body = {k: v for k, v in m.items() if k not in FORMAL_KEYS + DETAIL_KEYS}
         body["traits"] = [{k: v for k, v in t.items() if k != "basis"} for t in m.get("traits") or []]
@@ -128,6 +128,9 @@ def test_real_traders_all_have_model_words_and_nicks():
             assert traderview.find_model(words, spec) is not None, (n, spec)
     assert {k: words["nicks"].get(k) for k in ("T1", "T2", "T3")} == {"T1": "アキ", "T2": "アリス", "T3": "カエデ"}
     assert len(set(words["nicks"].values())) == len(words["nicks"])
+    # 売買する株を選んだ理由は人ごと（居ない人の分を残さない）。無い人が居てもよい（出ないだけ）
+    assert set(words["symbols_why"]) <= set(names), words["symbols_why"]
+    assert "unsettled" not in words["common"], "「まだ確定していない」の帯は 2026-09-26 に消した"
 
 
 # ---------------------------------------------------------------- 最小の置き場
@@ -151,8 +154,22 @@ ruler_wait = "何もしない"
 ruler_buy = "買う"
 combine_asis = "モデルは 1 本だけ。"
 combine_mean = "{k} 本のモデルの点を平均する。"
-unsettled = "まだ確定していない"
 limit_common = "良いとは言えていない"
+budget_scale = "口座で使える規模の予算"
+stocks_one = "売り買いするのは {n} 本: {symbols}。"
+stocks_vs_model = "モデルが点を出す株はもっと多くてよい。"
+stocks_model_output = "モデルが点を出す株"
+stocks_link = "選び方の考え方はしくみへ"
+limit_stop = "上限と停止は共通"
+limit_change = "変えるときは新しい人"
+common_link = "共通のしくみへ"
+
+[common.formal_hint]
+line = "境目"
+sizing = "1 株単位か金額か"
+
+[symbols_why]
+TA = "値段の低い順に選んである。"
 '''
 
 MODELS = '''
@@ -175,6 +192,7 @@ summary = "モデル A のひとこと"
 card = { sees = "札の見るもの", decides = "札の決め方" }
 traits = [{ text = "特性 1", why = "理由 1", basis = "build" }, { text = "特性 2", why = "", basis = "trial" }, { text = "特性 3", why = "" }]
 sees = [{ label = "まとまり 1", items = ["見るもの 1", "見るもの 2"] }]
+sets = { material = "材料 A", learn = "学ぶ A", output = "見る株の全部（A）" }
 how = "点の出し方 A"
 limits = ["苦手 A"]
 
@@ -252,6 +270,17 @@ def test_page_shows_the_model_and_its_traits(paths):
     assert "予算は $300。3 本で割って 1 本あたり $100。" in body and "1 株単位で買う。" in body
     assert "点が 55 を上回ったら買い、45 を下回ったら売る。" in body and "苦手 A" in body
     assert "まだ確定していない" not in body and "<details>" in body and "ナマエ" in body
+    # どの株を（2026-09-26）: 本数と株の名前は設定から・選んだ理由は人ごと・使うモデルが出力スコアを出す株は models.toml の sets.output・
+    # 共通のしくみ（4 つの集合・上限・停止・項目の意味）は「トレーダーのしくみ」へ案内するだけ
+    heads3 = re.findall(r"<h3>([^<]+)</h3>", body.split("この人の決まり")[1])
+    assert heads3[:4] == ["どの株を", "売買基準値", "いつ", "いくら"]
+    assert "売り買いするのは 3 本: C1、C2、C3。値段の低い順に選んである。" in body
+    assert "モデルが点を出す株はもっと多くてよい。" in body
+    assert "<div class='chip'><b>モデルが点を出す株</b>見る株の全部（A）</div>" in body
+    assert body.count("href='/#system/trader'") == 3            # どの株を ／ 気をつけること ／ 正式な名前 の案内
+    assert "選び方の考え方はしくみへ" in body and "共通のしくみへ" in body
+    assert "口座で使える規模の予算" in body and "上限と停止は共通" in body and "変えるときは新しい人" in body
+    assert "<th>意味</th>" in body and "<td class='sub'>境目</td>" in body and "<td class='sub'>1 株単位か金額か</td>" in body
     # 設定を変えれば画面が変わる（言葉の正本は触らない）
     cfg = paths.traders_dir / "TA.toml"
     cfg.write_text(cfg.read_text(encoding="utf-8").replace("threshold = 55.0", "threshold = 60.0"), encoding="utf-8")
@@ -260,10 +289,15 @@ def test_page_shows_the_model_and_its_traits(paths):
 
 def test_trader_with_several_models_and_candidate_mark(paths):
     body = traderview.body(paths, "TB")
-    assert "まだ確定していない" in body and "（候補）" in body
+    # 候補の人の印は「正式な名前」の「（候補）」だけ（「まだ確定していない」の帯は 2026-09-26 に消した）
+    assert "（候補）" in body and "class='note'" not in body and "まだ確定していない" not in body
     assert "モデル A のひとこと" in body and "モデル B のひとこと" in body and "2 本のモデルの点を平均する。" in body
     assert "特性 1" in body and "特性 B" in body and "<h3>B の型</h3>" in body               # モデルごとに分けて出す
     assert "点が 50 を上回ったら買い、50 を下回ったら売る。" in body
+    # 選んだ理由の無い人には理由の文が出ない。モデルが 2 本なら「出力スコアを出す株」の札にモデルの呼び方が付く（sets の無い B は出ない）
+    assert "売り買いするのは 4 本: E1、C1、C2、C3。</p>" in body and "値段の低い順" not in body
+    assert "<div class='chip'><b>モデルが点を出す株</b>&lt;b&gt;形&lt;/b&gt;を読む型 — 見る株の全部（A）</div>" in body
+    assert body.count("<div class='chip'><b>モデルが点を出す株</b>") == 1
 
 
 def test_method_must_match(paths):

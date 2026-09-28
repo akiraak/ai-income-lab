@@ -1,0 +1,58 @@
+# ⚠ **出口だけを言うモデル（損切りモデル）を執行器が読める形にする**（Phase 3。プラン new-model-trader.md §3・記録 stoploss-as-model.md §0-7）。
+#
+# ⚠ **`cli.predict` のためだけの config。queue に入れない ＝ 検証ではない ＝ `n_trials` に数えない。**
+#    机上の検証（損切りが効くか）は `trade_own_stop_ridge_a`（入口 ＝ 主モデルの対 L1〜L3）で済んでいる（33 検証とも落とす）。
+#    ここで出すのは `predict.jsonl` の行 ＝ **買い% は常に 100（K2）・出口% は規則そのもの**。実売買ではトレーダーの `[[models]]` に
+#    主モデル（例 `trade_own_ridge_a`）と並べ、`combine = "unanimous"`（買いは min ＝ 主モデル・出口は max ＝ どちらかが言ったら降りる）で合わせる。
+# ⚠ **主モデルとは別の実験名**にしてある（`signals.py` は `(model, symbol)` で行を引く ＝ 同じ実験名の違う手法を 1 人の中で 2 本持てない）。
+# ⚠ **`mean` では買い% が半分に割れる**ので、このモデルは `unanimous` でだけ使う（howto-model-trader.md §2）。
+# ⚠ 表は損切りの検証の持ち主（`own` ＋ `trend` 窓 20 ＋ `y_fwd_10`）を `features_from` で読む（X3 と規則が読む列がそこにある）。
+# ⚠ 水準は机上の検証と同じ（足さない・動かさない ＝ rules.md 14-9）。使う 1 本は `--method`（トレーダーの `method`）で選ぶ。
+#
+# ⚠ **TOML の平の key はテーブル見出しより上に書く**（rules.md 10 章 規約 1）
+name = "trade_own_stopexit_a"
+features_from = "trade_own_stop_ridge_a"   # ⚠ 表は損切りの検証の持ち主のものを読む（own 35 ＋ own_trend20_* 6 ＋ y_fwd_10）
+dataset = "daily"
+horizon = 1
+cost_bp = 5.0
+start_date = "2018-01-31"
+
+feature_layers = ["own", "trend"]
+label_scales = [10]            # ⚠ X3（学ぶ出口 ＝ P(y_fwd_10 ≤ 0)）のため。⚠ `cli.predict` はこのぶん訓練の尻を落とす（Phase 3）
+targets = "all"
+
+horizon_min = 21600.0
+bar_minutes = 1440.0
+
+# ⚠ 出口だけの検知器 7 本（`ail/detectors/stop.py` の X1〜X3）。⚠ **queue に入れない**
+detectors = [
+  "X1 出口だけ 高値20日から−5%で降りる",
+  "X1 出口だけ 高値20日から−10%で降りる",
+  "X1 出口だけ 高値20日から−20%で降りる",
+  "X2 出口だけ 高値20日からσの2倍で降りる",
+  "X2 出口だけ 高値20日からσの4倍で降りる",
+  "X2 出口だけ 高値20日からσの8倍で降りる",
+  "X3 出口だけ 先10日の下げを学んで降りる",
+]
+
+model = "Ridge"                # ⚠ X3 の出口（`fwd.forward_gate`）が使う。X1・X2 は学習しない
+baselines = ["常に上（ドリフト）", "直前リターンの符号"]
+
+[trading]
+style = "threshold"
+thresholds = [50, 55, 60]
+form = "shared"
+
+[validation]
+split = "walk_forward_dates"
+folds = 5
+purge = true
+embargo_bars = 0
+seed = 0
+
+[features]
+trend_windows = [20]
+ex_lag_days = 1
+ex_zero_fill = ["usgs"]
+ex_transforms = ["d1", "z20"]
+ex_max_stale_days = 7

@@ -216,3 +216,29 @@ AIL_TORCH_DEVICE=cuda setsid nohup .venv/bin/python -m cli.queue --config exodee
 | 依存 | — | `chronos-forecasting 2.3.2`（transformers 5.17.0・einops・accelerate ほか 21 本。numpy ／ pandas ／ torch は変わらない）。titan の `.venv` だけ |
 
 ⚠ **見積りはほぼ当たった**（PatchTST と同じく 1 単位を測ってから掛け算した）。外れたのは「最初の実行を捨てる」の 1 時間。
+
+## 7. 執行器が読める形（Phase 3。2026-09-28・titan）
+
+> この図の主張: 深層学習 3 本も、ほかのモデルと同じ `cli.predict` の道で `predict.jsonl` の行になる。違うのは fit の時間と GPU が要ることだけ。
+
+```mermaid
+flowchart LR
+  D["研究用の data/<br/>（asof より後は捨てる）"] --> T["表 ＝ features_from<br/>trade_ownseq_fwd10_ridge_a<br/>（y_fwd_10 つき）"]
+  T --> S["split_asof<br/>訓練 〜 asof − 11 営業日<br/>（最長のラベル 10 本ぶん）"]
+  S --> M["検知器 S2 ／ S3 ／ S4<br/>外生は検知器が組む<br/>AIL_TORCH_DEVICE=cuda"]
+  M --> P["predict.jsonl<br/>63 行（buy・exit ＝ 100 − buy）"]
+```
+
+| 手法 | 行 | 買い% の帯 | 表 | fit ＋ 予測 | 訓練の終わり |
+| --- | ---: | --- | ---: | ---: | --- |
+| `S2 Chronos-2（60日窓・先10日・共変量あり）` | 63 | 51.7〜53.6 | 39 秒 | **192 秒** | 2026-08-20 |
+| `S3 Chronos-2（60日窓・先10日・共変量なし）` | 63 | 47.9〜56.0 | 34 秒 | **7 秒** | 2026-08-20 |
+| `S4 TimeXer（60日窓・先10日・外生あり）` | 63 | 52.0〜56.3 | 34 秒 | **685 秒（11 分 25 秒）** | 2026-08-20 |
+
+【実測 2026-09-28・titan・`AIL_TORCH_DEVICE=cuda`・asof 2026-09-04・研究用の `data/`】。コマンドは `AIL_TORCH_DEVICE=cuda .venv/bin/python -m cli.predict --experiment <実験名> --method "<登録名>" --asof 2026-09-04 --out <道>`。
+
+- ⚠ **`split_asof` は同日に直した**（[forward10-target.md §4 の 7](forward10-target.md)）: 訓練は asof の 10 営業日前の行（答えの端が asof の終値）を含まない ＝ `.meta.jsonl` の `purge_bars = 10`。3 本とも指紋 `32dfe9ca2613bc1b`（同じ表・同じ訓練 135,269 行）
+- ⚠ **Chronos-2 は学習しないのに 192 秒かかる**のは、較正（Platt）のために訓練の尻の holdout へ推論するから（S2 は 1 行あたり 63 系列を渡す ＝ 27 倍遅い。§6）。S3 は 7 秒
+- ⚠ **TimeXer は 1 日 1 回でも GPU で 11 分半**（`cli.predict` は較正用と本番用の 2 回学ぶ。早期打ち切りは働いた）。本番の `run-live.sh` は 15:45〜16:05 ET の窓に 3 人ぶんの予測を並列で 37〜38 秒【実測】で通しており、**13500t（GPU なし・イメージに torch を入れていない）でこの道は成立しない** ＝ 重みを titan で作って写す道（K7・プラン §7）を決めるまで本番に入れない。⚠ 判定は 9 検証とも「落とす」（§1）なので、いま決める必要は無い
+- 道の確認だけで、行の中身（買い% の帯）から何も読まない（1 日ぶん・採否の物差しではない）
+

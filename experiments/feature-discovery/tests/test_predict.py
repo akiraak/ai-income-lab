@@ -68,6 +68,23 @@ def test_training_stops_before_the_label_touches_asof(data_dir):
     assert meta["train_end"] == "2026-08-12"
 
 
+F10 = ("trade_own_fwd10_ridge_a", "H1 先10日ゲート（全列・学習）")     # 学習の対象が先 10 営業日（y_fwd_10）
+
+
+def test_training_stops_before_the_longest_label_touches_asof(data_dir):
+    """⚠ 学習の対象が先 W 本なら、asof の W 営業日前の行（答えの端が asof の終値）も訓練に入らない（Phase 3。forward10-target.md §4 の 7）。"""
+    rows, meta = P.predict(*F10[:1], ASOF, F10[1])
+    # 2026-08-14（金）の 10 営業日前 ＝ 07-31 の行の y_fwd_10 は 08-14 の終値まで ＝ 訓練に入らない。07-30 の行（〜08-13）は入る
+    assert meta["train_end"] == "2026-07-30"
+    assert meta["label_scales"] == [10] and meta["purge_bars"] == 10
+    assert len(rows) == 63 and all(0.0 <= r["buy"] <= 100.0 for r in rows)
+
+
+def test_one_day_label_purges_one_day_only(data_dir):
+    _rows, meta = P.predict(*T1[:1], ASOF, T1[1])
+    assert meta["label_scales"] == [] and meta["purge_bars"] == 1        # ⚠ y_fwd_ の無い表は今までどおり
+
+
 @pytest.mark.parametrize("exp,method", [T1, T3])
 def test_future_bars_do_not_change_the_output(data_dir, exp, method):
     """`asof` より後の足をどう壊しても出力が変わらない（＝ `asof` の行の y も、その先も見ていない）。"""

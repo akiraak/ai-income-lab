@@ -45,7 +45,7 @@ flowchart LR
 | 1-4 | **config を書く**（既存の表を `features_from` で読む ＝ 表を作り直さない。`thresholds = [50, 55, 60]`・`horizon = 1`。先を当てるなら `label_scales` ＋ `horizon_min` ＝ ⚠ **`y_fwd_W` の列が要るので既存の表を `features_from` で読めない。表の持ち主を 1 本作り直し、ほかはそれを `features_from` で読む**〔[forward10-target.md §5](experiments/forward10-target.md)〕。⚠ TOML の平の項目はテーブル見出しより上） | `config/experiment/trade_<表>_<x>_a.toml`（雛形 `trade_own_ridge_a.toml`） | `config.resolve_experiment`（読めない config はここで止まる） | — |
 | 1-5 | **queue を書いて回す**（`leak = true` を切らない・`ledger = false` にして終わってから 1 回吐く・`time_budget_s` は見積りの 4 倍） | `config/queue/<x>.toml` → `.venv/bin/python -m cli.queue --config <x>`（⚠ 背景で回すなら `setsid nohup`） | `runs/research.sqlite` の `queue_state`（途中で落ちても再開できる） | — |
 | 1-6 | **検証結果一覧を吐き、記録を書く**（結果・判定・`n_trials` の前後。⚠ 回したものは全部数える。⚠ 表の終わりが既存の表と違うと、基準線の行〔常に上 ／ 直前リターンの符号〕に「⚠ N 実行・幅 …bp」の印が付く ＝ 計算の変更ではないので記録に理由を書く〔[forward10-target.md §4](experiments/forward10-target.md)〕） | `.venv/bin/python -m cli.report --catalog` → `ledger.md`・`ledger_rows`。記録は 1-1 の文書に §1 以降 | — | — |
-| 1-7 | **執行器が読める形を確かめる**（1 日ぶんの `predict.jsonl` の行が出ること。`--asof` は日足のある営業日） | `.venv/bin/python -m cli.predict --experiment <名前> --method "<登録名>" --asof <日付> --out /tmp/p.jsonl` | `tests/test_predict.py`（新しい形が要るなら 1 本足す。⚠ `cli.build.assemble`・`cli.run.fold_buy_pct` を触ったら指紋テスト `tests/test_trading_run.py`） | — |
+| 1-7 | **執行器が読める形を確かめる**（1 日ぶんの `predict.jsonl` の行が出ること。`--asof` は日足のある営業日。⚠ 研究用の `data/` で ＝ `data-live/` は触らない）。確かめるのは 3 つ: 行の形（`date・model・method・symbol・buy・exit・proxy_close・input_fingerprint・commit`）／ `.meta.jsonl` の `train_end` が **asof より最長のラベルぶん前**（`purge_bars`。先 W 本を学ぶ表なら W 営業日 ＋ 1 日前 ＝ 2026-09-28 に `split_asof` を直した）／ 出口だけのモデルなら `buy` が全行 100。⚠ **`predict.jsonl` は (日付, 実験名) で行を置き換える** ＝ 同じ実験名の違う手法を同じ日に 2 度流すと後の 1 本だけ残る ＝ **1 人の中で同じ実験名の手法を 2 本持てない**（別の実験名にする。§2） | `.venv/bin/python -m cli.predict --experiment <名前> --method "<登録名>" --asof <日付> --out /tmp/p.jsonl`（深層学習は `AIL_TORCH_DEVICE=cuda` を頭に） | `tests/test_predict.py`（新しい形が要るなら 1 本足す。⚠ `cli.build.assemble`・`cli.run.fold_buy_pct` を触ったら指紋テスト `tests/test_trading_run.py`） | 表 34〜38 秒 ＋ fit（Ridge・規則 0.01〜0.2 秒。深層学習は §4）【実測 2026-09-28・titan】 |
 | 1-8 | **説明を書く**（`[[model]]` 1 つ ＝ `id`・`name`・`method`・`formal`・`traits`〔必ず `basis`〕・`sees`・`flow`・`sets`・`history`〔`names` のパターン〕・`records`・`configs`。やさしい言葉・比較しない・数字を書かない。欄の意味は `models.toml` の頭のコメントと [dashboard.md §17-4](dashboard.md)） | `dashboard/models.toml` | `cd dashboard && .venv/bin/python -m pytest -q tests/test_models_tab.py tests/test_traders_tab.py tests/test_system_tab.py`（⚠ `history.names` の数は titan の DB と同じでないと落ちる） | — |
 
 ⚠ 深層学習（GPU）のモデルは 1-2 で `ail/detectors/seqmodel.py`（PatchTST の検知器）を雛形にする。依存は titan の `.venv` にだけ足す（13500t のイメージには入れない ＝ 本番に入れると決めるまで）。
@@ -85,6 +85,7 @@ flowchart LR
 | `unanimous` | min（全員が θ 超えのときだけ買う） | max（1 本でも θ 超えなら売る） | 2 本以上 |
 
 - **出口だけを言うモデル（損切りなど）は買い% を常に 100 で返し、`unanimous` で合わせる**（2026-09-27 利用者決定 K2）＝ 買いは主モデル・売りはどちらかが言ったら。⚠ `mean` に入れると買い% が半分になって使えない。⚠ 主モデルを 2 本以上入れると「全員が θ 超え」が買いの条件になる（意味が変わる）
+- 出口だけを言うモデルの実験 config は **`cli.predict` のためだけに 1 本**置く（例 `config/experiment/trade_own_stopexit_a.toml` ＝ 検知器 `X1`〜`X3`〔`ail/detectors/stop.py`〕。買い% 100・出口% ＝ 規則そのもの）。⚠ **queue に入れない**（検証ではない ＝ `n_trials` に数えない。机上の検証は「入口 ＝ 主モデル」の対の検知器で済ませる ＝ [rules.md 19-1 の 8](experiments/feature-discovery/rules.md)）。⚠ **主モデルとは別の実験名**（`signals.py` は `(model, symbol)` で行を引く）。人の設定では `[[models]]` の `method` で水準を 1 本選ぶ
 - 損切りモデルが買値を知る形（形 B）は執行器の変更が要る ＝ 10/20 の後（プラン §7 の道 1）。それまでに机上で載るのは買値を知らない形 A
 
 ### 設定の例（実例 A `T4`。書いたら差し替える）
@@ -119,8 +120,8 @@ method = "T3 QUANT（60日窓）"
 | 実例 | 何 | 記録 | 状態 |
 | --- | --- | --- | --- |
 | 先 10 営業日を当てにいくモデル | 見る数字 3 組 × 学習器 2 × θ 3 ＝ 18 検証（K4） | `docs/specs/experiments/forward10-target.md` | ✅ 2026-09-27 回した（採る 0 ／ 保留 2 ／ 落とす 16。1-1〜1-8 を通した） |
-| 損切りをモデルとして扱う | 形 A（規則の出口・学ぶ出口）と形 B（机上のみ）・基準線（K3） | `docs/specs/experiments/stoploss-as-model.md` | ✅ 2026-09-27 回した（33 検証とも落とす。1-1〜1-7 を通した。手順書に足す注意は記録 §5） |
-| 深層学習の型 2 本 | Chronos-2 zero-shot（共変量あり ／ なし）・TimeXer（K5） | `docs/specs/experiments/exog-deep-models.md` | ✅ 2026-09-27 回した（9 検証とも落とす。1-1〜1-6・1-8 を通した。手順書に足す注意は記録 §5。⚠ 1-7〔`cli.predict`〕は Phase 3） |
+| 損切りをモデルとして扱う | 形 A（規則の出口・学ぶ出口）と形 B（机上のみ）・基準線（K3） | `docs/specs/experiments/stoploss-as-model.md` | ✅ 2026-09-27 回した（33 検証とも落とす。1-1〜1-7 を通した。手順書に足す注意は記録 §5）。✅ 2026-09-28 Phase 3 ＝ 出口だけの検知器 `X1`〜`X3` と `cli.predict` のためだけの config `trade_own_stopexit_a`（記録 §7） |
+| 深層学習の型 2 本 | Chronos-2 zero-shot（共変量あり ／ なし）・TimeXer（K5） | `docs/specs/experiments/exog-deep-models.md` | ✅ 2026-09-27 回した（9 検証とも落とす。1-1〜1-6・1-8 を通した。手順書に足す注意は記録 §5）。✅ 2026-09-28 Phase 3 ＝ 1-7〔`cli.predict`〕を 3 本とも通した（記録 §7） |
 | 実例 A `T4`（ハル） | いまの 3 本を `mean`・θ 50 | `live-trading.md` §0-1・§0-7 (k)（sim5） | 未着手 |
 | 実例 B `T5`（ミオ） | 主モデル ＋ 損切りモデルを `unanimous` | 同上 | 未着手（Phase 2-2 の後） |
 
@@ -128,7 +129,9 @@ method = "T3 QUANT（60日窓）"
 
 | 手順 | 落ちたもの | 原因 | 直し方 |
 | --- | --- | --- | --- |
-| — | — | — | — |
+| 1-7（2026-09-27 → 28） | 落ちたテストは無く、**見て気づいた穴**: 先 10 日を学ぶ表で `cli.predict` の `train_end` が asof の 10 営業日前（答えの端が asof の終値に触れる行が訓練に入る） | `split_asof` が 1 日の `y_elapsed_min` でしか訓練を切っていなかった（研究側 `cli.run` は `horizon_min` でパージするので机上には効かない） | `split_asof` を「最長の `y_fwd_W` の終わりで切る」に直した（`cli/predict.py`。`y_fwd_` の無い表は 1 ビットも変わらない ＝ `test_predict` の指紋が動かないことで確認）。テスト `test_training_stops_before_the_longest_label_touches_asof` |
+| 1-7（2026-09-28） | 同じ実験名で `--method` を替えて 2 度流したら、`predict.jsonl` に後の 1 本しか残らなかった | `write_rows` は (日付, 実験名) で行を置き換える（同じ日に流し直しても二重にならないための仕様） | 仕様どおり。**1 人の中で同じ実験名の手法を 2 本持たない**（出口だけのモデルは別の実験名 `trade_own_stopexit_a`） |
+| 1-3（2026-09-28） | `test_every_registered_name_has_a_distinct_spelling` | 出口だけの検知器 `X1`〜`X3` を登録して綴りを書き忘れると落ちる（queue に入れなくても登録名には綴りが要る） | `config/names.toml` に 7 行（`x1-exit-dd20-N`・`x2-exit-ddvol20-N`・`x3-exit-learn10`） |
 
 ## 5. 関連
 

@@ -149,6 +149,7 @@ flowchart LR
 - 2-1 の `split_asof` のパージを直す（研究側）。`tests/test_predict.py`・`test_trading_run.py`（既定の指紋）を流す
 - 2-2 の出口だけのモデル: 対の検知器が `(entry, exit, doc)` を返す → `cli.predict` の `exit` に載る。**買い% は常に 100**（K2）。⚠ 出口だけのモデルは**主モデルとは別の実験名**にする（`signals.py` は `(model, symbol)` で行を引くので、**同じ実験名の違う手法を 1 人の中で 2 本持てない** ＝ 手順書に ⚠）。⚠ この「入口 100・出口 ＝ 規則」の実験 config は **`cli.predict` のためだけ**（queue に入れない ＝ 検証ではないので `n_trials` に数えない。机上の検証は 2-2 の「入口 ＝ 主モデル」の対で済んでいる）
 - 2-3 は `cli.predict` が通れば十分（本番で毎日学び直す道は K7・§7）
+- ✅ **2026-09-28 に通した**（titan の Claude。asof 2026-09-04・研究用の `data/`）: (1) `split_asof` を「最長の `y_fwd_W` の終わりで切る」に直した（`train_end` 2026-08-21 → **2026-08-20**。`y_fwd_` の無い表は指紋が動かない）。テスト 2 本を `tests/test_predict.py` に足した ／ (2) 出口だけの検知器 `X1`〜`X3`（7 本。入口 100・出口 ＝ 規則そのもの）を `ail/detectors/stop.py` に足し、`cli.predict` のためだけの config `trade_own_stopexit_a`（queue に入れない）を置いた。`X1 −10%` は 63 行・買い 100・出口 100 が 4 銘柄（対の検知器 L1 と同じ AVGO・CSCO・HON・LLY）／ (3) 深層学習: 3 本とも 63 行（asof 2026-09-04・訓練 〜2026-08-20）。fit は S2 共変量あり 192 秒 ／ S3 共変量なし 7 秒 ／ S4 TimeXer 685 秒【実測・cuda】＝ TimeXer は 1 日 1 回でも 11 分半（GPU）。13500t（GPU なし）で毎日学び直す道は K7。規約は rules.md 19-1 の 8・手順書は §1 1-7・§2・§4
 
 ### Phase 4: 複数モデルのトレーダーを作る（titan で書き、Sx360 で通す）
 

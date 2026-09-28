@@ -145,3 +145,53 @@ def l3_learned(tr, te, feats, ctx):
 
 
 ALL_NAMES = (NAME_L0, *[name_l1(x) for x in DD_LEVELS], *[name_l2(k) for k in VOL_LEVELS], NAME_L3)
+
+
+# --- 出口だけを言うモデル（本番の器。2026-09-28・Phase 3）-----------------------------------------------
+# ⚠ **入口% は常に 100（K2）・出口% は規則そのもの**（主モデルの出口と合わせない）。実売買では `[[models]]` の 1 本にして
+#    主モデルと `unanimous`（買いは min ＝ 主モデル・出口は max ＝ どちらかが言ったら降りる）で合わせる ＝ 上の `combine` と同じ形が
+#    執行器の側でできる。⚠ **`mean` では買い% が半分に割れるので、出口だけのモデルに使えない**（howto §2）。
+# ⚠ **`cli.predict` のためだけ**（実験の config `trade_own_stopexit_a` は queue に入れない ＝ 検証ではないので `n_trials` に数えない。
+#    机上の検証は上の L1〜L3〔入口 ＝ 主モデルの対〕で済んでいる ＝ 記録 §0-7）。⚠ 水準は L1〜L3 と同じ（足さない・動かさない）。
+ENTRY_ALWAYS = 100.0
+NAME_X3 = f"X3 出口だけ 先{LEARN_WINDOW}日の下げを学んで降りる"
+
+
+def name_x1(x: int) -> str:
+    return f"X1 出口だけ 高値{WINDOW}日から−{x}%で降りる"
+
+
+def name_x2(k: int) -> str:
+    return f"X2 出口だけ 高値{WINDOW}日からσの{k}倍で降りる"
+
+
+def _exit_only(stop_pct: np.ndarray, sdoc: dict, n: int) -> tuple[np.ndarray, np.ndarray, dict]:
+    return (np.full(n, ENTRY_ALWAYS), np.asarray(stop_pct, dtype=float),
+            {"columns": [], "入口": f"常に {ENTRY_ALWAYS:g}（K2。買いは主モデルが決める）", "出口": sdoc,
+             "source": "入口 none（定数）／ 出口 " + ("none（規則）" if "rule" in sdoc else str(sdoc.get("source")))})
+
+
+def _register_x1(x: int) -> None:
+    @register("detector", name_x1(x))
+    def _x1(tr, te, feats, ctx, _x=x):
+        return _exit_only(*rule_drawdown(te, _x), len(te))
+
+
+def _register_x2(k: int) -> None:
+    @register("detector", name_x2(k))
+    def _x2(tr, te, feats, ctx, _k=k):
+        return _exit_only(*rule_drawdown_vol(te, _k), len(te))
+
+
+for _x in DD_LEVELS:
+    _register_x1(_x)
+for _k in VOL_LEVELS:
+    _register_x2(_k)
+
+
+@register("detector", NAME_X3)
+def x3_learned_exit_only(tr, te, feats, ctx):
+    return _exit_only(*learned_exit(tr, te, feats, ctx), len(te))
+
+
+EXIT_ONLY_NAMES = (*[name_x1(x) for x in DD_LEVELS], *[name_x2(k) for k in VOL_LEVELS], NAME_X3)

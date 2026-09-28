@@ -35,6 +35,7 @@ import pandas as pd
 
 from ail import contracts, registry
 from ail.data import store
+from ail.features import labels as label_cols
 from ail.models import calibrate
 from ail.validation import prep
 from cli import build as build_cli
@@ -86,6 +87,14 @@ def split_asof(df: pd.DataFrame, feats: list[str], asof: pd.Timestamp, start: st
     day = df["ts"].dt.normalize()
     # ラベルの終わりの足の日付 ＝ 同じ銘柄の horizon 本先の ts（`y_elapsed_min` と同じ数え方）
     label_end = (df["ts"] + pd.to_timedelta(df["y_elapsed_min"], unit="m")).dt.normalize()
+    # ⚠ **学習の対象が先 W 本（`y_fwd_W`。rules.md 15-3）なら、いちばん長いラベルの終わりで切る**（2026-09-28。Phase 3）。
+    #    `horizon`（1 日）だけで切ると、asof の W 営業日前の行が訓練に入る ＝ その行の答えの端が asof の終値に触れる
+    #    （[forward10-target.md §4 の 7](../../../docs/specs/experiments/forward10-target.md)）。⚠ `y_fwd_` の無い表では 1 ビットも変わらない
+    scales = sorted(int(c[len(label_cols.SCALE_PREFIX):]) for c in df.columns if c.startswith(label_cols.SCALE_PREFIX))
+    if scales and max(scales) > horizon:
+        # 同じ銘柄の W 本先の ts（表は銘柄ごとに足の順で並んでいる ＝ `assemble`）。尻の W 本は NaT ＝ 訓練に入らない（ラベルも NaN）
+        end_w = df.groupby("symbol", sort=False)["ts"].shift(-max(scales)).dt.normalize()
+        label_end = label_end.where(label_end >= end_w, end_w)      # ⚠ NaT は比較で False → NaT を採る
     tr = df[(day < asof) & (label_end < asof)].dropna()
     te = df[day == asof]
     bad = te[te[feats].isna().any(axis=1)]["symbol"].tolist()
@@ -94,7 +103,8 @@ def split_asof(df: pd.DataFrame, feats: list[str], asof: pd.Timestamp, start: st
     te = te.assign(y=0.0, y_sign=0.0, y_elapsed_min=0.0)
     doc = {"train_rows": int(len(tr)), "train_start": str(tr["ts"].min().date()) if len(tr) else None,
            "train_end": str(tr["ts"].max().date()) if len(tr) else None,
-           "test_rows": int(len(te)), "dropped_symbols_nan_features": bad, "horizon": horizon}
+           "test_rows": int(len(te)), "dropped_symbols_nan_features": bad, "horizon": horizon,
+           "label_scales": scales, "purge_bars": max([horizon, *scales])}
     return tr, te, doc
 
 

@@ -247,6 +247,36 @@ def test_name_spellings():
         assert names.method_slug(n)
 
 
+# --- 7. 出口だけを言うモデル（本番の器。Phase 3） -----------------------------
+
+def test_exit_only_detectors_return_entry_100_and_the_bare_rule():
+    """⚠ 入口% は常に 100（K2）・出口% は規則そのもの（主モデルの出口と合わせない ＝ 合わせるのは執行器の `unanimous`）。"""
+    p = _panel()
+    tr, te = _split(p)
+    feats, ctx = _feats(p), _ctx()
+    for x in stop.DD_LEVELS:
+        bp, ep, doc = registry.resolve("detector", stop.name_x1(x))(tr, te, feats, ctx)
+        assert np.all(bp == 100.0) and len(ep) == len(te)
+        assert np.array_equal(ep, stop.rule_drawdown(te, x)[0]) and set(np.unique(ep)) <= {0.0, 100.0}
+        assert doc["columns"] == []                                 # ⚠ 学習しない・列を見ない
+    for k in stop.VOL_LEVELS:
+        bp, ep, _doc = registry.resolve("detector", stop.name_x2(k))(tr, te, feats, ctx)
+        assert np.all(bp == 100.0) and np.array_equal(ep, stop.rule_drawdown_vol(te, k)[0])
+    bp, ep, doc = registry.resolve("detector", stop.NAME_X3)(tr, te, feats, ctx)
+    assert np.all(bp == 100.0) and np.array_equal(ep, stop.learned_exit(tr, te, feats, ctx)[0])
+    assert 0.0 <= float(np.min(ep)) and float(np.max(ep)) <= 100.0
+    # ⚠ 同じ規則の対の検知器（L1）と、出口の「規則が立つ行」は一致する（本番と机上で同じ規則を見る）
+    _bp1, ep1, _ = registry.resolve("detector", L1_10)(tr, te, feats, ctx)
+    _bpx, epx, _ = registry.resolve("detector", stop.name_x1(10))(tr, te, feats, ctx)
+    assert np.array_equal(ep1 == 100.0, epx == 100.0) and np.all(ep1 >= epx)
+
+
+def test_exit_only_names_have_spellings_and_are_not_in_the_paired_list():
+    for n in stop.EXIT_ONLY_NAMES:
+        assert names.method_slug(n).startswith(("x1-exit", "x2-exit", "x3-exit"))
+        assert n not in stop.ALL_NAMES                              # ⚠ 机上の 8 本（n_trials）とは別の名前
+
+
 # --- 6. leak 対照 ----------------------------------------------------------
 
 def test_leak_makes_the_edge_jump(run):

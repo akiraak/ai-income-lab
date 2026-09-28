@@ -34,6 +34,10 @@
 "L2 高値20日からσの8倍で降りる" = "l2-ddvol20-8"
 "L3 先10日の下げを学んで降りる" = "l3-learn10"
 "S1 PatchTST（60日窓）" = "s1-patchtst60"
+# 「目的の系列 ＋ 外生系列」の深層学習（2026-09-27・exog-deep-models.md §0-2）。`fwd10` ＝ 学習の対象が先 10 営業日
+"S2 Chronos-2（60日窓・先10日・共変量あり）" = "s2-chronos2-60-fwd10-cov"
+"S3 Chronos-2（60日窓・先10日・共変量なし）" = "s3-chronos2-60-fwd10-nocov"
+"S4 TimeXer（60日窓・先10日・外生あり）" = "s4-timexer-60-fwd10-exo"
 "T1 MiniRocket（60日窓）" = "t1-minirocket60"
 "T2 Hydra（60日窓）" = "t2-hydra60"
 "T3 QUANT（60日窓）" = "t3-quant60"
@@ -55,6 +59,8 @@
 "LightGBM" = "lgbm"
 "MLP" = "mlp"
 "PatchTST" = "patchtst"
+"Chronos-2" = "chronos2"          # 基盤モデルの zero-shot（学習しない。2026-09-27）
+"TimeXer" = "timexer"
 "—" = "none"                   # 基準線の行（モデルを使わない）
 "常に上（ドリフト）" = "drift"
 "直前リターンの符号" = "lastsign"

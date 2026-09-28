@@ -118,9 +118,9 @@ method = "T3 QUANT（60日窓）"
 
 | 実例 | 何 | 記録 | 状態 |
 | --- | --- | --- | --- |
-| 先 10 営業日を当てにいくモデル | 見る数字 3 組 × 学習器 2 × θ 3 ＝ 18 検証（K4） | `docs/specs/experiments/forward10-target.md` | 未着手 |
+| 先 10 営業日を当てにいくモデル | 見る数字 3 組 × 学習器 2 × θ 3 ＝ 18 検証（K4） | `docs/specs/experiments/forward10-target.md` | ✅ 2026-09-27 回した（採る 0 ／ 保留 2 ／ 落とす 16。1-1〜1-8 を通した） |
 | 損切りをモデルとして扱う | 形 A（規則の出口・学ぶ出口）と形 B（机上のみ）・基準線（K3） | `docs/specs/experiments/stoploss-as-model.md` | ✅ 2026-09-27 回した（33 検証とも落とす。1-1〜1-7 を通した。手順書に足す注意は記録 §5） |
-| 深層学習の型 2 本 | Chronos-2 zero-shot（共変量あり ／ なし）・TimeXer（K5） | `docs/specs/experiments/exog-deep-models.md` | 未着手 |
+| 深層学習の型 2 本 | Chronos-2 zero-shot（共変量あり ／ なし）・TimeXer（K5） | `docs/specs/experiments/exog-deep-models.md` | ✅ 2026-09-27 回した（9 検証とも落とす。1-1〜1-6・1-8 を通した。手順書に足す注意は記録 §5。⚠ 1-7〔`cli.predict`〕は Phase 3） |
 | 実例 A `T4`（ハル） | いまの 3 本を `mean`・θ 50 | `live-trading.md` §0-1・§0-7 (k)（sim5） | 未着手 |
 | 実例 B `T5`（ミオ） | 主モデル ＋ 損切りモデルを `unanimous` | 同上 | 未着手（Phase 2-2 の後） |
 

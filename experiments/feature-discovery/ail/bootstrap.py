@@ -47,6 +47,10 @@ from ail.detectors import tsc as _tsc        # noqa: F401
 # ⚠ **モデル `PatchTST` は検知器 `S1 PatchTST（60日窓）` からしか呼べない**（窓の配列が要る）
 from ail.models import patchtst as _patchtst  # noqa: F401
 from ail.detectors import seqmodel as _seqmodel  # noqa: F401
+# ⚠ **「目的の系列 ＋ 外生系列」の深層学習 2 本**（Chronos-2 zero-shot・TimeXer。exog-deep-models.md §0）。
+# ⚠ **モデル `Chronos-2`・`TimeXer` は検知器 S2〜S4 からしか呼べない**（窓と共変量の配列が要る）。chronos は関数の中でだけ import する
+from ail.models import chronos2 as _chronos2, timexer as _timexer  # noqa: F401
+from ail.detectors import exomodel as _exomodel  # noqa: F401
 # ⚠ **進化的探索（記号回帰）**。⚠ **選抜は訓練分割の内側だけ**（plans/archive/evolutionary-search-runner.md）
 from ail.search import evolve as _evolve  # noqa: F401
 from ail.validation import splits            # noqa: F401

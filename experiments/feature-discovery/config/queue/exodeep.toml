@@ -1,0 +1,13 @@
+# ⚠ **「目的の系列 ＋ 外生系列」の深層学習 2 本**（記録 `docs/specs/experiments/exog-deep-models.md` §0。決めごと K5 ＝ 利用者決定 2026-09-27）。
+# 事前固定は記録の §0（⚠ **回すと決めたのは結果を見る前**。n_trials ＋9 ＝ Chronos-2 2 行 × θ 3 ＋ TimeXer 1 × θ 3）。
+# ⚠ 表は先 10 日の Ridge の表を `features_from` で読む（作り直さない）。⚠ **AIL_TORCH_DEVICE=cuda を明示して回す**（titan）。
+# ⚠ **順は手間の小さい順**（14-10 規約 4）: Chronos-2（学習しない）→ TimeXer（学習する）。
+experiments = [
+  "trade_ownseq_fwd10_chronos_a",
+  "trade_ownseq_fwd10_timexer_a",
+]
+
+leak = true              # ⚠ 配線の穴に気づく唯一の手。切らない
+ledger = false           # ⚠ 台帳は終わってから 1 回吐く（キューの中で吐くと「閉じる」注記の SystemExit で止まりうる）
+max_failures = 1
+time_budget_s = 43200    # ⚠ 見積り 3 時間【推測。記録 §0-5】の 4 倍

@@ -1,0 +1,53 @@
+# ⚠ **TimeXer（内生 1 本 ＋ 外生 K 本の教師あり系列モデル）を、先 10 営業日の物差しで回す**（記録 `docs/specs/experiments/exog-deep-models.md` §0。K5）。
+#
+# ⚠ **動かす軸は「モデル」だけ**（固定の変換 → Ridge や PatchTST に対し、⚠ **ほかの銘柄と金利・為替の系列を外生として見る**）。窓（過去 60 営業日の道筋）・表・学習の対象（`y_fwd_10`）・較正・θ・シミュレータは
+# 先 10 日の形（`trade_ownseq_fwd10_ridge_a`）と同じ。⚠ **PatchTST と同じ検知器の口**（窓 → モデル → Platt 較正 → 買い%）。
+# ⚠ **外生（全 63 銘柄の道筋〔自分の枠は 0〕・金利 7・為替 7 の水準の道筋）は検知器が組む**（`ail/detectors/exomodel.py`。表の列ではない ＝ 表は作り直さない）。
+#
+# ⚠ **表は作り直さない**（`features_from`。本番・leak とも先 10 日の Ridge の表を読む。rules.md 13-8）。
+# ⚠ **事前固定するのは構造だけ**（rules.md 14-9）: 構造と水準は公式実装の外生つき予測のスクリプトの多数決（`ail/models/timexer.py` の ARCH・TRAIN）／ θ 50・55・60 ／ (A)。
+# ⚠ **1 × 3 閾値 ＝ 3 検証**（742 → 745 の見込み。Chronos-2 の後に回す）。⚠ **model_args は書かない**（`timexer_epochs`・`timexer_lr` はテスト用の口）。
+# ⚠ **デバイスは AIL_TORCH_DEVICE=cuda を明示して回す**（本番と leak で同じもの）。
+# ⚠ **門は測って記録するが、門前でも回す**（`cli/run.py` の既定。14-10 規約 2）。
+#
+# ⚠ **TOML の平の key はテーブル見出しより上に書く**（rules.md 10 章 規約 1）
+name = "trade_ownseq_fwd10_timexer_a"
+features_from = "trade_ownseq_fwd10_ridge_a"   # ⚠ 表は先 10 日の持ち主のものを読む（y_fwd_10 つき）
+dataset = "daily"
+horizon = 1                    # ⚠ 損益のラベルは 1 日のまま
+cost_bp = 5.0
+start_date = "2018-01-31"      # ⚠ own_2018 ／ trade_ownseq_ridge_a と同じ（期間を揃える）
+
+feature_layers = ["own", "seq"]
+label_scales = [10]            # ⚠ 学習の対象（先 10 本の累積リターン）。⚠ **説明変数ではない**
+targets = "all"
+
+horizon_min = 21600.0          # ⚠ パージ = 15 日 × 1440 分（営業日 10 本を暦で覆う）
+bar_minutes = 1440.0
+
+# ⚠ **検知器 1 本**（rules.md 15-1 の契約 ＝ 買い% 1 本）。⚠ **1 × 3 閾値 = 3 検証**
+detectors = [
+  "S4 TimeXer（60日窓・先10日・外生あり）",
+]
+k = 60                         # 窓の長さ（⚠ 選別はしない。窓の列は事前固定）
+
+model = "TimeXer"              # ⚠ 検知器と組。ほかのモデルにすると検知器が止まる
+baselines = ["常に上（ドリフト）", "直前リターンの符号"]
+
+[trading]
+style = "threshold"
+thresholds = [50, 55, 60]      # ⚠ 事前固定。結果を見て動かさない（rules.md 13-3）
+form = "shared"                # (A) 銘柄共通 1 本
+
+[validation]
+split = "walk_forward_dates"   # ⚠ fold の切れ目は日付で決める（rules.md 13-6 の 1）
+folds = 5
+purge = true
+embargo_bars = 0
+seed = 0
+
+[features]
+ex_lag_days = 1
+ex_zero_fill = ["usgs"]
+ex_transforms = ["d1", "z20"]
+ex_max_stale_days = 7

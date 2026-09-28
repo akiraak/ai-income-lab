@@ -230,21 +230,16 @@
     推す案: K1 実例 A（いまの 3 本を `mean`・`T4`）を先に・実例 B（主モデル ＋ 損切りモデルを `unanimous`・`T5`）を Phase 2-2 の後 ／ K2 合成規則は足さない（出口だけのモデルは買い% 100 を返す）／ K3 損切りは形 A（位置を知らない出口%）を先に・形 B（買値からの下落）は `simulate` に口を足してから別の検証 ／ K4 先 10 日は 3 表 × 2 学習器 × θ 3 ＝ 18 検証 ／ K5 深層学習の地平は先 10 日・Chronos-2 は共変量あり ／ なし の 2 行 ／ K6 置き場は `candidates/multi/` ＋ `sim_` の写し・呼び名は利用者（候補: ハル ／ ミオ）
   - [x] Phase 1: 手順書の骨組みを書く（`docs/specs/howto-model-trader.md`。プラン §4 の 2 本のチェックリスト。⚠ 実例より先に書き、実例で手順を試す。しくみの説明は書かない ＝ vibeboard の「システム説明」が正本・`system.toml` の「実際の売買」に案内 1 行）
     ✅ 2026-09-27 骨組みを書いた（titan の Claude）: 2 章 × チェックリスト（1-1〜1-8・2-1〜2-7）・合成規則の決まり（K2）・実例の表・「落ちたテスト」の空の表（Phase 6 で埋める）。`system.toml` の「守っていること」の詳しくに案内 1 行・`CLAUDE.md` の現状に 1 行。dashboard のタブのテスト 105 本 ✅
-  - [ ] Phase 2: 新しい予測モデルを titan で作る道（実例 3 系統。事前固定 → 検知器・綴り → config → `cli.queue` → 記録 → 検証結果一覧 → `models.toml`。⚠ 回すと決めるのは結果を見る前・回したものは全部 `n_trials` に数える・基準線を最初から置く・leak は queue が足す）
+  - [x] Phase 2: 新しい予測モデルを titan で作る道（実例 3 系統。事前固定 → 検知器・綴り → config → `cli.queue` → 記録 → 検証結果一覧 → `models.toml`。⚠ 回すと決めるのは結果を見る前・回したものは全部 `n_trials` に数える・基準線を最初から置く・leak は queue が足す）
+    ✅ 2026-09-27 に 3 系統とも回し終えた（2-1 先 10 日 ／ 2-2 損切り ／ 2-3 深層学習 2 本。採る 0・n_trials 667 → 745。手順書 1-1〜1-6・1-8 を 3 度通した ＝ 1-7〔執行器が読める形〕は Phase 3）
     ✅ 2026-09-27 Phase 2-1（先 10 営業日）を回した ＝ 採る 0 ／ 保留 2 ／ 落とす 16・n_trials 667 → 685・leak 6/6 跳ねた。✅ 同日 Phase 2-1b（買う線と売る線を別に置く 3 組 × 6 本）＝ 18 検証とも落とす・n_trials 685 → 703（記録 §7・rules.md 18 章・`DONE.md`）。記録 [forward10-target.md](docs/specs/experiments/forward10-target.md)（`DONE.md`）。手順書に足す注意 2 つは記録 §5（`label_scales` の表は既存の表を `features_from` で読めない ／ 基準線の行に「幅 14.40bp」の印が付く）
     ✅ 2026-09-27 利用者決定「修正」: 「システム説明」の「⑤ 出力スコアに直す」に「学ぶ対象は明日だが、売り買いは毎日ではなく、出力スコアが売買基準値の上にあるあいだ持ち続ける。もっと先を当てにいく型も試したが効かなかった」を足した（`dashboard/system.toml`。Phase 2-1 のメモ）
     - [x] Phase 2-2: 損切りを 1 つの予測モデルとして扱えるかを検証する
       利用者の指示（2026-09-27）: **損切りは一つのモデルとして考えてもよいかも検証**
       ✅ 2026-09-27 に事前固定 → 実装 → 回した（titan の Claude。記録 [stoploss-as-model.md](docs/specs/experiments/stoploss-as-model.md)・[rules.md 19 章](docs/specs/experiments/feature-discovery/rules.md)・`DONE.md`）: 33 検証とも落とす・n_trials 703 → 736。損切りを足した行は θ=50 ／ 55 で全部 損切りなし より純利が低い（4 行は fold 5/5）。買値からの損切り（形 B）は最大ドローダウンを悪化させた。⚠ 本番に損切りモデルを入れる理由は出ていない（`T5` は配線の確認 ＝ K1）。子「損切りの手法や対応方法を考える…」（＝ 事前固定）は `DONE.md` へ
       ✅ **K8（`over_budget`）は 2026-09-27 利用者決定「残す」**（記録 §0-7。何も変えない・テストが「出ないこと」を固定したまま）
-    - [ ] Phase 2-3: 複数のデータから特定の銘柄のトレンドを当てる深層学習を机上で試す（「目的の系列 ＋ 外生系列」の型 2 本）
-      派生元: 利用者の指示（2026-09-26）: **DeepLearnigで複数のデータが入った中から特定の銘柄のトレンドの予測に使えそうなモデルを調べて** → 調査の結果を受けて「まずは TODO 化のみ」→ 2026-09-27 利用者の指示「『複数のデータから特定の銘柄のトレンドを当てる深層学習を机上で試す』の２つのモデルもこのタスクに含める」＝「DeepLearning と進化的探索（…）」の子からここへ移した。この親の①の実例（GPU を使う型）
-      調査の結論（4 系統・外部の一次評価 3 本【公表値 2026-09-26】・見送りの理由）と 2 本の事前固定・作業量はプラン §3 Phase 2-3（2026-09-27 に TODO から移した）。検知器の口（rules.md 14-1）に PatchTST と同じ形で載せる（`ail/detectors/seqmodel.py` が雛形）。地平は K5 ＝ 先 10 日（Phase 2-1 と同じラベル。⚠ 回す前に固定）。依存は titan の `.venv` にだけ足す（13500t のイメージには入れない）
-      記録: `docs/specs/experiments/exog-deep-models.md`（新規）。関連: [patchtst-threshold.md](docs/specs/experiments/patchtst-threshold.md)（同じ口。落とす）／ [ts-trend-ai-survey.md §7](docs/specs/experiments/ts-trend-ai-survey.md)
-      - [ ] Chronos-2 zero-shot ＋ 共変量を 1 本（目的 ＝ 銘柄の終値・共変量 ＝ 他 62 銘柄 ＋ 金利・為替を past-only）
-        学習しないので事前固定は文脈長と分位点の読み方だけ。分位点から上がる確率を作り、既存の較正・θ・シミュレータへ。⚠ 判定の前に leak 対照と「共変量なし」の行を並べ、共変量の効きと先読み（学習コーパスの米株）を切り分ける。2 行 × θ 3 ＝ 6 検証。作業 半日〜1 日・実行 数分〜数十分の GPU【推測。公表の A10G で 300 系列/秒から】。Apache 2.0・120M・CPU でも動く（[amazon/chronos-2](https://huggingface.co/amazon/chronos-2)・[arXiv:2510.15821](https://arxiv.org/abs/2510.15821)）。依存 `chronos-forecasting` は titan の `.venv` に足す（いまは無い）
-      - [ ] TimeXer（教師あり）を 1 本（内生 ＝ 目的銘柄の 60 日の道筋・外生 ＝ 他銘柄 ＋ 外部系列）
-        PatchTST と同じ検知器の口・同じ縮小側の大きさ。`ARCH` ／ `TRAIN` は事前固定（`model_args` は書かない）。1 × θ 3 ＝ 3 検証。作業 1 日・1 fold 20 分前後の GPU【推測。PatchTST の本番 1 時間 37 分 ／ 5 fold【実測】から】。Time-Series-Library（MIT）に実装あり（[NeurIPS 2024](https://proceedings.neurips.cc//paper_files/paper/2024/hash/0113ef4642264adc2e6924a3cbbdf532-Abstract-Conference.html)・[thuml/TimeXer](https://github.com/thuml/TimeXer)）
+    - [x] Phase 2-3: 複数のデータから特定の銘柄のトレンドを当てる深層学習を机上で試す（「目的の系列 ＋ 外生系列」の型 2 本）
+      ✅ 2026-09-27 に事前固定 → 実装 → 回した（titan の Claude。記録 [exog-deep-models.md](docs/specs/experiments/exog-deep-models.md)・`DONE.md`）: **9 検証とも落とす**・n_trials 736 → 745。Chronos-2 は共変量あり ／ なしとも B&H を下回り、ありがなしに勝った θ は無い（差は fold の σ の内）。TimeXer は −506 ／ −358 ／ −945bp。leak 2 実行とも跳ねた。手順書に足す注意 5 つは記録 §5
   - [ ] Phase 3: 執行器が読める形にする（titan。`cli.predict --experiment … --method … --asof …` が 3 系統とも `predict.jsonl` の行を出す。⚠ 判定が「落とす」でも道は通す ／ 先 10 日: `split_asof` を「最長のラベルぶん落とす」に直す〔研究側のコード。`tests/test_predict.py`・指紋テスト〕／ 損切り: 出口だけの実験 config は `cli.predict` のためだけ〔queue に入れない〕・買い% 100・主モデルとは別の実験名）
   - [ ] Phase 4: 複数モデルのトレーダーを作る（プラン §3 Phase 4 の Step 4-1〜4-5。vibeboard の読み先を `candidates/*/` に広げる → 実例 A `T4`〔いまの 3 本を `mean`・θ 50〕→ 実例 B `T5`〔主モデル ＋ 損切りモデルを `unanimous`〕→ `traders.toml` に呼び名と `[symbols_why]`・`models.toml` に損切りモデルの `[[model]]` → `test_trader.py` に追加 → `live-trading.md` §0-1 に候補の表。⚠ 執行器のコードは 0・実例の成績は測らない）
     依存: 「Phase 0: 決めごと K1〜K6 を決める（…）」（識別名・呼び名・置き場 ＝ K6）

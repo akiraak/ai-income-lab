@@ -172,6 +172,8 @@ flowchart LR
 
 ⚠ 実例 A の成績は測らない（配線の確認）。人としての机上の成績は別タスク「予測モデルの検証のようにトレーダーの検証も行う」の器で（このプランでは触れない）。
 
+✅ **2026-09-28 に 4-1〜4-5 を済ませた**（titan の Claude）: 4-1 `traderview.candidate_files`（`candidates/*/`）＋ テスト 3 本の fixture に `multi/`・`shares/` の組 ／ 4-2 `candidates/multi/T4.toml`・`sim_T4.toml`・`traders.toml` に ハル ／ ミオ と `[symbols_why]` ／ 4-3 `candidates/multi/T5.toml`（損切りモデルの水準は `X1 出口だけ 高値20日から−10%で降りる` ＝ L1〜L3 のまん中・Phase 3 で実測できた本。⚠ 水準の良し悪しで選んでいない）・`sim_T5.toml`・`models.toml` の `[[model]] stop-exit`（経緯の数は DB と一致 3 ／ 21 ／ 9） ／ 4-4 `test_trader.py` に 4 本 ／ 4-5 `live-trading.md` §0-1 に「候補の人」の表。⚠ 執行器のコードは 0。⚠ 見つけた誤り 1 つ: `traders.toml` の `combine_unanimous` が「売りも同じ」（unanimous の売りは max ＝ どれか 1 本）→ 直した。⚠ 予測モデルのタブでは候補の人が使うモデルも「いま使っている」の束に入る（使う人に「（未確定）」）＝ そのまま。
+
 ### Phase 5: 通し方（sim5）
 
 > この図の主張: 作り置きは研究用の `data/` のある titan でしか作れず、通すのは資格情報の無い Sx360。あいだを `sim-predict/` の写しがつなぐ。
@@ -192,11 +194,15 @@ flowchart LR
 | 5-4 | Sx360: `./run-sim.sh sim5 --fresh --speed max` → 管理画面 3012 に `[SIM]`・T4・T5 の段・注文が出る。vibeboard（titan）にトレーダー 2 人（候補）と新しい `[[model]]` | Sx360 の Claude |
 | 5-5 | 結果を [live-trading.md §0-7 (k)](../specs/experiments/live-trading.md) に足す（注文の数・出来事の件数。⚠ 黄金の集計値には足さない ＝ `--full` を重くしない） | Claude |
 
+✅ **2026-09-29 に 5-1・5-2・5-4（titan の作業用の置き場）・5-5 を済ませた**（titan の Claude。記録は [live-trading.md §0-7 (k)「sim5」](../specs/experiments/live-trading.md)）: 損切りモデルの作り置き 64 本 282 秒・64 営業日 14 秒・注文 81 本 全部 Filled（`sim_T4` 13 ／ `sim_T5` 68）・口座 − 売買履歴 0・管理画面（デモ 3014）と vibeboard に 2 人と `stop-exit` が出た。⚠ **残り ＝ 5-3（`sim-predict/` を Sx360 へ写す。利用者 ／ Sx360 の Claude）と Sx360 での 5-4**。見つかったこと: `sim_T5` は売った翌日に買い戻す（32 本中 30 本 ＝ 出口だけのモデルには「買わない」を言う口が無い）→ §7 に案を足した
+
 ### Phase 6: 手順書を仕上げる
 
 - §4 のチェックリストに実測（コマンド・かかった時間・落ちたテストとその直し方）を入れる
 - `./run-tests.sh` と `dashboard` のテストを流す。`ledger.md` の合計と `models.toml` の試した経緯が一致すること（`test_real_history_matches_the_db`）
 - TODO の親を `DONE.md` へ・このプランを `archive/` へ。⚠ 残るのは利用者の決定（本番に T4 ／ T5 を入れるか ＝ 実売買の親の Phase 6 の後・K7）
+
+✅ **2026-09-29 に手順書を仕上げた**（titan の Claude）: [howto-model-trader.md](../specs/howto-model-trader.md) の §1（1-1〜1-8）・§2（2-1〜2-7）の「実測」の欄に 3 系統（先 10 日 ／ 損切り ／ 深層学習）と候補 2 人・sim5 のコマンドと時間を写し、§4 に落ちたテストと「見て気づいた穴」13 行を並べた。テスト: `./run-tests.sh` ✅（執行器 165 ／ 管理画面 246 ／ selftest ／ mockrun）・研究側 9 本 155 通過・`test_real_history_matches_the_db` は titan の DB で通過・`--full` の黄金の集計値 ✅ 変わらず（3 分 1 秒 ＝ 執行器を変えていない証拠）。⚠ **親を `DONE.md` へ・プランを `archive/` へはまだ**: Phase 5 の 5-3（Sx360 へ写す）と、2026-09-29 に足した子「一番いい成績のものをベースにして新しいトレーダーを投入する」が残る。
 
 ## 4. 手順書の骨組み（Phase 1 で `docs/specs/howto-model-trader.md` に書く）
 
@@ -248,6 +254,7 @@ flowchart LR
 
 | 案 | 何のため | どこ |
 | --- | --- | --- |
+| 売った翌日は買わない休み（cooldown。2026-09-29 sim5 の見つかったこと 1） | 出口だけのモデルが降りろと言い続けるあいだ「売る → 翌日買う」を繰り返さないため。⚠ 執行器を変えない形 ＝ 検知器 `X1` が出口の日は `buy` 0 を返す（K2 の変更 ＝ 利用者の決定） | `run_day.py` の状態機械 ／ `ail/detectors/`（研究側） |
 | 合成規則 `primary`（買いは 1 本目・出口は max） | 出口だけのモデルに「買い% 100」の約束を課さない形 | `trader.py` の `COMBINE_RULES`・`dashboard/app/live.py` の `COMBINE_LABEL`・`traders.toml` の `combine_*`・`system.toml`・`glossary.toml` |
 | 位置を知る損切り（形 B）を本番で | 買値からの下落 x% | ✅ 2026-09-27 利用者決定: **道 1 ＝ 状態を読むモデルの `kind`**（例 `stoploss`。持っていれば 今日の気配 ÷ `avg_price` − 1 が −x% を下回ったら出口% 100・それ以外 0・買い% は常に 100。合成は `unanimous` のまま）。変更は `trader.py`（kind と検証）・`signals.py`（売買履歴を受け取る）・`run_day.py`（呼び方）。⚠ 今日の気配が要るので、合図を集める段より前に気配を読む順番の入れ替えが要る（いまは状態機械の後）。道 2（`plan.decide` に規則を直接書く）は「モデルとして扱う」から外れるので採らない |
 | `signals.py` の行の引き方に `method` を足す | 同じ実験の違う手法を 1 人で 2 本持てるように | `signals.py`・`cli.predict` の `write_rows` |

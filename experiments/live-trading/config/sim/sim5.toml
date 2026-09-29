@@ -1,0 +1,16 @@
+# シミュレーション sim5（live-trading.md §0-7 (k)・プラン new-model-trader.md Phase 5）＝ 複数モデルの候補の人（`candidates/multi/`）の通し方の確認。
+# `sim_T4`（いまの 3 本を `mean`）・`sim_T5`（主モデル ＋ 出口だけの損切りモデルを `unanimous`）の 2 人。整数株・T・PFE・NKE・VZ・BAC の 5 本。
+# ⚠ 予算の合計は 2 人で $600（執行器の既定の上限 $1,000 の内）。
+# ⚠ トレーダーのモデルは `kind = "experiment"`。先に予測を作り置く:  python simpredict.py make sim5（出来ているものは飛ばす。sim3 ／ sim4 と共通の作り置き ＋ 損切りモデルの 64 本）
+# ⚠ 日付は仮・値段は過去の実物 ＝ 損益に意味は無い（判定に混ぜない・黄金の集計値には足さない）。期間・出どころ・気配の作り方は sim1 と同じ。筋書き（故障の注入）は無し
+name = "sim5"
+traders = ["sim_T4", "sim_T5"]
+start = "2026-10-01"
+end = "2026-12-31"
+source_start = "2026-06-01"
+windows = ["15:45:30"]
+speed = 60
+skip_outside_window = true
+spread_bp = 2.0
+fill_noise = 0.003
+seed = 0

@@ -1,0 +1,32 @@
+# ⚠ **候補（本番の人ではない）**。複数モデルのトレーダーの実例 B（プラン new-model-trader.md §3 Phase 4・手順書 howto-model-trader.md §2）。
+# 2026-09-27 利用者決定 K1・K2・K6: 主モデル（T1 と同じ own Ridge）＋ 出口だけを言う損切りモデルを `unanimous` で合わせる・θ 50・
+# 識別名 `T5`（呼び名 ミオ ＝ dashboard/traders.toml）。
+# ⚠ **配線の確認が目的**。机上の検証（stoploss-as-model.md。33 検証とも落とす）で損切りを本番に入れる理由は出ていない ＝ 成績で採らない。
+# 合わせ方（K2）: 損切りモデルは買い% を常に 100 で返す → `unanimous` の 買い ＝ min(主, 100) ＝ 主モデル ／ 出口 ＝ max(主, 損切り) ＝ どちらかが言ったら降りる。
+# ⚠ `mean` に入れると買い% が半分に割れる（使えない）。⚠ 主モデルを 2 本以上入れると「全員が θ 超え」が買いの条件になる（意味が変わる）。
+# ⚠ 損切りモデルの水準は 1 本だけ（`method` で選ぶ。同じ実験名で違う水準を 2 本持てない）。X1 −10% にしたのは、机上の L1〜L3 の
+#    まん中の水準で、Phase 3 の `cli.predict` で「4 銘柄で出口 100」が実測できた本（記録 §7）。⚠ 水準の良し悪しで選んでいない（全部落とす）。
+# ⚠ `config/traders/` の直下に無いので `run_day.py --traders T5` では読めない ＝ 本番に入れるのは利用者の決定（10/20 の判定の後・K7）。
+# ⚠ 銘柄集合・`sizing` は 3 人と同じ。⚠ ここから先にモデル・θ・合成規則・銘柄・sizing・水準を替えるのは新しい人。
+
+name = "T5"
+test = false
+budget_usd = 300.0                  # 規模 A の 1 人分と同じ（⚠ 本番に入れるなら合計の上限を利用者が決める）
+symbols = ["T", "PFE", "NKE", "VZ", "BAC"]
+sizing = "shares"
+combine = "unanimous"               # 買い ＝ min（全員）・出口 ＝ max（どれか 1 本）。出口だけのモデルを合わせる形（K2）
+threshold = 50.0
+note = "複数モデルの実例 B: 主モデル 線形（own Ridge）＋ 損切りモデル（高値 20 日から −10% で降りる。買い% は常に 100）。種 0"
+
+# 主モデル（T1 と同じ）
+[[models]]
+kind = "experiment"
+name = "trade_own_ridge_a"
+method = "全部使う（基準）"
+
+# 出口だけを言う損切りモデル（`cli.predict` のためだけの config。queue に入れない ＝ 検証ではない。rules.md 19-1 の 8）
+# ⚠ 主モデルとは別の実験名（signals.py は (実験名, 銘柄) で行を引く）
+[[models]]
+kind = "experiment"
+name = "trade_own_stopexit_a"
+method = "X1 出口だけ 高値20日から−10%で降りる"

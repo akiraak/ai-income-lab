@@ -3,7 +3,7 @@
 **トレーダー 1 人 1 ページ**。ページには「この人が使うモデル」と、そのモデルの**特性**を、やさしい言葉で出す。
 
   - ⚠ **だれが居るかは実売買の設定から引く**（`experiments/live-trading/config/traders/*.toml` の試験用でない人。
-    直下に 1 人も居なければ `candidates/notional/` ＝「まだ確定していない」の印つき）。⚠ **人数を数えない・見くらべるページを作らない**
+    直下にまだ居ない `candidates/<組>/` の人は「（候補）」の印つき。2026-09-28 に `notional/` だけから `candidates/*/` へ広げた ＝ 複数モデルの人は `multi/`）。⚠ **人数を数えない・見くらべるページを作らない**
     （利用者の指示 2026-09-20。トレーダーは 1 人のときも 10 人のときもある）
   - ⚠ **言葉の正本は 2 本**: モデルの解説 ＝ `dashboard/models.toml` の `[[model]]`（「予測モデル」タブ `modelview.py` と同じ 1 本。
     dashboard.md §17）／ 人の側の言葉 ＝ `dashboard/traders.toml`（呼び名 `[nicks]`・共通の文 `[common]`・売買する株を選んだ理由
@@ -39,7 +39,7 @@ BASES = ("build", "trial", "guess")
 class TraderPaths:
     words: Path            # 人の側の言葉の正本（traders.toml）
     models: Path           # モデルの解説の正本（models.toml）
-    traders_dir: Path      # 実売買の設定（直下 ＝ 確定・candidates/notional ＝ 候補）
+    traders_dir: Path      # 実売買の設定（直下 ＝ 確定・candidates/<組>/ ＝ 候補）
     universe_dir: Path     # 銘柄の集合（本数を数えるだけ）
     # 「システム説明」タブ（systemview.py）が読むもの: 説明の言葉の正本と、机上の検証の検証結果一覧（合計を写すだけ）
     system: Path = DASHBOARD_DIR / "system.toml"
@@ -155,19 +155,24 @@ def _num(v: float) -> str:
     return f"{v:g}"
 
 
+def candidate_files(paths: TraderPaths) -> list[Path]:
+    """候補の設定 ＝ `candidates/<組>/*.toml` の全部（2026-09-28 に `notional/` だけから広げた ＝ 複数モデルの人は `multi/`）。組の名前の順。"""
+    return sorted((paths.traders_dir / "candidates").glob("*/*.toml"))
+
+
 def trader_files(paths: TraderPaths) -> list[tuple[str, Path, bool]]:
-    """(鍵, 設定のファイル, 確定か)。直下の試験用でない人 ＋ 直下にまだ居ない候補。鍵の順。"""
+    """(鍵, 設定のファイル, 確定か)。直下の試験用でない人 ＋ 直下にまだ居ない候補（同じ鍵が 2 つの組に居れば先の組）。鍵の順。"""
     found: dict[str, tuple[Path, bool]] = {}
     for f in sorted(paths.traders_dir.glob("*.toml")):
         if _load(f).get("test") is not True:
             found[f.stem] = (f, True)
-    for f in sorted((paths.traders_dir / "candidates" / "notional").glob("*.toml")):
+    for f in candidate_files(paths):
         found.setdefault(f.stem, (f, False))
     return [(k, *found[k]) for k in sorted(found)]
 
 
 def load_facts(paths: TraderPaths, name: str) -> dict | None:
-    """設定から写す数字。⚠ 候補（金額指定の形）を読んだときは `settled` が False。"""
+    """設定から写す数字。⚠ 候補（`candidates/<組>/` の人）を読んだときは `settled` が False。"""
     hit = next(((f, ok) for k, f, ok in trader_files(paths) if k == name), None)
     if hit is None:
         return None
@@ -377,8 +382,7 @@ def body(paths: TraderPaths, item: str) -> str | None:
 
 def fingerprint(paths: TraderPaths) -> dict[str, float]:
     """見張り用。言葉の正本（人の側・モデルの側）と設定（確定・候補）の mtime。"""
-    files = [paths.words, paths.models, *sorted(paths.traders_dir.glob("*.toml")),
-             *sorted((paths.traders_dir / "candidates" / "notional").glob("*.toml"))]
+    files = [paths.words, paths.models, *sorted(paths.traders_dir.glob("*.toml")), *candidate_files(paths)]
     out = {}
     for f in files:
         try:

@@ -154,6 +154,7 @@ ruler_wait = "何もしない"
 ruler_buy = "買う"
 combine_asis = "モデルは 1 本だけ。"
 combine_mean = "{k} 本のモデルの点を平均する。"
+combine_unanimous = "{k} 本のモデルが全部そろって「買い」のときだけ買う。売りは、どれか 1 本が「売り」と言えば売る。"
 limit_common = "良いとは言えていない"
 budget_scale = "口座で使える規模の予算"
 stocks_one = "売り買いするのは {n} 本: {symbols}。"
@@ -226,6 +227,12 @@ def paths(tmp_path: Path) -> traderview.TraderPaths:
         'universe_group = "company"\nsizing = "shares"\ncombine = "asis"\nthreshold = 55.0'), encoding="utf-8")
     (tdir / "candidates" / "notional" / "TB.toml").write_text(_trader("TB", [("exp_a", "手法 A"), ("exp_b", "手法 B")],
         'sizing = "notional"\ncombine = "mean"\nthreshold = 50.0'), encoding="utf-8")
+    # 候補の組は 1 つではない（2026-09-28 ＝ 複数モデルの人は `candidates/multi/`）。同じ鍵が 2 つの組に居れば先の組（TB は notional のまま）
+    (tdir / "candidates" / "multi").mkdir()
+    (tdir / "candidates" / "multi" / "TD.toml").write_text(_trader("TD", [("exp_a", "手法 A"), ("exp_b", "手法 B")],
+        'universe_group = "company"\nsizing = "shares"\ncombine = "unanimous"\nthreshold = 50.0'), encoding="utf-8")
+    (tdir / "candidates" / "shares" / "TB.toml").parent.mkdir()
+    (tdir / "candidates" / "shares" / "TB.toml").write_text(_trader("TB", [("exp_a", "手法 A")], 'sizing = "shares"\nthreshold = 60.0'), encoding="utf-8")
     (tdir / "test_x.toml").write_text(_trader("test_x", [("exp_a", "手法 A")], "test = true\nthreshold = 50.0"), encoding="utf-8")
     return traderview.TraderPaths(words=words, models=models, traders_dir=tdir, universe_dir=udir)
 
@@ -233,13 +240,13 @@ def paths(tmp_path: Path) -> traderview.TraderPaths:
 def test_who_is_listed_comes_from_config(paths):
     """だれが居るかは設定から。試験用は出さない・人数を数えない・見くらべるページは無い。"""
     items = traderview.sidebar(paths)["items"]
-    assert [(i["id"], i["label"], i["badge"]) for i in items] == [("TA", "ナマエ（TA）", ""), ("TB", "TB", "未確定")]
+    assert [(i["id"], i["label"], i["badge"]) for i in items] == [("TA", "ナマエ（TA）", ""), ("TB", "TB", "未確定"), ("TD", "TD", "未確定")]
     assert not any("人" in json.dumps(i, ensure_ascii=False) for i in items)
     for gone in ("overview", "compare", "flow", "test_x"):
         assert traderview.body(paths, gone) is None
     # 人を足せば、言葉の正本を触らなくても一覧に出る（モデルの説明が無ければ「まだ」と出る）
     (paths.traders_dir / "TC.toml").write_text(_trader("TC", [("exp_new", "")], "threshold = 50.0"), encoding="utf-8")
-    assert [i["id"] for i in traderview.sidebar(paths)["items"]] == ["TA", "TB", "TC"]
+    assert [i["id"] for i in traderview.sidebar(paths)["items"]] == ["TA", "TB", "TC", "TD"]
     body = traderview.body(paths, "TC")
     assert "exp_new" in body and "説明はまだ" in body
 
@@ -248,7 +255,9 @@ def test_facts_come_from_config(paths):
     a = traderview.load_facts(paths, "TA")
     assert (a["settled"], a["n"], a["per"], a["line"], a["sell"], a["sizing"], a["k"]) == (True, 3, 100.0, 55.0, 45.0, "shares", 1)
     b = traderview.load_facts(paths, "TB")
-    assert (b["settled"], b["n"], b["per"], b["line"], b["sell"], b["k"]) == (False, 4, 75.0, 50.0, 50.0, 2)
+    assert (b["settled"], b["n"], b["per"], b["line"], b["sell"], b["k"]) == (False, 4, 75.0, 50.0, 50.0, 2)     # notional の組（shares の TB は読まない）
+    d = traderview.load_facts(paths, "TD")
+    assert (d["settled"], d["n"], d["sizing"], d["combine"], d["k"]) == (False, 3, "shares", "unanimous", 2)
     assert traderview.load_facts(paths, "nobody") is None
 
 
@@ -298,6 +307,15 @@ def test_trader_with_several_models_and_candidate_mark(paths):
     assert "売り買いするのは 4 本: E1、C1、C2、C3。</p>" in body and "値段の低い順" not in body
     assert "<div class='chip'><b>モデルが点を出す株</b>&lt;b&gt;形&lt;/b&gt;を読む型 — 見る株の全部（A）</div>" in body
     assert body.count("<div class='chip'><b>モデルが点を出す株</b>") == 1
+
+
+def test_candidate_in_another_group_is_listed(paths):
+    """候補の組は `candidates/*/` の全部（2026-09-28）。`unanimous` の人は、買いは全員・売りはどれか 1 本、と読める文。"""
+    body = traderview.body(paths, "TD")
+    assert "（候補）" in body and "モデル A のひとこと" in body and "モデル B のひとこと" in body
+    assert "2 本のモデルが全部そろって「買い」のときだけ買う。売りは、どれか 1 本が「売り」と言えば売る。" in body
+    fp = traderview.fingerprint(paths)
+    assert any(k.endswith("multi/TD.toml") for k in fp) and any(k.endswith("shares/TB.toml") for k in fp)
 
 
 def test_method_must_match(paths):
@@ -370,7 +388,7 @@ def _get(url: str):
 
 def test_http_routes(server):
     status, body, _ = _get(f"{server}/traders/api/sidebar")
-    assert status == 200 and [i["id"] for i in json.loads(body)["items"]] == ["TA", "TB"]
+    assert status == 200 and [i["id"] for i in json.loads(body)["items"]] == ["TA", "TB", "TD"]
     status, body, headers = _get(f"{server}/traders/view?item=TA")
     assert status == 200 and "モデルの特性" in body
     assert headers.get("Content-Security-Policy") == "frame-ancestors 'self'"

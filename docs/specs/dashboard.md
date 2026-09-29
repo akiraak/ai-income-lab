@@ -981,7 +981,7 @@ flowchart LR
 ```mermaid
 flowchart LR
   W["dashboard/traders.toml（人の側）<br/>dashboard/models.toml（モデルの解説）"] --> V["dashboard/traderview.py<br/>HTML を組む"]
-  C["live-trading/config/traders/<br/>T1〜T3.toml（無ければ candidates/notional/）"] --> V
+  C["live-trading/config/traders/<br/>直下の人 ＋ candidates/&lt;組&gt;/ の候補"] --> V
   U["feature-discovery/config/universe/<br/>（本数を数えるだけ）"] --> V
   V --> S["vibetab.py（3015）/traders"]
   S --> B["vibeboard /ext/traders<br/>タブ「トレーダー」"]
@@ -996,7 +996,7 @@ flowchart LR
 - **「3 人の中で」とか書いてあるけど、トレーダーは常に変わるし 1 人になるときもあれば 10 人になるときもあるので無駄な比較の文章はいらない**
 - **トレーダーの人数は数えなくていい。3 人の違いのページはいらない。一人一人のトレーダーに関して書けばいい**
 
-左の一覧は**トレーダーだけ**（見くらべるページ・共通のページは無い）。⚠ **だれが居るかは実売買の設定から引く** ＝ `config/traders/*.toml` の試験用（`test = true`）でない人 ＋ 直下にまだ居ない `candidates/notional/` の人（「未確定」の印）。⚠ **人数を数えない**（1 人でも 10 人でも同じ画面。人を足せば `traders.toml` を触らなくても一覧に出る）。
+左の一覧は**トレーダーだけ**（見くらべるページ・共通のページは無い）。⚠ **だれが居るかは実売買の設定から引く** ＝ `config/traders/*.toml` の試験用（`test = true`）でない人 ＋ 直下にまだ居ない `candidates/<組>/` の人（「未確定」の印。✅ 2026-09-28 に `notional/` だけから `candidates/*/` へ広げた ＝ 複数モデルの候補 `multi/`。同じ識別名が 2 つの組に居れば組の名前の順で先の組。`traderview.candidate_files`）。⚠ **人数を数えない**（1 人でも 10 人でも同じ画面。人を足せば `traders.toml` を触らなくても一覧に出る）。
 
 1 人のページの大見出しは**全員同じ順・同じ名前・番号つき**（テストが順番を確かめる）:
 

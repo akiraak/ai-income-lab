@@ -1,0 +1,26 @@
+# シミュレーションの試験用トレーダー sim_T5（live-trading.md §0-7 (k)・sim5）＝ 候補 `candidates/multi/T5.toml` の写し（モデル・θ・合成規則・銘柄・sizing は替えない）。
+# ⚠ `kind = "experiment"` ＝ 運転手が置く `sim/<名前>/out/<仮の日付>/predict.jsonl`（`simpredict.py make sim5` の作り置き）を読む。
+# ⚠ 日付は仮・値段は過去の実物 ＝ 損益に意味は無い（判定に混ぜない）。⚠ 名前は `sim_` 始まり（simdata が拒む）。
+# ⚠ 候補を直したらこの写しも直す（tests/test_trader.py が中身の一致を見る）。
+
+name = "sim_T5"
+test = true                         # シミュレーションの記録は判定に混ぜない
+budget_usd = 300.0                  # 規模 A の 1 人分と同じ（⚠ 本番に入れるなら合計の上限を利用者が決める）
+symbols = ["T", "PFE", "NKE", "VZ", "BAC"]
+sizing = "shares"
+combine = "unanimous"               # 買い ＝ min（全員）・出口 ＝ max（どれか 1 本）。出口だけのモデルを合わせる形（K2）
+threshold = 50.0
+note = "複数モデルの実例 B: 主モデル 線形（own Ridge）＋ 損切りモデル（高値 20 日から −10% で降りる。買い% は常に 100）。種 0"
+
+# 主モデル（T1 と同じ）
+[[models]]
+kind = "experiment"
+name = "trade_own_ridge_a"
+method = "全部使う（基準）"
+
+# 出口だけを言う損切りモデル（`cli.predict` のためだけの config。queue に入れない ＝ 検証ではない。rules.md 19-1 の 8）
+# ⚠ 主モデルとは別の実験名（signals.py は (実験名, 銘柄) で行を引く）
+[[models]]
+kind = "experiment"
+name = "trade_own_stopexit_a"
+method = "X1 出口だけ 高値20日から−10%で降りる"

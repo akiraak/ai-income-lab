@@ -120,3 +120,55 @@ def test_confirmed_traders_are_the_shares_candidates():
     assert [(t.name, t.symbols, t.sizing, t.threshold, t.budget_usd, t.combine, t.test, [(m.kind, m.name, m.method) for m in t.models]) for t in got] == \
            [(t.name, t.symbols, t.sizing, t.threshold, t.budget_usd, t.combine, t.test, [(m.kind, m.name, m.method) for m in t.models]) for t in want]
     assert all(list(t.symbols) == ["T", "PFE", "NKE", "VZ", "BAC"] and t.sizing == "shares" for t in got)
+
+
+# ---------- 複数モデルの候補（config/traders/candidates/multi/。2026-09-28 Phase 4。⚠ テストだけ ＝ 執行器は変えない）----------
+
+MULTI = os.path.join(CONF, "candidates", "multi")
+
+
+def test_multi_candidates_parse_and_are_wired_as_decided():
+    """実例 A `T4` ＝ いまの 3 本を mean・θ 50 ／ 実例 B `T5` ＝ 主モデル ＋ 出口だけの損切りモデルを unanimous・θ 50（K1・K2・K6）。
+    どちらも本番の人ではない（直下に無い）。予算は 2 人で $600 ＝ 執行器の既定の上限 $1,000 の内（sim5 は 2 人だけ）。"""
+    from trader import load_traders
+    ts = {t.name: t for t in load_traders(["T4", "T5"], MULTI)}
+    assert all(not t.test and t.sizing == "shares" and t.threshold == 50.0 and t.symbols == ("T", "PFE", "NKE", "VZ", "BAC") for t in ts.values())
+    assert sum(t.budget_usd for t in ts.values()) <= 1000.0
+    assert ts["T4"].combine == "mean" and [(m.name, m.method) for m in ts["T4"].models] == [
+        ("trade_own_ridge_a", "全部使う（基準）"), ("trade_ownex_lgbm_a", "全部使う（基準）"), ("trade_ownseq_ridge_a", "T3 QUANT（60日窓）")]
+    assert ts["T5"].combine == "unanimous" and [(m.name, m.method) for m in ts["T5"].models] == [
+        ("trade_own_ridge_a", "全部使う（基準）"), ("trade_own_stopexit_a", "X1 出口だけ 高値20日から−10%で降りる")]
+    # 同じ実験名の違う手法を 1 人の中で 2 本持てない（signals.py は (実験名, 銘柄) で行を引く）
+    for t in ts.values():
+        names = [m.name for m in t.models]
+        assert len(names) == len(set(names)), t.name
+    # 候補は直下に居ない ＝ `--traders T4` では起動できない
+    for name in ("T4", "T5"):
+        assert not os.path.exists(os.path.join(CONF, f"{name}.toml"))
+
+
+def test_sim_copies_match_the_multi_candidates():
+    """sim5 の人（sim_T4・sim_T5）は候補の写し（test = true と名前だけ違う）。"""
+    from trader import load_traders
+    got = {t.name: t for t in load_traders(["sim_T4", "sim_T5"], CONF)}
+    want = {t.name: t for t in load_traders(["T4", "T5"], MULTI)}
+    for name, w in want.items():
+        g = got["sim_" + name]
+        assert g.test and not w.test
+        assert (g.symbols, g.sizing, g.threshold, g.budget_usd, g.combine, [(m.kind, m.name, m.method) for m in g.models]) == \
+            (w.symbols, w.sizing, w.threshold, w.budget_usd, w.combine, [(m.kind, m.name, m.method) for m in w.models])
+
+
+def test_asis_is_refused_for_the_multi_shape():
+    """`asis` は 1 本だけ ＝ 複数モデルの人を `asis` にすると読めない（合成規則を書き忘れた設定で起動できない）。"""
+    with pytest.raises(ValueError):
+        parse_trader(_doc(test=False, combine="asis", models=[{"kind": "experiment", "name": "a"}, {"kind": "experiment", "name": "b"}]))
+
+
+def test_unanimous_with_exit_only_model_buys_on_the_main_model():
+    """K2: 出口だけのモデルは買い% 100 を返す → unanimous の買いは主モデルの値そのまま・出口は max（どちらかが言ったら降りる）。
+    ⚠ mean に入れると買い% が半分に割れる（使えない形）。"""
+    main_buy, main_exit, stop_exit = 63.2, 36.8, 100.0
+    assert combine("unanimous", [main_buy, 100.0], [main_exit, stop_exit], 50.0) == (main_buy, stop_exit)
+    assert combine("unanimous", [main_buy, 100.0], [main_exit, 0.0], 50.0) == (main_buy, main_exit)       # 規則が立たない日は主モデルの出口
+    assert combine("mean", [main_buy, 100.0], [main_exit, 0.0], 50.0)[0] == pytest.approx((main_buy + 100.0) / 2)

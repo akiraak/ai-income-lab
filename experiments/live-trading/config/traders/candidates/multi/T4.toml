@@ -1,0 +1,32 @@
+# ⚠ **候補（本番の人ではない）**。複数モデルのトレーダーの実例 A（プラン new-model-trader.md §3 Phase 4・手順書 howto-model-trader.md §2）。
+# 2026-09-27 利用者決定 K1・K6: いま動いている 3 人のモデル 3 本を `mean` で合わせる・θ 50・識別名 `T4`（呼び名 ハル ＝ dashboard/traders.toml）。
+# ⚠ **配線の確認が目的**（予測を 1 本も増やさず・執行器も変えない）。成績は測らない・この設定の成績で採らない。
+# ⚠ `config/traders/` の直下に無いので `run_day.py --traders T4` では読めない ＝ 本番に入れるのは利用者の決定（10/20 の判定の後・K7）。
+#    入れるときは予算の合計を見る（3 人 $900 ＋ この人 $300 ＝ $1,200 は執行器の既定の上限 $1,000 を超える ＝ 上限か予算を利用者が決める）。
+# ⚠ 銘柄集合・`sizing` は 3 人と同じ（D3 の 5 本・整数株）。株を変えると、モデルを合わせた違いと株の違いが混ざる。
+# ⚠ ここから先にモデル・θ・合成規則・銘柄・sizing を替えるのは新しい人（新しい識別名・新しい呼び名）。
+
+name = "T4"
+test = false
+budget_usd = 300.0                  # 規模 A の 1 人分と同じ（⚠ 本番に入れるなら合計の上限を利用者が決める）
+symbols = ["T", "PFE", "NKE", "VZ", "BAC"]
+sizing = "shares"
+combine = "mean"                    # 3 本の買い% ／ 出口% の平均（trader.py の COMBINE_RULES）
+threshold = 50.0
+note = "複数モデルの実例 A: 線形（own Ridge）＋ 木（ownex LightGBM）＋ 時系列分類器（T3 QUANT）を平均。種 0"
+
+# ⚠ 同じ実験名の違う手法を 1 人の中で 2 本持てない（signals.py は (実験名, 銘柄) で行を引く）。この 3 本は実験名が全部違う
+[[models]]
+kind = "experiment"
+name = "trade_own_ridge_a"
+method = "全部使う（基準）"
+
+[[models]]
+kind = "experiment"
+name = "trade_ownex_lgbm_a"
+method = "全部使う（基準）"
+
+[[models]]
+kind = "experiment"
+name = "trade_ownseq_ridge_a"
+method = "T3 QUANT（60日窓）"

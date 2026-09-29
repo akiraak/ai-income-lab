@@ -363,7 +363,8 @@ def test_model_types_come_from_models_toml(paths):
     assert b.count("<g class='node'>") == 2 and "<a href='/#models/a-type' target='_top'>モデルのページ</a>" in b
     assert "モデル B のひとこと" not in b                                     # id の無いモデルは「予測モデル」タブに居ないので出さない
     (paths.traders_dir / "TA.toml").unlink()
-    (paths.traders_dir / "candidates" / "notional" / "TB.toml").unlink()
+    for rel in ("notional/TB.toml", "shares/TB.toml", "multi/TD.toml"):        # 候補の組は全部（2026-09-28）
+        (paths.traders_dir / "candidates" / rel).unlink()
     assert "モデルは居ない" in systemview.body(paths, "one")
 
 

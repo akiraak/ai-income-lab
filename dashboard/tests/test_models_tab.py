@@ -263,7 +263,8 @@ def test_sidebar_groups_come_from_trader_config(paths):
     assert not re.search(r"\d", json.dumps([i["label"] for i in items], ensure_ascii=False))
     # 使う人が居なくなれば、言葉の正本を触らなくても「机上で試した」へ移る
     (paths.traders_dir / "TA.toml").unlink()
-    (paths.traders_dir / "candidates" / "notional" / "TB.toml").unlink()
+    for rel in ("notional/TB.toml", "shares/TB.toml", "multi/TD.toml"):        # 候補の組は全部（2026-09-28）
+        (paths.traders_dir / "candidates" / rel).unlink()
     assert [i.get("group") for i in modelview.sidebar(paths)["items"][1:]] == ["机上で試した"] * 3
 
 

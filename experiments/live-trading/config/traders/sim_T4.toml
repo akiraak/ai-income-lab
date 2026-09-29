@@ -1,0 +1,29 @@
+# シミュレーションの試験用トレーダー sim_T4（live-trading.md §0-7 (k)・sim5）＝ 候補 `candidates/multi/T4.toml` の写し（モデル・θ・合成規則・銘柄・sizing は替えない）。
+# ⚠ `kind = "experiment"` ＝ 運転手が置く `sim/<名前>/out/<仮の日付>/predict.jsonl`（`simpredict.py make sim5` の作り置き）を読む。
+# ⚠ 日付は仮・値段は過去の実物 ＝ 損益に意味は無い（判定に混ぜない）。⚠ 名前は `sim_` 始まり（simdata が拒む）。
+# ⚠ 候補を直したらこの写しも直す（tests/test_trader.py が中身の一致を見る）。
+
+name = "sim_T4"
+test = true                         # シミュレーションの記録は判定に混ぜない
+budget_usd = 300.0                  # 規模 A の 1 人分と同じ（⚠ 本番に入れるなら合計の上限を利用者が決める）
+symbols = ["T", "PFE", "NKE", "VZ", "BAC"]
+sizing = "shares"
+combine = "mean"                    # 3 本の買い% ／ 出口% の平均（trader.py の COMBINE_RULES）
+threshold = 50.0
+note = "複数モデルの実例 A: 線形（own Ridge）＋ 木（ownex LightGBM）＋ 時系列分類器（T3 QUANT）を平均。種 0"
+
+# ⚠ 同じ実験名の違う手法を 1 人の中で 2 本持てない（signals.py は (実験名, 銘柄) で行を引く）。この 3 本は実験名が全部違う
+[[models]]
+kind = "experiment"
+name = "trade_own_ridge_a"
+method = "全部使う（基準）"
+
+[[models]]
+kind = "experiment"
+name = "trade_ownex_lgbm_a"
+method = "全部使う（基準）"
+
+[[models]]
+kind = "experiment"
+name = "trade_ownseq_ridge_a"
+method = "T3 QUANT（60日窓）"

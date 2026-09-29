@@ -66,7 +66,7 @@
     ⚠ **足りないのは「入れること」より「無人で気づけること」**。下の子タスクはそこを埋めるためのもの
     ✅ 2026-09-23: 手で 1 回の成功を見た（本番投入 ＝ [DONE.md](DONE.md)。10 本 Filled・口座 − 売買履歴 ＝ 0）＝ D4 の前提は満たした → **timer は 9/24（木）から**（⚠ 入れるのも許可を置くのも**利用者**。雛形は `experiments/live-trading/systemd/`）
     関連: 「D16: 毎日自動で起動する仕組み（titan の timer ／ cron）。まだ入れていない」（決めごとの側）／ [live-trading.md §0-9](docs/specs/experiments/live-trading.md)
-    ✅ 2026-09-24 利用者決定: **運転の形 ＝ titan と 13500t の両方を timer で動かし（13500t は host cron）、13500t は切り替え（Phase 4）まで dry-run だけ**。表と図は [three-machines.md](docs/plans/three-machines.md) の「2026-09-24 の決定」
+    ✅ 2026-09-24 利用者決定: **運転の形 ＝ titan と 13500t の両方を timer で動かし（13500t は host cron）、13500t は切り替え（Phase 4）まで dry-run だけ**。表と図は [three-machines.md](docs/plans/archive/three-machines.md) の「2026-09-24 の決定」
     - [x] titan に timer を入れる（⚠ **利用者**。`systemd/README.md` の 8 行。`live.env` は雛形のまま dry-run で 1 日）
       期日: 2026-09-24
       ✅ 2026-09-24 08:10 PDT 利用者が入れた【実測】: `ail-live-run.timer` 次回 12:40 PDT・`ail-live-prepare.timer` 次回 9/25 06:00 PDT・linger yes・`live.env` は雛形（`AIL_LIVE_MODE=dry-run`・`--allow-prod-dry-run`・発注の許可なし）
@@ -79,6 +79,7 @@
       9/24 ✅ prepare 06:00 PDT rc=0（118 秒）／ trade 12:40 PDT rc=0（15:51:44 ET。10 本 dry-run）
       9/25 ✅ prepare rc=0（117 秒）／ trade rc=0（15:51:44 ET。dry-run の最後の日）
       9/26・27 は土日 ＝ cron（`1-5`）は起きない【実測 2026-09-27・journal に `run.sh` の行なし ＝ 正しい】。次は 9/28（月）06:00 prepare ／ 12:40 trade ＝ submit の初回（三台の役割分け Phase 4 ⑦）。見張り `check.sh` は 16:20 ET（下の子。9/28 から動く）
+      9/28 ✅ prepare 09:02 ET rc=0（122 秒）／ trade rc=0（12:40:01 PDT に起き 15:51:50 ET に終了 ＝ 709 秒。**submit の初回** ＝ T1 の BAC 1 株 売り 1 本 Filled・問題 0）／ `check.sh` 16:20 ET 初回 `market=open trade rc=0 prepare rc=0 → 0`（`AIL_HC_URL` 無し ＝ not-sent）。三台の役割分け Phase 4 ⑦ はこれで閉じた（[DONE.md](DONE.md)）
     - [x] 起動しなかった日を数える（⚠ 無人運転の成立はこれで測る。管理画面に「起動しなかった日」の考えは既にある ＝ [dashboard.md §13](docs/specs/dashboard.md)）
       ⚠ WSL2 の穴: **Windows を再起動して WSL が寝ていた時刻の回は実行されない**（`Persistent=false` ＝ 発注できる時間帯を過ぎてから起きても発注させない）。⚠ これは正しい挙動だが、**起動しなかった日として数える**必要がある
       関連: 管理画面の見張り「今日の起動が無い」（[dashboard.md §13-8](docs/specs/dashboard.md)）
@@ -93,6 +94,7 @@
     - [ ] 見張り `check.sh` を入れる（⚠ **利用者**: healthchecks.io に登録 → 13500t の `live.env` に `AIL_HC_URL=https://hc-ping.com/<uuid>`・向こうの日程は Cron 式 `20 13 * * 1-5`・America/Los_Angeles・猶予 1 時間 ／ ⚠ Sx360 の Claude: `trade-runner/check.sh` を 13500t へ scp して crontab に `20 13 * * 1-5 /home/ubuntu/g3plus-ops/trade-runner/check.sh` を足す〔利用者の了承のあと〕）
       ✅ 2026-09-25: `check.sh` を書いて手元で 6 通り確かめた（rc=0 ／ rc=1 ／ 行なし → `fail` ／ `.old` に回った日 ／ 休場日 ／ 半日立会・URL なし・http の外は拒否）。g3plus-ops へは 9/25 23:20 PDT にコミット済み（`55ecfbd`）
       ✅ 2026-09-27（Sx360 の Claude。利用者の了承「2も了承する」）: `check.sh` を 13500t の `~/g3plus-ops/trade-runner/` へ scp（sha256 `952ed4f7…` ＝ 手元と一致・構文 OK）→ 13500t で `logs/` の写しに対して 4 日ぶん試験（9/24・9/25 ＝ open・rc 0 → `0` ／ 9/26・9/27 ＝ closed → `0`。本物の `checks.log` は書いていない）→ crontab に `20 13 * * 1-5 …/check.sh` を足した（6 行目。手順書 `trade-runner.md` の表と同じ）。**9/28（月）16:20 ET から動く**。⚠ **残るのは利用者**: healthchecks.io に登録（Cron 式 `20 13 * * 1-5`・America/Los_Angeles・猶予 1 時間）→ 13500t の `live.env` に `AIL_HC_URL=https://hc-ping.com/<uuid>`。URL が無い間は `logs/checks.log` に 1 行書くだけ（外へは何も送らない）
+      ✅ 2026-09-28 16:20 ET に初回が動いた【実測・Sx360 の Claude が読んだ】: `logs/checks.log` に `not-sent（AIL_HC_URL が無い）: 2026-09-28 market=open trade rc=0 prepare rc=0 → 0` の 1 行（外へは送っていない）。⚠ 残るのは利用者の healthchecks.io の登録と `AIL_HC_URL` だけ
       関連: [plan](docs/plans/live-trading-open-decisions.md) Phase 3
   - [x] Phase 0: 定義・停止条件・執行の窓を `docs/specs/experiments/live-trading.md` §0 に書く（⚠ 実際に動かす 3 人の属性は書かない ＝「未設定」）＋ 本番の読み取り・dry-run（端株・小数株・成行・MOC 相当。`sample.py --step dryrun2 --allow-prod-dry-run`。⚠ **利用者が流す**）
     2026-09-17: §0-1〜§0-5 を書いた（定義・上限・窓・停止条件・閾値・試験用 `test_a`・手順書）。`sample.py` に `dryrun2`（手順 10。6 通り）を足した。⚠ **残るのは利用者が `dryrun2` を流して §0-3 の表を埋めること**（結果で `sizing` が決まる）
@@ -119,6 +121,7 @@
     期日: 2026-10-20
     1 日目 ＝ 2026-09-23。20 営業日目は 2026-10-20（火）【計算。休場日なし】。⚠ 起動しなかった日があれば後ろへずれる（数え方は「起動しなかった日を数える」）
     ✅ 2026-09-27（Sx360 の Claude）: §1 に 2 日目（9/24）・3 日目（9/25）の行を足した（13500t の DB を読んだ ＝ titan から写した記録。9/24 は意図 0・9/25 は T1 の NKE 1 株の売りが Filled・差 1 0.00・T3 は同じ NKE を持ち続けた）。⚠ 9/24・9/25 は titan の timer の回（9/24 dry-run・9/25 submit）で、13500t の cron は両日とも dry-run（Phase 2 の DB ＝ 退けた）。4 日目は 9/28（月）＝ 13500t の初回
+    ✅ 2026-09-28（Sx360 の Claude）: §1 に 4 日目（9/28 ＝ 13500t の cron の初回・submit）の行を足した（13500t の DB を読んだ）。T1 の BAC 1 株の売りが Filled（買い% 49.77 < 50。約定 $55.5119 は bid 55.52 の下 ＝ 差 1 +2.36bp）・T2 は 5 銘柄とも `skip`（50.16）・T3 は 5 銘柄とも `hold`。口座 − 売買履歴 ＝ 0・未完 0。5 日目は 9/29（火）
   - [ ] 約定後の実際の手数料を読む（いまは dry-run の見積り ＝ `orders.jsonl` の `amounts.fee_source: "dry_run_estimate"`。`/accounts/{n}/transactions`【記憶・未確認】を sandbox で確かめてから）
     派生元: [plan](docs/plans/archive/live-trading-executor-fixes.md)（利用者の指示 2026-09-19「手数料など金額の内訳も保存するように」）
     ✅ 2026-09-25 推す案で決めた（利用者「全部おススメで直して」。[live-trading.md §0-15](docs/specs/experiments/live-trading.md)・[plan](docs/plans/live-trading-open-decisions.md)）: **10/20 の判定の後**に入れる（20 営業日のあいだは執行器を変えない。整数株の成行の手数料は 1 注文 $0.001 級【実測 §0-3】で判定に効かない）
@@ -207,7 +210,7 @@
         ✅ 画面構成の決定（2026-09-18）: A と C の組み合わせ ＝ 上に全体の概要、その下にトレーダーを並べ、各トレーダーの詳細はクリックで進む（プラン 5-1）。3 パターンで変えるのはトレーダーの一覧の見せ方（1 表 ／ 2 カード ／ 3 段）
         関連: 「Phase 5: 画面構成とデザインを 3 パターン作り、利用者が選ぶ（5-1 軸 → 5-2 モック → 5-3 撮影 → 5-4 選ぶ）」
       - [x] F21: 公開面への記録の届け方（N1。見立て: titan から g3plus へ写す）
-        ✅ 2026-09-22 K5 で解消: 管理画面と売買は同じ 13500t・公開面は出さずローカル面だけ ＝ 記録を届ける必要がない（[three-machines.md](docs/plans/three-machines.md) K5）
+        ✅ 2026-09-22 K5 で解消: 管理画面と売買は同じ 13500t・公開面は出さずローカル面だけ ＝ 記録を届ける必要がない（[three-machines.md](docs/plans/archive/three-machines.md) K5）
       - [x] F22: 比較の出し方・グラフの描き方・系列の色（見立てはプラン 3-3）
         ✅ 決定（2026-09-18）: デザイン 3 の見本に入っている形で決めた（並び順は固定・予算に対する %・勝ち負けの色と言葉なし・小さな図は縦軸を揃える・サーバで組む SVG・系列の色は黒い地の 3 色）。[決定](docs/plans/archive/dashboard-required-features.md)
         2026-09-18 のモックで試した形: 並び順は固定・予算に対する %・勝ち負けの色なし・小さな図は縦軸を揃える ／ グラフはサーバで組む SVG（CSP 違反 0 件）／ 系列の色は水色・藍・くすんだ薔薇の 3 色（dataviz の検算で全項目 PASS。⚠ 予約色と取り違えない条件では 3 色まで）。⚠ 決めるのは 5-4 で（[プラン 5-2](docs/plans/archive/dashboard-required-features.md)）
@@ -246,69 +249,6 @@
     依存: 「Phase 0: 決めごと K1〜K6 を決める（…）」（識別名・呼び名・置き場 ＝ K6）
   - [ ] Phase 5: 通し方（`config/sim/sim5.toml`〔`sim_T4`・`sim_T5`・予算の合計 $600〕→ titan `simpredict.py make sim5` → `sim-predict/` を Sx360 へ写す〔⚠ いま Sx360 に無い ＝ sim3 ／ sim4 のぶんも〕→ Sx360 `./run-sim.sh sim5 --fresh --speed max` → 管理画面 3012 `[SIM]` と vibeboard〔トレーダー 2 人（候補）・新しい `[[model]]`〕に出る → `live-trading.md` §0-7 (k) に記録。⚠ 黄金の集計値には足さない）
   - [ ] Phase 6: 手順書を仕上げる（実測のコマンド・時間・落ちたテストと直し方をプラン §4 の表に入れて `howto-model-trader.md` へ → `./run-tests.sh` と `dashboard` のテスト〔`test_real_history_matches_the_db` は titan の DB で〕→ 親を `DONE.md`・プランを `archive/` へ。⚠ 残るのは利用者の決定 ＝ 本番に `T4` ／ `T5` を入れるか〔K7・10/20 の後〕）
-
-- [ ] `~/g3plus-ops` を使って 13500T に管理画面と毎日の売買を動かす環境を作る [plan](docs/plans/three-machines.md)
-  利用者の指示（2026-09-22）: **`~/g3plus-ops` を使って 13500T に管理画面と毎日の売買を実行する環境を作る**
-  利用者の指示（2026-09-22 夜）: **Sx360 で作業し、計算は titan（CPU・GPU が強い）、デプロイは 13500t** ＝ 3 台の役割分け。プランは両方を扱う
-  ⚠ **裁定を待つ論点はプラン §2 の K1〜K10**（下の「決めること」の 4 つは K4〜K6・K10 に入れた）
-  - [x] Phase 0: プラン §2 の K1〜K10 を決める（⚠ **利用者**。K4 二重発注・K6 記録は Phase 3 より前に必須）
-    ✅ 2026-09-22: K1〜K9 は推す案のとおり（利用者「案通りでよい」）・K10 ＝ 13500t は常時起動
-  - [x] Phase 1: 作業の場所を titan に移す（Sx360 の鍵を持ち続ける仕組み・`run-titan-session.sh`・CLAUDE.md とメモリ）
-    ✅ 2026-09-22 夜: 子 3 つが済んだ（[DONE.md](DONE.md)）。Sx360 から `./run-titan-session.sh` がパスフレーズなしで通った【実測】
-    - [x] `run-titan-session.sh` と CLAUDE.md（titan の Claude。プラン §4 1-1）
-      ✅ 2026-09-22 夜: 引数の検査・tmux の中で叩いたときの拒否・`--pull` の形の tmux の命令を使い捨てのセッションで確かめた【実測・titan】。Sx360 からの ssh 越しも 2026-09-22 夜に通った【実測】
-    - [x] Sx360 に keychain を入れる（⚠ **利用者**。プラン §4 1-2 の `.bashrc` 4 行）→ `wsl --shutdown` の後に端末を 1 つ開いてパスフレーズ 1 回 → 別の端末で `./run-titan-session.sh` が通る
-      ✅ 2026-09-22 夜: keychain で `ssh -o BatchMode=yes titan` が ok・Sx360 から `./run-titan-session.sh` がパスフレーズなしで通った【実測】
-    - [x] Sx360 のメモリ（titan-remote-access）を直す（⚠ **Sx360 の Claude**。メモリは機械ごと ＝ titan からは書けない。直す中身: 作業は titan の Claude・13500t と g3plus-ops は Sx360 の Claude・鍵は keychain で `~/.ssh/agent.sock` に別名）
-      ✅ 2026-09-22 夜: Sx360 の Claude が直した（利用者の報告）
-  - [x] Phase 2: 13500t に本番の器を作る — まだ発注しない（g3plus-ops の `ail-live/`・`ail-dashboard/`・`auto-update.sh`・`--mode plan` と本番の dry-run・日足の取得の時間を測る）
-    - [x] Step 2-1: 器の契約を書く（live-trading.md §0-13・dashboard.md §7-1・`run-dashboard-tunnel.sh` の宛先の案内）
-      ✅ 2026-09-22 夜（titan の Claude）
-    - [x] Step 2-2: g3plus-ops に `ail-live/`・`ail-dashboard/`（§7 ・ §7-1 に追従）・`auto-update.sh`・host cron を作る（⚠ **Sx360 の Claude**。契約は §0-13・§7-1）
-      ✅ 2026-09-22 夜: g3plus-ops の `ail-live/`（Dockerfile・compose・`run.sh`〔Phase 2 の留め金 ＝ submit と発注の許可を拒む〕・`auto-update.sh`・`live.env.example`）と `ail-dashboard/`（ローカル面・イメージは ail-live と共用）。13500t で build・管理画面 healthy（ループバック 200 ／ LAN 接続不可 ／ Sx360 のトンネル 200）・host cron 3 行（PT 06:00 prepare ／ 12:40 trade ／ 15 分おき auto-update）。`.env` が無いので cron は「SKIP」を書いて終わる。手順書は g3plus-ops の `docs/workflows/ail-live.md`・`ail-dashboard.md`
-    - [x] Step 2-3: 13500t で §0-13 の合否 ①〜⑤ を確かめる（⚠ `.env` を置くのは**利用者**。本番 dry-run と市場時間中の日足の計測は 9/23 の本番投入の後）
-      ✅ 2026-09-24 12:55 PDT: ①〜⑤ 全部 ✅（③ 本番 dry-run 10 本 ／ ④ 無人の cron で 更新 56 ＋ 予測 44 秒 ＝ 100 秒 ／ ⑤ 0 件）＝ **Phase 2 済み**。結果は [live-trading.md §0-13](docs/specs/experiments/live-trading.md) の「合否の結果」
-      🔶 2026-09-22 夜（`.env` なしでできる分）: ① ✅ コンテナで `run-tests.sh --fast` 通過（執行器 ✅・管理画面 231 passed ／ 2 skipped）。⚠ 通すまでにイメージを 2 か所直した: uid 1000 に名前が無いと `getpass.getuser()` が落ちる（＝ **本番の `reconcile.py` も落ちていた**）／ 管理画面のテストが要る `httpx` が `dashboard/requirements.txt` に無い（titan・Sx360 の venv には手で 0.28.1 が入っている）
-      🔶 ② は半分: `--mode plan` でも執行器は認証して口座を読む（`run_day.py` の 1.）＝ `.env` が要る。予測 → 判定の部分は `bench_predict.py --compare` で、titan と一致を確かめた bench の結果と **3 モデル × 2 日すべて 入力の指紋 同じ・最大の差 0・判定が変わった銘柄なし**。温まった状態 48.29 ／ 49.31 秒【実測 2026-09-22 22:40 PDT・ail-live のイメージ】
-      残り（`.env` を置いた後・⚠ 9/23 の本番投入の後）: ② の `run_day` 部分 ／ ③ 本番 dry-run ／ ④ 市場時間中の日足 ＋ 予測 ／ ⑤ 秘密の grep
-      🔶 2026-09-23 夜（Sx360 の Claude。利用者が `.env` を置いた後）: ② ✅ `run_day` の部分（13500t のコンテナで 9/22 の plan・49 秒・rc=0。買い% は bench と **15 行とも差 0**・判定同じ・口座の持ち株は「売買履歴の外」として記録）／ ⑤ ✅ 秘密の grep 7 項目 ＋ `eyJ` とも 0 件 ／ 管理画面 ✅（利用者が起こし直して `demo=False` → トンネルで 9 ページとも 200・`mode: real`・plan の起動が出る）。残り **③ ④ ＝ 9/24 の市場時間中**。結果は [live-trading.md §0-13](docs/specs/experiments/live-trading.md) の「合否の結果」
-      ✅ 2026-09-24 11:04 ET（Sx360 の Claude）: ③ 本番 dry-run rc=0・10 本とも `mode: dry-run`・`submitted` 無し・買付余力の効果 $35.65〜$57.44 ／ ④ 市場時間中の所要 ＝ 更新 56 秒 ＋ 予測 45 秒 ＝ 101 秒 ≤ 120（手動の回。12:40 PDT の cron の回を足してから閉じる）／ ⑤ をもう一度 ＝ 秘密の 6 項目 0 件（`TT_ENV`＝`cert` は監視の記録の環境名に当たるだけ）。⚠ 13500t の管理画面も `.env` を置いた時点で API の監視を回し始めた（cert・prod とも認証 OK・回転なし）
-      依存: 「Step 2-2: g3plus-ops に `ail-live/`・`ail-dashboard/`（§7 ・ §7-1 に追従）・`auto-update.sh`・host cron を作る（⚠ **Sx360 の Claude**。契約は §0-13・§7-1）」
-  - [x] Phase 3: 切り替えの手順を決めて cert で試す（「本番の機械ではない」印で titan の submit を拒む・`live.sqlite` を移す・`reconcile.py` の差 0）[plan](docs/plans/archive/production-switch-mark.md)
-    ✅ 2026-09-24（titan の Claude）: 印 `NOT_PRODUCTION`・`notprod.py`・rc=7・管理画面の帯・手順書 [live-trading.md §0-14](docs/specs/experiments/live-trading.md)・稽古（写しの sha256 一致・`reconcile.py show` 差 0・印で rc=7 → 外す）。記録は [DONE.md](DONE.md)。⚠ **印を置くのは Phase 4 の日に利用者**（今日は置いていない ＝ timer の dry-run と 9/25 の submit を邪魔しない）
-  - [~] Phase 4: 本番を 13500t に切り替える（⚠ **利用者**。市場の外の日に。titan の timer が submit で通ってから ＝ 早ければ 9/26〜27・「数日」なら 10/3〜4 の裁定）
-    ✅ 2026-09-25 引け後に ①〜⑥ を済ませた（利用者の決定「13500t 切り替えはすぐにやってしまう。問題があれば 13500t の方で直す」。記録は [live-trading.md §0-14 (f)](docs/specs/experiments/live-trading.md)・経緯は [DONE.md](DONE.md)）。残りは ⑦ だけ
-    - [ ] ⑦ 13500t の最初の本番の回を見る（`trade-runner/logs/trade.log` の `end rc=0`・`orders.jsonl` の `mode: submit`・約定・`reconcile.py --env prod show` で差 0・未完 0。⚠ **Sx360 の Claude**）
-      期日: 2026-09-28
-      ✅ 2026-09-26（土）Sx360 の Claude: 月曜の cron の道を発注せずに事前確認 ＝ **全部通った**（`run.sh` の submit の分岐が組む命令は titan の 9/25 と同じ ＋ 許可の `-e`・許可はコンテナと執行器に届く・`live.env` の差は 3 行・差 0・未完 0・印と cron・コード差分に執行の経路なし）。記録は [live-trading.md §0-14 (g)](docs/specs/experiments/live-trading.md)。月曜より前にやることは無い
-      ⚠ 利用者は月曜のその時刻に居ない（2026-09-26「事前にやりたい。問題が起きてもさほど問題ではない」）＝ ⑦ は**後から記録を読む**（時刻は問わない。月曜の夜でも火曜でも同じ）。外へ知らせる見張り `check.sh` は未設置（実売買の親の下の別タスク）
-      ⚠ rc≠0 なら 13500t の側で直す（利用者の方針）。titan へ戻すのは §0-14 (d)（⚠ 2026-09-25 に廃止 ＝ 使わない）
-      閉じるとき: Phase 4 と親を [DONE.md](DONE.md) へ・プラン `three-machines.md` を `archive/` へ
-    順（プラン Phase 4）: titan の timer を止め許可を外し印を置く → `live.sqlite` と `state/` を 13500t へ（sha256・Phase 2 の DB は `live.sqlite.phase2-<日付>` に退ける）→ 13500t の `reconcile.py show` で差 0 → `run.sh` の留め金を外し `live.env` を submit → 翌営業日の cron を見る。⚠ 10/3〜4 に延ばすなら期日を直す
-    ✅ 2026-09-24: **手順書は [live-trading.md §0-14 (b)](docs/specs/experiments/live-trading.md)**（順 ①〜⑦・だれ・出口。印は `notprod.py set`・写しは `livefs.py backup`〔`cp` しない〕・写すのは DB 1 つ）
-  ⚠ **いまの状態**: `~/g3plus-ops` は titan に無い（private。Sx360 にだけある）。2026-09-25 から本番は 13500t（g3plus-ops の `trade-runner/`・`trade-dashboard/` ＝ 旧 `ail-live/`・`ail-dashboard/`）
-  ✅ 2026-09-26 消したメモ「いまの契約（§7）と食い違う」: K5 で解決済み（公開面は出さずローカル面だけ ＝ [dashboard.md §7-1](docs/specs/dashboard.md)。発注の許可は管理画面ではなく trade-runner の `live.env` にある ＝ §7 の「置かない env」はそのまま守られている）
-  - [x] 決めること（⚠ **利用者の裁定。プランより先**）
-    ✅ 2026-09-22: プラン §2 で全部決まった（下の 3 つは K4・K5・K6）
-    - [x] ⚠ **二重発注をどう防ぐか**（⚠ **いちばん重い**）: 排他（`MODE`・`run.lock`）は**その機械の中のファイル**なので、⚠ **titan と 13500T が両方起きていると、同じ口座に両方が注文を出す**。候補: (a) 売買は 13500T だけ・titan は止める（推す）／ (b) 口座の側で重複を弾く仕掛けを作る（⚠ 設計から）／ (c) 手で切り替える（⚠ 事故が起きる）
-      ✅ 2026-09-22: (a) 売買は 13500T だけ。titan の timer と許可を外し、「本番の機械ではない」印で submit を拒む（プラン K4・Phase 3）
-    - [x] 管理画面と売買を**同じ機械**に置くか（⚠ §7 は「公開面 ＝ 監視と停止だけ」。同居させると、公開面のある機械に発注の許可と資格情報が載る）
-      ✅ 2026-09-22: 同じ 13500T。公開面（Cloudflare）は出さず、ローカル面だけ（Sx360 からトンネル）＝ §7 は書き換えない（プラン K5）
-    - [x] 記録（`live.sqlite`）をどうするか（⚠ **機械ごとのローカルファイル**なので、動かす機械を替えると記録が分かれる。移すのか・両方を読むのか）
-      ✅ 2026-09-22: 切り替えの日に titan から 13500T へ移し、titan の側は読むだけの写し（プラン K6）
-    - [x] 13500T の素性（OS・常時起動か・GPU の有無・tailnet に居るか）。⚠ **予測は 3 モデルで 38 秒【実測 titan】**なので、遅い機械だと発注できる時間帯に収まらない
-      分かったこと【実測 2026-09-22】: Intel Core i5-13500T（20 論理・AVX-512 なし）・メモリ 30.6 GiB・Linux（Docker あり）・GPU は GTX TITAN X（Maxwell ＝ torch 2.14 の CUDA 13 版に載らない）・tailnet には居ない（Sx360 から Cloudflare Tunnel 経由の ssh。titan からは届かない）。✅ **常時起動**（2026-09-22 利用者の回答 ＝ プラン K10）
-  - [x] 調べること（決まってから）
-    - [x] `~/g3plus-ops` の `ail-dashboard/` がいまの契約（§7）にどこまで追従しているか（⚠ **`glossary.toml` の追従が要る**と §7 に書いてある ＝ 追従までは i マークが出ない）
-      ✅ 2026-09-25 Sx360 で確かめた: `trade-dashboard/docker-compose.yml` は COPY せず clone を丸ごとマウント（`/home/ubuntu/ai-income-lab`）＝ `glossary.toml` も読める ＝ 追従の心配は起きない
-    - [x] 13500T で予測にかかる時間を測る（⚠ **「遅すぎる」の線を測る前に決める** ＝ 既存の TODO と同じ作法）
-      ✅ 2026-09-22 夜: **間に合う**（3 本並列・温まった状態の中央値 47.93 ／ 48.41 秒【実測】≤ 線 60 秒。titan は 37.41 ／ 37.60 秒）。売買の判定は titan と 1 銘柄も変わらない。⚠ 余裕は 15 秒ほど・入力の指紋は CPU で変わる。記録は [live-trading.md §0-12](docs/specs/experiments/live-trading.md)・[plan](docs/plans/archive/predict-timing-13500t.md)
-    - [x] 資格情報の置き方（⚠ **`.env` を新しい機械に置く ＝ 実売買が物理的に起きる機械が増える**。Sx360 に置かない決定の裏返し）
-      決定 2026-09-22: 本番の `.env` と発注の許可は 13500T だけに利用者が置く（プラン §1 の役割・K4）。残りは置き方の手順（Phase 2）
-      ✅ 2026-09-23 利用者が 13500t に `.env` を置き、2026-09-25 に `live.env` を submit に（Phase 4）
-    ✅ 2026-09-25 閉じた（Sx360 の Claude）
-  ✅ 2026-09-23: titan で本番投入が 1 日通った（[DONE.md](DONE.md)）＝ 機械を増やしてよい → Phase 2 Step 2-3 の残り（`.env` を置いた後の ②〜⑤）へ進める（⚠ `.env` を置くのは利用者）
-  関連: 「売買（`run-live.sh`）が自動で動くようにする（無人運転）」／ [live-trading.md §0-12](docs/specs/experiments/live-trading.md)（13500T の予測の時間。2026-09-22 済み）／ [dashboard.md §7](docs/specs/dashboard.md)
 
 - [ ] 実売買の執行器（`run_day.py`・`reconcile.py`）のメッセージの「台帳」→「売買履歴」（⚠ 本番投入が落ち着いてから。執行器のテストを流す・本番に効くので「デプロイ」が要る）
   派生元: 「DBを使ったデータの永続化を行う」の「言葉を分かりやすくする」（2026-09-25 に DONE へ）

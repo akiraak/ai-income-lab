@@ -25,7 +25,7 @@
 - 説明の正本は TOML（`dashboard/models.toml` の `[[model]]`・`traders.toml` の `[nicks]`・`[symbols_why]`）。説明を Python に書かない
 - 損益で手法を採らない（CLAUDE.md の 2 つ目の例外）。実例の人の成績は判定に混ぜない（`test = true` の sim の記録）
 
-### 機械の役割（[three-machines.md §1](three-machines.md) のとおり）
+### 機械の役割（[three-machines.md §1](archive/three-machines.md) のとおり）
 
 | 機械 | このプランでやること | やらないこと |
 | --- | --- | --- |

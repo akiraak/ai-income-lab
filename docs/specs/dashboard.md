@@ -176,7 +176,7 @@ g3plus-ops 側の `trade-dashboard/`（旧 `ail-dashboard/`。2026-09-24 に改�
 | 段階的な有効化 | Access の AUD が無いうちは `AIL_AUTH_MODE=loopback`（非ループバックは全部 403 = fail-safe）で起動しておき、Access アプリ → `.env` に 3 変数と `cloudflare` → Tunnel hostname の順で開ける |
 | エッジキャッシュ | ホスト全体 Bypass の Cache Rule を入れる（キャッシュ HIT は認証評価前に配信される。アプリ側も `no-store` を返す） |
 
-### 7-1. 13500t のローカル面（2026-09-22 夜。[プラン](../plans/three-machines.md) K5・Phase 2）
+### 7-1. 13500t のローカル面（2026-09-22 夜。[プラン](../plans/archive/three-machines.md) K5・Phase 2）
 
 13500t では毎日の売買と**同じ機械**に管理画面を置く（K5）。2026-09-22〜26 は公開面を出さずローカル面だけ（Sx360 から `run-dashboard-tunnel.sh --host <13500t の ssh 名>`）だった。**2026-09-27 から Cloudflare Access 越しにも同じローカル面を出す（§7-2）**。上の表の「置かない env」はそのまま守られる（この面にも発注の経路は無い）。上の表との差だけを書く。
 

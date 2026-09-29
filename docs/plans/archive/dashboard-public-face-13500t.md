@@ -5,7 +5,7 @@
 - 利用者の決定:
   - **2026-09-26「Cでいく」**（候補 A〜D の比較は §1-2。「sx360のブラウザから分かりやすいurlでアクセスできるとよい」）
   - **2026-09-26「trade.chobi.me で見れる管理画面はローカルのものと同一の機能とする」** ＝ 公開面（監視と停止だけ）ではなく、Access を通った人に**ローカル面そのもの**（操作・解除・履歴・取消も）
-- 関係する正本: [dashboard.md §2・§7・§7-1](../../specs/dashboard.md)・[three-machines.md](../three-machines.md) K5・g3plus-ops の `trade-dashboard/`（private。Sx360 にだけある）
+- 関係する正本: [dashboard.md §2・§7・§7-1](../../specs/dashboard.md)・[three-machines.md](three-machines.md) K5・g3plus-ops の `trade-dashboard/`（private。Sx360 にだけある）
 
 ## 1. 目的・背景
 

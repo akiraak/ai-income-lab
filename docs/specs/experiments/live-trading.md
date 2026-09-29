@@ -816,7 +816,7 @@ flowchart LR
 - ⚠ **余裕は 15 秒ほど**。表づくりは銘柄数と日数に比例して延びる【推測】ので、銘柄を増やす・観測期間を延ばすときは測り直す
 - 13500T には tastytrade の `.env` も `live.sqlite` も無いことを最後に確かめた。結果の JSONL は git 管理外（titan ／ 13500T ／ Sx360 の `~/ail-bench/`）
 
-### 0-13. 本番の機械（13500t）の器 — デプロイ契約（正本。2026-09-22 夜。[プラン](../../plans/three-machines.md) Phase 2）
+### 0-13. 本番の機械（13500t）の器 — デプロイ契約（正本。2026-09-22 夜。[プラン](../../plans/archive/three-machines.md) Phase 2）
 
 g3plus-ops 側の `trade-runner/`（旧 `ail-live/`。2026-09-24 に改名 ＝ g3plus-ops `a048b16`）（毎日の売買）・`auto-update.sh`・13500t の host cron はここに従う。契約が変わったらあちらを追従させる（管理画面は [dashboard.md §7](../dashboard.md) の「13500t のローカル面」）。⚠ **デプロイ設定・ホスト名・Tunnel は g3plus-ops 側にだけ書く**。⚠ **Phase 2 では発注しない**（発注の許可は切り替え ＝ Phase 4 で利用者が置く）。
 
@@ -854,7 +854,7 @@ flowchart LR
 **Phase 2 の合否**（プラン §6）: ① コンテナで `./run-tests.sh --fast` が通る ② titan と同じ `data-live/` の写しで `--date <過去の日> --mode plan -- --ignore-window` が**同じ売買の判定**を出す（⚠ 入力の指紋は CPU で変わる ＝ §0-12。比べるのは判定）③ 本番の dry-run が通り、何もルーティングされない ④ 市場時間中の `live_update.sh` の所要時間（titan 54〜55 秒【実測】）＋ 予測 48 秒【実測】が準備の見積り 120 秒に収まる ⑤ 13500t の `live.sqlite` の `livefs.py dump` に `.env` の値が 0 件。
 ⚠ **Phase 2 の間に 13500t の `live.sqlite` に入る記録は dry-run ／ plan のものだけ**。切り替え（Phase 3・K6）で titan の `live.sqlite` を持ってくるときは、上書きせず `live.sqlite.phase2-<日付>` に名前を変えて脇へ退ける（1 つの口座の記録は 1 か所）。
 
-**合否の結果**（✅ **①〜⑤ 全部 ✅ ＝ Phase 2 済み（2026-09-24 12:55 PDT・Sx360 の Claude）**。[プラン](../../plans/three-machines.md) の「2-3 の手順」の順 0〜8。→ Phase 3 は titan の Claude が 9/24 に済ませ、次は Phase 4 の切り替え〔利用者・週末〕）
+**合否の結果**（✅ **①〜⑤ 全部 ✅ ＝ Phase 2 済み（2026-09-24 12:55 PDT・Sx360 の Claude）**。[プラン](../../plans/archive/three-machines.md) の「2-3 の手順」の順 0〜8。→ Phase 3 は titan の Claude が 9/24 に済ませ、次は Phase 4 の切り替え〔利用者・週末〕）
 
 前提の確認【実測 2026-09-23 夜 PDT】: 順 0 ＝ 3 台とも `dbde869`（13500t の auto-update が 19:45:02 に pull・管理画面を起こし直して `done`）／ 順 1 ＝ 利用者が titan の `.env` を 13500t へ（600・1,478 バイト ＝ titan と同じ・`git status --porcelain` は空のまま）／ 順 2 ＝ clone の `data-live/` は bench の写しと `diff -rq` で一致・tar の sha256 `863f95b7…` OK・`seed.json` あり・63 銘柄。
 
@@ -895,7 +895,7 @@ flowchart LR
 ⚠ **番人**: 「10:00 に起こしても `out_of_window` で拒む」テスト（`tests/test_sim_limits.py`）が、この決定を守る印になる。
 ✅ **残っていた宿題は同日に直した**（利用者の指示「その方法で直して」）: **1 日の買いの上限は、起動時にその日の `orders.jsonl` から数え直して全トレーダー・全起動で 1 つの上限を分け合う**（§0-2 の表。⚠ **DB は足さない ＝ 記録が正本**）。直す前は**トレーダーごと・1 起動ごとにリセット**されていた【実測 2026-09-20】＝ 3 人なら実質 3 倍。テストは `tests/test_day_cap.py`（6 件）。
 
-### 0-14. 本番を titan → 13500t へ切り替える手順と「本番の機械ではない」印（正本。2026-09-24。[プラン](../../plans/archive/production-switch-mark.md)・親は [three-machines.md](../../plans/three-machines.md) Phase 3〜5）
+### 0-14. 本番を titan → 13500t へ切り替える手順と「本番の機械ではない」印（正本。2026-09-24。[プラン](../../plans/archive/production-switch-mark.md)・親は [three-machines.md](../../plans/archive/three-machines.md) Phase 3〜5）
 
 決定の前提: K4 ＝ 発注するのは常に 1 台（切り替えまで titan の timer・切り替え後は 13500t の cron）／ K6 ＝ 記録は切り替えの日に移し、titan は読むだけの写し ／ 2026-09-24 の決定 ＝ Phase 4 は週末・利用者（早ければ 9/26〜27・「数日」なら 10/3〜4）。⚠ **切り替えを実行するのは利用者（＋ 13500t 側は Sx360 の Claude）**。titan の Claude は写しと手順まで。
 
@@ -1028,7 +1028,7 @@ flowchart LR
 | ④ | titan → Sx360 → 13500t の `~/ai-income-lab-switch/`（sha256 OK 2 回）→ 利用者が管理画面のコンテナ `trade-dashboard` を止め、Phase 2 の DB を退け、写しを `live.sqlite` に置き、起こし直した（healthy）。13500t の `stats` も 133 本・2,038 行。⚠ 退けた `live.sqlite.phase2-2026-09-25` が `git status` に `??` で出た → clone の外（`~/ai-income-lab-switch/`）へ移して作業ツリーは空（上の ④ の注） |
 | ⑤ | 13500t（ホストの python3）で `reconcile.py --env prod show` 5 銘柄とも差 0・未完 0 ／ `notprod.py status` 印なし ／ `MODE`・`HALT`（2 か所）なし ／ 資格情報あり |
 | ⑥ | g3plus-ops の `trade-runner/run.sh`（旧 `ail-live/`）の留め金を外した: `AIL_LIVE_MODE` は plan ／ dry-run ／ submit、submit は `TT_ALLOW_PROD_ORDERS=1` と `--i-know-this-is-real-money` が揃わなければ rc=3・⚠ `TT_ALLOW_PROD_ORDERS` をコンテナに渡す 1 行を足した（無いと許可の段で止まる）→ 13500t へ送り構文 OK・一致。`live.env` は控え `live.env.dry-run-2026-09-25` を取ってから submit（利用者）。cron は平日 06:00 PDT prepare ／ 12:40 PDT trade のまま |
-| ⑦ | ⚠ **未**: 9/28（月）の `trade-runner/logs/trade.log` の `end rc=0`・`orders.jsonl` の `mode: submit`・口座 − 売買履歴 ＝ 0 を見る。⚠ **時刻は問わない**（利用者は月曜のその時刻に居ない ＝ 後から記録を読む。事前確認は下の (g)） |
+| ⑦ | ✅ **2026-09-28（月）済み【実測。Sx360 の Claude が 19:50〜20:10 ET に 13500t のログと DB を後から読んだ】**: `trade.log` ＝ cron 12:40:01 PDT 起動 → 15:50 ET まで待つ → 更新 56 秒 → 予測 3 本 45 秒（表 38〜41 秒 ＋ fit 0.2〜3.6 秒）→ 執行器 9 秒 → `end rc=0`（15:51:50 ET・起きてから 709 秒）／ `orders.jsonl` 1 件 `mode: submit`（T1 の BAC 1 株 売り・510067159・Routed → Filled 958 ms・約定 $55.5119・気配 bid 55.52 ／ ask 55.53）・`submitted` あり・`error` なし・`attempts` 1 ／ `reconcile.py --env prod show` 5 銘柄とも差 0（BAC 1 ・ NKE 1 ・ PFE 4 ・ T 4 ・ VZ 2）・控えの未完 0 ／ `notprod.py status` 印なし・`MODE`・`HALT`（2 か所）なし ／ HEAD `9cbb3ae`（＝ `prod`）／ 見張り `check.sh` 16:20 ET の初回 ＝ `market=open trade rc=0 prepare rc=0 → 0`（`AIL_HC_URL` 無し ＝ not-sent・`logs/checks.log` に 1 行）。日次の行は §1 の 9/28。⚠ **Phase 4 はこれで閉じた**（プランは `archive/`） |
 
 - titan は ③ の日（9/25）で止まった読むだけの写し。titan の管理画面（3012）は灰の帯
 - 13500t を止めたいときは管理画面の停止ボタン（`HALT`）か、`live.env` を控え `live.env.dry-run-2026-09-25` に戻す。titan へは戻さない（(d) は 2026-09-25 に廃止）
@@ -1106,6 +1106,9 @@ Phase 5-1・Phase 6 で埋める。1 日 1 行 × トレーダー。数字は全
 | 2026-09-25 | `T1`（3 日目・titan の timer が submit で無人で通った日） | 1（売り NKE 1 株。発注 15:51:35 ET・窓の中） | 1 ／ 1（509657229。Routed → Filled 97 ms・約定 $35.805） | 0.00（約定 ＝ 中値。bid 35.80 ／ ask 35.81） | NKE の買い% 49.83 < 100 − θ ＝ 50 で売り。ほか 4 銘柄は `hold`（50.49〜50.87）。`retry`・429 なし | 実現 +$0.04（35.805 − 35.765）・手数料 $0.0112（見積り: SEC $0.01 ＋ TAF ＋ clearing $0.001）・代金 $35.805 は受渡し待ち（次の営業日 9/28）。注文 1 本の所要 821 ms。⚠ 記録は titan の DB（15:51:33〜36 ET・rc=0）＝ 引け後に 13500t へ写した（§0-14 (f) ③④） |
 | 2026-09-25 | `T2`（3 日目） | 0 | — | — | 5 銘柄とも買い% 50.38 < θ 55 で `skip` | — |
 | 2026-09-25 | `T3`（3 日目） | 0 | — | — | 5 銘柄とも `hold`（NKE は 51.47 で持ち続け。50.44〜51.47） | 含み +$2.44。同じ NKE を T1 は売り T3 は持つ ＝ 人ごとの判断が分かれた最初の日。13500t の cron は同時刻に dry-run（9 本・最後の dry-run の日） |
+| 2026-09-28 | `T1`（4 日目・13500t の cron の初回 ＝ submit。§0-14 (f) ⑦） | 1（売り BAC 1 株。発注 15:51:43 ET・窓の中） | 1 ／ 1（510067159。Routed → Filled 958 ms・約定 $55.5119） | +2.36（約定 55.5119 < 中値 55.525 ＝ bid 55.52 の 0.8 セント下。T1 の売買で初めて 0 でない差 1） | BAC の買い% 49.77 < 100 − θ ＝ 50 で売り。NKE は 49.55 だが 9/25 に売って持っていないので `skip`。ほか 3 銘柄は `hold`（50.03〜50.73）。`retry`・429 なし | 実現 −$0.43（55.5119 − 55.945）・手数料 $0.0112（見積り）・代金 $55.51 は受渡し待ち（9/29）。累計 実現 −$0.39・含み +$0.64（時価 $154.07・T 2 ・ PFE 2 ・ VZ 1）。注文 1 本の所要 3.9 秒（dry-run → 発注 → 約定確認）。⚠ 13500t の最初の本番の回: cron 12:40:01 PDT → 更新 56 秒 → 予測 45 秒 → 執行器 9 秒・rc=0（15:51:50 ET） |
+| 2026-09-28 | `T2`（4 日目） | 0 | — | — | 5 銘柄とも買い% 50.16 < θ 55 で `skip` | 買い% は 5 銘柄で同点（§0-1） |
+| 2026-09-28 | `T3`（4 日目） | 0 | — | — | 5 銘柄とも `hold`（50.13〜50.54。BAC は 50.19 で持ち続け） | 含み +$0.94（時価 $246.11・5 銘柄）。同じ BAC を T1 は売り T3 は持つ（9/25 の NKE と同じ形） |
 
 ✅ **2026-09-23（水）に本番投入した（Phase 5-2 ＝「実運用」に入った）**【実測】: 利用者が 10:04:51 ET に起動 → `--wait` が 15:50:00 ET まで待つ → 日足の更新 55 秒（市場時間中）→ 予測 3 本 43 秒（15:50:55 → 15:51:38）→ 執行器 10 秒（15:51:39 → 15:51:49）＝ 起きてから終わるまで 109 秒・rc=0。合図 15 → 意図 10 → 注文 10・約定 10・問題 0。1 日の上限 $490.29 ／ $1,000。口座の現金 $999.906 → $509.583（差 $490.323 ＝ 代金 $490.309 ＋ 手数料の見積り $0.014 と一致）。`reconcile.py --env prod show` ＝ 5 銘柄とも 口座 − 売買履歴 ＝ 0・控えの未完 0（`journal.jsonl` の intent → submitted → done が 10 組とも閉じた）。管理画面（3012）は `/`・`/overall`・`/traders/T1〜T3`・`/records`・`/judge`・`/ops`・`/api/live` が 200。秘密の grep ＝ `.env` の 7 項目とも `livefs.py dump` に 0 件・`eyJ` 0 件（`Bearer` 88 件は `authenticated` の `token_type` の値で、トークンではない）。⚠ 手数料は dry-run の見積りのまま（約定の行の `fee_usd` は 0.0 ＝ TODO「約定後の実際の手数料を読む」）。⚠ 紙上の対照（`daily.csv`）の今日の行は翌朝の `--prepare` が公式終値で作る。⚠ 9/22 は起動が遅れて見送った（下の落とし穴）。
 

@@ -591,7 +591,8 @@ result = { verdict = "hold", text = "門 7 本 × 売買基準値 3 通りの 21
 history = [
   { when = "2026-09-12", what = "門 7 本 × 売買基準値 3 通り", names = ["own-trend.[cd][0-9]-*.ridge.shared~p1995-08-31~cal-old"], hold = 3, drop = 18, old = true },
   { when = "2026-09-12", what = "同じ 21 通りを、計算を直したあとに回し直した", names = ["own-trend.[cd][0-9]-*.ridge.shared~p1995-08-31"], hold = 4, drop = 17, note = "保留に 20 日の門（売買基準値がまん中）が加わった。直す前は、20 日の門の出力スコアがほとんど動いていなかった。" },
-  { when = "2026-09-13", what = "見る株の組を変えて同じ 21 通り（天然ガスや原油などの詰め合わせ商品を足した組と、そこから一部を抜いた組の 2 つ）", names = ["own-trend.[cd][0-9]-*.ridge.shared~p1995-08-31~n7[04]"], hold = 6, drop = 36, note = "計算を直す前にも同じ形で回し、同じ内訳だった。" },
+  { when = "2026-09-13", what = "見る株の組を変えて同じ 21 通り（天然ガスや原油などの詰め合わせ商品を足した組と、そこから一部を抜いた組の 2 つ）", names = ["own-trend.[cd][0-9]-*[0-9][0-9].ridge.shared~p1995-08-31~n7[04]", "own-trend.d4-gatemix.ridge.shared~p1995-08-31~n7[04]"], hold = 6, drop = 36, note = "計算を直す前にも同じ形で回し、同じ内訳だった。" },
+  { when = "2026-10-01", what = "60 日の門 1 本を、実際のトレーダーと同じ形（決めた 5 本の株を 1 株単位・小さな予算で ／ 全部の株を 1 株以上買える予算で）にして試した", names = ["own-trend.d2-gate60-tr*.ridge.shared~p1995-08-31~n74"], hold = 1, drop = 1, aside = "ちがう売り買いの決まりでの試し。いまの印には数えない", note = "5 本の形では、ほとんどの期間でただ持ち続けると同じになった。全部の株の形でも、ただ持ち続けるとの差はたまたまと区別がつかない大きさだった。" },
 ]
 records = ["docs/specs/experiments/downtrend-detection.md", "docs/specs/experiments/calibration-rerun.md", "docs/specs/experiments/theta-placement.md"]
 

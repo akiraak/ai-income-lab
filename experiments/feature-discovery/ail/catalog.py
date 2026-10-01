@@ -41,6 +41,7 @@ _ID = re.compile(r"^(F\d-\d+[a-z]?)\b")
 
 # ⚠ **spec の表は全角の記号を使う。** 取り違えると符号が反転する
 _VARIANT = re.compile(r"〔[^〕]*〕$")      # 上位 K の構成（rules.md 17-5）
+_TRADER_VARIANT = re.compile(r"〔トレーダー・[^〕]*〕$")   # トレーダーの形の条件（rules.md 20-4）
 _SIGNS = {"＋": "+", "−": "-", "－": "-", "▲": "-", ",": ""}
 
 
@@ -324,7 +325,10 @@ def _edge_vs_bh(result: pd.DataFrame | None, method: str, th) -> tuple[float | N
     if result is None or "閾値" not in result or th is None:
         return None, None
     r = result[(result["手法"] == method) & (result["閾値"] == float(th))].sort_values("fold")
-    b = result[(result["手法"] == "基準 常に上（ドリフト）")
+    # ⚠ **トレーダーの形の行は、同じ条件の「持ち続ける」と比べる**（rules.md 20-3 の 2。式は 13-7 のまま）
+    v = _TRADER_VARIANT.search(method)
+    bh = f"基準 持ち続ける{v.group(0)}" if v else "基準 常に上（ドリフト）"
+    b = result[(result["手法"] == bh)
                & (result["閾値"] == float(th))].sort_values("fold")
     if r.empty or b.empty or len(r) != len(b):
         return None, None
@@ -593,7 +597,10 @@ def canonical(name: str) -> tuple[str | None, str]:
     """
     m = _ID.match(name)
     if m:
-        return m.group(1), m.group(1)
+        # ⚠ **トレーダーの形の〔…〕は鍵に残す**（rules.md 20-4 の 2）。残さないと ID だけの鍵になり、元の行と
+        # 1 行にまとまって数え落とす。⚠ 2026-10-01 時点で ID ＋〔…〕の行は 0 行 ＝ 既存の行は割れない
+        v = _TRADER_VARIANT.search(name)
+        return m.group(1), m.group(1) + (v.group(0) if v else "")
     return None, re.sub(r"^基準\s+", "", name).strip()
 
 
@@ -675,7 +682,7 @@ def ledger() -> dict:
     by_id = {c["ID"]: c for c in cat}
     for r in rows + leak:
         c = by_id.get(r["ID"])
-        r["手法"] = c["手法"] if c else r["鍵"]
+        r["手法"] = (c["手法"] + r["鍵"][len(r["ID"]):]) if c else r["鍵"]   # ⚠ 〔トレーダー・…〕を見せる（20-4）
         # ⚠ **検知器はカタログ外の手法であって基準線ではない**（rules.md 14-1）
         # ⚠ **上位 K の行**（rules.md 17-5）は構成を `〔…〕` で手法名に入れている。⚠ **系統と実装の列だけ、
         # それを外した名前で引く**（鍵・判定・数え方は変えない）。`乱択上位〔…〕` は基準線
@@ -683,7 +690,8 @@ def ledger() -> dict:
                 else _VARIANT.sub("", r["鍵"]))
         r["系統"] = (f"{c['系統']} {c['系統名']}" if c
                      else "検知器" if base in dets else "基準線")
-        r["実装"] = "✅" if (r["ID"] in impl or base in bases or base in dets) else "⚠ 無"
+        r["実装"] = "✅" if (r["ID"] in impl or base in bases or base in dets
+                             or base == "持ち続ける") else "⚠ 無"      # 持ち続ける ＝ rules.md 20-3 の 1
         r["判定"], r["理由"] = judge(r, bases)
     # ⚠ 判定が出そろってから「閉じる」注記を当てる（判定は変えない。rules.md 14 章）
     _apply_closed(rows, closed_notes())

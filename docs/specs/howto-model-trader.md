@@ -126,6 +126,8 @@ flowchart LR
 | 2-2（2026-09-28） | 落ちたテストは無く、**書いて気づいた誤り**: `traders.toml` の `combine_unanimous` の文が「売りも同じ」 | `unanimous` の売りは max ＝ どれか 1 本が言えば売る。出口だけのモデルを合わせる形を書いて初めて読み直した | 文を直した。`dashboard/tests/test_traders_tab.py` `test_candidate_in_another_group_is_listed` が候補の組を見る |
 | 2-5（2026-09-28〜29） | vibeboard のトレーダーのタブに候補の人が出ない（2 度） | ① `traderview` が `candidates/notional/` しか読んでいなかった ／ ② sidecar（3015）が起動時のコードのまま（TOML は 5 秒ごとに読み直すが Python は読み直さない） | ① `candidates/*/` に広げた（`traderview.candidate_files`）／ ② sidecar を入れ直す（`kill` → `python3 dashboard/vibetab.py`） |
 | 2-4（2026-09-29 sim5） | テストは通り、記録を見て気づいた: **`sim_T5` は売った翌日に買い戻す**（売り 32 本のうち 30 本） | 出口だけのモデルは「今日降りる」しか言えず（買い% 常に 100 ＝ K2）、`unanimous` の買いは min ＝ 主モデルの値のまま | そのまま（配線の確認としては通った）。⚠ 本番に `T5` の形を入れるなら先に決める: 出口の日は買い% 0 にする（K2 の変更 ＝ 新しい検証）／ 執行器に「売った翌日は買わない」休み（執行器の変更 ＝ プラン §7）。[live-trading.md §0-7 (k)](experiments/live-trading.md) |
+| 1-6（2026-10-01 トレーダーの形） | `dashboard/tests/test_models_tab.py` の `test_real_history_matches_the_db`（予測モデルのタブの「試した経緯」が DB の数と合わない） | 既存の行に〔…〕の変種（`d2-gate60-tr5`）を足すと、`models.toml` の `history` のパターン（`[cd][0-9]-*`）が新しい行まで数える | 古い行のパターンを新しい綴りに当たらない形に絞り（`*[0-9][0-9]` ＋ `d4-gatemix`）、新しい行を別の経緯として足す（`aside` つき）。⚠ **変種を足したら `*` のパターンを grep で拾い直す**（[trader-shaped-validation.md](experiments/trader-shaped-validation.md)） |
+| 1-5（同） | 落ちたテストは無く、**書いて気づいた穴**: カタログ ID を持つ手法（`F1-7 …`）に〔…〕を付けると、鍵が ID だけになり元の行と 1 行にまとまる | `catalog.canonical` が ID だけを鍵にしていた（上位 K などの〔…〕は ID の無い手法にしか付いていなかった） | `canonical` が〔トレーダー・…〕を鍵に残す（[rules.md 20-4](experiments/feature-discovery/rules.md) の 2）。⚠ 直す前後で `ledger.md` が 1 文字も変わらないことを先に確かめる |
 
 ## 5. 関連
 

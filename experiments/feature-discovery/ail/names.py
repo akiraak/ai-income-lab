@@ -35,6 +35,7 @@ _TOPK = re.compile(r"〔上位(\d+)・([^〕]+)〕$")                           
 _EXIT_LINE = re.compile(r"〔売り線(\d+)〕$")                              # <選び方・作り方>〔売り線50〕（rules.md 18-2）
 _STOP_LOSS = re.compile(r"〔買値から−(\d+)%〕$")                          # <選び方・作り方>〔買値から−5%〕（stoploss-as-model.md §0-4。形 B）
 _HOLD_DAYS = re.compile(r"〔(\d+)日で降りる〕$")                           # 基準 <選び方・作り方>〔5日で降りる〕（同。固定日数の出口）
+_TRADER = re.compile(r"〔トレーダー・([^〕]+)〕$")                         # <選び方・作り方>〔トレーダー・5本・$300〕（rules.md 20-4）
 _LEARNER = re.compile(r"^([^+(]+)((?:\+[^+(]+)*)(?:\(([^)]+)\))?$")      # 基底 +増強… (水準)
 _HORIZON = re.compile(r"^(\d+) 本")
 _GRAN = re.compile(r"^(\d+) 分足$")
@@ -63,6 +64,12 @@ def method_slug(key: str) -> str:
     t = table()
     if _ID.match(key):
         return key.lower()
+    if m := _TRADER.search(key):
+        # トレーダーの形の行（rules.md 20-4 の 4）。条件は `[trader]` の綴りを後ろに付ける（`-tr5`）
+        tr = table().get("trader", {})
+        if m.group(1) not in tr:
+            _stop("トレーダーの形の条件", key)
+        return _check(f"{method_slug(key[:m.start()])}-{tr[m.group(1)]}", "数字の選び方・作り方", key)
     if key in t["method"]:
         return t["method"][key]
     if (m := _TOPK_BASE.match(key)) and m.group(1) in t["topk"]:

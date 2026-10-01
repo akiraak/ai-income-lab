@@ -1,0 +1,44 @@
+# ⚠ **トレーダーと同じ形で机上にかける**（rules.md 20 章・プラン `docs/plans/best-model-trader.md` §2 Step 2）。
+# 候補は Step 1 の物差しで選んだ D2 中期ゲート（us74・θ 55）。
+#
+# ⚠ **`trend_scales_1995_us74.toml` との違い**: 表は `features_from` で借りる・detectors を D2 だけにした・
+# θ を Step 1 の行の 55 だけにした・⚠ **[[trading.trader]] を足した**。ラベル・k・fold・種・コストは同じ。
+# ⚠ **回すと決めたのは結果を見る前**（20 章）。⚠ 1 本 × 条件 2 ＝ 2 検証として数える。
+name = "trader_trend_scales_1995_us74"
+dataset = "daily74"
+horizon = 1
+cost_bp = 5.0
+features_from = "trend_scales_1995_us74"   # ⚠ 表は作り直さない（13-8）
+
+feature_layers = ["own", "trend"]
+label_scales = [20, 60, 200]
+targets = "all"
+
+horizon_min = 432000.0
+bar_minutes = 1440.0
+
+detectors = ["D2 中期ゲート（60日・学習）"]
+k = 6
+
+model = "Ridge"
+baselines = ["常に上（ドリフト）", "直前リターンの符号"]
+
+[trading]
+style = "threshold"
+thresholds = [55]              # ⚠ Step 1 で選んだ行の θ だけ（20-4 の 1）
+form = "shared"
+
+[[trading.trader]]
+tag = "5本・$300"
+symbols = ["T", "PFE", "NKE", "VZ", "BAC"]
+budget_usd = 300
+
+[[trading.trader]]
+tag = "全銘柄・全部を買える予算"
+
+[validation]
+split = "walk_forward_dates"
+folds = 5
+purge = true
+embargo_bars = 0
+seed = 0

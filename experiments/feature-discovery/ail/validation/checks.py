@@ -390,6 +390,38 @@ def topk_table(result: pd.DataFrame, daily: dict) -> list[dict]:
     return rows
 
 
+_TRADER_NAME = re.compile(r"^(?P<base>.+)〔トレーダー・(?P<tag>[^〕]+)〕$")
+
+
+def trader_table(result: pd.DataFrame, daily: dict, diag: pd.DataFrame | None) -> list[dict]:
+    """トレーダーの形の行（rules.md 20 章）ごとに、⚠ **対「持ち続ける」（判定の量）** と 対 乱択（診断）を並べる。"""
+    rows: list[dict] = []
+    if result is None or "手法" not in result:
+        return rows
+    for (name, th), g in result.groupby(["手法", "閾値"], sort=False):
+        m = _TRADER_NAME.match(str(name))
+        if m is None or str(name).startswith("基準 "):
+            continue
+        hold = f"基準 持ち続ける〔トレーダー・{m['tag']}〕"
+        net = result[result["閾値"] == th].pivot(index="fold", columns="手法", values="純利bp")
+        entry = {"method": str(name), "base": m["base"], "tag": m["tag"], "閾値": float(th),
+                 "純利bp": round(float(g["純利bp"].mean()), 4),
+                 "平均の投下率": round(float(g["保有日率"].mean()), 4)}
+        if hold in net and name in net:
+            e = (net[name] - net[hold]).sort_index()
+            entry["vs_hold"] = {**_sign_row(e), "mean_bp": round(float(e.mean()), 4),
+                                "t": (round(t_, 4) if (t_ := _t(e)) is not None else None),
+                                "daily": _daily_t(daily.get((name, th)), daily.get((hold, th)))}
+        if diag is not None and len(diag):
+            d = diag[(diag["手法"] == name) & (diag["閾値"] == th)].sort_values("fold")
+            if len(d):
+                e = pd.Series((d["純利bp"] - d["乱択純利bp"]).values, index=d["fold"].values)
+                entry["vs_random"] = {**_sign_row(e), "mean_bp": round(float(e.mean()), 4)}
+                entry["予算USD"] = [float(x) for x in d["予算USD"]]
+        rows.append(entry)
+    return rows
+
+
 def compute_trading(result: pd.DataFrame, summary: pd.DataFrame, per_symbol: pd.DataFrame,
                     daily: dict, config: dict, n_trials: int | None = None,
                     leak: bool = False, panel: pd.DataFrame | None = None,
@@ -474,6 +506,8 @@ def compute_trading(result: pd.DataFrame, summary: pd.DataFrame, per_symbol: pd.
     doc["by_threshold"] = by
     if (tk := topk_table(result, daily)):
         doc["topk"] = tk                           # ⚠ 上位 K の対 B&H ／ 対 乱択（rules.md 17-4）。診断
+    if (tr := trader_table(result, daily, (extra or {}).get("trader"))):
+        doc["trader"] = tr                         # ⚠ トレーダーの形（rules.md 20 章）。判定は検証結果一覧
     if (br := _breadth_trading(panel)) is not None:
         doc["breadth"] = br
 

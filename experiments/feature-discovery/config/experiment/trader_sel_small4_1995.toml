@@ -1,0 +1,56 @@
+# ⚠ **トレーダーと同じ形で机上にかける**（rules.md 20 章・プラン `docs/plans/best-model-trader.md` §2 Step 2。
+# 利用者の指示 2026-09-29・09-30）。候補は Step 1 の物差しで選んだ F1-7 ・ F2-2（どちらも θ 50）。
+#
+# ⚠ **`sel_small4_1995.toml` との違い**: selectors を候補 2 本に絞った・θ を Step 1 の行の 50 だけにした・
+# ⚠ **[[trading.trader]] を足した**。表・モデル・k・fold・種・コストは同じ（素の行は既存と同じ識別項目にまとまる ＝ 再現の検算）。
+# ⚠ **回すと決めたのは結果を見る前**（20 章）。⚠ 2 本 × 条件 2 ＝ 4 検証として数える。
+#
+# ⚠ **TOML の平の key はテーブル見出しより上に書く**（rules.md 10 章 規約 1）
+name = "trader_sel_small4_1995"
+dataset = "daily"
+horizon = 1
+cost_bp = 5.0
+features_from = "own_1995"     # ⚠ 表は作り直さない（13-8）
+
+feature_layers = ["own"]
+targets = "all"
+
+horizon_min = 1440.0
+bar_minutes = 1440.0
+
+selectors = [
+    "F2-2 RFE",
+    "F1-7 IC の安定性",
+]
+k = 16
+
+model = "Ridge"
+baselines = ["常に上（ドリフト）", "直前リターンの符号"]
+
+[trading]
+style = "threshold"
+thresholds = [50]              # ⚠ Step 1 で選んだ行の θ だけ（20-4 の 1）
+form = "shared"
+
+# ⚠ 2a 今の条件（20-2）。5 本は 2026-09-21 に実際の 3 人で確定したもの（⚠ 結果を見て選び直さない）
+[[trading.trader]]
+tag = "5本・$300"
+symbols = ["T", "PFE", "NKE", "VZ", "BAC"]
+budget_usd = 300
+
+# ⚠ 2b 全銘柄を買える予算（20-2）: 予算は fold ごとに「評価期間の close の最高値 × 銘柄数」
+[[trading.trader]]
+tag = "全銘柄・全部を買える予算"
+
+[validation]
+split = "walk_forward_dates"
+folds = 5
+purge = true
+embargo_bars = 0
+seed = 0
+
+[features]
+ex_lag_days = 1
+ex_zero_fill = ["usgs"]
+ex_transforms = ["d1", "z20"]
+ex_max_stale_days = 7

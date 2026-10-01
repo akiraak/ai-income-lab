@@ -206,6 +206,11 @@ class Run:
         if df is not None and len(df):
             self._csv("topk.csv", df, index=False)
 
+    def trader(self, df) -> None:
+        """⚠ **トレーダーの形の診断**（rules.md 20-3 の 3: 予算・乱択・買えた数・投下率）。⚠ **採否には使わない。**"""
+        if df is not None and len(df):
+            self._csv("trader.csv", df, index=False)
+
     def per_symbol(self, df: pd.DataFrame) -> None:
         """⚠ **銘柄別 bp は成果物**（rules.md 13-7。利用者の求める出力）。⚠ **採否には使わない。**"""
         if len(df):

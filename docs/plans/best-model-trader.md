@@ -110,6 +110,21 @@ flowchart LR
 - 判定: 上乗せ（対「持ち続ける」）> 0 かつ fold の符号が全部正 ＝ 採る ／ 平均だけ正 ＝ 保留 ／ ≤ 0 ＝ 落とす（13-7 と同じ形）。rules.md に新しい章として先に書く
 - 検証数: 3 本 × 2 条件 ＝ ＋6（2b の銘柄数が 63 ／ 74 で違っても 1 本 1 条件）。leak 対照は `cli.queue` が足す
 
+**✅ 2026-10-01 titan で実装した（回す前に [rules.md 20 章](../specs/experiments/feature-discovery/rules.md) へ固定 ＝ コミット `6bd2eee`）**。上の案から変えた点:
+
+| 案 | 実装 | 理由 |
+| --- | --- | --- |
+| `trader = { symbols, budgets_usd }` | `[[trading.trader]]`（`tag`・`symbols`・`budget_usd`。省けば全銘柄 ／ 全銘柄を買える予算）。`cli/run.py` の `trader_conditions`・`_trader_fold` | 条件 2 つを同じ形で書ける |
+| 2a の K ＝ 銘柄数 | **決めた本数（5）で固定**。評価期間に行の無い銘柄（T は 2006 年から）の枠は現金 | 行のある本数で割ると fold 1 の枠が $75 になり「枠 $60」が崩れる |
+| 乱択 ＝ `rng` を渡す（17-4） | **(買い%, 出口%) の組を行のあいだで並べ替える**（種 5 の平均・診断だけ） | K ＝ 銘柄数では枠が余るので、買う順を乱しても何も変わらない |
+| T+1 を足すか | **足さない**（20-1 の 4） | 17-1 の 4「売った枠は翌営業日から」がそのまま T+1。枠が固定なので売った代金を同じ日に回すことが起きない |
+| 判定の相手 | `ail/catalog.py` の `_edge_vs_bh` が `〔トレーダー・…〕` の行だけ `基準 持ち続ける〔…〕` と比べる | 式は 13-7 のまま |
+| — | `canonical` が ID つきの名前でも〔トレーダー・…〕を鍵に残す | 残さないと元の F1-7 の行と 1 行にまとまる。⚠ 直す前後で `ledger.md` は 1 文字も変わらないことを確かめた |
+
+config `trader_sel_small4_1995`（F2-2・F1-7・θ 50）／ `trader_trend_scales_1995_us74`（D2・θ 55）・queue `trader_shape`。テスト `tests/test_trader_shape.py` 10 本。
+
+**✅ 2026-10-01 に回した**（記録 [trader-shaped-validation.md](../specs/experiments/trader-shaped-validation.md)）: **採る 0 ／ 6**（保留 5・落とす 1）・n_trials 745 → 751。上乗せは 2a・2b とも残るが fold は 3/5 以下で割れる。⚠ Step 3 の進め方は記録 §4 の (a) ／ (b) を利用者が決める。
+
 ### Step 3: 残ったものを候補の人にする
 
 - `config/traders/candidates/<置き場>/T6.toml` ほか（手順書 `howto-model-trader.md` §2）→ sim で配線を通す → 呼び名は利用者

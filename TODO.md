@@ -80,6 +80,8 @@
       9/25 ✅ prepare rc=0（117 秒）／ trade rc=0（15:51:44 ET。dry-run の最後の日）
       9/26・27 は土日 ＝ cron（`1-5`）は起きない【実測 2026-09-27・journal に `run.sh` の行なし ＝ 正しい】。次は 9/28（月）06:00 prepare ／ 12:40 trade ＝ submit の初回（三台の役割分け Phase 4 ⑦）。見張り `check.sh` は 16:20 ET（下の子。9/28 から動く）
       9/28 ✅ prepare 09:02 ET rc=0（122 秒）／ trade rc=0（12:40:01 PDT に起き 15:51:50 ET に終了 ＝ 709 秒。**submit の初回** ＝ T1 の BAC 1 株 売り 1 本 Filled・問題 0）／ `check.sh` 16:20 ET 初回 `market=open trade rc=0 prepare rc=0 → 0`（`AIL_HC_URL` 無し ＝ not-sent）。三台の役割分け Phase 4 ⑦ はこれで閉じた（[DONE.md](DONE.md)）
+      9/29 ⚠ prepare **rc=1**（09:01 ET。外部系列の NOAA〔気象 ＝ 偽薬の枠〕が HTTP 503）／ trade rc=0（703 秒・T1 の BAC 1 株 買い Filled）／ `check.sh` `trade rc=0 prepare rc=1 → 0`（判定に使うのは trade の rc だけ）
+      9/30 ✅ prepare rc=0（120 秒）／ trade rc=0（706 秒・T1 の NKE 買い ＋ T3 の PFE 2 株 売り ＝ 2 本 Filled）／ `check.sh` `→ 0`
     - [x] 起動しなかった日を数える（⚠ 無人運転の成立はこれで測る。管理画面に「起動しなかった日」の考えは既にある ＝ [dashboard.md §13](docs/specs/dashboard.md)）
       ⚠ WSL2 の穴: **Windows を再起動して WSL が寝ていた時刻の回は実行されない**（`Persistent=false` ＝ 発注できる時間帯を過ぎてから起きても発注させない）。⚠ これは正しい挙動だが、**起動しなかった日として数える**必要がある
       関連: 管理画面の見張り「今日の起動が無い」（[dashboard.md §13-8](docs/specs/dashboard.md)）
@@ -122,6 +124,7 @@
     1 日目 ＝ 2026-09-23。20 営業日目は 2026-10-20（火）【計算。休場日なし】。⚠ 起動しなかった日があれば後ろへずれる（数え方は「起動しなかった日を数える」）
     ✅ 2026-09-27（Sx360 の Claude）: §1 に 2 日目（9/24）・3 日目（9/25）の行を足した（13500t の DB を読んだ ＝ titan から写した記録。9/24 は意図 0・9/25 は T1 の NKE 1 株の売りが Filled・差 1 0.00・T3 は同じ NKE を持ち続けた）。⚠ 9/24・9/25 は titan の timer の回（9/24 dry-run・9/25 submit）で、13500t の cron は両日とも dry-run（Phase 2 の DB ＝ 退けた）。4 日目は 9/28（月）＝ 13500t の初回
     ✅ 2026-09-28（Sx360 の Claude）: §1 に 4 日目（9/28 ＝ 13500t の cron の初回・submit）の行を足した（13500t の DB を読んだ）。T1 の BAC 1 株の売りが Filled（買い% 49.77 < 50。約定 $55.5119 は bid 55.52 の下 ＝ 差 1 +2.36bp）・T2 は 5 銘柄とも `skip`（50.16）・T3 は 5 銘柄とも `hold`。口座 − 売買履歴 ＝ 0・未完 0。5 日目は 9/29（火）
+    ✅ 2026-09-30（Sx360 の Claude）: §1 に 5 日目（9/29 ＝ T1 が BAC を買い戻し）・6 日目（9/30 ＝ T1 が NKE を買い戻し・T3 が初めて売り〔PFE 2 株・差 1 −1.75bp ＝ 初めて負〕）の行を足した（13500t の DB を読んだ）。2 日とも口座 − 売買履歴 ＝ 0・未完 0。⚠ 9/29 朝の prepare が NOAA の 503 で rc=1（夕方の回は通った）
   - [ ] 約定後の実際の手数料を読む（いまは dry-run の見積り ＝ `orders.jsonl` の `amounts.fee_source: "dry_run_estimate"`。`/accounts/{n}/transactions`【記憶・未確認】を sandbox で確かめてから）
     派生元: [plan](docs/plans/archive/live-trading-executor-fixes.md)（利用者の指示 2026-09-19「手数料など金額の内訳も保存するように」）
     ✅ 2026-09-25 推す案で決めた（利用者「全部おススメで直して」。[live-trading.md §0-15](docs/specs/experiments/live-trading.md)・[plan](docs/plans/live-trading-open-decisions.md)）: **10/20 の判定の後**に入れる（20 営業日のあいだは執行器を変えない。整数株の成行の手数料は 1 注文 $0.001 級【実測 §0-3】で判定に効かない）
@@ -248,13 +251,13 @@
   - [x] Phase 4: 複数モデルのトレーダーを作る（プラン §3 Phase 4 の Step 4-1〜4-5。vibeboard の読み先を `candidates/*/` に広げる → 実例 A `T4`〔いまの 3 本を `mean`・θ 50〕→ 実例 B `T5`〔主モデル ＋ 損切りモデルを `unanimous`〕→ `traders.toml` に呼び名と `[symbols_why]`・`models.toml` に損切りモデルの `[[model]]` → `test_trader.py` に追加 → `live-trading.md` §0-1 に候補の表。⚠ 執行器のコードは 0・実例の成績は測らない）
     依存: 「Phase 0: 決めごと K1〜K6 を決める（…）」（識別名・呼び名・置き場 ＝ K6）
     ✅ 2026-09-28 に 4-1〜4-5 を済ませた（titan の Claude。プラン §3 Phase 4 の ✅ 行・手順書 §2「設定の実物」・`live-trading.md` §0-1「候補の人」）: `candidates/multi/T4.toml`・`T5.toml`（T5 の損切りモデルは `X1 出口だけ 高値20日から−10%で降りる` ＝ 水準の良し悪しで選んでいない）・`sim_T4`・`sim_T5`・`traders.toml`（ハル ／ ミオ）・`models.toml`（`stop-exit`）・`test_trader.py` 4 本・`traderview.candidate_files`。執行器のコードは 0。見つけた誤り: `combine_unanimous` の文「売りも同じ」→ 直した
-  - [~] Phase 5: 通し方（`config/sim/sim5.toml`〔`sim_T4`・`sim_T5`・予算の合計 $600〕→ titan `simpredict.py make sim5` → `sim-predict/` を Sx360 へ写す〔⚠ いま Sx360 に無い ＝ sim3 ／ sim4 のぶんも〕→ Sx360 `./run-sim.sh sim5 --fresh --speed max` → 管理画面 3012 `[SIM]` と vibeboard〔トレーダー 2 人（候補）・新しい `[[model]]`〕に出る → `live-trading.md` §0-7 (k) に記録。⚠ 黄金の集計値には足さない）
+  - [x] Phase 5: 通し方（`config/sim/sim5.toml`〔`sim_T4`・`sim_T5`・予算の合計 $600〕→ titan `simpredict.py make sim5` → `sim-predict/` を Sx360 へ写す〔⚠ いま Sx360 に無い ＝ sim3 ／ sim4 のぶんも〕→ Sx360 `./run-sim.sh sim5 --fresh --speed max` → 管理画面 3012 `[SIM]` と vibeboard〔トレーダー 2 人（候補）・新しい `[[model]]`〕に出る → `live-trading.md` §0-7 (k) に記録。⚠ 黄金の集計値には足さない）
     ✅ 2026-09-29 titan で 5-1・5-2・5-4（作業用の置き場 ＝ 本物の `MODE` に触らない）・5-5 を済ませた（記録 [live-trading.md §0-7 (k)「sim5」](docs/specs/experiments/live-trading.md)）: 作り置き 64 本 282 秒・64 営業日 14 秒・注文 81 本 全部 Filled・口座 − 売買履歴 0・管理画面と vibeboard に 2 人が出た。テスト `--fast` ✅（執行器 165・管理画面 246）
-    ⚠ 残り: 5-3 `sim-predict/`（sim3 ／ sim4 ／ sim5 のぶん）を Sx360 へ写す ＝ **利用者 ／ Sx360 の Claude**（titan から Sx360 へは ssh が届かない【実測 2026-09-29】）→ Sx360 で `./run-sim.sh sim5 --fresh --speed max`。写すまでは Sx360 で sim3〜5 が回らない
+    ✅ 2026-09-30 Sx360 の Claude が 5-3 を済ませた: titan の `sim-predict/`（6.7 MB・sim3 ／ sim4 ／ sim5 のぶん）を Sx360 から rsync で引いた → `./run-sim.sh sim5 --fresh --speed max` ＝ 注文 81 本・全部 Filled・事象の件数まで titan と同じ・検査 0・管理画面 3012 に `[SIM]` と 2 人（記録 [live-trading.md §0-7 (k)「sim5」](docs/specs/experiments/live-trading.md)）
     見つかったこと: `sim_T5` は売り 32 本のうち 30 本を翌日に買い戻す（出口だけのモデルは「買わない」を言えない ＝ K2 の約束「買い% 常に 100」）。⚠ 本番に `T5` の形を入れるなら先に決める（検知器 `X1` が出口の日は買い% 0 ＝ K2 の変更 ／ 執行器に休み ＝ プラン §7）
   - [x] Phase 6: 手順書を仕上げる（実測のコマンド・時間・落ちたテストと直し方をプラン §4 の表に入れて `howto-model-trader.md` へ → `./run-tests.sh` と `dashboard` のテスト〔`test_real_history_matches_the_db` は titan の DB で〕→ 親を `DONE.md`・プランを `archive/` へ。⚠ 残るのは利用者の決定 ＝ 本番に `T4` ／ `T5` を入れるか〔K7・10/20 の後〕）
     ✅ 2026-09-29 titan で済ませた: `howto-model-trader.md` の §1・§2 の「実測」の欄（3 系統 ＋ 候補 2 人 ＋ sim5 のコマンドと時間）と §4「落ちたテストと直し方」（13 行 ＝ 落ちたテストより「見て気づいた穴」が多い）を埋めた。`./run-tests.sh` ✅（執行器 165 ／ 管理画面 246）・研究側 9 本 155 通過・`test_real_history_matches_the_db` は titan の DB で通過・`--full` の黄金の集計値 ✅ 変わらず（3 分 1 秒 ＝ 執行器を変えていない証拠）
-    ⚠ 親と プランはまだ閉じない: Phase 5 の 5-3（`sim-predict/` を Sx360 へ写す ＝ 利用者 ／ Sx360 の Claude）と、子「検証結果のうちで一番いい成績のものをベースにして新しいトレーダーを投入する」が残っている
+    ⚠ 親と プランはまだ閉じない: 子「検証結果のうちで一番いい成績のものをベースにして新しいトレーダーを投入する」が残っている（Phase 5 の 5-3 は 2026-09-30 に済んだ）
   - [ ] 検証結果のうちで一番いい成績のものをベースにして新しいトレーダーを投入する
     利用者の指示（2026-09-29）: **検証結果のうちで一番いい成績のものをベースにして新しいトレーダーを投入する**
     「一番いい成績」の出どころは検証結果一覧（`docs/specs/experiments/feature-discovery/ledger.md`。対 B&H 上乗せ bp/fold・fold の符号・判定）。⚠ 本番に入れる（`config/traders/` 直下へ写す・13500t の `live.env`・予算の上限）のは利用者の決定 ＝ Claude は候補の設定と手順（howto-model-trader.md §2）まで

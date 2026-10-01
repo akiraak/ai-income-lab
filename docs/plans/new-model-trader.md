@@ -190,11 +190,13 @@ flowchart LR
 | --- | --- | --- |
 | 5-1 | `config/sim/sim5.toml`（`traders = ["sim_T4", "sim_T5"]`。期間・気配は sim3 と同じ・筋書き無し。⚠ 予算の合計 ≤ $1,000 ＝ 2 人で $600） | Claude |
 | 5-2 | titan: `simpredict.py make sim5 --jobs 8`（増えるのは損切りモデルの 64 本だけ。sim3 の 192 本は 16 分【実測】） | Claude（titan） |
-| 5-3 | `sim-predict/` を Sx360 へ写す（⚠ いま Sx360 に無い ＝ sim3 ／ sim4 のぶんも一緒に） | 利用者 ／ Sx360 の Claude |
+| 5-3 | `sim-predict/` を Sx360 へ写す（sim3 ／ sim4 のぶんも一緒に）✅ 2026-09-30 | 利用者 ／ Sx360 の Claude |
 | 5-4 | Sx360: `./run-sim.sh sim5 --fresh --speed max` → 管理画面 3012 に `[SIM]`・T4・T5 の段・注文が出る。vibeboard（titan）にトレーダー 2 人（候補）と新しい `[[model]]` | Sx360 の Claude |
 | 5-5 | 結果を [live-trading.md §0-7 (k)](../specs/experiments/live-trading.md) に足す（注文の数・出来事の件数。⚠ 黄金の集計値には足さない ＝ `--full` を重くしない） | Claude |
 
 ✅ **2026-09-29 に 5-1・5-2・5-4（titan の作業用の置き場）・5-5 を済ませた**（titan の Claude。記録は [live-trading.md §0-7 (k)「sim5」](../specs/experiments/live-trading.md)）: 損切りモデルの作り置き 64 本 282 秒・64 営業日 14 秒・注文 81 本 全部 Filled（`sim_T4` 13 ／ `sim_T5` 68）・口座 − 売買履歴 0・管理画面（デモ 3014）と vibeboard に 2 人と `stop-exit` が出た。⚠ **残り ＝ 5-3（`sim-predict/` を Sx360 へ写す。利用者 ／ Sx360 の Claude）と Sx360 での 5-4**。見つかったこと: `sim_T5` は売った翌日に買い戻す（32 本中 30 本 ＝ 出口だけのモデルには「買わない」を言う口が無い）→ §7 に案を足した
+
+✅ **2026-09-30 に 5-3 と Sx360 での 5-4 を済ませた**（Sx360 の Claude）: Sx360 から titan の `sim-predict/` を rsync で引き（6.7 MB・65 日。titan → Sx360 は届かないが逆は届く）、`./run-sim.sh sim5 --fresh --speed max` を Sx360（機械のモード sim5・管理画面 3012）で回した ＝ 注文 81 本・事象の件数まで titan と同じ・検査 0。**Phase 5 は閉じた**
 
 ### Phase 6: 手順書を仕上げる
 
@@ -202,7 +204,7 @@ flowchart LR
 - `./run-tests.sh` と `dashboard` のテストを流す。`ledger.md` の合計と `models.toml` の試した経緯が一致すること（`test_real_history_matches_the_db`）
 - TODO の親を `DONE.md` へ・このプランを `archive/` へ。⚠ 残るのは利用者の決定（本番に T4 ／ T5 を入れるか ＝ 実売買の親の Phase 6 の後・K7）
 
-✅ **2026-09-29 に手順書を仕上げた**（titan の Claude）: [howto-model-trader.md](../specs/howto-model-trader.md) の §1（1-1〜1-8）・§2（2-1〜2-7）の「実測」の欄に 3 系統（先 10 日 ／ 損切り ／ 深層学習）と候補 2 人・sim5 のコマンドと時間を写し、§4 に落ちたテストと「見て気づいた穴」13 行を並べた。テスト: `./run-tests.sh` ✅（執行器 165 ／ 管理画面 246 ／ selftest ／ mockrun）・研究側 9 本 155 通過・`test_real_history_matches_the_db` は titan の DB で通過・`--full` の黄金の集計値 ✅ 変わらず（3 分 1 秒 ＝ 執行器を変えていない証拠）。⚠ **親を `DONE.md` へ・プランを `archive/` へはまだ**: Phase 5 の 5-3（Sx360 へ写す）と、2026-09-29 に足した子「一番いい成績のものをベースにして新しいトレーダーを投入する」が残る。
+✅ **2026-09-29 に手順書を仕上げた**（titan の Claude）: [howto-model-trader.md](../specs/howto-model-trader.md) の §1（1-1〜1-8）・§2（2-1〜2-7）の「実測」の欄に 3 系統（先 10 日 ／ 損切り ／ 深層学習）と候補 2 人・sim5 のコマンドと時間を写し、§4 に落ちたテストと「見て気づいた穴」13 行を並べた。テスト: `./run-tests.sh` ✅（執行器 165 ／ 管理画面 246 ／ selftest ／ mockrun）・研究側 9 本 155 通過・`test_real_history_matches_the_db` は titan の DB で通過・`--full` の黄金の集計値 ✅ 変わらず（3 分 1 秒 ＝ 執行器を変えていない証拠）。⚠ **親を `DONE.md` へ・プランを `archive/` へはまだ**: ~~Phase 5 の 5-3（Sx360 へ写す）~~（✅ 2026-09-30）と、2026-09-29 に足した子「一番いい成績のものをベースにして新しいトレーダーを投入する」が残る。
 
 ## 4. 手順書の骨組み（Phase 1 で `docs/specs/howto-model-trader.md` に書く）
 

@@ -159,6 +159,26 @@ def test_sim_copies_match_the_multi_candidates():
             (w.symbols, w.sizing, w.threshold, w.budget_usd, w.combine, [(m.kind, m.name, m.method) for m in w.models])
 
 
+# ---------- 検証結果一覧の上位をもとにした候補（config/traders/candidates/best/。2026-10-01 プラン best-model-trader.md Step 3）----------
+
+BEST = os.path.join(CONF, "candidates", "best")
+
+
+def test_best_candidate_is_wired_as_decided_and_matches_its_sim_copy():
+    """`T6` ＝ F2-2 RFE（`sel_small4_1995`）1 本を asis・θ 50・3 人と同じ 5 本・整数株・$300（利用者決定「(b) で進めて」）。
+    本番の人ではない（直下に無い）。sim6 の `sim_T6` は写し（test = true と名前だけ違う）。"""
+    from trader import load_traders
+    (t,) = load_traders(["T6"], BEST)
+    assert not t.test and t.combine == "asis" and t.threshold == 50.0 and t.budget_usd == 300.0
+    assert t.symbols == ("T", "PFE", "NKE", "VZ", "BAC") and t.sizing == "shares"
+    assert [(m.kind, m.name, m.method) for m in t.models] == [("experiment", "sel_small4_1995", "F2-2 RFE")]
+    assert not os.path.exists(os.path.join(CONF, "T6.toml"))
+    (g,) = load_traders(["sim_T6"], CONF)
+    assert g.test
+    assert (g.symbols, g.sizing, g.threshold, g.budget_usd, g.combine, [(m.kind, m.name, m.method) for m in g.models]) == \
+        (t.symbols, t.sizing, t.threshold, t.budget_usd, t.combine, [(m.kind, m.name, m.method) for m in t.models])
+
+
 def test_asis_is_refused_for_the_multi_shape():
     """`asis` は 1 本だけ ＝ 複数モデルの人を `asis` にすると読めない（合成規則を書き忘れた設定で起動できない）。"""
     with pytest.raises(ValueError):

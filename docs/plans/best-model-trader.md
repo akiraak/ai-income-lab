@@ -130,6 +130,17 @@ config `trader_sel_small4_1995`（F2-2・F1-7・θ 50）／ `trader_trend_scales
 - `config/traders/candidates/<置き場>/T6.toml` ほか（手順書 `howto-model-trader.md` §2）→ sim で配線を通す → 呼び名は利用者
 - ⚠ 本番に入れるか・予算の上限 $1,000 の扱い（K7）は 10/20 の判定の後に利用者が決める
 
+**✅ 2026-10-01 titan で通した**（利用者決定「(b) で進めて」。候補は 2a の上乗せが最大だった **F2-2 RFE**）:
+
+| 手順 | 結果【実測】 |
+| --- | --- |
+| `cli.predict --experiment sel_small4_1995 --method "F2-2 RFE" --asof 2026-09-04`（研究用の `data/`） | 63 行・訓練 431,633 行（1995-02-10〜2026-09-02）・表 31.5 秒 ＋ fit 0.92 秒。⚠ 買い% は 63 銘柄とも 52.52（Platt a ＝ 0.0098） |
+| 設定 | `config/traders/candidates/best/T6.toml`（asis・θ 50・5 本・整数株・$300）・`sim_T6`・`config/sim/sim6.toml`・`dashboard/traders.toml` の `[symbols_why]`・`models.toml` の `rfe-own1995`・`tests/test_trader.py` に 1 本 |
+| `simpredict.py make sim6` → `run-sim.sh sim6`（作業用の置き場） | 64 本 349 秒 ／ 64 営業日 12 秒・注文 5 本 全部 Filled（初日に買って売らない）・検査 5,150 行 印なし 0 |
+| 見つかったこと | ⚠ **今の時期の F2-2 は毎日「全部買う」**（64 日 × 63 銘柄とも買い% > 50）＝ T6 は「持ち続ける」と同じ動き。机上の上乗せは下げの時期に降りたことから来ている |
+
+⚠ 残り: 呼び名（利用者）／ Sx360 へ `sim-predict/` を写して sim6（任意）／ 本番に入れるかと学ぶ期間（`data-live/` は 2018 年から）・予算の上限（K7。10/20 の後・利用者）
+
 ## 3. 影響範囲
 
 - 研究側: `experiments/feature-discovery/`（config・必要なら `simulate_topk` に「銘柄の事前固定」の口）。⚠ 既定経路の指紋テスト（`tests/test_trading_run.py`）を変えない

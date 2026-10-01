@@ -1,0 +1,15 @@
+# シミュレーション sim6（live-trading.md §0-7 (k)・プラン best-model-trader.md Step 3）＝ 検証結果一覧の上位をもとにした候補の人（`candidates/best/T6`）の通し方の確認。
+# `sim_T6`（F2-2 RFE・θ 50・整数株・T・PFE・NKE・VZ・BAC の 5 本・$300）の 1 人。
+# ⚠ トレーダーのモデルは `kind = "experiment"`。先に予測を作り置く:  python simpredict.py make sim6（出来ているものは飛ばす）
+# ⚠ 日付は仮・値段は過去の実物 ＝ 損益に意味は無い（判定に混ぜない・黄金の集計値には足さない）。期間・出どころ・気配の作り方は sim1 ／ sim5 と同じ。筋書きは無し
+name = "sim6"
+traders = ["sim_T6"]
+start = "2026-10-01"
+end = "2026-12-31"
+source_start = "2026-06-01"
+windows = ["15:45:30"]
+speed = 60
+skip_outside_window = true
+spread_bp = 2.0
+fill_noise = 0.003
+seed = 0

@@ -107,6 +107,7 @@ flowchart LR
 | 深層学習の型 2 本 | Chronos-2 zero-shot（共変量あり ／ なし）・TimeXer（K5） | `docs/specs/experiments/exog-deep-models.md` | ✅ 2026-09-27 回した（9 検証とも落とす。1-1〜1-6・1-8 を通した。手順書に足す注意は記録 §5）。✅ 2026-09-28 Phase 3 ＝ 1-7〔`cli.predict`〕を 3 本とも通した（記録 §7） |
 | 実例 A `T4`（ハル） | いまの 3 本を `mean`・θ 50 | `live-trading.md` §0-1・§0-7 (k)（sim5） | ✅ 2026-09-28 書いた（2-1〜2-3・2-6 のテストと記録。§2「設定の実物」）。2-4・2-5（sim5 を通す）は Phase 5。✅ 2026-09-29 Phase 5 ＝ sim5 を titan で通した（2-4・2-5。⚠ Sx360 へ写すのは残り） |
 | 実例 B `T5`（ミオ） | 主モデル ＋ 損切りモデル（`X1 出口だけ 高値20日から−10%で降りる`）を `unanimous`・θ 50 | 同上・`stoploss-as-model.md` §7 | ✅ 2026-09-28 書いた（同上。`models.toml` に `stop-exit`）。2-4・2-5 は Phase 5。✅ 2026-09-29 Phase 5 ＝ sim5 を titan で通した（2-4・2-5。⚠ Sx360 へ写すのは残り） |
+| 検証結果一覧の上位 `T6` | `sel_small4_1995` の F2-2 RFE 1 本を `asis`・θ 50（既存のモデルを候補の人にする最短の道 ＝ 1 章は 1-7〔`cli.predict`〕と 1-8〔`[[model]]`〕だけ） | [trader-shaped-validation.md](experiments/trader-shaped-validation.md)・`live-trading.md` §0-1・§0-7 (k)（sim6） | ✅ 2026-10-01 titan で 2-2〜2-6 を通した（作り置き 64 本 349 秒・sim6 12 秒・注文 5 本 全部 Filled）。⚠ 呼び名は利用者 ／ Sx360 へ写すのは残り |
 
 ## 4. 落ちたテストと直し方（✅ 2026-09-29 Phase 6。実例で踏んだもの全部）
 

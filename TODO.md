@@ -270,8 +270,10 @@
       関連: 「予測モデルの検証のようにトレーダーの検証も行う（机上で「トレーダー込みの売り買いのまねごと」を回し、検証結果一覧に足す）」
     - [x] Step 2b: 同じ候補を全銘柄を買える予算（銘柄数 × 評価期間中の最高値）で机上にかける（titan）
       ✅ 2026-10-01 titan で 2a・2b を一緒に回した（規約は回す前に [rules.md 20 章](docs/specs/experiments/feature-discovery/rules.md)・記録 [trader-shaped-validation.md](docs/specs/experiments/trader-shaped-validation.md)）: **採る 0 ／ 6**（保留 5・落とす 1）・n_trials 745 → 751。対「持ち続ける」の上乗せ F1-7 ＋500 ／ ＋423・F2-2 ＋718 ／ ＋339・D2 −152 ／ ＋35bp/fold（2a ／ 2b）。fold は 3/5 以下で割れる。上乗せは下げ相場の fold から来る。2a は NKE が枠 $60 を超えて実質 4 本。予想 3 つとも当たった
-    - [ ] Step 3: 残ったものを候補の人にして sim で通す（`candidates/`・呼び名は利用者。本番は 10/20 の後に利用者）
-      ⚠ 利用者の決定待ち: 物差しでは採るものが無い ＝ (a) 候補の人を作らず子タスクを閉じる ／ (b) 保留の F2-2 か F1-7 を候補の人にして sim で配線だけ通す（先に `cli.predict` が 1995 年からの表の選別を `data-live/` で出せるか確かめる）。記録 §4
+    - [x] Step 3: 残ったものを候補の人にして sim で通す（`candidates/`・呼び名は利用者。本番は 10/20 の後に利用者）
+      ✅ 2026-10-01 利用者決定「(b) で進めて」→ titan で F2-2 RFE を候補の人 `T6`（`candidates/best/`）にして sim6 を通した: `cli.predict` 63 行・作り置き 64 本 349 秒・64 営業日 12 秒・注文 5 本 全部 Filled・検査 印なし 0。⚠ **今の時期の F2-2 は毎日「全部買う」**（64 日 × 63 銘柄とも買い% > 50）＝ T6 は持ち続けるだけ。記録 [live-trading.md §0-1・§0-7 (k)](docs/specs/experiments/live-trading.md)
+    - [ ] T6 の呼び名を決める（⚠ 利用者。意味の無い名前・使い回さない ＝ `dashboard/traders.toml` の `[nicks]`）
+    - [ ] Sx360 で sim6 を回す（`sim-predict/` に F2-2 の 64 本が増えた ＝ 写し直してから `./run-sim.sh sim6 --fresh --speed max`。利用者 ／ Sx360 の Claude）
 
 - [ ] 実売買の執行器（`run_day.py`・`reconcile.py`）のメッセージの「台帳」→「売買履歴」（⚠ 本番投入が落ち着いてから。執行器のテストを流す・本番に効くので「デプロイ」が要る）
   派生元: 「DBを使ったデータの永続化を行う」の「言葉を分かりやすくする」（2026-09-25 に DONE へ）

@@ -181,7 +181,8 @@ def fold_buy_pct(tr: pd.DataFrame, te: pd.DataFrame, feats: list[str], exp: dict
     return buy, exits, n_cols, fitted_doc
 
 
-def evaluate_trading(panel: pd.DataFrame, feats: list[str], exp: dict, run: runs.Run):
+def evaluate_trading(panel: pd.DataFrame, feats: list[str], exp: dict, run: runs.Run,
+                     leak: bool = False, mix_loader=None):
     """閾値つき売買（rules.md 13 章）: 較正 → 閾値 → 状態機械 → 銘柄別 bp ＋ ポートフォリオ。
 
     ⚠ **1 fold 1 fit を 3 閾値で使い回す**（13-3 の 5。閾値は予測の後ろにしか効かない）。
@@ -228,6 +229,12 @@ def evaluate_trading(panel: pd.DataFrame, feats: list[str], exp: dict, run: runs
     # ⚠ **トレーダーと同じ形**（rules.md 20 章。2026-10-01）。⚠ **`[trading] trader` の無い config は経路が 1 行も変わらない**
     trader_conds = trader_conditions(t, panel)
     trader_out: list[dict] = []
+    # ⚠ **合わせる口**（rules.md 20-6 の 4。2026-10-02）: ほかの実験の手法の買い% ／ 出口% を行ごとに平均した手法を足す。
+    # ⚠ **`[[trading.mix]]` の無い config は経路が 1 行も変わらない**（メンバーの表も読まない）
+    mixes = mix_specs(t)
+    if mixes and form == "per_symbol":
+        raise SystemExit("⚠ 合わせる口（rules.md 20-6 の 4）は形式 (A) だけ（(B) は銘柄ごとに較正が違う）")
+    mix_ext = _mix_prepare(mixes, edges, leak, mix_loader or load_mix_member) if mixes else {}
     if t.get("top_k") and "close" in panel:
         # ⚠ **特徴量には入らない**（`feats` は呼び出し側が先に決めている）。fold を切る前に作るのは、窓を過去へ伸ばすため
         panel = panel.assign(**{TOPK_VOL_COLUMN: topk_vol(panel)})
@@ -243,6 +250,9 @@ def evaluate_trading(panel: pd.DataFrame, feats: list[str], exp: dict, run: runs
         buy, exits, n_cols, fitted_doc = fold_buy_pct(
             tr, te, feats, exp, ctx, model=model, selectors=selectors, detectors=detectors,
             baselines=baselines, form=form, k=k, groups=groups, f=f, picked=picked, log=run.log)
+        if mixes:
+            # ⚠ **既存の手法の買い% を作り終えた後に足すだけ**（後ろの行の作り方は既存の手法と同じ）
+            _mix_fold(mixes, mix_ext, te, buy, exits, n_cols, fitted_doc, f, run.log)
         run.fitted(f"calibration_f{f}", fitted_doc)     # ⚠ 再現用。次の実行では読み込まない（13-2 の 3）
 
         def _row(name: str, base: str, bp, ex, hit: float, ic: float, th: float, th_exit: float | None = None,
@@ -526,6 +536,141 @@ def _topk_fold(t: dict, te: pd.DataFrame, y, ts_te, buy: dict, exits: dict, n_co
                                          "買った銘柄の種類数": res["symbols_bought"]})
 
 
+def mix_specs(t: dict) -> list[dict]:
+    """`[[trading.mix]]`（rules.md 20-6 の 4）。⚠ **無ければ空 ＝ 既存の経路**。
+
+    各項: `name`（手法名。必須）・`members`（2 本以上。`method` は必須・`experiment` を省くとこの実行の手法）・
+    `combine`（`mean` だけ ＝ 買い% ／ 出口% の平均 ＝ 執行器の `mean`）。
+    ⚠ **メンバー・合わせ方は事前固定。結果を見て動かさない**（14-9）。
+    """
+    specs = []
+    for m in t.get("mix") or []:
+        name = str(m.get("name") or "")
+        if not name or name.startswith("基準 ") or "〔" in name or "〕" in name:
+            raise SystemExit(f"⚠ trading.mix の name {name!r} が空か、「基準 」で始まるか、〔〕を含む（rules.md 20-6 の 4）")
+        if str(m.get("combine", "mean")) != "mean":
+            raise SystemExit(f"⚠ trading.mix {name!r} の combine は mean だけ（rules.md 20-6 の 4 の 4）")
+        members = [{"experiment": str(x["experiment"]) if x.get("experiment") else None,
+                    "method": str(x.get("method") or "")} for x in (m.get("members") or [])]
+        if len(members) < 2 or any(not x["method"] for x in members):
+            raise SystemExit(f"⚠ trading.mix {name!r} の members は method を持つ 2 本以上（rules.md 20-6 の 4 の 1）")
+        if len({(x["experiment"], x["method"]) for x in members}) != len(members):
+            raise SystemExit(f"⚠ trading.mix {name!r} に同じメンバーが 2 度ある")
+        specs.append({"name": name, "members": members})
+    if len({s["name"] for s in specs}) != len(specs):
+        raise SystemExit("⚠ trading.mix に同じ name が 2 度ある")
+    return specs
+
+
+def load_mix_member(experiment: str, leak: bool) -> tuple[dict, pd.DataFrame, list[str]]:
+    """合わせる口のメンバーを、**その実験自身の config と表**で読む（rules.md 20-6 の 4 の 2）。
+
+    ⚠ leak 対照の実行ではメンバーも leak の表を読む（配線の検査が合成の行でも跳ねるように）。
+    """
+    mexp = config.resolve_experiment(experiment)
+    ds = mexp["_dataset"]
+    mpanel, _ = load_panel(experiment, ds["period"], leak, mexp.get("features_from"))
+    mexp.setdefault("horizon_min", 1440.0 if ds["period"] == "d" else float(mexp["horizon"]))
+    return mexp, mpanel, [c for c in mpanel.columns if c not in META_COLUMNS]
+
+
+def _mix_prepare(specs: list[dict], edges: list, leak: bool, loader) -> dict[str, dict]:
+    """外のメンバーを実験ごとに 1 度だけ読み、⚠ **この実行と同じ日付の切れ目**で fold を切っておく。
+
+    パージ・エンバーゴはメンバー自身の config のもの（＝ そのメンバーが単体で回るときと同じ訓練・同じ検証）。
+    ⚠ 切れ目が 1 つでも違えば止まる（違う fold の買い% を混ぜると、合成の行が何を測ったのか言えなくなる）。
+    """
+    from ail.validation import splits
+
+    ext: dict[str, dict] = {}
+    for name in sorted({m["experiment"] for s in specs for m in s["members"] if m["experiment"]}):
+        mexp, mpanel, mfeats = loader(name, leak)
+        if str((mexp.get("trading") or {}).get("form", "shared")) != "shared":
+            raise SystemExit(f"⚠ trading.mix のメンバー {name} は形式 (A) ではない（rules.md 20-6 の 4）")
+        mv = mexp.get("validation", {})
+        medges = splits.date_edges(mpanel["ts"], int(mv.get("folds", 5)))
+        if len(medges) != len(edges) or any(pd.Timestamp(a) != pd.Timestamp(b) for a, b in zip(medges, edges)):
+            raise SystemExit(f"⚠ trading.mix のメンバー {name} は fold の切れ目がこの実行と違う（rules.md 20-6 の 4 の 2）: "
+                             f"{[str(pd.Timestamp(e).date()) for e in medges]} ≠ {[str(pd.Timestamp(e).date()) for e in edges]}")
+        folds = {f: (tr, te.reset_index(drop=True))
+                 for f, tr, te in splits.folds_by_dates(mpanel, edges, float(mexp["horizon_min"]),
+                                                        int(mv.get("embargo_bars", 0)),
+                                                        float(mexp.get("bar_minutes", 0.0)))}
+        ext[name] = {"exp": mexp, "feats": mfeats, "folds": folds}
+    return ext
+
+
+def _row_key(frame: pd.DataFrame) -> pd.MultiIndex:
+    return pd.MultiIndex.from_arrays([frame["symbol"].astype(str).values, pd.to_datetime(frame["ts"]).values])
+
+
+def _member_buy_pct(mexp: dict, mtr: pd.DataFrame, mte: pd.DataFrame, mfeats: list[str], method: str, f, log):
+    """メンバー 1 本の買い% ／ 出口%。⚠ **`fold_buy_pct` をそのまま通す**（モデル・較正の式をここに書かない）。"""
+    mv = mexp.get("validation", {})
+    mk = int(mexp.get("k", 8))
+    mmodel = registry.resolve("model", mexp.get("model", "Ridge"))
+    mctx = {"seed": int(mv.get("seed", 0)), "model": mmodel, "k": mk, **mexp.get("model_args", {})}
+    if method in (mexp.get("detectors") or []):
+        sels, dets, lab = {}, registry.resolve_all("detector", [method]), method
+    elif method in (mexp.get("selectors") or []):
+        sels, dets, lab = registry.resolve_all("selector", [method]), {}, prep.label(mexp, method)
+    else:
+        raise SystemExit(f"⚠ trading.mix のメンバーの手法 {method!r} が実験 {mexp.get('name')} の config に無い")
+    b, x, _, doc = fold_buy_pct(mtr, mte, mfeats, mexp, mctx, model=mmodel, selectors=sels, detectors=dets,
+                                baselines={}, form="shared", k=mk, groups=mte.groupby("symbol").indices,
+                                f=f, picked=[], log=log)
+    return b[lab], x.get(lab), doc.get(lab)
+
+
+def _mix_fold(specs: list[dict], ext: dict[str, dict], te: pd.DataFrame, buy: dict, exits: dict,
+              n_cols: dict, fitted_doc: dict, f, log) -> None:
+    """1 fold ぶんの合成の買い% ／ 出口% を `buy`・`exits` に足す（rules.md 20-6 の 4 の 3・4）。
+
+    行は (銘柄, 日) で突き合わせる。1 本でも欠ける行は NaN ＝ その銘柄は後ろの `_row` が飛ばす（既存の規則）。
+    """
+    key = _row_key(te)
+    cache: dict[tuple, tuple] = {}
+
+    def member(m: dict) -> tuple:
+        k = (m["experiment"], m["method"])
+        if k in cache:
+            return cache[k]
+        if m["experiment"] is None:
+            if m["method"] not in buy:
+                raise SystemExit(f"⚠ trading.mix のメンバー {m['method']!r} がこの実行の手法に無い")
+            out = (np.asarray(buy[m["method"]], dtype=float), exits.get(m["method"]), None)
+        else:
+            e = ext[m["experiment"]]
+            if f not in e["folds"]:
+                raise SystemExit(f"⚠ trading.mix のメンバー {m['experiment']} に fold {f} が無い（訓練か検証が足りない）")
+            mtr, mte = e["folds"][f]
+            b, x, doc = _member_buy_pct(e["exp"], mtr, mte, e["feats"], m["method"], f, log)
+            mkey = _row_key(mte)
+            if mkey.has_duplicates:
+                raise SystemExit(f"⚠ trading.mix のメンバー {m['experiment']} の表に同じ (銘柄, 日) が 2 行ある")
+            out = (pd.Series(np.asarray(b, dtype=float), index=mkey).reindex(key).to_numpy(dtype=float),
+                   None if x is None else pd.Series(np.asarray(x, dtype=float), index=mkey).reindex(key).to_numpy(dtype=float),
+                   doc)
+        cache[k] = out
+        return out
+
+    for s in specs:
+        parts = [member(m) for m in s["members"]]
+        mixed = np.vstack([p[0] for p in parts]).mean(axis=0)
+        # ⚠ 出口% を返さないメンバーは 100 − 買い%（16-1 の 4）。全員がそうなら None ＝ 100 − 平均の買い% で既存と同じ経路
+        ex = (None if all(p[1] is None for p in parts)
+              else np.vstack([100.0 - p[0] if p[1] is None else p[1] for p in parts]).mean(axis=0))
+        buy[s["name"]] = mixed
+        exits[s["name"]] = ex
+        n_cols[s["name"]] = 0.0
+        miss = int(np.isnan(mixed).sum())
+        fitted_doc[s["name"]] = {"combine": "mean", "行": int(len(mixed)), "欠けた行": miss,
+                                 "members": [{"experiment": m["experiment"], "method": m["method"], "doc": p[2]}
+                                             for m, p in zip(s["members"], parts)]}
+        if miss:
+            log(f"  ⚠ 合成 {s['name']} fold {f}: 欠けた行 {miss:,} ／ {len(mixed):,}（欠けのある銘柄は飛ばす）")
+
+
 TRADER_RANDOM_SEEDS = 5      # ⚠ 診断「乱択」は種 5 つの平均（rules.md 20-3 の 3。事前固定）
 
 
@@ -533,7 +678,8 @@ def trader_conditions(t: dict, panel: pd.DataFrame) -> list[dict]:
     """`[[trading.trader]]`（rules.md 20-2）。⚠ **無ければ空 ＝ 既存の経路**。
 
     各項: `tag`（手法名の印。必須）・`symbols`（省けば表の全部）・`budget_usd`（省けば fold ごとに
-    「評価期間の close の最高値 × 銘柄数」＝ どの日でも全銘柄を 1 株以上買える額）。
+    「評価期間の close の最高値 × 銘柄数」＝ どの日でも全銘柄を 1 株以上買える額）・
+    `methods`（条件を当てる手法。⚠ **省けば全部 ＝ 2026-10-01 の経路と同一**。rules.md 20-6 の 4 の 5）。
     ⚠ **銘柄・予算は事前固定。結果を見て動かさない**（20-5 の 5）。
     """
     conds = []
@@ -545,8 +691,12 @@ def trader_conditions(t: dict, panel: pd.DataFrame) -> list[dict]:
         usd = c.get("budget_usd")
         if usd is not None and float(usd) <= 0:
             raise SystemExit(f"⚠ trading.trader の budget_usd = {usd} は正の額だけ")
+        only = c.get("methods")
+        if only is not None and (not only or not all(isinstance(m, str) and m for m in only)):
+            raise SystemExit(f"⚠ trading.trader {tag!r} の methods は手法名の一覧だけ（省けば全部。rules.md 20-6 の 4 の 5）")
         conds.append({"tag": tag, "symbols": None if syms is None else sorted(str(s) for s in syms),
-                      "budget_usd": None if usd is None else float(usd)})
+                      "budget_usd": None if usd is None else float(usd),
+                      "methods": None if only is None else [str(m) for m in only]})
     if conds:
         if "close" not in panel:
             raise SystemExit("⚠ トレーダーの形（rules.md 20 章）は表に close 列が要る（整数株）")
@@ -612,6 +762,8 @@ def _trader_fold(conds: list[dict], te: pd.DataFrame, y, ts_te, buy: dict, exits
         for mname, bp_all in buy.items():
             if mname.startswith("基準 ") or mname == "乱択（基準）":
                 continue                                   # ⚠ 基準線は通さない（17 章と同じ）
+            if c.get("methods") is not None and mname not in c["methods"]:
+                continue                                   # ⚠ 条件を当てる手法を絞ったとき（20-6 の 4 の 5）
             bp = bp_all[mask]
             ex_all = exits.get(mname)
             ex = None if ex_all is None else ex_all[mask]
@@ -757,7 +909,7 @@ def main() -> None:
             print(f"→ {run.close()}")          # 実行の名前（記録は runs/research.sqlite）
             return
         exp = gated_exp
-        res, per_sym, g, daily, extra = evaluate_trading(panel, feats, exp, run)
+        res, per_sym, g, daily, extra = evaluate_trading(panel, feats, exp, run, leak=args.leak)
         run.log("")
         run.log(g.to_string())
         run.log(f"\n⚠ 純利 = 売買した日だけ片道 {float(exp.get('cost_bp', 5.0)) / 2:g}bp を引いた後"

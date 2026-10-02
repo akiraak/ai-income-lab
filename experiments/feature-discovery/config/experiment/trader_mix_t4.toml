@@ -1,0 +1,71 @@
+# ⚠ **候補の人 `T4`（ハル）をトレーダーと同じ形で机上にかける**（rules.md 20-6・プラン `docs/plans/trader-shape-live-three.md`。
+# 利用者の指示 2026-10-01「新しく作られたT4移行とT1-T3も比較したい」）。
+# `T4` ＝ `T1`・`T2`・`T3` のモデルの買い% ／ 出口% の平均（執行器の `mean`）・θ 50。机上の写しは合わせる口 `[[trading.mix]]`（20-6 の 4）。
+#
+# ⚠ **この実行の持ち主は `T2` の表**（会社の 48 本 ＝ 3 本ともスコアを出す銘柄）。`T1`・`T3` のモデルはメンバーとして
+# 自分の config と表（63 本）で同じ日付の切れ目の fold を学び、(銘柄, 日) でこの表の行に当てる。
+# ⚠ **検証結果一覧の「モデル」「特徴量の層」の列は持ち主（LightGBM・own cs rel ex）のもの**。合成の中身は `members`。
+# ⚠ 出る行: 素の行「全部使う（基準）」θ 50（既存と同じ識別項目 ＝ 再現の検算）・`M1 3本の平均`（＋1）・
+#    `M1 3本の平均〔トレーダー・…〕` × 条件 2（＋2）・基準線。トレーダーの形は `methods` で合成だけに当てる。
+# ⚠ **回すと決めたのは結果を見る前**（20-6）。
+#
+# ⚠ **TOML の平の key はテーブル見出しより上に書く**（rules.md 10 章 規約 1）
+name = "trader_mix_t4"
+dataset = "daily"
+horizon = 1
+cost_bp = 5.0
+features_from = "trade_ownex_ridge_a"  # ⚠ 表は trade_ownex_ridge_a が持ち主（作り直さない）
+
+feature_layers = ["own", "cs", "rel", "ex"]
+targets = "company"
+
+horizon_min = 1440.0
+bar_minutes = 1440.0
+
+selectors = ["全部使う（基準）"]   # ⚠ `T2` のモデル（合成のメンバーの 1 本）
+k = 32
+
+model = "LightGBM"
+baselines = ["常に上（ドリフト）", "直前リターンの符号"]
+
+[trading]
+style = "threshold"
+thresholds = [50]              # ⚠ `T4` の設定の 1 水準だけ（20-6）
+form = "shared"
+
+# ⚠ 合わせる口（20-6 の 4）。メンバーは `candidates/multi/T4.toml` の `[[models]]` と同じ 3 本
+[[trading.mix]]
+name = "M1 3本の平均"
+combine = "mean"
+members = [
+  { method = "全部使う（基準）" },                                          # `T2` のモデル（この実行）
+  { experiment = "trade_own_ridge_a", method = "全部使う（基準）" },        # `T1` のモデル
+  { experiment = "trade_ownseq_ridge_a", method = "T3 QUANT（60日窓）" },   # `T3` のモデル
+]
+
+# ⚠ 2a 今の条件（20-2）。⚠ 合成だけに当てる（持ち主の手法に θ 50 のトレーダーの行を増やさない ＝ 20-6 の 4 の 5）
+[[trading.trader]]
+tag = "5本・$300"
+symbols = ["T", "PFE", "NKE", "VZ", "BAC"]
+budget_usd = 300
+methods = ["M1 3本の平均"]
+
+# ⚠ 2b 全銘柄を買える予算（20-2）。全銘柄 ＝ 会社の 48 本
+[[trading.trader]]
+tag = "全銘柄・全部を買える予算"
+methods = ["M1 3本の平均"]
+
+[validation]
+split = "walk_forward_dates"
+folds = 5
+purge = true
+embargo_bars = 1               # ⚠ 断面は同じ足の他銘柄を見るので、境目を 1 本空ける
+seed = 0
+
+[features]
+beta_window = 60
+ex_lag_days = 1
+ex_sources = ["ecb", "treasury", "noaa", "usgs"]
+ex_zero_fill = ["usgs"]        # ⚠ 地震は「行が無い日 = 0 件」
+ex_transforms = ["d1", "z20"]  # ⚠ 水準は非定常なので入れない
+ex_max_stale_days = 7

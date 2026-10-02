@@ -72,6 +72,8 @@ def method_slug(key: str) -> str:
         return _check(f"{method_slug(key[:m.start()])}-{tr[m.group(1)]}", "数字の選び方・作り方", key)
     if key in t["method"]:
         return t["method"][key]
+    if key in t.get("mix", {}):
+        return t["mix"][key]              # 合わせる口の手法（rules.md 20-6 の 4）
     if (m := _TOPK_BASE.match(key)) and m.group(1) in t["topk"]:
         return _check(f"{t['topk'][m.group(1)]}-{method_slug(m.group(2))}-top{m.group(3)}-{_holding(m.group(4), key)}",
                       "数字の選び方・作り方", key)

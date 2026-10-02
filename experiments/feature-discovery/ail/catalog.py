@@ -170,6 +170,13 @@ def detector_names() -> set[str]:
     return set(registry.available("detector"))
 
 
+def mix_names() -> set[str]:
+    """合わせる口の手法（rules.md 20-6 の 4）。⚠ 登録の正本は `config/names.toml` の `[mix]`（registry には無い）。"""
+    from ail import names
+
+    return set(names.table().get("mix", {}))
+
+
 # --- 試行（runs/ と 旧配線）---------------------------------------------
 
 def _symbols_of(run: dict) -> str:
@@ -677,6 +684,7 @@ def ledger() -> dict:
     impl = implemented()
     bases = baseline_names()
     dets = detector_names()
+    mixes = mix_names()
     rows, leak, run_list = trials()
 
     by_id = {c["ID"]: c for c in cat}
@@ -689,8 +697,9 @@ def ledger() -> dict:
         base = ("乱択（基準）" if r["鍵"].startswith(("乱択上位〔", "ボラ上位〔"))
                 else _VARIANT.sub("", r["鍵"]))
         r["系統"] = (f"{c['系統']} {c['系統名']}" if c
-                     else "検知器" if base in dets else "基準線")
-        r["実装"] = "✅" if (r["ID"] in impl or base in bases or base in dets
+                     else "検知器" if base in dets
+                     else "合成" if base in mixes else "基準線")       # 合成 ＝ 合わせる口（rules.md 20-6 の 4）
+        r["実装"] = "✅" if (r["ID"] in impl or base in bases or base in dets or base in mixes
                              or base == "持ち続ける") else "⚠ 無"      # 持ち続ける ＝ rules.md 20-3 の 1
         r["判定"], r["理由"] = judge(r, bases)
     # ⚠ 判定が出そろってから「閉じる」注記を当てる（判定は変えない。rules.md 14 章）

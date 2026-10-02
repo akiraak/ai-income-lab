@@ -1,0 +1,53 @@
+# ⚠ **いまの 3 人をトレーダーと同じ形で机上にかける**（rules.md 20-6・プラン `docs/plans/trader-shape-live-three.md`。
+# TODO「予測モデルの検証のようにトレーダーの検証も行う」。利用者の指摘 2026-09-26）。`T1`（アキ） が使うモデル。
+#
+# ⚠ **`trade_own_ridge_a.toml` との違い**: selectors を実売買の 1 本（全部使う）に絞った（乱択（基準）は外す ＝ `_topk` と同じ）・θ を実売買の設定の 1 水準だけにした・
+# ⚠ **[[trading.trader]] を足した**。表・モデル・k・fold・種・コストは同じ（素の行は既存と同じ識別項目にまとまる ＝ 再現の検算）。
+# ⚠ **回すと決めたのは結果を見る前**（20-6）。⚠ 1 本 × 条件 2 ＝ 2 検証として数える。
+#
+# ⚠ **TOML の平の key はテーブル見出しより上に書く**（rules.md 10 章 規約 1）
+name = "trader_trade_own_ridge_a"
+dataset = "daily"
+horizon = 1
+cost_bp = 5.0
+features_from = "own_2018"     # ⚠ 表は作り直さず own_2018 のものを読む（13-8。表の差を混ぜない）
+
+feature_layers = ["own"]
+targets = "all"
+
+horizon_min = 1440.0
+bar_minutes = 1440.0
+
+selectors = ["全部使う（基準）"]   # ⚠ 実売買の T1 が使う 1 本だけ
+k = 16
+
+model = "Ridge"
+baselines = ["常に上（ドリフト）", "直前リターンの符号"]
+
+[trading]
+style = "threshold"
+thresholds = [50]              # ⚠ 実売買の T1 の設定の 1 水準だけ（20-6）
+form = "shared"
+
+# ⚠ 2a 今の条件（20-2）。5 本は 2026-09-21 に実際の 3 人で確定したもの（⚠ 結果を見て選び直さない）
+[[trading.trader]]
+tag = "5本・$300"
+symbols = ["T", "PFE", "NKE", "VZ", "BAC"]
+budget_usd = 300
+
+# ⚠ 2b 全銘柄を買える予算（20-2）: 予算は fold ごとに「評価期間の close の最高値 × 銘柄数」
+[[trading.trader]]
+tag = "全銘柄・全部を買える予算"
+
+[validation]
+split = "walk_forward_dates"
+folds = 5
+purge = true
+embargo_bars = 0
+seed = 0
+
+[features]
+ex_lag_days = 1
+ex_zero_fill = ["usgs"]
+ex_transforms = ["d1", "z20"]
+ex_max_stale_days = 7

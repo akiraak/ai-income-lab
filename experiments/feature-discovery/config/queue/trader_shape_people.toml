@@ -1,0 +1,13 @@
+# ⚠ **いまの 3 人と候補の人をトレーダーと同じ形で机上にかける**（rules.md 20-6・プラン `docs/plans/trader-shape-live-three.md`）。
+# 事前固定は rules.md 20-6（⚠ **回すと決めたのは結果を見る前**）。この queue は設定だけで回せる 5 本 ＝
+# `T1`・`T2`・`T3`・`T5`・`T6`（2018 年からの表）。n_trials ＋11（条件 2 × 5 本 ＋ `T6` の素の行 1）。
+# ⚠ `T4`（3 本の平均）は別の queue（`trader_shape_mix`。コードを足してから。＋3）。
+# 表は作り直さない（5 本とも `features_from`。leak 対照の表も既にある）。
+# ⚠ **順は手間の小さい順**（14-10 規約 4）: Ridge → Ridge（選別）→ Ridge（損切り）→ LightGBM → 時系列分類器（QUANT）。
+experiments = ["trader_trade_own_ridge_a", "trader_sel_small4_2018", "trader_trade_own_stop_ridge_a",
+               "trader_trade_ownex_lgbm_a", "trader_trade_ownseq_ridge_a"]
+
+leak = true              # ⚠ 配線の穴に気づく唯一の手。切らない
+ledger = false           # ⚠ 検証結果一覧は終わってから 1 回吐く
+max_failures = 2
+time_budget_s = 3600     # ⚠ 見積り 6 分【推測。`_topk` の 3 本 ＋ leak 3 本が 2 分【実測】。乱択 5 種と 2 本ぶんを足した】の 10 倍

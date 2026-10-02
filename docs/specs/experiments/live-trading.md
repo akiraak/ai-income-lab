@@ -20,7 +20,7 @@
 | 予備 | — | — | A $100 ／ B $1,000 | — | 規制費・約定の端数・受渡しの遅れ |
 | `test_a`（試験用） | `file`（`config/signals/test_a.csv`。日付ごとに 買い ／ 出口 を手で書く） | 50 | $30 | `T`（us63 で株価が最も低い。$25.4【実測 2026-09-18 00:00 ET の気配】） | ✅ 固定。本番の最小額 1 発注に使う |
 
-**候補の人（複数モデル。2026-09-28 に事前固定。⚠ 本番の人ではない）** — 手順書 [howto-model-trader.md §2](../howto-model-trader.md) を 1 度通した実例（[プラン new-model-trader.md](../../plans/new-model-trader.md) §3 Phase 4）。設定は `config/traders/candidates/multi/`・sim 用の写しは `config/traders/sim_T4`・`sim_T5`（sim5 ＝ §0-7 (k)）。⚠ **配線の確認が目的で、成績は測らない・成績で採らない**。本番に入れるかは 10/20 の判定の後に利用者が決める（§0-15 C11・プラン §2 K7）。
+**候補の人（複数モデル。2026-09-28 に事前固定。⚠ 本番の人ではない）** — 手順書 [howto-model-trader.md §2](../howto-model-trader.md) を 1 度通した実例（[プラン new-model-trader.md](../../plans/archive/new-model-trader.md) §3 Phase 4）。設定は `config/traders/candidates/multi/`・sim 用の写しは `config/traders/sim_T4`・`sim_T5`（sim5 ＝ §0-7 (k)）。⚠ **配線の確認が目的で、成績は測らない・成績で採らない**。本番に入れるかは 10/20 の判定の後に利用者が決める（§0-15 C11・プラン §2 K7）。
 
 | 候補 | 呼び名 | モデル | 合成規則 | θ | 予算 | 銘柄集合 | 決め手 |
 | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -29,11 +29,11 @@
 
 ⚠ **予算**: 候補 2 人で $600（sim5 は 2 人だけ ＝ 執行器の既定の上限 $1,000 の内）。本番に足すなら 3 人 $900 ＋ 1 人 $300 ＝ $1,200 が上限 $1,000 に当たる ＝ 上限か予算を利用者が決める（K7）。⚠ **銘柄集合を 3 人と同じにした理由**: 株を変えると、モデルを合わせた違いと株の違いが混ざる。⚠ **同じ実験名の違う手法を 1 人の中で 2 本持てない**（`signals.py` は (実験名, 銘柄) で行を引く。損切りモデルは主モデルとは別の実験名）。テストは `tests/test_trader.py`（候補が読める・sim の写しが一致・`asis` は 2 本で拒む・`unanimous` の買いは主モデルの値）。vibeboard のトレーダーのタブは `candidates/*/` の人を「（候補）」で出す（2026-09-28 に `notional/` だけから広げた。`dashboard.md` §16-1）。
 
-**候補の人（検証結果一覧の上位。2026-10-01。⚠ 本番の人ではない）** — [プラン best-model-trader.md](../../plans/best-model-trader.md) Step 3（利用者決定「(b) で進めて」）。設定は `config/traders/candidates/best/T6.toml`・sim 用の写しは `config/traders/sim_T6`（sim6 ＝ §0-7 (k)）。⚠ **配線の確認が目的で、成績で採らない**（物差しでは採る 0 ＝ [trader-shaped-validation.md](trader-shaped-validation.md)）。
+**候補の人（検証結果一覧の上位。2026-10-01。⚠ 本番の人ではない）** — [プラン best-model-trader.md](../../plans/archive/best-model-trader.md) Step 3（利用者決定「(b) で進めて」）。設定は `config/traders/candidates/best/T6.toml`・sim 用の写しは `config/traders/sim_T6`（sim6 ＝ §0-7 (k)）。⚠ **配線の確認が目的で、成績で採らない**（物差しでは採る 0 ＝ [trader-shaped-validation.md](trader-shaped-validation.md)）。
 
 | 候補 | 呼び名 | モデル | 合成規則 | θ | 予算 | 銘柄集合 | 決め手 |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| `T6` | （利用者が選ぶ） | `sel_small4_1995` の `F2-2 RFE`（35 列から 16 列を選んで Ridge・1995 年から学ぶ） | `asis` | 50 | A $300 | 3 人と同じ 5 本・`shares` | トレーダーと同じ形の机上（rules.md 20 章）で、今の条件（5 本・$300）の上乗せがいちばん大きかった行（＋718bp/fold・3/5 ＝ 保留）。⚠ 本番の `data-live/` は 2018 年からの写しが種 ＝ 本番に入れると学ぶ期間が変わる（K7 と一緒に利用者が決める） |
+| `T6` | ソラ（2026-10-01 利用者決定） | `sel_small4_1995` の `F2-2 RFE`（35 列から 16 列を選んで Ridge・1995 年から学ぶ） | `asis` | 50 | A $300 | 3 人と同じ 5 本・`shares` | トレーダーと同じ形の机上（rules.md 20 章）で、今の条件（5 本・$300）の上乗せがいちばん大きかった行（＋718bp/fold・3/5 ＝ 保留）。⚠ 本番の `data-live/` は 2018 年からの写しが種 ＝ 本番に入れると学ぶ期間が変わる（K7 と一緒に利用者が決める） |
 
 ⚠ **今の時期の F2-2 は毎日「全部買う」**（sim-predict の 64 日・63 銘柄とも買い% 50.87〜54.80 ＝ 50 を下回った日は 0）。T6 は買って持ち続けるだけの人になる（sim6 で確かめた）。
 
@@ -476,7 +476,7 @@ cd ../..; ./run-sim.sh sim3 --fresh --speed max        # 64 営業日。sim4 も
 
 テスト: `tests/test_simpredict.py` 6 本（日付の書き換えと印 ／ 欠けた日で止まる・再開は無いものだけ ／ 終値と気配の食い違いを数える ／ `experiment` の無い設定では何も置かない ／ 手法ごとの置き場 ／ 運転手を通しで）。回帰: 執行器 135 本・`sim1`（`--fresh --speed max`。注文 60 本・検査 OK）・管理画面 167 本。`experiments/feature-discovery/runs/`・`data/` に増えた ／ 変わったものは無い。
 
-##### `sim5` ＝ 複数モデルの候補の人（`sim_T4`・`sim_T5`）を通す（✅ 2026-09-29・titan。[プラン new-model-trader.md](../../plans/new-model-trader.md) Phase 5）
+##### `sim5` ＝ 複数モデルの候補の人（`sim_T4`・`sim_T5`）を通す（✅ 2026-09-29・titan。[プラン new-model-trader.md](../../plans/archive/new-model-trader.md) Phase 5）
 
 ⚠ **配線の確認が目的で、成績は測らない・成績で採らない**（§0-1 の「候補の人」）。⚠ 黄金の集計値には足さない（`--full` を重くしない）。
 
@@ -519,7 +519,7 @@ cd ../..; ./run-sim.sh sim5 --fresh --speed max --no-dashboard    # 64 営業日
 | 3 | **vibeboard の sidecar（3015）は起動時のコードのまま** ＝ `traderview.py` を直した後に入れ直さないと、トレーダーのタブに候補の人が出ない（`models.toml` は 5 秒ごとに読み直すので `stop-exit` は出ていた） | 入れ直した（`kill` → `python3 dashboard/vibetab.py`）。手順書 §2 2-5 に注意を足した |
 | 4 | `setsid nohup … &` の `$!` は setsid の親の pid で、すぐ死ぬ（子は生きている） | 終了待ちは `pgrep -f "simpredict.py make"` で見る（記憶にも同じ注意がある） |
 
-##### `sim6` ＝ 検証結果一覧の上位をもとにした候補の人（`sim_T6`）を通す（✅ 2026-10-01・titan。[プラン best-model-trader.md](../../plans/best-model-trader.md) Step 3）
+##### `sim6` ＝ 検証結果一覧の上位をもとにした候補の人（`sim_T6`）を通す（✅ 2026-10-01・titan。[プラン best-model-trader.md](../../plans/archive/best-model-trader.md) Step 3）
 
 ⚠ **配線の確認が目的で、成績は測らない・成績で採らない**（§0-1 の「候補の人（検証結果一覧の上位）」）。⚠ 黄金の集計値には足さない。
 
@@ -527,7 +527,7 @@ cd ../..; ./run-sim.sh sim5 --fresh --speed max --no-dashboard    # 64 営業日
 | --- | --- |
 | 設定 | `config/sim/sim6.toml` ＝ `sim_T6`（`sel_small4_1995` の `F2-2 RFE`・`asis`・θ 50・`test = true`・$300・整数株・T・PFE・NKE・VZ・BAC）。筋書きなし・期間と出どころは `sim1` ／ `sim5` と同じ |
 | 作り置き | `simpredict.py make sim6 --jobs 8` ＝ 64 本・失敗 0・**349 秒**【実測】（1 本 約 43 秒 ＝ 1995 年からの表の組み立て 31 秒 ＋ 選別と fit） |
-| 機械 | titan の作業用の置き場（`./run-sim.sh sim6 --fresh --speed max --no-dashboard`）。⚠ Sx360 で回すなら `sim-predict/` を写し直す（増えたのは F2-2 の 64 本） |
+| 機械 | titan の作業用の置き場（`./run-sim.sh sim6 --fresh --speed max --no-dashboard`）。⚠ Sx360 で回すなら `sim-predict/` を写し直す（増えたのは F2-2 の 64 本）。✅ **2026-10-01 に Sx360 へ写した**（Sx360 の Claude が `rsync titan:…/sim-predict/`・6.7 MB → 8.2 MB・変わったのは `sim.sqlite` 1 つ）→ 下の「Sx360 で回し直した」 |
 
 **結果【実測 2026-10-01・titan・作業用の置き場】**
 
@@ -540,6 +540,7 @@ cd ../..; ./run-sim.sh sim5 --fresh --speed max --no-dashboard    # 64 営業日
 | 最終日の持ち高（時価。⚠ 損益に意味は無い） | 5 本 $259.31・手数料 $0 |
 | 検査（`simctl.py check`） | 5,150 行・印の無い行 0・秘密 0 |
 | 画面 | vibeboard のトレーダーのタブに `T6`「（候補）」・予測モデルのタブに `rfe-own1995`（sidecar 3015 は入れ直し不要 ＝ TOML だけの変更） |
+| Sx360 で回し直した（2026-10-01） | `./run-sim.sh sim6 --fresh --speed max`（機械のモードを sim6 へ・管理画面 3012）＝ **titan と同じ**: 置いた予測 64 日・4,032 行（終値と気配の食い違い 0）／ 注文 5 本・全部 `Filled`（初日の買いだけ ＝ T 2・PFE 2・NKE 1・VZ 1・BAC 1 株・$245.53）・売り 0・`error` 0・取消 0 ／ 事象 `hold` 305 ／ `out_of_window` 2（11-27・12-24 ＝ rc=4）／ 検査 5,150 行・印の無い行 0・秘密 0 ／ 管理画面 3012: `[SIM] 概要`・帯「シミュレーション sim6」・`/api/live` の `mode` sim・`traders` ＝ `sim_T6`・`/traders/sim_T6` 200。⚠ 最終日の時価は突き合わせていない |
 
 **見つかったこと**: 1. **T6 は「買って持ち続ける」と同じ**（上の §0-1 の注）。机上で持ち続けるより良かった分は大きな下げの時期に降りたことから来ていて、いまの時期の出力スコアは 50 を下回らない。⚠ 本番に入れても、下げが来るまでは「持ち続ける」と見分けがつかない（成績の話ではなく、執行の差を測る相手としての性質）。
 

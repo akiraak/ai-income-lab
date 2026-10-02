@@ -1,4 +1,4 @@
-# ⚠ **トレーダーと同じ形で机上にかける**（rules.md 20 章・プラン `docs/plans/best-model-trader.md` §2 Step 2）。
+# ⚠ **トレーダーと同じ形で机上にかける**（rules.md 20 章・プラン `docs/plans/archive/best-model-trader.md` §2 Step 2）。
 # 候補は Step 1 の物差しで選んだ D2 中期ゲート（us74・θ 55）。
 #
 # ⚠ **`trend_scales_1995_us74.toml` との違い**: 表は `features_from` で借りる・detectors を D2 だけにした・

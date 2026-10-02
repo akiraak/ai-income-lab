@@ -1,8 +1,8 @@
 # 複数のデータから特定の銘柄のトレンドを当てる深層学習（「目的の系列 ＋ 外生系列」の型 2 本）
 
-作成日: 2026-09-27（§0 は**回す前**に書いた。§1 以降は回した後）。派生元: [プラン new-model-trader.md §3 Phase 2-3](../../plans/new-model-trader.md)（親「titan を使って、新規の予測モデルと、複数の予測モデルを持ったトレーダーを作成する方法を確立する」の 3 つ目の実例 ＝ GPU を使う型）。
+作成日: 2026-09-27（§0 は**回す前**に書いた。§1 以降は回した後）。派生元: [プラン new-model-trader.md §3 Phase 2-3](../../plans/archive/new-model-trader.md)（親「titan を使って、新規の予測モデルと、複数の予測モデルを持ったトレーダーを作成する方法を確立する」の 3 つ目の実例 ＝ GPU を使う型）。
 利用者の指示（2026-09-26）: **「DeepLearnigで複数のデータが入った中から特定の銘柄のトレンドの予測に使えそうなモデルを調べて」** → 調査の結果を受けて「まずは TODO 化のみ」→ 2026-09-27「『複数のデータから特定の銘柄のトレンドを当てる深層学習を机上で試す』の２つのモデルもこのタスクに含める」。
-規約: [rules.md](feature-discovery/rules.md) 13・14・15 章 ／ 決めごと K5（[プラン §2](../../plans/new-model-trader.md)。利用者決定 2026-09-27「推す案のとおり」）。手順書: [howto-model-trader.md §1](../howto-model-trader.md)。
+規約: [rules.md](feature-discovery/rules.md) 13・14・15 章 ／ 決めごと K5（[プラン §2](../../plans/archive/new-model-trader.md)。利用者決定 2026-09-27「推す案のとおり」）。手順書: [howto-model-trader.md §1](../howto-model-trader.md)。
 関連: [patchtst-threshold.md](patchtst-threshold.md)（同じ検知器の口。窓から学ぶ単変量の系列モデル。落とす）／ [tsc-threshold.md](tsc-threshold.md)（同じ窓の時系列分類器 3 本）／ [forward10-target.md](forward10-target.md)（同じ学習の対象 `y_fwd_10`・同じ表）／ [ts-trend-ai-survey.md §7](ts-trend-ai-survey.md)（前回の調査。単変量が中心）／ [feature-discovery.md §8](feature-discovery.md)（断面・リードラグの不振）。
 
 > ⚠ **これは投資助言ではなく調査資料である。** 特定の銘柄・売買を推奨しない。

@@ -1,4 +1,4 @@
-# ⚠ **トレーダーと同じ形で机上にかける**（rules.md 20 章・プラン `docs/plans/best-model-trader.md` §2 Step 2）。
+# ⚠ **トレーダーと同じ形で机上にかける**（rules.md 20 章・プラン `docs/plans/archive/best-model-trader.md` §2 Step 2）。
 # 事前固定は rules.md 20 章（⚠ **回すと決めたのは結果を見る前**。n_trials ＋6 ＝ 候補 3 本 × 条件 2）。
 # 表は作り直さない（2 本とも `features_from`。leak 対照の表も既にある）。
 experiments = ["trader_trend_scales_1995_us74", "trader_sel_small4_1995"]

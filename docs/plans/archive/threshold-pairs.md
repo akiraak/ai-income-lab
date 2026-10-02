@@ -2,7 +2,7 @@
 
 > 2026-09-27 作成（titan の Claude）。利用者の指示（2026-09-27。[forward10-target.md](../../specs/experiments/forward10-target.md) §1〜§6 を読んだ後）: **「ownex × Ridge 60 の判定で買い。ownex × Ridge 50 の判定で売り」→「買いと売りの閾値を別の値にしたもので検証してください」**。
 > ✅ **2026-09-27 に完了**（18 検証とも落とす・n_trials 685 → 703。記録 [forward10-target.md §7-4](../../specs/experiments/forward10-target.md)）。
-> 親: [new-model-trader.md](../new-model-trader.md) Phase 2（Phase 2-1 の続き）。規約は [rules.md 18 章](../../specs/experiments/feature-discovery/rules.md)（このプランで足した）。
+> 親: [new-model-trader.md](new-model-trader.md) Phase 2（Phase 2-1 の続き）。規約は [rules.md 18 章](../../specs/experiments/feature-discovery/rules.md)（このプランで足した）。
 
 ## 0. 目的・背景
 

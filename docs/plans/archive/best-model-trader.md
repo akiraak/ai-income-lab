@@ -68,7 +68,7 @@ flowchart LR
 | # | 決まり | 理由 |
 | ---: | --- | --- |
 | 1 | 対象は検証方式「閾値売買」・判定が **保留**（＝ 上乗せ > 0）の行だけ | 実売買の執行器は閾値売買の形。毎日往復（旧）は別の物差し（13-8）。落とすは上乗せ ≤ 0 |
-| 2 | 除く: 基準線 ／ 上位 K の行（手法名に〔上位…〕）／ 無効・要再測（日足 × `raw`）／ 較正「旧」（買い% が定数に潰れている ＝ [buy-pct-width-collapse.md](../specs/experiments/buy-pct-width-collapse.md)） | 上位 K は基準線に負けた・残り 2 つは既知の壊れ |
+| 2 | 除く: 基準線 ／ 上位 K の行（手法名に〔上位…〕）／ 無効・要再測（日足 × `raw`）／ 較正「旧」（買い% が定数に潰れている ＝ [buy-pct-width-collapse.md](../../specs/experiments/buy-pct-width-collapse.md)） | 上位 K は基準線に負けた・残り 2 つは既知の壊れ |
 | 3 | 第 1 キー ＝ fold の上乗せの符号が正の数（`fold` 列の分子）、第 2 キー ＝ 上乗せの平均（bp/fold。判定の理由の「上乗せの平均だけ正（+X bp）」） | 平均より「どの区切りでも勝つ」を先に見る |
 | 4 | 同じモデル（予測モデル名）が θ 違いで並んだら、その中の 1 位の 1 行だけを数える | 同じものを 3 本取らない |
 | 5 | 上位 3 本を候補にする。今の T1〜T3 と同じモデルが入っても除かない（比べる相手として残す） | — |
@@ -110,7 +110,7 @@ flowchart LR
 - 判定: 上乗せ（対「持ち続ける」）> 0 かつ fold の符号が全部正 ＝ 採る ／ 平均だけ正 ＝ 保留 ／ ≤ 0 ＝ 落とす（13-7 と同じ形）。rules.md に新しい章として先に書く
 - 検証数: 3 本 × 2 条件 ＝ ＋6（2b の銘柄数が 63 ／ 74 で違っても 1 本 1 条件）。leak 対照は `cli.queue` が足す
 
-**✅ 2026-10-01 titan で実装した（回す前に [rules.md 20 章](../specs/experiments/feature-discovery/rules.md) へ固定 ＝ コミット `6bd2eee`）**。上の案から変えた点:
+**✅ 2026-10-01 titan で実装した（回す前に [rules.md 20 章](../../specs/experiments/feature-discovery/rules.md) へ固定 ＝ コミット `6bd2eee`）**。上の案から変えた点:
 
 | 案 | 実装 | 理由 |
 | --- | --- | --- |
@@ -123,7 +123,7 @@ flowchart LR
 
 config `trader_sel_small4_1995`（F2-2・F1-7・θ 50）／ `trader_trend_scales_1995_us74`（D2・θ 55）・queue `trader_shape`。テスト `tests/test_trader_shape.py` 10 本。
 
-**✅ 2026-10-01 に回した**（記録 [trader-shaped-validation.md](../specs/experiments/trader-shaped-validation.md)）: **採る 0 ／ 6**（保留 5・落とす 1）・n_trials 745 → 751。上乗せは 2a・2b とも残るが fold は 3/5 以下で割れる。⚠ Step 3 の進め方は記録 §4 の (a) ／ (b) を利用者が決める。
+**✅ 2026-10-01 に回した**（記録 [trader-shaped-validation.md](../../specs/experiments/trader-shaped-validation.md)）: **採る 0 ／ 6**（保留 5・落とす 1）・n_trials 745 → 751。上乗せは 2a・2b とも残るが fold は 3/5 以下で割れる。⚠ Step 3 の進め方は記録 §4 の (a) ／ (b) を利用者が決める。
 
 ### Step 3: 残ったものを候補の人にする
 
@@ -139,7 +139,11 @@ config `trader_sel_small4_1995`（F2-2・F1-7・θ 50）／ `trader_trend_scales
 | `simpredict.py make sim6` → `run-sim.sh sim6`（作業用の置き場） | 64 本 349 秒 ／ 64 営業日 12 秒・注文 5 本 全部 Filled（初日に買って売らない）・検査 5,150 行 印なし 0 |
 | 見つかったこと | ⚠ **今の時期の F2-2 は毎日「全部買う」**（64 日 × 63 銘柄とも買い% > 50）＝ T6 は「持ち続ける」と同じ動き。机上の上乗せは下げの時期に降りたことから来ている |
 
-⚠ 残り: 呼び名（利用者）／ Sx360 へ `sim-predict/` を写して sim6（任意）／ 本番に入れるかと学ぶ期間（`data-live/` は 2018 年から）・予算の上限（K7。10/20 の後・利用者）
+✅ **2026-10-01 Sx360 でも通した**（Sx360 の Claude）: titan の `sim-predict/` を rsync で引き（変わったのは `sim.sqlite` 1 つ・8.2 MB）、`./run-sim.sh sim6 --fresh --speed max`（機械のモード sim6・管理画面 3012）＝ 注文 5 本 全部 Filled（$245.53）・`hold` 305 ／ `out_of_window` 2・検査 5,150 行 印なし 0 ＝ titan と同じ。記録は [live-trading.md §0-7 (k)「sim6」](../../specs/experiments/live-trading.md)
+
+✅ **2026-10-01 呼び名 ＝ ソラ**（利用者決定「ソラで」。`dashboard/traders.toml` の `[nicks]`）＝ このプランの Step は全部済み → `archive/` へ移した
+
+⚠ 残るのは利用者の決定（このプランの外）: 本番に入れるかと学ぶ期間（`data-live/` は 2018 年から）・予算の上限（K7。10/20 の後）＝ TODO「Phase 6: 20 営業日の記録と判定」のメモ
 
 ## 3. 影響範囲
 

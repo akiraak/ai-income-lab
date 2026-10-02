@@ -1,8 +1,8 @@
 # 先 10 営業日を当てにいく形（「今後 2 週間くらい上がりそう ／ 下がりそう」）
 
-作成日: 2026-09-27（§0 は**回す前**に書いた。§1 以降は回した後）。派生元: [プラン new-model-trader.md §3 Phase 2-1](../../plans/new-model-trader.md)（親「titan を使って、新規の予測モデルと、複数の予測モデルを持ったトレーダーを作成する方法を確立する」の 1 つ目の実例）。
+作成日: 2026-09-27（§0 は**回す前**に書いた。§1 以降は回した後）。派生元: [プラン new-model-trader.md §3 Phase 2-1](../../plans/archive/new-model-trader.md)（親「titan を使って、新規の予測モデルと、複数の予測モデルを持ったトレーダーを作成する方法を確立する」の 1 つ目の実例）。
 利用者の指示（2026-09-20。「システム説明」タブの「点に直す」の段への質問）: **「短期売買は手数料がかさむのと大きな上昇を見込めないので『明日は上がりそう』という予測は意味がない。『今後 2 週間くらい上がりそう下がりそう』というような予測はできるか？また既にあるか？」**
-規約: [rules.md](feature-discovery/rules.md) 13・14・15 章（学習の対象をスケールにする）／ 決めごと K4（[プラン §2](../../plans/new-model-trader.md)）。手順書: [howto-model-trader.md §1](../howto-model-trader.md)（この検証はその 1-1〜1-8 を初めて通した実例）。
+規約: [rules.md](feature-discovery/rules.md) 13・14・15 章（学習の対象をスケールにする）／ 決めごと K4（[プラン §2](../../plans/archive/new-model-trader.md)）。手順書: [howto-model-trader.md §1](../howto-model-trader.md)（この検証はその 1-1〜1-8 を初めて通した実例）。
 関連: [downtrend-detection.md](downtrend-detection.md)（先 20 ／ 60 ／ 200 日。`trend` の 6 列だけ）／ [entry-timing.md](entry-timing.md) ／ [cgan-scenario.md](cgan-scenario.md)（SPY の先 5 日の分布）／ [validation-power.md](feature-discovery/validation-power.md)（検出限界）。
 
 > ⚠ **これは投資助言ではなく調査資料である。** 特定の銘柄・売買を推奨しない。

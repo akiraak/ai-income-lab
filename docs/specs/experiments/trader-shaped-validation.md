@@ -1,6 +1,6 @@
 # トレーダーと同じ形で机上にかける（候補 3 本 × 条件 2）
 
-作成 2026-10-01（titan の Claude）。プラン [best-model-trader.md](../../plans/best-model-trader.md) §2 Step 2a・2b。規約（結果を見る前に固定）は [rules.md 20 章](feature-discovery/rules.md)（コミット `6bd2eee`）。
+作成 2026-10-01（titan の Claude）。プラン [best-model-trader.md](../../plans/archive/best-model-trader.md) §2 Step 2a・2b。規約（結果を見る前に固定）は [rules.md 20 章](feature-discovery/rules.md)（コミット `6bd2eee`）。
 
 > ⚠ **これは投資助言ではなく調査資料である。** 数字はすべて【実測】（自前の机上の検証）。⚠ 多重検定は通していない（n_trials 751）。
 
@@ -90,4 +90,4 @@ cd experiments/feature-discovery
 | (a) 候補の人を作らない | 採る 0 なので Step 3 は空。子タスクは「投入する候補が無い」で閉じる |
 | (b) 保留の F2-2（2a の上乗せが最大）か F1-7 を候補の人にする | `candidates/` に置き sim で配線だけ通す（成績は測らない ＝ T4・T5 と同じ扱い）。⚠ 先に `cli.predict` が 1995 年からの表の選別を `data-live/`（2018 年からの写し）で出せるかを確かめる（プラン Step 1 の決まり 6 の印） |
 
-✅ **2026-10-01 利用者決定「(b) で進めて」** → F2-2 RFE を候補の人 `T6` にして sim6 で配線を通した（[プラン](../../plans/best-model-trader.md) Step 3・[live-trading.md](live-trading.md) §0-1・§0-7 (k)）。⚠ 今の時期の F2-2 は毎日「全部買う」＝ T6 は持ち続けるだけの人になった。
+✅ **2026-10-01 利用者決定「(b) で進めて」** → F2-2 RFE を候補の人 `T6` にして sim6 で配線を通した（[プラン](../../plans/archive/best-model-trader.md) Step 3・[live-trading.md](live-trading.md) §0-1・§0-7 (k)）。⚠ 今の時期の F2-2 は毎日「全部買う」＝ T6 は持ち続けるだけの人になった。

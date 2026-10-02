@@ -1,6 +1,6 @@
 # 手順書: 新しい予測モデルを足す ／ 複数の予測モデルを持つトレーダーを足す
 
-2026-09-27 に骨組みを書き（[プラン](../plans/new-model-trader.md) Phase 1）、✅ **2026-09-29 に実例で 1 度通して実測を入れた**（Phase 6。モデル 3 系統 ＝ 1 章を 3 度・候補の人 2 人 ＝ 2 章を 1 度・sim5）。⚠ 残りは 2-4 の「`sim-predict/` を Sx360 へ写して Sx360 で通す」だけ（titan から Sx360 へは ssh が届かない ＝ 利用者 ／ Sx360 の Claude）。落ちたテストと直し方は §4。
+2026-09-27 に骨組みを書き（[プラン](../plans/archive/new-model-trader.md) Phase 1）、✅ **2026-09-29 に実例で 1 度通して実測を入れた**（Phase 6。モデル 3 系統 ＝ 1 章を 3 度・候補の人 2 人 ＝ 2 章を 1 度・sim5）。✅ 2-4 の「`sim-predict/` を Sx360 へ写して Sx360 で通す」は 2026-09-30（sim5）・2026-10-01（sim6）に済んだ（titan から Sx360 へは ssh が届かない ＝ Sx360 から `rsync titan:…/sim-predict/` で引く）。落ちたテストと直し方は §4。
 
 ## 0. この手順書の範囲
 
@@ -105,9 +105,9 @@ flowchart LR
 | 先 10 営業日を当てにいくモデル | 見る数字 3 組 × 学習器 2 × θ 3 ＝ 18 検証（K4） | `docs/specs/experiments/forward10-target.md` | ✅ 2026-09-27 回した（採る 0 ／ 保留 2 ／ 落とす 16。1-1〜1-8 を通した） |
 | 損切りをモデルとして扱う | 形 A（規則の出口・学ぶ出口）と形 B（机上のみ）・基準線（K3） | `docs/specs/experiments/stoploss-as-model.md` | ✅ 2026-09-27 回した（33 検証とも落とす。1-1〜1-7 を通した。手順書に足す注意は記録 §5）。✅ 2026-09-28 Phase 3 ＝ 出口だけの検知器 `X1`〜`X3` と `cli.predict` のためだけの config `trade_own_stopexit_a`（記録 §7） |
 | 深層学習の型 2 本 | Chronos-2 zero-shot（共変量あり ／ なし）・TimeXer（K5） | `docs/specs/experiments/exog-deep-models.md` | ✅ 2026-09-27 回した（9 検証とも落とす。1-1〜1-6・1-8 を通した。手順書に足す注意は記録 §5）。✅ 2026-09-28 Phase 3 ＝ 1-7〔`cli.predict`〕を 3 本とも通した（記録 §7） |
-| 実例 A `T4`（ハル） | いまの 3 本を `mean`・θ 50 | `live-trading.md` §0-1・§0-7 (k)（sim5） | ✅ 2026-09-28 書いた（2-1〜2-3・2-6 のテストと記録。§2「設定の実物」）。2-4・2-5（sim5 を通す）は Phase 5。✅ 2026-09-29 Phase 5 ＝ sim5 を titan で通した（2-4・2-5。⚠ Sx360 へ写すのは残り） |
-| 実例 B `T5`（ミオ） | 主モデル ＋ 損切りモデル（`X1 出口だけ 高値20日から−10%で降りる`）を `unanimous`・θ 50 | 同上・`stoploss-as-model.md` §7 | ✅ 2026-09-28 書いた（同上。`models.toml` に `stop-exit`）。2-4・2-5 は Phase 5。✅ 2026-09-29 Phase 5 ＝ sim5 を titan で通した（2-4・2-5。⚠ Sx360 へ写すのは残り） |
-| 検証結果一覧の上位 `T6` | `sel_small4_1995` の F2-2 RFE 1 本を `asis`・θ 50（既存のモデルを候補の人にする最短の道 ＝ 1 章は 1-7〔`cli.predict`〕と 1-8〔`[[model]]`〕だけ） | [trader-shaped-validation.md](experiments/trader-shaped-validation.md)・`live-trading.md` §0-1・§0-7 (k)（sim6） | ✅ 2026-10-01 titan で 2-2〜2-6 を通した（作り置き 64 本 349 秒・sim6 12 秒・注文 5 本 全部 Filled）。⚠ 呼び名は利用者 ／ Sx360 へ写すのは残り |
+| 実例 A `T4`（ハル） | いまの 3 本を `mean`・θ 50 | `live-trading.md` §0-1・§0-7 (k)（sim5） | ✅ 2026-09-28 書いた（2-1〜2-3・2-6 のテストと記録。§2「設定の実物」）。2-4・2-5（sim5 を通す）は Phase 5。✅ 2026-09-29 Phase 5 ＝ sim5 を titan で通した（2-4・2-5）。✅ 2026-09-30 Sx360 でも通した |
+| 実例 B `T5`（ミオ） | 主モデル ＋ 損切りモデル（`X1 出口だけ 高値20日から−10%で降りる`）を `unanimous`・θ 50 | 同上・`stoploss-as-model.md` §7 | ✅ 2026-09-28 書いた（同上。`models.toml` に `stop-exit`）。2-4・2-5 は Phase 5。✅ 2026-09-29 Phase 5 ＝ sim5 を titan で通した（2-4・2-5）。✅ 2026-09-30 Sx360 でも通した |
+| 検証結果一覧の上位 `T6`（ソラ） | `sel_small4_1995` の F2-2 RFE 1 本を `asis`・θ 50（既存のモデルを候補の人にする最短の道 ＝ 1 章は 1-7〔`cli.predict`〕と 1-8〔`[[model]]`〕だけ） | [trader-shaped-validation.md](experiments/trader-shaped-validation.md)・`live-trading.md` §0-1・§0-7 (k)（sim6） | ✅ 2026-10-01 titan で 2-2〜2-6 を通した（作り置き 64 本 349 秒・sim6 12 秒・注文 5 本 全部 Filled）。✅ 2026-10-01 Sx360 へ `sim-predict/` を写して sim6 を回し直した（注文・事象・検査の件数が titan と同じ）。✅ 同日 呼び名 ＝ ソラ（利用者決定） |
 
 ## 4. 落ちたテストと直し方（✅ 2026-09-29 Phase 6。実例で踏んだもの全部）
 
@@ -132,7 +132,7 @@ flowchart LR
 
 ## 5. 関連
 
-- プラン: [new-model-trader.md](../plans/new-model-trader.md)（決めごと K1〜K8 は §2・10/20 の後に回す案は §7）
+- プラン: [new-model-trader.md](../plans/archive/new-model-trader.md)（決めごと K1〜K8 は §2・10/20 の後に回す案は §7）
 - 予測モデル名の規約: [rules.md 10-2](experiments/feature-discovery/rules.md)。検知器の契約: 14-1・16 章。事前固定: 14-9・14-10
 - トレーダーの定義と合成規則: [live-trading-three-models.md §2-1](../plans/live-trading-three-models.md)。3 人の設定: [live-trading.md §0-1](experiments/live-trading.md)。sim3 ／ sim4 の作り置き: §0-7 (k)
 - 説明の書き方: [dashboard.md §16-3・§17-4](dashboard.md)（トレーダー・予測モデルのタブ）

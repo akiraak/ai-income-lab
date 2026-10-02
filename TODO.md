@@ -34,6 +34,7 @@
   派生元: 2026-09-26 の利用者の指摘「売買のまねごとは現在のトレーダーが行っている売買と同じ内容か。違うならモデルの検証はトレーダー込みで確認しないと意味がないのではないか」＝ 机上の採否は出力する株の全部（63 ／ 48 本）を等加重・端数・予算なし・終値で見ており、いまのトレーダー（5 本・整数株・$300・売却代金は翌日・毎日学び直し）の成績は誰も机上で確かめていない
   決めごと（回す前に固定する）: トレーダーの設定（`config/traders/T1〜T3.toml`）をそのまま読んで 3 人ぶんを回す ／ 5 本・整数株・1 銘柄の枠 ＝ 予算 ÷ 銘柄数・受渡し待ち（T+1）・往復 5bp ／ 学び直しは毎日か fold ごとかを先に決める ／ 基準線は「同じ 5 本をただ持ち続ける」と「同じ 5 本を乱択で売り買い」／ 採否の物差しは回す前に書く（rules.md 14・17 章）／ 回したものは全部 `n_trials` に数える ／ ⚠ 実売買の手法は損益で採らない（CLAUDE.md の 2 つ目の例外）ので、この検証の結果で実売買を止めたり替えたりするかは別に利用者が決める
   器: `ail/validation/simulate.py` の `simulate_topk`（予算・整数株を持つ。rules.md 17 章）を流用し、銘柄を事前固定・K ＝ 銘柄数 にする形が近い ／ 紙上の対照 `experiments/live-trading/paper.py`（同じ合図・5 本・終値・2.5bp。整数株と受渡しは知らない）
+  2026-10-01: 器は候補 3 本（検証結果一覧の上位）で 1 度使った ＝ [rules.md 20 章](docs/specs/experiments/feature-discovery/rules.md)・記録 [trader-shaped-validation.md](docs/specs/experiments/trader-shaped-validation.md)・`config/queue/trader_shape.toml`（5 本・整数株・$300 ／ 全銘柄を買える予算・相手は「持ち続ける」・学び直しは fold ごと・T+1 は足さない）。⚠ **いまの 3 人（`T1`〜`T3`）のぶんはまだ回していない**
   関連: [topk-holdings.md](docs/specs/experiments/topk-holdings.md)（制約を入れると結論が変わった例）／ [live-trading.md §0-1](docs/specs/experiments/live-trading.md)（3 人の設定）／ 「売買に使うトレーダーやモデルの設定などの説明を分かりやすく書く」（説明の側は「確かめる — 売り買いのまねごと」に実際の売買とのちがいを書く）
 - [ ] 疑問に思ったことを登録し解決していく
   ⚠ **終了しないタスク**（完了にしない・`DONE.md` に移さない・消さない）。利用者の指示（2026-09-11）: **「疑問に思ったことを登録し解決していく大タスク」。このタスク自体は消さずにずっと残るようにする**
@@ -122,6 +123,7 @@
   - [ ] Phase 6: 20 営業日の記録と判定（`live-trading.md`。続ける・止める・予算を変えるは利用者。モデルや合成規則の入れ替えは新しい検証として n_trials に足す）
     期日: 2026-10-20
     1 日目 ＝ 2026-09-23。20 営業日目は 2026-10-20（火）【計算。休場日なし】。⚠ 起動しなかった日があれば後ろへずれる（数え方は「起動しなかった日を数える」）
+    判定の後に利用者が決めること（2026-10-01。「titan を使って、新規の予測モデルと、複数の予測モデルを持ったトレーダーを作成する方法を確立する」を `DONE.md` へ移したときに、残った決定をここへ写した）: 候補の人 `T4`（ハル）・`T5`（ミオ）・`T6`（ソラ）を本番に入れるか ／ 入れるなら 予算（$300 × 4 人は執行器の上限 $1,000 に当たる）・13500t の予測の時間（`bench_predict.py`）・`T6` の学ぶ期間（本番の `data-live/` は 2018 年から）＝ K7 ／ `T5` の形なら「売った翌日に買い戻す」の扱い（出口の日は買わない ＝ K2 の変更 ／ 執行器に休み）／ 執行器を変える案の一覧は [プラン §7](docs/plans/archive/new-model-trader.md)。⚠ 3 人とも配線の確認の人 ＝ 机上の判定は採る 0（[live-trading.md §0-1](docs/specs/experiments/live-trading.md)「候補の人」・手順は [howto-model-trader.md §2](docs/specs/howto-model-trader.md) の 2-7）
     ✅ 2026-09-27（Sx360 の Claude）: §1 に 2 日目（9/24）・3 日目（9/25）の行を足した（13500t の DB を読んだ ＝ titan から写した記録。9/24 は意図 0・9/25 は T1 の NKE 1 株の売りが Filled・差 1 0.00・T3 は同じ NKE を持ち続けた）。⚠ 9/24・9/25 は titan の timer の回（9/24 dry-run・9/25 submit）で、13500t の cron は両日とも dry-run（Phase 2 の DB ＝ 退けた）。4 日目は 9/28（月）＝ 13500t の初回
     ✅ 2026-09-28（Sx360 の Claude）: §1 に 4 日目（9/28 ＝ 13500t の cron の初回・submit）の行を足した（13500t の DB を読んだ）。T1 の BAC 1 株の売りが Filled（買い% 49.77 < 50。約定 $55.5119 は bid 55.52 の下 ＝ 差 1 +2.36bp）・T2 は 5 銘柄とも `skip`（50.16）・T3 は 5 銘柄とも `hold`。口座 − 売買履歴 ＝ 0・未完 0。5 日目は 9/29（火）
     ✅ 2026-09-30（Sx360 の Claude）: §1 に 5 日目（9/29 ＝ T1 が BAC を買い戻し）・6 日目（9/30 ＝ T1 が NKE を買い戻し・T3 が初めて売り〔PFE 2 株・差 1 −1.75bp ＝ 初めて負〕）の行を足した（13500t の DB を読んだ）。2 日とも口座 − 売買履歴 ＝ 0・未完 0。⚠ 9/29 朝の prepare が NOAA の 503 で rc=1（夕方の回は通った）
@@ -223,57 +225,6 @@
       - [x] G24: 1 日に何度も売買するときの差 1〜4 の定義と、20 営業日の数え方
         関連: 「Phase 6: 20 営業日の記録と判定（`live-trading.md`。続ける・止める・予算を変えるは利用者。モデルや合成規則の入れ替えは新しい検証として n_trials に足す）」
         ✅ 2026-09-25 保留: 1 日 1 回に固定したので起きない。20 営業日の数え方は「起動した営業日」（§0-15）
-
-- [ ] titan を使って、新規の予測モデルと、複数の予測モデルを持ったトレーダーを作成する方法を確立する [plan](docs/plans/new-model-trader.md)
-  利用者の指示（2026-09-27）: **titanを使って新規の予測モデルと複数の予測モデルを持ったトレーダーを作成する方法を確立させます**「TODOにある２週間後の予測モデルと、損切りのも含める。損切りは一つのモデルとして考えてもよいかも検証」「『複数のデータから特定の銘柄のトレンドを当てる深層学習を机上で試す』の２つのモデルもこのタスクに含める」
-  ⚠ 作るのは「方法」＝ 手順書（`docs/specs/howto-model-trader.md`）と、それを 1 度通した実例。本番に新しい人を入れるかは別に利用者が決める（10/20 の判定の後・[live-trading.md §0-15](docs/specs/experiments/live-trading.md) C11）
-  ✅ 2026-09-27 プランを作った（⚠ Sx360 の Claude）。確立するもの 4 つ・いまあるもの・守るもの・機械の役割はプラン §0、裁定を待つ論点はプラン §2 の K1〜K8、手順書の骨組みは §4。子は Phase の順に置き直し、元の 4 つの子の長いメモはプラン §3 Phase 2 へ移した
-  ⚠ 2026-09-27 に読んで分かったこと（プラン §0・§3）: 合成規則を足さなくても `unanimous`（買いは min・出口は max）で「買いは主モデル・売りはどちらか」が作れる ／ 同じ実験名の違う手法は 1 人の中で 2 本持てない（`signals.py` の行の引き方）／ 4 人目の $300 は執行器の上限 $1,000 に当たる ／ `cli.predict` の `split_asof` は先 10 日のラベルをパージしない（Phase 3 で直す）／ ⚠ Sx360 に `sim-predict/` が無い（sim3 ／ sim4 も回らない ＝ titan から写す）
-  関連: 「予測モデルの検証のようにトレーダーの検証も行う（…）」（新しい人を本番に入れる前の机上の物差し）／ 「DeepLearning と進化的探索（遺伝的アルゴリズム）を使った検証をかなり増やす。…」（新しいモデルの候補の出どころ）／ 「トレーダー 3 人（…）に予算を割り振り、tastytrade の本口座で実際に売買して記録を残す（実売買の仕組み）」（Phase 6 の判定の後に足す）／ [live-trading-three-models.md §2-1](docs/plans/live-trading-three-models.md)（トレーダーの定義と合成規則）／ [live-trading.md §0-1・§0-7 (k)](docs/specs/experiments/live-trading.md)（3 人の設定・`sim3` の作り置き）／ [rules.md 10-2](docs/specs/experiments/feature-discovery/rules.md)（予測モデル名）／ [dashboard.md §16・§17](docs/specs/dashboard.md)（トレーダー・予測モデルのタブ）
-  - [x] Phase 0: 決めごと K1〜K6 を決める（⚠ **利用者**。プラン §2。K7〔本番に入れるときの予算・13500t の予測の時間・深層学習の重みを写す道〕と K8〔`over_budget`〕は後でよい）
-    ✅ 2026-09-27 K2・K3 は利用者決定（推す案のとおり。形 B の机上は形 A と並行・本番の口は §7 の道 1「状態を読むモデルの kind」）。残り K1・K4・K5・K6（呼び名）
-    ✅ 2026-09-27 K1・K4・K5・K6 も利用者決定「他はおススメのとおりでよい」＝ 全部推す案。呼び名 `T4` ＝ ハル ／ `T5` ＝ ミオ。Phase 0 完了
-    推す案: K1 実例 A（いまの 3 本を `mean`・`T4`）を先に・実例 B（主モデル ＋ 損切りモデルを `unanimous`・`T5`）を Phase 2-2 の後 ／ K2 合成規則は足さない（出口だけのモデルは買い% 100 を返す）／ K3 損切りは形 A（位置を知らない出口%）を先に・形 B（買値からの下落）は `simulate` に口を足してから別の検証 ／ K4 先 10 日は 3 表 × 2 学習器 × θ 3 ＝ 18 検証 ／ K5 深層学習の地平は先 10 日・Chronos-2 は共変量あり ／ なし の 2 行 ／ K6 置き場は `candidates/multi/` ＋ `sim_` の写し・呼び名は利用者（候補: ハル ／ ミオ）
-  - [x] Phase 1: 手順書の骨組みを書く（`docs/specs/howto-model-trader.md`。プラン §4 の 2 本のチェックリスト。⚠ 実例より先に書き、実例で手順を試す。しくみの説明は書かない ＝ vibeboard の「システム説明」が正本・`system.toml` の「実際の売買」に案内 1 行）
-    ✅ 2026-09-27 骨組みを書いた（titan の Claude）: 2 章 × チェックリスト（1-1〜1-8・2-1〜2-7）・合成規則の決まり（K2）・実例の表・「落ちたテスト」の空の表（Phase 6 で埋める）。`system.toml` の「守っていること」の詳しくに案内 1 行・`CLAUDE.md` の現状に 1 行。dashboard のタブのテスト 105 本 ✅
-  - [x] Phase 2: 新しい予測モデルを titan で作る道（実例 3 系統。事前固定 → 検知器・綴り → config → `cli.queue` → 記録 → 検証結果一覧 → `models.toml`。⚠ 回すと決めるのは結果を見る前・回したものは全部 `n_trials` に数える・基準線を最初から置く・leak は queue が足す）
-    ✅ 2026-09-27 に 3 系統とも回し終えた（2-1 先 10 日 ／ 2-2 損切り ／ 2-3 深層学習 2 本。採る 0・n_trials 667 → 745。手順書 1-1〜1-6・1-8 を 3 度通した ＝ 1-7〔執行器が読める形〕は Phase 3）
-    ✅ 2026-09-27 Phase 2-1（先 10 営業日）を回した ＝ 採る 0 ／ 保留 2 ／ 落とす 16・n_trials 667 → 685・leak 6/6 跳ねた。✅ 同日 Phase 2-1b（買う線と売る線を別に置く 3 組 × 6 本）＝ 18 検証とも落とす・n_trials 685 → 703（記録 §7・rules.md 18 章・`DONE.md`）。記録 [forward10-target.md](docs/specs/experiments/forward10-target.md)（`DONE.md`）。手順書に足す注意 2 つは記録 §5（`label_scales` の表は既存の表を `features_from` で読めない ／ 基準線の行に「幅 14.40bp」の印が付く）
-    ✅ 2026-09-27 利用者決定「修正」: 「システム説明」の「⑤ 出力スコアに直す」に「学ぶ対象は明日だが、売り買いは毎日ではなく、出力スコアが売買基準値の上にあるあいだ持ち続ける。もっと先を当てにいく型も試したが効かなかった」を足した（`dashboard/system.toml`。Phase 2-1 のメモ）
-    - [x] Phase 2-2: 損切りを 1 つの予測モデルとして扱えるかを検証する
-      利用者の指示（2026-09-27）: **損切りは一つのモデルとして考えてもよいかも検証**
-      ✅ 2026-09-27 に事前固定 → 実装 → 回した（titan の Claude。記録 [stoploss-as-model.md](docs/specs/experiments/stoploss-as-model.md)・[rules.md 19 章](docs/specs/experiments/feature-discovery/rules.md)・`DONE.md`）: 33 検証とも落とす・n_trials 703 → 736。損切りを足した行は θ=50 ／ 55 で全部 損切りなし より純利が低い（4 行は fold 5/5）。買値からの損切り（形 B）は最大ドローダウンを悪化させた。⚠ 本番に損切りモデルを入れる理由は出ていない（`T5` は配線の確認 ＝ K1）。子「損切りの手法や対応方法を考える…」（＝ 事前固定）は `DONE.md` へ
-      ✅ **K8（`over_budget`）は 2026-09-27 利用者決定「残す」**（記録 §0-7。何も変えない・テストが「出ないこと」を固定したまま）
-    - [x] Phase 2-3: 複数のデータから特定の銘柄のトレンドを当てる深層学習を机上で試す（「目的の系列 ＋ 外生系列」の型 2 本）
-      ✅ 2026-09-27 に事前固定 → 実装 → 回した（titan の Claude。記録 [exog-deep-models.md](docs/specs/experiments/exog-deep-models.md)・`DONE.md`）: **9 検証とも落とす**・n_trials 736 → 745。Chronos-2 は共変量あり ／ なしとも B&H を下回り、ありがなしに勝った θ は無い（差は fold の σ の内）。TimeXer は −506 ／ −358 ／ −945bp。leak 2 実行とも跳ねた。手順書に足す注意 5 つは記録 §5
-  - [x] Phase 3: 執行器が読める形にする（titan。`cli.predict --experiment … --method … --asof …` が 3 系統とも `predict.jsonl` の行を出す。⚠ 判定が「落とす」でも道は通す ／ 先 10 日: `split_asof` を「最長のラベルぶん落とす」に直す〔研究側のコード。`tests/test_predict.py`・指紋テスト〕／ 損切り: 出口だけの実験 config は `cli.predict` のためだけ〔queue に入れない〕・買い% 100・主モデルとは別の実験名）
-    ✅ 2026-09-28 に 3 系統とも `cli.predict` を通した（titan の Claude。asof 2026-09-04・研究用の `data/`）: `split_asof` を「最長の `y_fwd_W` の終わりで切る」に直した（`train_end` 2026-08-21 → 2026-08-20。`y_fwd_` の無い表は指紋が動かない・`tests/test_predict.py` に 2 本）／ 出口だけの検知器 `X1`〜`X3`（7 本。入口 100・出口 ＝ 規則）と `cli.predict` のためだけの config `trade_own_stopexit_a`（queue に入れない ＝ rules.md 19-1 の 8。`stoploss-as-model.md` §7）／ 深層学習は 3 本とも通った（fit S2 192 秒 ／ S3 7 秒 ／ S4 TimeXer 685 秒【実測・cuda】）（`exog-deep-models.md` §7）。手順書 §1 1-7・§2・§4 に写した
-  - [x] Phase 4: 複数モデルのトレーダーを作る（プラン §3 Phase 4 の Step 4-1〜4-5。vibeboard の読み先を `candidates/*/` に広げる → 実例 A `T4`〔いまの 3 本を `mean`・θ 50〕→ 実例 B `T5`〔主モデル ＋ 損切りモデルを `unanimous`〕→ `traders.toml` に呼び名と `[symbols_why]`・`models.toml` に損切りモデルの `[[model]]` → `test_trader.py` に追加 → `live-trading.md` §0-1 に候補の表。⚠ 執行器のコードは 0・実例の成績は測らない）
-    依存: 「Phase 0: 決めごと K1〜K6 を決める（…）」（識別名・呼び名・置き場 ＝ K6）
-    ✅ 2026-09-28 に 4-1〜4-5 を済ませた（titan の Claude。プラン §3 Phase 4 の ✅ 行・手順書 §2「設定の実物」・`live-trading.md` §0-1「候補の人」）: `candidates/multi/T4.toml`・`T5.toml`（T5 の損切りモデルは `X1 出口だけ 高値20日から−10%で降りる` ＝ 水準の良し悪しで選んでいない）・`sim_T4`・`sim_T5`・`traders.toml`（ハル ／ ミオ）・`models.toml`（`stop-exit`）・`test_trader.py` 4 本・`traderview.candidate_files`。執行器のコードは 0。見つけた誤り: `combine_unanimous` の文「売りも同じ」→ 直した
-  - [x] Phase 5: 通し方（`config/sim/sim5.toml`〔`sim_T4`・`sim_T5`・予算の合計 $600〕→ titan `simpredict.py make sim5` → `sim-predict/` を Sx360 へ写す〔⚠ いま Sx360 に無い ＝ sim3 ／ sim4 のぶんも〕→ Sx360 `./run-sim.sh sim5 --fresh --speed max` → 管理画面 3012 `[SIM]` と vibeboard〔トレーダー 2 人（候補）・新しい `[[model]]`〕に出る → `live-trading.md` §0-7 (k) に記録。⚠ 黄金の集計値には足さない）
-    ✅ 2026-09-29 titan で 5-1・5-2・5-4（作業用の置き場 ＝ 本物の `MODE` に触らない）・5-5 を済ませた（記録 [live-trading.md §0-7 (k)「sim5」](docs/specs/experiments/live-trading.md)）: 作り置き 64 本 282 秒・64 営業日 14 秒・注文 81 本 全部 Filled・口座 − 売買履歴 0・管理画面と vibeboard に 2 人が出た。テスト `--fast` ✅（執行器 165・管理画面 246）
-    ✅ 2026-09-30 Sx360 の Claude が 5-3 を済ませた: titan の `sim-predict/`（6.7 MB・sim3 ／ sim4 ／ sim5 のぶん）を Sx360 から rsync で引いた → `./run-sim.sh sim5 --fresh --speed max` ＝ 注文 81 本・全部 Filled・事象の件数まで titan と同じ・検査 0・管理画面 3012 に `[SIM]` と 2 人（記録 [live-trading.md §0-7 (k)「sim5」](docs/specs/experiments/live-trading.md)）
-    見つかったこと: `sim_T5` は売り 32 本のうち 30 本を翌日に買い戻す（出口だけのモデルは「買わない」を言えない ＝ K2 の約束「買い% 常に 100」）。⚠ 本番に `T5` の形を入れるなら先に決める（検知器 `X1` が出口の日は買い% 0 ＝ K2 の変更 ／ 執行器に休み ＝ プラン §7）
-  - [x] Phase 6: 手順書を仕上げる（実測のコマンド・時間・落ちたテストと直し方をプラン §4 の表に入れて `howto-model-trader.md` へ → `./run-tests.sh` と `dashboard` のテスト〔`test_real_history_matches_the_db` は titan の DB で〕→ 親を `DONE.md`・プランを `archive/` へ。⚠ 残るのは利用者の決定 ＝ 本番に `T4` ／ `T5` を入れるか〔K7・10/20 の後〕）
-    ✅ 2026-09-29 titan で済ませた: `howto-model-trader.md` の §1・§2 の「実測」の欄（3 系統 ＋ 候補 2 人 ＋ sim5 のコマンドと時間）と §4「落ちたテストと直し方」（13 行 ＝ 落ちたテストより「見て気づいた穴」が多い）を埋めた。`./run-tests.sh` ✅（執行器 165 ／ 管理画面 246）・研究側 9 本 155 通過・`test_real_history_matches_the_db` は titan の DB で通過・`--full` の黄金の集計値 ✅ 変わらず（3 分 1 秒 ＝ 執行器を変えていない証拠）
-    ⚠ 親と プランはまだ閉じない: 子「検証結果のうちで一番いい成績のものをベースにして新しいトレーダーを投入する」が残っている（Phase 5 の 5-3 は 2026-09-30 に済んだ）
-  - [ ] 検証結果のうちで一番いい成績のものをベースにして新しいトレーダーを投入する [plan](docs/plans/best-model-trader.md)
-    利用者の指示（2026-09-29）: **検証結果のうちで一番いい成績のものをベースにして新しいトレーダーを投入する**
-    「一番いい成績」の出どころは検証結果一覧（`docs/specs/experiments/feature-discovery/ledger.md`。対 B&H 上乗せ bp/fold・fold の符号・判定）。⚠ 本番に入れる（`config/traders/` 直下へ写す・13500t の `live.env`・予算の上限）のは利用者の決定 ＝ Claude は候補の設定と手順（howto-model-trader.md §2）まで
-    関連: 「Phase 4: 複数モデルのトレーダーを作る（…）」（候補の置き場 `candidates/multi/`・呼び名は利用者が選ぶ）／ [live-trading.md §0-1](docs/specs/experiments/live-trading.md)（予算の合計が上限 $1,000 に当たる ＝ K7）
-    利用者の指示（2026-09-30）: **今のトレーダーは 300 ドルしか割り振られてないけど、予算を全銘柄を購入できる条件にしての検証もする。全銘柄を購入できるトレーダーの予算金額も出す**
-    ✅ 2026-09-30 予算を出した【計算。株価は 13500t の 9/30 終値】（プラン §1）: 等配分の整数株で全銘柄を 1 株以上 ＝ 63 本 **$73,041** ／ 48 本 **$55,650**（どちらも 1 銘柄の枠 ＝ LLY $1,159.38）。⚠ 口座の 55〜73 倍 ＝ 机上だけ
-    - [x] Step 1: 「一番いい」の物差しを先に書く（推す案 ＝ 単体のモデルの行だけ・fold の上乗せの符号が正の数 → 対 B&H の上乗せ・上位 2〜3 本。⚠ 決めるのは結果を見る前）
-      ✅ 2026-09-30 物差しを固定してから当てた（プラン §2 Step 1）: 候補 ＝ F1-7 IC の時系列安定性（3/5・+728bp・θ50）／ F2-2 RFE（3/5・+578bp・θ50）／ D2 中期ゲート us74（3/5・+121bp・θ55）。⚠ 3 本とも fold は割れている
-    - [x] Step 2a: 候補を今の条件（5 本・整数株・$300・T+1）で机上にかける（titan。基準線 ＝ 持ち続ける ／ 乱択）
-      関連: 「予測モデルの検証のようにトレーダーの検証も行う（机上で「トレーダー込みの売り買いのまねごと」を回し、検証結果一覧に足す）」
-    - [x] Step 2b: 同じ候補を全銘柄を買える予算（銘柄数 × 評価期間中の最高値）で机上にかける（titan）
-      ✅ 2026-10-01 titan で 2a・2b を一緒に回した（規約は回す前に [rules.md 20 章](docs/specs/experiments/feature-discovery/rules.md)・記録 [trader-shaped-validation.md](docs/specs/experiments/trader-shaped-validation.md)）: **採る 0 ／ 6**（保留 5・落とす 1）・n_trials 745 → 751。対「持ち続ける」の上乗せ F1-7 ＋500 ／ ＋423・F2-2 ＋718 ／ ＋339・D2 −152 ／ ＋35bp/fold（2a ／ 2b）。fold は 3/5 以下で割れる。上乗せは下げ相場の fold から来る。2a は NKE が枠 $60 を超えて実質 4 本。予想 3 つとも当たった
-    - [x] Step 3: 残ったものを候補の人にして sim で通す（`candidates/`・呼び名は利用者。本番は 10/20 の後に利用者）
-      ✅ 2026-10-01 利用者決定「(b) で進めて」→ titan で F2-2 RFE を候補の人 `T6`（`candidates/best/`）にして sim6 を通した: `cli.predict` 63 行・作り置き 64 本 349 秒・64 営業日 12 秒・注文 5 本 全部 Filled・検査 印なし 0。⚠ **今の時期の F2-2 は毎日「全部買う」**（64 日 × 63 銘柄とも買い% > 50）＝ T6 は持ち続けるだけ。記録 [live-trading.md §0-1・§0-7 (k)](docs/specs/experiments/live-trading.md)
-    - [ ] T6 の呼び名を決める（⚠ 利用者。意味の無い名前・使い回さない ＝ `dashboard/traders.toml` の `[nicks]`）
-    - [ ] Sx360 で sim6 を回す（`sim-predict/` に F2-2 の 64 本が増えた ＝ 写し直してから `./run-sim.sh sim6 --fresh --speed max`。利用者 ／ Sx360 の Claude）
 
 - [ ] 実売買の執行器（`run_day.py`・`reconcile.py`）のメッセージの「台帳」→「売買履歴」（⚠ 本番投入が落ち着いてから。執行器のテストを流す・本番に効くので「デプロイ」が要る）
   派生元: 「DBを使ったデータの永続化を行う」の「言葉を分かりやすくする」（2026-09-25 に DONE へ）

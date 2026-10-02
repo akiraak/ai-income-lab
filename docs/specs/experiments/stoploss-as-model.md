@@ -1,8 +1,8 @@
 # 損切りを 1 つの予測モデルとして扱えるか（形 A ＝ 位置を知らない出口 ／ 形 B ＝ 買値からの下落）
 
-作成日: 2026-09-27（§0 は**回す前**に書いた。§1 以降は回した後）。派生元: [プラン new-model-trader.md §3 Phase 2-2](../../plans/new-model-trader.md)（親「titan を使って、新規の予測モデルと、複数の予測モデルを持ったトレーダーを作成する方法を確立する」の 2 つ目の実例）。
+作成日: 2026-09-27（§0 は**回す前**に書いた。§1 以降は回した後）。派生元: [プラン new-model-trader.md §3 Phase 2-2](../../plans/archive/new-model-trader.md)（親「titan を使って、新規の予測モデルと、複数の予測モデルを持ったトレーダーを作成する方法を確立する」の 2 つ目の実例）。
 利用者の指示（2026-09-27）: **「損切りは一つのモデルとして考えてもよいかも検証」**。TODO の子「損切りの手法や対応方法を考える。損切りしたほうが損を多く生む可能性の調査も行う」は、この検証の**事前固定（§0）**として先にやる。
-決めごと: K2（合成規則を足さない。出口だけのモデルは買い% 100 ＋ `unanimous`）・K3（形 A を先に、形 B は `simulate` に口を足して机上は並行）・K8（`over_budget` の扱い）＝ [プラン §2](../../plans/new-model-trader.md)。
+決めごと: K2（合成規則を足さない。出口だけのモデルは買い% 100 ＋ `unanimous`）・K3（形 A を先に、形 B は `simulate` に口を足して机上は並行）・K8（`over_budget` の扱い）＝ [プラン §2](../../plans/archive/new-model-trader.md)。
 規約: [rules.md](feature-discovery/rules.md) 13 章（閾値売買）・14-9（事前固定は構造だけ）・14-10（空白は埋める）・15-3（学習の対象と損益の対象を分ける）・16 章（出口% を別に持つ）・18 章（線を別に置く）。手順書: [howto-model-trader.md §1](../howto-model-trader.md)。
 関連: [entry-timing.md](entry-timing.md)（出口の価値の上限・16 章の対）／ [forward10-target.md §7](forward10-target.md)（売る線を上げても情報が無ければ負ける）／ [downtrend-detection.md §4](downtrend-detection.md)（負けの主因 ＝ 休んだあいだの上げの取り損ね）／ [live-trading.md §0-2](live-trading.md)（含み損 20% は警告だけ）。
 

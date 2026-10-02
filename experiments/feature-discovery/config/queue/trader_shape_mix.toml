@@ -1,4 +1,4 @@
-# ⚠ **候補の人 `T4`（3 本の平均）をトレーダーと同じ形で机上にかける**（rules.md 20-6・プラン `docs/plans/trader-shape-live-three.md`）。
+# ⚠ **候補の人 `T4`（3 本の平均）をトレーダーと同じ形で机上にかける**（rules.md 20-6・プラン `docs/plans/archive/trader-shape-live-three.md`）。
 # 事前固定は rules.md 20-6（⚠ **回すと決めたのは結果を見る前**。n_trials ＋3 ＝ 素の行 1 ＋ 条件 2）。
 # 表は作り直さない（持ち主もメンバーも既にある表。leak 対照ではメンバーも leak の表を読む）。
 experiments = ["trader_mix_t4"]

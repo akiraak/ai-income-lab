@@ -1,4 +1,4 @@
-# ⚠ **候補の人 `T5`（ミオ）をトレーダーと同じ形で机上にかける**（rules.md 20-6・プラン `docs/plans/trader-shape-live-three.md`。
+# ⚠ **候補の人 `T5`（ミオ）をトレーダーと同じ形で机上にかける**（rules.md 20-6・プラン `docs/plans/archive/trader-shape-live-three.md`。
 # 利用者の指示 2026-10-01「新しく作られたT4移行とT1-T3も比較したい」）。
 # `T5` ＝ 主モデル（own 35 列 × Ridge）＋ 損切りモデル（高値 20 日から −10% で降りる）を `unanimous`。机上の写しは
 # 対の検知器「L1 高値20日から−10%で降りる」（入口 ＝ 主モデル・出口 ＝ max(100 − 入口%, 損切り)。stoploss-as-model.md §0）。

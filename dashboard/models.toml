@@ -166,6 +166,7 @@ history = [
   { when = "2026-09-10", what = "売買基準値 3 通り", names = ["own.all.ridge.shared~cal-old"], hold = 1, drop = 2, old = true, note = "0〜100 に直す計算が止まっていて、出力スコアがほとんど動かなかった。" },
   { when = "2026-09-13", what = "同じ 3 通りを、計算を直したあとに回し直した", names = ["own.all.ridge.shared"], drop = 3, note = "その後、見る数字のしぼり方の試しや、持つ株をしぼる試しの中で同じ形を回し直しても、数字は同じだった。" },
   { when = "2026-09-19", what = "出力スコアの高い順に、持つ株の数をしぼる決まりで試した", names = ["own.all-top*.ridge.shared"], hold = 11, drop = 4, aside = "ちがう売り買いの決まりでの試し。いまの印には数えない", note = "保留が多かったが、モデルを使わず「値動きの荒い順」に選ぶだけのほうが良かった。上位に来るのは荒い株で、順位に中身は無かった。" },
+  { when = "2026-10-02", what = "いま使っている売買基準値の形を、実際のトレーダーと同じ形（決めた 5 本の株を 1 株単位・小さな予算で ／ 全部の株を 1 株以上買える予算で）にして試した", names = ["own.all-tr*.ridge.shared"], hold = 1, drop = 1, aside = "ちがう売り買いの決まりでの試し。いまの印には数えない", note = "決めた 5 本の形は保留（ただ持ち続けるとの差が正だったのは、5 つの期間のうち 3 つ）。その差は、ほとんどが 1 つの期間（持たずに休んでいたあいだに株が大きく下がった）から来ている。全部の株を買える予算の形は、ただ持ち続けるより悪かった。" },
 ]
 records = ["docs/specs/experiments/threshold-trading.md", "docs/specs/experiments/calibration-rerun.md", "docs/specs/experiments/topk-holdings.md", "docs/specs/experiments/live-trading.md"]
 
@@ -254,6 +255,7 @@ history = [
   { when = "2026-09-13", what = "同じ 3 通りを、計算を直したあとに回し直した", hold = 1, drop = 2, aside = "株の外の数字の不具合を直す前の試し。いまの印には数えない", note = "保留は売買基準値がまん中の形。" },
   { when = "2026-09-17", what = "株の外の数字の不具合を 2 つ直して、同じ 3 通りを回し直した", names = ["own-cs-rel-ex.all.lgbm.shared~n48"], hold = 1, drop = 2, note = "保留は売買基準値がまん中より少し上の形に入れかわった。2 回回して、数字は 1 桁も違わなかった。" },
   { when = "2026-09-19", what = "出力スコアの高い順に、持つ株の数をしぼる決まりで試した", names = ["own-cs-rel-ex.all-top*.lgbm.shared~n48"], hold = 13, drop = 2, aside = "ちがう売り買いの決まりでの試し。いまの印には数えない", note = "どの株も同じ出力スコアの日がほとんどで、順番を試したことになっていない。" },
+  { when = "2026-10-02", what = "いま使っている売買基準値の形を、実際のトレーダーと同じ形（決めた 5 本の株を 1 株単位・小さな予算で ／ 全部の株を 1 株以上買える予算で）にして試した", names = ["own-cs-rel-ex.all-tr*.lgbm.shared~n48"], hold = 2, aside = "ちがう売り買いの決まりでの試し。いまの印には数えない", note = "どちらも保留（ただ持ち続けるとの差が正だったのは、5 つの期間のうち 2 つ）。全部の株を買える予算の形では、差はほとんど無かった。" },
 ]
 records = ["docs/specs/experiments/threshold-trading.md", "docs/specs/experiments/calibration-rerun.md", "docs/specs/experiments/daily-data-sources.md", "docs/specs/experiments/topk-holdings.md", "docs/specs/experiments/live-trading.md"]
 
@@ -333,6 +335,7 @@ result = { verdict = "hold", text = "売買基準値を 3 通り試した。1 �
 history = [
   { when = "2026-09-15", what = "60 日の線を読む型 3 種をいっしょに試した。この型は売買基準値 3 通り", names = ["own-seq.t3-quant60.ridge.shared"], hold = 1, drop = 2, note = "2026-09-17 に同じ形で回し直し、数字は同じだった（試した数には足していない）。" },
   { when = "2026-09-19", what = "出力スコアの高い順に、持つ株の数をしぼる決まりで試した", names = ["own-seq.t3-quant60-top*.ridge.shared"], hold = 13, drop = 2, aside = "ちがう売り買いの決まりでの試し。いまの印には数えない", note = "保留が多かったが、モデルを使わず「値動きの荒い順」に選ぶだけのほうが良かった。順位に中身は無かった。" },
+  { when = "2026-10-02", what = "いま使っている売買基準値の形を、実際のトレーダーと同じ形（決めた 5 本の株を 1 株単位・小さな予算で ／ 全部の株を 1 株以上買える予算で）にして試した", names = ["own-seq.t3-quant60-tr*.ridge.shared"], hold = 2, aside = "ちがう売り買いの決まりでの試し。いまの印には数えない", note = "どちらも保留（ただ持ち続けるとの差が正だったのは、5 つの期間のうち 2 つ）。決めた 5 本の形では、5 つの期間のうち 3 つで、ただ持ち続けるとまったく同じ動きだった。" },
 ]
 records = ["docs/specs/experiments/tsc-threshold.md", "docs/specs/experiments/feature-discovery/holding-days.md", "docs/specs/experiments/topk-holdings.md", "docs/specs/experiments/live-trading.md"]
 
@@ -1158,8 +1161,9 @@ limits = [
 result = { verdict = "drop", text = "いま使っているモデルの買いに、決めた割合で降りる形（水準 3 つ × 2 通り）・学んで降りる形・買った値段から測る形（水準 3 つ）・降りない形を、売買基準値 3 通りずつ試した。全部で 33 通り、全部落とすだった。", why = "降りる形はどれも、降りない形より、もうけの合計が下がった。減ったのは「いちどの取引で失う額の最悪」と「高い値段からの下がり幅」だけで、取り損ねと費用がそれを上回った。買った値段から測る形は、下がり幅をかえって大きくした（降りて、買い直して、また降りる）。" }
 history = [
   { when = "2026-09-27", what = "降りない形（比べる相手）。売買基準値 3 通り", names = ["own-trend.l0-nostop.ridge.shared"], drop = 3, note = "いま使っているモデルの買いだけの形。この型を足した形と比べるために、同じ材料で回した。" },
-  { when = "2026-09-27", what = "ここ 20 日の高い値段からの下がりで降りる形（決めた割合 3 水準・値動きの大きさで割った割合 3 水準）と、これから 10 日の下がりを学んで降りる形。売買基準値 3 通りずつ", names = ["own-trend.l[123]-*.ridge.shared"], drop = 21, note = "深い水準ほど降りない形に近づく。「ましな損切り」は「効かない損切り」だった。" },
+  { when = "2026-09-27", what = "ここ 20 日の高い値段からの下がりで降りる形（決めた割合 3 水準・値動きの大きさで割った割合 3 水準）と、これから 10 日の下がりを学んで降りる形。売買基準値 3 通りずつ", names = ["own-trend.l[12]-dd*20-[0-9].ridge.shared", "own-trend.l[12]-dd*20-[0-9][0-9].ridge.shared", "own-trend.l3-learn10.ridge.shared"], drop = 21, note = "深い水準ほど降りない形に近づく。「ましな損切り」は「効かない損切り」だった。" },
   { when = "2026-09-27", what = "買った値段からの下がりで降りる形（3 水準）。売買基準値 3 通りずつ。⚠ 机上でだけ試した（いまの売り買いの仕組みでは買った値段を型に渡せない）", names = ["own-trend.l0-nostop-stop*.ridge.shared"], drop = 9, note = "高い値段からの下がり幅をかえって大きくした。" },
+  { when = "2026-10-02", what = "ここ 20 日の高い値段から 1 割下がったら降りる形（売買基準値はまん中）を、実際のトレーダーと同じ形（決めた 5 本の株を 1 株単位・小さな予算で ／ 全部の株を 1 株以上買える予算で）にして試した", names = ["own-trend.l1-dd20-10-tr*.ridge.shared"], hold = 1, drop = 1, aside = "ちがう売り買いの決まりでの試し。いまの印には数えない", note = "決めた 5 本の形は保留（ただ持ち続けるとの差が正だったのは、5 つの期間のうち 3 つ）。全部の株を買える予算の形は、ただ持ち続けるより悪かった（5 つの期間のうち 4 つで負け）。" },
 ]
 records = ["docs/specs/experiments/stoploss-as-model.md"]
 
@@ -1237,6 +1241,7 @@ history = [
   { when = "2026-09-12", what = "使う数字のしぼり方 4 通りをいっしょに試した。この型は売買基準値 3 通り", names = ["own.f2-2.ridge.shared~p1995-02-10~cal-old"], hold = 1, drop = 2, old = true, note = "0〜100 に直す計算が止まっていて、出力スコアがほとんど動かなかった。" },
   { when = "2026-09-12", what = "同じ 3 通りを、計算を直したあとに回し直した", names = ["own.f2-2.ridge.shared~p1995-02-10"], hold = 1, drop = 2, note = "保留は売買基準値がまん中のもの。2026-10-01 に同じ形で回し直し、数字は同じだった。" },
   { when = "2026-10-01", what = "売買基準値がまん中の形を、実際のトレーダーと同じ形（決めた 5 本の株を 1 株単位・小さな予算で ／ 全部の株を 1 株以上買える予算で）にして試した", names = ["own.f2-2-tr*.ridge.shared~p1995-02-10"], hold = 2, aside = "ちがう売り買いの決まりでの試し。いまの印には数えない", note = "どちらも、ただ持ち続けるとの差は 5 つの期間のうち 3 つでしか正にならなかった。" },
+  { when = "2026-10-02", what = "学ぶ期間を 2018 年からに短くした形（実際の売買に入れたときの形）を、売買基準値はまん中で試した。もとの売り買いの決まりと、実際のトレーダーと同じ形（決めた 5 本の株を 1 株単位・小さな予算で ／ 全部の株を 1 株以上買える予算で）", names = ["own.f2-2.ridge.shared", "own.f2-2-tr*.ridge.shared"], hold = 1, drop = 2, aside = "学ぶ期間がちがう試し。いまの印には数えない", note = "もとの決まりでは、ただ持ち続けるより悪かった。決めた 5 本の形は保留（差が正だったのは、5 つの期間のうち 2 つ）。全部の株を買える予算の形は、ただ持ち続けるより悪かった。" },
 ]
 records = ["docs/specs/experiments/selectors-small-four.md", "docs/specs/experiments/trader-shaped-validation.md", "docs/specs/experiments/live-trading.md"]
 

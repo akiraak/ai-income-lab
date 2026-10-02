@@ -6,7 +6,7 @@
 
 - 利用者の指摘（2026-09-26）: 「売買のまねごとは現在のトレーダーが行っている売買と同じ内容か。違うならモデルの検証はトレーダー込みで確認しないと意味がないのではないか」
 - 机上の採否は 63 ／ 48 銘柄・等加重・端数・予算なしで見ていて、いまのトレーダー（5 本・整数株・$300）の形では `T1`〜`T3` のモデルを誰も確かめていない
-- 器は 2026-10-01 にできた（[rules.md 20 章](../specs/experiments/feature-discovery/rules.md)・`[[trading.trader]]`）。候補 3 本（F1-7・F2-2・D2）には当てたが、いまの 3 人のモデルにはまだ当てていない
+- 器は 2026-10-01 にできた（[rules.md 20 章](../../specs/experiments/feature-discovery/rules.md)・`[[trading.trader]]`）。候補 3 本（F1-7・F2-2・D2）には当てたが、いまの 3 人のモデルにはまだ当てていない
 - 利用者の指示（2026-10-01）: 「先に他のＴＯＤＯに残っているタスクを終わらせる」→ **「新しく作られたT4移行とT1-T3も比較したい」→「その案で進めて」**（コミット・push を含む）
 
 ## 1. 対応方針
@@ -55,3 +55,15 @@ flowchart LR
 - `T4` のコード: メンバーが 1 本だけの合成はそのメンバーと同じ買い% になる ／ 欠けた行は欠け ／ 切れ目が違えば止まる ／ `mix`・`methods` の無い config は 1 ビットも変わらない（指紋テスト）
 - 回した後: 素の行が既存の行と「一致」にまとまる（再現の検算）・leak 対照が跳ねる・既存の行が変わらない
 - `dashboard/tests/test_models_tab.py` の `test_real_history_matches_the_db`（titan の DB で）・研究側の pytest（titan）・`./run-tests.sh --fast`
+
+## 4. 結果（✅ 2026-10-02 に全部済ませた。Sx360 の Claude が書き、titan で回した）
+
+| Step | 結果【実測】 |
+| --- | --- |
+| 1 | 事前固定 ＝ コミット `0e675c3`（00:00 PDT）。回したのはその後（00:01〜） |
+| 2 | `trader_shape_people` ＝ 本番 5 ＋ leak 5・1 分 57 秒・失敗 0 |
+| 3 | 合わせる口のコード ＝ コミット `ca639fc`（`cli/run.py` の `mix_specs`・`_mix_prepare`・`_mix_fold`・`trader` の `methods`／ `names.toml` の `[mix]`／ `catalog` の系統「合成」／ `tests/test_mix.py` 10 本）→ `trader_shape_mix` ＝ 本番 20 秒 ＋ leak 31 秒。欠けた行 0 |
+| 4 | n_trials 751 → 765・**採る 0 ／ 保留 10 ／ 落とす 4**。記録 [trader-shaped-validation.md §5](../../specs/experiments/trader-shaped-validation.md)。`dashboard/models.toml` の試した経緯に 5 行（`aside`）を足し、`stop-exit` の古い行のパターンを絞った |
+| 5 | テストは記録の §5-1 と `DONE.md` |
+
+⚠ 残ったもの（利用者の決定）: この比較をどう使うか（候補を本番に入れるか ＝ TODO「トレーダーを『作成 → 実践投入 → 分析』のループで回す」・20 営業日の判定）。

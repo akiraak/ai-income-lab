@@ -37,6 +37,7 @@ import market_calendar  # noqa: E402
 import record  # noqa: E402
 from ttclient import ApiError, Client, ProductionGuard, load_env  # noqa: E402
 
+import control  # noqa: E402
 import ledger  # noqa: E402
 import mode as modes  # noqa: E402
 import plan as planning  # noqa: E402
@@ -244,13 +245,25 @@ def main() -> int:
         print(f"拒否: {misnamed} — シミュレーションのトレーダーは名前が {modes.SIM_TRADER_PREFIX} で始まり、本物はそうでないこと", file=sys.stderr)
         return 2
     traders = load_traders(names, args.traders_dir)
-    total_budget = sum(t.budget_usd for t in traders)
+    # ---- 0-2. 人ごとの印（停止 ／ 手じまい。control.py。プラン trader-control-flags.md）。⚠ 壊れた印は「無い」と読まず起動を拒む
+    control_dir = control.control_dir(halt_file)
+    try:
+        flags = {t.name: control.read_flag(control_dir, t.name) for t in traders}
+    except control.ControlError as exc:
+        print(f"拒否: {exc}", file=sys.stderr)
+        return 2
+    paused = [t for t in traders if flags[t.name] and flags[t.name].paused]
+    liquidating = [t for t in traders if flags[t.name] and flags[t.name].liquidate]
+    active = [t for t in traders if t not in paused and t not in liquidating]
+    # ⚠ 予算の合計の上限は「買う人」だけで見る（停止 ／ 手じまいの人は買わない。手じまいの人の建玉は売れるまで現金ではないが、増えはしない）
+    total_budget = sum(t.budget_usd for t in active)
     if total_budget > args.max_total_budget + 1e-9:
         print(f"拒否: 予算の合計 ${total_budget:.2f} が上限 ${args.max_total_budget:.2f} を超える（live-trading.md §0-2）", file=sys.stderr)
         return 2
     rec = DayRecorder(args.out_dir, date, env, run_id, is_mock, sim=sim)
     meta = {"kind": "start", "mode": args.mode, "traders": [t.name for t in traders], "test": any(t.test for t in traders),
-            "halt_file": halt_file, "now_et": now_et().isoformat(timespec="seconds"), "sdk": record.sdk_versions()}
+            "halt_file": halt_file, "now_et": now_et().isoformat(timespec="seconds"), "sdk": record.sdk_versions(),
+            **({"flags": {t.name: flags[t.name].describe() for t in traders if flags[t.name]}} if any(flags.values()) else {})}
     if sim:
         meta["sim_name"], meta["sim_speed"] = machine.name, CLOCK.control()["speed"]
     if env == "prod" and args.mode == "submit":
@@ -347,8 +360,15 @@ def main() -> int:
 
     # ---- 2. 合図
     predict_path = args.predict or os.path.join(rec.dir, "predict.jsonl")
+    for t in paused:
+        rec.write("events", {"kind": "paused", "trader": t.name, "since": flags[t.name].since, "actor": flags[t.name].actor, "reason": flags[t.name].reason,
+                             "note": "停止の印があるので、この人は今日は売買しない（持ち株はそのまま）"})
+    for t in liquidating:
+        if flags[t.name].done and not states[t.name].holdings:
+            rec.write("events", {"kind": "liquidate_done", "trader": t.name, "done": flags[t.name].done,
+                                 "note": "手じまいは済んでいる（印を消すまで買わない）"})
     try:
-        sigs, sig_events = signalling.collect(traders, date, predict_path)
+        sigs, sig_events = signalling.collect(active, date, predict_path)
     except signalling.SignalError as exc:
         rec.write("events", {"kind": "signal_error", "note": str(exc)})
         print(f"中断: {exc}", file=sys.stderr)
@@ -363,7 +383,13 @@ def main() -> int:
     raw_by_trader = {}
     need_quotes: set[str] = set()
     for t in traders:
-        raw, ev = planning.decide(t, states[t.name], sigs)
+        if t in paused or (t in liquidating and flags[t.name].done and not states[t.name].holdings):
+            raw_by_trader[t.name] = []
+            continue
+        if t in liquidating:
+            raw, ev = planning.liquidation_raw(t, states[t.name])     # 印: 合図を読まず持ち株を全部売る（買いは組まない）
+        else:
+            raw, ev = planning.decide(t, states[t.name], sigs)
         for r in [r for r in raw if r["symbol"] in blocked]:
             rec.write("events", {"kind": "blocked_symbol", "trader": t.name, "symbol": r["symbol"], "side": r["side"],
                                  "note": "口座と台帳の帳尻が合っていない銘柄（position_short ／ journal_unresolved）。今日は発注しない"})
@@ -412,6 +438,7 @@ def main() -> int:
             os._exit(137)
         o = res.order
         rec.write("orders", {
+            **({"liquidate": True} if o.parts and o.parts[0]["trader"] in {t.name for t in liquidating} else {}),
             "symbol": o.symbol, "side": o.side, "sizing": o.sizing, "shares": o.shares, "value_usd": o.value_usd, "parts": o.parts,
             "external_id": res.external_id, "mode": args.mode, "quote_at_signal": res.quote_at_signal,
             "dry_run": res.dry_run, "submitted": res.submitted, "transitions": res.transitions, "final_status": res.final_status,
@@ -453,6 +480,19 @@ def main() -> int:
         for t in traders:
             states[t.name].last_date = date
             save_state(state_dir, states[t.name])
+        # 手じまいの印: 持ち株が全部売れたら印に「済み」を書く（以後は飛ばす。印を消すのは人）。残っていれば翌日に持ち越す
+        for t in liquidating:
+            if flags[t.name].done:
+                continue
+            if not states[t.name].holdings:
+                try:
+                    control.mark_done(control_dir, t.name, date, sum(1 for f in fills_by_trader if f["trader"] == t.name), note="執行器が全部売った")
+                    rec.write("events", {"kind": "liquidate_complete", "trader": t.name, "note": "持ち株を全部売った。印に「済み」を書いた（印を消すまで買わない）"})
+                except control.ControlError as exc:
+                    rec.write("events", {"kind": "liquidate_mark_failed", "trader": t.name, "note": str(exc)[:200]})
+            else:
+                rec.write("events", {"kind": "liquidate_pending", "trader": t.name, "left": sorted(states[t.name].holdings),
+                                     "note": "まだ持ち株が残っている（帳尻の合わない銘柄・未約定）。翌日の回で続ける"})
         try:
             rec.write("balances", {"when": "after", "balances": record.excerpt(client.get_balances(account), limit=40)})
             after = client.list_positions(account)

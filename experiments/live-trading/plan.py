@@ -103,6 +103,18 @@ def decide(trader: Trader, state: TraderState, signals: list[Signal]) -> tuple[l
     return raw, events
 
 
+def liquidation_raw(trader: Trader, state: TraderState) -> tuple[list[dict], list[dict]]:
+    """手じまいの印（control.py）が立っている人: 合図を読まず、持ち株の全部を「売り」の意図の素にする（買いは組まない）。
+
+    ⚠ `decide` は変えない（印の無い人は 1 ビットも変わらない）。買い% ／ 出口% は無いので 0 ／ 100 を置く（記録の形を揃えるため）。
+    """
+    raw = [{"symbol": sym, "side": "sell", "buy_pct": 0.0, "exit_pct": 100.0, "liquidate": True}
+           for sym, h in sorted(state.holdings.items()) if h.shares > 0]
+    events = [{"kind": "liquidate_flag", "trader": trader.name, "symbols": [r["symbol"] for r in raw],
+               "note": "手じまいの印があるので、合図を読まず持ち株を全部売る（買いは出さない）"}]
+    return raw, events
+
+
 def size_intents(trader: Trader, state: TraderState, raw: list[dict], quotes: dict[str, float], today: str,
                  max_day_usd: float | DayCap | None = None) -> tuple[list[Intent], list[dict]]:
     """株数と金額を決め、⚠ **予算の上限で買いを拒む**（プラン §2-3）。

@@ -239,5 +239,18 @@
   - [ ] Phase 4: 投入（⚠ 利用者: 誰・入金・上限 → Claude: 設定を `config/traders/` 直下へ・テスト・push → 利用者 ＋ Sx360 の Claude: デプロイ・`live.env`・予測の時間の計測 → 初日の記録）
   - [ ] Phase 5: 分析を回す（投入した人を Phase 2 の物差しで見る。20 営業日の判定には いまの 3 人のぶんだけを使う）
 
+- [ ] 手じまい（持ち株を全部売る）を自動で行う機能を作る（`experiments/live-trading/liquidate.py`。⚠ 発注系 ＝ 本番の許可 3 段・確認文・`NOT_PRODUCTION` の印・sim の拒否はそのまま） [plan](docs/plans/liquidate.md)
+  ✅ 2026-10-05 利用者決定「実装して明日にはプログラムを使った手じまいで既存の株を売却します」＝ 10/5 の手売りはやめ、10/6（火）の市場時間にこの機能で `T1`・`T3` の 9 本を売る。凍結の趣旨には触れない形（独立した 1 本）で今日作る
+  - [x] Step 1: `liquidate.py`（持ち株 → 成行の売り → 約定を売買履歴へ → 口座と突き合わせ。許可・印・ロック・HALT・市場時間）
+    ✅ 2026-10-05 書いた（Sx360 の Claude。毎日の経路のコードは 0 行変更）
+  - [x] Step 2: テスト（拒否の段・モックで通す）→ `./run-tests.sh --fast`
+    ✅ 2026-10-05 `tests/test_liquidate.py` 9 本（市場時間の暦・売買履歴からの注文・許可・HALT・sim の名前・モックで全部売る ／ dry-run は状態を書かない ／ 銘柄を絞る ＋ 口座だけの株は売らない ／ 口座が足りない銘柄は売らない）・`./run-tests.sh --fast` ✅
+  - [ ] Step 3: 手順書・`live-trading.md` §0-8 に 1 行 → コミット・push → デプロイ（⚠ `HALT` 中の auto-update の SKIP ＝ 一時的に外して pull）
+  - [ ] Step 4: 10/6 に利用者が 13500t で dry-run → 発注（プラン §2）→ 記録
+  利用者の指示（2026-10-05）: **手じまいを自動で行う機能が欲しい**（10/5 の手じまいは利用者が口座で 9 本を売り `reconcile.py remove` で写す形 ＝ 2 度目からをこの機能で）
+  案: 人ごと（`--traders T1,T3` か `--all`）に売買履歴の持ち株を成行で売り、約定を待って売買履歴に写す（`execute.py`・`journal.py`・`state.apply_sell`・`record.py` を使う。`run_day.py`・`trader.py`・`signals.py`・`plan.py` は触らない）。`--mode dry-run` が既定・`submit` は `TT_ALLOW_PROD_ORDERS=1` ＋ `--i-know-this-is-real-money`・市場が開いている時間だけ（発注できる時間帯の 15:45〜16:05 ET に限らない）・`HALT` 中は `--while-halted` を付けたときだけ・終わりに `reconcile show` と同じ突き合わせ。テストはモックサーバで（`mockrun` の器）
+  ⚠ 執行器の凍結（10/20 まで）に触れるかは利用者の判断: 新しい独立したスクリプトで毎日の経路（`run_day.py`）は変えない形なら、凍結の趣旨（20 営業日の執行の差の記録を汚さない）には触れない【Claude の読み】。着手するときはプランを書く（作業着手ルール）
+  関連: 「トレーダーを「作成 → 実践投入 → 分析」のループで回す」（投入の手順 9 ＝ 外す人の手じまい）／ [live-trading.md §0-15 C11](docs/specs/experiments/live-trading.md)
+
 - [ ] 実売買の執行器（`run_day.py`・`reconcile.py`）のメッセージの「台帳」→「売買履歴」（⚠ 本番投入が落ち着いてから。執行器のテストを流す・本番に効くので「デプロイ」が要る）
   派生元: 「DBを使ったデータの永続化を行う」の「言葉を分かりやすくする」（2026-09-25 に DONE へ）

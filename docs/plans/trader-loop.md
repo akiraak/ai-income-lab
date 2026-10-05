@@ -138,7 +138,7 @@ flowchart LR
 | 6 | 利用者（13500t の `live.env`） | `AIL_LIVE_TRADERS=<3 人>`・`AIL_LIVE_EXTRA=--i-know-this-is-real-money --max-total-budget 1900 --max-day-usd 1900` | ⚠ `run.sh` は `LT_*` の環境変数をコンテナに渡さないので引数で。⚠ 分類器が止めるので利用者が `!` で |
 | 7 | Sx360 の Claude | `bench_predict.py` で予測の時間（予測が増える人を入れたとき。線 60 秒） | ✅ 2026-10-04 済み（1-3）。52.6 ／ 52.4 秒 |
 | 8 | Sx360 の Claude | 翌営業日の記録（§1 に行・`reconcile.py show` の差 0・口座の現金） | — |
-| 9 | 利用者 ／ Sx360 の Claude | 外す人: `T2` は持ち株 0 ＝ `AIL_LIVE_TRADERS` から外すだけ ／ `T3` は 5 銘柄（T 2・NKE 1・VZ 1・BAC 1・PFE 2）を**利用者が口座で売る** → 13500t で `python3 reconcile.py --env prod remove T3 <銘柄> <株数> --price <約定> --reason 入れ替え` を 5 回（売買履歴に写す）→ `reconcile.py show` で差 0 → `AIL_LIVE_TRADERS` から外す → §1 の記録を閉じる。⚠ **売ったのに `remove` しないと、口座 − 売買履歴の差で全員がその 5 銘柄を売買できなくなる**（`run_day.py` は動かさない人の売買履歴も数える） | C11 |
+| 9 | 利用者 ／ Sx360 の Claude | ✅ 2026-10-04 利用者決定「明日は全ての銘柄を手じまいするのに当てる」＝ **10/5（月）に `T1` の 4 本も `T3` の 5 本も全部売る**（3 人が同じ日に現金 $600 から始まる）。外す人: `T2` は持ち株 0 ＝ `AIL_LIVE_TRADERS` から外すだけ ／ `T3` は 5 銘柄（T 2・NKE 1・VZ 1・BAC 1・PFE 2）／ `T1` は 4 銘柄（T 2・PFE 2・VZ 1・BAC 1）を**利用者が口座で売る** → 13500t で `python3 reconcile.py --env prod remove <T1 か T3> <銘柄> <株数> --price <約定> --reason 手じまい` を 9 回（売買履歴に写す）→ `reconcile.py show` で差 0 → `AIL_LIVE_TRADERS` から外す → §1 の記録を閉じる。⚠ **売ったのに `remove` しないと、口座 − 売買履歴の差で全員がその 5 銘柄を売買できなくなる**（`run_day.py` は動かさない人の売買履歴も数える） | C11 |
 
 ### 3-5. 分析の物差しをいまの 3 人の 8 営業日（9/23〜10/2）で試した【実測・計算。約定は `orders.jsonl`・時価は 10/2 15:51 ET の中値】
 

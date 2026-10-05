@@ -117,8 +117,11 @@ def test_confirmed_traders_are_the_shares_candidates():
         pytest.skip("T1.toml を確定する前")
     got = load_traders(["T1", "T2", "T3"], CONF)
     want = load_traders(["T1", "T2", "T3"], os.path.join(CONF, "candidates", "shares"))
-    assert [(t.name, t.symbols, t.sizing, t.threshold, t.budget_usd, t.combine, t.test, [(m.kind, m.name, m.method) for m in t.models]) for t in got] == \
-           [(t.name, t.symbols, t.sizing, t.threshold, t.budget_usd, t.combine, t.test, [(m.kind, m.name, m.method) for m in t.models]) for t in want]
+    # ⚠ 予算は比べない: 2026-10-04 利用者決定で T1 だけ $300 → $600（C11 の緩和 ＝ 予算だけは編集してよい。live-trading.md §0-15）
+    assert [(t.name, t.symbols, t.sizing, t.threshold, t.combine, t.test, [(m.kind, m.name, m.method) for m in t.models]) for t in got] == \
+           [(t.name, t.symbols, t.sizing, t.threshold, t.combine, t.test, [(m.kind, m.name, m.method) for m in t.models]) for t in want]
+    assert all(t.budget_usd == 300.0 for t in want)
+    assert {t.name: t.budget_usd for t in got} == {"T1": 600.0, "T2": 300.0, "T3": 300.0}
     assert all(list(t.symbols) == ["T", "PFE", "NKE", "VZ", "BAC"] and t.sizing == "shares" for t in got)
 
 
@@ -142,9 +145,8 @@ def test_multi_candidates_parse_and_are_wired_as_decided():
     for t in ts.values():
         names = [m.name for m in t.models]
         assert len(names) == len(set(names)), t.name
-    # 候補は直下に居ない ＝ `--traders T4` では起動できない
-    for name in ("T4", "T5"):
-        assert not os.path.exists(os.path.join(CONF, f"{name}.toml"))
+    # `T5` は直下に居ない ＝ `--traders T5` では起動できない。⚠ `T4` は 2026-10-04 に直下へ（下の test_production_people_2026_10_04）
+    assert not os.path.exists(os.path.join(CONF, "T5.toml"))
 
 
 def test_sim_copies_match_the_multi_candidates():
@@ -172,11 +174,27 @@ def test_best_candidate_is_wired_as_decided_and_matches_its_sim_copy():
     assert not t.test and t.combine == "asis" and t.threshold == 50.0 and t.budget_usd == 300.0
     assert t.symbols == ("T", "PFE", "NKE", "VZ", "BAC") and t.sizing == "shares"
     assert [(m.kind, m.name, m.method) for m in t.models] == [("experiment", "sel_small4_1995", "F2-2 RFE")]
-    assert not os.path.exists(os.path.join(CONF, "T6.toml"))
     (g,) = load_traders(["sim_T6"], CONF)
     assert g.test
     assert (g.symbols, g.sizing, g.threshold, g.budget_usd, g.combine, [(m.kind, m.name, m.method) for m in g.models]) == \
         (t.symbols, t.sizing, t.threshold, t.budget_usd, t.combine, [(m.kind, m.name, m.method) for m in t.models])
+
+
+def test_production_people_2026_10_04():
+    """2026-10-04 利用者決定（プラン trader-loop.md）: 残す `T1`・入れる `T4`・`T6`（候補の原本を写して予算だけ $600）・1 人 $600。
+    合計 $1,800 は上限 $1,900（`--max-total-budget 1900`）の内・既定の $1,000 は超える（⚠ live.env で上げるまで起動できない ＝ 意図どおり）。
+    `T2`・`T3` の設定は直下に残る（持ち株を売り切るまで。売買履歴も残す ＝ C11）。"""
+    from trader import load_traders
+    ts = {t.name: t for t in load_traders(["T1", "T4", "T6"], CONF)}
+    assert all(t.budget_usd == 600.0 and not t.test and t.sizing == "shares" and t.symbols == ("T", "PFE", "NKE", "VZ", "BAC") for t in ts.values())
+    assert 1000.0 < sum(t.budget_usd for t in ts.values()) <= 1900.0
+    for name, src in (("T4", MULTI), ("T6", BEST)):
+        (w,) = load_traders([name], src)
+        g = ts[name]
+        assert w.budget_usd == 300.0 and (g.symbols, g.sizing, g.threshold, g.combine, g.test, [(m.kind, m.name, m.method) for m in g.models]) == \
+            (w.symbols, w.sizing, w.threshold, w.combine, w.test, [(m.kind, m.name, m.method) for m in w.models])
+    old = {t.name: t for t in load_traders(["T2", "T3"], CONF)}
+    assert old["T2"].budget_usd == 300.0 and old["T3"].budget_usd == 300.0      # 外す人は編集しない
 
 
 def test_asis_is_refused_for_the_multi_shape():

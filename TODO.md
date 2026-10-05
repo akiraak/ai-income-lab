@@ -245,8 +245,9 @@
     ✅ 2026-10-05 書いた（Sx360 の Claude。毎日の経路のコードは 0 行変更）
   - [x] Step 2: テスト（拒否の段・モックで通す）→ `./run-tests.sh --fast`
     ✅ 2026-10-05 `tests/test_liquidate.py` 9 本（市場時間の暦・売買履歴からの注文・許可・HALT・sim の名前・モックで全部売る ／ dry-run は状態を書かない ／ 銘柄を絞る ＋ 口座だけの株は売らない ／ 口座が足りない銘柄は売らない）・`./run-tests.sh --fast` ✅
-  - [ ] Step 3: 手順書・`live-trading.md` §0-8 に 1 行 → コミット・push → デプロイ（⚠ `HALT` 中の auto-update の SKIP ＝ 一時的に外して pull）
-  - [ ] Step 4: 10/6 に利用者が 13500t で dry-run → 発注（プラン §2）→ 記録
+  - [x] Step 3: 手順書・`live-trading.md` §0-8 に 1 行 → コミット・push → デプロイ（⚠ `HALT` 中の auto-update の SKIP ＝ 一時的に外して pull）
+    ✅ 2026-10-05 `prod` 22a13c2 → f09a15c（関門 ✅。11:05 ET）。13500t は 08:09〜08:15 PDT に `HALT` を外して pull（`done f09a15c`）→ `HALT` を戻した。✅ 13500t の本番の dry-run（`--env prod --mode dry-run --allow-prod-dry-run --while-halted`。何もルーティングしない）＝ `T1` 4 本 ＋ `T3` 5 本 ＝ 9 件とも dry-run を通過・問題 0・約 $438【実測 11:17 ET】
+  - [ ] Step 4: 10/6（火）の市場時間（日本時間 22:30〜翌 5:00）に利用者が 13500t で発注（プラン §2 の 2 ＝ `TT_ALLOW_PROD_ORDERS=1` ＋ `--i-know-this-is-real-money --while-halted`）→ `reconcile.py show` で差 0 → Sx360 の Claude が記録（§1・§2 の 8 営業日の判定）
   利用者の指示（2026-10-05）: **手じまいを自動で行う機能が欲しい**（10/5 の手じまいは利用者が口座で 9 本を売り `reconcile.py remove` で写す形 ＝ 2 度目からをこの機能で）
   案: 人ごと（`--traders T1,T3` か `--all`）に売買履歴の持ち株を成行で売り、約定を待って売買履歴に写す（`execute.py`・`journal.py`・`state.apply_sell`・`record.py` を使う。`run_day.py`・`trader.py`・`signals.py`・`plan.py` は触らない）。`--mode dry-run` が既定・`submit` は `TT_ALLOW_PROD_ORDERS=1` ＋ `--i-know-this-is-real-money`・市場が開いている時間だけ（発注できる時間帯の 15:45〜16:05 ET に限らない）・`HALT` 中は `--while-halted` を付けたときだけ・終わりに `reconcile show` と同じ突き合わせ。テストはモックサーバで（`mockrun` の器）
   ⚠ 執行器の凍結（10/20 まで）に触れるかは利用者の判断: 新しい独立したスクリプトで毎日の経路（`run_day.py`）は変えない形なら、凍結の趣旨（20 営業日の執行の差の記録を汚さない）には触れない【Claude の読み】。着手するときはプランを書く（作業着手ルール）

@@ -253,7 +253,7 @@
   - [ ] Phase 3: 管理画面のボタン・表示・POST・テスト（⚠ 10/6 の手じまいの後。印は CLI で立ててある）
   - [~] Phase 4: `./run-tests.sh --full` → コミット → デプロイ → 13500t で印を 1 度試す
     ✅ 2026-10-05 `--full` ✅（黄金の集計値は変わらない）→ `prod` f09a15c → **eeda56c**（15:35〜15:45 PDT に `HALT` を外して pull・戻した）→ 13500t で印を立てた（`T1`・`T3` ＝ 手じまい ／ `T4`・`T6` ＝ 停止「入金が載るまで」。`control.py show`）→ **本番の執行器を dry-run**（`--traders T1,T3,T4,T6 --mode dry-run --allow-prod-dry-run --max-total-budget 1900 --max-day-usd 1900`。HALT は別の道を見せて通した）＝ 合図 0 本 → 9 本の売り（T1 4・T3 5）が dry-run を通過・問題 0【実測 18:46 ET】
-    ⏳ 利用者（火曜 15:40 ET ＝ 日本時間 水曜 4:40 まで）: ① `live.env` を `AIL_LIVE_TRADERS=T1,T3,T4,T6`・`AIL_LIVE_EXTRA=--i-know-this-is-real-money --max-total-budget 1900 --max-day-usd 1900` に ② `HALT` を消す。→ 火曜 15:50 ET の回で 9 本を売る（T4・T6 は休む）。③ 売れたあと `control.py clear T1`（翌日から $600 で再開）④ 入金が載ったら `control.py clear T4`・`clear T6` ⑤ `T3` は印を残したまま（後で `live.env` から外す）
+    ✅ 2026-10-05 19:0x ET 利用者が Sx360 から ① `live.env`（`AIL_LIVE_TRADERS=T1,T3,T4,T6`・上限 2 つ）② `HALT` を消した（`control.py show` ＝ 4 人の印・`HALT なし`）。→ 火曜 15:50 ET の回で 9 本を売る（T4・T6 は休む）。③ 売れたあと `control.py clear T1`（翌日から $600 で再開）④ 入金が載ったら `control.py clear T4`・`clear T6` ⑤ `T3` は印を残したまま（後で `live.env` から外す）
 
 - [ ] 手じまい（持ち株を全部売る）を自動で行う機能を作る（`experiments/live-trading/liquidate.py`。⚠ 発注系 ＝ 本番の許可 3 段・確認文・`NOT_PRODUCTION` の印・sim の拒否はそのまま） [plan](docs/plans/liquidate.md)
   ✅ 2026-10-05 利用者決定「実装して明日にはプログラムを使った手じまいで既存の株を売却します」＝ 10/5 の手売りはやめ、10/6（火）の市場時間にこの機能で `T1`・`T3` の 9 本を売る。凍結の趣旨には触れない形（独立した 1 本）で今日作る

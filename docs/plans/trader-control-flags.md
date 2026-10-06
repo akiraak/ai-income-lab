@@ -40,7 +40,7 @@ flowchart LR
 | 0 | ⚠ 利用者: 執行器の凍結を解く（この変更は `run_day.py`・`plan.py` に入る） ✅ 2026-10-05 利用者決定「凍結を解く」 | 利用者 |
 | 1 | 印の読み書き（`control.py`。読む: 執行器・管理画面 ／ 書く: 管理画面・CLI `control.py set|clear`）とテスト | Claude |
 | 2 | 執行器: `paused` で飛ばす ／ `liquidate` で持ち株を全部売る（`plan.decide` の前で差し替え。買いは組まない）／ 全部売れたら印に `done` ／ `events`・`orders` の印。テスト（モック・`tests/test_sim_limits.py` の形）・黄金の集計値（`--full`。⚠ 印の無い人は 1 ビットも変わらない） | Claude |
-| 3 | 管理画面: ボタン・印の表示・POST・テスト（面の判定・秘密が出ない） | Claude |
+| 3 | 管理画面: ボタン・印の表示・POST・テスト（面の判定・秘密が出ない） ✅ 2026-10-06（`dashboard.md` §13-9） | Claude |
 | 4 | `./run-tests.sh --full` → コミット → デプロイ（利用者の依頼）→ 13500t で印を 1 度試す（`paused` を立てて翌日の回で飛ぶこと） | Claude ／ 利用者 |
 
 ## 3. 影響範囲

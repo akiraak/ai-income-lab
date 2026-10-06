@@ -570,6 +570,12 @@ note = "tastytrade の API サンプルと、会場を選んだときの語。"
   where = "§2 停止ボタンの中身"
 
   [[section.term]]
+  name = "人ごとの印（停止 ／ 手じまい）"
+  short = "トレーダー 1 人に付ける印。停止 ＝ その人を飛ばす（持ち株はそのまま）／ 手じまい ＝ 次の回で持ち株を全部売り、以後は買わない。画面は印を書くだけで、売るのは執行器。"
+  doc = "docs/specs/dashboard.md"
+  where = "§13-9 人ごとの印"
+
+  [[section.term]]
   name = "6 観点（A〜F）"
   short = "会場を無人で回せるかを見る観点。認証の寿命・常駐の要否・気配・往復・レート制限・SDK の保守。"
   doc = "docs/specs/experiments/tastytrade-api-sample.md"

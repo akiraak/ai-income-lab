@@ -1,4 +1,7 @@
-"""操作。⚠ **管理画面から出せるのは「停止」と「解除」だけ**（2026-09-18 に手動の注文を外した）。
+"""操作。⚠ **管理画面から出せるのは「停止」と「解除」と、人ごとの印（停止 ／ 手じまい）だけ**（2026-09-18 に手動の注文を外した）。
+
+- 人ごとの印（2026-10-05。プラン docs/plans/trader-control-flags.md）: `control/<人>.json` に 停止 ／ 手じまい を書くだけ。
+  ⚠ **その場では何も売らない**。売るのは執行器の毎日の回（発注の許可は執行器だけ ＝ この画面に発注の経路は無いまま）
 
 - 停止（両面）: HALT フラグを書き、働いている注文を全部取り消す（取消は cert 常に可、prod は scope に trade があるときだけ）
 - 解除（ローカル面）
@@ -8,7 +11,9 @@
 
 from __future__ import annotations
 
+import importlib.util
 import json
+import sys
 import threading
 from pathlib import Path
 
@@ -22,6 +27,20 @@ from .monitor import EventLog, EnvMonitor, Monitors, WORKING_STATUSES, field, ut
 
 class OpsError(Exception):
     pass
+
+
+def _load_control():
+    """執行器の `control.py`（experiments/live-trading。標準ライブラリだけ）を道で読む ＝ 印の形の正本は執行器の側。"""
+    path = Path(__file__).resolve().parents[2] / "experiments" / "live-trading" / "control.py"
+    spec = importlib.util.spec_from_file_location("lt_control", path)
+    mod = importlib.util.module_from_spec(spec)
+    sys.modules["lt_control"] = mod          # ⚠ dataclass（from __future__ import annotations）は sys.modules に居る前提で型を引く
+    spec.loader.exec_module(mod)
+    return mod
+
+
+control = _load_control()
+FLAG_KINDS = ("paused", "liquidate")
 
 
 class Ops:
@@ -80,6 +99,45 @@ class Ops:
         out = {"halted": False, "mode": self.settings.machine()["mode"], "resumed_at": utcnow_iso(), "actor": actor, "was_halted": existed}
         self.events.append("dashboard", "-", "resume", out)
         self._history("resume", actor, "-", out)
+        return out
+
+    # ---------------- 人ごとの印（停止 ／ 手じまい）。⚠ 書くだけ。売るのは執行器の毎日の回
+
+    def control_dir(self) -> Path:
+        return Path(control.control_dir(str(self.settings.halt_file)))
+
+    def flags(self) -> dict[str, dict]:
+        """{識別名: {kind, label, since, actor, reason, done}}。壊れた印は label に「読めない」（執行器は起動を拒む）。"""
+        out: dict[str, dict] = {}
+        try:
+            for name, fl in control.read_all(str(self.control_dir())).items():
+                out[name] = {**fl.as_dict(), "label": fl.describe(), "kind": "liquidate" if fl.liquidate else ("paused" if fl.paused else None)}
+        except control.ControlError as exc:
+            out["?"] = {"label": "読めない", "error": str(exc)[:200], "kind": None}
+        return out
+
+    def flag_status(self, name: str) -> dict | None:
+        try:
+            fl = control.read_flag(str(self.control_dir()), name)
+        except control.ControlError as exc:
+            return {"name": name, "label": "読めない", "error": str(exc)[:200], "kind": None}
+        return None if fl is None else {**fl.as_dict(), "label": fl.describe(), "kind": "liquidate" if fl.liquidate else "paused"}
+
+    def set_trader_flag(self, name: str, kind: str, actor: str, reason: str = "") -> dict:
+        if kind not in FLAG_KINDS:
+            raise OpsError(f"印の種類は {FLAG_KINDS} だけ: {kind!r}")
+        fl = control.set_flag(str(self.control_dir()), name, kind, actor, reason)
+        out = {"trader": name, "kind": kind, "label": fl.describe(), "since": fl.since, "actor": actor, "reason": fl.reason, "mode": self.settings.machine()["mode"],
+               "note": "その場では何も売らない。執行器の次の回から効く"}
+        self.events.append("dashboard", "-", "trader_flag", out)
+        self._history("trader_flag", actor, "-", out)
+        return out
+
+    def clear_trader_flag(self, name: str, actor: str) -> dict:
+        existed = control.clear_flag(str(self.control_dir()), name)
+        out = {"trader": name, "kind": "clear", "existed": existed, "actor": actor, "mode": self.settings.machine()["mode"]}
+        self.events.append("dashboard", "-", "trader_flag", out)
+        self._history("trader_flag", actor, "-", out)
         return out
 
     # ---------------- 共通

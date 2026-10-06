@@ -312,6 +312,7 @@ def create_app(settings: Settings | None = None, start_monitors: bool = True) ->
             "page": "",
             "machine": {k: machine.get(k) for k in ("mode", "name", "since", "mismatch", "sim", "not_production")},
             "nav_traders": nav_traders(machine),
+            "flags": ops.flags(),                              # 人ごとの印（停止 ／ 手じまい。§13-9）。読むだけ
             "face": settings.face,
             "auth_mode": settings.auth_mode,
             "user": getattr(request.state, "user", None),
@@ -383,7 +384,27 @@ def create_app(settings: Settings | None = None, start_monitors: bool = True) ->
         # ⚠ 3 秒ごとに取り直すのは数字と図だけ（注文の履歴は全期間で長いので外す。§13-7）。⚠ GET のみ・POST は増やさない
         if request.query_params.get("partial") == "live":
             return render(request, "trader_live.html", page=f"trader:{name}", b=b, t=t)
-        return render(request, "trader.html", page=f"trader:{name}", b=b, t=t)
+        return render(request, "trader.html", page=f"trader:{name}", b=b, t=t, flag=ops.flag_status(name))
+
+    @app.post("/ops/traders/{name}/flag")
+    async def ops_trader_flag(request: Request, name: str):
+        """人ごとの印（停止 ／ 手じまい ／ 解除）を書く（§13-9。ローカル面と cloudflare-local）。⚠ 書くだけ ＝ 売るのは執行器の次の回。
+        ⚠ 公開面（cloudflare）には無い（監視と停止だけ）。確認の文（識別名を打つ）が違えば書かない。"""
+        require_local()
+        form = await form_of(request)
+        b = board_now(days=None, all_traders=True)
+        if not any(x["name"] == name for x in b["traders"]):
+            raise HTTPException(404, "そのトレーダーは無い")
+        kind = form.get("kind", "")
+        if kind == "clear":
+            out = await asyncio.to_thread(ops.clear_trader_flag, name, actor(request))
+            return redirect(f"/traders/{name}", f"{name} の印を消した" if out["existed"] else f"{name} に印は無かった")
+        if kind not in ("paused", "liquidate"):
+            raise HTTPException(400, "kind は paused ／ liquidate ／ clear")
+        if form.get("confirm", "").strip() != name:
+            return redirect(f"/traders/{name}", f"印は立てていない（確認の欄に識別名 {name} を打つ）")
+        out = await asyncio.to_thread(ops.set_trader_flag, name, kind, actor(request), form.get("reason", ""))
+        return redirect(f"/traders/{name}", f"{name} に「{out['label']}」の印を立てた。売買が変わるのは執行器の次の回から")
 
     @app.get("/api/state")
     async def api_state(request: Request):

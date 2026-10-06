@@ -79,6 +79,8 @@
       9/30 ✅ prepare rc=0（120 秒）／ trade rc=0（706 秒・T1 の NKE 買い ＋ T3 の PFE 2 株 売り ＝ 2 本 Filled）／ `check.sh` `→ 0`
       10/1 ✅ prepare rc=0（118 秒）／ trade rc=0（710 秒・T3 の PFE 2 株 買い 1 本 Filled）／ `check.sh` `→ 0`
       10/2 ✅ prepare rc=0（123 秒）／ trade rc=0（707 秒・T1 の NKE 1 株 売り 1 本 Filled）／ `check.sh` `→ 0`。10/3・10/4 は土日
+      10/5 ⚠ prepare **rc=1**（外部系列の 504。9/29 と同じ型）／ trade **rc=2**（予算の合計 $1,200 ＞ 上限 $1,000 ＝ `live.env` を直す前。意図どおり発注なし）／ `check.sh` `trade rc=2 → fail`（`AIL_HC_URL` 無し ＝ not-sent）
+      10/6 ✅ prepare rc=0（128 秒）／ trade は 15:50 ET（手じまいの回）
     - [x] 起動しなかった日を数える（⚠ 無人運転の成立はこれで測る。管理画面に「起動しなかった日」の考えは既にある ＝ [dashboard.md §13](docs/specs/dashboard.md)）
       ⚠ WSL2 の穴: **Windows を再起動して WSL が寝ていた時刻の回は実行されない**（`Persistent=false` ＝ 発注できる時間帯を過ぎてから起きても発注させない）。⚠ これは正しい挙動だが、**起動しなかった日として数える**必要がある
       関連: 管理画面の見張り「今日の起動が無い」（[dashboard.md §13-8](docs/specs/dashboard.md)）
@@ -250,7 +252,8 @@
     ✅ 2026-10-05 `control.py`（`set <人> paused|liquidate --reason` ／ `clear` ／ `show`。置き場は `HALT` の隣の `control/<人>.json`・壊れた印は読めないで止める）・`tests/test_control.py` 4 本
   - [x] Phase 2: 執行器が印を読む（paused ＝ 飛ばす ／ liquidate ＝ 全部売る → done）・テスト・黄金の集計値
     ✅ 2026-10-05 `run_day.py`（印を読む・停止の人は合図を読まず売買しない・手じまいの人は `plan.liquidation_raw` で持ち株を全部売り、買わない・全部売れたら印に「済み」・残れば `liquidate_pending`・予算の合計の上限は買う人だけで見る・`HALT` が優先）・`plan.liquidation_raw`（`decide` は変えない）・`tests/test_run_day_flags.py` 6 本（モック）
-  - [ ] Phase 3: 管理画面のボタン・表示・POST・テスト（⚠ 10/6 の手じまいの後。印は CLI で立ててある）
+  - [x] Phase 3: 管理画面のボタン・表示・POST・テスト（⚠ 10/6 の手じまいの後。印は CLI で立ててある）
+    ✅ 2026-10-06 トレーダーの詳細に「この人の印」（いまの印・済み・⏸ 停止 ／ 🧹 手じまい ／ 印を消す。確認の欄に識別名を打つ）・概要の段に印・`POST /ops/traders/<人>/flag`（ローカル面と cloudflare-local。公開面は 404）・`ops.py` が執行器の `control.py` を道で読む（形の正本は執行器）・履歴と事象に `trader_flag`・`glossary.toml` の語・`dashboard.md` §13-9。テスト `tests/test_flags.py` 4 本・`./run-tests.sh --fast` ✅。⚠ 本番に載せるのは今日の手じまいの後のデプロイで
   - [~] Phase 4: `./run-tests.sh --full` → コミット → デプロイ → 13500t で印を 1 度試す
     ✅ 2026-10-05 `--full` ✅（黄金の集計値は変わらない）→ `prod` f09a15c → **eeda56c**（15:35〜15:45 PDT に `HALT` を外して pull・戻した）→ 13500t で印を立てた（`T1`・`T3` ＝ 手じまい ／ `T4`・`T6` ＝ 停止「入金が載るまで」。`control.py show`）→ **本番の執行器を dry-run**（`--traders T1,T3,T4,T6 --mode dry-run --allow-prod-dry-run --max-total-budget 1900 --max-day-usd 1900`。HALT は別の道を見せて通した）＝ 合図 0 本 → 9 本の売り（T1 4・T3 5）が dry-run を通過・問題 0【実測 18:46 ET】
     ✅ 2026-10-05 19:0x ET 利用者が Sx360 から ① `live.env`（`AIL_LIVE_TRADERS=T1,T3,T4,T6`・上限 2 つ）② `HALT` を消した（`control.py show` ＝ 4 人の印・`HALT なし`）。→ 火曜 15:50 ET の回で 9 本を売る（T4・T6 は休む）。③ 売れたあと `control.py clear T1`（翌日から $600 で再開）④ 入金が載ったら `control.py clear T4`・`clear T6` ⑤ `T3` は印を残したまま（後で `live.env` から外す）

@@ -51,7 +51,7 @@
 {% set tm = t.diff1_median %}{% set ts = 'na' if tm is none else ('ok' if tm <= 5 else ('warn' if tm <= 10 else 'ng')) %}
 <div class="lane bl-{{ t.cls }}">
   <div class="info">
-    <span class="tr-name"><i class="sw dot {{ t.cls }}"></i><a href="/traders/{{ t.name }}">{{ t.label }}</a>{% if t.test %} <span class="badge badge-mock">TEST</span>{% endif %}</span>
+    <span class="tr-name"><i class="sw dot {{ t.cls }}"></i><a href="/traders/{{ t.name }}">{{ t.label }}</a>{% if t.test %} <span class="badge badge-mock">TEST</span>{% endif %}{% if flags.get(t.name) %} <span class="badge badge-mock">{{ flags[t.name].label }}</span>{% endif %}</span>
     <span class="big">{{ pct(t.pnl_now_pct) }}</span>
     <span class="muted">{{ usd(t.pnl_now_usd) }} · 予算 ${{ '{:,.0f}'.format(t.budget_usd) }}</span>
     <span><span class="k">差 1</span> <span class="chip {{ ts }}">{{ {'ok': '✅', 'warn': '⚠', 'ng': '❌', 'na': '—'}[ts] }} {{ tm if tm is not none else '—' }} bp</span></span>

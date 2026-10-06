@@ -80,7 +80,7 @@
       10/1 ✅ prepare rc=0（118 秒）／ trade rc=0（710 秒・T3 の PFE 2 株 買い 1 本 Filled）／ `check.sh` `→ 0`
       10/2 ✅ prepare rc=0（123 秒）／ trade rc=0（707 秒・T1 の NKE 1 株 売り 1 本 Filled）／ `check.sh` `→ 0`。10/3・10/4 は土日
       10/5 ⚠ prepare **rc=1**（外部系列の 504。9/29 と同じ型）／ trade **rc=2**（予算の合計 $1,200 ＞ 上限 $1,000 ＝ `live.env` を直す前。意図どおり発注なし）／ `check.sh` `trade rc=2 → fail`（`AIL_HC_URL` 無し ＝ not-sent）
-      10/6 ✅ prepare rc=0（128 秒）／ trade は 15:50 ET（手じまいの回）
+      10/6 ✅ prepare rc=0（128 秒）／ trade ⚠ **起動せず**: `run.sh` が 12:40:02 PDT に `REFUSE: submit には TT_ALLOW_PROD_ORDERS=1 と --i-know-this-is-real-money の両方が要る`。原因 ＝ `live.env` の `AIL_LIVE_EXTRA=--i-know-this-is-real-money --max-total-budget 1900 --max-day-usd 1900` が**引用符なし**で、`. live.env` が `--max-total-budget` をコマンドとして実行し `AIL_LIVE_EXTRA` が空になった（Claude が 10/5 に示した sed の書き方の誤り）。`check.sh` は `trade=missing → fail`（外へは送っていない）。直し方 ＝ 値を `"…"` で囲む（下の 10/6 の行）
     - [x] 起動しなかった日を数える（⚠ 無人運転の成立はこれで測る。管理画面に「起動しなかった日」の考えは既にある ＝ [dashboard.md §13](docs/specs/dashboard.md)）
       ⚠ WSL2 の穴: **Windows を再起動して WSL が寝ていた時刻の回は実行されない**（`Persistent=false` ＝ 発注できる時間帯を過ぎてから起きても発注させない）。⚠ これは正しい挙動だが、**起動しなかった日として数える**必要がある
       関連: 管理画面の見張り「今日の起動が無い」（[dashboard.md §13-8](docs/specs/dashboard.md)）

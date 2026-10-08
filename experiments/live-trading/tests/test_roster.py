@@ -1,4 +1,4 @@
-"""名簿（roster.py）と執行器の `--traders @roster`（プラン docs/plans/trader-roster-dashboard.md。2026-10-07 利用者決定）。
+"""名簿（roster.py）と執行器の `--traders @roster`（プラン docs/plans/archive/trader-roster-dashboard.md。2026-10-07 利用者決定）。
 
 名簿の読み書き ／ 無い・壊れた名簿は起動を拒む ／ 空の名簿は何もしない ／ 名簿の人は明示と同じ動き ／
 予算の合計が上限を超えたら、後から名簿に入った人だけを休ませる（明示の回は今までどおり回ごと拒否）。

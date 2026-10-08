@@ -130,7 +130,7 @@ flowchart LR
 
 ### 3-4. 投入の手順（手順書 2-7 の具体化。2026-10-04）
 
-⚠ **2026-10-07 から、入れる ／ 外すは管理画面の名簿で行う**（[howto-model-trader.md の「2-7 の手順」](../specs/howto-model-trader.md)・[プラン trader-roster-dashboard.md](trader-roster-dashboard.md)）。下の表は 2026-10-04〜07 に手作業で行った記録として残す（手順 6 の `live.env` と手順 9 の `reconcile.py remove` は、名簿の「開始」と「手じまい → 外す」に置き換わった）。
+⚠ **2026-10-07 から、入れる ／ 外すは管理画面の名簿で行う**（[howto-model-trader.md の「2-7 の手順」](../specs/howto-model-trader.md)・[プラン trader-roster-dashboard.md](archive/trader-roster-dashboard.md)）。下の表は 2026-10-04〜07 に手作業で行った記録として残す（手順 6 の `live.env` と手順 9 の `reconcile.py remove` は、名簿の「開始」と「手じまい → 外す」に置き換わった）。
 
 | 順 | 担い手 | やること | ⚠ |
 | ---: | --- | --- | --- |

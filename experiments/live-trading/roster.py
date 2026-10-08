@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""名簿（誰を動かすか）。管理画面と CLI が書き、執行器が `--traders @roster` で毎日の回に読む（プラン docs/plans/trader-roster-dashboard.md。2026-10-07 利用者決定）。
+"""名簿（誰を動かすか）。管理画面と CLI が書き、執行器が `--traders @roster` で毎日の回に読む（プラン docs/plans/archive/trader-roster-dashboard.md。2026-10-07 利用者決定）。
 
     python roster.py show                           # 名簿
     python roster.py add T4 --reason "入れ替え"     # 開始（名簿に入れる。売買が始まるのは執行器の次の回から）

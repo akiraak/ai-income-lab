@@ -3,7 +3,7 @@
 - 人ごとの印（2026-10-05。プラン docs/plans/trader-control-flags.md）: `control/<人>.json` に 停止 ／ 手じまい を書くだけ。
   ⚠ **その場では何も売らない**。売るのは執行器の毎日の回（発注の許可は執行器だけ ＝ この画面に発注の経路は無いまま）
 
-- 名簿（2026-10-07。プラン docs/plans/trader-roster-dashboard.md）: `roster.json`（`HALT` の隣）に 開始 ／ 外す を書くだけ。
+- 名簿（2026-10-07。プラン docs/plans/archive/trader-roster-dashboard.md）: `roster.json`（`HALT` の隣）に 開始 ／ 外す を書くだけ。
   ⚠ その場では何も買わない。誰を動かすかを執行器が次の回で読む（`run_day.py --traders @roster`）
 
 - 停止（両面）: HALT フラグを書き、働いている注文を全部取り消す（取消は cert 常に可、prod は scope に trade があるときだけ）

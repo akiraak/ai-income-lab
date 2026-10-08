@@ -240,7 +240,8 @@
     ✅ 2026-10-04 案（A 執行の差 ／ B 持ち続けるとの差 ／ C 机上との一致 ／ D 無人運転）を書き、8 営業日で試した（プラン §3-5: 3 人とも持ち続けるより ＋$0.7〜＋$7.3 ＝ 1 日の値動きの内）。⏳ 利用者の確認 → 記録 §1 の下に表を置く
   - [x] Phase 3: 作成の手順の章（手順書に「検証結果から選ぶ → 机上にかける → 候補にする」を足す。いまあるもの: 選ぶ物差し [best-model-trader.md §2 Step 1](docs/plans/archive/best-model-trader.md)・机上の器 [rules.md 20 章](docs/specs/experiments/feature-discovery/rules.md)）
     ✅ 2026-10-07 [howto-model-trader.md §3](docs/specs/howto-model-trader.md)「検証結果から候補の人を作る」を足した（3-1 物差し 6 つ ＝ 2026-09-30 の固定の写し ／ 3-2 机上 ＝ rules.md 20 章の config・queue・確かめること ／ 3-3 判定の読み方 ／ 3-4 採る 0 のときの (a)(b)）。旧 §3〜5 は §4〜6 へ。⚠ 利用者に決めてほしいこと 1 つ: 物差しの決まり 2 は、固定の後に入った〔トレーダー・…〕の行と合成の行を除くか含めるかに触れていない（§3-1 の「未決」）
-  - [ ] Phase 4: 投入（⚠ 利用者: 誰・入金・上限 → Claude: 設定を `config/traders/` 直下へ・テスト・push → 利用者 ＋ Sx360 の Claude: デプロイ・`live.env`・予測の時間の計測 → 初日の記録）
+  - [x] Phase 4: 投入（⚠ 利用者: 誰・入金・上限 → Claude: 設定を `config/traders/` 直下へ・テスト・push → 利用者 ＋ Sx360 の Claude: デプロイ・`live.env`・予測の時間の計測 → 初日の記録）
+    ✅ 2026-10-08 新しい 3 人の 1 日目（名簿で起動 ＝ `roster: true`）: T1 ・ T6 が 5 本ずつ買い 10 本 Filled・T4 は 5 本とも `skip`（買い% 47.7〜48.2 ＜ 50）・差 1 中央値 0.00bp・`reconcile` 差 0。予測 4 本 49 秒・回の全体 15:40:01 → 15:51:57 ET（刻限 15:58 の内）【実測】。記録 `live-trading.md` §1
   - [ ] Phase 5: 分析を回す（投入した人を Phase 2 の物差しで見る。20 営業日の判定には いまの 3 人のぶんだけを使う）
 
 - [ ] 管理画面からトレーダーごとに「停止」「手じまい」の印を立て、執行器が翌日以降の回で実行する [plan](docs/plans/trader-control-flags.md)
@@ -263,22 +264,6 @@
     ✅ 2026-10-07 20:1x ET titan で `./run-tests.sh --full` ✅（管理画面のボタン f66c43a を含む・黄金の集計値は変わらない）＝ 関門の前段は済み。⏳ デプロイ（利用者の「デプロイ」で。Sx360 から `./run-deploy.sh`）→ 13500t で印を 1 度試す
     ✅ 2026-10-07 23:3x ET（Sx360 の Claude。利用者の指示）13500t で `reconcile.py --env prod show` ＝ 銘柄の行なし（口座・売買履歴とも 0）・控えの未完 0 → `control.py clear T1`・`clear T4`・`clear T6`（前 4 人 → 後 `T3` の「手じまい（済み）」だけ）。⏳ 利用者: `live.env` の `AIL_LIVE_TRADERS=T1,T4,T6`
     ✅ 2026-10-07 23:4x ET デプロイ（Sx360 の `./run-deploy.sh`。関門 ✅）＝ `prod` eeda56c → **47287ed**・13500t `done 47287ed`（20:45 PDT・管理画面のコンテナ起こし直し）＝ 印のボタンが本番に載った。⏳ 利用者: 管理画面で `test_a` の印を 1 度試す（立てる → 表示 → 消す）
-
-- [ ] トレーダーの開始・停止・手じまい・外すを管理画面で行う（名簿 `roster.json`（`HALT` の隣） ＋ 執行器の `--traders @roster`。`live.env` から「誰を動かすか」を外す） [plan](docs/plans/trader-roster-dashboard.md)
-  利用者の指示（2026-10-07）: 「トレーダーを「作成 → 実践投入 → 分析」のループで回す」をやっているけど、一連の作業に手元のコマンドがあるのはよくない。必要なくなったトレーダーの停止や手じまいや、新しいトレーダーの開始は管理画面からの操作で行いたい。それを考慮した作りを考えて
-  関連: 「トレーダーを「作成 → 実践投入 → 分析」のループで回す」／ 「管理画面からトレーダーごとに「停止」「手じまい」の印を立て、執行器が翌日以降の回で実行する」
-  - [x] Phase 0: 決めごと K1〜K5（⚠ 利用者。プラン §2）
-    ✅ 2026-10-07 利用者決定「推す案でok」＝ K1 この作り ／ K2 上限を超えたら後から入った人から休ませる ／ K3 次の回から・執行器の回の間は書かない ／ K4 予算は画面で変えない ／ K5 上限は `live.env` に残す
-  - [x] Phase 1: 名簿の正本 `roster.py` と執行器の `--traders @roster`・上限を超えたときの形（K2）・テスト・`--full`
-    ✅ 2026-10-07（Sx360 の Claude）: `roster.py`（`show` ／ `add` ／ `remove`。置き場は `HALT` の隣の `roster.json` ＝ ⚠ `control/` の中に置くと印として読まれるので外に出した）・`run_day.py --traders @roster`（無い ／ 壊れた ＝ rc=2・空 ＝ rc=0・K2 ＝ `over_total_budget`・`start` に `max_total_budget`・`max_day_usd`・`roster`）・`tests/test_roster.py` 9 本。⚠ `--traders` を明示する経路は変えていない。`./run-tests.sh` ✅・`--full` ✅（黄金の集計値は変わらない）
-  - [x] Phase 2: 管理画面 `/roster`・帳尻の欄・テスト
-    ✅ 2026-10-07: `/roster`（状態・予算・持ち株・いつから ／ 印・ボタン・押せない理由・次の回の上限と前の回・帳尻）・`POST /ops/roster/<人>`（開始 ／ 外す。外すと印も消す）・印のフォームに戻り先 `/roster`・`app/lineup.py`（押せるかの判定 1 か所）・左ペインに「名簿」・`glossary.toml` の語・`dashboard.md` §13-10。K3 は時刻で（営業日 15:40〜16:10 ET。画面は `run.lock` を取れない）。テスト `tests/test_roster.py` 8 本・POST の番人テストに 1 本。⚠ トレーダーの詳細のフォームは印だけのまま（開始 ／ 外すは名簿の面で）
-    ✅ 2026-10-07: ⚠ `run-live.sh` も `--traders` で人の設定を読んで予測するモデルを拾っていた ＝ `@roster` のままでは止まる → 名簿を執行器と同じ道で引くように直した（`@roster` は執行器へそのまま渡す）。手で確かめた: 名簿 T1・T4・T6 → 拾うモデル 4 本 ＝ 明示と同じ・名簿が無い ＝ rc=1 → `run-live.sh` は exit 11（執行器を起こさない）
-  - [ ] Phase 3: 移行（デプロイ → 画面で T1・T4・T6 を開始 → ⚠ 利用者が `live.env` を `AIL_LIVE_TRADERS=@roster` に 1 度だけ）
-    ✅ 2026-10-08 01:2x ET デプロイ（利用者「デプロイ」。Sx360 の `./run-deploy.sh`・関門 ✅）＝ `prod` 47287ed → **1a6c799**・13500t `done 1a6c799`（22:30 PDT・管理画面のコンテナ起こし直し）。名簿の道は画面（`trade-dashboard`）と執行器（`trade-runner`）とも `/home/ubuntu/ai-income-lab/experiments/tastytrade-api-sample/out/roster.json`（同じ host のディレクトリ）を確かめた。⏳ 利用者: `/roster` で T1 → T4 → T6 を開始 → `live.env` を `@roster` に → 次の回の `start` を Sx360 の Claude が確かめる
-    ✅ 2026-10-08 08:09 PDT 利用者が `/roster` で T1 → T4 → T6 を開始（⚠ 最初の 3 回は確認の欄が空で断られ、気づけなかった → 画面を直した ＝ `prod` **b179823**・13500t `done b179823` 08:15 PDT）→ `live.env` を `AIL_LIVE_TRADERS=@roster` に（元は `live.env.bak-20261008`）。執行器のコンテナの中で `roster.py show` ＝ 3 人・T1・T4・T6 の順。⏳ 10/8 12:40 PDT（15:40 ET）の回の `start` に `roster: true`・3 人を確かめる（13:15 PDT 以降・Sx360 の Claude）
-  - [x] Phase 4: 手順書の書き直し（trader-loop.md §3-4・howto 2-7・live-trading.md §0-2・CLAUDE.md）
-    ✅ 2026-10-07 22:5x PDT: howto に「2-7 の手順」（入れる 5 手順・外す 4 手順・休ませる。図 1 枚）・2-7 の行・trader-loop.md の 4-3 と §3-4 の頭（10/4〜07 の手作業は記録として残す）・live-trading.md の C12・CLAUDE.md の入れ替えの行。⚠ Phase 3（移行）の結果を見て直すところがあれば足す
 
 - [~] 紙上の対照（`paper.py`）を実物にそろえる（始めた日・整数株・印と名簿・人の区切り） [plan](docs/plans/paper-align.md)
   派生元: いまの 3 人の 8 営業日の判定（[live-trading.md §2-1](docs/specs/experiments/live-trading.md)。差 3 が線を越えたが執行の差ではなかった）

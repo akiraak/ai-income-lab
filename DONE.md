@@ -1,4 +1,19 @@
 # DONE
+- 2026-10-08 トレーダーの開始・停止・手じまい・外すを管理画面で行う（名簿 `roster.json`（`HALT` の隣） ＋ 執行器の `--traders @roster`。`live.env` から「誰を動かすか」を外す） [plan](docs/plans/archive/trader-roster-dashboard.md)
+  利用者の指示（2026-10-07）: 「トレーダーを「作成 → 実践投入 → 分析」のループで回す」をやっているけど、一連の作業に手元のコマンドがあるのはよくない。必要なくなったトレーダーの停止や手じまいや、新しいトレーダーの開始は管理画面からの操作で行いたい。それを考慮した作りを考えて
+  関連: 「トレーダーを「作成 → 実践投入 → 分析」のループで回す」／ 「管理画面からトレーダーごとに「停止」「手じまい」の印を立て、執行器が翌日以降の回で実行する」
+  - Phase 0: 決めごと K1〜K5（⚠ 利用者。プラン §2）
+    ✅ 2026-10-07 利用者決定「推す案でok」＝ K1 この作り ／ K2 上限を超えたら後から入った人から休ませる ／ K3 次の回から・執行器の回の間は書かない ／ K4 予算は画面で変えない ／ K5 上限は `live.env` に残す
+  - Phase 1: 名簿の正本 `roster.py` と執行器の `--traders @roster`・上限を超えたときの形（K2）・テスト・`--full`
+    ✅ 2026-10-07（Sx360 の Claude）: `roster.py`（`show` ／ `add` ／ `remove`。置き場は `HALT` の隣の `roster.json` ＝ ⚠ `control/` の中に置くと印として読まれるので外に出した）・`run_day.py --traders @roster`（無い ／ 壊れた ＝ rc=2・空 ＝ rc=0・K2 ＝ `over_total_budget`・`start` に `max_total_budget`・`max_day_usd`・`roster`）・`tests/test_roster.py` 9 本。⚠ `--traders` を明示する経路は変えていない。`./run-tests.sh` ✅・`--full` ✅（黄金の集計値は変わらない）
+  - Phase 2: 管理画面 `/roster`・帳尻の欄・テスト
+    ✅ 2026-10-07: `/roster`（状態・予算・持ち株・いつから ／ 印・ボタン・押せない理由・次の回の上限と前の回・帳尻）・`POST /ops/roster/<人>`（開始 ／ 外す。外すと印も消す）・印のフォームに戻り先 `/roster`・`app/lineup.py`（押せるかの判定 1 か所）・左ペインに「名簿」・`glossary.toml` の語・`dashboard.md` §13-10。K3 は時刻で（営業日 15:40〜16:10 ET。画面は `run.lock` を取れない）。テスト `tests/test_roster.py` 8 本・POST の番人テストに 1 本。⚠ トレーダーの詳細のフォームは印だけのまま（開始 ／ 外すは名簿の面で）
+    ✅ 2026-10-07: ⚠ `run-live.sh` も `--traders` で人の設定を読んで予測するモデルを拾っていた ＝ `@roster` のままでは止まる → 名簿を執行器と同じ道で引くように直した（`@roster` は執行器へそのまま渡す）。手で確かめた: 名簿 T1・T4・T6 → 拾うモデル 4 本 ＝ 明示と同じ・名簿が無い ＝ rc=1 → `run-live.sh` は exit 11（執行器を起こさない）
+  - Phase 3: 移行（デプロイ → 画面で T1・T4・T6 を開始 → ⚠ 利用者が `live.env` を `AIL_LIVE_TRADERS=@roster` に 1 度だけ）
+    ✅ 2026-10-08 01:2x ET デプロイ（利用者「デプロイ」。Sx360 の `./run-deploy.sh`・関門 ✅）＝ `prod` 47287ed → **1a6c799**・13500t `done 1a6c799`（22:30 PDT・管理画面のコンテナ起こし直し）。名簿の道は画面（`trade-dashboard`）と執行器（`trade-runner`）とも `/home/ubuntu/ai-income-lab/experiments/tastytrade-api-sample/out/roster.json`（同じ host のディレクトリ）を確かめた。⏳ 利用者: `/roster` で T1 → T4 → T6 を開始 → `live.env` を `@roster` に → 次の回の `start` を Sx360 の Claude が確かめる
+    ✅ 2026-10-08 08:09 PDT 利用者が `/roster` で T1 → T4 → T6 を開始（⚠ 最初の 3 回は確認の欄が空で断られ、気づけなかった → 画面を直した ＝ `prod` **b179823**・13500t `done b179823` 08:15 PDT）→ `live.env` を `AIL_LIVE_TRADERS=@roster` に（元は `live.env.bak-20261008`）。執行器のコンテナの中で `roster.py show` ＝ 3 人・T1・T4・T6 の順。✅ 10/8 の回（12:40 PDT ＝ 15:40 ET）の `start` に `roster: true`・`traders` ＝ T1 ・ T4 ・ T6 を確かめた（13:4x PDT）。注文 10・約定 10・問題 0・`reconcile` 差 0・控えの未完 0（`live-trading.md` §1）
+  - Phase 4: 手順書の書き直し（trader-loop.md §3-4・howto 2-7・live-trading.md §0-2・CLAUDE.md）
+    ✅ 2026-10-07 22:5x PDT: howto に「2-7 の手順」（入れる 5 手順・外す 4 手順・休ませる。図 1 枚）・2-7 の行・trader-loop.md の 4-3 と §3-4 の頭（10/4〜07 の手作業は記録として残す）・live-trading.md の C12・CLAUDE.md の入れ替えの行。⚠ Phase 3（移行）の結果を見て直すところがあれば足す
 - 2026-10-08 管理画面の時刻をシアトル時間で出す（利用者の指示 2026-10-08「日次は必ずシアトル時間で表示するようにして」）
   - 作ったもの（10/7 23:xx PDT・Sx360 の Claude）: ET だけで出していた所を「12:40 PDT（15:40 ET）」の形に（見張り「今日の起動が無い」・名簿の面と書かない時間・気配の updated-at・シミュレーションの時計・用語 3 つ）。`live.et_to_seattle`・templates の `etpt`・フィルタ `ptfull`・テスト 1 本・`dashboard.md` §13-11。CLAUDE.md の「Claude への依頼方針」と Sx360 のメモリにも同じ決まり
   - デプロイ（利用者「デプロイ」）: 10/8（木）07:06 PDT に Sx360 の `./run-deploy.sh`・関門 ✅ ＝ `prod` 1a6c799 → **3b80723**・13500t `done 3b80723`（07:15 PDT・管理画面のコンテナ起こし直し）

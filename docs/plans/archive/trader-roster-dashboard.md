@@ -4,7 +4,7 @@
 
 利用者の指示（2026-10-07）: **「トレーダーを「作成 → 実践投入 → 分析」のループで回す」をやっているけど、一連の作業に手元のコマンドがあるのはよくない。必要なくなったトレーダーの停止や手じまいや、新しいトレーダーの開始は管理画面からの操作で行いたい。それを考慮した作りを考えて**
 
-10/4〜10/7 の入れ替え（[trader-loop.md §3-4](trader-loop.md)）で手元のコマンドを打った場面:
+10/4〜10/7 の入れ替え（[trader-loop.md §3-4](../trader-loop.md)）で手元のコマンドを打った場面:
 
 | # | 場面 | いまの手段 | 誰が | 起きたこと |
 | ---: | --- | --- | --- | --- |
@@ -161,7 +161,7 @@ flowchart LR
 
 ### Phase 4: 手順書を書き直す（Claude）
 
-- [trader-loop.md §3-4](trader-loop.md) の投入の手順・[howto-model-trader.md](../specs/howto-model-trader.md) 2-7・`live-trading.md` §0-2・CLAUDE.md を「画面で開始 ／ 停止 ／ 手じまい ／ 外す」に
+- [trader-loop.md §3-4](../trader-loop.md) の投入の手順・[howto-model-trader.md](../../specs/howto-model-trader.md) 2-7・`live-trading.md` §0-2・CLAUDE.md を「画面で開始 ／ 停止 ／ 手じまい ／ 外す」に
 
 ## 3. 影響範囲
 

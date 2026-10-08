@@ -1,4 +1,4 @@
-"""名簿の面（`/roster`。dashboard.md §13-10。プラン docs/plans/trader-roster-dashboard.md）: トレーダーの一生（候補 → 稼働 ⇄ 停止 → 手じまい → 外す）。
+"""名簿の面（`/roster`。dashboard.md §13-10。プラン docs/plans/archive/trader-roster-dashboard.md）: トレーダーの一生（候補 → 稼働 ⇄ 停止 → 手じまい → 外す）。
 
 ⚠ **読むだけ・決めるだけ**。書くのは `ops.py`（名簿 ＝ 執行器の `roster.py`・印 ＝ 執行器の `control.py`）。売買は執行器の次の回。
 ⚠ 押せるかどうかの判定はここ 1 か所（画面のボタンの出し分けと POST の拒否が同じ関数を見る）。

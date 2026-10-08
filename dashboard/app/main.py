@@ -324,6 +324,7 @@ def create_app(settings: Settings | None = None, start_monitors: bool = True) ->
             "halt": ops.halt_status(),
             "envs": env_badges(),
             "flash": request.query_params.get("flash"),
+            "flash_ng": request.query_params.get("ng") == "1",          # 断った ＝ 赤で出す（書いていないことに気づけるように）
             "now": datetime.now(timezone.utc).isoformat(timespec="seconds"),
             "version": settings.version,
             "symbol": settings.symbol,
@@ -337,9 +338,9 @@ def create_app(settings: Settings | None = None, start_monitors: bool = True) ->
         base.update(ctx)
         return templates.TemplateResponse(request, name, redactor(base))
 
-    def redirect(url: str, flash: str | None = None):
+    def redirect(url: str, flash: str | None = None, ng: bool = False):
         if flash:
-            url += ("&" if "?" in url else "?") + "flash=" + quote(redactor.text(flash)[:400])
+            url += ("&" if "?" in url else "?") + "flash=" + quote(redactor.text(flash)[:400]) + ("&ng=1" if ng else "")
         return RedirectResponse(url, status_code=303)
 
     async def form_of(request: Request) -> dict:
@@ -407,7 +408,7 @@ def create_app(settings: Settings | None = None, start_monitors: bool = True) ->
         if kind not in ("paused", "liquidate"):
             raise HTTPException(400, "kind は paused ／ liquidate ／ clear")
         if form.get("confirm", "").strip() != name:
-            return redirect(back, f"印は立てていない（確認の欄に識別名 {name} を打つ）")
+            return redirect(back, f"印は立てていない（確認の欄に識別名 {name} を打つ）", ng=True)
         out = await asyncio.to_thread(ops.set_trader_flag, name, kind, actor(request), form.get("reason", ""))
         return redirect(back, f"{name} に「{out['label']}」の印を立てた。売買が変わるのは執行器の次の回から")
 
@@ -435,17 +436,17 @@ def create_app(settings: Settings | None = None, start_monitors: bool = True) ->
             raise HTTPException(400, "kind は start ／ remove")
         lu = lineup_now()
         if lu["roster_error"]:
-            return redirect("/roster", f"名簿を読めないので書かない: {lu['roster_error']}")
+            return redirect("/roster", f"名簿を読めないので書かない: {lu['roster_error']}", ng=True)
         row = next((r for r in lu["rows"] if r["name"] == name), None)
         if row is None:
             raise HTTPException(404, "そのトレーダーは無い（設定が config/traders/ 直下に要る ＝ デプロイ）")
         if kind not in row["actions"]:
-            return redirect("/roster", f"{name} は{row['status_label']}なので、{'開始' if kind == 'start' else '外す'}はできない")
+            return redirect("/roster", f"{name} は{row['status_label']}なので、{'開始' if kind == 'start' else '外す'}はできない", ng=True)
         why = row["actions"][kind]
         if why:
-            return redirect("/roster", f"書いていない: {why}")
+            return redirect("/roster", f"書いていない: {why}", ng=True)
         if form.get("confirm", "").strip() != name:
-            return redirect("/roster", f"書いていない（確認の欄に識別名 {name} を打つ）")
+            return redirect("/roster", f"書いていない（確認の欄に識別名 {name} を打つ）", ng=True)
         if kind == "start":
             await asyncio.to_thread(ops.roster_add, name, actor(request), form.get("reason", ""))
             return redirect("/roster", f"{name} を名簿に入れた。売買は執行器の次の回から")

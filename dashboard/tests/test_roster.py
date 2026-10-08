@@ -137,3 +137,18 @@ def test_market_times_are_shown_in_seattle_time_first():
     from datetime import date
     assert lv.et_to_seattle("15:40", date(2026, 10, 8)) == "12:40 PDT（15:40 ET）"
     assert lv.et_to_seattle("16:15", date(2026, 12, 1)) == "13:15 PST（16:15 ET）"
+
+
+def test_refusals_are_hard_to_miss(world):
+    """10/8 の本番: 確認の欄が空のまま 3 回押され、断った知らせ（黄色の小さな帯）に気づかなかった。
+    ⚠ 確認の欄はブラウザが送る前に止める（required ＋ pattern）・断ったら赤い帯。再開（印を消す）は確認なしのまま（formnovalidate）。"""
+    c, s = world
+    page = c.get("/roster").text
+    assert 'required pattern="A1"' in page and 'required pattern="B2"' in page
+    loc = flash(post(c, "B2", kind="start", confirm=""))
+    assert "確認の欄" in loc and loc.endswith("&ng=1") and not roster_file(s).exists()
+    shown = c.get(post(c, "B2", kind="start", confirm="").headers["location"]).text
+    assert "flash flash-ng" in shown and "✋" in shown
+    ok = c.get(post(c, "B2", kind="start", confirm="B2").headers["location"]).text
+    assert "名簿に入れた" in ok and "flash-ng" not in ok
+    assert 'required pattern="A1"' in c.get("/traders/A1").text

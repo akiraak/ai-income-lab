@@ -34,21 +34,21 @@
           <form method="post" action="/ops/roster/{{ r.name }}" class="inline flagform" data-confirm="{{ r.name }} を名簿に入れる。執行器の次の回から予算 ${{ '{:,.0f}'.format(r.budget_usd) }} で売買する。よいか？">
             <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="kind" value="start">
             <input type="text" name="reason" placeholder="理由（任意）" maxlength="200">
-            <input type="text" name="confirm" placeholder="確認: {{ r.name }}" autocomplete="off">
+            <input type="text" name="confirm" placeholder="確認: {{ r.name }} と打つ" autocomplete="off" required pattern="{{ r.name }}" title="識別名 {{ r.name }} をそのまま打つ">
             <button class="btn btn-primary"{% if a.start %} disabled title="{{ a.start }}"{% endif %}>▶ 開始</button>
           </form>{% if a.start %}<div class="small muted">{{ a.start }}</div>{% endif %}
         {% else %}
           <form method="post" action="/ops/traders/{{ r.name }}/flag" class="inline flagform" data-confirm="{{ r.name }} の印を書く。⚠ その場では何も売買しない（執行器の次の回から効く）。よいか？">
             <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="back" value="/roster">
             <input type="text" name="reason" placeholder="理由（任意）" maxlength="200">
-            <input type="text" name="confirm" placeholder="確認: {{ r.name }}" autocomplete="off">
+            <input type="text" name="confirm" placeholder="確認: {{ r.name }} と打つ" autocomplete="off" required pattern="{{ r.name }}" title="識別名 {{ r.name }} をそのまま打つ">
             {% if a.paused is none %}<button class="btn" name="kind" value="paused">⏸ 停止</button>{% endif %}
             {% if a.liquidate is none %}<button class="btn btn-danger" name="kind" value="liquidate">🧹 手じまい</button>{% endif %}
-            {% if a.clear is none %}<button class="btn" name="kind" value="clear">{% if r.status == 'liquidated' %}▶ 再開（印を消す）{% else %}▶ 再開{% endif %}</button>{% endif %}
+            {% if a.clear is none %}<button class="btn" name="kind" value="clear" formnovalidate>{% if r.status == 'liquidated' %}▶ 再開（印を消す）{% else %}▶ 再開{% endif %}</button>{% endif %}
           </form>
           <form method="post" action="/ops/roster/{{ r.name }}" class="inline flagform" data-confirm="{{ r.name }} を名簿から外す（印も消す）。売買履歴は残る。よいか？">
             <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="kind" value="remove">
-            <input type="text" name="confirm" placeholder="確認: {{ r.name }}" autocomplete="off">
+            <input type="text" name="confirm" placeholder="確認: {{ r.name }} と打つ" autocomplete="off" required pattern="{{ r.name }}" title="識別名 {{ r.name }} をそのまま打つ">
             <button class="btn"{% if a.remove %} disabled title="{{ a.remove }}"{% endif %}>⏏ 外す</button>
           </form>{% if a.remove %}<div class="small muted">外せない: {{ a.remove }}</div>{% endif %}
         {% endif %}

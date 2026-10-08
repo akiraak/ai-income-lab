@@ -1,4 +1,9 @@
 # DONE
+- 2026-10-07 手じまい（持ち株を全部売る）を自動で行う機能を作る（`experiments/live-trading/liquidate.py`）[plan](docs/plans/archive/liquidate.md)（利用者の指示 2026-10-05「手じまいを自動で行う機能が欲しい」「実装して明日にはプログラムを使った手じまいで既存の株を売却します」）
+  - 作ったもの（10/5）: `liquidate.py`（売買履歴の持ち株 → 成行の売り → 約定を売買履歴へ → 口座と突き合わせ。許可の 3 段・印・`run.lock`・`HALT` は `--while-halted`・市場時間だけ）・`tests/test_liquidate.py` 9 本・`prod` f09a15c・13500t の本番 dry-run 9 件通過【実測 10/5 11:17 ET】
+  - 実際の手じまい: 同じ 10/5 に「人ごとの印」（`control.py` の `liquidate`）ができたので、`liquidate.py` を手で流す代わりに **執行器の毎日の回が印で売った** ＝ 10/6 は `live.env` の引用符の誤りで起動せず → **10/7 15:51 ET に 9 本（T1 4 ・ T3 5）全部 Filled**・差 1 は 8 本 0.00 ・ 1 本 +1.09bp・持ち株 0・現金 $1,888.747【実測】
+  - 後片付け（10/7 23:3x ET・Sx360 の Claude）: 13500t の `reconcile.py --env prod show` ＝ 差 0・控えの未完 0 → `control.py clear T1`・`T4`・`T6`（`T3` の「済み」は残す）→ デプロイ `prod` 47287ed。記録 `live-trading.md` §1（10/7 の 3 行）・§2-1（いまの 3 人の 8 営業日の判定）
+  - ⚠ `liquidate.py` は本番では 1 度も submit していない（dry-run だけ）。印を待たずに売るときの道具として残す
 - 2026-10-02 予測モデルの検証のようにトレーダーの検証も行う（机上で「トレーダー込みの売り買いのまねごと」を回し、検証結果一覧に足す）[plan](docs/plans/archive/trader-shape-live-three.md)・[記録 §5](docs/specs/experiments/trader-shaped-validation.md)・[rules.md 20-6](docs/specs/experiments/feature-discovery/rules.md)（利用者の指摘 2026-09-26「モデルの検証はトレーダー込みで確認しないと意味がないのではないか」・指示 2026-10-01「先に他のＴＯＤＯに残っているタスクを終わらせる」「新しく作られたT4移行とT1-T3も比較したい」→「その案で進めて」。Sx360 の Claude が書き、titan で回した）
   - 事前固定（回す前。コミット `0e675c3`）: 対象 ＝ いまの 3 人と候補の 3 人（`T1`〜`T6`）の設定のモデルと θ・条件 2 つ（5 本・整数株・$300 ／ 全銘柄を買える予算）・相手は「持ち続ける」・学び直しは fold ごと・検証数 ＋14・予想 7 つ
   - 足したコード（`ca639fc`。⚠ 既定経路は 1 ビットも変えない ＝ 指紋テスト）: 合わせる口 `[[trading.mix]]`（ほかの実験の手法の買い% ／ 出口% を行ごとに平均。メンバーは自分の config と表で同じ日付の切れ目の fold を学ぶ）・`[[trading.trader]]` の `methods`・`names.toml` の `[mix]`・検証結果一覧の系統「合成」・`tests/test_mix.py` 10 本。設定 6 本（`trader_trade_{own_ridge,ownex_lgbm,ownseq_ridge,own_stop_ridge}_a`・`trader_sel_small4_2018`・`trader_mix_t4`）と queue 2 本

@@ -314,8 +314,10 @@ def dates(live_dir: Path) -> list[str]:
 
 
 DAILY_NUM = ("budget_usd", "paper_bp", "paper_cum_bp", "real_usd", "real_bp", "real_cum_bp", "diff3_bp", "diff3_cum_bp", "bh_bp", "bh_cum_bp",
-             "diff1_quote_to_fill_bp", "diff1_fill_to_close_bp", "diff2_half_spread_bp", "diff2_fees_usd")
-DAILY_INT = ("n_symbols", "n_signals", "paper_held", "paper_trades", "orders", "filled", "not_filled", "unexecuted", "diff4_events", "close_missing")
+             "diff1_quote_to_fill_bp", "diff1_fill_to_close_bp", "diff2_half_spread_bp", "diff2_fees_usd",
+             "aligned_bp", "aligned_cum_bp", "diff3a_bp", "diff3a_cum_bp")
+DAILY_INT = ("n_symbols", "n_signals", "paper_held", "paper_trades", "orders", "filled", "not_filled", "unexecuted", "diff4_events", "close_missing",
+             "aligned_held", "aligned_trades")
 
 
 def daily_rows(live_dir: Path) -> list[dict]:
@@ -327,7 +329,7 @@ def daily_rows(live_dir: Path) -> list[dict]:
     try:
         for r in csv.DictReader(io.StringIO(text, newline="")):
             row: dict = {"date": r.get("date"), "trader": r.get("trader"), "test": r.get("test") == "True",
-                         "close_source": r.get("close_source") or ""}
+                         "close_source": r.get("close_source") or "", "aligned_since": r.get("aligned_since") or None}
             for k in DAILY_NUM:
                 row[k] = float(r[k]) if r.get(k) not in (None, "") else None
             for k in DAILY_INT:
@@ -508,6 +510,15 @@ def board(live_dir: Path, days: int | None = DAYS, today=None, now_et_=None, sup
             last_row = next((mine[d] for d in sorted(mine, reverse=True) if mine[d]["diff3_cum_bp"] is not None), None)
             t["diff3_cum_bp"] = last_row["diff3_cum_bp"] if last_row else None
             t["diff3_median_bp"] = _median([r["diff3_bp"] for r in mine.values() if r["diff3_bp"] is not None])
+            # ✅ そろえた紙上（paper.py の aligned_* ／ diff3a_*。2026-10-08）があれば差 3 はそちら（実物と同じ日・整数株・印 ＝ 残るのは執行の差だけ）。
+            #    累計はいまの期間（aligned_since）の分。今までの形（等加重・端数）は diff3_legacy_cum_bp に残す
+            last_a = next((mine[d] for d in sorted(mine, reverse=True) if mine[d]["diff3a_cum_bp"] is not None), None)
+            t["diff3_aligned"] = last_a is not None
+            if last_a:
+                t["diff3_legacy_cum_bp"] = t["diff3_cum_bp"]
+                t["diff3_cum_bp"] = last_a["diff3a_cum_bp"]
+                t["diff3_since"] = last_a["aligned_since"]
+                t["diff3_median_bp"] = _median([r["diff3a_bp"] for r in mine.values() if r["diff3a_bp"] is not None])
             t["close_source"] = next(iter(mine.values()))["close_source"]
         else:
             # ⚠ 仮データ: 紙上の損益 ＝ 実物の損益に 1 営業日あたり 2bp（予算に対して）を足した線。本物ではない（daily.csv がまだ無いとき）
@@ -600,6 +611,10 @@ def board(live_dir: Path, days: int | None = DAYS, today=None, now_et_=None, sup
         # ⚠ 仮データの印（画面はこれを見てバッジを出す）。暦は、見ている範囲が NYSE の暦の外に出たときだけ仮（平日＝営業日）
         # ⚠ 紙上の損益・差 3 は、daily.csv（実売買の Phase 3）がある人は本物・無い人は仮データ（`t.paper_real` で人ごとに分かれる）
         "placeholder": {"paper": not any(t.get("paper_real") for t in tr), "diff3_bp_per_day": PAPER_PLACEHOLDER_BP_PER_DAY, "calendar": not cal_info["covered"]},
-        "diff3_median_bp": _median([r["diff3_bp"] for r in daily if r["diff3_bp"] is not None and not r["test"]]),
+        # ⚠ そろえた紙上の列（diff3a）が 1 行でもあればそちら（人をまたいで同じ物差しにする）。無い daily.csv（古い paper.py）は今までどおり
+        "diff3_median_bp": (_median([r["diff3a_bp"] for r in daily if r["diff3a_bp"] is not None and not r["test"]])
+                            if any(r["diff3a_bp"] is not None for r in daily) else
+                            _median([r["diff3_bp"] for r in daily if r["diff3_bp"] is not None and not r["test"]])),
+        "diff3_aligned": any(r["diff3a_bp"] is not None for r in daily),
         "close_source": daily[0]["close_source"] if daily else None,
     }

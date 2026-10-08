@@ -19,6 +19,7 @@ import re
 import sys
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 SAMPLE_DIR = os.path.normpath(os.path.join(HERE, "..", "tastytrade-api-sample"))
@@ -56,6 +57,19 @@ def _check_name(name: str) -> str:
     if not isinstance(name, str) or not NAME_RE.match(name):
         raise RosterError(f"識別名が不正: {name!r}")
     return name
+
+
+SEATTLE = ZoneInfo("America/Los_Angeles")
+
+
+def seattle(iso: str | None) -> str:
+    """表示用: 記録の UTC の時刻 → シアトル時間（CLAUDE.md「利用者に見せる日時はシアトル時間」）。⚠ ファイルの中身は UTC のまま。"""
+    if not iso:
+        return ""
+    try:
+        return datetime.fromisoformat(iso).astimezone(SEATTLE).strftime("%Y-%m-%d %H:%M %Z")
+    except ValueError:
+        return iso
 
 
 def _now() -> str:
@@ -139,7 +153,7 @@ def main() -> int:
                 return 0
             print(f"名簿: {p}（{len(entries)} 人）")
             for e in entries:
-                print(f"  {e.name:8s} {e.since or ''} {e.actor or ''} {e.reason}")
+                print(f"  {e.name:8s} {seattle(e.since)} {e.actor or ''} {e.reason}")
             return 0
         if args.cmd == "add":
             e = add(p, args.name, args.by, args.reason)

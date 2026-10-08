@@ -110,3 +110,78 @@ def test_diff1_is_positive_when_the_fill_is_worse_and_fees_are_summed(tmp_path):
 def test_last_date_drops_days_without_an_official_close(tmp_path):
     rows = paper.build_rows(_out(tmp_path), _closes(), "bars", last_date="2026-09-23")
     assert rows[-1]["date"] == "2026-09-23"
+
+
+# ---- そろえた紙上（aligned_* ／ diff3a_*。2026-10-08 利用者決定。プラン docs/plans/paper-align.md）
+
+def _aligned_out(tmp_path, events, signals=None, ledger=None):
+    """A1: 予算 $300・AAA ／ BBB・整数株・θ 55。events ＝ 日付の添字 → 事象の行（start は自分で書く）。"""
+    out = tmp_path / "out"
+    (tmp_path / "config" / "traders").mkdir(parents=True)
+    (tmp_path / "config" / "traders" / "A1.toml").write_text(
+        'name = "A1"\nbudget_usd = 300.0\nsymbols = ["AAA", "BBB"]\nsizing = "shares"\nthreshold = 55.0\n', encoding="utf-8")
+    for i, d in enumerate(DATES):
+        sg = signals(i) if signals else {s: BUY[s][i] for s in CLOSE}
+        if sg:
+            _write(str(out / d / "signals.jsonl"), [{"date": d, "trader": "A1", "symbol": s, "buy": b, "exit": 100 - b} for s, b in sg.items()])
+        _write(str(out / d / "ledger.jsonl"), [ledger(i, d) if ledger else {"date": d, "trader": "A1", "budget_usd": 300.0, "realized_usd": 0.0,
+                                                                              "fees_usd": 0.0, "holdings": {}}])
+        _write(str(out / d / "events.jsonl"), events(i))
+    return str(out)
+
+
+def _start(mode="submit"):
+    return {"kind": "start", "mode": mode, "traders": ["A1"]}
+
+
+def test_aligned_period_starts_at_the_first_submit_run_and_old_columns_do_not_move(tmp_path):
+    # 0 日目は dry-run（9/21 の T1・T3 と同じ）→ 1 日目から
+    out = _aligned_out(tmp_path, lambda i: [_start("dry-run" if i == 0 else "submit")])
+    rows = paper.build_rows(out, _closes(), "bars")
+    assert rows[0]["aligned_since"] is None and rows[0]["aligned_bp"] is None and rows[0]["paper_trades"] == 1
+    assert {r["aligned_since"] for r in rows[1:]} == {DATES[1]}
+    # 今までの列はそろえた紙上を足しても変わらない（同じ記録から作った行と突き合わせる）
+    keys = [k for k in paper.COLUMNS if not k.startswith(("aligned_", "diff3a_"))]
+    plain = paper.build_rows(_out(tmp_path / "plain"), _closes(), "bars")
+    assert [[r[k] for k in keys if k not in ("trader", "real_usd", "real_bp", "real_cum_bp", "diff3_bp", "diff3_cum_bp", "budget_usd")] for r in rows] == \
+           [[r[k] for k in keys if k not in ("trader", "real_usd", "real_bp", "real_cum_bp", "diff3_bp", "diff3_cum_bp", "budget_usd")] for r in plain]
+
+
+def test_aligned_buys_whole_shares_within_the_budget(tmp_path):
+    # 1 日目: AAA 買い% 40・BBB 45 → 買わない ／ 2 日目: BBB 80 → floor(150 ÷ 51) ＝ 2 株・3 日目: AAA 70 → floor(150 ÷ 102) ＝ 1 株
+    out = _aligned_out(tmp_path, lambda i: [_start()] if i >= 1 else [])
+    by = {r["date"]: r for r in paper.build_rows(out, _closes(), "bars")}
+    assert by[DATES[2]]["aligned_trades"] == 1 and by[DATES[2]]["aligned_held"] == 1
+    assert by[DATES[2]]["aligned_bp"] == round(-2 * 51.0 * 2.5 / 300.0, 2)           # 買いのコストだけ（片道 2.5bp）
+    # 3 日目: BBB 2 株 × (50 − 51) − AAA 1 株 × 102 × 2.5bp（BBB は 52 で持ち続ける）
+    assert by[DATES[3]]["aligned_bp"] == round((2 * (50.0 - 51.0) - 1 * 102.0 * 2.5 / 1e4) / 300.0 * 1e4, 2)
+    assert by[DATES[3]]["aligned_held"] == 2
+
+
+def test_aligned_does_not_trade_on_paused_or_held_back_days(tmp_path):
+    def events(i):
+        if i == 2:
+            return [_start(), {"kind": "paused", "trader": "A1"}]
+        if i == 3:
+            return [_start(), {"kind": "over_total_budget", "trader": "A1"}]
+        return [_start()]
+    by = {r["date"]: r for r in paper.build_rows(_aligned_out(tmp_path, events), _closes(), "bars")}
+    assert by[DATES[2]]["aligned_trades"] == 0 and by[DATES[3]]["aligned_trades"] == 0
+    assert by[DATES[2]]["paper_trades"] == 1                                         # 今までの紙上は印を知らない（変えていない）
+    assert by[DATES[5]]["aligned_trades"] == 1                                       # 印が消えた後は合図どおり（5 日目 BBB 90）
+
+
+def test_aligned_liquidation_sells_all_closes_the_period_and_restarts_from_cash(tmp_path):
+    # 0 日目に AAA を建てる → 2 日目に手じまい（合図は出ない）→ 4 日目から始め直し
+    def events(i):
+        if i == 2:
+            return [_start(), {"kind": "liquidate_flag", "trader": "A1"}, {"kind": "liquidate_complete", "trader": "A1"}]
+        if i == 3:
+            return [{"kind": "start", "mode": "submit", "traders": ["A1"]}, {"kind": "paused", "trader": "A1"}]
+        return [_start()]
+    sig = lambda i: {} if i == 2 else {s: BUY[s][i] for s in CLOSE}
+    by = {r["date"]: r for r in paper.build_rows(_aligned_out(tmp_path, events, signals=sig), _closes(), "bars")}
+    assert by[DATES[0]]["aligned_held"] == 1                                         # AAA 60 > 55
+    assert by[DATES[2]]["aligned_held"] == 0 and by[DATES[2]]["aligned_since"] == DATES[0]
+    assert by[DATES[3]]["aligned_since"] is None                                     # 閉じた期間の後・停止の日は開かない
+    assert by[DATES[4]]["aligned_since"] == DATES[4] and by[DATES[4]]["aligned_cum_bp"] == by[DATES[4]]["aligned_bp"]

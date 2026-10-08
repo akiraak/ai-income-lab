@@ -96,3 +96,10 @@ def test_over_budget_holds_back_the_last_joined_only(tmp_path, mock_server):
     assert "holdings" in state(tmp_path, "lq_a")
     r = run(tmp_path, tdir, ["--traders", "lq_a,ac_b", "--mode", "submit", "--max-total-budget", "2000"], mock_server)
     assert r.returncode == 2 and "予算の合計" in r.stderr
+
+
+def test_show_prints_seattle_time():
+    """表示はシアトル時間（2026-10-08 利用者の指示）。ファイルは UTC のまま。"""
+    assert roster.seattle("2026-10-08T15:09:27+00:00") == "2026-10-08 08:09 PDT"
+    assert roster.seattle("2026-12-01T20:00:00+00:00") == "2026-12-01 12:00 PST"
+    assert roster.seattle(None) == "" and roster.seattle("broken") == "broken"

@@ -15,6 +15,16 @@
   その日の損益 ＝ 前の営業日の終値から d の終値までに、d の売買の**前**から持っていた分が稼いだもの − d の売買のコスト。
   実物 ＝ 台帳（`ledger.jsonl` の d の最後の行）の 実現損益 ＋ Σ 株数 ×（d の終値 − 取得単価）− 手数料、の前日差。
   bp はどれも**その人の予算に対して**。
+
+そろえた紙上（`aligned_*`・差 3 は `diff3a_*`。2026-10-08 利用者決定「全部はい」＝ プラン docs/plans/paper-align.md）:
+  今までの列（バックテストと同じ形 ＝ 等加重・端数・合図が出た最初の日から）は**1 文字も変えずに残し**、実物と同じ条件で回した紙上を横に足す。
+  ① 期間: 実物が発注の回（`start` の mode = submit・拒否の事象なし）でその人の合図を読んだ最初の日に開き、手じまいが済んだ日
+     （`liquidate_complete`）に閉じる。次に開くときは現金から（例: T1 は 10/7 に全部売り、10/8 から $600 で始め直し）
+  ② 量: 整数株 ＝ その日の公式終値で floor(min(予算 ÷ 銘柄数, 空き) ÷ 終値)（`plan.size_intents` と同じ丸め。空き ＝ 予算 − 持ち株の取得額。
+     ⚠ 実物は 15:50 の気配で数える ＝ 株数がまれに 1 ずれる・受渡し待ちは見ない）。`sizing = "notional"` の人は金額（セント切り捨て）
+  ③ 印と名簿: 発注の回が無い日（dry-run・窓の外・起動しなかった日）／ `paused` ／ `over_total_budget` の日は売買しない。
+     `liquidate_flag` の日は合図を読まず終値で全部売る
+  bp は USD の損益 ÷ その人の予算。累計は期間ごと（期間の外は空欄）。
 """
 from __future__ import annotations
 
@@ -42,7 +52,9 @@ COLUMNS = ["date", "trader", "test", "budget_usd", "n_symbols", "n_signals",
            "bh_bp", "bh_cum_bp",
            "orders", "filled", "not_filled", "unexecuted",
            "diff1_quote_to_fill_bp", "diff1_fill_to_close_bp", "diff2_half_spread_bp", "diff2_fees_usd",
-           "diff4_events", "close_missing", "close_source"]
+           "diff4_events", "close_missing", "close_source",
+           "aligned_since", "aligned_held", "aligned_trades", "aligned_bp", "aligned_cum_bp", "diff3a_bp", "diff3a_cum_bp"]
+REFUSED = ("out_of_window", "halted", "refused_mode_sim", "refused_lock_busy", "refused_not_production", "auth_failed", "signal_error")
 
 
 def _jsonl(path: str) -> list[dict]:
@@ -99,6 +111,7 @@ def build_rows(out_dir: str, closes: dict[str, dict[str, float]], close_source: 
     cum: dict[str, dict[str, float]] = {}
     prev_real: dict[str, float] = {}
     bh_started: dict[str, bool] = {}
+    al: dict[str, dict] = {}                     # そろえた紙上: 人 → {since, pos{銘柄: (株数, 取得単価)}, cum, rcum, d3, prev}
     rows: list[dict] = []
 
     for d in dates:
@@ -115,6 +128,11 @@ def build_rows(out_dir: str, closes: dict[str, dict[str, float]], close_source: 
         for r in ledger:
             led[r["trader"]] = r                     # 最後の行が勝つ
         traders = sorted(set(sig) | set(led) | set(paper_pos))
+        refused = any(e.get("kind") in REFUSED for e in events)
+        ran = set() if refused else {n for e in events if e.get("kind") == "start" and e.get("mode") == "submit" for n in (e.get("traders") or [])}
+        held_off = {e.get("trader") for e in events if e.get("kind") in ("paused", "over_total_budget")}
+        liq_flag = {e.get("trader") for e in events if e.get("kind") == "liquidate_flag"}
+        liq_done = {e.get("trader") for e in events if e.get("kind") == "liquidate_complete"}
         for t in traders:
             L = led.get(t) or {}
             budget = float(L.get("budget_usd") or 0) or None
@@ -203,7 +221,9 @@ def build_rows(out_dir: str, closes: dict[str, dict[str, float]], close_source: 
                 #    実物の行が空で、その間の紙上の動きは次に台帳が出た日の差 3 にまとめて入る
                 diff3 = (c["paper"] - c["real"]) - c["diff3"]
                 c["diff3"] = c["paper"] - c["real"]
-            rows.append({
+            a = _aligned_day(al, t, d, sig.get(t, {}), closes, budget, real_bp, out_dir, half,
+                             ran=t in ran, held_off=t in held_off, liquidating=t in liq_flag and t in ran, closing=t in liq_done)
+            rows.append({**a,
                 "date": d, "trader": t, "test": bool(L.get("test") or any(r.get("test") for r in sig.get(t, {}).values())),
                 "budget_usd": budget, "n_symbols": n, "n_signals": len(sig.get(t, {})),
                 "paper_held": sum(pos.values()), "paper_trades": trades,
@@ -219,6 +239,99 @@ def build_rows(out_dir: str, closes: dict[str, dict[str, float]], close_source: 
             })
             prev_date[t] = d
     return rows
+
+
+def _aligned_day(al: dict, t: str, d: str, sig: dict[str, dict], closes: dict, budget: float | None, real_bp: float | None,
+                 out_dir: str, half: float, *, ran: bool, held_off: bool, liquidating: bool, closing: bool) -> dict:
+    """そろえた紙上の 1 日（モジュールの頭の ①〜③）。期間の外は空欄。"""
+    blank = {k: None for k in ("aligned_since", "aligned_held", "aligned_trades", "aligned_bp", "aligned_cum_bp", "diff3a_bp", "diff3a_cum_bp")}
+    st = al.get(t)
+    if st is None:
+        if not (ran and sig and not held_off and not liquidating and budget):
+            return blank
+        st = al[t] = {"since": d, "pos": {}, "cum": 0.0, "rcum": 0.0, "d3": 0.0, "prev": None}
+    conf = _conf(out_dir, t)
+    budget = budget or st.get("budget")
+    st["budget"] = budget
+    usd = 0.0
+    # 前の日から持っていた分の値動き
+    if st["prev"]:
+        for s, (q, _) in st["pos"].items():
+            c0, c1 = closes.get(s, {}).get(st["prev"]), closes.get(s, {}).get(d)
+            if c0 and c1:
+                usd += q * (c1 - c0)
+    # d の終値での売買（実物が発注の回を持った日だけ）
+    trades = 0
+    if ran and not held_off:
+        theta = _threshold(sig, out_dir, t)
+        if liquidating:
+            for s in list(st["pos"]):
+                px = closes.get(s, {}).get(d)
+                if px:
+                    usd -= st["pos"].pop(s)[0] * px * half / 1e4
+                    trades += 1
+        else:
+            syms = conf["symbols"] or list(sig)
+            per = budget / len(syms) if syms else 0.0
+            avail = budget - sum(q * cost for q, cost in st["pos"].values())   # 売りの代金は受渡し前なので空きに足さない（保守側。実物と同じ向き）
+            order = [s for s in syms if s in sig] + [s for s in sig if s not in syms]
+            for s in order:                                                   # 売りが先（実物の to_orders と同じ）
+                r, px = sig[s], closes.get(s, {}).get(d)
+                if s in st["pos"] and px and float(r["exit"]) > theta:
+                    usd -= st["pos"].pop(s)[0] * px * half / 1e4
+                    trades += 1
+            for s in order:
+                r, px = sig[s], closes.get(s, {}).get(d)
+                if s not in st["pos"] and px and float(r["buy"]) > theta:
+                    target = min(per, avail)
+                    q = math.floor(target / px) if conf["sizing"] == "shares" else (math.floor(target * 100) / 100) / px
+                    if q <= 0 or (conf["sizing"] != "shares" and q * px < 1.0):
+                        continue
+                    st["pos"][s] = (q, px)
+                    avail -= q * px
+                    usd -= q * px * half / 1e4
+                    trades += 1
+    st["prev"] = d
+    bp = usd / budget * 1e4 if budget else 0.0
+    st["cum"] += bp
+    d3 = None
+    if real_bp is not None:
+        st["rcum"] += real_bp
+        d3 = (st["cum"] - st["rcum"]) - st["d3"]                  # 差 3 と同じ形（台帳の無い日のぶんは次の日にまとめて入る）
+        st["d3"] = st["cum"] - st["rcum"]
+    out = {"aligned_since": st["since"], "aligned_held": len(st["pos"]), "aligned_trades": trades,
+           "aligned_bp": round(bp, 2), "aligned_cum_bp": round(st["cum"], 2),
+           "diff3a_bp": None if d3 is None else round(d3, 2), "diff3a_cum_bp": None if d3 is None else round(st["d3"], 2)}
+    if closing:
+        del al[t]                                                  # 期間を閉じる（次に開くときは現金から）
+    return out
+
+
+_CONF_CACHE: dict[tuple[str, str], dict] = {}
+
+
+def _conf(out_dir: str, trader: str) -> dict:
+    """そろえた紙上に要る設定（銘柄の並び・sizing）。読めなければ 合図の銘柄・整数株。"""
+    key = (out_dir, trader)
+    if key not in _CONF_CACHE:
+        conf = {"symbols": [], "sizing": "shares"}
+        path = _conf_path(out_dir, trader)
+        if path:
+            import tomllib
+            with open(path, "rb") as f:
+                d = tomllib.load(f)
+            conf = {"symbols": list(d.get("symbols") or []), "sizing": d.get("sizing") or "shares"}
+        _CONF_CACHE[key] = conf
+    return _CONF_CACHE[key]
+
+
+def _conf_path(out_dir: str, trader: str) -> str | None:
+    for base in (os.path.join(os.path.dirname(os.path.abspath(out_dir)), "config", "traders"), os.path.join(HERE, "config", "traders"),
+                 os.environ.get("LT_TRADERS_DIR") or ""):
+        path = os.path.join(base, f"{trader}.toml") if base else ""
+        if path and os.path.exists(path):
+            return path
+    return None
 
 
 _THETA_CACHE: dict[tuple[str, str], float] = {}

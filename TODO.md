@@ -276,15 +276,19 @@
     ✅ 2026-10-07: ⚠ `run-live.sh` も `--traders` で人の設定を読んで予測するモデルを拾っていた ＝ `@roster` のままでは止まる → 名簿を執行器と同じ道で引くように直した（`@roster` は執行器へそのまま渡す）。手で確かめた: 名簿 T1・T4・T6 → 拾うモデル 4 本 ＝ 明示と同じ・名簿が無い ＝ rc=1 → `run-live.sh` は exit 11（執行器を起こさない）
   - [ ] Phase 3: 移行（デプロイ → 画面で T1・T4・T6 を開始 → ⚠ 利用者が `live.env` を `AIL_LIVE_TRADERS=@roster` に 1 度だけ）
     ✅ 2026-10-08 01:2x ET デプロイ（利用者「デプロイ」。Sx360 の `./run-deploy.sh`・関門 ✅）＝ `prod` 47287ed → **1a6c799**・13500t `done 1a6c799`（22:30 PDT・管理画面のコンテナ起こし直し）。名簿の道は画面（`trade-dashboard`）と執行器（`trade-runner`）とも `/home/ubuntu/ai-income-lab/experiments/tastytrade-api-sample/out/roster.json`（同じ host のディレクトリ）を確かめた。⏳ 利用者: `/roster` で T1 → T4 → T6 を開始 → `live.env` を `@roster` に → 次の回の `start` を Sx360 の Claude が確かめる
+    ✅ 2026-10-08 08:09 PDT 利用者が `/roster` で T1 → T4 → T6 を開始（⚠ 最初の 3 回は確認の欄が空で断られ、気づけなかった → 画面を直した ＝ `prod` **b179823**・13500t `done b179823` 08:15 PDT）→ `live.env` を `AIL_LIVE_TRADERS=@roster` に（元は `live.env.bak-20261008`）。執行器のコンテナの中で `roster.py show` ＝ 3 人・T1・T4・T6 の順。⏳ 10/8 12:40 PDT（15:40 ET）の回の `start` に `roster: true`・3 人を確かめる（13:15 PDT 以降・Sx360 の Claude）
   - [x] Phase 4: 手順書の書き直し（trader-loop.md §3-4・howto 2-7・live-trading.md §0-2・CLAUDE.md）
     ✅ 2026-10-07 22:5x PDT: howto に「2-7 の手順」（入れる 5 手順・外す 4 手順・休ませる。図 1 枚）・2-7 の行・trader-loop.md の 4-3 と §3-4 の頭（10/4〜07 の手作業は記録として残す）・live-trading.md の C12・CLAUDE.md の入れ替えの行。⚠ Phase 3（移行）の結果を見て直すところがあれば足す
 
-- [ ] 紙上の対照（`paper.py`）を実物にそろえる（始めた日・整数株・印と名簿・人の区切り） [plan](docs/plans/paper-align.md)
+- [~] 紙上の対照（`paper.py`）を実物にそろえる（始めた日・整数株・印と名簿・人の区切り） [plan](docs/plans/paper-align.md)
   派生元: いまの 3 人の 8 営業日の判定（[live-trading.md §2-1](docs/specs/experiments/live-trading.md)。差 3 が線を越えたが執行の差ではなかった）
   ⚠ 新しい 3 人（10/8 から）では印（10/5〜07 の停止・10/7 の手じまい）と T1 の始め直しを紙上が知らない ＝ 直さないと初日から差 3 で執行の差を測れない
-  - [ ] Phase 0: 決めごと P1〜P3（⚠ 利用者。プラン §2）
-  - [ ] Phase 1: `paper.py`（期間・整数株・印・新しい列）・テスト
-  - [ ] Phase 2: 管理画面の差 3・文書・（P3 なら）いまの 3 人にかけ直す
+  - [x] Phase 0: 決めごと P1〜P3（⚠ 利用者。プラン §2）
+    ✅ 2026-10-08 利用者決定「全部はい」＝ P1 そろえる ／ P2 今までの列を残す ／ P3 いまの 3 人にもかけ直して §2-1 に 1 行（判定は変えない）
+  - [x] Phase 1: `paper.py`（期間・整数株・印・新しい列）・テスト
+    ✅ 2026-10-08（Sx360 の Claude）: `paper.py` に `aligned_*`・`diff3a_*`（期間 ＝ 発注の回で合図を読んだ最初の日 〜 `liquidate_complete`・整数株・`paused` ／ `over_total_budget` ／ 発注の回が無い日は売買しない・`liquidate_flag` は全部売る）・`tests/test_paper.py` に 4 本。13500t の `live.sqlite` の写し（08:22 PDT）で今までの列が 53 行とも 1 文字も変わらないことを確かめた
+  - [x] Phase 2: 管理画面の差 3・文書・（P3 なら）いまの 3 人にかけ直す
+    ✅ 2026-10-08: 管理画面の差 3 のタイルと概要の中央値はそろえた列があればそちら・日次の表に両方（`dashboard.md` §13-12・`glossary.toml`・テスト 1 本）。P3 ＝ `live-trading.md` §2-1 に 1 行（|日次| 平均 T1 26.2 → 2.58bp ／ T3 26.4 → 2.25bp。判定は変えない）・§0-10 の表に 1 行。⏳ 本番に載せるのは「デプロイ」（⚠ 12:00〜13:15 PDT は拒む）→ 翌朝の `--prepare` か次の回で `daily.csv` が作り直される
 
 - [ ] 実売買の執行器（`run_day.py`・`reconcile.py`）のメッセージの「台帳」→「売買履歴」（⚠ 本番投入が落ち着いてから。執行器のテストを流す・本番に効くので「デプロイ」が要る）
   派生元: 「DBを使ったデータの永続化を行う」の「言葉を分かりやすくする」（2026-09-25 に DONE へ）

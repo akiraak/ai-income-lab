@@ -528,3 +528,20 @@ def test_watch_is_suppressed_by_the_mark_halt_and_demo(settings, monkeypatch):
     assert w["missing"] and w["date"] == "2026-09-24"
     w = lv.watch(settings.live_dir, today=date(2026, 9, 24))          # 時刻が無ければ判定できない
     assert not w["checked"] and w["why"] == "時刻が分からない"
+
+
+def test_aligned_diff3_is_used_when_paper_py_writes_it(settings):
+    """そろえた紙上（paper.py の aligned_* ／ diff3a_*。2026-10-08 利用者決定）があれば、差 3 のタイルと概要の中央値はそちら。今までの形は横に残す。"""
+    build_live_dir(settings.live_dir)
+    d = lv.board(settings.live_dir)["dates"][-1]
+    cols = ["date", "trader", "test", "budget_usd", "paper_bp", "paper_cum_bp", "real_bp", "real_cum_bp", "diff3_bp", "diff3_cum_bp",
+            "bh_bp", "bh_cum_bp", "close_source", "aligned_since", "aligned_held", "aligned_trades", "aligned_bp", "aligned_cum_bp", "diff3a_bp", "diff3a_cum_bp"]
+    vals = [d, "test_a", "False", 30.0, -2.5, -2.5, 12.6, 12.6, -15.1, -113.78, -2.5, -2.5, "bars", d, 5, 5, -2.05, -2.05, -14.65, -14.65]
+    livefs.write_doc(settings.live_dir / "out" / "daily.csv", ",".join(cols) + "\n" + ",".join(str(v) for v in vals) + "\n")
+    b = lv.board(settings.live_dir)
+    t = next(x for x in b["traders"] if x["name"] == "test_a")
+    assert t["diff3_aligned"] and t["diff3_cum_bp"] == -14.65 and t["diff3_legacy_cum_bp"] == -113.78 and t["diff3_since"] == d
+    assert b["diff3_median_bp"] == -14.65 and b["diff3_aligned"]
+    with TestClient(create_app(settings, start_monitors=False), client=("127.0.0.1", 50000)) as c:
+        page = c.get("/traders/test_a").text
+        assert "実物にそろえた紙上" in page and "-113.78" in page and "そろえた紙上 bp" in page

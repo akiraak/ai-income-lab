@@ -273,6 +273,7 @@
     ✅ 2026-10-07（Sx360 の Claude）: `roster.py`（`show` ／ `add` ／ `remove`。置き場は `HALT` の隣の `roster.json` ＝ ⚠ `control/` の中に置くと印として読まれるので外に出した）・`run_day.py --traders @roster`（無い ／ 壊れた ＝ rc=2・空 ＝ rc=0・K2 ＝ `over_total_budget`・`start` に `max_total_budget`・`max_day_usd`・`roster`）・`tests/test_roster.py` 9 本。⚠ `--traders` を明示する経路は変えていない。`./run-tests.sh` ✅・`--full` ✅（黄金の集計値は変わらない）
   - [x] Phase 2: 管理画面 `/roster`・帳尻の欄・テスト
     ✅ 2026-10-07: `/roster`（状態・予算・持ち株・いつから ／ 印・ボタン・押せない理由・次の回の上限と前の回・帳尻）・`POST /ops/roster/<人>`（開始 ／ 外す。外すと印も消す）・印のフォームに戻り先 `/roster`・`app/lineup.py`（押せるかの判定 1 か所）・左ペインに「名簿」・`glossary.toml` の語・`dashboard.md` §13-10。K3 は時刻で（営業日 15:40〜16:10 ET。画面は `run.lock` を取れない）。テスト `tests/test_roster.py` 8 本・POST の番人テストに 1 本。⚠ トレーダーの詳細のフォームは印だけのまま（開始 ／ 外すは名簿の面で）
+    ✅ 2026-10-07: ⚠ `run-live.sh` も `--traders` で人の設定を読んで予測するモデルを拾っていた ＝ `@roster` のままでは止まる → 名簿を執行器と同じ道で引くように直した（`@roster` は執行器へそのまま渡す）。手で確かめた: 名簿 T1・T4・T6 → 拾うモデル 4 本 ＝ 明示と同じ・名簿が無い ＝ rc=1 → `run-live.sh` は exit 11（執行器を起こさない）
   - [ ] Phase 3: 移行（デプロイ → 画面で T1・T4・T6 を開始 → ⚠ 利用者が `live.env` を `AIL_LIVE_TRADERS=@roster` に 1 度だけ）
   - [ ] Phase 4: 手順書の書き直し（trader-loop.md §3-4・howto 2-7・live-trading.md §0-2・CLAUDE.md）
 

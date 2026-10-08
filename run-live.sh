@@ -3,6 +3,7 @@
 #   ./run-live.sh --prepare                                   # 朝に 1 度: 日足 ＋ 外部系列の更新 → 紙上の対照 daily.csv（発注しない）
 #   ./run-live.sh --traders T1,T2,T3                           # 既定は --mode dry-run・接続先は .env の TT_ENV（無ければ cert）
 #   ./run-live.sh --traders T1,T2,T3 --wait                    # 15:50:00 ET まで待ってから流す（窓の中で使う形）
+#   ./run-live.sh --traders @roster --wait …                   # 名簿（管理画面の /roster。roster.json）の人を動かす（2026-10-07）
 #
 # ⚠ **起動してすぐ 2 つを見る**（どちらも本体は run_day.py 側にあり、ここは 95 秒むだにしないための早見）:
 #    シミュレーションモードなら rc=5 ／ 別の執行器・運転手が動いていれば rc=6 ／「本番の機械ではない」印があって submit ＋ --env prod なら rc=7。
@@ -161,9 +162,12 @@ PRED="$OUT/predict.jsonl"
 TRADERS_DIR=""; for ((i=0; i<${#PASS[@]}; i++)); do [ "${PASS[$i]}" = "--traders-dir" ] && TRADERS_DIR="${PASS[$((i+1))]}"; done
 MODELS=$(cd "$LT" && "$PY_LT" - "$TRADERS" "${TRADERS_DIR:-$LT/config/traders}" <<'PY'
 import sys
+import roster
 import trader
 seen = []
-for name in sys.argv[1].split(","):
+# 名簿（--traders @roster）は執行器と同じ道で引く（TT_HALT_FILE ／ TT_OUT_DIR の HALT の隣）。⚠ 無い ／ 壊れた名簿はここで止まる（執行器も拒む）
+names = roster.names(roster.default_path()) if sys.argv[1].strip() == roster.TOKEN else sys.argv[1].split(",")
+for name in names:
     t = trader.load_trader(name.strip(), sys.argv[2])
     for m in t.models:
         if m.kind == "experiment" and (m.name, m.method) not in seen:
@@ -171,7 +175,7 @@ for name in sys.argv[1].split(","):
 for n, meth in seen:
     print(f"{n}\t{meth or ''}")
 PY
-) || { say "⚠ トレーダーの設定が読めない"; exit 11; }
+) || { say "⚠ トレーダーの設定 ／ 名簿が読めない"; exit 11; }
 
 if [ -n "$MODELS" ]; then
   say "今日の買い%（asof $DATE）"

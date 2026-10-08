@@ -261,7 +261,8 @@
     ✅ 2026-10-05 19:0x ET 利用者が Sx360 から ① `live.env`（`AIL_LIVE_TRADERS=T1,T3,T4,T6`・上限 2 つ）② `HALT` を消した（`control.py show` ＝ 4 人の印・`HALT なし`）。→ 火曜 15:50 ET の回で 9 本を売る（T4・T6 は休む）。③ 売れたあと `control.py clear T1`（翌日から $600 で再開）④ 入金が載ったら `control.py clear T4`・`clear T6` ⑤ `T3` は印を残したまま（後で `live.env` から外す）
     ✅ 2026-10-07 15:51 ET 執行器の回が印どおりに手じまいした（titan から API を読むだけで確認【実測】）＝ 売りの注文 9 本（銘柄の合計 ＝ T 4 株・PFE 4・VZ 2・BAC 2・NKE 1。誰のぶんかは 13500t の記録で見る）が全部 Filled・口座の持ち株 0・現金 $1,888.75（入金も載った）。⏳ 残り（13500t ＝ 利用者 ／ Sx360 の Claude）: `reconcile.py show` で差 0 → `control.py clear T1`・入金が載ったので `clear T4`・`clear T6` → `live.env` から `T3` を外す（`AIL_LIVE_TRADERS=T1,T4,T6`）→ 管理画面のボタンのデプロイ（16:15 ET の後）→ 記録 §1
     ✅ 2026-10-07 20:1x ET titan で `./run-tests.sh --full` ✅（管理画面のボタン f66c43a を含む・黄金の集計値は変わらない）＝ 関門の前段は済み。⏳ デプロイ（利用者の「デプロイ」で。Sx360 から `./run-deploy.sh`）→ 13500t で印を 1 度試す
-    ✅ 2026-10-07 23:3x ET（Sx360 の Claude。利用者の指示）13500t で `reconcile.py --env prod show` ＝ 銘柄の行なし（口座・売買履歴とも 0）・控えの未完 0 → `control.py clear T1`・`clear T4`・`clear T6`（前 4 人 → 後 `T3` の「手じまい（済み）」だけ）。⏳ 利用者: `live.env` の `AIL_LIVE_TRADERS=T1,T4,T6` ／ デプロイ → 管理画面で `test_a` の印を試す
+    ✅ 2026-10-07 23:3x ET（Sx360 の Claude。利用者の指示）13500t で `reconcile.py --env prod show` ＝ 銘柄の行なし（口座・売買履歴とも 0）・控えの未完 0 → `control.py clear T1`・`clear T4`・`clear T6`（前 4 人 → 後 `T3` の「手じまい（済み）」だけ）。⏳ 利用者: `live.env` の `AIL_LIVE_TRADERS=T1,T4,T6`
+    ✅ 2026-10-07 23:4x ET デプロイ（Sx360 の `./run-deploy.sh`。関門 ✅）＝ `prod` eeda56c → **47287ed**・13500t `done 47287ed`（20:45 PDT・管理画面のコンテナ起こし直し）＝ 印のボタンが本番に載った。⏳ 利用者: 管理画面で `test_a` の印を 1 度試す（立てる → 表示 → 消す）
 
 - [ ] 手じまい（持ち株を全部売る）を自動で行う機能を作る（`experiments/live-trading/liquidate.py`。⚠ 発注系 ＝ 本番の許可 3 段・確認文・`NOT_PRODUCTION` の印・sim の拒否はそのまま） [plan](docs/plans/liquidate.md)
   ✅ 2026-10-05 利用者決定「実装して明日にはプログラムを使った手じまいで既存の株を売却します」＝ 10/5 の手売りはやめ、10/6（火）の市場時間にこの機能で `T1`・`T3` の 9 本を売る。凍結の趣旨には触れない形（独立した 1 本）で今日作る

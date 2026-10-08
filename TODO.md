@@ -261,6 +261,7 @@
     ✅ 2026-10-05 19:0x ET 利用者が Sx360 から ① `live.env`（`AIL_LIVE_TRADERS=T1,T3,T4,T6`・上限 2 つ）② `HALT` を消した（`control.py show` ＝ 4 人の印・`HALT なし`）。→ 火曜 15:50 ET の回で 9 本を売る（T4・T6 は休む）。③ 売れたあと `control.py clear T1`（翌日から $600 で再開）④ 入金が載ったら `control.py clear T4`・`clear T6` ⑤ `T3` は印を残したまま（後で `live.env` から外す）
     ✅ 2026-10-07 15:51 ET 執行器の回が印どおりに手じまいした（titan から API を読むだけで確認【実測】）＝ 売りの注文 9 本（銘柄の合計 ＝ T 4 株・PFE 4・VZ 2・BAC 2・NKE 1。誰のぶんかは 13500t の記録で見る）が全部 Filled・口座の持ち株 0・現金 $1,888.75（入金も載った）。⏳ 残り（13500t ＝ 利用者 ／ Sx360 の Claude）: `reconcile.py show` で差 0 → `control.py clear T1`・入金が載ったので `clear T4`・`clear T6` → `live.env` から `T3` を外す（`AIL_LIVE_TRADERS=T1,T4,T6`）→ 管理画面のボタンのデプロイ（16:15 ET の後）→ 記録 §1
     ✅ 2026-10-07 20:1x ET titan で `./run-tests.sh --full` ✅（管理画面のボタン f66c43a を含む・黄金の集計値は変わらない）＝ 関門の前段は済み。⏳ デプロイ（利用者の「デプロイ」で。Sx360 から `./run-deploy.sh`）→ 13500t で印を 1 度試す
+    ✅ 2026-10-07 23:3x ET（Sx360 の Claude。利用者の指示）13500t で `reconcile.py --env prod show` ＝ 銘柄の行なし（口座・売買履歴とも 0）・控えの未完 0 → `control.py clear T1`・`clear T4`・`clear T6`（前 4 人 → 後 `T3` の「手じまい（済み）」だけ）。⏳ 利用者: `live.env` の `AIL_LIVE_TRADERS=T1,T4,T6` ／ デプロイ → 管理画面で `test_a` の印を試す
 
 - [ ] 手じまい（持ち株を全部売る）を自動で行う機能を作る（`experiments/live-trading/liquidate.py`。⚠ 発注系 ＝ 本番の許可 3 段・確認文・`NOT_PRODUCTION` の印・sim の拒否はそのまま） [plan](docs/plans/liquidate.md)
   ✅ 2026-10-05 利用者決定「実装して明日にはプログラムを使った手じまいで既存の株を売却します」＝ 10/5 の手売りはやめ、10/6（火）の市場時間にこの機能で `T1`・`T3` の 9 本を売る。凍結の趣旨には触れない形（独立した 1 本）で今日作る
@@ -272,6 +273,7 @@
     ✅ 2026-10-05 `prod` 22a13c2 → f09a15c（関門 ✅。11:05 ET）。13500t は 08:09〜08:15 PDT に `HALT` を外して pull（`done f09a15c`）→ `HALT` を戻した。✅ 13500t の本番の dry-run（`--env prod --mode dry-run --allow-prod-dry-run --while-halted`。何もルーティングしない）＝ `T1` 4 本 ＋ `T3` 5 本 ＝ 9 件とも dry-run を通過・問題 0・約 $438【実測 11:17 ET】
   - [~] Step 4: 10/6（火）の市場時間（日本時間 22:30〜翌 5:00）に利用者が 13500t で発注（プラン §2 の 2 ＝ `TT_ALLOW_PROD_ORDERS=1` ＋ `--i-know-this-is-real-money --while-halted`）→ `reconcile.py show` で差 0 → Sx360 の Claude が記録（§1・§2 の 8 営業日の判定）
     ✅ 2026-10-07 `liquidate.py` を手で流す代わりに、執行器の毎日の回が手じまいの印で 9 本を売った（15:51 ET・全部 Filled・持ち株 0【実測】。10/6 は `live.env` の引用符の誤りで起動しなかった）。⏳ `reconcile.py show` の差 0 と §1 の記録（Sx360 の Claude）で閉じる
+    ✅ 2026-10-07 23:3x ET 13500t の `reconcile.py --env prod show` ＝ 差 0（銘柄の行なし）・控えの未完 0【実測】。⏳ §1 の記録
   利用者の指示（2026-10-05）: **手じまいを自動で行う機能が欲しい**（10/5 の手じまいは利用者が口座で 9 本を売り `reconcile.py remove` で写す形 ＝ 2 度目からをこの機能で）
   案: 人ごと（`--traders T1,T3` か `--all`）に売買履歴の持ち株を成行で売り、約定を待って売買履歴に写す（`execute.py`・`journal.py`・`state.apply_sell`・`record.py` を使う。`run_day.py`・`trader.py`・`signals.py`・`plan.py` は触らない）。`--mode dry-run` が既定・`submit` は `TT_ALLOW_PROD_ORDERS=1` ＋ `--i-know-this-is-real-money`・市場が開いている時間だけ（発注できる時間帯の 15:45〜16:05 ET に限らない）・`HALT` 中は `--while-halted` を付けたときだけ・終わりに `reconcile show` と同じ突き合わせ。テストはモックサーバで（`mockrun` の器）
   ⚠ 執行器の凍結（10/20 まで）に触れるかは利用者の判断: 新しい独立したスクリプトで毎日の経路（`run_day.py`）は変えない形なら、凍結の趣旨（20 営業日の執行の差の記録を汚さない）には触れない【Claude の読み】。着手するときはプランを書く（作業着手ルール）

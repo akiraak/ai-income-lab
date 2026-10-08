@@ -59,6 +59,8 @@ flowchart LR
 
 ### Phase 3: 作成の手順の章（Claude）
 
+✅ 2026-10-07 書いた ＝ [howto-model-trader.md §3](../specs/howto-model-trader.md)。⚠ 未決 1 つ（物差しの決まり 2 と、固定の後に入った〔トレーダー・…〕・合成の行）は §3-1
+
 - 手順書に 3 章「検証結果から選ぶ → トレーダーと同じ形で机上にかける → 候補の人にして sim で通す」を足す（選ぶ物差しは [best-model-trader.md §2 Step 1](archive/best-model-trader.md) の 6 つの決まりを毎回同じものとして固定・机上は rules.md 20 章の config を写す・採る 0 のときに候補を作るかの扱い）
 
 ### Phase 4: 投入（⚠ 利用者の決定と作業を含む）

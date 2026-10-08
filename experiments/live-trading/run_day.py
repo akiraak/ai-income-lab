@@ -42,6 +42,7 @@ import ledger  # noqa: E402
 import mode as modes  # noqa: E402
 import plan as planning  # noqa: E402
 import recovery  # noqa: E402
+import roster  # noqa: E402
 import simclock  # noqa: E402
 from journal import Journal  # noqa: E402
 import signals as signalling  # noqa: E402
@@ -172,7 +173,7 @@ def make_client(cfg: dict, env: str, allow_prod_dry_run: bool, allow_prod_orders
 
 def main() -> int:
     ap = argparse.ArgumentParser(description="実売買の執行器: 1 営業日を 1 回通す")
-    ap.add_argument("--traders", required=True, help="カンマ区切り（config/traders/<名前>.toml）")
+    ap.add_argument("--traders", required=True, help="カンマ区切り（config/traders/<名前>.toml）か @roster（記録ディレクトリの roster.json ＝ 管理画面の名簿）")
     ap.add_argument("--date", default=None, help="YYYY-MM-DD（既定は今日 ET）")
     ap.add_argument("--env", default=None, choices=["cert", "prod"], help="既定は .env の TT_ENV、無ければ cert")
     ap.add_argument("--mode", default="dry-run", choices=["plan", "dry-run", "submit"])
@@ -239,7 +240,19 @@ def main() -> int:
     date = args.date or now_et().strftime("%Y-%m-%d")
     run_id = CLOCK.now().strftime("%Y%m%dT%H%M%SZ")
 
-    names = [t.strip() for t in args.traders.split(",") if t.strip()]
+    from_roster = args.traders.strip() == roster.TOKEN
+    if from_roster:
+        # 名簿（管理画面の「開始」「外す」。プラン trader-roster-dashboard.md）。⚠ 無い ／ 壊れた名簿は「誰も居ない」と読まず起動を拒む
+        try:
+            names = roster.names(roster.roster_path(halt_file))
+        except roster.RosterError as exc:
+            print(f"拒否: {exc}", file=sys.stderr)
+            return 2
+        if not names:
+            print(f"名簿が空（{roster.roster_path(halt_file)}）。今日は誰も売買しない")
+            return 0
+    else:
+        names = [t.strip() for t in args.traders.split(",") if t.strip()]
     misnamed = [n for n in names if n.startswith(modes.SIM_TRADER_PREFIX) != sim]
     if misnamed:
         print(f"拒否: {misnamed} — シミュレーションのトレーダーは名前が {modes.SIM_TRADER_PREFIX} で始まり、本物はそうでないこと", file=sys.stderr)
@@ -256,6 +269,12 @@ def main() -> int:
     liquidating = [t for t in traders if flags[t.name] and flags[t.name].liquidate]
     active = [t for t in traders if t not in paused and t not in liquidating]
     # ⚠ 予算の合計の上限は「買う人」だけで見る（停止 ／ 手じまいの人は買わない。手じまいの人の建玉は売れるまで現金ではないが、増えはしない）
+    held_back: list = []
+    if from_roster:
+        # 名簿の回は、超えたら後から名簿に入った人から今日は休ませ、残りで回す（2026-10-07 利用者決定 K2 ＝ 1 人足しただけで全員を止めない）。
+        # ⚠ `--traders` を明示した回は今までどおり回ごと拒否（下）
+        while active and sum(t.budget_usd for t in active) > args.max_total_budget + 1e-9:
+            held_back.insert(0, active.pop())
     total_budget = sum(t.budget_usd for t in active)
     if total_budget > args.max_total_budget + 1e-9:
         print(f"拒否: 予算の合計 ${total_budget:.2f} が上限 ${args.max_total_budget:.2f} を超える（live-trading.md §0-2）", file=sys.stderr)
@@ -263,6 +282,8 @@ def main() -> int:
     rec = DayRecorder(args.out_dir, date, env, run_id, is_mock, sim=sim)
     meta = {"kind": "start", "mode": args.mode, "traders": [t.name for t in traders], "test": any(t.test for t in traders),
             "halt_file": halt_file, "now_et": now_et().isoformat(timespec="seconds"), "sdk": record.sdk_versions(),
+            "max_total_budget": args.max_total_budget, "max_day_usd": args.max_day_usd,
+            **({"roster": True} if from_roster else {}),
             **({"flags": {t.name: flags[t.name].describe() for t in traders if flags[t.name]}} if any(flags.values()) else {})}
     if sim:
         meta["sim_name"], meta["sim_speed"] = machine.name, CLOCK.control()["speed"]
@@ -363,6 +384,9 @@ def main() -> int:
     for t in paused:
         rec.write("events", {"kind": "paused", "trader": t.name, "since": flags[t.name].since, "actor": flags[t.name].actor, "reason": flags[t.name].reason,
                              "note": "停止の印があるので、この人は今日は売買しない（持ち株はそのまま）"})
+    for t in held_back:
+        rec.write("events", {"kind": "over_total_budget", "trader": t.name, "budget_usd": t.budget_usd, "max_total_budget": args.max_total_budget,
+                             "note": "予算の合計が上限を超えるので、後から名簿に入ったこの人は今日は売買しない（持ち株はそのまま。上限は live.env）"})
     for t in liquidating:
         if flags[t.name].done and not states[t.name].holdings:
             rec.write("events", {"kind": "liquidate_done", "trader": t.name, "done": flags[t.name].done,
@@ -383,7 +407,7 @@ def main() -> int:
     raw_by_trader = {}
     need_quotes: set[str] = set()
     for t in traders:
-        if t in paused or (t in liquidating and flags[t.name].done and not states[t.name].holdings):
+        if t in paused or t in held_back or (t in liquidating and flags[t.name].done and not states[t.name].holdings):
             raw_by_trader[t.name] = []
             continue
         if t in liquidating:

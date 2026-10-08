@@ -264,12 +264,15 @@
     ✅ 2026-10-07 23:3x ET（Sx360 の Claude。利用者の指示）13500t で `reconcile.py --env prod show` ＝ 銘柄の行なし（口座・売買履歴とも 0）・控えの未完 0 → `control.py clear T1`・`clear T4`・`clear T6`（前 4 人 → 後 `T3` の「手じまい（済み）」だけ）。⏳ 利用者: `live.env` の `AIL_LIVE_TRADERS=T1,T4,T6`
     ✅ 2026-10-07 23:4x ET デプロイ（Sx360 の `./run-deploy.sh`。関門 ✅）＝ `prod` eeda56c → **47287ed**・13500t `done 47287ed`（20:45 PDT・管理画面のコンテナ起こし直し）＝ 印のボタンが本番に載った。⏳ 利用者: 管理画面で `test_a` の印を 1 度試す（立てる → 表示 → 消す）
 
-- [ ] トレーダーの開始・停止・手じまい・外すを管理画面で行う（名簿 `control/roster.json` ＋ 執行器の `--traders @roster`。`live.env` から「誰を動かすか」を外す） [plan](docs/plans/trader-roster-dashboard.md)
+- [ ] トレーダーの開始・停止・手じまい・外すを管理画面で行う（名簿 `roster.json`（`HALT` の隣） ＋ 執行器の `--traders @roster`。`live.env` から「誰を動かすか」を外す） [plan](docs/plans/trader-roster-dashboard.md)
   利用者の指示（2026-10-07）: 「トレーダーを「作成 → 実践投入 → 分析」のループで回す」をやっているけど、一連の作業に手元のコマンドがあるのはよくない。必要なくなったトレーダーの停止や手じまいや、新しいトレーダーの開始は管理画面からの操作で行いたい。それを考慮した作りを考えて
   関連: 「トレーダーを「作成 → 実践投入 → 分析」のループで回す」／ 「管理画面からトレーダーごとに「停止」「手じまい」の印を立て、執行器が翌日以降の回で実行する」
-  - [ ] Phase 0: 決めごと K1〜K5（⚠ 利用者。プラン §2）
-  - [ ] Phase 1: 名簿の正本 `roster.py` と執行器の `--traders @roster`・上限を超えたときの形（K2）・テスト・`--full`
-  - [ ] Phase 2: 管理画面 `/roster`・トレーダーの詳細の「この人の状態」・帳尻の欄・テスト
+  - [x] Phase 0: 決めごと K1〜K5（⚠ 利用者。プラン §2）
+    ✅ 2026-10-07 利用者決定「推す案でok」＝ K1 この作り ／ K2 上限を超えたら後から入った人から休ませる ／ K3 次の回から・執行器の回の間は書かない ／ K4 予算は画面で変えない ／ K5 上限は `live.env` に残す
+  - [x] Phase 1: 名簿の正本 `roster.py` と執行器の `--traders @roster`・上限を超えたときの形（K2）・テスト・`--full`
+    ✅ 2026-10-07（Sx360 の Claude）: `roster.py`（`show` ／ `add` ／ `remove`。置き場は `HALT` の隣の `roster.json` ＝ ⚠ `control/` の中に置くと印として読まれるので外に出した）・`run_day.py --traders @roster`（無い ／ 壊れた ＝ rc=2・空 ＝ rc=0・K2 ＝ `over_total_budget`・`start` に `max_total_budget`・`max_day_usd`・`roster`）・`tests/test_roster.py` 9 本。⚠ `--traders` を明示する経路は変えていない。`./run-tests.sh` ✅・`--full` ✅（黄金の集計値は変わらない）
+  - [x] Phase 2: 管理画面 `/roster`・帳尻の欄・テスト
+    ✅ 2026-10-07: `/roster`（状態・予算・持ち株・いつから ／ 印・ボタン・押せない理由・次の回の上限と前の回・帳尻）・`POST /ops/roster/<人>`（開始 ／ 外す。外すと印も消す）・印のフォームに戻り先 `/roster`・`app/lineup.py`（押せるかの判定 1 か所）・左ペインに「名簿」・`glossary.toml` の語・`dashboard.md` §13-10。K3 は時刻で（営業日 15:40〜16:10 ET。画面は `run.lock` を取れない）。テスト `tests/test_roster.py` 8 本・POST の番人テストに 1 本。⚠ トレーダーの詳細のフォームは印だけのまま（開始 ／ 外すは名簿の面で）
   - [ ] Phase 3: 移行（デプロイ → 画面で T1・T4・T6 を開始 → ⚠ 利用者が `live.env` を `AIL_LIVE_TRADERS=@roster` に 1 度だけ）
   - [ ] Phase 4: 手順書の書き直し（trader-loop.md §3-4・howto 2-7・live-trading.md §0-2・CLAUDE.md）
 

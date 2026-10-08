@@ -164,7 +164,8 @@ def test_no_new_post_routes(world):
     posts = sorted(r.path for r in app.routes if "POST" in (getattr(r, "methods", None) or ()))
     # ⚠ 2026-10-06 に人ごとの印（停止 ／ 手じまい ／ 印を消す）の POST を 1 本足した（dashboard.md §13-9。利用者決定 10/5）。
     #    画面は印を書くだけで、発注の経路は増えていない
-    assert posts == ["/ops/halt", "/ops/resume", "/ops/retry-auth", "/ops/traders/{name}/flag"]
+    # ⚠ 2026-10-07 に名簿（開始 ／ 外す）の POST を 1 本足した（dashboard.md §13-10。利用者決定 10/7）。名簿を書くだけで、発注の経路は増えていない
+    assert posts == ["/ops/halt", "/ops/resume", "/ops/retry-auth", "/ops/roster/{name}", "/ops/traders/{name}/flag"]
 
 
 def test_stop_button_in_sim_mode_writes_only_the_sim_halt(world):

@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>名簿{{ info("名簿（開始 ／ 外す）") }} <span class="muted small">誰を動かすか · ローカル面だけ</span></h2>
+<p class="small muted">画面は名簿（{{ lu.roster_path }}）と印を書くだけ。⚠ その場では何も売買しない。売買は執行器の次の回（15:50 ET）から。新しい人の設定は <code>config/traders/</code> 直下に置いてデプロイすると「候補」に出る。</p>
+
+{% if lu.roster_error %}<div class="danger">名簿を読めない: <b class="ng">{{ lu.roster_error }}</b> — 執行器は起動を拒む（直すまで書かない）</div>{% endif %}
+{% if lu.quiet %}<div class="danger">⏳ {{ lu.quiet }}</div>{% endif %}
+{% set ls = lu.last_start %}
+<section class="card">
+  <h3>次の回</h3>
+  <table class="small">
+    <tr><th>買う人の予算の合計</th><td class="num">${{ '{:,.0f}'.format(lu.buying_usd) }}</td></tr>
+    <tr><th>予算の合計の上限（live.env・前の回の記録）</th><td class="num">{% if lu.cap is not none %}${{ '{:,.0f}'.format(lu.cap) }}{% else %}<span class="muted">記録なし（画面では確かめない。執行器が守る）</span>{% endif %}</td></tr>
+    <tr><th>前の回</th><td>{% if ls %}{{ ls.date }} · {{ ls.traders|join(', ') }} · {% if ls.roster %}名簿で動いた{% else %}<b>live.env の一覧で動いた</b>（名簿はまだ使われていない ＝ <code>AIL_LIVE_TRADERS=@roster</code> にすると名簿で動く）{% endif %}{% else %}<span class="muted">記録なし</span>{% endif %}</td></tr>
+  </table>
+  {% if not lu.roster_exists and not lu.roster_error %}<p class="small muted">名簿はまだ無い。最初の「開始」で作られる。</p>{% endif %}
+  {% if lu.unknown %}<p class="small"><b class="ng">名簿に居るが設定が無い人: {{ lu.unknown|join(', ') }}</b>（執行器は起動を拒む ＝ 設定をデプロイするか外す）</p>{% endif %}
+</section>
+
+<section class="card mt-12">
+  <h3>トレーダー</h3>
+  <div class="scroll-x"><table class="small">
+    <tr><th>人</th><th>状態</th><th class="num">予算</th><th>持ち株</th><th>いつから ／ 印</th><th>操作</th></tr>
+    {% for r in lu.rows %}
+    <tr>
+      <td><a href="/traders/{{ r.name }}">{{ r.label }}</a>{% if r.test %} <span class="badge badge-mock">TEST</span>{% endif %}</td>
+      <td><b>{{ r.status_label }}</b></td>
+      <td class="num">${{ '{:,.0f}'.format(r.budget_usd) }}</td>
+      <td>{% for s, q in r.holdings.items() %}{{ s }} {{ '%g'|format(q) }}{% if not loop.last %} · {% endif %}{% else %}<span class="muted">なし</span>{% endfor %}</td>
+      <td class="small">{% if r.entry %}名簿 {{ r.entry.since|pt }}{% if r.entry.actor %} · {{ r.entry.actor }}{% endif %}{% endif %}{% if r.flag %}<br>{{ r.flag.label }}{% if r.flag.reason %} · {{ r.flag.reason }}{% endif %}{% if r.flag.done %} · 済み {{ r.flag.done.date }}{% endif %}{% endif %}</td>
+      <td>
+        {% set a = r.actions %}
+        {% if 'start' in a %}
+          <form method="post" action="/ops/roster/{{ r.name }}" class="inline flagform" data-confirm="{{ r.name }} を名簿に入れる。執行器の次の回から予算 ${{ '{:,.0f}'.format(r.budget_usd) }} で売買する。よいか？">
+            <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="kind" value="start">
+            <input type="text" name="reason" placeholder="理由（任意）" maxlength="200">
+            <input type="text" name="confirm" placeholder="確認: {{ r.name }}" autocomplete="off">
+            <button class="btn btn-primary"{% if a.start %} disabled title="{{ a.start }}"{% endif %}>▶ 開始</button>
+          </form>{% if a.start %}<div class="small muted">{{ a.start }}</div>{% endif %}
+        {% else %}
+          <form method="post" action="/ops/traders/{{ r.name }}/flag" class="inline flagform" data-confirm="{{ r.name }} の印を書く。⚠ その場では何も売買しない（執行器の次の回から効く）。よいか？">
+            <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="back" value="/roster">
+            <input type="text" name="reason" placeholder="理由（任意）" maxlength="200">
+            <input type="text" name="confirm" placeholder="確認: {{ r.name }}" autocomplete="off">
+            {% if a.paused is none %}<button class="btn" name="kind" value="paused">⏸ 停止</button>{% endif %}
+            {% if a.liquidate is none %}<button class="btn btn-danger" name="kind" value="liquidate">🧹 手じまい</button>{% endif %}
+            {% if a.clear is none %}<button class="btn" name="kind" value="clear">{% if r.status == 'liquidated' %}▶ 再開（印を消す）{% else %}▶ 再開{% endif %}</button>{% endif %}
+          </form>
+          <form method="post" action="/ops/roster/{{ r.name }}" class="inline flagform" data-confirm="{{ r.name }} を名簿から外す（印も消す）。売買履歴は残る。よいか？">
+            <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="kind" value="remove">
+            <input type="text" name="confirm" placeholder="確認: {{ r.name }}" autocomplete="off">
+            <button class="btn"{% if a.remove %} disabled title="{{ a.remove }}"{% endif %}>⏏ 外す</button>
+          </form>{% if a.remove %}<div class="small muted">外せない: {{ a.remove }}</div>{% endif %}
+        {% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+  </table></div>
+  <p class="small muted">開始 ＝ 名簿に入れる ／ 停止 ＝ 休ませる（持ち株はそのまま）／ 手じまい ＝ 次の回で持ち株を全部売る ／ 再開 ＝ 印を消す ／ 外す ＝ 名簿から抜く（持ち株 0 のときだけ）。予算の合計が上限を超える日は、後から名簿に入った人から休む。</p>
+</section>
+
+{% set rc = lu.reconcile %}
+<section class="card mt-12">
+  <h3>帳尻（口座 − 売買履歴）</h3>
+  {% if rc.date %}
+  <p class="small muted">口座は {{ rc.date }} の回の記録（{{ rc.when or '' }}・{{ rc.env }}）· ⚠ いまの口座ではない · 控えの未完 {{ rc.journal_open }} 件</p>
+  {% if rc.lines %}
+  <table class="small"><tr><th>銘柄</th><th class="num">口座</th><th class="num">売買履歴の合計</th><th class="num">差</th></tr>
+  {% for x in rc.lines %}<tr><td>{{ x.symbol }}</td><td class="num">{{ '%g'|format(x.account) }}</td><td class="num">{{ '%g'|format(x.ledger) }}</td><td class="num">{% if x.diff %}<b class="ng">{{ '%g'|format(x.diff) }}</b>{% else %}0{% endif %}</td></tr>{% endfor %}
+  </table>
+  {% else %}<p class="small">口座も売買履歴も持ち株なし（差 0）。</p>{% endif %}
+  {% else %}<p class="muted small">記録なし</p>{% endif %}
+</section>
+{% endblock %}

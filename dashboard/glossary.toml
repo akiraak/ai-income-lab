@@ -576,6 +576,12 @@ note = "tastytrade の API サンプルと、会場を選んだときの語。"
   where = "§13-9 人ごとの印"
 
   [[section.term]]
+  name = "名簿（開始 ／ 外す）"
+  short = "誰を動かすかの一覧。画面の「開始」で入れ、「外す」で抜く（持ち株 0 のときだけ）。執行器は次の回で名簿の人だけを動かす。予算の合計が上限を超える日は、後から入った人から休む。"
+  doc = "docs/specs/dashboard.md"
+  where = "§13-10 名簿"
+
+  [[section.term]]
   name = "6 観点（A〜F）"
   short = "会場を無人で回せるかを見る観点。認証の寿命・常駐の要否・気配・往復・レート制限・SDK の保守。"
   doc = "docs/specs/experiments/tastytrade-api-sample.md"

@@ -279,9 +279,6 @@
   - [x] Phase 4: 手順書の書き直し（trader-loop.md §3-4・howto 2-7・live-trading.md §0-2・CLAUDE.md）
     ✅ 2026-10-07 22:5x PDT: howto に「2-7 の手順」（入れる 5 手順・外す 4 手順・休ませる。図 1 枚）・2-7 の行・trader-loop.md の 4-3 と §3-4 の頭（10/4〜07 の手作業は記録として残す）・live-trading.md の C12・CLAUDE.md の入れ替えの行。⚠ Phase 3（移行）の結果を見て直すところがあれば足す
 
-- [ ] 管理画面の時刻をシアトル時間で出す（利用者の指示 2026-10-08「日次は必ずシアトル時間で表示するようにして」）
-  ✅ 2026-10-07 23:xx PDT（Sx360 の Claude）: ET だけで出していた所を「12:40 PDT（15:40 ET）」の形に（見張り「今日の起動が無い」・名簿の面と書かない時間・気配の updated-at・シミュレーションの時計・用語 3 つ）。`live.et_to_seattle`・templates の `etpt`・フィルタ `ptfull`・テスト 1 本・`dashboard.md` §13-11。CLAUDE.md の「Claude への依頼方針」と Sx360 のメモリにも同じ決まり。⏳ 本番に載せるのは次の「デプロイ」（⚠ 12:00〜13:15 PDT は拒む）
-
 - [ ] 紙上の対照（`paper.py`）を実物にそろえる（始めた日・整数株・印と名簿・人の区切り） [plan](docs/plans/paper-align.md)
   派生元: いまの 3 人の 8 営業日の判定（[live-trading.md §2-1](docs/specs/experiments/live-trading.md)。差 3 が線を越えたが執行の差ではなかった）
   ⚠ 新しい 3 人（10/8 から）では印（10/5〜07 の停止・10/7 の手じまい）と T1 の始め直しを紙上が知らない ＝ 直さないと初日から差 3 で執行の差を測れない

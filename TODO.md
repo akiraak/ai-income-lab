@@ -276,7 +276,8 @@
     ✅ 2026-10-07: ⚠ `run-live.sh` も `--traders` で人の設定を読んで予測するモデルを拾っていた ＝ `@roster` のままでは止まる → 名簿を執行器と同じ道で引くように直した（`@roster` は執行器へそのまま渡す）。手で確かめた: 名簿 T1・T4・T6 → 拾うモデル 4 本 ＝ 明示と同じ・名簿が無い ＝ rc=1 → `run-live.sh` は exit 11（執行器を起こさない）
   - [ ] Phase 3: 移行（デプロイ → 画面で T1・T4・T6 を開始 → ⚠ 利用者が `live.env` を `AIL_LIVE_TRADERS=@roster` に 1 度だけ）
     ✅ 2026-10-08 01:2x ET デプロイ（利用者「デプロイ」。Sx360 の `./run-deploy.sh`・関門 ✅）＝ `prod` 47287ed → **1a6c799**・13500t `done 1a6c799`（22:30 PDT・管理画面のコンテナ起こし直し）。名簿の道は画面（`trade-dashboard`）と執行器（`trade-runner`）とも `/home/ubuntu/ai-income-lab/experiments/tastytrade-api-sample/out/roster.json`（同じ host のディレクトリ）を確かめた。⏳ 利用者: `/roster` で T1 → T4 → T6 を開始 → `live.env` を `@roster` に → 次の回の `start` を Sx360 の Claude が確かめる
-  - [ ] Phase 4: 手順書の書き直し（trader-loop.md §3-4・howto 2-7・live-trading.md §0-2・CLAUDE.md）
+  - [x] Phase 4: 手順書の書き直し（trader-loop.md §3-4・howto 2-7・live-trading.md §0-2・CLAUDE.md）
+    ✅ 2026-10-07 22:5x PDT: howto に「2-7 の手順」（入れる 5 手順・外す 4 手順・休ませる。図 1 枚）・2-7 の行・trader-loop.md の 4-3 と §3-4 の頭（10/4〜07 の手作業は記録として残す）・live-trading.md の C12・CLAUDE.md の入れ替えの行。⚠ Phase 3（移行）の結果を見て直すところがあれば足す
 
 - [ ] 実売買の執行器（`run_day.py`・`reconcile.py`）のメッセージの「台帳」→「売買履歴」（⚠ 本番投入が落ち着いてから。執行器のテストを流す・本番に効くので「デプロイ」が要る）
   派生元: 「DBを使ったデータの永続化を行う」の「言葉を分かりやすくする」（2026-09-25 に DONE へ）

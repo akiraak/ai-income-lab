@@ -69,7 +69,7 @@ flowchart LR
 | --- | --- | --- |
 | 4-1 | 利用者 | 誰を入れるか（K3）・入金（K2）・上限（K4） |
 | 4-2 | Claude | 候補の設定を `config/traders/` 直下へ写す（識別名・呼び名はそのまま。`candidates/` の原本は残す）・`tests/test_trader.py`・`live-trading.md` §0-1 の表・`traders.toml`・push |
-| 4-3 | 利用者 ＋ Sx360 の Claude | 「デプロイ」→ 13500t の `live.env`（`AIL_LIVE_TRADERS` に足す・`LT_MAX_TOTAL_BUDGET_USD`）→ 1-3 の計測 → 次の営業日の 15:50 ET に無人で動く |
+| 4-3 | 利用者 ＋ Sx360 の Claude | 「デプロイ」→ 1-3 の計測 → 管理画面 `/roster` で「開始」（✅ 2026-10-07 から名簿 ＝ [howto-model-trader.md の「2-7 の手順」](../specs/howto-model-trader.md)。⚠ 上限を超えるときだけ `live.env` の `--max-total-budget`）→ 次の営業日の 15:50 ET に無人で動く |
 | 4-4 | Sx360 の Claude | 初日の記録（§1 に行を足す・口座 − 売買履歴 ＝ 0） |
 
 ### Phase 5: 分析を回す
@@ -129,6 +129,8 @@ flowchart LR
 - ⚠ 13500t の時間は titan より長い。いま 3 本並列で 45 秒【実測 §0-12】。1 本足したときの実測は 1-3
 
 ### 3-4. 投入の手順（手順書 2-7 の具体化。2026-10-04）
+
+⚠ **2026-10-07 から、入れる ／ 外すは管理画面の名簿で行う**（[howto-model-trader.md の「2-7 の手順」](../specs/howto-model-trader.md)・[プラン trader-roster-dashboard.md](trader-roster-dashboard.md)）。下の表は 2026-10-04〜07 に手作業で行った記録として残す（手順 6 の `live.env` と手順 9 の `reconcile.py remove` は、名簿の「開始」と「手じまい → 外す」に置き換わった）。
 
 | 順 | 担い手 | やること | ⚠ |
 | ---: | --- | --- | --- |

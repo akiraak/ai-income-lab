@@ -130,3 +130,10 @@ def test_actions_table():
     assert a["clear"] is None and a["remove"] is None
     a = lineup.actions({**base, "status": "active"}, buying=0, cap=None, real=True, sim=False, quiet=None, journal=1)
     assert "控え" in a["remove"]
+
+
+def test_market_times_are_shown_in_seattle_time_first():
+    """2026-10-08 利用者の指示「日時は必ずシアトル時間で」: 市場の決まり（ET）はシアトル時間を先に出す。夏は PDT・冬は PST。"""
+    from datetime import date
+    assert lv.et_to_seattle("15:40", date(2026, 10, 8)) == "12:40 PDT（15:40 ET）"
+    assert lv.et_to_seattle("16:15", date(2026, 12, 1)) == "13:15 PST（16:15 ET）"

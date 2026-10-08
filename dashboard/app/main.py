@@ -230,6 +230,9 @@ def create_app(settings: Settings | None = None, start_monitors: bool = True) ->
     helpbook = HelpBook(Path(os.environ["AIL_GLOSSARY_FILE"]) if os.environ.get("AIL_GLOSSARY_FILE") else None, clean=redactor.text)
     app.state.helpbook = helpbook
     templates.env.globals.update(info=helpbook.mark)
+    # 市場の決まり（ET）の時刻をシアトル時間を先にして出す（2026-10-08 利用者の指示「日時は必ずシアトル時間で」）。例 etpt("15:50")
+    templates.env.globals.update(etpt=lambda hhmm: lv.et_to_seattle(hhmm))
+    templates.env.filters["ptfull"] = lambda iso: fmt_tz(iso, PT, "PT", "%Y-%m-%d %H:%M:%S")
     # シミュレーションモードの間、数字と図の見出しに付ける「仮」の印（§15-8 の .chip.placeholder と同じ扱い）
     from markupsafe import Markup
     SIM_MARK = Markup(' <span class="chip placeholder sim-mark" title="シミュレーション: 仮データ・仮の時計。実売買ではない">仮</span>')

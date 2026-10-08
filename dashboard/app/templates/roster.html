@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block content %}
 <h2>名簿{{ info("名簿（開始 ／ 外す）") }} <span class="muted small">誰を動かすか · ローカル面だけ</span></h2>
-<p class="small muted">画面は名簿（{{ lu.roster_path }}）と印を書くだけ。⚠ その場では何も売買しない。売買は執行器の次の回（15:50 ET）から。新しい人の設定は <code>config/traders/</code> 直下に置いてデプロイすると「候補」に出る。</p>
+<p class="small muted">画面は名簿（{{ lu.roster_path }}）と印を書くだけ。⚠ その場では何も売買しない。売買は執行器の次の回（{{ etpt('15:50') }}）から。新しい人の設定は <code>config/traders/</code> 直下に置いてデプロイすると「候補」に出る。</p>
 
 {% if lu.roster_error %}<div class="danger">名簿を読めない: <b class="ng">{{ lu.roster_error }}</b> — 執行器は起動を拒む（直すまで書かない）</div>{% endif %}
 {% if lu.quiet %}<div class="danger">⏳ {{ lu.quiet }}</div>{% endif %}

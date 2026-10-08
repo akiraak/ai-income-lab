@@ -411,6 +411,18 @@ def now_et():
     return datetime.now(market_calendar.ET)
 
 
+def et_to_seattle(hhmm: str, day=None) -> str:
+    """ET の時刻（市場の決まり）を、シアトル時間を先にした表示へ（2026-10-08 利用者の指示「日時は必ずシアトル時間で」）。
+    例 "15:40" → "12:40 PDT（15:40 ET）"。冬は PST。⚠ 決まりの正本は ET のまま（ここは表示だけ）。"""
+    from datetime import datetime
+    from zoneinfo import ZoneInfo
+    import market_calendar
+    d = day or now_et().date()
+    hh, mm = (int(x) for x in hhmm.split(":"))
+    pt = datetime(d.year, d.month, d.day, hh, mm, tzinfo=market_calendar.ET).astimezone(ZoneInfo("America/Los_Angeles"))
+    return f"{pt:%H:%M} {pt:%Z}（{hhmm} ET）"
+
+
 def watch(live_dir: Path, *, today=None, now_et_=None, suppress: str | None = None) -> dict:
     """見張り「今日の起動が無い」（3 台の役割分け Phase 5。dashboard.md §13-8）。⚠ 記録と暦と時刻だけで決める（timer ／ cron の状態は読まない）。
 

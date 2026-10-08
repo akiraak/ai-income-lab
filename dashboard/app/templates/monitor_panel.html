@@ -62,7 +62,7 @@
       <table class="kvt">
         <tr><th>bid / ask</th><td class="num">{{ q.bid|num }} / {{ q.ask|num }}</td></tr>
         <tr><th>last</th><td class="num">{{ q.last|num }}</td></tr>
-        <tr><th>updated-at</th><td class="small">{{ q.updated_at|et }} <span class="muted">（遅延 <b class="{{ 'ok' if q.delay_s is not none and q.delay_s < 1 else 'warn' }}">{{ q.delay_s }} 秒</b>）</span></td></tr>
+        <tr><th>updated-at</th><td class="small">{{ q.updated_at|pt }} <span class="muted">（{{ q.updated_at|et }}）</span> <span class="muted">（遅延 <b class="{{ 'ok' if q.delay_s is not none and q.delay_s < 1 else 'warn' }}">{{ q.delay_s }} 秒</b>）</span></td></tr>
         {% if q.halted %}<tr><th></th><td class="ng">取引停止中</td></tr>{% endif %}
       </table>
       {% elif q.state == 'n/a' %}<p class="muted">{{ q.reason }}</p>

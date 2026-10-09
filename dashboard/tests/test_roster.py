@@ -1,4 +1,4 @@
-"""名簿の面（`/roster`。dashboard.md §13-9・§13-10。plan trader-status-flow.md）: 状態 4 つ ＋ 指示 3 つ ＋ 取り消し。
+"""名簿の面（`/roster`。dashboard.md §13-9・§13-10。plan archive/trader-status-flow.md）: 状態 4 つ ＋ 指示 3 つ ＋ 取り消し。
 画面は名簿と control/ を書くだけ ／ 指示は執行器の次の回を通るまで状態に入れない ／ 押せない理由 ／ 面ごとの経路。"""
 import json
 from datetime import datetime

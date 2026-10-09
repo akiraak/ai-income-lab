@@ -1,6 +1,6 @@
 """操作。⚠ **管理画面から出せるのは「全体の停止」と「解除」と、トレーダーの状態を変える指示（開始 ／ 一時停止 ／ 手じまい ／ 取り消す）だけ**（2026-09-18 に手動の注文を外した）。
 
-- 状態を変える指示（2026-10-09。プラン docs/plans/trader-status-flow.md。前は「人ごとの印」と「名簿の開始 ／ 外す」）:
+- 状態を変える指示（2026-10-09。プラン docs/plans/archive/trader-status-flow.md。前は「人ごとの印」と「名簿の開始 ／ 外す」）:
   名簿 `roster.json`（`HALT` の隣）と `control/<人>.json` を書くだけ。⚠ **その場では何も売買しない**。執行器の次の回が読む
   （`run_day.py --traders @roster`。発注の許可は執行器だけ ＝ この画面に発注の経路は無いまま）
 
@@ -134,7 +134,7 @@ class Ops:
         except roster.RosterError as exc:
             return None, str(exc)[:200]
 
-    # ---------------- 状態を変える指示（開始 ／ 一時停止 ／ 手じまい ／ 取り消す。plan trader-status-flow.md §2-3）
+    # ---------------- 状態を変える指示（開始 ／ 一時停止 ／ 手じまい ／ 取り消す。plan archive/trader-status-flow.md §2-3）
     # ⚠ 書くだけ。売買は執行器の次の回。押せるかの判定は lineup.actions（呼ぶ側が先に見る）。⚠ 置き場の形は変えない
 
     def instruct(self, name: str, kind: str, row: dict, actor: str, reason: str = "") -> dict:

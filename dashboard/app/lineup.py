@@ -1,6 +1,6 @@
 """名簿の面（`/roster`。dashboard.md §13-10）: トレーダーの **状態**（停止 ／ 稼働 ／ 一時停止 ／ 手じまい中）と、人が出す **指示**（開始 ／ 一時停止 ／ 手じまい）。
 
-プラン docs/plans/archive/trader-roster-dashboard.md → docs/plans/trader-status-flow.md（2026-10-09 利用者決定「その案でよい」）。
+プラン docs/plans/archive/trader-roster-dashboard.md → docs/plans/archive/trader-status-flow.md（2026-10-09 利用者決定「その案でよい」）。
 状態は置き場（名簿 `roster.json` ＋ `control/<人>.json`）から決める。指示は **執行器の次の回を通るまで** 状態に入れず「指示」として見せる
 （指示の時刻 ＞ 最後の発注の回の `start`。指示の記録は管理画面の操作の履歴）。⚠ 置き場の形・執行器の動きは変えていない。
 

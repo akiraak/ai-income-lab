@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """トレーダーの状態のうち「一時停止」「手じまい中」の置き場。管理画面（状態を変える指示）と CLI が書き、執行器が毎日の回で読む
-（プラン docs/plans/archive/trader-control-flags.md。2026-10-05 利用者決定。2026-10-09 に言葉を「印」から状態 ＋ 指示へ ＝ docs/plans/trader-status-flow.md）。
+（プラン docs/plans/archive/trader-control-flags.md。2026-10-05 利用者決定。2026-10-09 に言葉を「印」から状態 ＋ 指示へ ＝ docs/plans/archive/trader-status-flow.md）。
 
     python control.py show                       # 一時停止 ／ 手じまいの人の一覧
     python control.py set T3 liquidate --reason "入れ替え"   # 手じまい（次の回から持ち株を全部売る ＝ 手じまい中。売り切ると停止）

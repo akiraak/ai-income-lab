@@ -1,4 +1,4 @@
-"""トレーダーの詳細の「状態と指示」（dashboard.md §13-9。plan trader-status-flow.md）: 画面は指示を書くだけ ／ 確認の文が違えば書かない ／
+"""トレーダーの詳細の「状態と指示」（dashboard.md §13-9。plan archive/trader-status-flow.md）: 画面は指示を書くだけ ／ 確認の文が違えば書かない ／
 回を通るまでは指示として出す ／ 面ごとの経路 ／ 壊れた置き場を読めないと出す。⚠ URL `/ops/traders/<人>/flag` は前のまま。"""
 import json
 import re

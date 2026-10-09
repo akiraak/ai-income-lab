@@ -5,7 +5,7 @@
     python roster.py add T4 --reason "入れ替え"     # 開始（名簿に入れる ＝ 停止 → 稼働。売買が始まるのは執行器の次の回から）
     python roster.py remove T3                      # 名簿から抜く（＝ 停止。⚠ 非常時・テスト用。持ち株が 0 かは確かめない ＝ ふつうは管理画面の「手じまい」）
 
-⚠ 2026-10-09 から管理画面に「外す」は無い（手じまいが済めば名簿に居たまま「停止」。plan docs/plans/trader-status-flow.md）。
+⚠ 2026-10-09 から管理画面に「外す」は無い（手じまいが済めば名簿に居たまま「停止」。plan docs/plans/archive/trader-status-flow.md）。
 
 置き場: <記録ディレクトリ>/roster.json（`HALT` の隣。⚠ `control/` の中には置かない ＝ control.py は `control/*.json` を全部読む）。
 中身: {"traders": [{"name", "since", "actor", "reason"}], "updated_at": iso}。並びは名簿に入った順（予算の合計が上限を超えたら、後から入った人から休ませる）。

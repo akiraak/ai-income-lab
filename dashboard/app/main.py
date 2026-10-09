@@ -411,7 +411,7 @@ def create_app(settings: Settings | None = None, start_monitors: bool = True) ->
         return render(request, "roster.html", page="roster", lu=lineup_now())
 
     async def instruct(request: Request, name: str, form: dict, back: str):
-        """状態を変える指示（開始 ／ 一時停止 ／ 手じまい ／ 取り消す。plan trader-status-flow.md）。⚠ 書くだけ ＝ 売買は執行器の次の回。
+        """状態を変える指示（開始 ／ 一時停止 ／ 手じまい ／ 取り消す。plan archive/trader-status-flow.md）。⚠ 書くだけ ＝ 売買は執行器の次の回。
         押せるかは lineup.actions と同じ判定。確認の文（識別名を打つ）が違えば書かない（取り消すだけは確認なし）。"""
         kind = form.get("kind", "")
         if kind not in ("start", "paused", "liquidate", "cancel"):

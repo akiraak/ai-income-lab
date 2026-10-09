@@ -75,7 +75,7 @@ flowchart LR
 | 2-6 | **テストと記録**: 人が読めること（`test_trader.py`）・作り置き（`test_simpredict.py`）・管理画面（`dashboard/tests/`）。候補の人の表を `live-trading.md` §0-1 の下に、sim の記録を §0-7 (k) に | `experiments/live-trading/tests/`・`dashboard/tests/`・[live-trading.md](experiments/live-trading.md) | `./run-tests.sh --full` で黄金の集計値が**変わらない**こと ＝ 執行器を変えていない証拠 | 2026-09-29 titan: `./run-tests.sh` ✅（執行器 165 ／ 管理画面 246 ／ selftest ／ mockrun。2 分 44 秒）・研究側 9 本 155 通過（`test_names`・`test_predict`・`test_trading_run`・`test_fwd`・`test_stop`・`test_pairs`・`test_exomodel`・`test_ledger_rows`・`test_catalog`。2 分 32 秒）・`--full` ✅ 黄金の集計値は変わらず（3 分 1 秒 ＝ 執行器を変えていない証拠） |
 | 2-7 | **本番に入れる ／ 外す**（⚠ 利用者の決定。2026-10-07 から管理画面の名簿で ＝ 下の「2-7 の手順」） | `config/traders/` 直下へ写す → デプロイ → 管理画面 `/roster` で「開始」。外すのは「手じまい」（売り切ると停止。2026-10-09 から「外す」は無い） | 予算の合計 ≤ `live.env` の上限（超えた日は後から名簿に入った人から休む）・C11 | 2026-10-04〜07 の入れ替え（`T1` 残す・`T4`・`T6` 入れる・`T2`・`T3` 外す）は `live.env` と `reconcile.py` の手作業で行った（[trader-loop.md §3-4](../plans/trader-loop.md)）。名簿で行うのは次の入れ替えから |
 
-### 2-7 の手順: 本番に入れる ／ 外す（名簿。2026-10-07 利用者決定。[プラン](../plans/archive/trader-roster-dashboard.md)。2026-10-09 に状態 ＋ 指示へ ＝ [プラン](../plans/trader-status-flow.md)）
+### 2-7 の手順: 本番に入れる ／ 外す（名簿。2026-10-07 利用者決定。[プラン](../plans/archive/trader-roster-dashboard.md)。2026-10-09 に状態 ＋ 指示へ ＝ [プラン](../plans/archive/trader-status-flow.md)）
 
 この図の主張: 手元のコマンドは「設定を写してデプロイ」だけ（Claude）。誰を動かすかは利用者が画面の指示で決める（状態と指示は `dashboard.md` §13-9）。
 

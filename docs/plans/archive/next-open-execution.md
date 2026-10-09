@@ -47,3 +47,5 @@ flowchart LR
 ## 5. 作業量・費用【推測】
 
 実装 半日・実行 数分〜1 時間（titan）。費用 0。
+
+✅ 2026-10-08 完了: 採る 0 ／ 保留 1 ／ 落とす 11・n_trials 777 → 789。結果は [next-open-execution.md §1](../../specs/experiments/next-open-execution.md)。

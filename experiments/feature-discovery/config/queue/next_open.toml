@@ -1,0 +1,11 @@
+# ⚠ **翌日の始値で執行する**（rules.md 22 章・記録 next-open-execution.md。2026-10-08 利用者決定「1」）。
+# 事前固定は rules.md 22-2（⚠ **回すと決めたのは結果を見る前**）。モデル 4 × θ 3 ＝ n_trials ＋12。
+# 表は作り直さない（4 本とも `features_from`。leak 対照の表も既にある）。
+# ⚠ **順は手間の小さい順**（14-10 規約 4）: Ridge → Ridge（選別・1995 表）→ LightGBM → 時系列分類器（QUANT）。
+experiments = ["nextopen_trade_own_ridge_a", "nextopen_sel_small4_1995",
+               "nextopen_trade_ownex_lgbm_a", "nextopen_trade_ownseq_ridge_a"]
+
+leak = true              # ⚠ 配線の穴に気づく唯一の手。切らない
+ledger = false           # ⚠ 検証結果一覧は終わってから 1 回吐く
+max_failures = 2
+time_budget_s = 3600     # ⚠ 見積り 10 分【推測。`trader_shape_people` の 5 本 ＋ leak が 2 分【実測】・QUANT が重い】の 6 倍

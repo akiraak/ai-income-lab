@@ -46,6 +46,40 @@ def load_panel(experiment: str, period: str, leak: bool,
     return pd.read_parquet(path), path
 
 
+EXEC_COLUMN = "y_exec"          # 翌日始値で執行したときの 1 日の損益（rules.md 22 章）。⚠ 特徴量ではない
+
+
+def execution_of(t: dict) -> str:
+    """`[trading] execution`（rules.md 22-1）。⚠ **無ければ "close" ＝ 経路は 1 行も変わらない**。"""
+    e = str(t.get("execution", "close"))
+    if e not in ("close", "next_open"):
+        raise SystemExit(f"⚠ trading.execution は \"close\" か \"next_open\": {e!r}（rules.md 22-1）")
+    return e
+
+
+def next_open_returns(panel: pd.DataFrame, directory: str) -> tuple[pd.Series, int]:
+    """(y_exec, 継げなかった行の数)。y_exec[t] ＝ log(始値 t+2 ／ 始値 t+1)（rules.md 22-1）。
+
+    ⚠ **始値は調整済み日足の `open`**（表の `close` と同じ層）。足の並びで 1 本先・2 本先を取ってから (銘柄, 日) で継ぐ
+    ＝ 足 t より後の値段しか使わない（合図は足 t の終値までで作るので、先読みにならない）。
+    ⚠ 始値 t+2 が無い行（表の最後の 1〜2 日）は 0（損益なし）にして、数を返す（記録に書く）。
+    """
+    from ail.data import store as _store
+
+    parts = []
+    for s in panel["symbol"].unique():
+        bars = _store.read_bars(directory, s)
+        o = bars["open"].astype(float).where(lambda x: x > 0)
+        parts.append(pd.DataFrame({"symbol": s, "ts": bars["ts"],
+                                   EXEC_COLUMN: np.log(o.shift(-2) / o.shift(-1)).values}))
+    ex = pd.concat(parts, ignore_index=True)
+    key = panel[["symbol", "ts"]].assign(ts=pd.to_datetime(panel["ts"], utc=True))
+    got = key.merge(ex, on=["symbol", "ts"], how="left")[EXEC_COLUMN]
+    got.index = panel.index
+    missing = int(got.isna().sum())
+    return got.fillna(0.0), missing
+
+
 def evaluate(panel: pd.DataFrame, feats: list[str], exp: dict, run: runs.Run) -> pd.DataFrame:
     v = exp.get("validation", {})
     seed = int(v.get("seed", 0))
@@ -201,6 +235,11 @@ def evaluate_trading(panel: pd.DataFrame, feats: list[str], exp: dict, run: runs
     # `methods`（当てる検知器）・`stop_loss_pct = [5, 10, 20]`（形 B）・`max_hold_days = [5, 10]`（固定日数の基準線）。
     # ⚠ **無い config は経路が 1 行も変わらない**（`threshold_pairs` と同じ形。行は既存の行の後に足すだけ）
     pexits = position_exits(t)
+    # ⚠ **翌日始値で執行する**（rules.md 22 章。2026-10-08）: 状態機械に渡す損益の系列だけを `y_exec` に替える。
+    # ⚠ **`execution` の無い config は `y` のまま ＝ 経路は 1 行も変わらない**（的中率・IC は常に `y` で測る）
+    next_open = execution_of(t) == "next_open"
+    if next_open and EXEC_COLUMN not in panel:
+        raise SystemExit(f"⚠ execution = \"next_open\" には表に {EXEC_COLUMN} が要る（`next_open_returns` で継ぐ。rules.md 22-1）")
     form = str(t.get("form", "shared"))
     v = exp.get("validation", {})
     k = int(exp.get("k", 8))
@@ -246,6 +285,7 @@ def evaluate_trading(panel: pd.DataFrame, feats: list[str], exp: dict, run: runs
                                            max_train_days=splits.max_train_days(v)):
         te = te.reset_index(drop=True)
         y = te["y"].values
+        y_pnl = te[EXEC_COLUMN].to_numpy(dtype=float) if next_open else y   # ⚠ 損益だけ（22-1 の 1・4）
         ts_te = pd.to_datetime(te["ts"])
         groups = te.groupby("symbol").indices          # 銘柄 → 行位置（時刻順のまま）
 
@@ -280,13 +320,13 @@ def evaluate_trading(panel: pd.DataFrame, feats: list[str], exp: dict, run: runs
                     continue
                 if ex is not None and np.isnan(ex[idx]).any():
                     continue                       # ⚠ 出口% が欠けた銘柄も同じく飛ばす
-                r = sim.simulate(bp[idx], y[idx], th, cost_bp,
+                r = sim.simulate(bp[idx], y_pnl[idx], th, cost_bp,
                                  exit_pct=None if ex is None else ex[idx], **kw)
-                rg = sim.shifted_gate(r["pos"], y[idx], cost_bp, rng)   # 14-6 の b
+                rg = sim.shifted_gate(r["pos"], y_pnl[idx], cost_bp, rng)   # 14-6 の b
                 # ⚠ **逆売買**（rules.md 14-3 の (3)。診断列・採否に使わない・試行に数えない）:
                 # ⚠ **入口% と出口% を入れ替えて同じ状態機械を回すだけ**（`simulate` 本体は触らない）。
                 # θ ≥ 50 では元の売買の補集合になる（reverse-trading.md §1）
-                rv = sim.simulate(ex[idx] if ex is not None else 100.0 - bp[idx], y[idx], th, cost_bp,
+                rv = sim.simulate(ex[idx] if ex is not None else 100.0 - bp[idx], y_pnl[idx], th, cost_bp,
                                   exit_pct=bp[idx], **kw)
                 key, stamp = str(s), ts_te.iloc[idx].values
                 nets[key] = pd.Series(r["net_bp"], index=stamp)
@@ -363,11 +403,11 @@ def evaluate_trading(panel: pd.DataFrame, feats: list[str], exp: dict, run: runs
         if t.get("top_k"):
             # ⚠ **上位 K**（rules.md 17 章）。⚠ **既存の行を作り終えた後に足すだけ**（`top_k` の無い config は
             # ここを通らないので、既存の経路は 1 行も変わらない）
-            _topk_fold(t, te, y, ts_te, buy, exits, n_cols, thresholds, cost_bp, seed, f,
+            _topk_fold(t, te, y_pnl, ts_te, buy, exits, n_cols, thresholds, cost_bp, seed, f,
                        out, daily, extra, topk_out)
         if trader_conds:
             # ⚠ **既存の行を作り終えた後に足すだけ**（上位 K と同じ形）
-            _trader_fold(trader_conds, te, y, ts_te, buy, exits, n_cols, thresholds, cost_bp, seed, f,
+            _trader_fold(trader_conds, te, y_pnl, ts_te, buy, exits, n_cols, thresholds, cost_bp, seed, f,
                          out, daily, extra, trader_out)
         run.log(f"  fold {f}: 訓練 {len(tr):,} / 検証 {len(te):,}（{len(groups)} 銘柄）")
 
@@ -869,8 +909,15 @@ def main() -> None:
                 f"（{os.path.basename(path)}）。⚠ **sidecar のほうを記録に残す。**")
     # ⚠ **期間は「読んだ表」から取る**（sidecar の自己申告ではなく実物）。台帳の鍵の「期間」が
     # ⚠ **これを正として読む**（rules.md 14-4。⚠ **無い実行は「—」で、後から埋めない**）
+    exec_doc = {}
+    if (exp.get("trading") or {}).get("style") == "threshold" and execution_of(exp["trading"]) == "next_open":
+        # ⚠ **特徴量を決めた後に継ぐ**（`feats` に入らない）。表は作り直さない（rules.md 22-1 の 2）
+        y_exec, missing = next_open_returns(panel, store.adjusted_dir(ds["period"]))
+        panel = panel.assign(**{EXEC_COLUMN: y_exec})
+        exec_doc = {"execution": "next_open", "exec_missing_rows": missing}
+        run.log(f"⚠ 翌日始値で執行する（rules.md 22 章）: 損益 ＝ log(始値 t+2 ／ 始値 t+1)。継げなかった {missing} 行は 0")
     ts = pd.to_datetime(panel["ts"])
-    run.inputs({"features_file": os.path.relpath(path, store.ROOT),
+    run.inputs({**exec_doc, "features_file": os.path.relpath(path, store.ROOT),
                 "layer": (meta or {}).get("layer") or args.layer,
                 "layer_declared": args.layer, "features_meta": meta,
                 "panel_start": str(ts.min().date()), "panel_end": str(ts.max().date()),

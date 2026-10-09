@@ -30,7 +30,8 @@ FEATURE_PREFIXES = {
 }
 
 # 特徴量ではない列（検証で説明変数から外す）
-META_COLUMNS = ("symbol", "ts", "close", "y", "y_sign", "y_elapsed_min")
+META_COLUMNS = ("symbol", "ts", "close", "y", "y_sign", "y_elapsed_min",
+                "y_exec")   # ⚠ 翌日始値の損益（rules.md 22-1。`cli/run.py` が実行時に継ぐ。表には無い）
 # ⚠ **接頭辞で外すもの。** スケールのラベル `y_fwd_{W}`（先 W 本の累積リターン ＝ 学習の対象）は
 # ⚠ **窓の数だけ増える**ので、名前を数え上げずに接頭辞で外す。
 # ⚠ **外し忘れると「学習の対象がそのまま説明変数」になる** — 先読みの中でも最悪の形である

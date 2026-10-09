@@ -1,0 +1,47 @@
+# ⚠ **翌日の始値で執行する**（rules.md 22 章・記録 next-open-execution.md。2026-10-08 利用者決定）。
+#
+# ⚠ **`trade_ownseq_ridge_a.toml` との違いは `name`・`[trading] execution = "next_open"` と `detectors`（T3 QUANT だけ）・`features_from`（元の表を読む）だけ。**
+# 表・学習・較正・θ・fold・種・コスト・基準線は全部同じ（違いは損益を測る値段だけ）。
+# ⚠ **回すと決めたのは結果を見る前**。モデル 4 × θ 3 ＝ ＋12 のうちの 3（n_trials に数える）。
+#
+# ⚠ **TOML の平の key はテーブル見出しより上に書く**（rules.md 10 章 規約 1）
+name = "nextopen_trade_ownseq_ridge_a"
+dataset = "daily"
+horizon = 1
+cost_bp = 5.0
+features_from = "trade_ownseq_ridge_a"   # ⚠ 表は作り直さず、元の実験のものを読む（13-8）
+start_date = "2018-01-31"      # ⚠ own_2018 と同じ（期間を揃える。rules.md 14-4）
+
+feature_layers = ["own", "seq"]
+targets = "all"
+
+horizon_min = 1440.0
+bar_minutes = 1440.0
+
+# ⚠ **検知器 3 本**（rules.md 15-1 の契約 ＝ 買い% 1 本）。⚠ **3 × 3 閾値 = 9 試行**
+detectors = [
+  "T3 QUANT（60日窓）",          # ⚠ `T4` が使う 1 本だけ（MiniRocket・Hydra は回さない ＝ 数を増やさない）
+]
+k = 60                         # 窓の長さ（⚠ 選別はしない。窓の列は事前固定）
+
+model = "Ridge"
+baselines = ["常に上（ドリフト）", "直前リターンの符号"]
+
+[trading]
+style = "threshold"
+thresholds = [50, 55, 60]      # ⚠ 事前固定。結果を見て動かさない（rules.md 13-3）
+form = "shared"                # (A) 銘柄共通 1 本
+execution = "next_open"       # ⚠ 損益 ＝ log(始値 t+2 ／ 始値 t+1)（rules.md 22 章。回す前に固定）
+
+[validation]
+split = "walk_forward_dates"   # ⚠ fold の切れ目は日付で決める（rules.md 13-6 の 1）
+folds = 5
+purge = true
+embargo_bars = 0
+seed = 0
+
+[features]
+ex_lag_days = 1
+ex_zero_fill = ["usgs"]
+ex_transforms = ["d1", "z20"]
+ex_max_stale_days = 7

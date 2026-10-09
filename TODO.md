@@ -266,4 +266,6 @@
   - [x] Phase 4: 文書（`dashboard.md`・`live-trading.md`・howto・CLAUDE.md）→ `./run-tests.sh --full`
     ✅ 2026-10-09: `dashboard.md` §13-9・§13-10・`live-trading.md` §0-2 ／ C12・howto 2-7・`./run-tests.sh --full` 全部 ✅（黄金の集計値は変わらず）
     ✅ 2026-10-09 CLAUDE.md も（利用者の依頼「CLAUDE.md も直して、コミットしてデプロイ」）
-  - [ ] Phase 5: デプロイ（⚠ 利用者の「デプロイ」）→ `test_a` で 1 度通す（画面の操作は利用者）
+  - [~] Phase 5: デプロイ（⚠ 利用者の「デプロイ」）→ `test_a` で 1 度通す（画面の操作は利用者）
+    ✅ 2026-10-09 00:45 PDT デプロイ: `prod` af08e0e → cafd762・13500t の auto-update `done cafd762`（管理画面も起こし直した）
+    残り: 本番の管理画面で `test_a` の 開始 → 指示の表示 → 取り消し（⚠ 利用者。12:40〜13:10 PDT（15:40〜16:10 ET）は押せない）

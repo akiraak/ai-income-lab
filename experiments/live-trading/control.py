@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""人ごとの印（停止 ／ 手じまい）。管理画面と CLI が書き、執行器が毎日の回で読む（プラン docs/plans/trader-control-flags.md。2026-10-05 利用者決定）。
+"""人ごとの印（停止 ／ 手じまい）。管理画面と CLI が書き、執行器が毎日の回で読む（プラン docs/plans/archive/trader-control-flags.md。2026-10-05 利用者決定）。
 
     python control.py show                       # 印の一覧
     python control.py set T3 liquidate --reason "入れ替え"   # 手じまい（翌営業日以降の回で持ち株を全部売り、以後は買わない）

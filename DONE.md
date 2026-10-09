@@ -1,4 +1,25 @@
 # DONE
+- 2026-10-08 管理画面からトレーダーごとに「停止」「手じまい」の印を立て、執行器が翌日以降の回で実行する [plan](docs/plans/archive/trader-control-flags.md)
+  利用者の指示（2026-10-05）: **13500tに自動で売りを出す仕組みを入れる。管理画面からトレーダーごとに自動売買の停止と現在のポジションを手じまいするボタンを入れる** → Claude の検討（管理画面に発注の経路を持たせない）→ 利用者決定 **「手じまいはフラグを立てるだけで翌日以降に行う事にする。手じまいを行うのは執行機のみ」**
+  形: 管理画面は印（`control/<人>.json`: paused ／ liquidate・誰が・いつ・理由）を書くだけ。執行器が 15:50 ET の回で paused の人を飛ばし、liquidate の人の持ち株を全部売る（買わない）。`HALT` が優先。発注の許可は執行器だけ（9/18 の守りを崩さない）
+  ⚠ 執行器の凍結（10/20）に触れる ＝ 解くかは利用者（いまの 3 人の記録は 10/2 で閉じたので目的は薄い）
+  関連: [liquidate.md](docs/plans/archive/liquidate.md)（CLI。印を待たずに売るとき。2026-10-07 に DONE へ）／ 「トレーダーを「作成 → 実践投入 → 分析」のループで回す」（投入の手順 9 ＝ 外す人の手じまい）
+  - Phase 0: 凍結を解く（⚠ 利用者）
+    ✅ 2026-10-05 利用者決定「凍結を解く」＝ 執行器（`run_day.py`・`plan.py`）を変えてよい（10/20 までの凍結は終わり。理由: いまの 3 人の記録は 10/2 で閉じた）
+  - Phase 1: 印の読み書き（`control.py`）とテスト
+    ✅ 2026-10-05 `control.py`（`set <人> paused|liquidate --reason` ／ `clear` ／ `show`。置き場は `HALT` の隣の `control/<人>.json`・壊れた印は読めないで止める）・`tests/test_control.py` 4 本
+  - Phase 2: 執行器が印を読む（paused ＝ 飛ばす ／ liquidate ＝ 全部売る → done）・テスト・黄金の集計値
+    ✅ 2026-10-05 `run_day.py`（印を読む・停止の人は合図を読まず売買しない・手じまいの人は `plan.liquidation_raw` で持ち株を全部売り、買わない・全部売れたら印に「済み」・残れば `liquidate_pending`・予算の合計の上限は買う人だけで見る・`HALT` が優先）・`plan.liquidation_raw`（`decide` は変えない）・`tests/test_run_day_flags.py` 6 本（モック）
+  - Phase 3: 管理画面のボタン・表示・POST・テスト（⚠ 10/6 の手じまいの後。印は CLI で立ててある）
+    ✅ 2026-10-06 トレーダーの詳細に「この人の印」（いまの印・済み・⏸ 停止 ／ 🧹 手じまい ／ 印を消す。確認の欄に識別名を打つ）・概要の段に印・`POST /ops/traders/<人>/flag`（ローカル面と cloudflare-local。公開面は 404）・`ops.py` が執行器の `control.py` を道で読む（形の正本は執行器）・履歴と事象に `trader_flag`・`glossary.toml` の語・`dashboard.md` §13-9。テスト `tests/test_flags.py` 4 本・`./run-tests.sh --fast` ✅。⚠ 本番に載せるのは今日の手じまいの後のデプロイで
+  - Phase 4: `./run-tests.sh --full` → コミット → デプロイ → 13500t で印を 1 度試す
+    ✅ 2026-10-05 `--full` ✅（黄金の集計値は変わらない）→ `prod` f09a15c → **eeda56c**（15:35〜15:45 PDT に `HALT` を外して pull・戻した）→ 13500t で印を立てた（`T1`・`T3` ＝ 手じまい ／ `T4`・`T6` ＝ 停止「入金が載るまで」。`control.py show`）→ **本番の執行器を dry-run**（`--traders T1,T3,T4,T6 --mode dry-run --allow-prod-dry-run --max-total-budget 1900 --max-day-usd 1900`。HALT は別の道を見せて通した）＝ 合図 0 本 → 9 本の売り（T1 4・T3 5）が dry-run を通過・問題 0【実測 18:46 ET】
+    ✅ 2026-10-05 19:0x ET 利用者が Sx360 から ① `live.env`（`AIL_LIVE_TRADERS=T1,T3,T4,T6`・上限 2 つ）② `HALT` を消した（`control.py show` ＝ 4 人の印・`HALT なし`）。→ 火曜 15:50 ET の回で 9 本を売る（T4・T6 は休む）。③ 売れたあと `control.py clear T1`（翌日から $600 で再開）④ 入金が載ったら `control.py clear T4`・`clear T6` ⑤ `T3` は印を残したまま（後で `live.env` から外す）
+    ✅ 2026-10-07 15:51 ET 執行器の回が印どおりに手じまいした（titan から API を読むだけで確認【実測】）＝ 売りの注文 9 本（銘柄の合計 ＝ T 4 株・PFE 4・VZ 2・BAC 2・NKE 1。誰のぶんかは 13500t の記録で見る）が全部 Filled・口座の持ち株 0・現金 $1,888.75（入金も載った）。⏳ 残り（13500t ＝ 利用者 ／ Sx360 の Claude）: `reconcile.py show` で差 0 → `control.py clear T1`・入金が載ったので `clear T4`・`clear T6` → `live.env` から `T3` を外す（`AIL_LIVE_TRADERS=T1,T4,T6`）→ 管理画面のボタンのデプロイ（16:15 ET の後）→ 記録 §1
+    ✅ 2026-10-07 20:1x ET titan で `./run-tests.sh --full` ✅（管理画面のボタン f66c43a を含む・黄金の集計値は変わらない）＝ 関門の前段は済み。⏳ デプロイ（利用者の「デプロイ」で。Sx360 から `./run-deploy.sh`）→ 13500t で印を 1 度試す
+    ✅ 2026-10-07 23:3x ET（Sx360 の Claude。利用者の指示）13500t で `reconcile.py --env prod show` ＝ 銘柄の行なし（口座・売買履歴とも 0）・控えの未完 0 → `control.py clear T1`・`clear T4`・`clear T6`（前 4 人 → 後 `T3` の「手じまい（済み）」だけ）。⏳ 利用者: `live.env` の `AIL_LIVE_TRADERS=T1,T4,T6`
+    ✅ 2026-10-07 23:4x ET デプロイ（Sx360 の `./run-deploy.sh`。関門 ✅）＝ `prod` eeda56c → **47287ed**・13500t `done 47287ed`（20:45 PDT・管理画面のコンテナ起こし直し）＝ 印のボタンが本番に載った。⏳ 利用者: 管理画面で `test_a` の印を 1 度試す（立てる → 表示 → 消す）
+    ✅ 2026-10-08 17:25〜17:27 PDT 利用者が本番の管理画面（`trade.chobi.me/traders/test_a`）で印を 1 度試した: ⏸ 停止（理由「印の試験」）→ 帯「test_a に「停止」の印を立てた。売買が変わるのは執行器の次の回から」・欄が ⏸ 停止に → 印を消す → 「印なし」。13500t の記録に `trader_flag` 2 組（paused ／ clear・actor あり）・`control/` に残るのは `T3.json`（手じまい済み）だけ【実測・Sx360 の Claude】。`test_a` は名簿の外 ＝ 売買に影響なし
 - 2026-10-08 トレーダーの開始・停止・手じまい・外すを管理画面で行う（名簿 `roster.json`（`HALT` の隣） ＋ 執行器の `--traders @roster`。`live.env` から「誰を動かすか」を外す） [plan](docs/plans/archive/trader-roster-dashboard.md)
   利用者の指示（2026-10-07）: 「トレーダーを「作成 → 実践投入 → 分析」のループで回す」をやっているけど、一連の作業に手元のコマンドがあるのはよくない。必要なくなったトレーダーの停止や手じまいや、新しいトレーダーの開始は管理画面からの操作で行いたい。それを考慮した作りを考えて
   関連: 「トレーダーを「作成 → 実践投入 → 分析」のループで回す」／ 「管理画面からトレーダーごとに「停止」「手じまい」の印を立て、執行器が翌日以降の回で実行する」

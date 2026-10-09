@@ -1,6 +1,6 @@
 """操作。⚠ **管理画面から出せるのは「停止」と「解除」と、人ごとの印（停止 ／ 手じまい）と、名簿（開始 ／ 外す）だけ**（2026-09-18 に手動の注文を外した）。
 
-- 人ごとの印（2026-10-05。プラン docs/plans/trader-control-flags.md）: `control/<人>.json` に 停止 ／ 手じまい を書くだけ。
+- 人ごとの印（2026-10-05。プラン docs/plans/archive/trader-control-flags.md）: `control/<人>.json` に 停止 ／ 手じまい を書くだけ。
   ⚠ **その場では何も売らない**。売るのは執行器の毎日の回（発注の許可は執行器だけ ＝ この画面に発注の経路は無いまま）
 
 - 名簿（2026-10-07。プラン docs/plans/archive/trader-roster-dashboard.md）: `roster.json`（`HALT` の隣）に 開始 ／ 外す を書くだけ。

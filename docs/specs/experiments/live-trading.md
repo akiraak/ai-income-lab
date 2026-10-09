@@ -1173,7 +1173,7 @@ flowchart LR
 | 失敗 | ① その営業日の `end rc=` が `trade.log` に無い（起動しなかった）／ ② `rc≠0`（執行器は 注文の error ／ `unknown` ／ 口座と売買履歴の食い違いで止めた銘柄 のどれかで 1 を返す。`run-live.sh` の 10 ／ 11 ／ 12・`HALT` の 3 も含む） |
 | 段 1（済み） | 管理画面の帯「今日の起動が無い」（[dashboard.md §13-8](../dashboard.md)） |
 | 段 2 | 13500t の host cron に `check.sh`（g3plus-ops `trade-runner/`。平日 16:20 ET）。今日の `end rc=` を読み、`AIL_HC_URL`（`live.env`）へ `/<rc>`・行が無ければ `/fail`・休場日と半日立会は `/0` を送る。⚠ **送るのは日付・市場の区分・終了コードだけ**（口座番号・金額・銘柄・トークンは送らない）。⚠ **`run.sh` は変えない**（見張りが壊れても売買は止まらない）。✅ **2026-09-27 に 13500t へ置いた**（Sx360 の Claude・利用者の了承。scp ＋ crontab 6 行目 `20 13 * * 1-5`。写した `logs/` で 4 日ぶん試験 ＝ 営業日 9/24・9/25 は rc 0 → `0`・土日 9/26・9/27 は closed → `0`【実測】。9/28（月）16:20 ET から動く。URL は未登録 ＝ `checks.log` に書くだけ） |
-| 外の側 | healthchecks.io の無料枠を推す（Cron 式 `20 13 * * 1-5`・America/Los_Angeles・猶予 1 時間）。⚠ **登録と URL を書くのは利用者**。URL が無い間は `logs/checks.log` に書くだけ |
+| 外の側 | healthchecks.io の無料枠を推す（Cron 式 `20 13 * * 1-5`・America/Los_Angeles・猶予 1 時間）。⚠ **登録と URL を書くのは利用者**。URL が無い間は `logs/checks.log` に書くだけ。✅ **2026-10-08 に登録した**（利用者。無料の Hobbyist【公表値 https://healthchecks.io/pricing/ 2026-10-08 取得: $0・20 本】・通知はメール。17:10 PDT に手で 1 度送り `sent … → 0`【実測】）＝ 10/9（金）13:20 PDT（16:20 ET）から毎営業日に届く |
 
 **残っていた決めごと**（TODO の実売買の親の下。4 役の分け直しは保留）
 

@@ -1,0 +1,12 @@
+# ⚠ **変換を検知器に通す口の Phase 3 ＝ 残り 5 変換 × H1 先 10 日の門**（rules.md 24-2・記録 transform-into-detectors.md §2。
+# 利用者「進めて」2026-10-09）。事前固定はプラン §3（⚠ **回すと決めたのは結果を見る前。6 本全部か回さないか ＝ Phase 2 の結果で水準を選ばない**）。
+# 5 本 × θ 3 ＝ n_trials ＋15（801 → 816）。表は作り直さない（`features_from`。leak 対照の表も既にある）。
+# ⚠ **順は手間の小さい順**（14-10 規約 4）: PCA → 多項式 → ウェーブレット → 行列プロファイル → tsfresh（1 本 1 時間【実測 2026-09-16】）。
+experiments = ["trade_own_fwd10_pca_ridge_a", "trade_own_fwd10_poly_ridge_a",
+               "trade_ownseq_fwd10_wave_ridge_a", "trade_ownseq_fwd10_mp_ridge_a",
+               "trade_ownseq_fwd10_tsf_ridge_a"]
+
+leak = true              # ⚠ 配線の穴に気づく唯一の手。切らない
+ledger = false           # ⚠ 検証結果一覧は終わってから 1 回吐く
+max_failures = 1
+time_budget_s = 14400    # ⚠ 見積り 2 時間 20 分【推測。tsfresh 2 本 × 3,634 秒 ＋ 行列プロファイル 2 本 × 112 秒 ＋ ほか数分（§6 の実測）】の 1.7 倍。尽きたら同じコマンドで再開

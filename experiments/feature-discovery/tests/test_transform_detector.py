@@ -185,8 +185,23 @@ def test_the_label_never_reaches_the_transform():
 # --- 6. 名前の衝突 ------------------------------------------------------------
 
 def test_column_name_clash_stops():
+    """変換の入力に無い名前が表の列と重なる（例 `close`）→ 止まる。"""
     p = tf._panel()
     tr, te = tf._split(p)
     exp = {**tf._exp(), "transform": MOCK_TF, "detectors": [MOCK_DET]}
     with pytest.raises(SystemExit, match="重なる"):
-        fold_buy_pct(**_args(p, exp, tr, te, _ctx(tt_names=["own_ret_1", "tt_01"])))
+        fold_buy_pct(**_args(p, exp, tr, te, _ctx(tt_names=["close", "tt_01"])))
+
+
+def test_passthrough_columns_are_not_added_twice():
+    """⚠ F4-3 ／ F4-4 ／ F5-3 ／ F5-4 は入力の `own` の列をそのまま通して返す。同じ名前の列は足さない（止めもしない）。"""
+    p = tf._panel()
+    tr, te = tf._split(p)
+    feats = tf._feats(p)
+    exp = {**tf._exp(), "transform": MOCK_TF, "detectors": [MOCK_DET]}
+    SEEN.clear()
+    buy, exits, n_cols, fitted = fold_buy_pct(**_args(p, exp, tr, te, _ctx(tt_names=["own_ret_1", "tt_01"])))
+    seen = SEEN[-1]
+    assert seen["feats"] == feats + ["tt_01"]
+    assert seen["tr"].count("own_ret_1") == 1 and seen["te"].count("own_ret_1") == 1
+    assert fitted["_transform"]["口"] == {"足した列": 1, "通したままの列（足さない）": 1, "入力の列": len(feats)}

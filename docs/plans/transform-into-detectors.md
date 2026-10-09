@@ -57,12 +57,26 @@ flowchart LR
 | 0 | Sx360 の Claude | プランと TODO（このファイル） | ✅ 2026-10-09 |
 | 1 | titan の Claude | 口の実装（`cli/run.py`）・テスト（§4）・rules.md 24 章 ／ 15-1 の 1 行 | ✅ 2026-10-09（`prep.augment`・門の検知器の枝も同じ口・鍵 `canonical`・綴り `names`。テスト 7 本 ＝ §4） |
 | 2 | titan の Claude | **GA × `fwd`** を回す: config `trade_own_fwd10_gp_ridge_a.toml` ＝ `features_from = "trade_own_fwd10_ridge_a"`（`own` 層 ＋ `label_scales = [10]` の既存の表。表は作り直さない ＝ 13-8）・`transform = "F4-1 記号回帰（遺伝的プログラミング）"`・`detectors = ["H1 先10日ゲート（全列・学習）"]`・`model = "Ridge"`・θ 50 ／ 55 ／ 60・種 0。`cli.queue` で本番 1 ＋ leak 1 → 記録 `docs/specs/experiments/transform-into-detectors.md`（§0 事前固定 → §1 結果 → 検算 n_trials ＋3）→ `cli.report --catalog` で検証結果一覧を吐き直す | ✅ 2026-10-09: 3 行とも落とす（上乗せ −408 ／ −328 ／ −1,342bp。対の差 \|t\| < 1.6）・n_trials 798 → 801。⚠ 1 回目の実行は口の穴（`y_fwd_10` が変換の入力に残る）で leak と同じ値 → 直して回し直し（記録 §1-0） |
-| 3 | ⚠ 利用者の了承 → titan | 残り 5 変換 × `fwd` × θ 3（＋15）。⚠ **水準と費用を §3 に書いて了承を取ってから回す**（tsfresh・行列プロファイルは「手間 大」の実績を見る） | |
+| 3 | ⚠ 利用者の了承 → titan | 残り 5 変換 × `fwd` × θ 3（＋15）。⚠ **水準と費用を §3 に書いて了承を取ってから回す**（tsfresh・行列プロファイルは「手間 大」の実績を見る） | 了承 ✅ 2026-10-09「進めて」→ §3 を書いて回した |
 | 4 | 利用者 → Sx360 | 「デプロイ」（`cli/run.py` が本番の予測の経路なので）→ TODO の子を DONE へ・プランを archive へ | |
 
-## 3. Phase 3 の水準（⚠ 回す前に書く。まだ書いていない）
+## 3. Phase 3 の水準（⚠ 2026-10-09 利用者「進めて」。この節は回す前に書いた）
 
-Phase 2 の結果を見た**後に**水準を足すことになるので、⚠ **Phase 2 の結果で Phase 3 の水準を選ばない**（6 本全部か、回さないか。間を取らない）。費用は各変換の記録（`ledger-blanks-large-two.md`・`selectors-small-four.md`）の実測から写す。
+Phase 2 の結果を見た**後に**水準を足すことになるので、⚠ **Phase 2 の結果で Phase 3 の水準を選ばない**（6 本全部か、回さないか。間を取らない）＝ **5 本全部**。変換の水準は元の実行の事前固定をそのまま使う（1 つも動かさない）。検知器・学習器・θ・fold・表の期間は Phase 2 と同じ。
+
+| 変換 | config | 表（`features_from`） | 足す列 | 通したままの列（足さない） | 費用【実測】（元の実行・本番 1 本） |
+| --- | --- | --- | ---: | --- | ---: |
+| F5-1 PCA（成分 16） | `trade_own_fwd10_pca_ridge_a` | `trade_own_fwd10_ridge_a`（own 35） | 16 | — | 数秒〜数十秒（`pca_1995`） |
+| F4-4 多項式（2 次・交互作用） | `trade_own_fwd10_poly_ridge_a` | 〃 | 630（2 乗 35 ＋ 交互作用 595） | 1 次 35 | 数十秒（`trade_own_poly_a`） |
+| F5-4 ウェーブレット（db4・レベル 3） | `trade_ownseq_fwd10_wave_ridge_a` | `trade_ownseq_fwd10_ridge_a`（own 35 ＋ seq 60） | 係数（元の実行で測る） | own 35 | 数十秒（`trade_ownseq_wave_a`） |
+| F5-3 行列プロファイル（m 10） | `trade_ownseq_fwd10_mp_ridge_a` | 〃 | 5 | own 35 | 112 秒（`trade_ownseq_mp_a`） |
+| F4-3 tsfresh（783 列） | `trade_ownseq_fwd10_tsf_ridge_a` | 〃 | ≤ 783（全 NaN・定数を落として） | own 35 | ⚠ **3,634 秒・メモリ 24GB**（`trade_ownseq_tsf_a`。titan は 47GB） |
+
+- 数: **5 本 × θ 3 ＝ ＋15（n_trials 801 → 816）**・leak 対照 5 本（数えない）。queue `transform_detector3`（順は手間の小さい順・予算 14,400 秒）
+- ⚠ **元の実行と違う点 2 つ（口の規則から来るもの。回す前に書く）**: ① F4-3 ／ F5-3 ／ F5-4 は元の実行で「窓の生の 60 列を落とした」が、口は**足す**規則なので検知器は生の 60 列も読んだまま ＝ 同じ情報が 2 度渡る ／ ② F4-3 は元の実行で F1-5 検定+FDR に絞らせたが、検知器の口は選別を挟めないので `fwd` が全列（≤ 783 ＋ 95）を読む
+- ⚠ **実装で足した規則**: 変換が入力をそのまま通した列（名前が入力と同じ ＝ F4-3 ／ F4-4 ／ F5-3 ／ F5-4 の `own` 35）は足さない（検知器が元の列を持っている）。入力に無い名前が表の列と重なれば止める（rules.md 24-1 の 3）
+- 対の相手: own 表の 2 本 ＝ `2026-09-27T14-21-10_trade_own_fwd10_ridge_a` ／ seq 表の 3 本 ＝ `2026-09-27T14-22-51_trade_ownseq_fwd10_ridge_a`（回し直さない）
+- 予想【推測】: 15 行とも「採る」にならない（`fwd` × Ridge は 3 表とも落とす・5 変換は選別 × モデルの経路で全部落とした）。列数が大きい F4-3 ／ F4-4 は Ridge の過学習で対の差が負に寄る。leak は 5 本とも跳ねる（`fwd` のみの対照と同じ値）
 
 ## 4. テスト方針
 

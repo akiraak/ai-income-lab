@@ -84,13 +84,20 @@ def augment(exp: dict, tr: pd.DataFrame, te: pd.DataFrame, feats: list[str], ctx
     Xte = pd.DataFrame(sc.transform(te[cols]), columns=cols)
     ytr = tr["y"].values
     Ztr, Zte, tdoc = apply(exp, Xtr, Xte, ctx, ytr, ts_tr=tr["ts"].to_numpy())
-    new = [str(c) for c in Ztr.columns]
     if list(Zte.columns) != list(Ztr.columns):
         raise SystemExit(f"⚠ 変換 {exp['transform']!r} が訓練と評価で違う列を返した（rules.md 24-1）")
+    # ⚠ **入力の列をそのまま通したもの（名前が入力と同じ。F4-3 ／ F4-4 ／ F5-3 ／ F5-4 は `own` の列を残して返す）は足さない**
+    # （検知器は元の列を持っている ＝ 足すと同じ名前が 2 本になる）。⚠ **入力に無い名前が表の列と重なれば止める**
+    inputs = set(cols)
+    passed = [str(c) for c in Ztr.columns if c in inputs]
+    new = [str(c) for c in Ztr.columns if c not in inputs]
     clash = [c for c in new if c in tr.columns or c in te.columns]
     if clash:
         raise SystemExit(f"⚠ 変換 {exp['transform']!r} の列名が表の列と重なる: {clash[:5]}（rules.md 24-1 の 3）")
+    if not new:
+        raise SystemExit(f"⚠ 変換 {exp['transform']!r} は新しい列を 1 本も返さなかった（入力をそのまま通しただけ）")
     # ⚠ 位置で足す（`tr` の index は fold の切り出しのままなので、index で合わせない）
     tr = tr.assign(**{c: Ztr[c].to_numpy() for c in new})
     te = te.assign(**{c: Zte[c].to_numpy() for c in new})
+    tdoc = {**(tdoc or {}), "口": {"足した列": len(new), "通したままの列（足さない）": len(passed), "入力の列": len(cols)}}
     return tr, te, list(feats) + new, tdoc

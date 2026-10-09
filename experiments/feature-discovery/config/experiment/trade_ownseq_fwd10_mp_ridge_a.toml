@@ -1,0 +1,49 @@
+# ⚠ **変換を検知器に通す口の Phase 3（残り 5 変換）の 1 本 ＝ 行列プロファイル × 先 10 日の門**（記録 transform-into-detectors.md §2。利用者「進めて」2026-10-09）。部分列 m = 10・出す列 5 本（`trade_ownseq_mp_a` と同じ）。⚠ 検知器は窓の生の 60 列も読んだまま（足す規則）。
+#
+# ⚠ **`trade_ownseq_fwd10_ridge_a.toml` と `name` / `features_from` / `transform` / `k` 以外は 1 文字も違わない**（表・fold・θ・学習器・種・コスト・パージ）。
+# ⚠ **表は作り直さず `trade_ownseq_fwd10_ridge_a` のものを読む**（`y_fwd_10` の列が要る。13-8。表の差を混ぜない）。
+# ⚠ **違うのは「変換の列が検知器の説明変数に足される」ことだけ**（rules.md 24 章。入力をそのまま通した列は足さない ＝ 24-1 の 3）。
+# ⚠ **変換の水準は元の実行と同じ事前固定**（回す前に書いた。結果を見て動かさない）。⚠ **1 手法 × θ 3 水準 ＝ 3 検証**（Phase 3 ＝ 5 本で ＋15）。
+#
+# ⚠ **TOML の平の key はテーブル見出しより上に書く**（rules.md 10 章 規約 1）
+name = "trade_ownseq_fwd10_mp_ridge_a"
+dataset = "daily"
+horizon = 1                    # ⚠ 損益のラベルは 1 日のまま
+cost_bp = 5.0
+start_date = "2018-01-31"      # ⚠ own_2018 と同じ（期間を揃える）
+features_from = "trade_ownseq_fwd10_ridge_a"   # ⚠ 表は作り直さない（`y_fwd_10` を持つ既存の表）
+
+feature_layers = ["own", "seq"]
+label_scales = [10]            # ⚠ 学習の対象（先 10 本の累積リターン）。⚠ **説明変数ではない**（接頭辞 y_fwd_ で外れる）
+targets = "all"
+
+horizon_min = 21600.0          # ⚠ パージ = 15 日 × 1440 分（営業日 10 本を暦で覆う）
+bar_minutes = 1440.0
+
+# ⚠ **変換を検知器の口に通す**（rules.md 24 章）。係数は `fitted/` の `_transform` に残す
+transform = "F5-3 行列プロファイル（モチーフ）"
+k = 16                         # ⚠ 元の実行と同じ（F5-1 は成分の数。ほかは読まない）
+
+# ⚠ **検知器 1 本**（rules.md 14-1 の契約 ＝ 買い% 1 本。表の全列 ＋ 変換の列 → model → Platt）
+detectors = ["H1 先10日ゲート（全列・学習）"]
+
+model = "Ridge"
+baselines = ["常に上（ドリフト）", "直前リターンの符号"]
+
+[trading]
+style = "threshold"
+thresholds = [50, 55, 60]      # ⚠ 事前固定。結果を見て動かさない（rules.md 13-3）
+form = "shared"                # (A) 銘柄共通 1 本
+
+[validation]
+split = "walk_forward_dates"   # ⚠ fold の切れ目は日付で決める（rules.md 13-6 の 1）
+folds = 5
+purge = true
+embargo_bars = 0
+seed = 0
+
+[features]
+ex_lag_days = 1
+ex_zero_fill = ["usgs"]
+ex_transforms = ["d1", "z20"]
+ex_max_stale_days = 7

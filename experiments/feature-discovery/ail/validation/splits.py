@@ -54,19 +54,36 @@ def date_edges(ts, n_folds: int) -> list[pd.Timestamp]:
     return list(starts) + [u.iloc[-1] + pd.Timedelta(1, "ns")]
 
 
+def max_train_days(v: dict) -> int | None:
+    """config の `[validation] max_train_days`（rules.md 21 章）。⚠ **無ければ None ＝ 訓練は「前の全部」（今と同じ）**。"""
+    n = v.get("max_train_days")
+    if n is None:
+        return None
+    if isinstance(n, bool) or not isinstance(n, int) or n <= 0:
+        raise SystemExit(f"⚠ validation.max_train_days は正の整数（営業日の数）: {n!r}（rules.md 21-1）")
+    return n
+
+
 def folds_by_dates(panel: pd.DataFrame, edges: list[pd.Timestamp], horizon_min: float,
                    embargo_bars: int = 0, bar_minutes: float = 0.0,
-                   min_train: int = 100, min_test: int = 20):
+                   min_train: int = 100, min_test: int = 20, max_train_days: int | None = None):
     """`date_edges` の切れ目で (訓練, 検証) を返す。パージは `walk_forward` と同じ。
 
     ⚠ **下限は `walk_forward` より緩い**（(B) 銘柄別は最初の fold の訓練が約 360 行/銘柄しか
     なく、500 で切ると fold が消える。薄さは消せない限界としてそのまま回す。rules.md 13-6 の 5）。
+    ⚠ **`max_train_days`**（rules.md 21 章）: 訓練を「検証の初日より前の、表の日付 N 個」だけに絞る（パージはその後）。
+    ⚠ **None なら 1 行も変わらない**（fold の切れ目・検証の行は窓に依らない）。
     """
     panel = panel.sort_values("ts").reset_index(drop=True)
     ts = pd.to_datetime(panel["ts"])
+    days = pd.Series(ts.unique()).sort_values().reset_index(drop=True) if max_train_days else None
     for f in range(1, len(edges) - 1):
         te = panel[(ts >= edges[f]) & (ts < edges[f + 1])]
         tr = panel[ts < edges[f]]
+        if max_train_days:
+            before = days[days < edges[f]]
+            if len(before) > max_train_days:
+                tr = tr[pd.to_datetime(tr["ts"]) >= before.iloc[-max_train_days]]
         if len(te) < min_test or len(tr) < min_train:
             continue
         cut = pd.to_datetime(te["ts"]).min() - pd.Timedelta(

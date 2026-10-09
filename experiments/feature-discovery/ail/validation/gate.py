@@ -50,7 +50,8 @@ def _fold_selectors(panel, feats, exp, methods, per, edges, v, k, ctx, model) ->
     """選別 × モデルの枝（既存）。訓練の尻の `tail_holdout` から 2 指標を測る。"""
     for _f, tr, _te in splits.folds_by_dates(panel, edges, float(exp["horizon_min"]),
                                              int(v.get("embargo_bars", 0)),
-                                             float(exp.get("bar_minutes", 0.0))):
+                                             float(exp.get("bar_minutes", 0.0)),
+                                             max_train_days=splits.max_train_days(v)):   # 21 章（無ければ None）
         # ⚠ te には特徴量にも触れない（14-5。門が検証データの選別にならない根拠）
         sc = StandardScaler().fit(tr[feats])
         Xtr = pd.DataFrame(sc.transform(tr[feats]), columns=feats)
@@ -82,7 +83,8 @@ def _fold_detectors(panel, feats, exp, methods, per, edges, v, ctx) -> None:
     """
     for _f, tr, _te in splits.folds_by_dates(panel, edges, float(exp["horizon_min"]),
                                              int(v.get("embargo_bars", 0)),
-                                             float(exp.get("bar_minutes", 0.0))):
+                                             float(exp.get("bar_minutes", 0.0)),
+                                             max_train_days=splits.max_train_days(v)):   # 21 章（無ければ None）
         # ⚠ **訓練分割の内側だけ**で完結させる（検証 fold には特徴量にも触れない）
         ts = pd.to_datetime(tr["ts"])
         cut = ts.quantile(0.9)

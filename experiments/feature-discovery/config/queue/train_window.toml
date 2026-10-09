@@ -1,0 +1,11 @@
+# ⚠ **古いトレンドの決着: 訓練の窓だけを変える**（rules.md 21 章・記録 old-data-relevance.md §5。2026-10-08 利用者決定「1」）。
+# 事前固定は rules.md 21-2（⚠ **回すと決めたのは結果を見る前**）。窓 2 × θ 3 × モデル 2 ＝ n_trials ＋12。
+# 表は作り直さない（4 本とも `features_from = "own_1995"`。leak 対照の表 `own_1995_leak` も既にある）。
+# ⚠ **順は手間の小さい順**（14-10 規約 4）: 全部使う → F2-2 RFE（選別のぶん重い）。
+experiments = ["window2520_trade_own_1995_ridge_a", "window1260_trade_own_1995_ridge_a",
+               "window2520_sel_small4_1995", "window1260_sel_small4_1995"]
+
+leak = true              # ⚠ 配線の穴に気づく唯一の手。切らない
+ledger = false           # ⚠ 検証結果一覧は終わってから 1 回吐く
+max_failures = 2
+time_budget_s = 3600     # ⚠ 見積り 12 分【推測。1995 表の実行 1 本 3 分 × 4 ＋ leak】の 5 倍

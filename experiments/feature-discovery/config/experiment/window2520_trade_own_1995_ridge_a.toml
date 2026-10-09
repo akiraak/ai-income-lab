@@ -1,0 +1,44 @@
+# ⚠ **訓練の窓だけを変える決着の実験**（rules.md 21 章・記録 old-data-relevance.md §5。2026-10-08 利用者決定）。
+#
+# ⚠ **`trade_own_1995_ridge_a.toml` との違いは `name`・`[validation] max_train_days = 2520`だけ。**
+# 表・fold・検証日・特徴量・モデル・θ・コストは全部同じ（違いは「古い行を学ぶか」だけにする）。
+# ⚠ **回すと決めたのは結果を見る前**。窓 2 × θ 3 × モデル 2 ＝ ＋12 のうちの 3（n_trials に数える）。
+#
+# ⚠ **TOML の平の key はテーブル見出しより上に書く**（rules.md 10 章 規約 1）
+name = "window2520_trade_own_1995_ridge_a"
+dataset = "daily"
+horizon = 1
+cost_bp = 5.0
+features_from = "own_1995"     # ⚠ 表は作り直さず own_1995 のものを読む（13-8。表の差を混ぜない）
+
+feature_layers = ["own"]
+targets = "all"
+
+horizon_min = 1440.0
+bar_minutes = 1440.0
+
+# ⚠ 選別は「全部使う」1 本に絞る（選別の優劣は決着済み。処置は期間）。乱択は選別の基準線
+selectors = ["全部使う（基準）", "乱択（基準）"]
+k = 16
+
+model = "Ridge"
+baselines = ["常に上（ドリフト）", "直前リターンの符号"]
+
+[trading]
+style = "threshold"
+thresholds = [50, 55, 60]      # ⚠ 事前固定。結果を見て動かさない（rules.md 13-3）
+form = "shared"                # (A) 銘柄共通 1 本
+
+[validation]
+split = "walk_forward_dates"   # ⚠ fold の切れ目は日付で決める（rules.md 13-6 の 1）
+folds = 5
+purge = true
+embargo_bars = 0
+seed = 0
+max_train_days = 2520         # ⚠ 訓練は検証の初日より前の表の日付 2520 個だけ（rules.md 21 章。回す前に固定）
+
+[features]
+ex_lag_days = 1
+ex_zero_fill = ["usgs"]
+ex_transforms = ["d1", "z20"]
+ex_max_stale_days = 7

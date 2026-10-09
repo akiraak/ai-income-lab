@@ -239,9 +239,11 @@ def evaluate_trading(panel: pd.DataFrame, feats: list[str], exp: dict, run: runs
         # ⚠ **特徴量には入らない**（`feats` は呼び出し側が先に決めている）。fold を切る前に作るのは、窓を過去へ伸ばすため
         panel = panel.assign(**{TOPK_VOL_COLUMN: topk_vol(panel)})
 
+    # ⚠ **訓練の窓**（rules.md 21 章。2026-10-08）: `[validation] max_train_days` が無ければ None ＝ 経路は 1 行も変わらない
     for f, tr, te in splits.folds_by_dates(panel, edges, horizon_min,
                                            int(v.get("embargo_bars", 0)),
-                                           float(exp.get("bar_minutes", 0.0))):
+                                           float(exp.get("bar_minutes", 0.0)),
+                                           max_train_days=splits.max_train_days(v)):
         te = te.reset_index(drop=True)
         y = te["y"].values
         ts_te = pd.to_datetime(te["ts"])

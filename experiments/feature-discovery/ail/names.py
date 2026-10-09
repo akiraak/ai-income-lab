@@ -40,6 +40,8 @@ _LEARNER = re.compile(r"^([^+(]+)((?:\+[^+(]+)*)(?:\(([^)]+)\))?$")      # 基�
 _HORIZON = re.compile(r"^(\d+) 本")
 _GRAN = re.compile(r"^(\d+) 分足$")
 _TOKEN = re.compile(r"^[a-z0-9][a-z0-9-]*$")
+_STYLE_VARIANT = re.compile(r"^(閾値売買)（([^）]+)）$")                    # 閾値売買（訓練直近2520日・翌日始値）（rules.md 21-3・22-3）
+_TRAIN_DAYS = re.compile(r"^訓練直近(\d+)日$")
 
 
 @functools.lru_cache(maxsize=None)
@@ -131,6 +133,17 @@ def _options(row: dict) -> list[str]:
     d = table()["defaults"]
     out = []
     style = row["検証方式"]
+    variants: list[str] = []
+    if m := _STYLE_VARIANT.match(style):
+        # 検証方式の変種（rules.md 21-3・22-3）。⚠ 既定の「閾値売買」として扱い、変種は綴りを後ろに足す（較正の既定も同じ）
+        style = m.group(1)
+        for part in m.group(2).split("・"):
+            if t := _TRAIN_DAYS.match(part):
+                variants.append(f"train{t.group(1)}")
+            elif part in table().get("execution", {}):
+                variants.append(table()["execution"][part])
+            else:
+                _stop("検証方式", row["検証方式"])
     if style == "毎日往復":
         out.append("rt")
     elif style != d["style"]:
@@ -153,7 +166,7 @@ def _options(row: dict) -> list[str]:
     cal = row["較正"]
     if cal != (d["calibration"] if style == d["style"] else "—"):
         out.append({"旧": "cal-old"}.get(cal) or _check(f"cal-{cal}", "較正", cal))
-    return out
+    return out + variants
 
 
 def model_name(row: dict) -> str:

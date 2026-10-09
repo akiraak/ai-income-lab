@@ -305,11 +305,27 @@ def _period_of(run: dict) -> str:
     return start
 
 
+def is_threshold(style: str | None) -> bool:
+    """閾値売買の行か。⚠ **変種（`閾値売買（訓練直近2520日）` など。rules.md 21-3・22-3）も閾値売買**として数え・判定する。"""
+    return str(style or "").startswith("閾値売買")
+
+
+def threshold_style(cfg: dict) -> str:
+    """閾値売買の検証方式の名前。⚠ **訓練の窓（21 章）・翌日始値の執行（22 章）が無い config は「閾値売買」のまま**
+    （既存の行は 1 行も割れない）。変種は括弧の中に `・` でつなぐ。"""
+    parts = []
+    if n := (cfg.get("validation") or {}).get("max_train_days"):
+        parts.append(f"訓練直近{int(n)}日")
+    if ((cfg.get("trading") or {}).get("execution") or "close") == "next_open":
+        parts.append("翌日始値")
+    return "閾値売買" + (f"（{'・'.join(parts)}）" if parts else "")
+
+
 def _trading_of(cfg: dict) -> tuple[str, str]:
     """(検証方式, 形式)。⚠ **旧実行は（毎日往復・共通）として読む**（rules.md 13-9 の 1）。"""
     t = cfg.get("trading") or {}
     if t.get("style") == "threshold":
-        return "閾値売買", ("銘柄別" if t.get("form") == "per_symbol" else "共通")
+        return threshold_style(cfg), ("銘柄別" if t.get("form") == "per_symbol" else "共通")
     return "毎日往復", "共通"
 
 
@@ -322,7 +338,7 @@ def _calibration_of(run: dict, style: str) -> str:
     ⚠ **後から遡って埋めない**（`_period_of` の 3 段目と同じ向き。いまのコードを過去の実行に
     当てるのは自己申告になる）。⚠ **旧行は再計算しない・消さない。回し直した分は別の鍵で数える。**
     """
-    if style != "閾値売買":
+    if not is_threshold(style):
         return "—"
     return str((run.get("checks") or {}).get("calibration") or "旧")
 
@@ -353,7 +369,7 @@ def _run_trials(run: dict) -> list[dict]:
     style, form = _trading_of(cfg)
     rows = []
     for method, s in run["summary"].iterrows():
-        th = s.get("閾値") if style == "閾値売買" else None
+        th = s.get("閾値") if is_threshold(style) else None
         row = {
             "手法名": str(method), "粒度": gran, "地平": _horizon(cfg.get("horizon", 0), bar_min),
             # ⚠ **「基準 」の行はモデルを使わない**（常に上・直前符号）。モデル別に割れないよう「—」
@@ -363,13 +379,13 @@ def _run_trials(run: dict) -> list[dict]:
             "対象": cfg.get("targets") or "all", "k": cfg.get("k"),
             "コストbp": cfg.get("cost_bp"), "本数": s.get("本数"), "的中率": s.get("的中率"),
             "IC": s.get("IC"), "粗利bp": s.get("粗利bp"), "純利bp": s.get("純利bp"),
-            "fold": None if style == "閾値売買" else _sign_pattern(run.get("result"), str(method)),
+            "fold": None if is_threshold(style) else _sign_pattern(run.get("result"), str(method)),
             "検証方式": style, "形式": form, "較正": _calibration_of(run, style),
             "閾値": f"{float(th):g}" if th is not None else "—",
             "実行": run["実行"], "leak": run["leak"], "行": inputs.get("rows_before_sample"),
             "出所": "runs",
         }
-        if style == "閾値売買":
+        if is_threshold(style):
             # ⚠ 閾値ごとに行が割れるので、fold の符号も閾値ごとの上乗せで引き直す
             edge, pat = _edge_vs_bh(run.get("result"), str(method), th)
             row["上乗せbp"], row["上乗せfold"], row["fold"] = edge, pat, pat
@@ -389,7 +405,7 @@ def _gate_rows(run: dict, gran: str, bar_min: float, layer: str, period: str,
     """
     gate = (run.get("checks") or {}).get("gate") or {}
     # ⚠ `forced`（門前の手法も回した）実行に門前の行は作らない（回した実行なので、結果の行だけが正しい）
-    if style != "閾値売買" or not gate.get("blocked") or gate.get("forced"):
+    if not is_threshold(style) or not gate.get("blocked") or gate.get("forced"):
         return []
     cfg, inputs = run["config"], run.get("inputs", {})
     ran = {str(m) for m in run["summary"].index} if len(run["summary"]) else set()
@@ -501,7 +517,7 @@ def judge(row: dict, baselines: set[str]) -> tuple[str, str]:
     """
     invalid = row.get("粒度") == "日足" and row.get("層") == "raw"
     note = "⚠ **無効・要再測**（分割調整の誤り。§6-3）" if invalid else ""
-    if row.get("検証方式") == "閾値売買":
+    if is_threshold(row.get("検証方式")):
         return _judge_trading(row, note)
     model_treated = (row["手法名"] == "全部使う（基準）"
                      and (row.get("モデル") or "Ridge") not in ("Ridge", "—"))
@@ -585,7 +601,7 @@ def is_trial(row: dict) -> bool:
     ⚠ **門前の行も数えない**（rules.md 14-5。検証 fold の結果で選別していないから。
     後から回したら普通の行になって数える — 規律 3）。
     """
-    if row.get("検証方式") == "閾値売買":
+    if is_threshold(row.get("検証方式")):
         name = row.get("手法名") or ""
         if row.get("門前"):
             return False

@@ -250,6 +250,17 @@ cd experiments/feature-discovery
 - 識別項目: 手法名「変換名 ＋ 検知器名」・鍵は **「ID ＋ 検知器名」**（`F4-1 ＋ H1 …`。残さないと GA × Ridge の行とまとまって数え落とす）・予測モデル名 `own.f4-1-h1-gate10.ridge.shared`
 - 結果: GA の 3 行とも落とす（n_trials 798 → 801。`fwd` のみとの対の差は |t| < 1.6）→ ✅ **Phase 3（残り 5 変換 × `fwd`。queue `transform_detector3`。利用者「進めて」）も 15 行とも落とす**（801 → 816）。⚠ **線形の変換（PCA・ウェーブレット）は `fwd` × Ridge の買い% を 1 ビットも変えない**（入力の線形結合を足しても空間が同じ）＝ 線形 × 線形の組はこの「足す」口では試していないのと同じ。試すなら非線形の学習器か「置き換える」口を新しい処置として先に登録する。記録は `docs/specs/experiments/transform-into-detectors.md`（§1 GA・§2 Phase 3）
 
+### experiments/feature-discovery のハイパーパラメータを訓練分割の内側で選ぶ段（2026-10-09 利用者決定 B「内側の選抜」）
+
+```bash
+cd experiments/feature-discovery
+.venv/bin/python -m cli.queue --config hp_inner   # Ridge ／ LightGBM ／ MLP（内側選抜）× own_2018（本番 3 ＋ leak 3。26 分【実測】）。⚠ 回し直すと同じ識別項目の実行が増えるだけ
+```
+
+- モデル `<モデル>（内側選抜）`（`ail/models/tuned.py`。rules.md 14-12）: 事前固定した候補（Ridge 7 ／ LightGBM 27 ／ MLP 45。既定が先頭）を訓練分割の尻 10%（`tail_holdout`）で Spearman ρ で測り、champion を訓練全体で学び直す。⚠ **`trees.py`・`deep.py` は水準を ctx から読む**（`lgbm_leaves` ／ `lgbm_lr` ／ `lgbm_min_child`・`mlp_hidden` ／ `mlp_dropout` ／ `mlp_lr`。既定はいままでの定数 ＝ 項目の無い config は 1 ビットも変わらない。この経路は 13500t の毎日の予測も通る ＝ 指紋 `tests/test_trading_run.py`・`tests/test_predict.py`）。記録は `fitted_doc[手法]["内側選抜"]`（較正・本番の 2 回ぶん）。⚠ モデルを呼んだ側が `tuned.drain(ctx)` で取り出す（取り残すと fold をまたいで混ざる）
+- 数えるのは champion × θ だけ（候補 × fold は数えない ＝ 14-11 規約 2）。識別項目「モデル」が `Ridge（内側選抜）` 等 ＝ 新しいモデル（綴り `ridge-tuned` ／ `lgbm-tuned` ／ `mlp-tuned`）。⚠ 機械で検査: 評価分割を差し替えても champion が同じ ／ 候補が既定だけなら基底と bit で同じ ／ 候補の一覧が 14-12-1 の写し（`tests/test_tuned.py`）
+- 結果: **採る 0 ／ 9**（n_trials 816 → 825）。champion ≠ 既定 13/15 fold・尻の改善が評価期間に届いたのは 5/13・対の差 |t| ≤ 2.05 ＝ 「既定が足を引っ張っていた」とは言えない。⚠ **較正と本番で champion が違う fold が 13/15**（規約 5「呼ばれるたびに選ぶ」の帰結。Ridge は alpha 1 と 1e6 で予測のスケールが桁で違い、較正の係数が本番の予測に合わない）＝ 直すなら「1 度選んで較正にも配る」を新しい処置として先に登録（利用者の判断）。⚠ 結果を見てから候補を足さない・GA（案 C）に進まない。記録は `docs/specs/experiments/hyperparam-inner-selection.md`
+
 ### experiments/live-trading（実売買の執行器。2026-09-17 の 2 つ目の例外）
 
 ```bash

@@ -16,7 +16,7 @@ import pandas as pd
 from sklearn.preprocessing import StandardScaler
 
 from ail import registry
-from ail.models import calibrate
+from ail.models import calibrate, tuned
 from ail.models.holdout import tail_holdout
 from ail.validation import prep, splits
 
@@ -67,6 +67,7 @@ def _fold_selectors(panel, feats, exp, methods, per, edges, v, k, ctx, model) ->
         for n, fn in methods.items():
             cols = fn(Xtr, ytr, k, ctx)                # 選別は較正と同じく訓練全体で（13-2 の 2）
             pred = np.asarray(model(Xh[cols], yh, Xv[cols], ctx), dtype=float)
+            tuned.drain(ctx)                           # ⚠ 内側選抜の記録は門では捨てる（門は診断。rules.md 14-12）
             per[n]["auc"].append(_auc(yv, pred))
             buy = calibrate.fit_from_predictions(pred, yv, "holdout").buy_pct(pred)
             per[n]["width"].append(round(float(np.percentile(buy, 95) - np.percentile(buy, 5)), 4))
@@ -97,6 +98,7 @@ def _fold_detectors(panel, feats, exp, methods, per, edges, v, ctx) -> None:
         head, hold, feats_f, _ = prep.augment(exp, head, hold, feats, ctx)
         for n, fn in methods.items():
             buy = np.asarray(fn(head, hold, feats_f, ctx)[0], dtype=float)
+            tuned.drain(ctx)                           # 検知器が内側選抜のモデルを呼んでも取り残さない
             per[n]["auc"].append(_auc(yv, buy))
             per[n]["width"].append(round(float(np.percentile(buy, 95) - np.percentile(buy, 5)), 4))
 

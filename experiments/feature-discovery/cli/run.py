@@ -81,6 +81,8 @@ def next_open_returns(panel: pd.DataFrame, directory: str) -> tuple[pd.Series, i
 
 
 def evaluate(panel: pd.DataFrame, feats: list[str], exp: dict, run: runs.Run) -> pd.DataFrame:
+    from ail.models import tuned
+
     v = exp.get("validation", {})
     seed = int(v.get("seed", 0))
     k = int(exp.get("k", 8))
@@ -118,6 +120,7 @@ def evaluate(panel: pd.DataFrame, feats: list[str], exp: dict, run: runs.Run) ->
         for name, fn in selectors.items():
             cols = fn(Xtr, ytr, k, ctx)                 # ⚠ 選別は訓練の内側だけ
             p = model(Xtr[cols], ytr, Xte[cols], ctx)
+            tuned.drain(ctx)                            # 内側選抜の記録は毎日往復の経路では残さない（取り残しを捨てる）
             lab = prep.label(exp, name)                 # ⚠ 変換名を手法名に混ぜる（台帳の ID）
             out.append({"手法": lab, "fold": f, "選んだ本数": len(cols),
                         **metrics.score(p, yte, cost_bp)})
@@ -137,7 +140,7 @@ def fold_buy_pct(tr: pd.DataFrame, te: pd.DataFrame, feats: list[str], exp: dict
     ⚠ **ここでモデル・較正・変換の式を変えない**（変えると既定経路の指紋が動く。`tests/test_trading_run.py`）。
     戻り値は (buy, exits, n_cols, fitted_doc)。`picked` には選んだ列を足す（呼び出し側の一覧）。
     """
-    from ail.models import calibrate
+    from ail.models import calibrate, tuned
 
     buy: dict[str, np.ndarray] = {}
     # ⚠ **出口%**（rules.md 16-1）。⚠ **None の手法は 100 − 入口% で回る ＝ 既存と完全一致**
@@ -169,6 +172,10 @@ def fold_buy_pct(tr: pd.DataFrame, te: pd.DataFrame, feats: list[str], exp: dict
             exits[lab] = None if ep is None else np.asarray(ep, dtype=float)
             n_cols[lab] = float(len(doc.get("columns", [])))
             fitted_doc[lab] = doc
+            # ⚠ **内側選抜のモデル（rules.md 14-12）が ctx に積んだ記録を取り出す**（無ければ空 ＝ 既存の記録は 1 バイトも変わらない）
+            sel = tuned.drain(ctx)
+            if sel:
+                fitted_doc[lab] = {**doc, "内側選抜": tuned.fold_doc(sel)}
     elif form == "per_symbol":
         # (B) 銘柄別: fit も較正も銘柄ごと（13-6 の 2）。fold の切れ目は上で決めた日付を共有
         labels = {n: prep.label(exp, n) for n in selectors}   # ⚠ 変換名を混ぜた手法名
@@ -199,6 +206,9 @@ def fold_buy_pct(tr: pd.DataFrame, te: pd.DataFrame, feats: list[str], exp: dict
                 sel_sum[lab] += len(cols)
                 sel_cnt[lab] += 1
                 fitted_doc.setdefault(lab, {})[str(s)] = cal.doc
+                sel = tuned.drain(ctx)            # 内側選抜の記録（無ければ空。rules.md 14-12 規約 2）
+                if sel:
+                    fitted_doc[lab][str(s)] = {**cal.doc, "内側選抜": tuned.fold_doc(sel)}
         for lab in labels.values():
             n_cols[lab] = sel_sum[lab] / sel_cnt[lab] if sel_cnt[lab] else 0.0
     else:
@@ -219,6 +229,11 @@ def fold_buy_pct(tr: pd.DataFrame, te: pd.DataFrame, feats: list[str], exp: dict
             buy[lab] = cal.buy_pct(pred)
             n_cols[lab] = float(len(cols))
             fitted_doc[lab] = cal.doc
+            # ⚠ **内側選抜のモデル（rules.md 14-12）が較正・本番の 2 回で ctx に積んだ記録を取り出して残す**
+            # （候補・尻の ρ・champion。無ければ空 ＝ 既存の記録は 1 バイトも変わらない。取り残すと fold をまたいで混ざる）
+            sel = tuned.drain(ctx)
+            if sel:
+                fitted_doc[lab] = {**cal.doc, "内側選抜": tuned.fold_doc(sel)}
             picked.extend({"手法": lab, "fold": f, "列": c} for c in cols)
     return buy, exits, n_cols, fitted_doc
 

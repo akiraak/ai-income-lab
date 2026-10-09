@@ -60,8 +60,8 @@ flowchart LR
 | Phase | 誰 | 中身 | 済み |
 | --- | --- | --- | --- |
 | 0 | Sx360 の Claude | プラン・TODO・規約（13-6 規約 3・14-11 の 1 行・14-12・付録） | ✅ 2026-10-09 |
-| 1 | titan の Claude | 実装（`ail/models/tuned.py`・`trees.py` ／ `deep.py` が ctx から読む・`fold_buy_pct` ／ `gate.py` の記録の拾い・`bootstrap.py` の import・綴り 3 行・config 3 本 `trade_own_{ridge,lgbm,mlp}_tuned_a.toml` ＋ queue `hp_inner.toml`）・テスト §4 | |
-| 2 | titan の Claude | `cli.queue --config hp_inner`（本番 3 ＋ leak 3。約 1 時間【推測】。GPU）→ 記録 `docs/specs/experiments/hyperparam-inner-selection.md`（§0 事前固定の写し → §1 結果 → 対の差〔既定の実行と同じ fold・日次〕→ fold ごとの champion の表 → 尻の改善と評価期間の IC の変化 → 検算 ＋9・leak 3 本が跳ねる）→ `cli.report --catalog` で検証結果一覧を吐き直す | |
+| 1 | titan の Claude | 実装（`ail/models/tuned.py`・`trees.py` ／ `deep.py` が ctx から読む・`fold_buy_pct` ／ `gate.py` の記録の拾い・`bootstrap.py` の import・綴り 3 行・config 3 本 `trade_own_{ridge,lgbm,mlp}_tuned_a.toml` ＋ queue `hp_inner.toml`）・テスト §4 |✅ 2026-10-09（`tests/test_tuned.py` 15 本・全 631 本 ✅・指紋そのまま） |
+| 2 | titan の Claude | `cli.queue --config hp_inner`（本番 3 ＋ leak 3。約 1 時間【推測】。GPU）→ 記録 `docs/specs/experiments/hyperparam-inner-selection.md`（§0 事前固定の写し → §1 結果 → 対の差〔既定の実行と同じ fold・日次〕→ fold ごとの champion の表 → 尻の改善と評価期間の IC の変化 → 検算 ＋9・leak 3 本が跳ねる）→ `cli.report --catalog` で検証結果一覧を吐き直す | ✅ 2026-10-09（採る 0 ／ 9・816 → 825・合計 26 分【実測】。[記録](../specs/experiments/hyperparam-inner-selection.md)） |
 | 3 | 利用者 → Sx360 | 「デプロイ」（`ail/models/trees.py`・`deep.py`・`cli/run.py` は 13500t の毎日の予測の経路。指紋テストが通ってから・15:00〜16:15 ET の外）→ TODO の子を DONE へ・プランを archive へ | |
 
 ## 3. 水準（⚠ 回す前に固定。結果を見て足さない・動かさない。正本は rules.md 14-12-1）
@@ -122,3 +122,9 @@ flowchart LR
 | 5 | LightGBM θ 60 の既定（取引 0・上乗せ 0.00）は内側選抜で取引が出る | 出ても採るにはならない見込み。保有日率を添える |
 
 ⚠ **次に何をしないか**: 結果を見てから候補を足さない・MLP の層を増やさない・C（GA）に進まない。進むなら新しい検証として先に水準を書き、数える。
+
+## 8. 結果（2026-10-09。本文は [記録](../specs/experiments/hyperparam-inner-selection.md)）
+
+- 採る 0 ／ 9（予想 1 どおり）・champion ≠ 既定 13/15 fold（予想 2）・対の差 \|t\| ≤ 2.05（予想 3 は θ 50 で \|t\| 0.80〜1.57 ＝ 1 を超えたものが 2 組）・尻の改善が評価期間に届いたのは 5/13（予想 4 の向き）。予想 5 は前提（既定の LightGBM θ 60 が取引 0）が対の相手の実行で成り立っておらず、読めない
+- 費用は見積りの 1/2 以下（本番 3 本で 4.7 分・leak 込み 26 分）
+- ⚠ **見つかったこと**: 較正と本番で champion が違う fold が 13/15（§1 の決めごと 1・規約 5 の帰結）。Ridge では較正の係数が本番の予測のスケールに合わない（記録 §2）。直すなら「1 度選んで較正にも配る」を新しい処置として先に登録する（利用者の判断。結果を見てから動かさない）

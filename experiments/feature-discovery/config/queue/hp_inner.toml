@@ -1,0 +1,11 @@
+# ⚠ **ハイパーパラメータを訓練分割の内側で選ぶ段**（rules.md 14-12・記録 hyperparam-inner-selection.md。
+# 2026-10-09 利用者決定 B「内側の選抜」。プラン plans/hyperparam-inner-selection.md Phase 2）。
+# 事前固定は rules.md 14-12-1（⚠ **回すと決めたのは結果を見る前**）。3 モデル × θ 3 ＝ n_trials ＋9。
+# 表は作り直さない（`features_from = "own_2018"`。leak 対照の表も既にある）。
+# ⚠ 結果を見てから候補を足さない・MLP の層を増やさない・GA（案 C）に進まない。
+experiments = ["trade_own_ridge_tuned_a", "trade_own_lgbm_tuned_a", "trade_own_mlp_tuned_a"]
+
+leak = true              # ⚠ 配線の穴に気づく唯一の手。切らない
+ledger = false           # ⚠ 検証結果一覧は終わってから 1 回吐く
+max_failures = 1
+time_budget_s = 7200     # ⚠ 見積り 約 1 時間【推測。Ridge 1 分・LightGBM 25〜40 分・MLP 30〜35 分】の 2 倍

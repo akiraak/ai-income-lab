@@ -6,7 +6,11 @@
 デバイスは環境変数 `AIL_TORCH_DEVICE`（auto / cpu / cuda）。auto は
 ⚠ **空き VRAM 4GB 未満なら CPU に落とす**（llama-server と取り合わないため。プラン §4）。
 
-⚠ **ハイパーパラメータは事前に固定し、チューニングしない**（rules.md 11 章 規約 4）。
+⚠ **ハイパーパラメータは評価期間の結果で動かさない**（rules.md 11 章 規約 4・13-6 規約 3）。
+⚠ **層と幅・Dropout・学習率は ctx から読む**（`mlp_hidden`・`mlp_dropout`・`mlp_lr`。2026-10-09）。
+渡すのは `MLP（内側選抜）`（`tuned.py`。訓練分割の尻で選ぶ ＝ rules.md 14-12）だけで、
+⚠ **既定の値はいままでの定数と同じ**（(64, 32)・0.2・1e-3）＝ 項目の無い config は 1 ビットも変わらない
+（層の組み立ての順も同じなので、乱数の消費も同じ ＝ 重みの初期値も同じ）。
 """
 
 from __future__ import annotations
@@ -64,6 +68,9 @@ def mlp(Xtr, ytr, Xte, ctx):
 
     seed = int(ctx.get("seed", 0))
     max_epochs = int(ctx.get("mlp_epochs", 200))
+    hidden = tuple(int(h) for h in ctx.get("mlp_hidden", (64, 32)))
+    dropout = float(ctx.get("mlp_dropout", 0.2))
+    lr = float(ctx.get("mlp_lr", 1e-3))
     _seed_all(seed)
     dev = torch_device()
 
@@ -77,12 +84,13 @@ def mlp(Xtr, ytr, Xte, ctx):
         return v.reshape(shape) if shape else v
 
     Xf_t, yf_t = t(Xf), t(yf / ysd, (-1, 1))
-    model = nn.Sequential(
-        nn.Linear(Xf_t.shape[1], 64), nn.ReLU(), nn.Dropout(0.2),
-        nn.Linear(64, 32), nn.ReLU(), nn.Dropout(0.2),
-        nn.Linear(32, 1),
-    ).to(dev)
-    opt = torch.optim.AdamW(model.parameters(), lr=1e-3)
+    layers: list = []
+    n_in = Xf_t.shape[1]
+    for width in hidden:                      # ⚠ 既定 (64, 32) ＝ いままでの Linear → ReLU → Dropout × 2 と同じ並び
+        layers += [nn.Linear(n_in, width), nn.ReLU(), nn.Dropout(dropout)]
+        n_in = width
+    model = nn.Sequential(*layers, nn.Linear(n_in, 1)).to(dev)
+    opt = torch.optim.AdamW(model.parameters(), lr=lr)
     loss_fn = nn.MSELoss()
     g = torch.Generator(device="cpu").manual_seed(seed)
     batch = 4096

@@ -34,8 +34,10 @@
       ⚠ 規約: [13-6 規約 3](docs/specs/experiments/feature-discovery/rules.md) を「評価期間の結果で動かさない」に書き換え・14-12 を足した（✅ 2026-10-09 Sx360）。数えるのは champion × θ ＝ 3 モデル × θ 3 ＝ **＋9**。候補 × fold は数えない（14-11 規約 2）
       ⚠ 予想【推測。回す前】: 採る 0 ／ champion ≠ 既定 が fold の大半 ／ 対の差は θ 50 で |t| < 1 ／ 尻の改善は評価期間に届かない
       - [x] Phase 0: プラン・TODO・規約（13-6 規約 3・14-11・14-12・付録）（✅ 2026-10-09 Sx360 の Claude）
-      - [ ] Phase 1: 実装（`ail/models/tuned.py`・`trees.py` ／ `deep.py` が ctx から読む・`fold_buy_pct` ／ `gate.py` の記録の拾い・綴り 3 行・config 3 本 ＋ queue `hp_inner`）・テスト 8 本（titan）
-      - [ ] Phase 2: `cli.queue --config hp_inner`（本番 3 ＋ leak 3。約 1 時間【推測】）→ 記録 `docs/specs/experiments/hyperparam-inner-selection.md` → 検証結果一覧を吐き直す（titan）
+      - [x] Phase 1: 実装（`ail/models/tuned.py`・`trees.py` ／ `deep.py` が ctx から読む・`fold_buy_pct` ／ `gate.py` の記録の拾い・綴り 3 行・config 3 本 ＋ queue `hp_inner`）・テスト 8 本（titan）
+        ✅ 2026-10-09 titan: `tests/test_tuned.py` 15 本 ＋ 既定経路の指紋（`test_trading_run`・`test_predict`）そのまま ＝ 全 631 本 ✅。記録 `hyperparam-inner-selection.md` §0 は回す前に書いた
+      - [x] Phase 2: `cli.queue --config hp_inner`（本番 3 ＋ leak 3。約 1 時間【推測】）→ 記録 `docs/specs/experiments/hyperparam-inner-selection.md` → 検証結果一覧を吐き直す（titan）
+        ✅ 2026-10-09 titan: **採る 0 ／ 9**（n_trials 816 → 825・leak 3 本とも跳ねた）。champion ≠ 既定 13/15 fold・尻の改善が評価期間に届いたのは 5/13・対の差は 9 組とも |t| ≤ 2.05（θ 50 は 3 本とも負）。合計 26 分【実測】（見積り 1 時間より速い）。⚠ 見つかったこと: 較正と本番で champion が違う fold が 13/15（規約 5 の帰結。Ridge は alpha 1 と 1e6 でスケールが桁で違い、較正の係数が本番の予測に合わない ＝ [記録 §2](docs/specs/experiments/hyperparam-inner-selection.md)）。直すなら「1 度選んで較正にも配る」を新しい処置として登録（利用者の判断）
       - [ ] Phase 3: 「デプロイ」（利用者。`ail/models/`・`cli/run.py` は本番の予測の経路）→ DONE へ・プランを archive へ
 - [ ] 疑問に思ったことを登録し解決していく
   ⚠ **終了しないタスク**（完了にしない・`DONE.md` に移さない・消さない）。利用者の指示（2026-09-11）: **「疑問に思ったことを登録し解決していく大タスク」。このタスク自体は消さずにずっと残るようにする**

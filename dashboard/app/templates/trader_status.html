@@ -1,0 +1,37 @@
+{# トレーダーの状態と、状態を変える指示（plan docs/plans/trader-status-flow.md §1。dashboard.md §13-9・§13-10）。名簿の面と詳細で共通。
+   ⚠ 書くのは置き場（名簿 ・ control/<人>.json）だけ ＝ その場では何も売買しない。押せるかは lineup.actions（POST の拒否と同じ関数）。
+   使い方: {% from "trader_status.html" import status_line, instruction_line, controls with context %} #}
+
+{% macro status_line(r) -%}
+<b>{{ r.status_icon }} {{ r.status_label }}</b>
+{%- if r.status == 'stopped' and r.flag and r.flag.done %} <span class="small muted">（手じまい済み {{ r.flag.done.date }}）</span>
+{%- elif r.status == 'paused' and r.flag %} <span class="small muted">（{{ r.flag.since|pt }} から{% if r.flag.reason %} · {{ r.flag.reason }}{% endif %} · 持ち株はそのまま）</span>
+{%- elif r.status == 'liquidating' and r.flag %} <span class="small muted">（{{ r.flag.since|pt }} から{% if r.flag.reason %} · {{ r.flag.reason }}{% endif %} · 売り残りは翌日も続ける）</span>
+{%- elif r.status == 'active' and r.entry %} <span class="small muted">（{{ r.entry.since|pt }} から）</span>
+{%- endif %}
+{%- endmacro %}
+
+{% macro instruction_line(r, lu) -%}
+{% if r.pending %}{% set p = r.pending %}<span class="warn"><b>指示: {{ p.icon }} {{ p.label }}</b></span> <span class="small">— {{ p.at|pt }} に出した{% if p.actor %} · {{ p.actor }}{% endif %}{% if p.reason %} · 理由: {{ p.reason }}{% endif %} → 次の回 {{ lu.next_run }} から効く</span>
+{%- else %}<span class="small muted">指示: なし</span>{% endif %}
+{%- endmacro %}
+
+{% macro controls(r, back) -%}
+{% set a = r.actions %}
+{% if 'cancel' in a %}
+<form method="post" action="/ops/traders/{{ r.name }}/flag" class="inline flagform" data-confirm="{{ r.name }} への「{{ r.pending.label }}」の指示を取り消す（{{ r.status_label }}のまま）。よいか？">
+  <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="back" value="{{ back }}">
+  <button class="btn" name="kind" value="cancel"{% if a.cancel %} disabled title="{{ a.cancel }}"{% endif %}>↩ 指示を取り消す</button>
+</form>{% if a.cancel %}<div class="small muted">{{ a.cancel }}</div>{% endif %}
+{% elif a %}
+<form method="post" action="/ops/traders/{{ r.name }}/flag" class="inline flagform" data-confirm="{{ r.name }} に指示を出す。⚠ その場では何も売買しない（執行器の次の回から状態が変わる）。よいか？">
+  <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="back" value="{{ back }}">
+  <input type="text" name="reason" placeholder="理由（任意）" maxlength="200">
+  <input type="text" name="confirm" placeholder="確認: {{ r.name }} と打つ" autocomplete="off" required pattern="{{ r.name }}" title="識別名 {{ r.name }} をそのまま打つ">
+  {% if 'start' in a %}<button class="btn btn-primary" name="kind" value="start"{% if a.start %} disabled title="{{ a.start }}"{% endif %}>▶ 開始</button>{% endif %}
+  {% if 'paused' in a %}<button class="btn" name="kind" value="paused"{% if a.paused %} disabled title="{{ a.paused }}"{% endif %}>⏸ 一時停止</button>{% endif %}
+  {% if 'liquidate' in a %}<button class="btn btn-danger" name="kind" value="liquidate"{% if a.liquidate %} disabled title="{{ a.liquidate }}"{% endif %}>🧹 手じまい</button>{% endif %}
+</form>{% for k, why in a.items() if why %}<div class="small muted">{{ {'start': '開始', 'paused': '一時停止', 'liquidate': '手じまい'}[k] }}できない: {{ why }}</div>{% endfor %}
+{% elif r.status == 'liquidating' %}<span class="small muted">売り切ると停止になる（指示は出せない）</span>
+{% endif %}
+{%- endmacro %}

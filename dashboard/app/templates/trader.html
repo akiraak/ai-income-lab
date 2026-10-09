@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "trader_status.html" import status_line, instruction_line, controls with context %}
 {% block title %}{{ t.label }} · ai-income-lab{% endblock %}
 {% block content %}
 {# トレーダーの詳細（dashboard.md §13・§13-7。2026-09-18 ／ 2026-09-20 に全期間へ）。⚠ 読むだけ。⚠ 紙上の損益と差 3 は仮データ（実売買の Phase 3 の後で本物にする）
@@ -10,28 +11,21 @@
   <span class="helprow">言葉: <span>予算{{ info("予算（トレーダーの持ち金）") }}</span><span>合成{{ info("合成規則") }}</span><span>θ{{ info("θ（閾値）") }}</span></span></div>
 {% if t.note %}<p class="small muted">{{ t.note }}</p>{% endif %}
 
-<div class="sec"><h3>この人の印{{ info("人ごとの印（停止 ／ 手じまい）") }}</h3>
-{% if flag %}
-  <div class="danger">{% if flag.kind == 'liquidate' %}🧹{% else %}⏸{% endif %} <b>{{ flag.label }}</b>{% if flag.since %} {{ flag.since|pt }}{% endif %}{% if flag.actor %} · {{ flag.actor }}{% endif %}{% if flag.reason %} · {{ flag.reason }}{% endif %}{% if flag.done %} · 済み {{ flag.done.date }}（約定 {{ flag.done.fills }} 件）{% endif %}{% if flag.error %} · <b class="ng">{{ flag.error }}</b>{% endif %}
-    — {% if flag.kind == 'liquidate' %}次の回で持ち株を全部売り、以後は買わない{% else %}次の回からこの人を飛ばす（持ち株はそのまま）{% endif %}</div>
+<div class="sec"><h3>状態{{ info("トレーダーの状態") }} と指示{{ info("状態を変える指示") }}</h3>
+{% if lr %}
+  <p>状態: {{ status_line(lr) }}</p>
+  <p>{{ instruction_line(lr, lu) }}</p>
+  {% if face == 'local' %}{{ controls(lr, '/traders/' ~ t.name) }}
+  <p class="small muted">▶ 開始 ＝ 次の回から売買する ／ ⏸ 一時停止 ＝ 持ち株を持ったまま休む ／ 🧹 手じまい ＝ 次の回から持ち株を全部売り、売り切ると停止。⚠ その場では何も売買しない。</p>{% endif %}
 {% else %}
-  <p class="small muted">印なし（普通に売買する）。</p>
+  <p class="small muted">状態を読めない</p>
 {% endif %}
-{% if face == 'local' %}
-<form method="post" action="/ops/traders/{{ t.name }}/flag" class="inline flagform" data-confirm="{{ t.name }} の印を書く。⚠ その場では何も売らない（執行器の次の回から効く）。よいか？">
-  <input type="hidden" name="csrf" value="{{ csrf }}">
-  <input type="text" name="reason" placeholder="理由（任意）" maxlength="200">
-  <input type="text" name="confirm" placeholder="確認: {{ t.name }} と打つ" autocomplete="off" required pattern="{{ t.name }}" title="識別名 {{ t.name }} をそのまま打つ">
-  <button class="btn" name="kind" value="paused">⏸ 停止</button>
-  <button class="btn btn-danger" name="kind" value="liquidate">🧹 手じまい</button>
-  <button class="btn" name="kind" value="clear" formnovalidate>印を消す</button>
-</form>
-<p class="small muted">停止 ＝ 休ませる（持ち株はそのまま）／ 手じまい ＝ 次の回で持ち株を全部売り、済んだら「済み」が付く。印を消すと普通の売買に戻る。</p>
-{% endif %}
+{% if lu and lu.roster_error %}<div class="danger">名簿を読めない: <b class="ng">{{ lu.roster_error }}</b></div>{% endif %}
+{% if lu and lu.flags_error %}<div class="danger">指示の置き場（control/）を読めない: <b class="ng">{{ lu.flags_error }}</b> — 執行器は起動を拒む</div>{% endif %}
 </div>
 
 {% if t.paper_real %}
-<div class="sec"><h2>紙上の対照（日次）{{ simmark(machine) }}</h2><span class="muted small">同じ合図を公式終値・片道 2.5bp で回した紙上と、実物・B&amp;H · 「そろえた紙上」＝ 実物が発注した日から・整数株・印どおり（累計は期間ごと） · bp は予算に対して · 新しい順{% if t.close_source == 'quotes' %} · ⚠ 終値は気配の代役（モック ／ シミュレーション）{% endif %}</span></div>
+<div class="sec"><h2>紙上の対照（日次）{{ simmark(machine) }}</h2><span class="muted small">同じ合図を公式終値・片道 2.5bp で回した紙上と、実物・B&amp;H · 「そろえた紙上」＝ 実物が発注した日から・整数株・一時停止 ／ 手じまいどおり（累計は期間ごと） · bp は予算に対して · 新しい順{% if t.close_source == 'quotes' %} · ⚠ 終値は気配の代役（モック ／ シミュレーション）{% endif %}</span></div>
 <div class="panel"><div class="scroll-x"><table class="small orders">
   <tr><th>日付</th><th class="num">紙上 bp</th><th class="num">実物 bp</th><th class="num">差 3 bp</th><th class="num">差 3 累計</th><th class="num">そろえた紙上 bp</th><th class="num">差 3（そろえた）</th><th class="num">同 累計</th><th class="num">B&amp;H bp</th><th class="num">紙上の保有</th><th class="num">約定 ／ 注文</th><th class="num">執行できず</th><th class="num">差 1 気配→約定</th><th class="num">約定→終値</th><th class="num">終値なし</th></tr>
   {% for r in t.daily %}<tr><td>{{ r.date }}</td><td class="num">{{ r.paper_bp if r.paper_bp is not none else '—' }}</td><td class="num">{{ r.real_bp if r.real_bp is not none else '—' }}</td><td class="num">{{ r.diff3_bp if r.diff3_bp is not none else '—' }}</td><td class="num">{{ r.diff3_cum_bp if r.diff3_cum_bp is not none else '—' }}</td><td class="num">{{ r.aligned_bp if r.aligned_bp is not none else '—' }}</td><td class="num">{{ r.diff3a_bp if r.diff3a_bp is not none else '—' }}</td><td class="num">{{ r.diff3a_cum_bp if r.diff3a_cum_bp is not none else '—' }}</td><td class="num">{{ r.bh_bp if r.bh_bp is not none else '—' }}</td><td class="num">{{ r.paper_held }} ／ {{ r.n_symbols }}</td><td class="num">{{ r.filled }} ／ {{ r.orders }}</td><td class="num">{{ r.unexecuted }}</td><td class="num">{{ r.diff1_quote_to_fill_bp if r.diff1_quote_to_fill_bp is not none else '—' }}</td><td class="num">{{ r.diff1_fill_to_close_bp if r.diff1_fill_to_close_bp is not none else '—' }}</td><td class="num">{{ r.close_missing }}</td></tr>

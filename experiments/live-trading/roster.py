@@ -2,10 +2,12 @@
 """名簿（誰を動かすか）。管理画面と CLI が書き、執行器が `--traders @roster` で毎日の回に読む（プラン docs/plans/archive/trader-roster-dashboard.md。2026-10-07 利用者決定）。
 
     python roster.py show                           # 名簿
-    python roster.py add T4 --reason "入れ替え"     # 開始（名簿に入れる。売買が始まるのは執行器の次の回から）
-    python roster.py remove T3                      # 外す（名簿から抜く。⚠ 持ち株が 0 かは画面が確かめる ＝ CLI は確かめない）
+    python roster.py add T4 --reason "入れ替え"     # 開始（名簿に入れる ＝ 停止 → 稼働。売買が始まるのは執行器の次の回から）
+    python roster.py remove T3                      # 名簿から抜く（＝ 停止。⚠ 非常時・テスト用。持ち株が 0 かは確かめない ＝ ふつうは管理画面の「手じまい」）
 
-置き場: <記録ディレクトリ>/roster.json（`HALT` の隣。⚠ 印の置き場 `control/` の中には置かない ＝ 印は `control/*.json` を全部読む）。
+⚠ 2026-10-09 から管理画面に「外す」は無い（手じまいが済めば名簿に居たまま「停止」。plan docs/plans/trader-status-flow.md）。
+
+置き場: <記録ディレクトリ>/roster.json（`HALT` の隣。⚠ `control/` の中には置かない ＝ control.py は `control/*.json` を全部読む）。
 中身: {"traders": [{"name", "since", "actor", "reason"}], "updated_at": iso}。並びは名簿に入った順（予算の合計が上限を超えたら、後から入った人から休ませる）。
 ⚠ 無い ／ 壊れた名簿は「誰も居ない」と読まない（`RosterError` ＝ 執行器は起動を拒む）。⚠ 名簿に入れても、その場では何も買わない。
 """
@@ -134,6 +136,17 @@ def remove(path: str, name: str) -> bool:
     return True
 
 
+def restore(path: str, name: str, entry: dict | None, index: int | None = None) -> None:
+    """管理画面の「指示を取り消す」: その人の行を指示の前の形に戻す（`entry` ＝ 前の行 `as_dict()`。None ＝ 名簿の外だった）。
+    ⚠ ほかの人の行は触らない。並び（休む順）も前の位置へ戻す。"""
+    _check_name(name)
+    entries = [e for e in (read(path) or []) if e.name != name]
+    if entry is not None:
+        e = Entry(name=name, since=entry.get("since"), actor=entry.get("actor"), reason=str(entry.get("reason") or ""))
+        entries.insert(len(entries) if index is None else max(0, min(index, len(entries))), e)
+    _write(path, entries)
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description="名簿（誰を動かすか）")
     ap.add_argument("--path", default=None, help="名簿の置き場（既定は記録ディレクトリの roster.json）")
@@ -157,9 +170,9 @@ def main() -> int:
             return 0
         if args.cmd == "add":
             e = add(p, args.name, args.by, args.reason)
-            print(f"入れた: {e.name}（{p}）。⚠ 売買が始まるのは執行器の次の回から")
+            print(f"入れた（開始）: {e.name}（{p}）。⚠ 売買が始まるのは執行器の次の回から")
             return 0
-        print(("外した: " if remove(p, args.name) else "名簿に居なかった: ") + args.name)
+        print(("名簿から抜いた（停止）: " if remove(p, args.name) else "名簿に居なかった: ") + args.name)
         return 0
     except RosterError as exc:
         print(f"エラー: {exc}", file=sys.stderr)

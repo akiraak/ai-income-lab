@@ -258,7 +258,7 @@ def main() -> int:
         print(f"拒否: {misnamed} — シミュレーションのトレーダーは名前が {modes.SIM_TRADER_PREFIX} で始まり、本物はそうでないこと", file=sys.stderr)
         return 2
     traders = load_traders(names, args.traders_dir)
-    # ---- 0-2. 人ごとの印（停止 ／ 手じまい。control.py。プラン trader-control-flags.md）。⚠ 壊れた印は「無い」と読まず起動を拒む
+    # ---- 0-2. 一時停止 ／ 手じまい（control.py。プラン trader-control-flags.md・trader-status-flow.md）。⚠ 壊れたファイルは「無い」と読まず起動を拒む
     control_dir = control.control_dir(halt_file)
     try:
         flags = {t.name: control.read_flag(control_dir, t.name) for t in traders}
@@ -383,14 +383,14 @@ def main() -> int:
     predict_path = args.predict or os.path.join(rec.dir, "predict.jsonl")
     for t in paused:
         rec.write("events", {"kind": "paused", "trader": t.name, "since": flags[t.name].since, "actor": flags[t.name].actor, "reason": flags[t.name].reason,
-                             "note": "停止の印があるので、この人は今日は売買しない（持ち株はそのまま）"})
+                             "note": "一時停止中なので、この人は今日は売買しない（持ち株はそのまま）"})
     for t in held_back:
         rec.write("events", {"kind": "over_total_budget", "trader": t.name, "budget_usd": t.budget_usd, "max_total_budget": args.max_total_budget,
                              "note": "予算の合計が上限を超えるので、後から名簿に入ったこの人は今日は売買しない（持ち株はそのまま。上限は live.env）"})
     for t in liquidating:
         if flags[t.name].done and not states[t.name].holdings:
             rec.write("events", {"kind": "liquidate_done", "trader": t.name, "done": flags[t.name].done,
-                                 "note": "手じまいは済んでいる（印を消すまで買わない）"})
+                                 "note": "手じまいは済んでいる（停止。開始の指示があるまで買わない）"})
     try:
         sigs, sig_events = signalling.collect(active, date, predict_path)
     except signalling.SignalError as exc:
@@ -411,7 +411,7 @@ def main() -> int:
             raw_by_trader[t.name] = []
             continue
         if t in liquidating:
-            raw, ev = planning.liquidation_raw(t, states[t.name])     # 印: 合図を読まず持ち株を全部売る（買いは組まない）
+            raw, ev = planning.liquidation_raw(t, states[t.name])     # 手じまい中: 合図を読まず持ち株を全部売る（買いは組まない）
         else:
             raw, ev = planning.decide(t, states[t.name], sigs)
         for r in [r for r in raw if r["symbol"] in blocked]:
@@ -504,14 +504,14 @@ def main() -> int:
         for t in traders:
             states[t.name].last_date = date
             save_state(state_dir, states[t.name])
-        # 手じまいの印: 持ち株が全部売れたら印に「済み」を書く（以後は飛ばす。印を消すのは人）。残っていれば翌日に持ち越す
+        # 手じまい中: 持ち株が全部売れたら control/<人>.json に「済み」を書く（＝ 停止。以後は飛ばす。開始の指示は人）。残っていれば翌日に持ち越す
         for t in liquidating:
             if flags[t.name].done:
                 continue
             if not states[t.name].holdings:
                 try:
                     control.mark_done(control_dir, t.name, date, sum(1 for f in fills_by_trader if f["trader"] == t.name), note="執行器が全部売った")
-                    rec.write("events", {"kind": "liquidate_complete", "trader": t.name, "note": "持ち株を全部売った。印に「済み」を書いた（印を消すまで買わない）"})
+                    rec.write("events", {"kind": "liquidate_complete", "trader": t.name, "note": "持ち株を全部売った。手じまい中 → 停止（開始の指示があるまで買わない）"})
                 except control.ControlError as exc:
                     rec.write("events", {"kind": "liquidate_mark_failed", "trader": t.name, "note": str(exc)[:200]})
             else:

@@ -111,7 +111,7 @@ def liquidation_raw(trader: Trader, state: TraderState) -> tuple[list[dict], lis
     raw = [{"symbol": sym, "side": "sell", "buy_pct": 0.0, "exit_pct": 100.0, "liquidate": True}
            for sym, h in sorted(state.holdings.items()) if h.shares > 0]
     events = [{"kind": "liquidate_flag", "trader": trader.name, "symbols": [r["symbol"] for r in raw],
-               "note": "手じまいの印があるので、合図を読まず持ち株を全部売る（買いは出さない）"}]
+               "note": "手じまい中なので、合図を読まず持ち株を全部売る（買いは出さない）"}]
     return raw, events
 
 

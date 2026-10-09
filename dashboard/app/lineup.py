@@ -1,6 +1,10 @@
-"""名簿の面（`/roster`。dashboard.md §13-10。プラン docs/plans/archive/trader-roster-dashboard.md）: トレーダーの一生（候補 → 稼働 ⇄ 停止 → 手じまい → 外す）。
+"""名簿の面（`/roster`。dashboard.md §13-10）: トレーダーの **状態**（停止 ／ 稼働 ／ 一時停止 ／ 手じまい中）と、人が出す **指示**（開始 ／ 一時停止 ／ 手じまい）。
 
-⚠ **読むだけ・決めるだけ**。書くのは `ops.py`（名簿 ＝ 執行器の `roster.py`・印 ＝ 執行器の `control.py`）。売買は執行器の次の回。
+プラン docs/plans/archive/trader-roster-dashboard.md → docs/plans/trader-status-flow.md（2026-10-09 利用者決定「その案でよい」）。
+状態は置き場（名簿 `roster.json` ＋ `control/<人>.json`）から決める。指示は **執行器の次の回を通るまで** 状態に入れず「指示」として見せる
+（指示の時刻 ＞ 最後の発注の回の `start`。指示の記録は管理画面の操作の履歴）。⚠ 置き場の形・執行器の動きは変えていない。
+
+⚠ **読むだけ・決めるだけ**。書くのは `ops.py`（名簿 ＝ 執行器の `roster.py`・`control/` ＝ 執行器の `control.py`）。売買は執行器の次の回。
 ⚠ 押せるかどうかの判定はここ 1 か所（画面のボタンの出し分けと POST の拒否が同じ関数を見る）。
 ⚠ 標準ライブラリだけ。記録は `live.py` の読み手を使う（DB ＝ livefs）。
 """
@@ -8,7 +12,7 @@
 from __future__ import annotations
 
 import json
-from datetime import time as _time
+from datetime import datetime, timedelta, time as _time
 from pathlib import Path
 
 from . import live as lv
@@ -18,7 +22,15 @@ from .livestore import livefs
 # ⚠ 管理画面は `run.lock` を取らない（一瞬でも取ると本物の執行器が拒否される）＝ 時刻で見る
 QUIET_FROM, QUIET_TO = _time(15, 40), _time(16, 10)
 
-STATUS = {"candidate": "候補", "active": "稼働", "paused": "停止", "liquidating": "手じまい中", "liquidated": "手じまい済み"}
+# 状態（執行器がいまその人をどう動かしているか）。⚠ 「停止」＝ 動かしていない・持ち株 0（名簿の外 ＋ 手じまい済み）
+STATUS = {"stopped": "停止", "active": "稼働", "paused": "一時停止", "liquidating": "手じまい中"}
+STATUS_ICON = {"stopped": "■", "active": "▶", "paused": "⏸", "liquidating": "🧹"}
+# 指示（人がボタンで出す変更）→ 次の回を通った後の状態
+ORDER = {"start": "開始", "paused": "一時停止", "liquidate": "手じまい"}
+ORDER_ICON = {"start": "▶", "paused": "⏸", "liquidate": "🧹"}
+RESULT = {"start": "active", "paused": "paused", "liquidate": "liquidating"}
+WEEKDAY = "月火水木金土日"
+RUN_AT_ET = "15:50"          # 合図の時刻（表示の「次の回」）
 
 
 def quiet_reason(machine: dict, now_et=None) -> str | None:
@@ -105,8 +117,93 @@ def reconcile(live_dir: Path, states: dict[str, dict[str, dict]]) -> dict:
     return {"date": None, "lines": [], "n_diff": 0, "journal_open": 0}
 
 
-def board(live_dir: Path, roster_entries: list | None, flags: dict[str, dict], machine: dict, *, demo: bool = False, now_et=None) -> dict:
-    """全員（設定のある人）の状態と、押せるボタン（押せないなら理由）。"""
+def file_status(name: str, members: list[str], flag: dict | None) -> str:
+    """置き場だけから決める状態（plan §2-1）。"""
+    if name not in members:
+        return "stopped"
+    kind = (flag or {}).get("kind")
+    if kind == "liquidate":
+        return "stopped" if (flag or {}).get("done") else "liquidating"
+    if kind == "paused":
+        return "paused"
+    return "active"
+
+
+def _dt(iso) -> datetime | None:
+    try:
+        dt = datetime.fromisoformat(str(iso))
+    except (TypeError, ValueError):
+        return None
+    return dt if dt.tzinfo else None
+
+
+def last_run_at(live_dir: Path) -> datetime | None:
+    """いちばん新しい **発注の回**（`--mode submit`）の `start` の時刻。指示がこれより後なら「まだ回を通っていない」。"""
+    for d in lv.dates(live_dir)[:30]:
+        starts = [e for e in lv._read_jsonl(live_dir / "out" / d / "events.jsonl") if e.get("kind") == "start" and e.get("mode") == "submit"]
+        for e in reversed(starts):
+            dt = _dt(e.get("now_et"))
+            if dt:
+                return dt
+    return None
+
+
+def next_run(now_et=None) -> str:
+    """執行器の次の回（表示用。シアトル時間を先に）。営業日の 15:40 ET より前なら今日・それ以外は次の営業日。"""
+    now = now_et or lv.now_et()
+    d = now.date()
+    try:
+        cal = lv._calendar()
+        if not (cal.is_trading_day(d) and now.time() < QUIET_FROM):
+            d += timedelta(days=1)
+            for _ in range(10):
+                if cal.is_trading_day(d):
+                    break
+                d += timedelta(days=1)
+    except Exception:          # 暦に無い年 ＝ 日付は出さない（推測で書かない）
+        return f"次の営業日 {lv.et_to_seattle(RUN_AT_ET, d)}"
+    return f"{d.month}/{d.day}（{WEEKDAY[d.weekday()]}） {lv.et_to_seattle(RUN_AT_ET, d)}"
+
+
+def pending_of(fstatus: str, row: dict | None, run_at: datetime | None) -> dict | None:
+    """まだ回を通っていない指示（plan §2-2）。`row` ＝ 操作の履歴のその人の最新の行。
+    ⚠ 置き場がもう指示の結果と違う（CLI で書き換えた等）なら指示とは見ない（置き場が正）。"""
+    d = (row or {}).get("detail") or {}
+    kind = d.get("instruction")
+    at = _dt((row or {}).get("at"))
+    if kind not in ORDER or at is None or (run_at is not None and at <= run_at) or RESULT[kind] != fstatus:
+        return None
+    prev = d.get("prev") if d.get("prev") in STATUS else fstatus
+    return {"kind": kind, "label": ORDER[kind], "icon": ORDER_ICON[kind], "at": row.get("at"), "actor": row.get("actor"),
+            "reason": d.get("reason") or "", "prev": prev, "detail": d}
+
+
+def statuses(live_dir: Path, roster_entries: list | None, flags: dict[str, dict], machine: dict, instructions: dict[str, dict]) -> dict[str, dict]:
+    """全員（設定のある人）の {status, file_status, pending}。⚠ シミュレーションは仮の時計なので指示を待たせない（置き場がそのまま状態）。"""
+    members = [e.name for e in roster_entries] if roster_entries is not None else []
+    run_at = None if machine.get("mode") == "sim" else last_run_at(live_dir)
+    out = {}
+    for t in lv.traders(live_dir):
+        fs = file_status(t["name"], members, flags.get(t["name"]))
+        pend = None if machine.get("mode") == "sim" else pending_of(fs, instructions.get(t["name"]), run_at)
+        out[t["name"]] = {"status": pend["prev"] if pend else fs, "file_status": fs, "pending": pend}
+    return out
+
+
+def badges(live_dir: Path, roster_entries: list | None, flags: dict[str, dict], machine: dict, instructions: dict[str, dict]) -> dict[str, str]:
+    """概要の段の札（稼働で指示なしの人は札なし）。⚠ 名簿がまだ無い機械では、名簿の外を「停止」と札にしない（live.env の一覧で動いている）。"""
+    out = {}
+    for name, s in statuses(live_dir, roster_entries, flags, machine, instructions).items():
+        if s["pending"]:
+            out[name] = f"{STATUS[s['status']]} · 指示: {s['pending']['label']}"
+        elif s["status"] != "active" and (roster_entries is not None or flags.get(name)):
+            out[name] = STATUS[s["status"]]
+    return out
+
+
+def board(live_dir: Path, roster_entries: list | None, flags: dict[str, dict], machine: dict, *, demo: bool = False, now_et=None,
+          instructions: dict[str, dict] | None = None) -> dict:
+    """全員（設定のある人）の状態・指示と、出せる指示（出せないなら理由）。"""
     tr = lv.traders(live_dir)
     states = lv.states(live_dir)
     start = last_start(live_dir)
@@ -115,57 +212,43 @@ def board(live_dir: Path, roster_entries: list | None, flags: dict[str, dict], m
     since = {e.name: e for e in (roster_entries or [])}
     real = machine.get("mode") != "sim" and not demo
     quiet = quiet_reason(machine, now_et)
-
-    def status_of(name: str) -> str:
-        fl = flags.get(name) or {}
-        if name not in members:
-            return "candidate"
-        if fl.get("kind") == "liquidate":
-            return "liquidated" if fl.get("done") else "liquidating"
-        if fl.get("kind") == "paused":
-            return "paused"
-        return "active"
+    st = statuses(live_dir, roster_entries, flags, machine, instructions or {})
 
     rows = []
     for t in tr:
-        st = status_of(t["name"])
-        rows.append({**{k: t[k] for k in ("name", "label", "test", "budget_usd", "symbols")}, "status": st, "status_label": STATUS[st],
-                     "flag": flags.get(t["name"]), "holdings": holdings(states, t["name"]), "entry": since.get(t["name"]),
-                     "order": members.index(t["name"]) if t["name"] in members else None})
+        s = st[t["name"]]
+        rows.append({**{k: t[k] for k in ("name", "label", "test", "budget_usd", "symbols")}, **s, "status_label": STATUS[s["status"]],
+                     "status_icon": STATUS_ICON[s["status"]], "flag": flags.get(t["name"]), "holdings": holdings(states, t["name"]),
+                     "entry": since.get(t["name"]), "order": members.index(t["name"]) if t["name"] in members else None})
     rows.sort(key=lambda r: (r["order"] is None, r["order"] if r["order"] is not None else 0, r["name"]))
-    buying = sum(r["budget_usd"] for r in rows if r["status"] == "active")
-    opened = journal_open(live_dir)
+    buying = sum(r["budget_usd"] for r in rows if r["file_status"] == "active")      # 次の回に買う人（回を通る前の「開始」も入る）
     for r in rows:
-        r["actions"] = actions(r, buying=buying, cap=cap, real=real, sim=machine.get("mode") == "sim", quiet=quiet,
-                               journal=sum(1 for es in opened.values() for e in es if e.get("trader") == r["name"]))
+        r["actions"] = actions(r, buying=buying, cap=cap, real=real, sim=machine.get("mode") == "sim", quiet=quiet)
     unknown = [n for n in members if n not in {r["name"] for r in rows}]
     return {"rows": rows, "members": members, "roster_exists": roster_entries is not None, "unknown": unknown,
-            "buying_usd": buying, "cap": cap, "last_start": start, "quiet": quiet, "reconcile": reconcile(live_dir, states)}
+            "buying_usd": buying, "cap": cap, "last_start": start, "quiet": quiet, "next_run": next_run(now_et),
+            "flags_error": (flags.get("?") or {}).get("error"),
+            "reconcile": reconcile(live_dir, states)}
 
 
-def actions(r: dict, *, buying: float, cap: float | None, real: bool, sim: bool, quiet: str | None, journal: int = 0) -> dict[str, str | None]:
-    """ボタン → None（押せる）か、押せない理由。⚠ POST の拒否もこれを見る。"""
+def actions(r: dict, *, buying: float, cap: float | None, real: bool, sim: bool, quiet: str | None) -> dict[str, str | None]:
+    """出せる指示 → None（押せる）か、押せない理由。⚠ POST の拒否もこれを見る（plan §1-2）。
+    回を通る前の指示がある人は「取り消す」だけ。手じまい中の人は売り切るまで待つ（指示なし）。"""
+    if r.get("pending"):
+        return {"cancel": quiet}
     st = r["status"]
     out: dict[str, str | None] = {}
-    if st == "candidate":
+    if st in ("stopped", "paused"):
         why = quiet
         if r["test"] and real:
-            why = why or "試験用の人（test = true）は本番の名簿に入れない"
+            why = why or "試験用の人（test = true）は本番では動かさない"
         if r["name"].startswith("sim_") != sim:
-            why = why or ("シミュレーションの人（sim_）は実売買の名簿に入れない" if not sim else "シミュレーションモードの名簿は sim_ の人だけ")
+            why = why or ("シミュレーションの人（sim_）は実売買では動かさない" if not sim else "シミュレーションモードで動かすのは sim_ の人だけ")
         if cap is not None and buying + r["budget_usd"] > cap + 1e-9:
             why = why or f"予算の合計 ${buying + r['budget_usd']:,.0f} が上限 ${cap:,.0f}（live.env）を超える"
         out["start"] = why
-        return out
-    out["paused"] = None if st in ("active",) else "稼働中の人だけ"
-    out["liquidate"] = None if st in ("active", "paused") else "稼働中か停止中の人だけ"
-    out["clear"] = None if st in ("paused", "liquidated") else ("手じまいが済むまで待つ" if st == "liquidating" else "印が無い")
-    why = quiet
-    if r["holdings"]:
-        why = why or f"持ち株が残っている（{len(r['holdings'])} 銘柄）＝ 先に手じまい"
-    if journal:
-        why = why or f"控えの未完が {journal} 件（執行器の次の回が照会して閉じる）"
-    if st == "liquidating":
-        why = why or "手じまいが済むまで待つ"
-    out["remove"] = why
+    if st == "active":
+        out["paused"] = quiet
+    if st in ("active", "paused"):
+        out["liquidate"] = quiet
     return out

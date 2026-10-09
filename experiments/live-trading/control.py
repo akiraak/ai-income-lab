@@ -1,15 +1,20 @@
 #!/usr/bin/env python3
-"""人ごとの印（停止 ／ 手じまい）。管理画面と CLI が書き、執行器が毎日の回で読む（プラン docs/plans/archive/trader-control-flags.md。2026-10-05 利用者決定）。
+"""トレーダーの状態のうち「一時停止」「手じまい中」の置き場。管理画面（状態を変える指示）と CLI が書き、執行器が毎日の回で読む
+（プラン docs/plans/archive/trader-control-flags.md。2026-10-05 利用者決定。2026-10-09 に言葉を「印」から状態 ＋ 指示へ ＝ docs/plans/trader-status-flow.md）。
 
-    python control.py show                       # 印の一覧
-    python control.py set T3 liquidate --reason "入れ替え"   # 手じまい（翌営業日以降の回で持ち株を全部売り、以後は買わない）
-    python control.py set T4 paused --reason "入金待ち"      # 停止（休ませる。持ち株はそのまま・売買しない）
-    python control.py clear T4                   # 印を消す（普通の売買に戻る）
+    python control.py show                       # 一時停止 ／ 手じまいの人の一覧
+    python control.py set T3 liquidate --reason "入れ替え"   # 手じまい（次の回から持ち株を全部売る ＝ 手じまい中。売り切ると停止）
+    python control.py set T4 paused --reason "入金待ち"      # 一時停止（持ち株はそのまま・売買しない）
+    python control.py clear T4                   # 消す（名簿に居れば稼働に戻る）
+
+状態との対応（名簿 roster.json と合わせて決まる。dashboard.md §13-9）: ファイルなし ＝ 稼働 ／ paused ＝ 一時停止 ／
+liquidate ＝ 手じまい中 ／ liquidate ＋ done ＝ 停止（手じまい済み）。名簿の外 ＝ 停止。
+⚠ ファイル・項目の名前（`control/<人>.json`・`paused`・`liquidate`・`done`）とコードの識別子は変えていない（下の「印」は置き場のファイルのこと）。
 
 置き場: <記録ディレクトリ>/control/<人>.json（`HALT` と同じ記録ディレクトリ ＝ `TT_OUT_DIR` か tastytrade-api-sample/out。⚠ ファイルのまま）。
 中身: {"paused": bool, "liquidate": bool, "since": iso, "actor": str, "reason": str, "done": {"date", "fills"} | null}
 ⚠ 壊れた印は「印なし」と読まない（`ControlError` ＝ 執行器は起動を拒む。`NOT_PRODUCTION` の印と同じ考え）。
-⚠ 印を立てても、その場では何も売らない。売るのは執行器の毎日の回（発注できる時間帯・許可・`HALT` は今までどおり）。
+⚠ 書いても、その場では何も売らない。売るのは執行器の毎日の回（発注できる時間帯・許可・`HALT` は今までどおり）。
 """
 
 from __future__ import annotations
@@ -48,9 +53,9 @@ class Flag:
 
     def describe(self) -> str:
         if self.liquidate:
-            return "手じまい（済み）" if self.done else "手じまい"
+            return "停止（手じまい済み）" if self.done else "手じまい中"
         if self.paused:
-            return "停止"
+            return "一時停止"
         return "—"
 
     def as_dict(self) -> dict:
@@ -69,7 +74,7 @@ def default_dir() -> str:
 
 def path_of(dir_: str, name: str) -> str:
     if not name or "/" in name or name.startswith("."):
-        raise ControlError(f"印の名前が不正: {name!r}")
+        raise ControlError(f"control/ の名前が不正: {name!r}")
     return os.path.join(dir_, f"{name}.json")
 
 
@@ -90,7 +95,7 @@ def read_flag(dir_: str, name: str) -> Flag | None:
         return Flag(name=name, paused=bool(d.get("paused")), liquidate=bool(d.get("liquidate")), since=d.get("since"),
                     actor=d.get("actor"), reason=str(d.get("reason") or ""), done=d.get("done") if isinstance(d.get("done"), dict) else None)
     except (OSError, ValueError) as exc:
-        raise ControlError(f"印を読めない: {p}: {exc}") from exc
+        raise ControlError(f"一時停止 ／ 手じまいのファイルを読めない: {p}: {exc}") from exc
 
 
 def read_all(dir_: str) -> dict[str, Flag]:
@@ -116,7 +121,7 @@ def _write(dir_: str, fl: Flag) -> str:
 def set_flag(dir_: str, name: str, kind: str, actor: str, reason: str = "") -> Flag:
     """印を立てる（`paused` ／ `liquidate`）。手じまいは停止を兼ねる（立て直すと `done` は消える ＝ もう一度売る）。"""
     if kind not in ("paused", "liquidate"):
-        raise ControlError(f"印の種類は paused か liquidate: {kind!r}")
+        raise ControlError(f"種類は paused（一時停止）か liquidate（手じまい）: {kind!r}")
     fl = Flag(name=name, paused=(kind == "paused"), liquidate=(kind == "liquidate"), since=_now(), actor=actor, reason=reason[:200], done=None)
     _write(dir_, fl)
     return fl
@@ -130,18 +135,27 @@ def clear_flag(dir_: str, name: str) -> bool:
     return True
 
 
+def restore_flag(dir_: str, name: str, data: dict | None) -> None:
+    """管理画面の「指示を取り消す」: 指示の前の形に戻す（`data` ＝ 前の中身 `as_dict()`。None ＝ 無かった）。⚠ 置き場の形は変えない。"""
+    if data is None:
+        clear_flag(dir_, name)
+        return
+    _write(dir_, Flag(name=name, paused=bool(data.get("paused")), liquidate=bool(data.get("liquidate")), since=data.get("since"),
+                      actor=data.get("actor"), reason=str(data.get("reason") or ""), done=data.get("done") if isinstance(data.get("done"), dict) else None))
+
+
 def mark_done(dir_: str, name: str, date: str, fills: int, note: str = "") -> Flag:
     fl = read_flag(dir_, name)
     if fl is None or not fl.liquidate:
-        raise ControlError(f"{name} に手じまいの印が無い")
+        raise ControlError(f"{name} は手じまい中ではない")
     fl.done = {"date": date, "fills": fills, "note": note}
     _write(dir_, fl)
     return fl
 
 
 def main() -> int:
-    ap = argparse.ArgumentParser(description="人ごとの印（停止 ／ 手じまい）")
-    ap.add_argument("--dir", default=None, help="印の置き場（既定は記録ディレクトリの control/）")
+    ap = argparse.ArgumentParser(description="トレーダーの一時停止 ／ 手じまい（control/<人>.json）")
+    ap.add_argument("--dir", default=None, help="置き場（既定は記録ディレクトリの control/）")
     sub = ap.add_subparsers(dest="cmd", required=True)
     sub.add_parser("show")
     s = sub.add_parser("set")
@@ -154,15 +168,15 @@ def main() -> int:
     try:
         if args.cmd == "show":
             flags = read_all(d)
-            print(f"印の置き場: {d}（{len(flags)} 人）")
+            print(f"一時停止 ／ 手じまいの置き場: {d}（{len(flags)} 人）")
             for fl in flags.values():
                 print(f"  {fl.name:8s} {fl.describe():10s} {fl.since or ''} {fl.actor or ''} {fl.reason}" + (f"  済み {fl.done}" if fl.done else ""))
             return 0
         if args.cmd == "set":
             fl = set_flag(d, args.name, args.kind, args.by, args.reason)
-            print(f"立てた: {fl.name} {fl.describe()}（{path_of(d, fl.name)}）。⚠ 売買が変わるのは次の執行器の回から")
+            print(f"書いた: {fl.name} → {fl.describe()}（{path_of(d, fl.name)}）。⚠ 売買が変わるのは次の執行器の回から")
             return 0
-        print(("消した: " if clear_flag(d, args.name) else "印は無かった: ") + args.name)
+        print(("消した: " if clear_flag(d, args.name) else "一時停止 ／ 手じまいではなかった: ") + args.name)
         return 0
     except ControlError as exc:
         print(f"エラー: {exc}", file=sys.stderr)

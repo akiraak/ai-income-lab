@@ -103,3 +103,16 @@ def test_show_prints_seattle_time():
     assert roster.seattle("2026-10-08T15:09:27+00:00") == "2026-10-08 08:09 PDT"
     assert roster.seattle("2026-12-01T20:00:00+00:00") == "2026-12-01 12:00 PST"
     assert roster.seattle(None) == "" and roster.seattle("broken") == "broken"
+
+
+def test_restore_puts_the_row_back_in_place(tmp_path):
+    """管理画面の「指示を取り消す」: その人の行だけを前の形と位置へ。ほかの人は触らない。"""
+    p = str(tmp_path / "roster.json")
+    a = roster.add(p, "A", "me").as_dict()
+    roster.add(p, "B", "me")
+    roster.remove(p, "A")
+    roster.add(p, "A", "me")                          # 付け直し（末尾へ）
+    roster.restore(p, "A", a, 0)
+    assert [e.name for e in roster.read(p)] == ["A", "B"] and roster.read(p)[0].since == a["since"]
+    roster.restore(p, "A", None)
+    assert [e.name for e in roster.read(p)] == ["B"]

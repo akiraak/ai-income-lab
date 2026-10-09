@@ -1,6 +1,6 @@
 """執行器が人ごとの印（停止 ／ 手じまい。control.py）を読むこと（モックサーバで通す。プラン docs/plans/archive/trader-control-flags.md）。
 
-停止 ＝ その人を飛ばす（合図を読まず・売買しない・持ち株はそのまま）／ 手じまい ＝ 合図を読まず持ち株を全部売り、済んだら印に「済み」を書き、以後は飛ばす ／
+停止 ＝ その人を飛ばす（合図を読まず・売買しない・持ち株はそのまま）／ 手じまい ＝ 合図を読まず持ち株を全部売り、済んだら control/ に「済み」を書き（＝ 停止）、以後は飛ばす ／
 HALT が優先 ／ 壊れた印は起動を拒む ／ 予算の合計の上限は「買う人」だけで見る ／ 口座が足りない銘柄は売らず翌日に持ち越す。
 """
 import json
@@ -114,7 +114,7 @@ def test_liquidate_flag_sells_everything_then_skips(tmp_path, mock_server):
     kinds = [e["kind"] for e in rows(tmp_path, "events")]
     assert "liquidate_flag" in kinds and "liquidate_complete" in kinds
     start = [e for e in rows(tmp_path, "events") if e["kind"] == "start"][0]
-    assert start["flags"] == {"lq_a": "手じまい"}
+    assert start["flags"] == {"lq_a": "手じまい中"}
     fl = control.read_flag(cdir, "lq_a")
     assert fl.liquidate and fl.done["date"] == DATE and fl.done["fills"] == 2
     # 2 回目: 済んでいるので飛ばす（売りも買いも出さない）。ac_b は持っているので hold
@@ -138,7 +138,7 @@ def test_paused_flag_skips_the_trader_and_the_budget_cap_counts_only_buyers(tmp_
     assert {k: v for k, v in state(tmp_path, "lq_a").items() if k != "last_date"} == {k: v for k, v in before.items() if k != "last_date"}
     assert not [s for s in rows(tmp_path, "signals") if s["trader"] == "lq_a"]
     assert any(e["kind"] == "paused" and e["trader"] == "lq_a" and e["reason"] == "入金待ち" for e in rows(tmp_path, "events"))
-    # 印を消すと普通に戻る（上限は 2 人ぶん要る）
+    # 消すと稼働に戻る（上限は 2 人ぶん要る）
     control.clear_flag(cdir, "lq_a")
     r = run(tmp_path, tdir, ["--traders", "lq_a,ac_b", "--mode", "submit", "--max-total-budget", "2000"], mock_server)
     assert r.returncode == 2 and "予算の合計" in r.stderr
@@ -158,7 +158,7 @@ def test_broken_flag_refuses_to_start(tmp_path, mock_server):
     os.makedirs(cdir)
     open(os.path.join(cdir, "lq_a.json"), "w").write("{broken")
     r = run(tmp_path, tdir, ["--traders", "lq_a,ac_b", "--mode", "submit"], mock_server)
-    assert r.returncode == 2 and "印を読めない" in r.stderr
+    assert r.returncode == 2 and "ファイルを読めない" in r.stderr
 
 
 def test_short_position_is_carried_to_the_next_day(tmp_path, mock_server):

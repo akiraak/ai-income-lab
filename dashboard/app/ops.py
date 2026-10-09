@@ -1,10 +1,8 @@
-"""操作。⚠ **管理画面から出せるのは「停止」と「解除」と、人ごとの印（停止 ／ 手じまい）と、名簿（開始 ／ 外す）だけ**（2026-09-18 に手動の注文を外した）。
+"""操作。⚠ **管理画面から出せるのは「全体の停止」と「解除」と、トレーダーの状態を変える指示（開始 ／ 一時停止 ／ 手じまい ／ 取り消す）だけ**（2026-09-18 に手動の注文を外した）。
 
-- 人ごとの印（2026-10-05。プラン docs/plans/archive/trader-control-flags.md）: `control/<人>.json` に 停止 ／ 手じまい を書くだけ。
-  ⚠ **その場では何も売らない**。売るのは執行器の毎日の回（発注の許可は執行器だけ ＝ この画面に発注の経路は無いまま）
-
-- 名簿（2026-10-07。プラン docs/plans/archive/trader-roster-dashboard.md）: `roster.json`（`HALT` の隣）に 開始 ／ 外す を書くだけ。
-  ⚠ その場では何も買わない。誰を動かすかを執行器が次の回で読む（`run_day.py --traders @roster`）
+- 状態を変える指示（2026-10-09。プラン docs/plans/trader-status-flow.md。前は「人ごとの印」と「名簿の開始 ／ 外す」）:
+  名簿 `roster.json`（`HALT` の隣）と `control/<人>.json` を書くだけ。⚠ **その場では何も売買しない**。執行器の次の回が読む
+  （`run_day.py --traders @roster`。発注の許可は執行器だけ ＝ この画面に発注の経路は無いまま）
 
 - 停止（両面）: HALT フラグを書き、働いている注文を全部取り消す（取消は cert 常に可、prod は scope に trade があるときだけ）
 - 解除（ローカル面）
@@ -44,7 +42,6 @@ def _load_executor_module(stem: str):
 
 control = _load_executor_module("control")
 roster = _load_executor_module("roster")     # 名簿（2026-10-07。プラン trader-roster-dashboard.md）
-FLAG_KINDS = ("paused", "liquidate")
 
 
 class Ops:
@@ -105,7 +102,7 @@ class Ops:
         self._history("resume", actor, "-", out)
         return out
 
-    # ---------------- 人ごとの印（停止 ／ 手じまい）。⚠ 書くだけ。売るのは執行器の毎日の回
+    # ---------------- 置き場（`control/<人>.json` ＝ 一時停止 ／ 手じまい・名簿 ＝ 誰を動かすか）。⚠ 読むだけ。書くのは下の指示
 
     def control_dir(self) -> Path:
         return Path(control.control_dir(str(self.settings.halt_file)))
@@ -127,25 +124,6 @@ class Ops:
             return {"name": name, "label": "読めない", "error": str(exc)[:200], "kind": None}
         return None if fl is None else {**fl.as_dict(), "label": fl.describe(), "kind": "liquidate" if fl.liquidate else "paused"}
 
-    def set_trader_flag(self, name: str, kind: str, actor: str, reason: str = "") -> dict:
-        if kind not in FLAG_KINDS:
-            raise OpsError(f"印の種類は {FLAG_KINDS} だけ: {kind!r}")
-        fl = control.set_flag(str(self.control_dir()), name, kind, actor, reason)
-        out = {"trader": name, "kind": kind, "label": fl.describe(), "since": fl.since, "actor": actor, "reason": fl.reason, "mode": self.settings.machine()["mode"],
-               "note": "その場では何も売らない。執行器の次の回から効く"}
-        self.events.append("dashboard", "-", "trader_flag", out)
-        self._history("trader_flag", actor, "-", out)
-        return out
-
-    def clear_trader_flag(self, name: str, actor: str) -> dict:
-        existed = control.clear_flag(str(self.control_dir()), name)
-        out = {"trader": name, "kind": "clear", "existed": existed, "actor": actor, "mode": self.settings.machine()["mode"]}
-        self.events.append("dashboard", "-", "trader_flag", out)
-        self._history("trader_flag", actor, "-", out)
-        return out
-
-    # ---------------- 名簿（開始 ／ 外す）。⚠ 書くだけ。売買は執行器の次の回。押せるかの判定は lineup.actions（呼ぶ側が先に見る）
-
     def roster_path(self) -> Path:
         return Path(roster.roster_path(str(self.settings.halt_file)))
 
@@ -156,20 +134,64 @@ class Ops:
         except roster.RosterError as exc:
             return None, str(exc)[:200]
 
-    def roster_add(self, name: str, actor: str, reason: str = "") -> dict:
-        e = roster.add(str(self.roster_path()), name, actor, reason)
-        out = {"trader": name, "kind": "start", "since": e.since, "actor": actor, "reason": e.reason, "mode": self.settings.machine()["mode"],
-               "note": "その場では何も買わない。執行器の次の回から売買する"}
-        self.events.append("dashboard", "-", "roster", out)
-        self._history("roster", actor, "-", out)
+    # ---------------- 状態を変える指示（開始 ／ 一時停止 ／ 手じまい ／ 取り消す。plan trader-status-flow.md §2-3）
+    # ⚠ 書くだけ。売買は執行器の次の回。押せるかの判定は lineup.actions（呼ぶ側が先に見る）。⚠ 置き場の形は変えない
+
+    def instruct(self, name: str, kind: str, row: dict, actor: str, reason: str = "") -> dict:
+        """指示を置き場に書く。`row` ＝ lineup.board の行（いまの状態）。前の形を履歴に残す（取り消すときに戻す）。"""
+        if kind not in ("start", "paused", "liquidate"):
+            raise OpsError(f"指示は start ／ paused ／ liquidate だけ: {kind!r}")
+        cdir, rpath = str(self.control_dir()), str(self.roster_path())
+        before = control.read_flag(cdir, name)
+        entries = roster.read(rpath) or []
+        idx = next((i for i, e in enumerate(entries) if e.name == name), None)
+        prev_entry = entries[idx].as_dict() if idx is not None else None
+        touched_roster = False
+        if kind == "start":
+            if idx is None:
+                roster.add(rpath, name, actor, reason)                       # 名簿の外 → 入れる
+                touched_roster = True
+            elif before is not None and before.liquidate:
+                control.clear_flag(cdir, name)                               # 手じまい済み → 印を消し、「いつから」を今に付け直す（後から入った人として休む順へ）
+                roster.remove(rpath, name)
+                roster.add(rpath, name, actor, reason)
+                touched_roster = True
+            else:
+                control.clear_flag(cdir, name)                               # 一時停止 → 印を消す
+        else:
+            control.set_flag(cdir, name, kind, actor, reason)
+        out = {"trader": name, "instruction": kind, "kind": kind, "prev": row.get("status"), "prev_flag": before.as_dict() if before else None,
+               "prev_entry": prev_entry, "prev_index": idx, "roster_touched": touched_roster, "actor": actor, "reason": reason[:200], "mode": self.settings.machine()["mode"],
+               "note": "その場では何も売買しない。執行器の次の回から状態が変わる"}
+        kind_rec = "roster" if touched_roster else "trader_flag"            # ⚠ 記録の種類の名前は今までどおり
+        self.events.append("dashboard", "-", kind_rec, out)
+        self._history(kind_rec, actor, "-", out)
         return out
 
-    def roster_remove(self, name: str, actor: str, reason: str = "") -> dict:
-        existed = roster.remove(str(self.roster_path()), name)
-        flag = control.clear_flag(str(self.control_dir()), name)        # 名簿の外の人の印は意味が無い（戻すときは印なしで始まる）
-        out = {"trader": name, "kind": "remove", "existed": existed, "flag_cleared": flag, "actor": actor, "reason": reason[:200], "mode": self.settings.machine()["mode"]}
-        self.events.append("dashboard", "-", "roster", out)
-        self._history("roster", actor, "-", out)
+    def cancel(self, name: str, pending: dict, actor: str) -> dict:
+        """回を通る前の指示を取り消す ＝ 指示の前の形に戻す（`control/<人>.json` と名簿のその人の行）。"""
+        d = pending.get("detail") or {}
+        control.restore_flag(str(self.control_dir()), name, d.get("prev_flag"))
+        if d.get("roster_touched"):
+            roster.restore(str(self.roster_path()), name, d.get("prev_entry"), d.get("prev_index"))
+        out = {"trader": name, "instruction": "cancel", "kind": "cancel", "cancelled": d.get("instruction"), "back_to": d.get("prev"),
+               "actor": actor, "mode": self.settings.machine()["mode"]}
+        kind_rec = "roster" if d.get("roster_touched") else "trader_flag"
+        self.events.append("dashboard", "-", kind_rec, out)
+        self._history(kind_rec, actor, "-", out)
+        return out
+
+    def instructions(self) -> dict[str, dict]:
+        """その人の最新の指示の行（操作の履歴の trader_flag ／ roster）。lineup.pending_of が「回を通ったか」を決める。"""
+        out: dict[str, dict] = {}
+        for line in livefs.read_lines(self.history_path, missing_ok=True):
+            try:
+                row = json.loads(line)
+            except ValueError:
+                continue
+            d = row.get("detail") or {}
+            if row.get("kind") in ("trader_flag", "roster") and d.get("trader"):
+                out[d["trader"]] = row
         return out
 
     # ---------------- 共通

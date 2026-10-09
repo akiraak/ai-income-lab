@@ -257,8 +257,13 @@
   形: 状態 ＝ 停止（今の候補 ＋ 手じまい済み・持ち株 0）／ 稼働 ／ 一時停止（今の停止）／ 手じまい中 ・ 指示 ＝ 開始 ／ 一時停止 ／ 手じまい（次の回を通ったら指示は消えて状態に）。⚠ 執行器の動き・置き場の形は変えない
   - [x] Phase 0: 形を決める（⚠ 利用者）
     ✅ 2026-10-09 利用者決定「その案でよいと思うので書き直して」（プラン §1）
-  - [ ] Phase 1: `lineup.py` の状態 ＋ 指示の読み分け・ボタン → 書くもの・テスト
-  - [ ] Phase 2: 画面（詳細・名簿の面・帯）・`glossary.toml`・テストの文字
-  - [ ] Phase 3: 執行器の人が読む文（`control.py`・`roster.py`・`run_day.py` の `note`）・テスト
-  - [ ] Phase 4: 文書（`dashboard.md`・`live-trading.md`・howto・CLAUDE.md）→ `./run-tests.sh --full`
+  - [x] Phase 1: `lineup.py` の状態 ＋ 指示の読み分け・ボタン → 書くもの・テスト
+    ✅ 2026-10-09 titan: `lineup.file_status` ／ `pending_of`（指示の時刻 ＞ 最後の発注の回の `start`）／ `actions`・`ops.instruct` ／ `cancel`（前の形に戻す ＝ `control.restore_flag`・`roster.restore` を足した）
+  - [x] Phase 2: 画面（詳細・名簿の面・帯）・`glossary.toml`・テストの文字
+    ✅ 2026-10-09: 共通の部品 `templates/trader_status.html`・用語「トレーダーの状態」「状態を変える指示」・概要の札・「外す」「再開」「印を消す」は無くした
+  - [x] Phase 3: 執行器の人が読む文（`control.py`・`roster.py`・`run_day.py` の `note`）・テスト
+    ✅ 2026-10-09: `describe()` ＝ 一時停止 ／ 手じまい中 ／ 停止（手じまい済み）・`plan.py` の note も
+  - [x] Phase 4: 文書（`dashboard.md`・`live-trading.md`・howto・CLAUDE.md）→ `./run-tests.sh --full`
+    ✅ 2026-10-09: `dashboard.md` §13-9・§13-10・`live-trading.md` §0-2 ／ C12・howto 2-7・`./run-tests.sh --full` 全部 ✅（黄金の集計値は変わらず）
+    ✅ 2026-10-09 CLAUDE.md も（利用者の依頼「CLAUDE.md も直して、コミットしてデプロイ」）
   - [ ] Phase 5: デプロイ（⚠ 利用者の「デプロイ」）→ `test_a` で 1 度通す（画面の操作は利用者）

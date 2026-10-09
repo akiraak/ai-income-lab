@@ -310,13 +310,17 @@ def create_app(settings: Settings | None = None, start_monitors: bool = True) ->
         return [{"name": t["name"], "label": t["label"], "cls": f"s{i % lv.N_SERIES + 1}", "test": t["test"]}
                 for i, t in enumerate(tr) if show or not t["test"]]
 
+    def tbadges(machine: dict) -> dict[str, str]:
+        entries, _err = ops.roster_entries()
+        return lineup.badges(live_dir_now(machine), entries, ops.flags(), machine, ops.instructions())
+
     def render(request: Request, name: str, **ctx):
         machine = settings.machine()
         base = {
             "page": "",
             "machine": {k: machine.get(k) for k in ("mode", "name", "since", "mismatch", "sim", "not_production")},
             "nav_traders": nav_traders(machine),
-            "flags": ops.flags(),                              # 人ごとの印（停止 ／ 手じまい。§13-9）。読むだけ
+            "tbadges": tbadges(machine),                       # トレーダーの状態の札（稼働で指示なしの人は無し。§13-9）。読むだけ
             "face": settings.face,
             "auth_mode": settings.auth_mode,
             "user": getattr(request.state, "user", None),
@@ -389,69 +393,63 @@ def create_app(settings: Settings | None = None, start_monitors: bool = True) ->
         # ⚠ 3 秒ごとに取り直すのは数字と図だけ（注文の履歴は全期間で長いので外す。§13-7）。⚠ GET のみ・POST は増やさない
         if request.query_params.get("partial") == "live":
             return render(request, "trader_live.html", page=f"trader:{name}", b=b, t=t)
-        return render(request, "trader.html", page=f"trader:{name}", b=b, t=t, flag=ops.flag_status(name))
-
-    @app.post("/ops/traders/{name}/flag")
-    async def ops_trader_flag(request: Request, name: str):
-        """人ごとの印（停止 ／ 手じまい ／ 解除）を書く（§13-9。ローカル面と cloudflare-local）。⚠ 書くだけ ＝ 売るのは執行器の次の回。
-        ⚠ 公開面（cloudflare）には無い（監視と停止だけ）。確認の文（識別名を打つ）が違えば書かない。"""
-        require_local()
-        form = await form_of(request)
-        b = board_now(days=None, all_traders=True)
-        if not any(x["name"] == name for x in b["traders"]):
-            raise HTTPException(404, "そのトレーダーは無い")
-        kind = form.get("kind", "")
-        back = "/roster" if form.get("back") == "/roster" else f"/traders/{name}"      # ⚠ 戻り先は 2 つだけ（開いた転送先にしない）
-        if kind == "clear":
-            out = await asyncio.to_thread(ops.clear_trader_flag, name, actor(request))
-            return redirect(back, f"{name} の印を消した" if out["existed"] else f"{name} に印は無かった")
-        if kind not in ("paused", "liquidate"):
-            raise HTTPException(400, "kind は paused ／ liquidate ／ clear")
-        if form.get("confirm", "").strip() != name:
-            return redirect(back, f"印は立てていない（確認の欄に識別名 {name} を打つ）", ng=True)
-        out = await asyncio.to_thread(ops.set_trader_flag, name, kind, actor(request), form.get("reason", ""))
-        return redirect(back, f"{name} に「{out['label']}」の印を立てた。売買が変わるのは執行器の次の回から")
+        lu = lineup_now()
+        return render(request, "trader.html", page=f"trader:{name}", b=b, t=t, lu=lu, lr=next((r for r in lu["rows"] if r["name"] == name), None))
 
     def lineup_now() -> dict:
         machine = settings.machine()
         entries, err = ops.roster_entries()
-        lu = lineup.board(live_dir_now(machine), entries, ops.flags(), machine, demo=settings.demo)
+        lu = lineup.board(live_dir_now(machine), entries, ops.flags(), machine, demo=settings.demo, instructions=ops.instructions())
         lu["roster_error"] = err
         lu["roster_path"] = str(ops.roster_path())
         return lu
 
     @app.get("/roster", response_class=HTMLResponse)
     async def roster_page(request: Request):
-        """名簿（開始 ／ 停止 ／ 手じまい ／ 外す。§13-10）。⚠ ローカル面と cloudflare-local だけ（公開面は 404）。"""
+        """名簿（トレーダーの状態と、状態を変える指示。§13-10）。⚠ ローカル面と cloudflare-local だけ（公開面は 404）。"""
         require_local()
         return render(request, "roster.html", page="roster", lu=lineup_now())
 
-    @app.post("/ops/roster/{name}")
-    async def ops_roster(request: Request, name: str):
-        """名簿に入れる（開始）／ 抜く（外す）。⚠ 書くだけ ＝ 売買は執行器の次の回。押せるかは lineup.actions と同じ判定。"""
-        require_local()
-        form = await form_of(request)
+    async def instruct(request: Request, name: str, form: dict, back: str):
+        """状態を変える指示（開始 ／ 一時停止 ／ 手じまい ／ 取り消す。plan trader-status-flow.md）。⚠ 書くだけ ＝ 売買は執行器の次の回。
+        押せるかは lineup.actions と同じ判定。確認の文（識別名を打つ）が違えば書かない（取り消すだけは確認なし）。"""
         kind = form.get("kind", "")
-        if kind not in ("start", "remove"):
-            raise HTTPException(400, "kind は start ／ remove")
+        if kind not in ("start", "paused", "liquidate", "cancel"):
+            raise HTTPException(400, "kind は start ／ paused ／ liquidate ／ cancel")
         lu = lineup_now()
-        if lu["roster_error"]:
-            return redirect("/roster", f"名簿を読めないので書かない: {lu['roster_error']}", ng=True)
         row = next((r for r in lu["rows"] if r["name"] == name), None)
         if row is None:
             raise HTTPException(404, "そのトレーダーは無い（設定が config/traders/ 直下に要る ＝ デプロイ）")
+        if lu["roster_error"]:
+            return redirect(back, f"名簿を読めないので書かない: {lu['roster_error']}", ng=True)
+        label = "指示の取り消し" if kind == "cancel" else f"「{lineup.ORDER[kind]}」"
         if kind not in row["actions"]:
-            return redirect("/roster", f"{name} は{row['status_label']}なので、{'開始' if kind == 'start' else '外す'}はできない", ng=True)
+            why = f"{row['pending']['label']}の指示が次の回を待っている（先に取り消す）" if row["pending"] else f"{row['status_label']}の人"
+            return redirect(back, f"書いていない: {name} は{why}なので、{label}はできない", ng=True)
         why = row["actions"][kind]
         if why:
-            return redirect("/roster", f"書いていない: {why}", ng=True)
+            return redirect(back, f"書いていない: {why}", ng=True)
+        if kind == "cancel":
+            out = await asyncio.to_thread(ops.cancel, name, row["pending"], actor(request))
+            return redirect(back, f"{name} への「{lineup.ORDER[out['cancelled']]}」の指示を取り消した（{lineup.STATUS[out['back_to']]}のまま）")
         if form.get("confirm", "").strip() != name:
-            return redirect("/roster", f"書いていない（確認の欄に識別名 {name} を打つ）", ng=True)
-        if kind == "start":
-            await asyncio.to_thread(ops.roster_add, name, actor(request), form.get("reason", ""))
-            return redirect("/roster", f"{name} を名簿に入れた。売買は執行器の次の回から")
-        await asyncio.to_thread(ops.roster_remove, name, actor(request), form.get("reason", ""))
-        return redirect("/roster", f"{name} を名簿から外した（印も消した）。売買履歴は残る")
+            return redirect(back, f"書いていない（確認の欄に識別名 {name} を打つ）", ng=True)
+        await asyncio.to_thread(ops.instruct, name, kind, row, actor(request), form.get("reason", ""))
+        return redirect(back, f"{name} に{label}の指示を出した。次の回（{lu['next_run']}）から状態が変わる")
+
+    @app.post("/ops/traders/{name}/flag")
+    async def ops_trader_flag(request: Request, name: str):
+        """トレーダーの詳細から出す指示（§13-9）。⚠ URL は前のまま（中身は /ops/roster と同じ）。⚠ 公開面（cloudflare）には無い。"""
+        require_local()
+        form = await form_of(request)
+        back = "/roster" if form.get("back") == "/roster" else f"/traders/{name}"      # ⚠ 戻り先は 2 つだけ（開いた転送先にしない）
+        return await instruct(request, name, form, back)
+
+    @app.post("/ops/roster/{name}")
+    async def ops_roster(request: Request, name: str):
+        """名簿の面から出す指示（§13-10）。"""
+        require_local()
+        return await instruct(request, name, await form_of(request), "/roster")
 
     @app.get("/api/state")
     async def api_state(request: Request):

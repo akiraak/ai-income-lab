@@ -81,6 +81,8 @@
       10/2 ✅ prepare rc=0（123 秒）／ trade rc=0（707 秒・T1 の NKE 1 株 売り 1 本 Filled）／ `check.sh` `→ 0`。10/3・10/4 は土日
       10/5 ⚠ prepare **rc=1**（外部系列の 504。9/29 と同じ型）／ trade **rc=2**（予算の合計 $1,200 ＞ 上限 $1,000 ＝ `live.env` を直す前。意図どおり発注なし）／ `check.sh` `trade rc=2 → fail`（`AIL_HC_URL` 無し ＝ not-sent）
       10/6 ✅ prepare rc=0（128 秒）／ trade ⚠ **起動せず**: `run.sh` が 12:40:02 PDT に `REFUSE: submit には TT_ALLOW_PROD_ORDERS=1 と --i-know-this-is-real-money の両方が要る`。原因 ＝ `live.env` の `AIL_LIVE_EXTRA=--i-know-this-is-real-money --max-total-budget 1900 --max-day-usd 1900` が**引用符なし**で、`. live.env` が `--max-total-budget` をコマンドとして実行し `AIL_LIVE_EXTRA` が空になった（Claude が 10/5 に示した sed の書き方の誤り）。`check.sh` は `trade=missing → fail`（外へは送っていない）。✅ 10/6 19:5x ET 利用者が引用符で囲んで直した（読み込みで値が入ることを確認）＝ 10/7（水）15:50 ET の回で手じまい
+      10/7 ⚠ prepare **rc=1**（51 秒。外部系列の ECB〔為替〕が HTTP 500 ＝ 9/29・10/5 と同じ型。予測は発注の回が日足を取り直すので影響なし）／ trade rc=0（12:40:01 → 12:51:58 PDT・`--traders T1,T3,T4,T6`。印どおり手じまいの売り 9 本 Filled）／ `check.sh` `trade rc=0 prepare rc=1 → 0`（URL 無し ＝ not-sent）
+      10/8 ✅ prepare rc=0（133 秒）／ trade rc=0（12:40:01 → 12:51:57 PDT・**`--traders @roster` の初回**。T1 ・ T6 が 5 本ずつ 10 本 Filled・T4 は skip）／ `check.sh` `→ 0`（URL 無し ＝ not-sent。同日 17:10 PDT に URL を書いて手で 1 度 `sent`）
     - [x] 起動しなかった日を数える（⚠ 無人運転の成立はこれで測る。管理画面に「起動しなかった日」の考えは既にある ＝ [dashboard.md §13](docs/specs/dashboard.md)）
       ⚠ WSL2 の穴: **Windows を再起動して WSL が寝ていた時刻の回は実行されない**（`Persistent=false` ＝ 発注できる時間帯を過ぎてから起きても発注させない）。⚠ これは正しい挙動だが、**起動しなかった日として数える**必要がある
       関連: 管理画面の見張り「今日の起動が無い」（[dashboard.md §13-8](docs/specs/dashboard.md)）
@@ -98,6 +100,9 @@
       ✅ 2026-09-28 16:20 ET に初回が動いた【実測・Sx360 の Claude が読んだ】: `logs/checks.log` に `not-sent（AIL_HC_URL が無い）: 2026-09-28 market=open trade rc=0 prepare rc=0 → 0` の 1 行（外へは送っていない）。⚠ 残るのは利用者の healthchecks.io の登録と `AIL_HC_URL` だけ
       ✅ 2026-10-08 利用者が healthchecks.io に登録（無料の Hobbyist・チェック 1 つ ＝ Cron `20 13 * * 1-5`・America/Los_Angeles・猶予 1 時間・通知はメール）→ 13500t の `live.env` に `AIL_HC_URL`（控え `live.env.bak-20261008b`）→ 手で 1 度流して `sent: 2026-10-08 market=open trade rc=0 prepare rc=0 → 0`（17:10 PDT）【実測】。⚠ URL はリポジトリに書かない
       関連: [plan](docs/plans/live-trading-open-decisions.md) Phase 3
+    - [ ] 年が変わったら実売買の外部系列に次の年を足す（`experiments/feature-discovery/config/dataset/exog_live.toml` の treasury の `years` に `2027`。⚠ `exog_daily.toml` は書き換えない ＝ 研究の入力の指紋が動く。noaa ／ usgs の `end = "2026-12-31"` も先の日付へ）
+      期日: 2027-01-04
+      ⚠ 足さないと 2027 年の金利が取れず、`ex_max_stale_days = 7` を過ぎた日から金利の列が欠損になる【推測】（`exog_live.toml` の頭の注意）。足した後は執行器・予測のテスト → 「デプロイ」（本番に効く）。NYSE の暦は 2028 年まで載っている（`nyse_calendar.py`。2028 年の秋に 2029 年を足す）
   - [x] Phase 0: 定義・停止条件・執行の窓を `docs/specs/experiments/live-trading.md` §0 に書く（⚠ 実際に動かす 3 人の属性は書かない ＝「未設定」）＋ 本番の読み取り・dry-run（端株・小数株・成行・MOC 相当。`sample.py --step dryrun2 --allow-prod-dry-run`。⚠ **利用者が流す**）
     2026-09-17: §0-1〜§0-5 を書いた（定義・上限・窓・停止条件・閾値・試験用 `test_a`・手順書）。`sample.py` に `dryrun2`（手順 10。6 通り）を足した。⚠ **残るのは利用者が `dryrun2` を流して §0-3 の表を埋めること**（結果で `sizing` が決まる）
     候補のまま置く: T1 `trade_own_ridge_a` θ=50 ／ T2 `trade_ownex_lgbm_a` θ=55 ／ T3 `trade_ownseq_ridge_a` T3 QUANT θ=50 ／ 予算 $300 × 3 ＋ 予備 $100（⚠ 2026-09-19 に確定。予算は規模 A・B の 2 つを並べる。正は B6 のメモ）／ 執行は 15:50 ET の気配で合図・15:55 に成行（プラン §2-1〜§2-5）
@@ -276,5 +281,6 @@
   - [x] Phase 2: 管理画面の差 3・文書・（P3 なら）いまの 3 人にかけ直す
     ✅ 2026-10-08: 管理画面の差 3 のタイルと概要の中央値はそろえた列があればそちら・日次の表に両方（`dashboard.md` §13-12・`glossary.toml`・テスト 1 本）。P3 ＝ `live-trading.md` §2-1 に 1 行（|日次| 平均 T1 26.2 → 2.58bp ／ T3 26.4 → 2.25bp。判定は変えない）・§0-10 の表に 1 行。✅ デプロイ 10/8 08:35 PDT（利用者「コミットとpushとデプロイ」）＝ `prod` b179823 → **d5416d4**・13500t `done d5416d4`（08:45 PDT・管理画面のコンテナ起こし直し）。⏳ 新しい 3 人の初日（10/8）の `diff3a` は公式終値が入ってから（翌朝の `--prepare` か次の回）
 
-- [ ] 実売買の執行器（`run_day.py`・`reconcile.py`）のメッセージの「台帳」→「売買履歴」（⚠ 本番投入が落ち着いてから。執行器のテストを流す・本番に効くので「デプロイ」が要る）
+- [~] 実売買の執行器（`run_day.py`・`reconcile.py`）のメッセージの「台帳」→「売買履歴」（⚠ 本番投入が落ち着いてから。執行器のテストを流す・本番に効くので「デプロイ」が要る）
   派生元: 「DBを使ったデータの永続化を行う」の「言葉を分かりやすくする」（2026-09-25 に DONE へ）
+  ✅ 2026-10-08（Sx360 の Claude。利用者「進められるものをまずやって」）: `run_day.py`・`reconcile.py`・`recovery.py` の「台帳」を全部「売買履歴」に（メッセージ・`note`・help・コメント。⚠ 項目名 `ledger` などコードの識別子は変えない）・`tests/test_sim_run_day.py` の文字の照合 1 か所。`./run-tests.sh --fast` ✅。`journal.py`・`execute.py`・`state.py` のコメントは触っていない。⏳ 「デプロイ」（新しい 3 人の回が数日落ち着いてから）→ CLAUDE.md の「執行器のメッセージの「台帳」は…直す」の 1 文を消して DONE へ

@@ -1,16 +1,16 @@
 #!/usr/bin/env python3
-"""人が台帳を口座に合わせる（口座の建玉と台帳の帳尻を合わせる 3 段のうちの段 3。live-trading.md §0-8）。
+"""人が売買履歴を口座に合わせる（口座の建玉と売買履歴の帳尻を合わせる 3 段のうちの段 3。live-trading.md §0-8）。
 
-    python reconcile.py --env prod show                                   # 台帳の合計・最後に記録した口座の建玉・その差・控えの未完
-    python reconcile.py --env prod add T1 KO 2 --price 70.15              # T1 の台帳に KO を 2 株足す（口座にはあるのに台帳に無い）
-    python reconcile.py --env prod remove T2 KO 3                         # T2 の台帳から KO を 3 株消す（台帳にあるのに口座に無い。原価で消す ＝ 損益 0）
+    python reconcile.py --env prod show                                   # 売買履歴の合計・最後に記録した口座の建玉・その差・控えの未完
+    python reconcile.py --env prod add T1 KO 2 --price 70.15              # T1 の売買履歴に KO を 2 株足す（口座にはあるのに売買履歴に無い）
+    python reconcile.py --env prod remove T2 KO 3                         # T2 の売買履歴から KO を 3 株消す（売買履歴にあるのに口座に無い。原価で消す ＝ 損益 0）
     python reconcile.py --env prod remove T2 KO 3 --price 69.80           # 売れていたと分かっているとき: その値段の売りとして入れる（実現損益・受渡し待ちに入る）
     python reconcile.py --env prod resolve lt-0123abcd --filled 4 --price 25.61   # 控えの未完を人が閉じる（約定していた）／ --not-filled（出ていなかった）
 
 ⚠ **ネットワークを使わない**（口座は読まない・注文も出さない）。口座の側は、口座の画面か注文履歴を人が見て確かめる。
 ⚠ **誰のぶんかは人が決める**。執行器は差を推測で割り振らない（トレーダーごとの成績が混ざる）。
 ⚠ `run.lock` を取る（執行器・運転手が動いている間は拒否）。機械のモードに従う木だけを触る（実売買 ＝ `state/<env>/`・シミュレーション ＝ `sim/<名前>/state/cert/`）。
-   直した内容は台帳の `history` に `note: "reconcile"` で、`reconcile.log` に 1 行ずつ残す。
+   直した内容は売買履歴の `history` に `note: "reconcile"` で、`reconcile.log` に 1 行ずつ残す。
 """
 
 from __future__ import annotations
@@ -44,15 +44,15 @@ def last_recorded_positions(out_dir: str) -> tuple[str | None, list[dict]]:
 def show(state_dir: str, out_dir: str) -> int:
     states = recovery.load_all_states(state_dir)
     when, positions = last_recorded_positions(out_dir)
-    print(f"台帳: {state_dir}（{len(states)} 人）   口座の建玉: {'最後の記録 ' + when if when else '記録なし'}  ⚠ いまの口座ではない（口座の画面で確かめる）")
+    print(f"売買履歴: {state_dir}（{len(states)} 人）   口座の建玉: {'最後の記録 ' + when if when else '記録なし'}  ⚠ いまの口座ではない（口座の画面で確かめる）")
     outside, short = recovery.check_positions(positions, states, set())
     account = recovery.account_quantities(positions)
     symbols = sorted({s for st in states.values() for s in st.holdings} | set(account))
-    print(f"  {'銘柄':6s} {'口座':>12s} {'台帳の合計':>12s} {'差':>12s}  持っている人")
+    print(f"  {'銘柄':6s} {'口座':>12s} {'売買履歴の合計':>12s} {'差':>12s}  持っている人")
     for sym in symbols:
         holders = {n: st.holdings[sym].shares for n, st in states.items() if sym in st.holdings}
         ledger = sum(holders.values())
-        mark = "⚠ 口座が少ない ＝ 売買が止まる" if sym in short else ("台帳の外の株（止めない）" if sym in outside else "")
+        mark = "⚠ 口座が少ない ＝ 売買が止まる" if sym in short else ("売買履歴の外の株（止めない）" if sym in outside else "")
         print(f"  {sym:6s} {account.get(sym, 0.0):12.6f} {ledger:12.6f} {account.get(sym, 0.0) - ledger:12.6f}  {holders or '—'}  {mark}")
     open_entries = Journal(state_dir).unfinished()
     print(f"控えの未完: {len(open_entries)} 件" + ("（次の起動で執行器が照会する。照会できなければ resolve で閉じる）" if open_entries else ""))
@@ -62,8 +62,8 @@ def show(state_dir: str, out_dir: str) -> int:
 
 
 def main() -> int:
-    ap = argparse.ArgumentParser(description="人が台帳を口座に合わせる（ネットワークを使わない）")
-    ap.add_argument("--env", choices=["cert", "prod"], default=None, help="実売買モードでは必須（台帳は state/<env>/）。シミュレーションモードでは cert")
+    ap = argparse.ArgumentParser(description="人が売買履歴を口座に合わせる（ネットワークを使わない）")
+    ap.add_argument("--env", choices=["cert", "prod"], default=None, help="実売買モードでは必須（売買履歴は state/<env>/）。シミュレーションモードでは cert")
     ap.add_argument("--state-dir", default=None)
     ap.add_argument("--out-dir", default=None)
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -97,12 +97,12 @@ def main() -> int:
             return 2
     else:
         if not args.env and not args.state_dir:
-            print("拒否: 実売買モードでは --env cert ／ prod を指定する（台帳は環境ごと）", file=sys.stderr)
+            print("拒否: 実売買モードでは --env cert ／ prod を指定する（売買履歴は環境ごと）", file=sys.stderr)
             return 2
         state_dir = args.state_dir or os.environ.get("LT_STATE_DIR") or os.path.join(HERE, "state", args.env)
         out_dir = args.out_dir or os.environ.get("LT_OUT_DIR") or os.path.join(HERE, "out")
         if modes.inside(state_dir, modes.sim_base()):
-            print("拒否: 実売買モードでシミュレーションの台帳は触らない", file=sys.stderr)
+            print("拒否: 実売買モードでシミュレーションの売買履歴は触らない", file=sys.stderr)
             return 2
     lock = modes.RunLock()
     if not lock.acquire(machine.mode, f"reconcile {args.cmd}"):
@@ -131,7 +131,7 @@ def main() -> int:
                 print("拒否: 株数と価格は正の数", file=sys.stderr)
                 return 2
             if not has_state(state_dir, trader):
-                print(f"拒否: {trader} の台帳が無い（{state_path(state_dir, trader)}）", file=sys.stderr)
+                print(f"拒否: {trader} の売買履歴が無い（{state_path(state_dir, trader)}）", file=sys.stderr)
                 return 2
         st = load_state(state_dir, trader)
         before = st.holdings[symbol].shares if symbol in st.holdings else 0.0
@@ -159,7 +159,7 @@ def main() -> int:
         after = st.holdings[symbol].shares if symbol in st.holdings else 0.0
         log.update(trader=trader, symbol=symbol, side=side, shares=shares, price=price, date=date, before=before, after=after, ext=getattr(args, "ext", None))
         livefs.append(os.path.join(state_dir, "reconcile.log"), json.dumps(log, ensure_ascii=False))
-        print(f"{trader} の {symbol}: {before:g} 株 → {after:g} 株（{args.cmd}。台帳 {state_path(state_dir, trader)}・履歴 reconcile.log）")
+        print(f"{trader} の {symbol}: {before:g} 株 → {after:g} 株（{args.cmd}。売買履歴 {state_path(state_dir, trader)}・履歴 reconcile.log）")
         return 0
     finally:
         lock.release()

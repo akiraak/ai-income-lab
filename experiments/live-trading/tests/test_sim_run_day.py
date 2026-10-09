@@ -203,7 +203,7 @@ def test_short_position_blocks_only_that_symbol(tmp_path, monkeypatch, mock_serv
     open(os.path.join(root, "config", "signals", "sim_x.csv"), "w").write("date,symbol,buy,exit\n2026-10-01,SPY,0,100\n2026-10-01,QQQ,100,0\n")
     seed_state(root, {"SPY": {"shares": 0.2, "avg_price": 500.0, "opened": "2026-09-30"}})                  # 口座は空 ＝ SPY が 0.2 株足りない
     r = run_day(tmp_path, ["--traders", "sim_x", "--mode", "submit", "--sim-clock"], mock_server)
-    assert r.returncode == 1 and "口座の建玉が台帳より少ない" in r.stderr
+    assert r.returncode == 1 and "口座の建玉が売買履歴より少ない" in r.stderr
     ev = rows(root, "2026-10-01", "events")
     short = [e for e in ev if e["kind"] == "position_short"]
     assert len(short) == 1 and short[0]["symbol"] == "SPY" and short[0]["diff"] == -0.2 and short[0]["holders"] == {"sim_x": 0.2}

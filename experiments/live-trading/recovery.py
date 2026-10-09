@@ -1,7 +1,7 @@
-"""口座の建玉と台帳の帳尻を合わせる（live-trading.md §0-8。2026-09-19 の利用者決定「提案の 3 段」）。
+"""口座の建玉と売買履歴の帳尻を合わせる（live-trading.md §0-8。2026-09-19 の利用者決定「提案の 3 段」）。
 
-    段 1  控えの未完を戻す（自動）   … `recover_unfinished`: 注文番号（無ければ今日の注文から ID）で照会し、約定していればその人の台帳に入れる
-    段 2  突き合わせ（検知）         … `check_positions`: 口座 − 全員の台帳の合計。多い ＝ 台帳の外の株（記録だけ）／ 少ない ＝ その銘柄は今日売買しない
+    段 1  控えの未完を戻す（自動）   … `recover_unfinished`: 注文番号（無ければ今日の注文から ID）で照会し、約定していればその人の売買履歴に入れる
+    段 2  突き合わせ（検知）         … `check_positions`: 口座 − 全員の売買履歴の合計。多い ＝ 売買履歴の外の株（記録だけ）／ 少ない ＝ その銘柄は今日売買しない
     段 3  人が合わせる               … `reconcile.py`
 
 ⚠ 自動で直すのは、誰の注文かが控えで確実に分かるものだけ。⚠ **差を推測で誰かに割り振らない**（トレーダーごとの成績が混ざる）。
@@ -17,7 +17,7 @@ from _livefs import livefs
 from journal import Journal
 from state import TraderState, load_state, save_state
 
-QTY_MATCH_TOL = 1e-3          # 口座と台帳の合計の差をこの株数まで許す（端株の丸め）
+QTY_MATCH_TOL = 1e-3          # 口座と売買履歴の合計の差をこの株数まで許す（端株の丸め）
 FINAL = {"Filled", "Cancelled", "Rejected", "Expired", "Removed"}
 
 
@@ -30,7 +30,7 @@ def _fills(order_obj: dict) -> tuple[float, float]:
 
 
 def recover_unfinished(journal: Journal, client, account: str, state_dir: str, today: str, write: bool) -> tuple[list[dict], set[str]]:
-    """未完の控えを 1 件ずつ照会する。戻り値は (事象, 未解決の銘柄)。`write` が False（plan ／ dry-run）なら台帳にも控えにも書かない。"""
+    """未完の控えを 1 件ずつ照会する。戻り値は (事象, 未解決の銘柄)。`write` が False（plan ／ dry-run）なら売買履歴にも控えにも書かない。"""
     events: list[dict] = []
     unresolved: set[str] = set()
     for e in journal.unfinished():
@@ -78,12 +78,12 @@ def recover_unfinished(journal: Journal, client, account: str, state_dir: str, t
             journal.close(e["ext"], outcome, shares=qty, price=round(price, 4))
         events.append({"kind": "journal_recovered", **base, "outcome": outcome, "shares": qty, "price": round(price, 4), "fee_usd": float(e.get("fee_usd") or 0) if qty > 0 else 0.0,
                        "status": (order_obj or {}).get("status"), "applied": bool(write),
-                       "note": "前の実行が発注の後・台帳の保存の前に終わっていた注文。約定はその人の台帳に入れた" if qty > 0 else "前の実行の注文は約定していなかった"})
+                       "note": "前の実行が発注の後・売買履歴の保存の前に終わっていた注文。約定はその人の売買履歴に入れた" if qty > 0 else "前の実行の注文は約定していなかった"})
     return events, unresolved
 
 
 def load_all_states(state_dir: str) -> dict[str, TraderState]:
-    """その回に動かさないトレーダーも含めた全員の台帳（口座は全員ぶんの合計しか見せない）。"""
+    """その回に動かさないトレーダーも含めた全員の売買履歴（口座は全員ぶんの合計しか見せない）。"""
     out = {}
     for path in livefs.find(state_dir, "*.json"):
         try:
@@ -108,10 +108,10 @@ def account_quantities(positions: list[dict]) -> dict[str, float]:
 
 
 def check_positions(positions: list[dict], states: dict[str, TraderState], symbols: set[str]) -> tuple[dict[str, dict], dict[str, dict]]:
-    """(台帳の外の株, 足りない銘柄)。どちらも {銘柄: {"account", "ledger", "diff", "holders"}}。
+    """(売買履歴の外の株, 足りない銘柄)。どちらも {銘柄: {"account", "ledger", "diff", "holders"}}。
 
-    ⚠ 多いほうは止めない: トレーダーは自分の台帳の株しか売らないので、台帳の外の株（利用者の手持ちなど）には誰も手を付けない。
-    ⚠ 危ないのは少ないほう: 台帳に「ある」と書いてあるのに口座に無い ＝ 売りが通らない（か、他人の株を売る）。
+    ⚠ 多いほうは止めない: トレーダーは自分の売買履歴の株しか売らないので、売買履歴の外の株（利用者の手持ちなど）には誰も手を付けない。
+    ⚠ 危ないのは少ないほう: 売買履歴に「ある」と書いてあるのに口座に無い ＝ 売りが通らない（か、他人の株を売る）。
     """
     account = account_quantities(positions)
     ledger: dict[str, float] = {}

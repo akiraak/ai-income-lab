@@ -180,7 +180,7 @@ def main() -> int:
     ap.add_argument("--ignore-window", action="store_true", help="15:45〜16:05 ET の外でも動かす（テスト・モック用）")
     ap.add_argument("--predict", default=None, help="experiment モデルが読む predict.jsonl（既定 out/<日付>/predict.jsonl）")
     ap.add_argument("--out-dir", default=os.environ.get("LT_OUT_DIR") or os.path.join(HERE, "out"))
-    ap.add_argument("--state-dir", default=None, help="既定は state/<env>/（cert と prod の台帳を混ぜない）")
+    ap.add_argument("--state-dir", default=None, help="既定は state/<env>/（cert と prod の売買履歴を混ぜない）")
     ap.add_argument("--traders-dir", default=os.environ.get("LT_TRADERS_DIR") or os.path.join(HERE, "config", "traders"))
     ap.add_argument("--allow-prod-dry-run", action="store_true")
     ap.add_argument("--i-know-this-is-real-money", action="store_true", help="本番で発注を許す（TT_ALLOW_PROD_ORDERS=1 も要る）")
@@ -351,7 +351,7 @@ def main() -> int:
     rec.write("balances", {"when": "before", "balances": record.excerpt(balances, limit=40)})
     rec.write("positions", {"when": "before", "positions": [{k: p.get(k) for k in ("symbol", "quantity", "quantity-direction", "average-open-price")} for p in positions]})
 
-    # ---- 1-2. 口座の建玉と台帳の帳尻（live-trading.md §0-8）: 控えの未完を戻す → 突き合わせる。⚠ 売買の前に済ませる
+    # ---- 1-2. 口座の建玉と売買履歴の帳尻（live-trading.md §0-8）: 控えの未完を戻す → 突き合わせる。⚠ 売買の前に済ませる
     journal = Journal(state_dir, date, now=CLOCK.now)
     rec_events, blocked = recovery.recover_unfinished(journal, client, account, state_dir, date, write=args.mode == "submit")
     for ev in rec_events:
@@ -359,16 +359,16 @@ def main() -> int:
         print(f"⚠ 控えの未完: {ev['trader']} {ev['side']} {ev['symbol']} → {ev.get('outcome') or ev.get('reason')}", file=sys.stderr)
     if any(ev["kind"] == "journal_recovered" and ev.get("shares") for ev in rec_events):
         positions = client.list_positions(account)
-    states = {t.name: load_state(state_dir, t.name) for t in traders}       # ⚠ 戻した約定が入った後の台帳を読み直す
+    states = {t.name: load_state(state_dir, t.name) for t in traders}       # ⚠ 戻した約定が入った後の売買履歴を読み直す
     all_states = {**recovery.load_all_states(state_dir), **states}          # その回に動かさない人の持ち分も口座には入っている
     outside, short = recovery.check_positions(positions, all_states, {sym for t in traders for sym in t.symbols})
     if outside:
         rec.write("events", {"kind": "positions_outside_ledger", "symbols": outside,
-                             "note": "口座のほうが多い ＝ 台帳の外の株（利用者の手持ちなど）。トレーダーは自分の台帳の株しか売らないので売買は続ける"})
+                             "note": "口座のほうが多い ＝ 売買履歴の外の株（利用者の手持ちなど）。トレーダーは自分の売買履歴の株しか売らないので売買は続ける"})
     for sym, row in short.items():
         rec.write("events", {"kind": "position_short", "symbol": sym, **row,
-                             "note": "台帳にあるはずの株が口座に無い ＝ この銘柄は今日売買しない。reconcile.py で台帳を口座に合わせる"})
-        print(f"⚠ 口座の建玉が台帳より少ない: {sym} 口座 {row['account']} ／ 台帳 {row['ledger']}。今日は売買しない（reconcile.py）", file=sys.stderr)
+                             "note": "売買履歴にあるはずの株が口座に無い ＝ この銘柄は今日売買しない。reconcile.py で売買履歴を口座に合わせる"})
+        print(f"⚠ 口座の建玉が売買履歴より少ない: {sym} 口座 {row['account']} ／ 売買履歴 {row['ledger']}。今日は売買しない（reconcile.py）", file=sys.stderr)
     blocked |= set(short)
 
     # 気配は本番の資格情報で読む（cert は配信しない）。本番の資格情報が無ければ同じ client（モックはこちら）
@@ -416,7 +416,7 @@ def main() -> int:
             raw, ev = planning.decide(t, states[t.name], sigs)
         for r in [r for r in raw if r["symbol"] in blocked]:
             rec.write("events", {"kind": "blocked_symbol", "trader": t.name, "symbol": r["symbol"], "side": r["side"],
-                                 "note": "口座と台帳の帳尻が合っていない銘柄（position_short ／ journal_unresolved）。今日は発注しない"})
+                                 "note": "口座と売買履歴の帳尻が合っていない銘柄（position_short ／ journal_unresolved）。今日は発注しない"})
         raw = [r for r in raw if r["symbol"] not in blocked]
         raw_by_trader[t.name] = raw
         need_quotes.update(r["symbol"] for r in raw)
@@ -450,15 +450,15 @@ def main() -> int:
     orders = planning.to_orders(intents, quotes)   # 1 意図 1 注文（合算しない・内部移転しない。売りが先）
     print(f"合図 {len(sigs)} 本 → 意図 {len(intents)} 件 → 口座への注文 {len(orders)} 件")
 
-    # ---- 4. 執行と台帳（submit のときだけ状態を書く）
-    # ⚠ 台帳の保存は 1 注文ごと: 発注の直前に控え（journal）→ 約定 → その人の台帳を保存 → 控えを閉じる。
+    # ---- 4. 執行と売買履歴（submit のときだけ状態を書く）
+    # ⚠ 売買履歴の保存は 1 注文ごと: 発注の直前に控え（journal）→ 約定 → その人の売買履歴を保存 → 控えを閉じる。
     #    途中で落ちても、失うのは高々 1 注文で、それも次の起動で控えから戻る（§0-8 の段 1）
     ledger_errors = 0
     fills_by_trader: list[dict] = []
     def settle(res) -> None:
         nonlocal ledger_errors
         if sim and os.environ.get("LT_SIM_CRASH") == "after_submit":
-            # 筋書き crash_mid（シミュレーションだけ）: 発注の後・記録と台帳の保存の前に落ちる。⚠ 仮の時計の検査を通った実行でしか効かない
+            # 筋書き crash_mid（シミュレーションだけ）: 発注の後・記録と売買履歴の保存の前に落ちる。⚠ 仮の時計の検査を通った実行でしか効かない
             os._exit(137)
         o = res.order
         rec.write("orders", {
@@ -476,11 +476,11 @@ def main() -> int:
             return
         if res.final_status == UNKNOWN:
             # ⚠ 控えを閉じない: 注文は届いた（か分からない）のに状態を読めなかった。次の起動が注文番号（無ければ external-identifier）で
-            #    照会して、その人の台帳に戻す（§0-8 の段 1）。ここで「約定 0」と書くと、約定していたとき台帳から漏れる
+            #    照会して、その人の売買履歴に戻す（§0-8 の段 1）。ここで「約定 0」と書くと、約定していたとき売買履歴から漏れる
             rec.write("events", {"kind": "order_unknown", "trader": o.parts[0]["trader"] if o.parts else None, "symbol": o.symbol, "side": o.side,
                                  "external_id": res.external_id, "order_id": (res.submitted or {}).get("order_id"),
-                                 "note": "状態を読めなかった注文。控えは開いたまま ＝ 次の起動が照会して台帳に戻す。急ぐなら口座の注文履歴を見て reconcile.py で合わせる"})
-            print(f"⚠ 状態を読めなかった注文: {o.side} {o.symbol}（控えは開いたまま。次の起動が照会して台帳に戻す）", file=sys.stderr)
+                                 "note": "状態を読めなかった注文。控えは開いたまま ＝ 次の起動が照会して売買履歴に戻す。急ぐなら口座の注文履歴を見て reconcile.py で合わせる"})
+            print(f"⚠ 状態を読めなかった注文: {o.side} {o.symbol}（控えは開いたまま。次の起動が照会して売買履歴に戻す）", file=sys.stderr)
             return
         for f in fills:
             # ⚠ 1 件の食い違いで落ちない: ここで落ちると、約定済みのほかの売買まで状態に残らない
@@ -492,7 +492,7 @@ def main() -> int:
             except ValueError as exc:
                 ledger_errors += 1
                 rec.write("events", {"kind": "ledger_error", "fill": f, "note": str(exc)[:300]})
-                print(f"⚠ 台帳に入れられない約定: {exc}", file=sys.stderr)
+                print(f"⚠ 売買履歴に入れられない約定: {exc}", file=sys.stderr)
             save_state(state_dir, states[f["trader"]])
         journal.done(res.external_id, str(res.final_status), shares=sum(f["shares"] for f in fills))
 

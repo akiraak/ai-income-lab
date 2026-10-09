@@ -1,6 +1,6 @@
 # 変換を検知器に通す口 — 6 変換 × 先 10 日の門（机上。§1 GA・§2 残り 5 変換）
 
-2026-10-09。利用者の問い（2026-09-16）「遺伝的アルゴリズムは既存のモデル全てに当てはめることはできる？」の残り ＝ ⚠ **検知器 23 本には届かなかった**（[evolutionary-search.md §8](evolutionary-search.md)）を、汎用の口で埋める。利用者決定 2026-10-09 ＝ **A（汎用の口）**「検証の幅が広がる汎用的な方」。規約は [rules.md 24 章](feature-discovery/rules.md)、プランは [transform-into-detectors.md](../../plans/transform-into-detectors.md)。
+2026-10-09。利用者の問い（2026-09-16）「遺伝的アルゴリズムは既存のモデル全てに当てはめることはできる？」の残り ＝ ⚠ **検知器 23 本には届かなかった**（[evolutionary-search.md §8](evolutionary-search.md)）を、汎用の口で埋める。利用者決定 2026-10-09 ＝ **A（汎用の口）**「検証の幅が広がる汎用的な方」。規約は [rules.md 24 章](feature-discovery/rules.md)、プランは [transform-into-detectors.md](../../plans/archive/transform-into-detectors.md)。
 ⚠ **これは投資助言ではなく調査資料である。** ⚠ 数字は【実測】（自前の机上の検証）。⚠ **この結果で実売買の人を替えない**。
 
 ## 0. 回す前に決めたこと（⚠ この節は結果を見る前に書いた）
@@ -108,7 +108,7 @@ flowchart LR
 
 ### 2-0. 事前固定
 
-水準・費用・対の相手は [プラン §3](../../plans/transform-into-detectors.md)（5 本全部。変換の水準は元の実行のまま・検知器と θ は §0 と同じ）。数は **5 × θ 3 ＝ ＋15（n_trials 801 → 816）**・leak 対照 5 本。queue `transform_detector3`。
+水準・費用・対の相手は [プラン §3](../../plans/archive/transform-into-detectors.md)（5 本全部。変換の水準は元の実行のまま・検知器と θ は §0 と同じ）。数は **5 × θ 3 ＝ ＋15（n_trials 801 → 816）**・leak 対照 5 本。queue `transform_detector3`。
 
 | 変換 | config | 表 | 足す列 |
 | --- | --- | --- | ---: |
@@ -214,3 +214,4 @@ queue 全体で約 90 分（11:59〜13:30 PDT）。メモリは測っていな�
 - ⚠ **この結果で θ・水準・検知器・学習器を足さない**（14-10）。線形の変換 × 非線形の学習器は「試すなら新しい処置として先に登録」（§2-3）。
 - ⚠ 口が届くのは `fwd` だけのまま（rules.md 24-1 の 4）。
 - Phase 4（デプロイ）は利用者の「デプロイ」の言葉で。`cli/run.py` は 13500t の毎日の予測の経路なので、`transform` の無い config が 1 ビットも変わらないことは指紋テスト 3 本で固定してある。
+  - ✅ 2026-10-09 14:15 PDT（17:15 ET）: 利用者が `./run-deploy.sh` ＝ 関門 ✅（執行器 202 passed ／ 管理画面 266 passed ／ 指紋 22 passed）→ `prod` cafd762 → **2aea697**・13500t `done 2aea697`（管理画面のコンテナ起こし直し）。⚠ 分類器が Claude の実行を止めたので、関門の `--dry-run` だけ Claude（Sx360）が先に流し、本番は利用者が流した。プランは [archive](../../plans/archive/transform-into-detectors.md) へ

@@ -1,4 +1,18 @@
 # DONE
+- 2026-10-09 検知器に「変換済みの列を受け取る」口を足す（判断 1 ＝ 「GA は既存のモデル全てに当てはめられるか」の残り、検知器 23 本） [plan](docs/plans/archive/transform-into-detectors.md)
+  派生元: 「進化的探索を他のモデル・経路に広げる」／ 利用者の質問（2026-09-16）「遺伝的アルゴリズムは既存のモデル全てに当てはめることはできる？」
+  ✅ 2026-10-09 利用者決定 **A（汎用の口）**「検証の幅が広がる汎用的な方」（比べた案 ＝ A 汎用の口 ／ B 足さない ／ C 「GA → fwd」の合成検知器 1 本）。14-1 の出力の契約は変えない（変わるのは検知器の**入力**）
+  ⚠ 幅の上限: 口から届くのは**表の全列を読む検知器** ＝ `fwd`（H1 先 10 日ゲート）1 本だけ。窓の 6 列固定（下降トレンド系）・配列（時系列分類器 ／ PatchTST ／ 外生モデル）・`own` 接頭辞（損切り）には届かない ＝ 広げるなら別の処置（[rules.md 24-1](docs/specs/experiments/feature-discovery/rules.md)）
+  - Phase 0: プランと TODO（✅ 2026-10-09 Sx360 の Claude）
+  - Phase 1: 口の実装（`fold_buy_pct` の検知器の枝の頭・列は足す・手法名は「変換名 ＋ 検知器名」）・テスト・rules.md 24 章（titan）
+    ✅ 2026-10-09。`prep.augment`（門の検知器の枝も同じ口）・鍵は「ID ＋ 検知器名」（残さないと GA × Ridge の行とまとまる）・テスト 7 本（`tests/test_transform_detector.py`）。指紋 2 本（`test_trading_run`・`test_predict`）✅
+  - Phase 2: GA × `fwd` × θ 3（n_trials ＋3・leak 1 本。titan）
+    ✅ 2026-10-09: **3 行とも落とす**（上乗せ −408 ／ −328 ／ −1,342bp。`fwd` のみとの対の差 −10 ／ −74 ／ −68bp・|t| < 1.6）。n_trials 798 → 801。⚠ 1 回目の実行は口の穴（`y_fwd_10` が変換の入力に残る）で leak と同じ値 → `is_meta` で外して回し直し（[記録 §1-0](docs/specs/experiments/transform-into-detectors.md)）
+  - Phase 3: 残り 5 変換 × `fwd`（＋15。⚠ Phase 2 の結果で水準を選ばない ＝ 6 本全部か回さないか）
+    ✅ 2026-10-09 利用者「進めて」→ **15 行とも落とす**（n_trials 801 → 816・leak 5 本とも跳ねた）。⚠ PCA・ウェーブレットは `fwd` のみと買い% が 1 ビットも同じ（線形の変換 × Ridge。[記録 §2-3](docs/specs/experiments/transform-into-detectors.md)）＝ 線形 × 線形の組はこの口では何も試していないのと同じ。試すなら非線形の学習器を新しい処置として先に登録。tsfresh 2,522 秒【実測】
+  - Phase 4: 「デプロイ」（利用者。`cli/run.py` は 13500t の毎日の予測の経路）
+    ✅ 2026-10-09 14:15 PDT（17:15 ET）: 利用者が `./run-deploy.sh` ＝ 関門 ✅（執行器 202 passed ／ 管理画面 266 passed ／ 指紋 22 passed）→ `prod` cafd762 → **2aea697**・13500t `done 2aea697`（管理画面のコンテナ起こし直し）。⚠ 分類器が Claude の実行を止めたので、関門の `--dry-run` だけ Claude（Sx360）が先に流し、本番は利用者が流した
+  ⚠ 合計 **18 行とも落とす**（n_trials 798 → 816）。⚠ この結果で θ・水準・検知器・学習器を足さない（14-10）。口が届くのは `fwd` だけのまま。記録は [transform-into-detectors.md](docs/specs/experiments/transform-into-detectors.md)
 - 2026-10-09 紙上の対照（`paper.py`）を実物にそろえる（始めた日・整数株・印と名簿・人の区切り） [plan](docs/plans/archive/paper-align.md)
   派生元: いまの 3 人の 8 営業日の判定（[live-trading.md §2-1](docs/specs/experiments/live-trading.md)。差 3 が線を越えたが執行の差ではなかった）
   ⚠ 新しい 3 人（10/8 から）では印（10/5〜07 の停止・10/7 の手じまい）と T1 の始め直しを紙上が知らない ＝ 直さないと初日から差 3 で執行の差を測れない

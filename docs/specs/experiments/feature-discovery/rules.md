@@ -1674,7 +1674,7 @@ flowchart LR
 
 ## 24. ⚠ 変換を検知器に通す口（2026-10-09）
 
-TODO「検知器に『変換済みの列を受け取る』口を足す」。利用者決定 2026-10-09 ＝ **A（汎用の口）**「検証の幅が広がる汎用的な方」。プランは [transform-into-detectors.md](../../../plans/transform-into-detectors.md)、記録は [transform-into-detectors.md](../transform-into-detectors.md)。
+TODO「検知器に『変換済みの列を受け取る』口を足す」。利用者決定 2026-10-09 ＝ **A（汎用の口）**「検証の幅が広がる汎用的な方」。プランは [transform-into-detectors.md](../../../plans/archive/transform-into-detectors.md)、記録は [transform-into-detectors.md](../transform-into-detectors.md)。
 ⚠ **この章は結果を見る前に書いた。** 変換（3 章 B の `transform`）は 選別 × モデルの経路（形式 (A)(B)）にしか挟めなかった。検知器（15 章）の枝は `prep.apply` より前にあり、生の表を受け取る。この章は **その枝の頭に 1 か所だけ口を足す**。⚠ **14-1 の出力の契約は変えない**（変わるのは検知器の入力だけ）。
 
 > この図の主張: 口は `fold_buy_pct` の検知器の枝の頭に 1 か所。変換の fit は訓練分割の内側で、出力の列を表に**足して**（置き換えない）検知器に渡す。

@@ -1,4 +1,4 @@
-"""変換を検知器に通す口（rules.md 24 章。[プラン](../../../docs/plans/transform-into-detectors.md) §4）。
+"""変換を検知器に通す口（rules.md 24 章。[プラン](../../../docs/plans/archive/transform-into-detectors.md) §4）。
 
 ⚠ **ここで落としたいのは 6 つ。**
   1. 指紋: `transform` の無い検知器の config（`fwd`）の出力が、口を足す前（commit 00e4958）と 1 ビットも同じ

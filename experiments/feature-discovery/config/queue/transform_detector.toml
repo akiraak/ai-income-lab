@@ -1,5 +1,5 @@
 # ⚠ **変換を検知器に通す口の最初の 1 本 ＝ GA × 先 10 日の門**（rules.md 24 章・記録 transform-into-detectors.md。
-# 2026-10-09 利用者決定 A「汎用の口」。プラン plans/transform-into-detectors.md Phase 2）。
+# 2026-10-09 利用者決定 A「汎用の口」。プラン plans/archive/transform-into-detectors.md Phase 2）。
 # 事前固定は rules.md 24-2（⚠ **回すと決めたのは結果を見る前**）。1 本 × θ 3 ＝ n_trials ＋3。
 # 表は作り直さない（`features_from = "trade_own_fwd10_ridge_a"`。leak 対照の表 `…_leak` も既にある）。
 # ⚠ Phase 3（残り 5 変換）はこの queue に足さない（利用者の了承が要る）。

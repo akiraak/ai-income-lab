@@ -28,18 +28,7 @@
     ✅ **(a) の第一歩は 2026-09-16 に完了し [DONE.md](DONE.md) へ移した**: GA × LightGBM ／ GA × MLP（⚠ **6 行とも落とす**。⚠ **探索の出力は 3 モデルで 1 ビットも同じなので、これは「モデルだけを替えた」比較である**）。n_trials 592 → 598（[記録 §8](docs/specs/experiments/evolutionary-search.md)）
     ⚠ **前段に GA を挟んで良くなったのは 6 対のうち 3 つだけ**（±30〜390bp）で、⚠ **向きが揃わない ＝ 「GA を通すと良くなる」とは言えない**。⚠ **上下の幅は B&H との差より小さい**
     ✅ 子「GA の適合度を順位相関以外に替えて回す」は 2026-10-08 に [DONE.md](DONE.md) へ（3 案 × θ 3 ＝ 9 行とも落とす・n_trials 789 → 798。[記録 §9](docs/specs/experiments/evolutionary-search.md)）
-    - [ ] 検知器に「変換済みの列を受け取る」口を足す [plan](docs/plans/transform-into-detectors.md)
-      ✅ 2026-10-09 利用者決定 **A（汎用の口）**: 「検証の幅が広がる汎用的な方」（比べた案 ＝ A 汎用の口 ／ B 足さない ／ C 「GA → fwd」の合成検知器 1 本）。⚠ 14-1 の出力の契約は変えない（変わるのは検知器の**入力**）
-      ⚠ 幅の上限: 口から届くのは**表の全列を読む検知器**だけ ＝ いまは `fwd`（H1 先 10 日ゲート）1 本。窓の 6 列固定（下降トレンド系）・配列（時系列分類器 ／ PatchTST ／ 外生モデル）・`own` 接頭辞（損切り）には届かない ＝ 広げるなら別の処置
-      ⚠ `cli/run.py` の `fold_buy_pct` は 13500t の毎日の予測も通る ＝ 「`transform` の無い config は 1 ビットも変えない」を指紋テストで固定してからデプロイ
-      - [x] Phase 0: プランと TODO（✅ 2026-10-09 Sx360 の Claude）
-      - [x] Phase 1: 口の実装（`fold_buy_pct` の検知器の枝の頭・列は足す・手法名は「変換名 ＋ 検知器名」）・テスト 6 本・rules.md 24 章（titan）
-        ✅ 2026-10-09。`prep.augment`（門の検知器の枝も同じ口）・鍵は「ID ＋ 検知器名」（残さないと GA × Ridge の行とまとまる）・テスト 7 本（`tests/test_transform_detector.py`）。指紋 2 本（`test_trading_run`・`test_predict`）✅
-      - [x] Phase 2: GA × `fwd` × θ 3 を回す（n_trials ＋3・leak 1 本）→ 記録 `transform-into-detectors.md` → 検証結果一覧を吐き直す（titan）
-        ✅ 2026-10-09: **3 行とも落とす**（上乗せ −408 ／ −328 ／ −1,342bp。`fwd` のみとの対の差 −10 ／ −74 ／ −68bp・|t| < 1.6）。n_trials 798 → 801。⚠ 1 回目の実行は口の穴（`y_fwd_10` が変換の入力に残る）で leak と同じ値 → `is_meta` で外して回し直し（[記録 §1-0](docs/specs/experiments/transform-into-detectors.md)）
-      - [x] Phase 3: 残り 5 変換 × `fwd`（＋15）。⚠ **水準と費用をプラン §3 に書いて利用者の了承を取ってから**。⚠ Phase 2 の結果で水準を選ばない（6 本全部か回さないか）
-        ✅ 2026-10-09 利用者「進めて」→ **15 行とも落とす**（n_trials 801 → 816・leak 5 本とも跳ねた）。⚠ PCA・ウェーブレットは `fwd` のみと買い% が 1 ビットも同じ（線形の変換 × Ridge。[記録 §2-3](docs/specs/experiments/transform-into-detectors.md)）＝ 線形 × 線形の組はこの口では何も試していないのと同じ。試すなら非線形の学習器を新しい処置として先に登録。tsfresh 2,522 秒【実測】
-      - [ ] Phase 4: 「デプロイ」（利用者）→ DONE へ・プランを archive へ
+    ✅ 子「検知器に『変換済みの列を受け取る』口を足す」（判断 1 ＝ 利用者決定 A 汎用の口）は 2026-10-09 に [DONE.md](DONE.md) へ（GA 3 ＋ 残り 5 変換 15 ＝ **18 行とも落とす**・n_trials 798 → 816・デプロイ `prod` 2aea697。⚠ 口が届くのは `fwd` だけ・線形の変換 × Ridge は買い% を変えない ＝ [記録](docs/specs/experiments/transform-into-detectors.md)）
     - [ ] ハイパーパラメータを訓練分割の内側で選ぶ段を入れる（判断 2「モデルの構造・ハイパラを進化させるか」） [plan](docs/plans/hyperparam-inner-selection.md)
       ✅ 2026-10-09 利用者決定 **B（内側の選抜）**（比べた案 ＝ A 入れない ／ B 事前固定した候補から訓練分割の尻で選ぶ ／ C GA で構造まで）。⚠ **軽いモデルだけ**（Ridge・LightGBM・MLP）。GA は使わない（Ridge は alpha 1 次元・LightGBM は格子 27 で尽くせる。MLP は層の数 1〜3 を候補に含める ＝ 構造はここまで）
       ⚠ 規約: [13-6 規約 3](docs/specs/experiments/feature-discovery/rules.md) を「評価期間の結果で動かさない」に書き換え・14-12 を足した（✅ 2026-10-09 Sx360）。数えるのは champion × θ ＝ 3 モデル × θ 3 ＝ **＋9**。候補 × fold は数えない（14-11 規約 2）

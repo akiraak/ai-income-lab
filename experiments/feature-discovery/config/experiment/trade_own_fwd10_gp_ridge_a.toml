@@ -1,5 +1,5 @@
 # ⚠ **変換を検知器に通す口の最初の 1 本 ＝ GA × 先 10 日の門**（rules.md 24 章・記録 transform-into-detectors.md。
-# 2026-10-09 利用者決定 A「汎用の口」）。プランは plans/transform-into-detectors.md Phase 2。
+# 2026-10-09 利用者決定 A「汎用の口」）。プランは plans/archive/transform-into-detectors.md Phase 2。
 #
 # ⚠ **`trade_own_fwd10_ridge_a.toml` と `name` / `transform` 以外は 1 文字も違わない**（表・fold・θ・学習器・種・コスト・パージ）。
 # ⚠ **表は作り直さず `trade_own_fwd10_ridge_a` のものを読む**（`y_fwd_10` の列が要る。13-8。表の差を混ぜない）。

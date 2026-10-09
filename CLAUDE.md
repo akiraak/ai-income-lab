@@ -241,6 +241,7 @@ cd experiments/feature-discovery
 ```bash
 cd experiments/feature-discovery
 .venv/bin/python -m cli.queue --config transform_detector   # GA × H1 先10日ゲート（本番 1 ＋ leak 1。約 30 秒【実測】）。⚠ 回し直すと同じ識別項目の実行が増えるだけ
+.venv/bin/python -m cli.queue --config transform_detector3  # 残り 5 変換 × H1 先10日ゲート（本番 5 ＋ leak 5。約 90 分【実測】・tsfresh が 42 分）
 ```
 
 - `prep.augment`（rules.md 24 章）: config に `transform` があれば、検知器の枝の頭で 訓練分割で fit した変換の列を `tr`・`te`・`feats` に**足して**（置き換えない）検知器に渡す。門の検知器の枝も同じ口。⚠ **`transform` の無い config は 1 ビットも変わらない**（この経路は 13500t の毎日の予測 `cli/predict.py` も通る ＝ 指紋 `tests/fixtures/fwd_fingerprint.json`・`test_trading_run`・`test_predict`）

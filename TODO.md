@@ -37,7 +37,8 @@
         ✅ 2026-10-09。`prep.augment`（門の検知器の枝も同じ口）・鍵は「ID ＋ 検知器名」（残さないと GA × Ridge の行とまとまる）・テスト 7 本（`tests/test_transform_detector.py`）。指紋 2 本（`test_trading_run`・`test_predict`）✅
       - [x] Phase 2: GA × `fwd` × θ 3 を回す（n_trials ＋3・leak 1 本）→ 記録 `transform-into-detectors.md` → 検証結果一覧を吐き直す（titan）
         ✅ 2026-10-09: **3 行とも落とす**（上乗せ −408 ／ −328 ／ −1,342bp。`fwd` のみとの対の差 −10 ／ −74 ／ −68bp・|t| < 1.6）。n_trials 798 → 801。⚠ 1 回目の実行は口の穴（`y_fwd_10` が変換の入力に残る）で leak と同じ値 → `is_meta` で外して回し直し（[記録 §1-0](docs/specs/experiments/transform-into-detectors.md)）
-      - [ ] Phase 3: 残り 5 変換 × `fwd`（＋15）。⚠ **水準と費用をプラン §3 に書いて利用者の了承を取ってから**。⚠ Phase 2 の結果で水準を選ばない（6 本全部か回さないか）
+      - [x] Phase 3: 残り 5 変換 × `fwd`（＋15）。⚠ **水準と費用をプラン §3 に書いて利用者の了承を取ってから**。⚠ Phase 2 の結果で水準を選ばない（6 本全部か回さないか）
+        ✅ 2026-10-09 利用者「進めて」→ **15 行とも落とす**（n_trials 801 → 816・leak 5 本とも跳ねた）。⚠ PCA・ウェーブレットは `fwd` のみと買い% が 1 ビットも同じ（線形の変換 × Ridge。[記録 §2-3](docs/specs/experiments/transform-into-detectors.md)）＝ 線形 × 線形の組はこの口では何も試していないのと同じ。試すなら非線形の学習器を新しい処置として先に登録。tsfresh 2,522 秒【実測】
       - [ ] Phase 4: 「デプロイ」（利用者）→ DONE へ・プランを archive へ
     - [ ] ハイパーパラメータを訓練分割の内側で選ぶ段を入れる（判断 2「モデルの構造・ハイパラを進化させるか」） [plan](docs/plans/hyperparam-inner-selection.md)
       ✅ 2026-10-09 利用者決定 **B（内側の選抜）**（比べた案 ＝ A 入れない ／ B 事前固定した候補から訓練分割の尻で選ぶ ／ C GA で構造まで）。⚠ **軽いモデルだけ**（Ridge・LightGBM・MLP）。GA は使わない（Ridge は alpha 1 次元・LightGBM は格子 27 で尽くせる。MLP は層の数 1〜3 を候補に含める ＝ 構造はここまで）

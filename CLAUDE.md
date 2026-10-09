@@ -247,7 +247,7 @@ cd experiments/feature-discovery
 - ⚠ **届くのは表の全列を読む検知器（`H1 先10日ゲート`）だけ**。窓固定（D ／ C ／ 入口・出口）・配列（時系列分類器 ／ PatchTST ／ 外生モデル）・`own` 接頭辞（損切り）には届かない（rules.md 24-1 の表）
 - ⚠ **変換の入力は `contracts.is_meta` で meta を外す**（本物の表の `feats` には `y_fwd_10` が残っている。2026-10-09 の 1 回目の実行はそれを GA に渡して leak と同じ値になった ＝ 記録 §1-0。テストは `cli/run.py` と同じ作り方の `feats` で）
 - 識別項目: 手法名「変換名 ＋ 検知器名」・鍵は **「ID ＋ 検知器名」**（`F4-1 ＋ H1 …`。残さないと GA × Ridge の行とまとまって数え落とす）・予測モデル名 `own.f4-1-h1-gate10.ridge.shared`
-- 結果: 3 行とも落とす（n_trials 798 → 801。`fwd` のみとの対の差は |t| < 1.6）。記録は `docs/specs/experiments/transform-into-detectors.md`。⚠ Phase 3（残り 5 変換）は利用者の了承の後・6 本全部か回さないか
+- 結果: GA の 3 行とも落とす（n_trials 798 → 801。`fwd` のみとの対の差は |t| < 1.6）→ ✅ **Phase 3（残り 5 変換 × `fwd`。queue `transform_detector3`。利用者「進めて」）も 15 行とも落とす**（801 → 816）。⚠ **線形の変換（PCA・ウェーブレット）は `fwd` × Ridge の買い% を 1 ビットも変えない**（入力の線形結合を足しても空間が同じ）＝ 線形 × 線形の組はこの「足す」口では試していないのと同じ。試すなら非線形の学習器か「置き換える」口を新しい処置として先に登録する。記録は `docs/specs/experiments/transform-into-detectors.md`（§1 GA・§2 Phase 3）
 
 ### experiments/live-trading（実売買の執行器。2026-09-17 の 2 つ目の例外）
 

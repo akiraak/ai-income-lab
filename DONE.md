@@ -1,4 +1,8 @@
 # DONE
+- 2026-10-08 実売買の執行器（`run_day.py`・`reconcile.py`）のメッセージの「台帳」→「売買履歴」（⚠ 本番投入が落ち着いてから。執行器のテストを流す・本番に効くので「デプロイ」が要る）
+  派生元: 「DBを使ったデータの永続化を行う」の「言葉を分かりやすくする」（2026-09-25 に DONE へ）
+  ✅ 2026-10-08（Sx360 の Claude。利用者「進められるものをまずやって」）: `run_day.py`・`reconcile.py`・`recovery.py` の「台帳」を全部「売買履歴」に（メッセージ・`note`・help・コメント。⚠ 項目名 `ledger` などコードの識別子は変えない）・`tests/test_sim_run_day.py` の文字の照合 1 か所。`./run-tests.sh --fast` ✅。`journal.py`・`execute.py`・`state.py` のコメントは触っていない。⏳ 「デプロイ」（新しい 3 人の回が数日落ち着いてから）→ CLAUDE.md の「執行器のメッセージの「台帳」は…直す」の 1 文を消して DONE へ
+  ✅ 2026-10-08 デプロイ（利用者「デプロイ」。Sx360 の `./run-deploy.sh`・関門 ✅）＝ `prod` d5416d4 → **af08e0e**・13500t `done af08e0e`（23:45 PDT・管理画面のコンテナ起こし直し）。CLAUDE.md の「…落ち着いてから直す」を済みに書き換えた
 - 2026-10-08 GA の適合度を順位相関以外に替えて回す [plan](docs/plans/archive/ga-fitness-variants.md)（⚠ **替えた数だけ n_trials が増えるので、回す前に水準を決める** — [14-9](docs/specs/experiments/feature-discovery/rules.md)）
   派生元: 「進化的探索を他のモデル・経路に広げる」（TODO の「DeepLearning と進化的探索…」の子）
   ✅ 2026-10-08 利用者決定「1」＝ 回す。水準（3 案 × θ 3 ＝ n_trials ＋9）をプラン §1 に書き、同日に利用者が了承（Phase 0 ✅）→ titan の Claude

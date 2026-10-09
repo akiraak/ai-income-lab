@@ -1,4 +1,9 @@
 # DONE
+- 2026-10-08 GA の適合度を順位相関以外に替えて回す [plan](docs/plans/archive/ga-fitness-variants.md)（⚠ **替えた数だけ n_trials が増えるので、回す前に水準を決める** — [14-9](docs/specs/experiments/feature-discovery/rules.md)）
+  派生元: 「進化的探索を他のモデル・経路に広げる」（TODO の「DeepLearning と進化的探索…」の子）
+  ✅ 2026-10-08 利用者決定「1」＝ 回す。水準（3 案 × θ 3 ＝ n_trials ＋9）をプラン §1 に書き、同日に利用者が了承（Phase 0 ✅）→ titan の Claude
+  ✅ 2026-10-08 回した（titan の Claude。[記録 §9](docs/specs/experiments/evolutionary-search.md)・[rules.md 23 章](docs/specs/experiments/feature-discovery/rules.md)）: config の `fitness`（既定 `pooled` ＝ 探索の出力が 1 ビットも変わらない。2026-09-16 の 5 fold の式と適合度を再現して確かめた）で 断面の平均 ／ 断面の安定性 ／ 4 期間の最小 × θ 3 ＝ 採る 0 ／ 保留 0 ／ 落とす 9・n_trials 789 → **798**・leak 3 本とも跳ねた
+  **答え: 適合度を替えても B&H に届かない。** θ 50 の対の差（案 − いまの式）は 3 案とも |t| < 1。θ 55 ／ 60 では 2 案が持たなくなって悪化（保有日率 θ 60 で 0.43 → 0.09 ／ 0.18）。⚠ 曜日の列は「そのまま」では消えたが `÷ own_dow`・`× own_dow` の形で残った（予想は外れ）
 - 2026-10-08 予測モデルの検証とトレーダーの売買を、終値ではなく市場が開いた最初（翌日の始値）で執行したら何が起きるか（2026-09-26 の利用者の問い。⚠ 利用者の指示「実際に処理を回すのではなく、何が起きそうか想定するだけでいい」＝ 回していない） [plan](docs/plans/archive/next-open-execution.md)
   ✅ 2026-10-08 利用者決定「1」＝ **机上で回す**（[plan](docs/plans/archive/next-open-execution.md)。モデル 4 本 × θ 3 ＝ n_trials ＋12。titan の Claude）
   いまの形: 机上は 足 t の終値まで見て足 t の終値で執行（rules.md 13-4）→ 得るのは 終値 t → t+1。執行器は 15:50 ET の途中の足で予測して 15:50 の成行 ＝ 終値執行の近似。比べる形: 同じ合図を翌日 t+1 の始値で執行し、次も t+2 の始値 → 得るのは 始値 t+1 → t+2

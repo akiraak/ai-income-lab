@@ -1564,6 +1564,57 @@ flowchart LR
 
 ⚠ **2026-10-08 の適用例（回した結果）**: 採る 0 ／ 保留 1 ／ 落とす 11（`n_trials` 777 → **789**。記録は [next-open-execution.md §1](../next-open-execution.md)）。② B&H 自身の差は ±0.02bp/日・③ 上乗せの差は最大 0.87bp/日で 12 組とも \|t\| < 1（5bp/日の 1/6 以下）・① 符号が変わったのは 0 の近くの 2 組だけ。⚠ 9 組で縮む向きだが誤差の中・「`T1` の形で差が最大」は外れ（LightGBM の θ 50 が最大）。leak は 4 本とも跳ねた（終値より小さく）。
 
+## 23. ⚠ GA の適合度を替える — 3 案（2026-10-08）
+
+TODO「GA の適合度を順位相関以外に替えて回す」と利用者決定（2026-10-08「1」・3 案 × θ 3 ＝ n_trials ＋9 を了承）。プランは [ga-fitness-variants.md](../../../plans/archive/ga-fitness-variants.md)、記録は [evolutionary-search.md §9](../evolutionary-search.md)。
+⚠ **この章は結果を見る前に書いた**（14-9・14-11 と 14-10 の「緩めないもの」）。⚠ **探索（個体数・世代・打ち切り・種・champion の間引き・k）・後段の Ridge・θ・fold は 1 行も変えない。** 替えるのは「式の良さの測り方」だけである。
+
+| 変更規約の問い | 答え |
+| --- | --- |
+| なぜ替えるか | いまの適合度（訓練内 holdout の全行をまとめた Spearman \|ρ\|）は ⚠ **日ごとに全銘柄が同じ値を持つ列（曜日・相場全体の動き）を拾いやすい**。2026-09-16 の最良の式は曜日（`own_dow`。適合度 0.2511 → 検証で −219bp/fold） |
+| 変える前の結果をどう扱うか | ⚠ **既存の行は残す・再計算しない。** config の `fitness` は省けば `"pooled"`（いまの式）＝ 探索の出力（式と適合度の SHA）が 1 ビットも変わらない（`tests/test_ga_fitness.py`）。`fitness` の無い config は手法名も識別項目も変わらない |
+
+> この図の主張: 替えるのは適合度の 1 か所だけで、選ばれた champion から先は既存の GA × Ridge と同じ道を通る。
+
+```mermaid
+flowchart LR
+  G["GA 100 体 × 20 世代<br/>（訓練分割の尻 10% で測る）"] --> F{"適合度"}
+  F --> F0["既定 pooled: 全行の |ρ|"]
+  F --> F1["xs_mean: 日ごとの断面 ρ の平均の絶対値"]
+  F --> F2["xs_ir: 断面 ρ の平均 ÷ 日ごとのばらつき"]
+  F --> F3["worst4: 4 期間それぞれの |ρ| の最小"]
+  F1 --> C["champion 16 列 → Ridge → 閾値売買"]
+  F2 --> C
+  F3 --> C
+```
+
+### 23-1. 規約（式は回す前に固定）
+
+| # | 規約 | ⚠ 理由・限界 |
+| ---: | --- | --- |
+| 1 | config の平の key `fitness = "pooled" \| "xs_mean" \| "xs_ir" \| "worst4"`（既定 `pooled`）。測る行は今までと同じ（訓練分割の尻 10%・`tail_holdout`） | 測る場所を変えると 2 つの軸が同時に動く |
+| 2 | **断面の ρ_d**: その日（holdout の中の 1 日）の行どうしで式の値と y の順位相関（順位は今の `_ranks` と同じ序数）。⚠ **その日の行が 3 未満の日は使わない**・⚠ **その日の中で式の値が一定なら ρ_d ＝ 0**（曜日のような列は断面の情報を持たない） | 「日ごとに全銘柄が同じ値」の列を作りから 0 にする |
+| 3 | **xs_mean** ＝ \|ρ_d の平均\| ／ **xs_ir** ＝ \|ρ_d の平均\| ÷ ρ_d の標準偏差（ddof 1。0 なら 0）／ **worst4** ＝ holdout の日付を時刻順に 4 つの塊（日数がほぼ等しい）に切り、塊の中の全行の \|ρ\| の最小値（4 は回す前に固定） | xs_ir は「数日だけ効く式」、worst4 は「一部の時期だけ効く式」を嫌う |
+| 4 | 使えない式は 0（値の半分以上が非有限・全体で一定）＝ 今と同じ | 0 で埋めるのは「使えない」の意味だけ |
+| 5 | 日付は `ctx` の `ts_tr`（訓練分割の行と同じ並び）で渡す。⚠ **検証分割の日付も y も適合度に来ない**（14-11） | 既存の検査「検証分割を替えても選ばれる式が変わらない」を 3 案にも掛ける |
+| 6 | (B) 銘柄別（1 日 1 行）に xs_mean ／ xs_ir を当てると全部 0 になるので止める | 今回は (A) 共通だけ |
+
+### 23-2. 水準・数え方（⚠ 回す前に固定）
+
+| 項目 | 水準 |
+| --- | --- |
+| 揃えるもの | 表 `own_2018`・(A) 共通・Ridge・GA の設定（`DEFAULTS` のまま）・種 0・θ 50 ／ 55 ／ 60・コスト（= `trade_own_gp_a` と同じ） |
+| 案 | 3（xs_mean ／ xs_ir ／ worst4）。⚠ **結果を見てから案を足さない・数字（3 行・4 塊）を動かさない** |
+| 数 | ⚠ **3 案 × θ 3 ＝ ＋9（n_trials 789 → 798）**・leak 対照 3 本。⚠ 数えるのは champion × θ だけ（14-11。世代 × 個体は数えない） |
+| 識別項目 | 手法名の後ろに `〔適合度・断面の平均〕` ／ `〔適合度・断面の安定性〕` ／ `〔適合度・4期間の最小〕`（`prep.label`）。⚠ **カタログ ID（`F4-1`）の行でも〔適合度・…〕を鍵に残す**（`catalog.canonical`。20-4 の 2 と同じ理由 ＝ 残さないと既存の GA の行と 1 行にまとまって数え落とす）。予測モデル名は `-fit-xsmean` ／ `-fit-xsir` ／ `-fit-worst4`（`config/names.toml` の `[fitness]`） |
+| 判定 | 13-7 のまま（対 B&H）。いまの GA × Ridge（`pooled`）との対の差（同じ表・同じ fold）を添える（採否に使わない） |
+
+### 23-3. ⚠ 先に書く予想と読み方
+
+⚠ **事前に書く予想【推測】**: 9 行とも「採る」にならない（いまの GA × Ridge が 3 行とも落とす・上乗せ −219〜−699bp/fold）。xs_mean ／ xs_ir の champion に曜日（`own_dow`）の式は入らない（作りから ρ_d ＝ 0）。worst4 は全行の ρ を測るので曜日や相場全体の列がまだ選ばれうる。対の差（案 − pooled）は誤差の中【推測】。⚠ **曜日が消えても上乗せが良くなるとは限らない**（後段の Ridge は 35 列ではなく champion 16 列しか見ない）。
+
+⚠ **2026-10-08 の適用例（回した結果）**: 採る 0 ／ 保留 0 ／ 落とす 9（`n_trials` 789 → **798**。記録は [evolutionary-search.md §9-1](../evolutionary-search.md)）。θ 50 の対の差（案 − pooled）は 3 案とも \|t\| < 1。θ 55 ／ 60 の xs_ir・worst4 は保有日率が落ちて（θ 60 で 0.43 → 0.09 ／ 0.18）悪化。⚠ **曜日の列は「そのまま」では消えたが `÷ own_dow`・`× own_dow` の形で残った**（xs_mean 21/80・xs_ir 20/80 本）＝ 予想「xs の champion に曜日の式は入らない」は外れ。leak は 3 本とも跳ねた。
+
 ## 付録: 本書と実装の対応
 
 ⚠ **試した結果の一覧は [ledger.md](ledger.md)**（`cli/report.py --catalog` の生成物）。
@@ -1594,4 +1645,5 @@ flowchart LR
 | ⚠ **20** | `cli/run.py` の `trader_conditions`・`_trader_fold`（`[trading] trader` の無い config は経路が 1 行も変わらない）／ 器は 17 章の `simulate_topk` のまま ／ 判定の相手 = `ail/catalog.py` の `_edge_vs_bh`（`〔トレーダー・…〕` の行は `基準 持ち続ける〔…〕`）／ 鍵 = `canonical` ／ 綴り = `ail/names.py` の `_TRADER` ／ テスト `tests/test_trader_shape.py` |
 | ⚠ **21** | `ail/validation/splits.py` の `max_train_days`・`folds_by_dates`（任意引数 `max_train_days`。⚠ **省くと既存と完全一致**）＋ `cli/run.py` の `evaluate_trading`・`ail/validation/gate.py` ／ 識別項目 = `ail/catalog.py` の `threshold_style`・`is_threshold` ／ 綴り `~trainN` = `ail/names.py` ／ テスト `tests/test_train_window.py` |
 | ⚠ **22** | `cli/run.py` の `next_open_returns`（調整済み日足の始値を (銘柄, 日) で継ぐ）・`evaluate_trading`（損益の系列 `y_pnl`。⚠ **`execution` が無ければ `y` ＝ 既存と完全一致**）／ 識別項目 = `ail/catalog.py` の `threshold_style` ／ 綴り `~exec-open` = `config/names.toml` の `[execution]` ／ テスト `tests/test_next_open.py` |
+| ⚠ **23** | `ail/search/evolve.py` の `fitness_of`・`xs_rho`・`worst_blocks`（既定 `pooled` は既存の `fitness` そのまま）・`tf_symbolic`（`ctx` の `fitness`・`ts_tr`）＋ `ail/validation/prep.py` の `apply`・`label`（〔適合度・…〕）＋ `cli/run.py` の `fold_buy_pct`・`ail/validation/gate.py`（日付を渡す）／ 識別項目 = `ail/catalog.py` の `canonical` ／ 綴り = `config/names.toml` の `[fitness]` ／ テスト `tests/test_ga_fitness.py` |
 | ⚠ **検証結果一覧** | `ail/catalog.py` ／ `cli/ledger.py` ／ `config/legacy.toml` ／ `config/catalog_notes.toml` |

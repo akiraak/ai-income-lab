@@ -1,6 +1,6 @@
 # GA の適合度を順位相関以外に替えて回す
 
-2026-10-08 利用者決定「1」（研究側の 3 件 E・F・G を全部回す。G は「水準の案を先に見せる」）。TODO の子「GA の適合度を順位相関以外に替えて回す」。⚠ **水準（何通り試すか）は回す前に固定する**（rules.md 14-9・[evolutionary-search.md §7](../specs/experiments/evolutionary-search.md)）。
+2026-10-08 利用者決定「1」（研究側の 3 件 E・F・G を全部回す。G は「水準の案を先に見せる」）。TODO の子「GA の適合度を順位相関以外に替えて回す」。⚠ **水準（何通り試すか）は回す前に固定する**（rules.md 14-9・[evolutionary-search.md §7](../../specs/experiments/evolutionary-search.md)）。
 
 ## 0. 目的・背景
 
@@ -37,9 +37,9 @@ flowchart LR
 | Phase | 中身 |
 | --- | --- |
 | 0 | ✅ 2026-10-08 利用者が 3 案で了承（「1」＝ E は ＋12・G は 3 案）。⚠ ここから先は足さない ／ 削らない |
-| 1 | rules.md と記録（`evolutionary-search.md` に §9）に、回す前の水準と読み方を書く |
-| 2 | `fitness` を名前で選べるように（config の `fitness = "pooled" | "xs_mean" | "xs_ir" | "worst4"`。既定 `pooled` ＝ いまの結果を 1 ビットも変えない）・テスト（既定で同じ式・同じ適合度の SHA ／ 曜日のような列が案 1・2 で 0 ／ 検証分割を差し替えても選ばれる式が変わらない ＝ 既存の検査と同じ） |
-| 3 | config 3 本 → `cli.queue`（leak つき）→ 検証結果一覧を吐き直す → 記録 §9 → TODO の子を `DONE.md` へ |
+| 1 ✅ | rules.md と記録（`evolutionary-search.md` に §9）に、回す前の水準と読み方を書く |
+| 2 ✅ | `fitness` を名前で選べるように（config の `fitness = "pooled" | "xs_mean" | "xs_ir" | "worst4"`。既定 `pooled` ＝ いまの結果を 1 ビットも変えない）・テスト（既定で同じ式・同じ適合度の SHA ／ 曜日のような列が案 1・2 で 0 ／ 検証分割を差し替えても選ばれる式が変わらない ＝ 既存の検査と同じ） |
+| 3 ✅ | config 3 本 → `cli.queue`（leak つき）→ 検証結果一覧を吐き直す → 記録 §9 → TODO の子を `DONE.md` へ |
 
 ## 3. 影響範囲
 
@@ -52,3 +52,5 @@ flowchart LR
 ## 5. 作業量・費用【推測】
 
 実装 半日・実行 1 本 10 秒前後 × 6（`evolutionary-search.md` §6 の実測から）。費用 0。
+
+✅ 2026-10-08 完了: 9 行とも落とす・n_trials 789 → 798。結果は [evolutionary-search.md §9-1](../../specs/experiments/evolutionary-search.md)。

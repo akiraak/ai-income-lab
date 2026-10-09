@@ -153,20 +153,112 @@ def fitness(vals: np.ndarray, y_rank: np.ndarray) -> float:
     return 0.0 if not np.isfinite(c) else float(abs(c))
 
 
+# --- 適合度を替える（rules.md 23 章。2026-10-08）--------------------------
+# ⚠ **既定 `pooled` は上の `fitness` そのまま**（探索の出力が 1 ビットも変わらない。`tests/test_ga_fitness.py`）。
+# ⚠ 測る行（訓練分割の尻）・探索・champion は替えない。替えるのは式の良さの測り方だけ
+FITNESS_LABELS = {                    # 手法名の後ろに付ける印（`prep.label`。識別項目に残す ＝ 23-2）
+    "xs_mean": "〔適合度・断面の平均〕",
+    "xs_ir": "〔適合度・断面の安定性〕",
+    "worst4": "〔適合度・4期間の最小〕",
+}
+XS_MIN_ROWS = 3                       # ⚠ 断面の ρ を取る日の行の下限（23-1 の 2。回す前に固定）
+WORST_BLOCKS = 4                      # ⚠ worst4 の塊の数（23-1 の 3。回す前に固定）
+
+
+def _usable(vals: np.ndarray) -> np.ndarray | None:
+    """`fitness` と同じ「使えない式は 0」の判定。使えるなら非有限を 0 にした値を返す。"""
+    finite = np.isfinite(vals)
+    if finite.mean() < 0.5:
+        return None
+    v = np.where(finite, vals, 0.0)
+    return None if float(np.std(v)) < 1e-12 else v
+
+
+def _group_ranks(v: np.ndarray, codes: np.ndarray, starts: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    """日の中の序数の順位（`_ranks` と同じく同値は元の並び順）と、日ごとの値の幅（最大 − 最小）。"""
+    order = np.lexsort((v, codes))
+    r = np.empty(len(v), dtype=float)
+    r[order] = np.arange(len(v), dtype=float) - starts[codes[order]]
+    sv = v[order]
+    ends = np.r_[starts[1:], len(v)] - 1
+    return r, sv[ends] - sv[starts]
+
+
+def xs_rho(vals: np.ndarray, setup: dict) -> np.ndarray | None:
+    """日ごとの断面の順位相関 ρ_d（23-1 の 2）。⚠ その日の中で値が一定なら 0。使えない式は None。"""
+    v = _usable(vals)
+    if v is None:
+        return None
+    v = v[setup["idx"]]
+    rv, width = _group_ranks(v, setup["codes"], setup["starts"])
+    rv_c = rv - (setup["n"][setup["codes"]] - 1.0) / 2.0
+    num = np.bincount(setup["codes"], rv_c * setup["ry_c"], minlength=len(setup["n"]))
+    rho = num / setup["den"]
+    return np.where(width > 1e-12, rho, 0.0)
+
+
+def _xs_setup(y: np.ndarray, dates) -> dict:
+    d = pd.Series(pd.to_datetime(np.asarray(dates)))
+    codes0, _ = pd.factorize(d)
+    keep = np.bincount(codes0)[codes0] >= XS_MIN_ROWS
+    idx = np.flatnonzero(keep)
+    if len(idx) == 0:
+        raise SystemExit(f"⚠ 断面の適合度: 行が {XS_MIN_ROWS} 以上ある日が無い（(B) 銘柄別には使えない。rules.md 23-1 の 6）")
+    codes, _ = pd.factorize(codes0[idx])
+    n = np.bincount(codes).astype(float)
+    # ⚠ 日ごとに並べ替えた順の先頭の位置（`_group_ranks` の lexsort は日の順 ＝ codes の昇順に並ぶ）
+    starts = np.r_[0, np.cumsum(n)[:-1]].astype(int)
+    ry, _ = _group_ranks(np.asarray(y, dtype=float)[idx], codes, starts)
+    ry_c = ry - (n[codes] - 1.0) / 2.0
+    den = np.bincount(codes, ry_c * ry_c)
+    return {"idx": idx, "codes": codes, "starts": starts, "n": n, "ry_c": ry_c, "den": den}
+
+
+def fitness_of(kind: str, y: np.ndarray, dates=None):
+    """適合度の関数（式の値 → 0 以上の数）。⚠ **`pooled` は既存の `fitness` と同じ式・同じ順位**。"""
+    y = np.asarray(y, dtype=float)
+    if kind == "pooled":
+        y_rank = _ranks(y)
+        return lambda vals: fitness(vals, y_rank)
+    if kind not in FITNESS_LABELS:
+        raise SystemExit(f"⚠ fitness は pooled ／ {' ／ '.join(FITNESS_LABELS)}: {kind!r}（rules.md 23-1）")
+    if dates is None or len(dates) != len(y):
+        raise SystemExit(f"⚠ fitness = {kind!r} には訓練の行の日付（ctx の ts_tr）が要る（rules.md 23-1 の 5）")
+    if kind == "worst4":
+        d = pd.to_datetime(np.asarray(dates))
+        blocks = np.array_split(np.sort(pd.unique(d)), WORST_BLOCKS)
+        masks = [np.isin(d, b) for b in blocks if len(b)]
+        ranks = [_ranks(y[m]) for m in masks]
+        return lambda vals: min(fitness(vals[m], r) for m, r in zip(masks, ranks))
+    setup = _xs_setup(y, dates)
+
+    def xs(vals: np.ndarray) -> float:
+        rho = xs_rho(vals, setup)
+        if rho is None:
+            return 0.0
+        m = float(rho.mean())
+        if kind == "xs_mean":
+            return abs(m)
+        sd = float(rho.std(ddof=1)) if len(rho) > 1 else 0.0
+        return 0.0 if sd < 1e-12 else abs(m) / sd
+    return xs
+
+
 def search(X: np.ndarray, y: np.ndarray, names: list[str], params: dict, seed: int,
-           clock=time.time) -> dict:
+           clock=time.time, dates=None) -> dict:
     """GA を 1 本回す。⚠ **渡すのは訓練分割の内側の表だけ。**
 
     戻り値は `{"式": [...], "適合度": [...], "世代": g, "止めた理由": ..., "秒": ...}`。
+    ⚠ `params["fitness"]`（無ければ `pooled`）と `dates`（行の日付）は rules.md 23 章。
     """
     rng = np.random.default_rng(seed)
     p, n_cols = params, X.shape[1]
-    y_rank = _ranks(np.asarray(y, dtype=float))
+    score = fitness_of(str(p.get("fitness", "pooled")), y, dates)
     started = clock()
 
     pop = [_random_tree(rng, n_cols, int(rng.integers(2, p["max_depth"] + 1)), i % 2 == 0)
            for i in range(p["pop"])]
-    fits = [fitness(_eval(t, X), y_rank) for t in pop]
+    fits = [score(_eval(t, X)) for t in pop]
     best, since, gen, why = max(fits), 0, 0, "世代の上限"
 
     for gen in range(1, int(p["generations"]) + 1):
@@ -186,7 +278,7 @@ def search(X: np.ndarray, y: np.ndarray, names: list[str], params: dict, seed: i
                 child = a
             nxt.append(child)
         pop = nxt
-        fits = [fitness(_eval(t, X), y_rank) for t in pop]
+        fits = [score(_eval(t, X)) for t in pop]
         if max(fits) > best + 1e-9:
             best, since = max(fits), 0
         else:
@@ -264,15 +356,23 @@ def tf_symbolic(Xtr: pd.DataFrame, Xte: pd.DataFrame, ctx: dict):
     p = {**DEFAULTS, **{k: ctx[k] for k in DEFAULTS if k in ctx}}
     names = list(Xtr.columns)
     y = np.asarray(y, dtype=float)
+    # ⚠ **適合度の測り方**（rules.md 23 章）。⚠ **無ければ pooled ＝ いまの式**（`prep.apply` が config の `fitness` を渡す）
+    kind = str(ctx.get("fitness", "pooled"))
+    ts_tr = ctx.get("ts_tr")
 
     # ⚠ **測る場所は訓練分割の尻**（門・較正と同じ。13-2 の 2）。⚠ **切れなければ訓練全体で測る**
     (_Xh, _yh), hold = tail_holdout(Xtr, y, frac=float(p["holdout_frac"]))
     if hold is None:
         Xs, ys, where = Xtr.to_numpy(dtype=float), y, "切れなかった（訓練全体で測った）"
+        ds = ts_tr
     else:
         Xs, ys, where = hold[0].to_numpy(dtype=float), hold[1], "訓練分割の尻"
+        # 日付も `tail_holdout` と同じ切り方で尻を取る（行の並びは Xtr と同じ）
+        ds = None if ts_tr is None else tail_holdout(np.asarray(ts_tr), y, frac=float(p["holdout_frac"]))[1][0]
 
-    doc = search(Xs, ys, names, p, int(ctx.get("seed", 0)))
+    doc = search(Xs, ys, names, {**p, "fitness": kind}, int(ctx.get("seed", 0)), dates=ds)
+    if kind != "pooled":
+        doc["適合度の測り方"] = kind                # ⚠ pooled のときは書かない（既存の fitted と同じ形）
     trees = doc.pop("木")
     if not trees:
         raise SystemExit("⚠ F4-1: 使える式が 1 本も残らなかった（適合度が全部 0）")

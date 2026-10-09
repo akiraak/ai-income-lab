@@ -42,6 +42,7 @@ _ID = re.compile(r"^(F\d-\d+[a-z]?)\b")
 # ⚠ **spec の表は全角の記号を使う。** 取り違えると符号が反転する
 _VARIANT = re.compile(r"〔[^〕]*〕$")      # 上位 K の構成（rules.md 17-5）
 _TRADER_VARIANT = re.compile(r"〔トレーダー・[^〕]*〕$")   # トレーダーの形の条件（rules.md 20-4）
+_FITNESS_VARIANT = re.compile(r"〔適合度・[^〕]*〕$")      # GA の適合度を替えた行（rules.md 23-2）
 _SIGNS = {"＋": "+", "−": "-", "－": "-", "▲": "-", ",": ""}
 
 
@@ -622,7 +623,8 @@ def canonical(name: str) -> tuple[str | None, str]:
     if m:
         # ⚠ **トレーダーの形の〔…〕は鍵に残す**（rules.md 20-4 の 2）。残さないと ID だけの鍵になり、元の行と
         # 1 行にまとまって数え落とす。⚠ 2026-10-01 時点で ID ＋〔…〕の行は 0 行 ＝ 既存の行は割れない
-        v = _TRADER_VARIANT.search(name)
+        # ⚠ **GA の適合度の〔適合度・…〕も同じ理由で鍵に残す**（rules.md 23-2。2026-10-08 時点で当たる行は 0 行）
+        v = _TRADER_VARIANT.search(name) or _FITNESS_VARIANT.search(name)
         return m.group(1), m.group(1) + (v.group(0) if v else "")
     return None, re.sub(r"^基準\s+", "", name).strip()
 

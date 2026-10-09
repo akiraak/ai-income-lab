@@ -27,8 +27,7 @@
     関連: [evolutionary-search.md](docs/specs/experiments/evolutionary-search.md) ／ [rules.md 14-11](docs/specs/experiments/feature-discovery/rules.md)（選抜は訓練分割の内側）／ [ledger-blanks-large-two.md](docs/specs/experiments/ledger-blanks-large-two.md)（✅ **2026-09-16 に F4-3・F5-3 を同じ器から回した**）
     ✅ **(a) の第一歩は 2026-09-16 に完了し [DONE.md](DONE.md) へ移した**: GA × LightGBM ／ GA × MLP（⚠ **6 行とも落とす**。⚠ **探索の出力は 3 モデルで 1 ビットも同じなので、これは「モデルだけを替えた」比較である**）。n_trials 592 → 598（[記録 §8](docs/specs/experiments/evolutionary-search.md)）
     ⚠ **前段に GA を挟んで良くなったのは 6 対のうち 3 つだけ**（±30〜390bp）で、⚠ **向きが揃わない ＝ 「GA を通すと良くなる」とは言えない**。⚠ **上下の幅は B&H との差より小さい**
-    - [ ] GA の適合度を順位相関以外に替えて回す [plan](docs/plans/ga-fitness-variants.md)（⚠ **替えた数だけ n_trials が増えるので、回す前に水準を決める** — [14-9](docs/specs/experiments/feature-discovery/rules.md)）
-      ✅ 2026-10-08 利用者決定「1」＝ 回す。水準（3 案 × θ 3 ＝ n_trials ＋9）をプラン §1 に書き、同日に利用者が了承（Phase 0 ✅）→ titan の Claude
+    ✅ 子「GA の適合度を順位相関以外に替えて回す」は 2026-10-08 に [DONE.md](DONE.md) へ（3 案 × θ 3 ＝ 9 行とも落とす・n_trials 789 → 798。[記録 §9](docs/specs/experiments/evolutionary-search.md)）
     - [ ] 検知器に「変換済みの列を受け取る」口を足すか決める（⚠ **出力の契約 14-1 の変更**。設計から。半日〜1 日【推測】）
     - [ ] モデルの構造・ハイパラを進化させるか決める（⚠ **軽いモデルだけ**。⚠ **[13-6 規約 3](docs/specs/experiments/feature-discovery/rules.md)「ハイパーパラメータは動かさない」と 14-11 の書き換えが先**）
 - [ ] 疑問に思ったことを登録し解決していく

@@ -78,6 +78,12 @@
 # ⚠ 訓練の窓 `閾値売買（訓練直近2520日）` → `~train2520` は機械的に作るので書かない（rules.md 21-3）
 "翌日始値" = "exec-open"
 
+[fitness]
+# GA の適合度を替えた行（rules.md 23-2）。`F4-1〔適合度・断面の平均〕` → `f4-1-fit-xsmean`
+"断面の平均" = "fit-xsmean"
+"断面の安定性" = "fit-xsir"
+"4期間の最小" = "fit-worst4"
+
 [learner]
 # 台帳の「モデル」列の基底（rules.md 10-1）。増強は `+`、水準は括弧で後ろに付く
 "Ridge" = "ridge"

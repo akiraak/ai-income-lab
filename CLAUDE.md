@@ -222,6 +222,19 @@ cd experiments/feature-discovery
 - 結果（6 人 × 条件 2 ＋ 候補 3 本 × 条件 2）: 採る 0。⚠ **5 本・$300 の上乗せは 6 人とも正だが、ほとんどが 1 つの fold（全員がほぼ現金だった時期に 5 本が下がった）から来ている**。⚠ **この結果で実売買の人を止めない・替えない・候補を本番に入れると決めない・順位で人を採らない・5 本を選び直さない**
 - ⚠ 机上で再現しないもの: 毎日の学び直し（机上は fold ごと）・15:50 ET の途中の足・気配と約定の差・`data-live/`。⚠ `T6` の 1995 年から学ぶ形は、本番の日足（2018 年から）では別の形になる（机上では上乗せが小さくなった）
 
+### experiments/feature-discovery の訓練の窓・翌日始値・GA の適合度（2026-10-08 に机上で回した）
+
+```bash
+cd experiments/feature-discovery
+.venv/bin/python -m cli.queue --config train_window   # 1995 表 × 2 モデル × 窓 2,520 ／ 1,260 日（rules.md 21 章）
+.venv/bin/python -m cli.queue --config next_open      # 本番の形 4 本を翌日の始値で執行（22 章）
+.venv/bin/python -m cli.queue --config ga_fitness     # GA の適合度 3 案（23 章）。⚠ 回し直すと同じ識別項目の実行が増えるだけ
+```
+
+- 口は 3 つとも **無い config は 1 ビットも変わらない**: `[validation] max_train_days`（訓練を検証の初日より前の N 日に絞る）／ `[trading] execution = "next_open"`（損益だけ log(始値 t+2 ／ 始値 t+1)・始値は調整済み日足から継ぐ）／ 平の key `fitness = "xs_mean" | "xs_ir" | "worst4"`（GA の適合度。既定 `pooled`）
+- 識別項目: 窓と執行は **検証方式の変種** `閾値売買（訓練直近N日）`・`閾値売買（翌日始値）`（`catalog.threshold_style`・判定と数え方は `catalog.is_threshold` で閾値売買のまま。名前は `~trainN`・`~exec-open`）／ 適合度は手法名の `〔適合度・…〕`（カタログ ID の行でも鍵に残す）
+- 結果: 3 件とも採る 0（n_trials 765 → 798）。窓 ＝ 「古い行が役に立つ／邪魔」とは言えない ／ 翌日始値 ＝ ほとんど変わらない（上乗せの差 ≤ 0.87bp/日）／ 適合度 ＝ 9 行とも落とす。記録は `old-data-relevance.md` §5・`next-open-execution.md`・`evolutionary-search.md` §9
+
 ### experiments/live-trading（実売買の執行器。2026-09-17 の 2 つ目の例外）
 
 ```bash

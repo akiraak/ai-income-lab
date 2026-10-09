@@ -719,7 +719,7 @@ flowchart LR
 
 ⚠ 決まりの正本は ET のまま（執行器・`run-deploy.sh`・暦）。画面は表示だけを変える。
 
-### 13-12. 差 3 は実物にそろえた紙上で（2026-10-08。利用者決定「全部はい」・[プラン](../plans/paper-align.md)）
+### 13-12. 差 3 は実物にそろえた紙上で（2026-10-08。利用者決定「全部はい」・[プラン](../plans/archive/paper-align.md)）
 
 `daily.csv` に `diff3a_*`（`paper.py` のそろえた紙上 ＝ 実物が発注した日から・整数株・印どおり）があれば、トレーダーの差 3 のタイル（累計はいまの期間 `aligned_since` から・日次の中央値）と概要の差 3 の中央値はそちらを使う。今までの形（等加重・端数）の累計はタイルに小さく残し、トレーダーの日次の表には両方の列を並べる。無い `daily.csv`（古い `paper.py`）は今までどおり。⚠ 紙上の線（図）は今までの形のまま。⚠ 管理画面は読むだけ（計算は `paper.py`）。テストは `tests/test_live.py` の `test_aligned_diff3_is_used_when_paper_py_writes_it`
 

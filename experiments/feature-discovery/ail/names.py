@@ -37,6 +37,7 @@ _STOP_LOSS = re.compile(r"〔買値から−(\d+)%〕$")                        
 _HOLD_DAYS = re.compile(r"〔(\d+)日で降りる〕$")                           # 基準 <選び方・作り方>〔5日で降りる〕（同。固定日数の出口）
 _TRADER = re.compile(r"〔トレーダー・([^〕]+)〕$")                         # <選び方・作り方>〔トレーダー・5本・$300〕（rules.md 20-4）
 _FITNESS = re.compile(r"〔適合度・([^〕]+)〕$")                            # F4-1〔適合度・断面の平均〕（rules.md 23-2）
+_ID_DETECTOR = re.compile(r"^(F\d-\d+[a-z]?) ＋ (.+)$")                   # F4-1 ＋ H1 先10日ゲート（全列・学習）（rules.md 24-2）
 _LEARNER = re.compile(r"^([^+(]+)((?:\+[^+(]+)*)(?:\(([^)]+)\))?$")      # 基底 +増強… (水準)
 _HORIZON = re.compile(r"^(\d+) 本")
 _GRAN = re.compile(r"^(\d+) 分足$")
@@ -79,6 +80,9 @@ def method_slug(key: str) -> str:
         if m.group(1) not in tr:
             _stop("トレーダーの形の条件", key)
         return _check(f"{method_slug(key[:m.start()])}-{tr[m.group(1)]}", "数字の選び方・作り方", key)
+    if m := _ID_DETECTOR.match(key):
+        # 変換を検知器に通した行（rules.md 24-2）。`F4-1 ＋ H1 …` → `f4-1-h1-gate10`（検知器の綴りは `[method]`）
+        return _check(f"{m.group(1).lower()}-{method_slug(m.group(2))}", "数字の選び方・作り方", key)
     if key in t["method"]:
         return t["method"][key]
     if key in t.get("mix", {}):

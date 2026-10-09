@@ -44,6 +44,8 @@ flowchart LR
 | 4 | 標準化の二重 | 検知器は中で自分の列を標準化する。変換の列は既に z 化されている（GA は `conv` で訓練の平均・分散で割る）ので無害 |
 | 5 | 手法名（識別項目） | `prep.label(exp, 検知器名)` ＝ **「変換名 ＋ 検知器名」**（GA × LightGBM の §8 と同じ形。先頭の ID で F4 ／ F5 の系統に入る）。`fitness` を替えた行は `〔適合度・…〕` も付く（23 章のまま） |
 | 6 | 係数の記録 | `fitted_doc["_transform"]` に変換の係数（式の木・列）。⚠ 次の実行では読み込まない（3 章 B） |
+| 6b | 鍵（⚠ 実装で見つけた） | `catalog.canonical` は ID だけに寄せるので、`F4-1 … ＋ H1 …` が既存の GA × Ridge の行（鍵 `F4-1`・Ridge・own・2018）と 1 行にまとまって数え落とす → **「ID ＋ 検知器名」を鍵に残す**（`_DETECTOR_PART`。「＋ 全部使う（基準）」は今までどおり ID だけ ＝ 既存の行は割れない）。予測モデル名は `f4-1-h1-gate10`（`names._ID_DETECTOR`） |
+| 6c | 変換の入力（⚠ 1 回目の実行で踏んだ） | 本物の表の `feats` には `y_fwd_10` が残っている（`cli/run.py` は `META_COLUMNS` だけを外す）→ 変換の入力は `contracts.is_meta` で外す。テストの表は `feature_columns` で外していたので見えなかった ＝ テストは `cli/run.py` と同じ作り方の `feats` で |
 | 7 | 本番の経路 | `cli/predict.py` も `fold_buy_pct` を通る ＝ `transform` ＋ `detectors` を持つ実験なら本番でも同じ列が足される。⚠ いまの本番の 4 本（`trade_own_ridge_a`・`trade_ownex_lgbm_a`・`trade_ownseq_ridge_a`・`sel_small4_1995`）に `transform` は無い ＝ 指紋は動かない |
 | 8 | 規約 | rules.md に **24 章「変換を検知器に通す口」**（短く: 場所・足す・届く範囲・数え方）。15-1 に「変換の列が足されて来ることがある」を 1 行 |
 | 9 | 数え方 | 閾値売買の行 ＝ θ 1 水準 1 検証（13-9）。**Phase 2 ＝ GA × `fwd` × θ 3 ＝ n_trials ＋3**。leak 対照 1 本（数えない）。Phase 3 の水準は回す前に §3 に書く |
@@ -53,8 +55,8 @@ flowchart LR
 | Phase | 誰 | 中身 | 済み |
 | --- | --- | --- | --- |
 | 0 | Sx360 の Claude | プランと TODO（このファイル） | ✅ 2026-10-09 |
-| 1 | titan の Claude | 口の実装（`cli/run.py`）・テスト（§4）・rules.md 24 章 ／ 15-1 の 1 行 | |
-| 2 | titan の Claude | **GA × `fwd`** を回す: config `trade_own_fwd10_gp_ridge_a.toml` ＝ `features_from = "trade_own_fwd10_ridge_a"`（`own` 層 ＋ `label_scales = [10]` の既存の表。表は作り直さない ＝ 13-8）・`transform = "F4-1 記号回帰（遺伝的プログラミング）"`・`detectors = ["H1 先10日ゲート（全列・学習）"]`・`model = "Ridge"`・θ 50 ／ 55 ／ 60・種 0。`cli.queue` で本番 1 ＋ leak 1 → 記録 `docs/specs/experiments/transform-into-detectors.md`（§0 事前固定 → §1 結果 → 検算 n_trials ＋3）→ `cli.report --catalog` で検証結果一覧を吐き直す | |
+| 1 | titan の Claude | 口の実装（`cli/run.py`）・テスト（§4）・rules.md 24 章 ／ 15-1 の 1 行 | ✅ 2026-10-09（`prep.augment`・門の検知器の枝も同じ口・鍵 `canonical`・綴り `names`。テスト 7 本 ＝ §4） |
+| 2 | titan の Claude | **GA × `fwd`** を回す: config `trade_own_fwd10_gp_ridge_a.toml` ＝ `features_from = "trade_own_fwd10_ridge_a"`（`own` 層 ＋ `label_scales = [10]` の既存の表。表は作り直さない ＝ 13-8）・`transform = "F4-1 記号回帰（遺伝的プログラミング）"`・`detectors = ["H1 先10日ゲート（全列・学習）"]`・`model = "Ridge"`・θ 50 ／ 55 ／ 60・種 0。`cli.queue` で本番 1 ＋ leak 1 → 記録 `docs/specs/experiments/transform-into-detectors.md`（§0 事前固定 → §1 結果 → 検算 n_trials ＋3）→ `cli.report --catalog` で検証結果一覧を吐き直す | ✅ 2026-10-09: 3 行とも落とす（上乗せ −408 ／ −328 ／ −1,342bp。対の差 \|t\| < 1.6）・n_trials 798 → 801。⚠ 1 回目の実行は口の穴（`y_fwd_10` が変換の入力に残る）で leak と同じ値 → 直して回し直し（記録 §1-0） |
 | 3 | ⚠ 利用者の了承 → titan | 残り 5 変換 × `fwd` × θ 3（＋15）。⚠ **水準と費用を §3 に書いて了承を取ってから回す**（tsfresh・行列プロファイルは「手間 大」の実績を見る） | |
 | 4 | 利用者 → Sx360 | 「デプロイ」（`cli/run.py` が本番の予測の経路なので）→ TODO の子を DONE へ・プランを archive へ | |
 
@@ -72,6 +74,7 @@ Phase 2 の結果を見た**後に**水準を足すことになるので、⚠ *
 | 4 | 先読み（14-11 規約 3 と同型） | 評価分割を差し替えても `fitted["_transform"]` の式が変わらない（検知器の経路で） |
 | 5 | leak 対照 | `LEAK_` の列は変換の入力に入る → 上乗せが跳ねる（既存の `test_leak_makes_the_edge_jump…` の形） |
 | 6 | 名前の衝突 | 変換の列名が既存の `feats` と重なれば止まる |
+| 7 | 学習の対象は変換に渡らない（⚠ 2026-10-09 に足した） | `cli/run.py` と同じ作り方の `feats`（`y_fwd_10` を含む）で、`_transform` の式に `y_fwd_` が出ない・検知器の `columns` は今までどおり |
 
 ## 5. 影響範囲
 

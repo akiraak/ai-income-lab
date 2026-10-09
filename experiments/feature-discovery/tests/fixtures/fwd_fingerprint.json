@@ -1,0 +1,22 @@
+{
+  "taken_at": "2026-10-09",
+  "commit": "00e4958",
+  "note": "fwd 検知器（transform 無し）の指紋。tests.test_fwd の _panel/_exp で取った",
+  "per_symbol": "b0720ceaee726625",
+  "result": "86bf698455bba62f",
+  "summary": "85cd13b2c6df2785",
+  "checks": "c4cf82c75c6b38b3",
+  "sample": {
+    "per_symbol_rows": 108,
+    "純利bp_sum": 50031.5276,
+    "best_50": {
+      "method": "H1 先10日ゲート（全列・学習）",
+      "純利bp": 638.6778,
+      "粗利bp": 656.1778,
+      "的中率": 0.505,
+      "本数": 3.0,
+      "取引回数": 14.0,
+      "保有日率": 0.9601
+    }
+  }
+}

@@ -33,8 +33,10 @@
       ⚠ 幅の上限: 口から届くのは**表の全列を読む検知器**だけ ＝ いまは `fwd`（H1 先 10 日ゲート）1 本。窓の 6 列固定（下降トレンド系）・配列（時系列分類器 ／ PatchTST ／ 外生モデル）・`own` 接頭辞（損切り）には届かない ＝ 広げるなら別の処置
       ⚠ `cli/run.py` の `fold_buy_pct` は 13500t の毎日の予測も通る ＝ 「`transform` の無い config は 1 ビットも変えない」を指紋テストで固定してからデプロイ
       - [x] Phase 0: プランと TODO（✅ 2026-10-09 Sx360 の Claude）
-      - [ ] Phase 1: 口の実装（`fold_buy_pct` の検知器の枝の頭・列は足す・手法名は「変換名 ＋ 検知器名」）・テスト 6 本・rules.md 24 章（titan）
-      - [ ] Phase 2: GA × `fwd` × θ 3 を回す（n_trials ＋3・leak 1 本）→ 記録 `transform-into-detectors.md` → 検証結果一覧を吐き直す（titan）
+      - [x] Phase 1: 口の実装（`fold_buy_pct` の検知器の枝の頭・列は足す・手法名は「変換名 ＋ 検知器名」）・テスト 6 本・rules.md 24 章（titan）
+        ✅ 2026-10-09。`prep.augment`（門の検知器の枝も同じ口）・鍵は「ID ＋ 検知器名」（残さないと GA × Ridge の行とまとまる）・テスト 7 本（`tests/test_transform_detector.py`）。指紋 2 本（`test_trading_run`・`test_predict`）✅
+      - [x] Phase 2: GA × `fwd` × θ 3 を回す（n_trials ＋3・leak 1 本）→ 記録 `transform-into-detectors.md` → 検証結果一覧を吐き直す（titan）
+        ✅ 2026-10-09: **3 行とも落とす**（上乗せ −408 ／ −328 ／ −1,342bp。`fwd` のみとの対の差 −10 ／ −74 ／ −68bp・|t| < 1.6）。n_trials 798 → 801。⚠ 1 回目の実行は口の穴（`y_fwd_10` が変換の入力に残る）で leak と同じ値 → `is_meta` で外して回し直し（[記録 §1-0](docs/specs/experiments/transform-into-detectors.md)）
       - [ ] Phase 3: 残り 5 変換 × `fwd`（＋15）。⚠ **水準と費用をプラン §3 に書いて利用者の了承を取ってから**。⚠ Phase 2 の結果で水準を選ばない（6 本全部か回さないか）
       - [ ] Phase 4: 「デプロイ」（利用者）→ DONE へ・プランを archive へ
     - [ ] モデルの構造・ハイパラを進化させるか決める（⚠ **軽いモデルだけ**。⚠ **[13-6 規約 3](docs/specs/experiments/feature-discovery/rules.md)「ハイパーパラメータは動かさない」と 14-11 の書き換えが先**）

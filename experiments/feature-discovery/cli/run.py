@@ -153,14 +153,22 @@ def fold_buy_pct(tr: pd.DataFrame, te: pd.DataFrame, feats: list[str], exp: dict
     if detectors:
         # ⚠ **検知器は買い% を直接返す**（rules.md 14-1 の出力の契約）。選別もモデルも中に隠れる。
         # ⚠ **シミュレータから先は選別 × モデルの経路とまったく同じものを使う**（物差しを揃える）
+        # ⚠ **変換を検知器に通す口**（rules.md 24 章。2026-10-09）: config に `transform` があれば、訓練分割で fit した
+        # 変換の列を `tr`・`te`・`feats` に**足して**渡す（置き換えない）。手法名は「変換名 ＋ 検知器名」（`prep.label`）。
+        # ⚠ **`transform` の無い config は 1 ビットも変わらない**（`prep.augment` は同じオブジェクトを返す。
+        # この経路は 13500t の毎日の予測 `cli/predict.py` も通る ＝ `tests/test_transform_detector.py` の指紋）
+        tr, te, feats, tdoc = prep.augment(exp, tr, te, feats, ctx)
+        if tdoc is not None:
+            fitted_doc["_transform"] = tdoc
         for name, fn in detectors.items():
             res = fn(tr, te, feats, ctx)
+            lab = prep.label(exp, name)            # ⚠ 変換が無ければ検知器名そのまま
             # ⚠ **3 つ返すのは出口% を別に持つ検知器**（rules.md 16-1。`ail/detectors/pair.py`）
             bp, ep, doc = res if len(res) == 3 else (res[0], None, res[1])
-            buy[name] = np.asarray(bp, dtype=float)
-            exits[name] = None if ep is None else np.asarray(ep, dtype=float)
-            n_cols[name] = float(len(doc.get("columns", [])))
-            fitted_doc[name] = doc
+            buy[lab] = np.asarray(bp, dtype=float)
+            exits[lab] = None if ep is None else np.asarray(ep, dtype=float)
+            n_cols[lab] = float(len(doc.get("columns", [])))
+            fitted_doc[lab] = doc
     elif form == "per_symbol":
         # (B) 銘柄別: fit も較正も銘柄ごと（13-6 の 2）。fold の切れ目は上で決めた日付を共有
         labels = {n: prep.label(exp, n) for n in selectors}   # ⚠ 変換名を混ぜた手法名

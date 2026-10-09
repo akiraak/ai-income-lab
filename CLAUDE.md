@@ -236,6 +236,19 @@ cd experiments/feature-discovery
 - 識別項目: 窓と執行は **検証方式の変種** `閾値売買（訓練直近N日）`・`閾値売買（翌日始値）`（`catalog.threshold_style`・判定と数え方は `catalog.is_threshold` で閾値売買のまま。名前は `~trainN`・`~exec-open`）／ 適合度は手法名の `〔適合度・…〕`（カタログ ID の行でも鍵に残す）
 - 結果: 3 件とも採る 0（n_trials 765 → 798）。窓 ＝ 「古い行が役に立つ／邪魔」とは言えない ／ 翌日始値 ＝ ほとんど変わらない（上乗せの差 ≤ 0.87bp/日）／ 適合度 ＝ 9 行とも落とす。記録は `old-data-relevance.md` §5・`next-open-execution.md`・`evolutionary-search.md` §9
 
+### experiments/feature-discovery の変換を検知器に通す口（2026-10-09 利用者決定 A「汎用の口」）
+
+```bash
+cd experiments/feature-discovery
+.venv/bin/python -m cli.queue --config transform_detector   # GA × H1 先10日ゲート（本番 1 ＋ leak 1。約 30 秒【実測】）。⚠ 回し直すと同じ識別項目の実行が増えるだけ
+```
+
+- `prep.augment`（rules.md 24 章）: config に `transform` があれば、検知器の枝の頭で 訓練分割で fit した変換の列を `tr`・`te`・`feats` に**足して**（置き換えない）検知器に渡す。門の検知器の枝も同じ口。⚠ **`transform` の無い config は 1 ビットも変わらない**（この経路は 13500t の毎日の予測 `cli/predict.py` も通る ＝ 指紋 `tests/fixtures/fwd_fingerprint.json`・`test_trading_run`・`test_predict`）
+- ⚠ **届くのは表の全列を読む検知器（`H1 先10日ゲート`）だけ**。窓固定（D ／ C ／ 入口・出口）・配列（時系列分類器 ／ PatchTST ／ 外生モデル）・`own` 接頭辞（損切り）には届かない（rules.md 24-1 の表）
+- ⚠ **変換の入力は `contracts.is_meta` で meta を外す**（本物の表の `feats` には `y_fwd_10` が残っている。2026-10-09 の 1 回目の実行はそれを GA に渡して leak と同じ値になった ＝ 記録 §1-0。テストは `cli/run.py` と同じ作り方の `feats` で）
+- 識別項目: 手法名「変換名 ＋ 検知器名」・鍵は **「ID ＋ 検知器名」**（`F4-1 ＋ H1 …`。残さないと GA × Ridge の行とまとまって数え落とす）・予測モデル名 `own.f4-1-h1-gate10.ridge.shared`
+- 結果: 3 行とも落とす（n_trials 798 → 801。`fwd` のみとの対の差は |t| < 1.6）。記録は `docs/specs/experiments/transform-into-detectors.md`。⚠ Phase 3（残り 5 変換）は利用者の了承の後・6 本全部か回さないか
+
 ### experiments/live-trading（実売買の執行器。2026-09-17 の 2 つ目の例外）
 
 ```bash

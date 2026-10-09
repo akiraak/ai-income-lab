@@ -43,6 +43,7 @@ _ID = re.compile(r"^(F\d-\d+[a-z]?)\b")
 _VARIANT = re.compile(r"〔[^〕]*〕$")      # 上位 K の構成（rules.md 17-5）
 _TRADER_VARIANT = re.compile(r"〔トレーダー・[^〕]*〕$")   # トレーダーの形の条件（rules.md 20-4）
 _FITNESS_VARIANT = re.compile(r"〔適合度・[^〕]*〕$")      # GA の適合度を替えた行（rules.md 23-2）
+_DETECTOR_PART = re.compile(r"\s＋\s([^＋〔]+?)\s*$")       # 変換を検知器に通した行の「＋ 検知器名」（rules.md 24-2）
 _SIGNS = {"＋": "+", "−": "-", "－": "-", "▲": "-", ",": ""}
 
 
@@ -158,8 +159,9 @@ def baseline_names() -> set[str]:
     return {n for n in names if not _ID.match(n)}
 
 
+@functools.lru_cache(maxsize=1)
 def detector_names() -> set[str]:
-    """検知器（買い% 1 本を返す手法。rules.md 14-1）。
+    """検知器（買い% 1 本を返す手法。rules.md 14-1）。⚠ 登録は起動時に決まるので 1 度だけ引く。
 
     ⚠ **カタログ 25 件の「選別手法」ではない**ので ID を持たないが、⚠ **基準線でもない。**
     ⚠ **ID が無いだけで「基準線」に寄せると、台帳が「試した手法」を基準線として見せてしまう**
@@ -625,7 +627,14 @@ def canonical(name: str) -> tuple[str | None, str]:
         # 1 行にまとまって数え落とす。⚠ 2026-10-01 時点で ID ＋〔…〕の行は 0 行 ＝ 既存の行は割れない
         # ⚠ **GA の適合度の〔適合度・…〕も同じ理由で鍵に残す**（rules.md 23-2。2026-10-08 時点で当たる行は 0 行）
         v = _TRADER_VARIANT.search(name) or _FITNESS_VARIANT.search(name)
-        return m.group(1), m.group(1) + (v.group(0) if v else "")
+        key = m.group(1)
+        # ⚠ **変換を検知器に通した行（rules.md 24-2。2026-10-09）は「ID ＋ 検知器名」を鍵に残す。** 残さないと
+        # 同じ変換 × 同じモデルの既存の行（例 GA × Ridge の全部使う）と 1 行にまとまって数え落とす。
+        # ⚠ 「＋ 全部使う（基準）」など検知器でないものは今までどおり ID だけ（既存の行は割れない）
+        d = _DETECTOR_PART.search(_VARIANT.sub("", name))
+        if d and d.group(1) in detector_names():
+            key += f" ＋ {d.group(1)}"
+        return m.group(1), key + (v.group(0) if v else "")
     return None, re.sub(r"^基準\s+", "", name).strip()
 
 

@@ -38,6 +38,9 @@ LIVE = {"鍵": "全部使う（基準）", "モデル": "Ridge", "粒度": "日�
     ({"鍵": "F3-1b", "モデル": "LightGBM+GAN増強(batch16k)"}, "own.f3-1b.lgbm-gan-16k.shared@50"),
     ({"鍵": "入口D2(60)×出口D1(20)（学習）", "特徴量の層": "own trend"}, "own-trend.in-d2-out-d1.ridge.shared@50"),
     ({"鍵": "乱択（基準）", "モデル": "—"}, "own.random.none.shared@50"),
+    # 変換を検知器に通した行（rules.md 24-2。2026-10-09）: ID ＋ 検知器の綴り
+    ({"鍵": "F4-1 ＋ H1 先10日ゲート（全列・学習）"}, "own.f4-1-h1-gate10.ridge.shared@50"),
+    ({"鍵": "F4-1 ＋ H1 先10日ゲート（全列・学習）〔適合度・断面の平均〕"}, "own.f4-1-h1-gate10-fit-xsmean.ridge.shared@50"),
     ({"鍵": "ボラ上位〔T3 QUANT（60日窓）・上位3・整数株B⚠〕", "モデル": "—", "特徴量の層": "own seq"},
      "own-seq.voltop-t3-quant60-top3-shb.none.shared@50"),
     ({"鍵": "全部使う（基準）〔上位10・端数〕"}, "own.all-top10-frac.ridge.shared@50"),

@@ -1,6 +1,6 @@
 # 分析の構造化ルール
 
-作成日: 2026-09-08 ／ 改訂: 2026-09-10（13 章 閾値つき売買の検証を追加）・2026-09-11（14 章 検証の判定力と前置きの門を追加）・2026-09-12（**15 章 検知器 — 予測の対象をスケールにする**・**16 章 入口と出口を別に持つ**を追加）。対象: `experiments/feature-discovery/`。
+作成日: 2026-09-08 ／ 改訂: 2026-09-10（13 章 閾値つき売買の検証を追加）・2026-09-11（14 章 検証の判定力と前置きの門を追加）・2026-09-12（**15 章 検知器 — 予測の対象をスケールにする**・**16 章 入口と出口を別に持つ**を追加）。2026-10-09（**24 章 変換を検知器に通す口**を追加）。対象: `experiments/feature-discovery/`。
 派生元: [特徴量を見つけ出す手法の検証](../feature-discovery.md) ／ [E8 の記録](../e8-signal-methods.md) ／ [プラン](../../../plans/archive/analysis-structure.md)
 
 ⚠ **これが規約の正本である。** コード・記録・数字の書き方が本書と食い違ったら、⚠ **本書を正としてコードを直す。**
@@ -941,6 +941,7 @@ flowchart LR
 | 3 | fit は**訓練分割の内側だけ**。⚠ **評価期間の行は transform にしか使わない** | 3 章 B・7 章 |
 | 4 | 学習した係数は `runs/<実行>/fitted/` に残す。⚠ **次の実行では読み込まない** | 3 章 B |
 | 5 | ⚠ **検証結果一覧では「検知器」の系統として出す。** ⚠ **カタログ 25 件の ID を持たないが基準線ではない** | ⚠ **ID が無いだけで基準線に寄せると、試した手法を基準線として見せてしまう**（2026-09-12 に直した） |
+| 6 | ⚠ **変換の列が足されて来ることがある**（24 章。config に `transform` があるときだけ）。検知器は `feats` の全列を読むか、自分の接頭辞で選ぶかを自分で決める ＝ 足された列が届くのは前者だけ | 2026-10-09。⚠ 検知器の側は 1 文字も変えない（届く範囲は 24-1 の表） |
 
 ### 15-2. スケールは窓だけで定義し、同じ形の列を与える
 
@@ -1615,6 +1616,51 @@ flowchart LR
 
 ⚠ **2026-10-08 の適用例（回した結果）**: 採る 0 ／ 保留 0 ／ 落とす 9（`n_trials` 789 → **798**。記録は [evolutionary-search.md §9-1](../evolutionary-search.md)）。θ 50 の対の差（案 − pooled）は 3 案とも \|t\| < 1。θ 55 ／ 60 の xs_ir・worst4 は保有日率が落ちて（θ 60 で 0.43 → 0.09 ／ 0.18）悪化。⚠ **曜日の列は「そのまま」では消えたが `÷ own_dow`・`× own_dow` の形で残った**（xs_mean 21/80・xs_ir 20/80 本）＝ 予想「xs の champion に曜日の式は入らない」は外れ。leak は 3 本とも跳ねた。
 
+## 24. ⚠ 変換を検知器に通す口（2026-10-09）
+
+TODO「検知器に『変換済みの列を受け取る』口を足す」。利用者決定 2026-10-09 ＝ **A（汎用の口）**「検証の幅が広がる汎用的な方」。プランは [transform-into-detectors.md](../../../plans/transform-into-detectors.md)、記録は [transform-into-detectors.md](../transform-into-detectors.md)。
+⚠ **この章は結果を見る前に書いた。** 変換（3 章 B の `transform`）は 選別 × モデルの経路（形式 (A)(B)）にしか挟めなかった。検知器（15 章）の枝は `prep.apply` より前にあり、生の表を受け取る。この章は **その枝の頭に 1 か所だけ口を足す**。⚠ **14-1 の出力の契約は変えない**（変わるのは検知器の入力だけ）。
+
+> この図の主張: 口は `fold_buy_pct` の検知器の枝の頭に 1 か所。変換の fit は訓練分割の内側で、出力の列を表に**足して**（置き換えない）検知器に渡す。
+
+```mermaid
+flowchart LR
+  TR["訓練分割 tr"] --> SC["標準化（訓練で fit）"]
+  SC --> TF["prep.apply（config の transform。無ければ素通り）"]
+  TF --> ADD["変換の列を tr・te に足す"]
+  ADD --> DET["検知器 fn(tr+, te+, feats+, ctx)"]
+  DET --> BUY["買い%（手法名 ＝ 変換名 ＋ 検知器名）"]
+  TE["評価分割 te"] --> SC
+```
+
+### 24-1. 規約
+
+| # | 規約 | ⚠ 理由・限界 |
+| ---: | --- | --- |
+| 1 | 場所は `cli/run.py` の `fold_buy_pct`、`if detectors:` の枝の頭（`prep.augment`）。門（14-5）の検知器の枝も同じ口を通す。⚠ **config に `transform` が無ければ 1 ビットも変わらない**（同じオブジェクトが返る。⚠ この経路は 13500t の毎日の予測 `cli/predict.py` も通る ＝ 指紋テスト） | 21〜23 章と同じ形 |
+| 2 | 変換の fit は**訓練分割の内側だけ**: 訓練で標準化を fit → `prep.apply(exp, Xtr, Xte, ctx, ytr, ts_tr)`（形式 (A) と同じ呼び方。y と日付は訓練のもの ＝ ⚠ **GA の適合度は 1 日の `y` で測る。検知器の学習の対象〔`fwd` の `y_fwd_10`〕ではない**）。⚠ **変換の入力は `contracts.is_meta` で meta を外した列だけ**（`y_fwd_…` を含めない） | 3 章 B・7 章。評価分割を差し替えても式が変わらないことをテストで固定。⚠ **2026-10-09 に踏んだ穴**: 本物の表の `feats` は `META_COLUMNS` だけを外すので `y_fwd_10` が残っている（検知器が自分で接頭辞を外す前提）。それを変換にそのまま渡した 1 回目の実行は leak と同じ値（＋7,196bp）になった ＝ 記録 §1-0。テストの表は `feature_columns` で meta を外していたので見えなかった → `cli/run.py` と同じ作り方の `feats` でテストする |
+| 3 | 変換が返した列を `tr`・`te` に**足す**（置き換えない）。`feats ＋ 新しい列` を検知器に渡す。⚠ **返った列の名前が表の列と重なれば止める** | 検知器は自分の列を接頭辞で選ぶ（`own_trend…`）ので、元の列が無いと動かない。黙って上書きすると元の列が消える |
+| 4 | 届くのは**表の全列を読む検知器**だけ。いまは `H1 先10日ゲート（全列・学習）`（`fwd`）の 1 本。窓の 6 列固定（D1〜D4・C1〜C3・入口 ／ 出口）・配列（時系列分類器・PatchTST・外生モデル）・`own` 接頭辞（損切り）には届かない | ⚠ 広げるには検知器ごとの直し ＝ 別の処置・別の検証。⚠ 届かない検知器に `transform` を付けても止まらない（列が足されるだけで読まれない）＝ 回す前に表で確かめる |
+| 5 | 標準化の二重: 検知器は中で自分の列を標準化する。変換の列は既に z 化されている（GA は訓練の平均・分散で割る）ので無害 | — |
+| 6 | 係数は `fitted_doc["_transform"]`（式の木・列）。⚠ 次の実行では読み込まない | 3 章 B |
+
+### 24-2. 識別項目・名前・数え方（⚠ 回す前に固定）
+
+| 項目 | 中身 |
+| --- | --- |
+| 手法名 | `prep.label(exp, 検知器名)` ＝ **「変換名 ＋ 検知器名」**（例 `F4-1 記号回帰（遺伝的プログラミング） ＋ H1 先10日ゲート（全列・学習）`）。`fitness` を替えた行は `〔適合度・…〕` も付く（23-2 のまま） |
+| 鍵（`catalog.canonical`） | ⚠ **「ID ＋ 検知器名」を鍵に残す**（`F4-1 ＋ H1 先10日ゲート（全列・学習）`）。残さないと同じ変換 × 同じモデルの既存の行（GA × Ridge の全部使う ＝ 鍵 `F4-1`）と 1 行にまとまって数え落とす（20-4 の 2・23-2 と同じ理由）。「＋ 全部使う（基準）」など検知器でないものは今までどおり ID だけ ＝ 既存の行は割れない |
+| 系統・実装 | 先頭の ID で F4 ／ F5 の系統に入る。実装は ID で ✅ |
+| 予測モデル名 | `<ID の小文字>-<検知器の綴り>`（例 `own.f4-1-h1-gate10.ridge.shared`。`ail/names.py` の `_ID_DETECTOR`。検知器の綴りは `config/names.toml` の `[method]`） |
+| 数え方 | 閾値売買の行 ＝ θ 1 水準 1 検証（13-9）。**GA × `fwd` × θ 3 ＝ n_trials ＋3**。leak 対照は数えない。⚠ 世代 × 個体は数えない（14-11） |
+| 判定 | 13-7 のまま（対 B&H）。同じ表・同じ fold の `fwd` だけ（変換なし。`trade_own_fwd10_ridge_a`）との対の差を添える（採否に使わない） |
+
+### 24-3. ⚠ 先に書く予想と読み方
+
+⚠ **事前に書く予想【推測】**: 3 行とも「採る」にならない（`fwd` × Ridge は 3 行とも落とす〔−254〜−1,274bp/fold〕・GA × Ridge も 3 行とも落とす）。対の差（GA あり − なし）は §8-3 と同じく向きが揃わない・誤差の中。⚠ **列が 35 → 51 に増えるぶん Ridge の過学習が増え、θ 60 の保有日率はさらに落ちうる**。leak は跳ねる（`LEAK_fwd_10` は `fwd` に直接届くので、変換の有無によらず跳ねる ＝ 口の leak 検査は「式の材料に `LEAK_` が出る」ことで別に確かめる〔`tests/test_transform_detector.py`〕）。
+
+⚠ **2026-10-09 の適用例（回した結果）**: 採る 0 ／ 保留 0 ／ 落とす 3（`n_trials` 798 → **801**。記録は [transform-into-detectors.md §1](../transform-into-detectors.md)）。上乗せ −408 ／ −328 ／ −1,342bp/fold（`fwd` のみ −398 ／ −254 ／ −1,274）。対の差は 3 θ とも負で \|t\| < 1.6・保有日率は変わらず（予想「θ 60 の保有日率が落ちる」は外れ）。leak は跳ねた（`fwd` のみの対照と同じ値）。⚠ 1 回目の実行は上の穴で leak と同じ値になり、直して回し直した（DB に残る。検証結果一覧の「再現」に幅の印）。
+
 ## 付録: 本書と実装の対応
 
 ⚠ **試した結果の一覧は [ledger.md](ledger.md)**（`cli/report.py --catalog` の生成物）。
@@ -1646,4 +1692,5 @@ flowchart LR
 | ⚠ **21** | `ail/validation/splits.py` の `max_train_days`・`folds_by_dates`（任意引数 `max_train_days`。⚠ **省くと既存と完全一致**）＋ `cli/run.py` の `evaluate_trading`・`ail/validation/gate.py` ／ 識別項目 = `ail/catalog.py` の `threshold_style`・`is_threshold` ／ 綴り `~trainN` = `ail/names.py` ／ テスト `tests/test_train_window.py` |
 | ⚠ **22** | `cli/run.py` の `next_open_returns`（調整済み日足の始値を (銘柄, 日) で継ぐ）・`evaluate_trading`（損益の系列 `y_pnl`。⚠ **`execution` が無ければ `y` ＝ 既存と完全一致**）／ 識別項目 = `ail/catalog.py` の `threshold_style` ／ 綴り `~exec-open` = `config/names.toml` の `[execution]` ／ テスト `tests/test_next_open.py` |
 | ⚠ **23** | `ail/search/evolve.py` の `fitness_of`・`xs_rho`・`worst_blocks`（既定 `pooled` は既存の `fitness` そのまま）・`tf_symbolic`（`ctx` の `fitness`・`ts_tr`）＋ `ail/validation/prep.py` の `apply`・`label`（〔適合度・…〕）＋ `cli/run.py` の `fold_buy_pct`・`ail/validation/gate.py`（日付を渡す）／ 識別項目 = `ail/catalog.py` の `canonical` ／ 綴り = `config/names.toml` の `[fitness]` ／ テスト `tests/test_ga_fitness.py` |
+| ⚠ **24** | `ail/validation/prep.py` の `augment`（⚠ **`transform` が無ければ同じオブジェクトを返す**）＋ `cli/run.py` の `fold_buy_pct`（検知器の枝の頭）・`ail/validation/gate.py` の `_fold_detectors` ／ 鍵 = `ail/catalog.py` の `canonical`（`_DETECTOR_PART`）／ 綴り = `ail/names.py` の `_ID_DETECTOR` ／ テスト `tests/test_transform_detector.py`（指紋は `tests/fixtures/fwd_fingerprint.json`） |
 | ⚠ **検証結果一覧** | `ail/catalog.py` ／ `cli/ledger.py` ／ `config/legacy.toml` ／ `config/catalog_notes.toml` |

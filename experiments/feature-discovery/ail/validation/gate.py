@@ -92,8 +92,11 @@ def _fold_detectors(panel, feats, exp, methods, per, edges, v, ctx) -> None:
         if len(head) < 500 or len(hold) < 50:
             continue
         yv = np.asarray(hold["y"].values, dtype=float)
+        # ⚠ **変換を検知器に通す口**（rules.md 24 章）: 検証の fold と同じく、頭で fit した変換の列を足して測る。
+        # ⚠ **`transform` の無い config は同じオブジェクトが返る ＝ 1 ビットも変わらない**
+        head, hold, feats_f, _ = prep.augment(exp, head, hold, feats, ctx)
         for n, fn in methods.items():
-            buy = np.asarray(fn(head, hold, feats, ctx)[0], dtype=float)
+            buy = np.asarray(fn(head, hold, feats_f, ctx)[0], dtype=float)
             per[n]["auc"].append(_auc(yv, buy))
             per[n]["width"].append(round(float(np.percentile(buy, 95) - np.percentile(buy, 5)), 4))
 

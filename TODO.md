@@ -39,7 +39,14 @@
         ✅ 2026-10-09: **3 行とも落とす**（上乗せ −408 ／ −328 ／ −1,342bp。`fwd` のみとの対の差 −10 ／ −74 ／ −68bp・|t| < 1.6）。n_trials 798 → 801。⚠ 1 回目の実行は口の穴（`y_fwd_10` が変換の入力に残る）で leak と同じ値 → `is_meta` で外して回し直し（[記録 §1-0](docs/specs/experiments/transform-into-detectors.md)）
       - [ ] Phase 3: 残り 5 変換 × `fwd`（＋15）。⚠ **水準と費用をプラン §3 に書いて利用者の了承を取ってから**。⚠ Phase 2 の結果で水準を選ばない（6 本全部か回さないか）
       - [ ] Phase 4: 「デプロイ」（利用者）→ DONE へ・プランを archive へ
-    - [ ] モデルの構造・ハイパラを進化させるか決める（⚠ **軽いモデルだけ**。⚠ **[13-6 規約 3](docs/specs/experiments/feature-discovery/rules.md)「ハイパーパラメータは動かさない」と 14-11 の書き換えが先**）
+    - [ ] ハイパーパラメータを訓練分割の内側で選ぶ段を入れる（判断 2「モデルの構造・ハイパラを進化させるか」） [plan](docs/plans/hyperparam-inner-selection.md)
+      ✅ 2026-10-09 利用者決定 **B（内側の選抜）**（比べた案 ＝ A 入れない ／ B 事前固定した候補から訓練分割の尻で選ぶ ／ C GA で構造まで）。⚠ **軽いモデルだけ**（Ridge・LightGBM・MLP）。GA は使わない（Ridge は alpha 1 次元・LightGBM は格子 27 で尽くせる。MLP は層の数 1〜3 を候補に含める ＝ 構造はここまで）
+      ⚠ 規約: [13-6 規約 3](docs/specs/experiments/feature-discovery/rules.md) を「評価期間の結果で動かさない」に書き換え・14-12 を足した（✅ 2026-10-09 Sx360）。数えるのは champion × θ ＝ 3 モデル × θ 3 ＝ **＋9**。候補 × fold は数えない（14-11 規約 2）
+      ⚠ 予想【推測。回す前】: 採る 0 ／ champion ≠ 既定 が fold の大半 ／ 対の差は θ 50 で |t| < 1 ／ 尻の改善は評価期間に届かない
+      - [x] Phase 0: プラン・TODO・規約（13-6 規約 3・14-11・14-12・付録）（✅ 2026-10-09 Sx360 の Claude）
+      - [ ] Phase 1: 実装（`ail/models/tuned.py`・`trees.py` ／ `deep.py` が ctx から読む・`fold_buy_pct` ／ `gate.py` の記録の拾い・綴り 3 行・config 3 本 ＋ queue `hp_inner`）・テスト 8 本（titan）
+      - [ ] Phase 2: `cli.queue --config hp_inner`（本番 3 ＋ leak 3。約 1 時間【推測】）→ 記録 `docs/specs/experiments/hyperparam-inner-selection.md` → 検証結果一覧を吐き直す（titan）
+      - [ ] Phase 3: 「デプロイ」（利用者。`ail/models/`・`cli/run.py` は本番の予測の経路）→ DONE へ・プランを archive へ
 - [ ] 疑問に思ったことを登録し解決していく
   ⚠ **終了しないタスク**（完了にしない・`DONE.md` に移さない・消さない）。利用者の指示（2026-09-11）: **「疑問に思ったことを登録し解決していく大タスク」。このタスク自体は消さずにずっと残るようにする**
   使い方: ⚠ **子タスクの追加は利用者が指示する**（利用者の指示 2026-09-11。Claude は疑問に答えても、指示なしにここへ子タスクを足さない）。解決した子タスクは、答えの要点（と、ドキュメントに反映した場合はそのリンク）をメモで残して `DONE.md` へ移す。親のこの行は残す

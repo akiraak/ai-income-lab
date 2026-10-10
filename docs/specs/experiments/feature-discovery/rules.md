@@ -948,7 +948,7 @@ flowchart LR
 | 2 | ⚠ **測る場所は訓練分割の尻**（`tail_holdout` 10%。門・較正・GA と同じ）。切れなければ既定で動き、記録に残す | 3 章 B。評価分割には特徴量にも触れない |
 | 3 | 物差しは **尻での予測と y の Spearman ρ（符号つき）**。同点は先頭（既定） | 門（AUC）・GA（Spearman）と同じ順位の物差し。MSE は「0 と予測」が勝ちやすい |
 | 4 | ⚠ **champion は訓練全体で学び直す。** champion が既定なら既存のモデルと **1 ビットも違わない**（テストで固定） | 「口を閉じれば既存と同一」が、既存の行と比べられる条件 |
-| 5 | ⚠ **モデルが呼ばれるたびにその訓練の尻で選ぶ**（門・較正・本番で champion が違ってよい） | モデル ＝ 選抜込みの手続き。1 度選んで配ると、較正が見ていない尻の情報が較正に入る |
+| 5 | ⚠ **モデルが呼ばれるたびにその訓練の尻で選ぶ**（門・較正・本番で champion が違ってよい）。⚠ **2026-10-09 に例外を 1 つ開けた**: `<モデル>（内側選抜・1 度）` は較正の前に 1 度選び、同じ champion を較正と本番に配る（14-12-3。利用者決定「推すのですすめる」）。`（内側選抜）` はこのまま | モデル ＝ 選抜込みの手続き。1 度選んで配ると、較正が見ていない尻の情報が較正に入る。⚠ 結果（13/15 fold で較正と本番の champion が違い、Ridge で較正の係数が本番の予測に合わなかった）を見て、14-12-3 を**新しい処置**として開けた（規約 1 ＝ 直して回し直すのではない） |
 | 6 | 名前は **`<モデル>（内側選抜）`**。識別項目「モデル」が変わる ＝ 新しいモデル。⚠ **数えるのは champion × θ だけ**（14-11 規約 2）。候補 × fold は数えない | 14-11 と同型 |
 | 7 | ⚠ **機械で検査する**: (a) 評価分割を差し替えても champion が変わらない ／ (b) 候補が既定だけなら既存のモデルと予測が同一 ／ (c) 新しいモデル名の無い config は指紋が動かない（`tests/test_tuned.py`。Phase 1） | 14-11 規約 3 と同じ。破れても気づけない規約を、破れば落ちるテストにする |
 | 8 | **軽いモデルだけ**（1 学習が数秒以内 ＝ Ridge・LightGBM・MLP）。時系列分類器・PatchTST・TimeXer・Chronos-2 には当てない | 候補 × 3 回（門・較正・本番）× 5 fold の学習が要る（PatchTST なら 1 候補 19 分 ／ fold） |
@@ -975,7 +975,43 @@ flowchart LR
 | 3 | 対の差（内側選抜 − 既定。同じ表・同じ fold・日次）は θ 50 で \|t\| < 1 | 差は診断。採否に使わない |
 | 4 | 尻での ρ の改善（champion − 既定）は評価期間の IC の変化より大きい | 過適合の向き。改善が評価期間に届いた fold の割合を記録に残す |
 
-✅ **2026-10-09 の結果**: 採る 0 ／ 9（n_trials 816 → 825）。champion ≠ 既定 13/15 fold・尻の改善が評価期間に届いたのは 5/13・対の差は \|t\| ≤ 2.05。⚠ 規約 5 の帰結として**較正と本番で champion が違う fold が 13/15**あり、Ridge では較正の係数が本番の予測のスケールに合わなかった（[記録 §2](../hyperparam-inner-selection.md)）。直すなら「1 度選んで較正にも配る」を新しい処置として先に登録する（規約 1）。
+✅ **2026-10-09 の結果**: 採る 0 ／ 9（n_trials 816 → 825）。champion ≠ 既定 13/15 fold・尻の改善が評価期間に届いたのは 5/13・対の差は \|t\| ≤ 2.05。⚠ 規約 5 の帰結として**較正と本番で champion が違う fold が 13/15**あり、Ridge では較正の係数が本番の予測のスケールに合わなかった（[記録 §2](../hyperparam-inner-selection.md)）。直すなら「1 度選んで較正にも配る」を新しい処置として先に登録する（規約 1）。→ ✅ 2026-10-09 利用者決定「推すのですすめる」＝ 14-12-3。
+
+#### 14-12-3. ⚠ 1 度選んで較正にも配る（2026-10-09・利用者の決定「推すのですすめる」）
+
+⚠ **規約 5 の変更である**（結果を見た後の変更 ＝ 規約 1 により**新しい処置**として登録する。`（内側選抜）` の行は直さない・回し直さない）。プラン: [hyperparam-inner-selection.md §9](../../../plans/hyperparam-inner-selection.md)。
+
+| 変更規約の問い | 答え |
+| --- | --- |
+| なぜ変えたか | 14-12-2 の結果で、較正の呼び出しと本番の呼び出しが別々に選ぶため champion が違う fold が 13/15 あり、Ridge では較正の係数 (a, b) が本番の予測のスケールに合わなかった（fold 3: 予測は既定と同一なのに a の符号が逆 ＝ 買い% の順位が反転。[記録 §2](../hyperparam-inner-selection.md)）。規約 5 の理由「較正が見ていない尻の情報が較正に入る」より、較正が本番の予測の形を知らない害が大きかった。利用者の決定（2026-10-09「推すのですすめる」） |
+| 変える前の結果をどう扱うか | ⚠ **残す。再計算しない・消さない。** `（内側選抜）` の 9 行は規約 5 のまま。配る形は **`<モデル>（内側選抜・1 度）`** ＝ 別のモデルとして ＋9 に数える |
+
+> この図の主張: 選抜は較正の前に 1 度。較正と本番は同じ champion を受け取り、較正の係数は本番と同じ形の予測から学ぶ。
+
+```mermaid
+flowchart LR
+  TR["訓練分割（選別ごと）"] --> SEL["1 度選ぶ<br/>尻 10%・Spearman ρ"]
+  SEL -- "champion" --> CAL["較正<br/>頭で学ぶ → 尻で (a, b)"]
+  SEL -- "champion" --> PRD["本番<br/>全体で学ぶ → 予測"]
+  CAL --> BUY["買い%"]
+  PRD --> BUY
+  style SEL fill:#fde68a
+```
+
+| # | 規約 | ⚠ 理由 |
+| ---: | --- | --- |
+| 1 | 選ぶのは **`fold_buy_pct` が較正の呼び出しの前に、選別ごとに 1 度**（(A)(B) 両方の枝）。候補・尻・物差し・同点は 14-12 規約 1〜3 のまま（候補は 14-12-1 の写し。足さない） | 較正と本番が同じ champion を見るのは、ここで選ぶときだけ |
+| 2 | champion は ctx の項目で較正と本番に配る。`（内側選抜・1 度）` のモデルは項目があれば**選ばずに**基底を呼ぶ。項目が無い呼び出し（門）は自前で選び、記録に「自前」 | 門は診断（14-5）。門に配るのは別の処置 |
+| 3 | ⚠ **二重使いの注記**: 較正の尻は選抜の尻と同じ行。(a, b) が楽観側に出るだけで評価分割には漏れない。受け入れる | 規約 9 と同型。直すなら尻を 2 つに割る ＝ 別の処置 |
+| 4 | champion が既定の fold は、較正・本番ともに既定の実行と **買い% が 1 ビットも違わない**（テスト） | 規約 4 を較正まで広げた形 |
+| 5 | 名前は **`<モデル>（内側選抜・1 度）`**（綴り `ridge-tuned-once`・`lgbm-tuned-once`・`mlp-tuned-once`）。数えるのは champion × θ ＝ **＋9**。leak 対照 3 本は数えない | 規約 6 と同型 |
+| 6 | ⚠ **機械で検査する**: (a) 較正と本番の champion が記録で一致 ／ (b) 候補が既定だけなら買い% が既存と同一 ／ (c) 評価分割を差し替えても champion と (a, b) が変わらない ／ (d) このモデル名の無い config は 1 ビットも変わらない（`（内側選抜）` の経路の記録も） | 規約 7 と同型 |
+
+水準は 14-12-1 と同じ（Ridge 7・LightGBM 27・MLP 45。既定が先頭）。そろえるものも同じ（`own_2018`・(A)・全部使う・種 0・θ 3・5bp）。対の相手は **既定**と **`（内側選抜）`** の 2 つ。費用は 14-12 の約 2/3 ＝ 約 20 分【推測】。
+
+⚠ **先に書く予想**（回す前。2026-10-09。読み方はプラン §9-3）: (1) 採る 0 ／ 9 ／ (2) 較正と本番の champion は 15/15 で一致（違えば配線の穴）／ (3) 本番の champion は `（内側選抜）` と同じ（Ridge・LightGBM 10/10。MLP は揺れうる）／ (4) Ridge の対の差（1 度 − 既定）の θ 50 の \|t\| は `（内側選抜）` の 0.80〜1.57 より小さく、champion が既定の fold は既定と同一 ／ (5) 対の差（1 度 − `（内側選抜）`）は Ridge で 3 θ のうち 2 つ以上が正・LightGBM・MLP では \|差\| が小さい。⚠ 「良くなった」とは読まない（診断。採否は 13-7）。
+
+⚠ **しないこと**: 候補・尻の割合・物差しを動かさない ／ 門に配らない ／ 尻を 2 つに割らない ／ `（内側選抜）` の 9 行を消さない・数え直さない ／ 結果で本番の人を替えない。
 
 ---
 
@@ -1753,5 +1789,5 @@ flowchart LR
 | ⚠ **22** | `cli/run.py` の `next_open_returns`（調整済み日足の始値を (銘柄, 日) で継ぐ）・`evaluate_trading`（損益の系列 `y_pnl`。⚠ **`execution` が無ければ `y` ＝ 既存と完全一致**）／ 識別項目 = `ail/catalog.py` の `threshold_style` ／ 綴り `~exec-open` = `config/names.toml` の `[execution]` ／ テスト `tests/test_next_open.py` |
 | ⚠ **23** | `ail/search/evolve.py` の `fitness_of`・`xs_rho`・`worst_blocks`（既定 `pooled` は既存の `fitness` そのまま）・`tf_symbolic`（`ctx` の `fitness`・`ts_tr`）＋ `ail/validation/prep.py` の `apply`・`label`（〔適合度・…〕）＋ `cli/run.py` の `fold_buy_pct`・`ail/validation/gate.py`（日付を渡す）／ 識別項目 = `ail/catalog.py` の `canonical` ／ 綴り = `config/names.toml` の `[fitness]` ／ テスト `tests/test_ga_fitness.py` |
 | ⚠ **24** | `ail/validation/prep.py` の `augment`（⚠ **`transform` が無ければ同じオブジェクトを返す**）＋ `cli/run.py` の `fold_buy_pct`（検知器の枝の頭）・`ail/validation/gate.py` の `_fold_detectors` ／ 鍵 = `ail/catalog.py` の `canonical`（`_DETECTOR_PART`）／ 綴り = `ail/names.py` の `_ID_DETECTOR` ／ テスト `tests/test_transform_detector.py`（指紋は `tests/fixtures/fwd_fingerprint.json`） |
-| ⚠ **14-12** | `ail/models/tuned.py`（候補・尻・champion・学び直し。Phase 1）＋ `ail/models/trees.py`・`deep.py`（ctx から読む。⚠ **既定はいまの定数と同じ ＝ 既存の config は指紋が動かない**）＋ `cli/run.py` の `fold_buy_pct`（記録の拾い）・`ail/validation/gate.py`（記録を捨てる）／ 綴り = `config/names.toml` の `[learner]`（`ridge-tuned`・`lgbm-tuned`・`mlp-tuned`）／ テスト `tests/test_tuned.py`（いずれも Phase 1。プラン [hyperparam-inner-selection.md](../../../plans/hyperparam-inner-selection.md)） |
+| ⚠ **14-12** | `ail/models/tuned.py`（候補・尻・champion・学び直し。Phase 1）＋ `ail/models/trees.py`・`deep.py`（ctx から読む。⚠ **既定はいまの定数と同じ ＝ 既存の config は指紋が動かない**）＋ `cli/run.py` の `fold_buy_pct`（記録の拾い）・`ail/validation/gate.py`（記録を捨てる）／ 綴り = `config/names.toml` の `[learner]`（`ridge-tuned`・`lgbm-tuned`・`mlp-tuned`）／ テスト `tests/test_tuned.py`（いずれも Phase 1。プラン [hyperparam-inner-selection.md](../../../plans/hyperparam-inner-selection.md)）。⚠ **14-12-3**（1 度選んで配る）: `tuned.py` に `<モデル>（内側選抜・1 度）`・`cli/run.py` の `fold_buy_pct` が較正の前に選んで ctx で配る・`names.toml` に `*-tuned-once`・config `trade_own_*_tuned_once_a`・queue `hp_inner_once`・`tests/test_tuned.py` に 6 本（Phase 4） |
 | ⚠ **検証結果一覧** | `ail/catalog.py` ／ `cli/ledger.py` ／ `config/legacy.toml` ／ `config/catalog_notes.toml` |

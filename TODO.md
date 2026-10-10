@@ -38,7 +38,10 @@
         ✅ 2026-10-09 titan: `tests/test_tuned.py` 15 本 ＋ 既定経路の指紋（`test_trading_run`・`test_predict`）そのまま ＝ 全 631 本 ✅。記録 `hyperparam-inner-selection.md` §0 は回す前に書いた
       - [x] Phase 2: `cli.queue --config hp_inner`（本番 3 ＋ leak 3。約 1 時間【推測】）→ 記録 `docs/specs/experiments/hyperparam-inner-selection.md` → 検証結果一覧を吐き直す（titan）
         ✅ 2026-10-09 titan: **採る 0 ／ 9**（n_trials 816 → 825・leak 3 本とも跳ねた）。champion ≠ 既定 13/15 fold・尻の改善が評価期間に届いたのは 5/13・対の差は 9 組とも |t| ≤ 2.05（θ 50 は 3 本とも負）。合計 26 分【実測】（見積り 1 時間より速い）。⚠ 見つかったこと: 較正と本番で champion が違う fold が 13/15（規約 5 の帰結。Ridge は alpha 1 と 1e6 でスケールが桁で違い、較正の係数が本番の予測に合わない ＝ [記録 §2](docs/specs/experiments/hyperparam-inner-selection.md)）。直すなら「1 度選んで較正にも配る」を新しい処置として登録（利用者の判断）
-      - [ ] Phase 3: 「デプロイ」（利用者。`ail/models/`・`cli/run.py` は本番の予測の経路）→ DONE へ・プランを archive へ
+      ✅ 2026-10-09 利用者決定「推すのですすめる」: 記録 §2 の「較正と本番で champion が違う（13/15 fold）」を **新しい処置「1 度選んで較正にも配る」** `<モデル>（内側選抜・1 度）` として登録（14-12 規約 1 ＝ 結果を見てから直して回し直すのではない）。＋9（825 → 834）・費用 約 20 分【推測】・予想は [rules.md 14-12-3](docs/specs/experiments/feature-discovery/rules.md)・[プラン §9](docs/plans/hyperparam-inner-selection.md)
+      - [x] Phase 3: 追加の処置「1 度選んで較正にも配る」の事前固定（プラン §9・rules.md 14-12-3・規約 5 の但し書き・付録）（✅ 2026-10-09 Sx360 の Claude）
+      - [ ] Phase 4: 実装（`tuned.py` に `（内側選抜・1 度）` 3 本・`fold_buy_pct` が較正の前に 1 度選んで配る・綴り 3 行・config 3 本 `trade_own_{ridge,lgbm,mlp}_tuned_once_a` ＋ queue `hp_inner_once`）・テスト 6 本 → `cli.queue --config hp_inner_once`（本番 3 ＋ leak 3。約 20 分【推測】）→ 記録 §4（⚠ §4-0 事前固定の写しは回す前に）→ 検証結果一覧を吐き直す（titan）
+      - [ ] Phase 5: 「デプロイ」（利用者。`ail/models/`・`cli/run.py` は本番の予測の経路。⚠ Phase 2 と Phase 4 をまとめて 1 回 ＝ `prod` は 2aea697 のまま）→ DONE へ・プランを archive へ
 - [ ] 疑問に思ったことを登録し解決していく
   ⚠ **終了しないタスク**（完了にしない・`DONE.md` に移さない・消さない）。利用者の指示（2026-09-11）: **「疑問に思ったことを登録し解決していく大タスク」。このタスク自体は消さずにずっと残るようにする**
   使い方: ⚠ **子タスクの追加は利用者が指示する**（利用者の指示 2026-09-11。Claude は疑問に答えても、指示なしにここへ子タスクを足さない）。解決した子タスクは、答えの要点（と、ドキュメントに反映した場合はそのリンク）をメモで残して `DONE.md` へ移す。親のこの行は残す

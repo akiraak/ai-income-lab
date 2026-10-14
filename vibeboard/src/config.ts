@@ -40,6 +40,8 @@ export interface VibeboardConfig {
   port: number;
   host: string;
   title: string;
+  // ブラウザのタブの題（<title>）。設定ファイルの tabTitle。無ければ title と同じ
+  tabTitle: string;
   categories: CategoryConfig[];
   files: FilesConfig;
   customTabs: CustomTabConfig[];
@@ -128,6 +130,7 @@ function deriveTitleFromRoot(root: string): string {
 
 interface RawConfigFile {
   title?: unknown;
+  tabTitle?: unknown;
   port?: unknown;
   categories?: unknown;
   editable?: unknown;
@@ -427,6 +430,9 @@ export function resolveConfig(argv: string[]): { config: VibeboardConfig; rest: 
   const title = (parsed.title ?? process.env.VIBEBOARD_TITLE ?? '').trim()
     || titleFromFile
     || deriveTitleFromRoot(root);
+  // ブラウザのタブの題は設定ファイルの tabTitle だけで決める（CLI / 環境変数は無い）。
+  // 左上のブランド名（title）は変えずに、ブラウザのタブの並びで見分けたいとき用。無ければ title と同じ
+  const tabTitle = (typeof raw.tabTitle === 'string' && raw.tabTitle.trim()) || title;
 
   const categories = normalizeCategories(raw.categories, root);
   // editable（旧 Root タブの設定）は廃止した。残っていても起動は止めず、一言だけ知らせて無視する
@@ -448,6 +454,7 @@ export function resolveConfig(argv: string[]): { config: VibeboardConfig; rest: 
       port,
       host: '127.0.0.1',
       title,
+      tabTitle,
       categories,
       files,
       customTabs,

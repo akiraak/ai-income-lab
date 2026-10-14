@@ -111,7 +111,9 @@ let activeTocObserver = null;
 const selfWrittenMtimes = new Set();
 let saveInFlight = false;
 
-const TITLE_BASE = (typeof VB_CONFIG.title === 'string' && VB_CONFIG.title) || 'vibeboard';
+// ブラウザのタブの題。設定の tabTitle（無ければブランド名 title）。衝突があると (!) を前に付ける
+const TITLE_BASE = (typeof VB_CONFIG.tabTitle === 'string' && VB_CONFIG.tabTitle)
+  || (typeof VB_CONFIG.title === 'string' && VB_CONFIG.title) || 'vibeboard';
 
 function isDocDirty() {
   if (docState.readOnly) return false;

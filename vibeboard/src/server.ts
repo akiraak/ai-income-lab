@@ -1393,6 +1393,7 @@ export async function startServer(config: VibeboardConfig): Promise<void> {
   const renderIndexHtml = (): string => {
     const clientConfig = JSON.stringify({
       title: config.title,
+      tabTitle: config.tabTitle,
       categories: clientCategories,
       files: clientFiles,
       customTabs: clientCustomTabs,
@@ -1400,6 +1401,7 @@ export async function startServer(config: VibeboardConfig): Promise<void> {
       plansDir: plansDirOf(config),
     });
     return indexHtmlRaw
+      .replace(/__VIBEBOARD_TAB_TITLE__/g, escapeHtml(config.tabTitle))
       .replace(/__VIBEBOARD_TITLE__/g, escapeHtml(config.title))
       .replace(/__VIBEBOARD_CLIENT_CONFIG__/g, clientConfig);
   };

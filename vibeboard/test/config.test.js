@@ -164,3 +164,18 @@ test('plansDirOf: 既定は docs/plans、path を変えればそれ、hidden な
   assert.equal(dirOf({ categories: [{ name: 'plans', path: 'notes/plans' }] }), 'notes/plans');
   assert.equal(dirOf({ categories: [{ name: 'plans', path: 'notes/plans', hidden: true }] }), 'docs/plans');
 });
+
+test('tabTitle: 無ければ title と同じ・書けば tabTitle だけ変わる（title はそのまま）', (t) => {
+  const a = resolveConfig(['--root', tempRoot(t, { title: 'x' })]).config;
+  assert.equal(a.tabTitle, 'x');
+  const b = resolveConfig(['--root', tempRoot(t, { title: 'x', tabTitle: 'TODO' })]).config;
+  assert.equal(b.title, 'x');
+  assert.equal(b.tabTitle, 'TODO');
+  // 空白だけは「無い」と同じ
+  const c = resolveConfig(['--root', tempRoot(t, { title: 'x', tabTitle: '  ' })]).config;
+  assert.equal(c.tabTitle, 'x');
+  // --title で title を上書きしても、tabTitle が無ければそれに追随する
+  const d = resolveConfig(['--root', tempRoot(t, { title: 'x' }), '--title', 'y']).config;
+  assert.equal(d.title, 'y');
+  assert.equal(d.tabTitle, 'y');
+});

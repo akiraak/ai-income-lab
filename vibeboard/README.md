@@ -313,6 +313,10 @@ vibeboard listen [options]       Tasks タブの待ち受け（hook が使えな
   // UI のブランド名 (--title / VIBEBOARD_TITLE と同等。CLI/環境変数の方が優先される)
   "title": "my-project",
 
+  // ブラウザのタブの題（<title>）。無ければ title と同じ。左上のブランド名は変えずに
+  // ブラウザのタブの並びで見分けたいとき用（設定ファイルだけ。CLI / 環境変数は無い）
+  "tabTitle": "TODO",
+
   // バインドするポート (--port / VIBEBOARD_PORT と同等)
   "port": 3010,
 

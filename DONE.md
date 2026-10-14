@@ -1,4 +1,9 @@
 # DONE
+- 2026-10-13 vibeboard のブラウザのタブの題を「TODO」にした（新しい設定項目 `tabTitle`。左上のブランド名は変えない） [plan](docs/plans/archive/vibeboard-tasks-doc-title.md)
+  利用者の指示（2026-10-13）「TODO のページのタイトル変更をやる」→ 確認の答え ＝ 対象は **ブラウザのタブの題（`<title>`）**・新しい題は **「TODO」**。⚠ 1 度目は「Tasks タブを開いている間だけ」と読み違えて作り、利用者の訂正「ブラウザのタブです。Tasks ではありません」で作り直した
+  vibeboard に `vibeboard.config.json` の `tabTitle` を足した（無ければ `title` と同じ ＝ 書かないプロジェクトは変わらない。`config.ts` → `server.ts` → `index.html` の `<title>` と `VB_CONFIG.tabTitle` → `app.js` の `TITLE_BASE`。衝突の `(!)` は前に付いたまま。CLI ／ 環境変数は足していない）。このプロジェクトは `"tabTitle": "TODO"`
+  `npm test` 105 ／ 105 ✅・別ポート 3017 に仮の root で起こして `<title>TODO</title>`・ブランド名 `ai-income-lab` を curl で確認 ✅。⚠ 3010 は起動時に設定と `index.html` を読むので利用者が `./run-vibeboard.sh` で起こし直す
+  ⚠ 同じ差分を upstream の clone `/home/ubuntu/vibeboard`（`7f0184f` に ff してから）にも当てた。本体への commit ／ push は利用者の依頼で
 - 2026-10-09 検知器に「変換済みの列を受け取る」口を足す（判断 1 ＝ 「GA は既存のモデル全てに当てはめられるか」の残り、検知器 23 本） [plan](docs/plans/archive/transform-into-detectors.md)
   派生元: 「進化的探索を他のモデル・経路に広げる」／ 利用者の質問（2026-09-16）「遺伝的アルゴリズムは既存のモデル全てに当てはめることはできる？」
   ✅ 2026-10-09 利用者決定 **A（汎用の口）**「検証の幅が広がる汎用的な方」（比べた案 ＝ A 汎用の口 ／ B 足さない ／ C 「GA → fwd」の合成検知器 1 本）。14-1 の出力の契約は変えない（変わるのは検知器の**入力**）

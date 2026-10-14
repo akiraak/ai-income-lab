@@ -24,6 +24,23 @@
 {% if lu and lu.flags_error %}<div class="danger">指示の置き場（control/）を読めない: <b class="ng">{{ lu.flags_error }}</b> — 執行器は起動を拒む</div>{% endif %}
 </div>
 
+{% if t.ys %}{% set y = t.ys %}
+{# 物差し A〜E（dashboard.md §13-13。yardstick.csv を読むだけ ＝ まとめは yardstick.summarize） #}
+<div class="sec"><h2>物差し A〜E{{ info("物差し A〜E") }}{{ simmark(machine) }}</h2><span class="muted small">いまの期間 {{ y.since }}〜{{ y.last }}（{{ y.days }} 営業日）· 朝の準備で作り直す（E は前の営業日まで）· ⚠ 損益で人を採らない</span></div>
+<div class="panel"><div class="scroll-x"><table class="small orders">
+  <tr><th>物差し</th><th>いま</th><th>線</th><th class="num">判定</th></tr>
+  {% macro mark(ok) %}<td class="num cell-{{ 'na' if ok is none else ('ok' if ok else 'ng') }}">{{ '—' if ok is none else ('✅' if ok else '⚠') }}</td>{% endmacro %}
+  <tr><td>A 差 1（気配 → 約定）</td><td>中央値 {{ y.a.median_bp if y.a.median_bp is not none else '—' }} ／ 最大 {{ y.a.max_bp if y.a.max_bp is not none else '—' }} bp · {{ y.a.n }} 本</td><td>中央値 ≤ 5bp</td>{{ mark(y.a.ok) }}</tr>
+  <tr><td>B 持ち続けるとの差</td><td>{% if y.b %}{{ '%+.2f'|format(y.b.diff_usd) }} USD（{{ '%+.1f'|format(y.b.diff_bp) if y.b.diff_bp is not none else '—' }}bp）· 損益 {{ '%+.2f'|format(y.b.real_usd) }} ／ 持ち続ける {{ '%+.2f'|format(y.b.hold_usd) }}（{{ y.b.date }}）{% else %}—{% endif %}</td><td>見るだけ</td><td class="num cell-na">—</td></tr>
+  <tr><td>C 机上の規則との一致</td><td>合わない日 {{ y.c.days }}</td><td>0 日</td>{{ mark(y.c.ok) }}</tr>
+  <tr><td>D 無人運転</td><td>問題なく執行 {{ y.d.ok_days }} ／ {{ y.d.days }} 営業日 · 人手 {{ y.d.manual }} 回 · 口座 − 売買履歴 {{ y.d.gap_shares if y.d.gap_shares is not none else '—' }} 株</td><td>95% 以上・人手 0</td>{{ mark(y.d.ok) }}</tr>
+  <tr><td>E 差 3（そろえた）</td><td>|日次| 平均 {{ y.e.mean_abs_bp if y.e.mean_abs_bp is not none else '—' }} bp · {{ y.e.n }} 日</td><td>≤ 5bp</td>{{ mark(y.e.ok) }}</tr>
+</table></div></div>
+<div class="panel"><div class="scroll-x"><table class="small orders">
+  <tr><th>日付</th><th class="num">日</th><th>状態</th><th class="num">買い ／ 売り ／ 持つ ／ 見送り</th><th class="num">約定 ／ 注文</th><th class="num">A 中央値 ／ 最大</th><th class="num">B USD（累計）</th><th class="num">C</th><th class="num">D 人手</th><th class="num">口座 − 売買履歴</th><th class="num">E bp</th><th>問題</th></tr>
+  {% for r in y.rows %}<tr{% if r.problems %} class="row-missing"{% endif %}><td>{{ r.date }}</td><td class="num">{{ r.day_n }}</td><td>{{ r.status_label }}</td><td class="num">{% if r.signals %}{{ r.buys }} ／ {{ r.sells }} ／ {{ r.holds }} ／ {{ r.skips }}{% if r.held_back and r.held_back != '0' %}（見送り {{ r.held_back }}）{% endif %}{% else %}—{% endif %}</td><td class="num">{{ r.filled or '—' }} ／ {{ r.orders or '—' }}</td><td class="num">{{ r.a_median_bp or '—' }} ／ {{ r.a_max_bp or '—' }}</td><td class="num">{{ r.b_diff_usd or '—' }}</td><td class="num">{{ r.c_mismatch or '—' }}</td><td class="num">{{ r.d_manual or '—' }}</td><td class="num">{{ r.d_gap_shares or '—' }}</td><td class="num">{{ r.e_diff3a_bp or '—' }}</td><td class="small">{{ r.problem_labels|join(' · ') or '—' }}{% if r.c_detail %} · {{ r.c_detail }}{% endif %}{% if r.d_manual_detail %} · 人手: {{ r.d_manual_detail }}{% endif %}</td></tr>
+  {% endfor %}</table></div></div>
+{% endif %}
 {% if t.paper_real %}
 <div class="sec"><h2>紙上の対照（日次）{{ simmark(machine) }}</h2><span class="muted small">同じ合図を公式終値・片道 2.5bp で回した紙上と、実物・B&amp;H · 「そろえた紙上」＝ 実物が発注した日から・整数株・一時停止 ／ 手じまいどおり（累計は期間ごと） · bp は予算に対して · 新しい順{% if t.close_source == 'quotes' %} · ⚠ 終値は気配の代役（モック ／ シミュレーション）{% endif %}</span></div>
 <div class="panel"><div class="scroll-x"><table class="small orders">

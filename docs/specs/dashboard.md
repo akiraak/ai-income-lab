@@ -723,6 +723,19 @@ flowchart LR
 
 `daily.csv` に `diff3a_*`（`paper.py` のそろえた紙上 ＝ 実物が発注した日から・整数株・印どおり）があれば、トレーダーの差 3 のタイル（累計はいまの期間 `aligned_since` から・日次の中央値）と概要の差 3 の中央値はそちらを使う。今までの形（等加重・端数）の累計はタイルに小さく残し、トレーダーの日次の表には両方の列を並べる。無い `daily.csv`（古い `paper.py`）は今までどおり。⚠ 紙上の線（図）は今までの形のまま。⚠ 管理画面は読むだけ（計算は `paper.py`）。テストは `tests/test_live.py` の `test_aligned_diff3_is_used_when_paper_py_writes_it`
 
+### 13-13. 物差し A〜E と異常の一覧（2026-10-13。利用者決定「全部おススメで進めて」・[プラン](../plans/daily-record-auto.md)）
+
+執行器の `yardstick.py`（朝の `run-live.sh --prepare` で `paper.py` の後）が書く `out/yardstick.csv`（1 日 1 行 × トレーダー）を読むだけ。計算の決まり（A〜E・期間・人手の数え方）は `yardstick.py` の頭の注記が正本、物差しの定義は [trader-loop.md Phase 2](../plans/trader-loop.md)。
+
+| 面 | 出すもの |
+| --- | --- |
+| トレーダーの詳細 | いまの期間（`since` から）の A〜E のまとめ（線の内か）と日ごとの表（新しい順）。⚠ B の横に「損益で人を採らない」 |
+| 全体の詳細 | 異常の一覧（見ている期間 ＝ 直近 20 営業日・問題の札が付いた行だけ・試験用の人を除く） |
+
+- ⚠ **まとめは `yardstick.summarize` を呼ぶだけ**（画面で数え直さない）。`yardstick.csv` が無ければ節ごと出さない（仮データは作らない）
+- ⚠ **日次の数字の正本は `yardstick.csv`**（2026-10-13 利用者決定 K1）。仕様書（`live-trading.md` §1）には異常の日の読み方と週 1 回の写しだけを書く
+- E は前の営業日まで（公式終値が要る ＝ 翌朝の `--prepare` で埋まる）。テストは `tests/test_live.py` の `test_yardstick_*`
+
 ## 14. ハードの画面（2026-09-18）
 
 vibeboard の**ハード**タブ（`/ext/hardware`）。検証が何時間も使う機械（titan ＝ WSL2 ＋ RTX 3090 Ti ＋ 32 スレッド）の

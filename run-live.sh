@@ -51,6 +51,9 @@ if [ "$PREPARE" = 1 ]; then
   if "$PY_LT" "$LIVEFS" ls "${LT_OUT_DIR:-$LT/out}" 2>/dev/null | grep -q -E '^20[0-9]{2}-[0-9]{2}-[0-9]{2}$'; then
     say "紙上の対照 → daily.csv"
     (cd "$LT" && "$PY_LT" paper.py --bars-dir "${AIL_LIVE_DATA_DIR:-$FD/data-live}/adjusted/d") || say "⚠ paper.py が失敗した（売買には影響しない）"
+    # 物差し A〜E（docs/plans/daily-record-auto.md）: 記録と daily.csv から yardstick.csv を作り直す（読むだけ・何度流しても同じ）
+    say "物差し A〜E → yardstick.csv"
+    (cd "$LT" && "$PY_LT" yardstick.py) || say "⚠ yardstick.py が失敗した（売買には影響しない）"
   fi
   exit $RC
 fi

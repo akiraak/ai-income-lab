@@ -804,6 +804,18 @@ note = "管理画面の概要・全体の詳細・トレーダーの詳細に出
   where = "§0-2 発注できる時間帯"
 
   [[section.term]]
+  name = "物差し A〜E"
+  short = "人を見る 5 つの物差し（A 差 1 ／ B 持ち続けるとの差 ／ C 規則との一致 ／ D 無人運転 ／ E 差 3）。朝の準備で作る。損益で人を採らない。"
+  doc = "docs/specs/dashboard.md"
+  where = "§13-13 物差し A〜E と異常の一覧"
+
+  [[section.term]]
+  name = "異常の一覧"
+  short = "物差しの表で問題の札が付いた日（起動なし・規則と違う判断・口座 − 売買履歴 ≠ 0 など）。異常の無い日は出さない。読み方は人が仕様書に書く。"
+  doc = "docs/specs/dashboard.md"
+  where = "§13-13 物差し A〜E と異常の一覧"
+
+  [[section.term]]
   name = "起動しなかった日"
   short = "NYSE の営業日なのに執行器の記録が無い日。cron が動かなかった疑いで、無人運転の判定に効く。今日は 13:15 PT（16:15 ET）を過ぎたら数える（見張り）。"
   doc = "docs/specs/dashboard.md"

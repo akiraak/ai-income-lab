@@ -545,3 +545,41 @@ def test_aligned_diff3_is_used_when_paper_py_writes_it(settings):
     with TestClient(create_app(settings, start_monitors=False), client=("127.0.0.1", 50000)) as c:
         page = c.get("/traders/test_a").text
         assert "実物にそろえた紙上" in page and "-113.78" in page and "そろえた紙上 bp" in page
+
+
+def test_yardstick_section_appears_only_when_yardstick_csv_exists(settings):
+    """物差し A〜E（dashboard.md §13-13）: 執行器の yardstick.py が書いた yardstick.csv があればトレーダーの詳細に出す。無ければ節ごと出さない。"""
+    build_live_dir(settings.live_dir)
+    with TestClient(create_app(settings, start_monitors=False), client=("127.0.0.1", 50000)) as c:
+        assert "物差し A〜E" not in c.get("/traders/test_a").text
+        assert "がまだ無い" in c.get("/overall").text
+    ys = lv._yardstick()
+    rows = ys.build_rows(str(settings.live_dir / "out"))
+    assert rows, "合成の記録から 1 行以上できる"
+    ys.write_csv(str(settings.live_dir / "out" / "yardstick.csv"), rows)
+    b = lv.board(settings.live_dir, days=None)
+    t = next(x for x in b["traders"] if x["name"] == "test_a")
+    assert t["ys"]["since"] == rows[0]["since"] and t["ys"]["rows"][0]["date"] == rows[-1]["date"]   # 新しい順
+    assert t["ys"] == {**ys.summarize(ys.read_csv(str(settings.live_dir / "out" / "yardstick.csv")), "test_a"), "rows": t["ys"]["rows"]}
+    with TestClient(create_app(settings, start_monitors=False), client=("127.0.0.1", 50000)) as c:
+        page = c.get("/traders/test_a").text
+        assert "物差し A〜E" in page and "損益で人を採らない" in page and "持ち続けるとの差" in page
+
+
+def test_yardstick_anomalies_list_problem_rows_but_not_test_traders(settings):
+    build_live_dir(settings.live_dir, with_real=True)
+    ds = lv.board(settings.live_dir)["dates"]
+    cols = ",".join(lv._yardstick().COLUMNS)
+    def row(d, t, test, problems, c_detail=""):
+        r = {k: "" for k in lv._yardstick().COLUMNS}
+        r.update({"date": d, "trader": t, "test": test, "since": ds[0], "day_n": "1", "status": "active",
+                  "d_ran": "1", "d_ok": "0" if problems else "1", "d_manual": "0", "problems": problems, "c_detail": c_detail})
+        return ",".join(r[k] for k in lv._yardstick().COLUMNS)
+    livefs.write_doc(settings.live_dir / "out" / "yardstick.csv", "\n".join([
+        cols, row(ds[-1], "T1", "False", "gap;c_mismatch", "PFE: 規則 sell ／ 実物 hold"), row(ds[-1], "test_a", "True", "no_run"),
+        row(ds[0], "T1", "False", "")]) + "\n")
+    b = lv.board(settings.live_dir)
+    assert [(a["trader"], a["problems"]) for a in b["anomalies"]] == [("T1", ["口座 − 売買履歴 ≠ 0", "規則と違う判断"])]
+    with TestClient(create_app(settings, start_monitors=False), client=("127.0.0.1", 50000)) as c:
+        page = c.get("/overall").text
+        assert "異常の一覧" in page and "口座 − 売買履歴 ≠ 0" in page and "PFE: 規則 sell ／ 実物 hold" in page

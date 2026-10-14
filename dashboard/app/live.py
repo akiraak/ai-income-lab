@@ -340,6 +340,66 @@ def daily_rows(live_dir: Path) -> list[dict]:
     return rows
 
 
+def _yardstick():
+    """執行器の `yardstick.py`（物差し A〜E。標準ライブラリだけ）を道で読む ＝ まとめ方の正本は執行器の側（画面は数え直さない）。"""
+    import importlib.util
+    import sys
+    mod = sys.modules.get("lt_yardstick")
+    if mod is None:
+        path = Path(__file__).resolve().parents[2] / "experiments" / "live-trading" / "yardstick.py"
+        spec = importlib.util.spec_from_file_location("lt_yardstick", path)
+        mod = importlib.util.module_from_spec(spec)
+        sys.modules["lt_yardstick"] = mod
+        spec.loader.exec_module(mod)
+    return mod
+
+
+# 物差しの「問題」の札（yardstick.py の problems の綴り → 画面の言葉）。⚠ 無い綴りはそのまま出す
+PROBLEM_LABEL = {
+    "no_run": "起動なし", "no_end": "終わりの記録なし", "bad": "error ／ unknown の注文", "c_mismatch": "規則と違う判断",
+    "diff1_over": "差 1 が 5bp 超", "gap": "口座 − 売買履歴 ≠ 0", "halted": "停止（HALT）", "out_of_window": "取引時間帯の外",
+    "auth_failed": "認証の失敗", "signal_error": "合図の失敗", "quote_failed": "気配の失敗", "quote_client_failed": "気配の失敗",
+    "after_read_failed": "発注後の照会の失敗", "journal_unresolved": "控えが未完", "positions_outside_ledger": "売買履歴の外の株",
+    "position_short": "口座が売買履歴より少ない", "order_unknown": "約定が分からない注文", "ledger_error": "売買履歴の失敗",
+    "liquidate_mark_failed": "手じまいの印の失敗", "drawdown_warning": "含み損 20% の警告", "blocked_symbol": "売買しない銘柄",
+    "over_total_budget": "予算の合計が上限を超えた", "refused_mode_sim": "シミュレーションモードで拒否",
+    "refused_lock_busy": "二重起動で拒否", "refused_not_production": "本番の機械ではない印で拒否",
+}
+STATUS_LABEL_YS = {"active": "稼働", "paused": "一時停止", "liquidating": "手じまい中", "no_run": "起動なし", "refused": "断られた"}
+
+
+def yardstick_rows(live_dir: Path) -> list[dict]:
+    """物差し A〜E（執行器の `yardstick.py` が朝の準備で書く `out/yardstick.csv`。プラン daily-record-auto.md）。⚠ **読むだけ**。無ければ空。"""
+    text = livefs.read_doc(live_dir / "out" / "yardstick.csv", missing_ok=True)
+    if not text:
+        return []
+    return list(csv.DictReader(io.StringIO(text)))
+
+
+def _ys_view(rows: list[dict], name: str) -> dict | None:
+    """トレーダーの詳細に出す形: いまの期間のまとめ（`yardstick.summarize`）と、その期間の日ごとの行（新しい順）。"""
+    s = _yardstick().summarize(rows, name)
+    if s is None:
+        return None
+    days = [r for r in rows if r["trader"] == name and r["since"] == s["since"]]
+    for r in days:
+        r["status_label"] = STATUS_LABEL_YS.get(r["status"], r["status"])
+        r["problem_labels"] = [PROBLEM_LABEL.get(p, p) for p in r["problems"].split(";") if p]
+    return {**s, "rows": days[::-1]}
+
+
+def anomalies(rows: list[dict], first: str | None) -> list[dict]:
+    """全体の詳細の「異常の一覧」: `first` 以降で問題の札が付いた行（試験用の人を除く・新しい順）。異常 0 の日は出さない。"""
+    out = []
+    for r in rows:
+        if not r["problems"] or r.get("test") == "True" or (first and r["date"] < first):
+            continue
+        out.append({"date": r["date"], "trader": r["trader"], "status": STATUS_LABEL_YS.get(r["status"], r["status"]),
+                    "problems": [PROBLEM_LABEL.get(p, p) for p in r["problems"].split(";") if p],
+                    "c_detail": r.get("c_detail") or "", "manual": r.get("d_manual_detail") or ""})
+    return sorted(out, key=lambda x: (x["date"], x["trader"]), reverse=True)
+
+
 def index(live_dir: Path, days: int = DAYS) -> dict:
     tr = traders(live_dir)
     st = states(live_dir)
@@ -492,6 +552,7 @@ def board(live_dir: Path, days: int | None = DAYS, today=None, now_et_=None, sup
     cal_info = calendar_info(ds[0], ds[-1], today=today) if ds else calendar_info(None, None, today=today)
     missing = [d for d in bd if d not in dd]
     daily = daily_rows(live_dir)
+    ys = yardstick_rows(live_dir)
     for i, t in enumerate(tr):
         name = t["name"]
         t["cls"] = f"s{i % N_SERIES + 1}"
@@ -577,6 +638,7 @@ def board(live_dir: Path, days: int | None = DAYS, today=None, now_et_=None, sup
                                         for s, v in ((t["last"] or {}).get("holdings") or {}).items()) or "なし"
         t["pnl_now_usd"] = next((v for v in reversed(t["pnl_usd"]) if v is not None), None)
         t["pnl_now_pct"] = next((v for v in reversed(t["pnl_pct"]) if v is not None), None)
+        t["ys"] = _ys_view(ys, name) if ys else None            # 物差し A〜E（yardstick.csv がある人だけ。無ければ出さない）
     active = [t for t in tr if t["pnl_now_usd"] is not None]
     budget = sum(t["budget_usd"] for t in active)
     total = sum(t["pnl_now_usd"] for t in active) if active else None
@@ -617,4 +679,7 @@ def board(live_dir: Path, days: int | None = DAYS, today=None, now_et_=None, sup
                             _median([r["diff3_bp"] for r in daily if r["diff3_bp"] is not None and not r["test"]])),
         "diff3_aligned": any(r["diff3a_bp"] is not None for r in daily),
         "close_source": daily[0]["close_source"] if daily else None,
+        # 異常の一覧（yardstick.csv。見ている期間の中だけ）。yardstick_ready が False なら画面は「まだ無い」と出す
+        "yardstick_ready": bool(ys),
+        "anomalies": anomalies(ys, ds[0] if (ds and days is not None) else None),
     }

@@ -38,6 +38,16 @@
 </table></div></div>
 {% else %}<p class="muted small">日次の記録が無い（<code>{{ b.live_dir }}</code>）。</p>{% endif %}
 
+<div class="sec"><h2>異常の一覧{{ info("異常の一覧") }}{{ simmark(machine) }}</h2><span class="muted small">物差し A〜E の表で問題の札が付いた日 · {{ b.period.label }} · 新しい順 · 朝の準備で作り直す（今日の分は上の日次）</span></div>
+{% if not b.yardstick_ready %}<p class="muted small">物差しの表（<code>out/yardstick.csv</code>）がまだ無い（朝の準備 <code>run-live.sh --prepare</code> が作る）。</p>
+{% elif not b.anomalies %}<p class="muted small">異常なし。</p>
+{% else %}
+<div class="panel"><div class="scroll-x"><table class="small orders">
+<tr><th>日付</th><th>トレーダー</th><th>状態</th><th>問題</th><th>中身</th></tr>
+{% for a in b.anomalies %}<tr><td>{{ a.date }}</td><td>{{ b.labels.get(a.trader, a.trader) }}</td><td>{{ a.status }}</td><td>{{ a.problems|join(' · ') }}</td><td class="small muted">{{ a.c_detail }}{% if a.manual %}{{ ' · ' if a.c_detail }}人手: {{ a.manual }}{% endif %}</td></tr>
+{% endfor %}</table></div></div>
+{% endif %}
+
 <div class="sec"><h2>注文の履歴{{ simmark(machine) }}</h2><span class="muted small">全トレーダー · {{ b.period.label }} · 新しい順 · 月ごとにたたんである ｜ ⚠ 1 人ずつの全期間は左ペインのトレーダーから</span></div>
 {% include "orders_history.html" %}
 

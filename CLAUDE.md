@@ -255,11 +255,12 @@ cd experiments/feature-discovery
 ```bash
 cd experiments/feature-discovery
 .venv/bin/python -m cli.queue --config hp_inner   # Ridge ／ LightGBM ／ MLP（内側選抜）× own_2018（本番 3 ＋ leak 3。26 分【実測】）。⚠ 回し直すと同じ識別項目の実行が増えるだけ
+.venv/bin/python -m cli.queue --config hp_inner_once   # 〃（内側選抜・1 度）＝ 1 度選んで較正にも配る（本番 3 ＋ leak 3。18 分【実測】）。⚠ 同上
 ```
 
 - モデル `<モデル>（内側選抜）`（`ail/models/tuned.py`。rules.md 14-12）: 事前固定した候補（Ridge 7 ／ LightGBM 27 ／ MLP 45。既定が先頭）を訓練分割の尻 10%（`tail_holdout`）で Spearman ρ で測り、champion を訓練全体で学び直す。⚠ **`trees.py`・`deep.py` は水準を ctx から読む**（`lgbm_leaves` ／ `lgbm_lr` ／ `lgbm_min_child`・`mlp_hidden` ／ `mlp_dropout` ／ `mlp_lr`。既定はいままでの定数 ＝ 項目の無い config は 1 ビットも変わらない。この経路は 13500t の毎日の予測も通る ＝ 指紋 `tests/test_trading_run.py`・`tests/test_predict.py`）。記録は `fitted_doc[手法]["内側選抜"]`（較正・本番の 2 回ぶん）。⚠ モデルを呼んだ側が `tuned.drain(ctx)` で取り出す（取り残すと fold をまたいで混ざる）
 - 数えるのは champion × θ だけ（候補 × fold は数えない ＝ 14-11 規約 2）。識別項目「モデル」が `Ridge（内側選抜）` 等 ＝ 新しいモデル（綴り `ridge-tuned` ／ `lgbm-tuned` ／ `mlp-tuned`）。⚠ 機械で検査: 評価分割を差し替えても champion が同じ ／ 候補が既定だけなら基底と bit で同じ ／ 候補の一覧が 14-12-1 の写し（`tests/test_tuned.py`）
-- 結果: **採る 0 ／ 9**（n_trials 816 → 825）。champion ≠ 既定 13/15 fold・尻の改善が評価期間に届いたのは 5/13・対の差 |t| ≤ 2.05 ＝ 「既定が足を引っ張っていた」とは言えない。⚠ **較正と本番で champion が違う fold が 13/15**（規約 5「呼ばれるたびに選ぶ」の帰結。Ridge は alpha 1 と 1e6 で予測のスケールが桁で違い、較正の係数が本番の予測に合わない）＝ 直すなら「1 度選んで較正にも配る」を新しい処置として先に登録（利用者の判断）。⚠ 結果を見てから候補を足さない・GA（案 C）に進まない。記録は `docs/specs/experiments/hyperparam-inner-selection.md`
+- 結果: **採る 0 ／ 9**（n_trials 816 → 825）。champion ≠ 既定 13/15 fold・尻の改善が評価期間に届いたのは 5/13・対の差 |t| ≤ 2.05 ＝ 「既定が足を引っ張っていた」とは言えない。⚠ **較正と本番で champion が違う fold が 13/15**（規約 5「呼ばれるたびに選ぶ」の帰結。Ridge は alpha 1 と 1e6 で予測のスケールが桁で違い、較正の係数が本番の予測に合わない）＝ ✅ **2026-10-09 利用者決定「推すのですすめる」で「1 度選んで較正にも配る」を新しい処置 `<モデル>（内側選抜・1 度）` として事前固定し（rules.md 14-12-3。綴り `*-tuned-once`・`fold_buy_pct` が較正の前に `tuned.select_once` で 1 度選び ctx の `CHAMPION_KEY` で較正と本番に配る・本番の後に `tuned.release`。ほかのモデルでは None ＝ ctx は 1 バイトも変わらない）、2026-10-10 に回した: 採る 0 ／ 9（825 → 834）**。較正 ＝ 本番の champion 15/15・本番の champion は `（内側選抜）` と 15/15 で同じ ＝ 本番の予測は同一で違うのは較正の係数だけ。較正の符号が合わなかった 4/15 fold は配ると直ったが対の差は \|t\| ≤ 2.31（MLP でも反転していた ＝ Ridge だけではない）。⚠ 結果を見てから候補を足さない・門に配らない・尻を 2 つに割らない・GA（案 C）に進まない。記録は `docs/specs/experiments/hyperparam-inner-selection.md`（§4）
 
 ### experiments/live-trading（実売買の執行器。2026-09-17 の 2 つ目の例外）
 

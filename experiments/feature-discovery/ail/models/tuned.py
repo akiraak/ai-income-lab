@@ -9,6 +9,11 @@
 ⚠ **候補は結果を見て足さない・動かさない**（規約 1。写しを `tests/test_tuned.py` が固定する）。
 ⚠ **config にこのモデル名が無ければ 1 ビットも変えない**（基底の `trees.py`・`deep.py` は ctx に項目が無ければ今までの定数）。
 
+⚠ **14-12-3（2026-10-09 利用者決定「推すのですすめる」）: `<モデル>（内側選抜・1 度）`** ＝ 規約 5 の例外 1 つ。
+`fold_buy_pct` が較正の呼び出しの前に `select_once` で 1 度選び、champion を `ctx[CHAMPION_KEY]` で較正と本番に配る。
+このモデルは項目があれば**選ばずに**基底を呼ぶ（記録に「配られた」）。項目が無い呼び出し（門・毎日往復の経路）は
+自前で選ぶ（記録に「自前」）。⚠ `（内側選抜）` の経路は 1 バイトも変えない（結果を見てから直さない ＝ 規約 1。別のモデルとして ＋9）。
+
 記録: 1 回の呼び出しごとに候補・ρ・champion・尻の行数を `ctx[DOC_KEY]` のリストに積む。
 `cli/run.py` の `fold_buy_pct` が本番の呼び出しの後に `drain` で取り出して `fitted_doc[手法]["内側選抜"]` に写し、
 門（`ail/validation/gate.py`）は取り出して捨てる（門は診断）。⚠ 取り残すと fold をまたいで混ざるので、
@@ -27,6 +32,8 @@ from ail.registry import register
 
 # ctx に積む記録の項目名。⚠ **モデルを呼んだ側が `drain` で空にする**
 DOC_KEY = "__tuned_docs"
+# 1 度選んだ champion を較正と本番に配る項目名（14-12-3 規約 2）。⚠ **置いた側（`fold_buy_pct`）が `release` で外す**
+CHAMPION_KEY = "__tuned_champion"
 
 
 def _front(default: dict, grid: list[dict]) -> list[dict]:
@@ -67,6 +74,27 @@ def _plain(c: dict) -> dict:
     return {k: (list(v) if isinstance(v, tuple) else v) for k, v in c.items()}
 
 
+def _choose(base, Xtr, ytr, ctx: dict, candidates: list[dict]) -> tuple[dict, dict]:
+    """候補を訓練分割の尻で測って champion を選ぶ（14-12 規約 1〜3）。`(champion, 記録)`。⚠ **評価分割には触れない**。"""
+    default = candidates[0]
+    doc: dict = {"候補": [_plain(c) for c in candidates], "既定": _plain(default)}
+    (Xh, yh), holdout = tail_holdout(Xtr, ytr)
+    if holdout is None:
+        # ⚠ 尻が切れない（小さい標本）。既定で動き、記録に残す（14-12 規約 2）
+        doc.update({"切れなかった": True, "尻の行数": 0, "ρ": [None] * len(candidates),
+                    "champion": _plain(default), "champion_index": 0, "既定のρ": None})
+        return default, doc
+    Xv, yv = holdout
+    rhos = [spearman(base(Xh, yh, Xv, {**ctx, **c}), yv) for c in candidates]
+    scores = np.array([-np.inf if r is None else r for r in rhos], dtype=float)
+    best = int(np.argmax(scores))             # ⚠ 同点は先頭（既定）。argmax は最初の最大を返す
+    champion = candidates[best]
+    doc.update({"切れなかった": False, "尻の行数": int(len(yv)),
+                "ρ": [None if r is None else round(r, 6) for r in rhos],
+                "champion": _plain(champion), "champion_index": best, "既定のρ": doc_rho(rhos[0])})
+    return champion, doc
+
+
 def inner_select(base, Xtr, ytr, Xte, ctx: dict, candidates: list[dict]):
     """候補を訓練分割の尻で測って champion を選び、訓練全体で学び直して `Xte` を当てる。
 
@@ -75,26 +103,47 @@ def inner_select(base, Xtr, ytr, Xte, ctx: dict, candidates: list[dict]):
     学び直しの早期打ち切りは選抜と同じ尻を使う（14-12 規約 9。評価分割には漏れない）。
     """
     ytr = np.asarray(ytr, dtype=float)
-    default = candidates[0]
-    doc: dict = {"候補": [_plain(c) for c in candidates], "既定": _plain(default)}
-    (Xh, yh), holdout = tail_holdout(Xtr, ytr)
-    if holdout is None:
-        # ⚠ 尻が切れない（小さい標本）。既定で動き、記録に残す（14-12 規約 2）
-        doc.update({"切れなかった": True, "尻の行数": 0, "ρ": [None] * len(candidates),
-                    "champion": _plain(default), "champion_index": 0, "既定のρ": None})
-        champion = default
-    else:
-        Xv, yv = holdout
-        rhos = [spearman(base(Xh, yh, Xv, {**ctx, **c}), yv) for c in candidates]
-        scores = np.array([-np.inf if r is None else r for r in rhos], dtype=float)
-        best = int(np.argmax(scores))             # ⚠ 同点は先頭（既定）。argmax は最初の最大を返す
-        champion = candidates[best]
-        doc.update({"切れなかった": False, "尻の行数": int(len(yv)),
-                    "ρ": [None if r is None else round(r, 6) for r in rhos],
-                    "champion": _plain(champion), "champion_index": best, "既定のρ": doc_rho(rhos[0])})
+    champion, doc = _choose(base, Xtr, ytr, ctx, candidates)
     pred = base(Xtr, ytr, Xte, {**ctx, **champion})
     ctx.setdefault(DOC_KEY, []).append(doc)
     return pred
+
+
+def inner_select_once(base, Xtr, ytr, Xte, ctx: dict, candidates: list[dict]):
+    """`（内側選抜・1 度）`（14-12-3）: `ctx[CHAMPION_KEY]` があれば**選ばずに**その champion で基底を呼ぶ（記録「配られた」）。
+    無ければ自前で選ぶ（記録「自前」。門・毎日往復の経路）。⚠ 選び方は `inner_select` と同じ `_choose`。"""
+    ytr = np.asarray(ytr, dtype=float)
+    if CHAMPION_KEY in ctx:
+        champion = ctx[CHAMPION_KEY]
+        if champion not in candidates:
+            raise ValueError(f"配られた champion が候補の外: {champion!r}（14-12-3 規約 1 ＝ 候補は 14-12-1 の写し）")
+        doc = {"配られた": True, "champion": _plain(champion), "champion_index": candidates.index(champion)}
+    else:
+        champion, doc = _choose(base, Xtr, ytr, ctx, candidates)
+        doc["自前"] = True
+    ctx.setdefault(DOC_KEY, []).append(doc)
+    return base(Xtr, ytr, Xte, {**ctx, **champion})
+
+
+def select_once(model, Xtr, ytr, ctx: dict) -> dict | None:
+    """`fold_buy_pct` が**較正の呼び出しの前に、選別ごとに 1 度**呼ぶ（14-12-3 規約 1）。
+
+    `model` が `（内側選抜・1 度）` なら訓練分割 `Xtr` の尻で選んで `ctx[CHAMPION_KEY]` に置き、選抜の記録を返す。
+    ⚠ **ほかのモデルなら None を返し、ctx は 1 バイトも変わらない**（既定経路の指紋は動かない）。
+    ⚠ 置いた champion は呼んだ側が本番の呼び出しの後に `release` で外す（fold・銘柄をまたいで配らない）。
+    """
+    spec = ONCE.get(model)
+    if spec is None:
+        return None
+    base, candidates = spec
+    champion, doc = _choose(base, Xtr, np.asarray(ytr, dtype=float), ctx, candidates)
+    ctx[CHAMPION_KEY] = champion
+    return doc
+
+
+def release(ctx: dict) -> None:
+    """配った champion を外す（無ければ何もしない）。"""
+    ctx.pop(CHAMPION_KEY, None)
 
 
 def doc_rho(r: float | None) -> float | None:
@@ -106,11 +155,18 @@ def drain(ctx: dict) -> list[dict]:
     return list(ctx.pop(DOC_KEY, []))
 
 
-def fold_doc(docs: list[dict]) -> dict:
-    """`fold_buy_pct` の 1 手法ぶん（較正 → 本番の順に 2 回呼ばれる）を `fitted_doc` の形に。"""
+def fold_doc(docs: list[dict], once: dict | None = None) -> dict:
+    """`fold_buy_pct` の 1 手法ぶん（較正 → 本番の順に 2 回呼ばれる）を `fitted_doc` の形に。
+
+    `once` は `select_once` の記録（`（内側選抜・1 度）` のときだけ。14-12-3 規約 6）＝ 頭に「選抜」を足す。
+    ⚠ `once` が None なら今までの形そのまま（`（内側選抜）` の記録は 1 バイトも変わらない）。
+    """
+    d: dict = {} if once is None else {"選抜": once}
     if len(docs) == 2:
-        return {"較正": docs[0], "本番": docs[1]}
-    return {"呼び出し": docs}
+        d.update({"較正": docs[0], "本番": docs[1]})
+    else:
+        d["呼び出し"] = docs
+    return d
 
 
 @register("model", "Ridge（内側選抜）")
@@ -126,3 +182,26 @@ def lightgbm_tuned(Xtr, ytr, Xte, ctx):
 @register("model", "MLP（内側選抜）")
 def mlp_tuned(Xtr, ytr, Xte, ctx):
     return inner_select(deep.mlp, Xtr, ytr, Xte, ctx, MLP)
+
+
+# --- 14-12-3: 1 度選んで較正にも配る（2026-10-09 利用者決定「推すのですすめる」）。候補は上と同じ写し（足さない） ---
+
+@register("model", "Ridge（内側選抜・1 度）")
+def ridge_tuned_once(Xtr, ytr, Xte, ctx):
+    return inner_select_once(linear.ridge, Xtr, ytr, Xte, ctx, RIDGE)
+
+
+@register("model", "LightGBM（内側選抜・1 度）")
+def lightgbm_tuned_once(Xtr, ytr, Xte, ctx):
+    return inner_select_once(trees.lightgbm_gbdt, Xtr, ytr, Xte, ctx, LGBM)
+
+
+@register("model", "MLP（内側選抜・1 度）")
+def mlp_tuned_once(Xtr, ytr, Xte, ctx):
+    return inner_select_once(deep.mlp, Xtr, ytr, Xte, ctx, MLP)
+
+
+# `select_once` が引く表: モデル（registry の関数そのもの）→ (基底, 候補)。⚠ 候補は `CANDIDATES` と同じオブジェクト
+ONCE: dict = {ridge_tuned_once: (linear.ridge, RIDGE),
+              lightgbm_tuned_once: (trees.lightgbm_gbdt, LGBM),
+              mlp_tuned_once: (deep.mlp, MLP)}

@@ -93,6 +93,10 @@
 "Ridge（内側選抜）" = "ridge-tuned"
 "LightGBM（内側選抜）" = "lgbm-tuned"
 "MLP（内側選抜）" = "mlp-tuned"
+# 1 度選んで較正にも配る（rules.md 14-12-3。2026-10-09 利用者決定「推すのですすめる」）
+"Ridge（内側選抜・1 度）" = "ridge-tuned-once"
+"LightGBM（内側選抜・1 度）" = "lgbm-tuned-once"
+"MLP（内側選抜・1 度）" = "mlp-tuned-once"
 "PatchTST" = "patchtst"
 "Chronos-2" = "chronos2"          # 基盤モデルの zero-shot（学習しない。2026-09-27）
 "TimeXer" = "timexer"

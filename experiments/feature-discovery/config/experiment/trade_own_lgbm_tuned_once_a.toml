@@ -1,0 +1,44 @@
+# ⚠ **「1 度選んで較正にも配る」の 3 本のうちの 1 本**（rules.md 14-12-3。2026-10-09 利用者決定「推すのですすめる」。
+# プラン plans/hyperparam-inner-selection.md §9・記録 hyperparam-inner-selection.md §4）。
+# ⚠ **trade_own_lgbm_tuned_a.toml と違うのはモデル（`LightGBM（内側選抜・1 度）`）だけ**（表・fold・θ・k・種・コスト・選別 は同じ
+#    ＝ 対の相手は 既定〔trade_own_lgbm_a〕と `（内側選抜）`〔trade_own_lgbm_tuned_a〕の 2 つ。13-8）。
+# ⚠ 違い: `fold_buy_pct` が較正の前に 1 度選び、同じ champion を較正と本番に配る（`（内側選抜）` は呼ばれるたびに選ぶ ＝ 規約 5）。
+# ⚠ 候補は `（内側選抜）` と同じ写し（ail/models/tuned.py。足さない・動かさない）。
+# ⚠ 数えるのは champion × θ 3 ＝ n_trials ＋3（候補 × fold は数えない。14-11 規約 2）
+#
+# ⚠ **TOML の平の key はテーブル見出しより上に書く**（rules.md 10 章 規約 1）
+name = "trade_own_lgbm_tuned_once_a"
+dataset = "daily"
+horizon = 1
+cost_bp = 5.0
+features_from = "own_2018"     # ⚠ 表は作り直さず own_2018 のものを読む（13-8。表の差を混ぜない）
+
+feature_layers = ["own"]
+targets = "all"
+
+horizon_min = 1440.0
+bar_minutes = 1440.0
+
+selectors = ["全部使う（基準）"]
+k = 16
+
+model = "LightGBM（内側選抜・1 度）"
+baselines = ["常に上（ドリフト）", "直前リターンの符号"]
+
+[trading]
+style = "threshold"
+thresholds = [50, 55, 60]      # ⚠ 事前固定。結果を見て動かさない（rules.md 13-3）
+form = "shared"                # (A) 銘柄共通 1 本
+
+[validation]
+split = "walk_forward_dates"   # ⚠ fold の切れ目は日付で決める（rules.md 13-6 の 1）
+folds = 5
+purge = true
+embargo_bars = 0
+seed = 0
+
+[features]
+ex_lag_days = 1
+ex_zero_fill = ["usgs"]
+ex_transforms = ["d1", "z20"]
+ex_max_stale_days = 7

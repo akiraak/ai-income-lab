@@ -42,8 +42,9 @@ def test_candidates_match_the_prefixed_levels():
     assert {c["mlp_lr"] for c in tuned.MLP} == {3e-4, 1e-3, 3e-3}
     for name, cands in tuned.CANDIDATES.items():
         assert len({tuple(sorted(c.items())) for c in cands}) == len(cands), f"{name}: 候補が重複"
-    assert sorted(m for m in registry.available("model") if "内側選抜" in m) == \
-        ["LightGBM（内側選抜）", "MLP（内側選抜）", "Ridge（内側選抜）"]
+    assert {m for m in registry.available("model") if "内側選抜" in m} == \
+        {"LightGBM（内側選抜）", "LightGBM（内側選抜・1 度）", "MLP（内側選抜）", "MLP（内側選抜・1 度）",
+         "Ridge（内側選抜）", "Ridge（内側選抜・1 度）"}
 
 
 # --- (b) 既定だけの候補 ＝ 基底のモデルと同一 ------------------------------------------------------
@@ -189,8 +190,9 @@ def test_fitted_doc_records_the_inner_selection_only_for_the_new_model(tmp_path,
     for e in entries:
         assert set(e) == {"a", "b", "source", "内側選抜"}
         sel = e["内側選抜"]
-        assert set(sel) == {"較正", "本番"}                           # 較正 → 本番の順に 2 回呼ばれる
+        assert set(sel) == {"較正", "本番"}                           # 較正 → 本番の順に 2 回呼ばれる（⚠ 14-12-3 の「選抜」は付かない）
         for d in sel.values():
+            assert "配られた" not in d and "自前" not in d             # ⚠ `（内側選抜）` の記録は 14-12-3 で 1 バイトも変わらない
             assert d["候補"] == [{"alpha": a} for a in [1.0, 10.0, 100.0, 1e3, 1e4, 1e5, 1e6]]
             assert d["既定"] == {"alpha": 1.0} and len(d["ρ"]) == 7
             assert d["champion"] in d["候補"] and d["候補"][d["champion_index"]] == d["champion"]
@@ -258,4 +260,134 @@ def test_configs_exist_and_resolve():
     with open(os.path.join(here, "queue", "hp_inner.toml"), "rb") as f:
         q = tomllib.load(f)
     assert q["experiments"] == ["trade_own_ridge_tuned_a", "trade_own_lgbm_tuned_a", "trade_own_mlp_tuned_a"]
+    assert q["leak"] is True
+
+
+# --- 14-12-3: 1 度選んで較正にも配る（`<モデル>（内側選抜・1 度）`。プラン §9-4 のテスト 6 本） ------------------
+
+ONCE_RIDGE = "Ridge（内側選抜・1 度）"
+
+
+def _fold(model_name: str, te_shift: float = 0.0, exp_model: str | None = None, form: str = "shared"):
+    """`fold_buy_pct` を 1 fold ぶん通して (buy, fitted_doc, ctx) を返す。`te_shift` は評価分割の差し替え用。"""
+    from cli.run import fold_buy_pct
+
+    panel = _panel()
+    feats = ["own_ret_1", "noise"]
+    model = registry.resolve("model", model_name)
+    ctx = {"seed": 0, "model": model, "k": 2}
+    tr = panel[panel["ts"] < "2020-06-01"].reset_index(drop=True)
+    te = panel[panel["ts"] >= "2020-06-01"].reset_index(drop=True)
+    if te_shift:
+        te = te.copy()
+        te[feats] = te[feats] * 3.0 + te_shift
+    sel = registry.resolve_all("selector", ["全部使う（基準）"])
+    buy, _ex, _n, doc = fold_buy_pct(tr, te, feats, _exp(exp_model or model_name, form), ctx, model=model,
+                                     selectors=sel, detectors={}, baselines={}, form=form, k=2,
+                                     groups=te.groupby("symbol").indices, f=0, picked=[], log=lambda *_: None)
+    return buy["全部使う（基準）"], doc["全部使う（基準）"], ctx
+
+
+@pytest.mark.parametrize("form", ["shared", "per_symbol"])
+def test_once_distributes_the_same_champion_to_calibration_and_production(form):
+    """(1) 配られる: 較正と本番の champion が選抜のものと一致し「配られた」が立つ（14-12-3 規約 6 (a)）。"""
+    _buy, doc, ctx = _fold(ONCE_RIDGE, form=form)
+    assert tuned.DOC_KEY not in ctx and tuned.CHAMPION_KEY not in ctx          # 取り残し・配り残しなし
+    entries = list(doc.values()) if form == "per_symbol" else [doc]
+    assert len(entries) == (3 if form == "per_symbol" else 1)
+    for e in entries:
+        sel = e["内側選抜"]
+        assert set(sel) == {"選抜", "較正", "本番"}
+        s = sel["選抜"]
+        assert s["候補"] == [{"alpha": a} for a in [1.0, 10.0, 100.0, 1e3, 1e4, 1e5, 1e6]] and len(s["ρ"]) == 7
+        assert s["候補"][s["champion_index"]] == s["champion"] and "自前" not in s and "配られた" not in s
+        for d in (sel["較正"], sel["本番"]):
+            assert d == {"配られた": True, "champion": s["champion"], "champion_index": s["champion_index"]}
+
+
+@pytest.mark.parametrize("model_name,base_name", [(ONCE_RIDGE, "Ridge"), ("LightGBM（内側選抜・1 度）", "LightGBM")])
+def test_once_default_only_candidates_give_the_same_buy_pct_as_the_base_model(monkeypatch, model_name, base_name):
+    """(2) 既定なら同一: 候補を既定 1 つにすると、較正込みの買い% が基底のモデルと bit で一致する（規約 4）。"""
+    fn = registry.resolve("model", model_name)
+    base, cands = tuned.ONCE[fn]
+    monkeypatch.setitem(tuned.ONCE, fn, (base, [cands[0]]))
+    want, _doc, _ = _fold(base_name)
+    got, doc, _ = _fold(model_name, exp_model=base_name)
+    assert doc["内側選抜"]["選抜"]["champion_index"] == 0 and doc["内側選抜"]["本番"]["配られた"]
+    assert np.array_equal(np.asarray(want), np.asarray(got))
+
+
+def test_once_replacing_the_evaluation_split_keeps_the_champion_and_the_calibration():
+    """(3) 評価分割を差し替えても champion と (a, b) が変わらない（14-11 規約 3 と同型。規約 6 (c)）。"""
+    _b1, d1, _ = _fold(ONCE_RIDGE)
+    _b2, d2, _ = _fold(ONCE_RIDGE, te_shift=5.0)
+    assert d1["内側選抜"]["選抜"] == d2["内側選抜"]["選抜"]
+    assert d1["内側選抜"]["本番"] == d2["内側選抜"]["本番"]
+    assert (d1["a"], d1["b"], d1["source"]) == (d2["a"], d2["b"], d2["source"])
+    assert d1["内側選抜"]["選抜"]["尻の行数"] > 0
+
+
+def test_once_does_not_touch_ctx_or_records_of_the_other_models():
+    """(4) 口を閉じれば同一: ほかのモデルでは `select_once` が None を返し ctx は 1 バイトも変わらない。
+    既定経路の指紋は `tests/test_trading_run.py`・`tests/test_predict.py`、`（内側選抜）` の記録の形は上のテスト。"""
+    X, y = _data()
+    for name in ("Ridge", "Ridge（内側選抜）"):
+        ctx = {"seed": 0, "k": 2}
+        before = dict(ctx)
+        assert tuned.select_once(registry.resolve("model", name), X, y, ctx) is None
+        assert ctx == before
+    _buy, doc, _ = _fold("Ridge（内側選抜）")
+    assert set(doc["内側選抜"]) == {"較正", "本番"}
+
+
+def test_once_selects_on_its_own_when_no_champion_is_distributed(tmp_path, monkeypatch):
+    """(5) 自前の経路: ctx に champion が無い呼び出し（門・毎日往復）は自前で選び、記録に「自前」。予測は `（内側選抜）` と同一。"""
+    from ail.validation import gate
+
+    X, y = _data()
+    Xte = X.iloc[:100]
+    c1, c2 = {"seed": 0}, {"seed": 0}
+    p1 = registry.resolve("model", ONCE_RIDGE)(X, y, Xte, c1)
+    p2 = registry.resolve("model", "Ridge（内側選抜）")(X, y, Xte, c2)
+    d1, d2 = tuned.drain(c1)[0], tuned.drain(c2)[0]
+    assert d1.pop("自前") is True and "配られた" not in d1
+    assert d1 == d2                                                   # 同じ候補・同じ尻 ＝ 同じ champion・同じ ρ
+    assert np.array_equal(np.asarray(p1), np.asarray(p2))
+    assert tuned.CHAMPION_KEY not in c1
+    # 門は配らない（14-12-3 規約 2）＝ 自前で選んで記録は捨てる。取り残しなし
+    monkeypatch.setattr(runs, "RUNS", str(tmp_path))
+    run = runs.Run("test_tuned_once_gate", {}, seed=0)
+    assert gate.evaluate_gate(_panel(), ["own_ret_1", "noise"], _exp(ONCE_RIDGE), run) is not None
+    # 配られた champion が候補の外なら止まる（候補は 14-12-1 の写し）
+    with pytest.raises(ValueError):
+        registry.resolve("model", ONCE_RIDGE)(X, y, Xte, {"seed": 0, tuned.CHAMPION_KEY: {"alpha": 3.0}})
+
+
+def test_once_spellings_candidates_and_configs():
+    """(6) 綴り・候補の写し・config: 候補は `（内側選抜）` と同じオブジェクト（足していない）。"""
+    import tomllib
+
+    from ail import names
+
+    assert names.learner_slug(ONCE_RIDGE) == "ridge-tuned-once"
+    assert names.learner_slug("LightGBM（内側選抜・1 度）") == "lgbm-tuned-once"
+    assert names.learner_slug("MLP（内側選抜・1 度）") == "mlp-tuned-once"
+    assert tuned.ONCE[registry.resolve("model", ONCE_RIDGE)] == (linear.ridge, tuned.RIDGE)
+    assert tuned.ONCE[registry.resolve("model", "LightGBM（内側選抜・1 度）")][1] is tuned.LGBM
+    assert tuned.ONCE[registry.resolve("model", "MLP（内側選抜・1 度）")][1] is tuned.MLP
+    row = {"手法名": "全部使う（基準）", "鍵": "全部使う（基準）", "モデル": ONCE_RIDGE, "検証方式": "閾値売買"}
+    assert catalog.is_trial(row)
+    here = os.path.join(os.path.dirname(os.path.dirname(__file__)), "config")
+    for m, model in (("ridge", "Ridge"), ("lgbm", "LightGBM"), ("mlp", "MLP")):
+        with open(os.path.join(here, "experiment", f"trade_own_{m}_tuned_once_a.toml"), "rb") as f:
+            cfg = tomllib.load(f)
+        with open(os.path.join(here, "experiment", f"trade_own_{m}_tuned_a.toml"), "rb") as f:
+            ref = tomllib.load(f)
+        assert cfg["model"] == f"{model}（内側選抜・1 度）" and cfg["name"] == f"trade_own_{m}_tuned_once_a"
+        assert {k: v for k, v in cfg.items() if k not in ("model", "name")} == \
+            {k: v for k, v in ref.items() if k not in ("model", "name")}        # ⚠ 違うのはモデル名だけ
+        registry.resolve("model", cfg["model"])
+    with open(os.path.join(here, "queue", "hp_inner_once.toml"), "rb") as f:
+        q = tomllib.load(f)
+    assert q["experiments"] == ["trade_own_ridge_tuned_once_a", "trade_own_lgbm_tuned_once_a", "trade_own_mlp_tuned_once_a"]
     assert q["leak"] is True

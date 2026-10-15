@@ -1,0 +1,11 @@
+# ⚠ **「1 度選んで較正にも配る」**（rules.md 14-12-3・記録 hyperparam-inner-selection.md §4。
+# 2026-10-09 利用者決定「推すのですすめる」。プラン plans/hyperparam-inner-selection.md §9 ／ Phase 4）。
+# 事前固定は rules.md 14-12-3（⚠ **回すと決めたのは結果を見る前**）。3 モデル × θ 3 ＝ n_trials ＋9（825 → 834）。
+# 表は作り直さない（`features_from = "own_2018"`。leak 対照の表も既にある）。
+# ⚠ `（内側選抜）` の 9 行は消さない・数え直さない。結果を見てから候補を足さない・門に配らない・尻を 2 つに割らない。
+experiments = ["trade_own_ridge_tuned_once_a", "trade_own_lgbm_tuned_once_a", "trade_own_mlp_tuned_once_a"]
+
+leak = true              # ⚠ 配線の穴に気づく唯一の手。切らない
+ledger = false           # ⚠ 検証結果一覧は終わってから 1 回吐く
+max_failures = 1
+time_budget_s = 7200     # ⚠ 見積り 約 20 分【推測。hp_inner の 26 分【実測】の 2/3】のまま 7,200 秒

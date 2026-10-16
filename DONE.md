@@ -1,4 +1,8 @@
 # DONE
+- 2026-10-15 `run-vibetab.sh` を作った（独自タブ 7 本の中身 `dashboard/vibetab.py` を vibeboard 無しで起こす。利用者の依頼）
+  プロジェクト直下。`python3 dashboard/vibetab.py` を前景で exec（tmux の中で動かし続ける・デーモンにしない）。ポートは第 1 引数 > `AIL_VIBETAB_PORT` > vibetab.py の既定 3015。`--runs-dir` ／ `--exp-dir` はそのまま渡す。python3 3.11 未満は版を書いて rc=1。ポートを LISTEN しているものが居れば 1 行出して rc=1（⚠ 止めはしない。`vibetab.py` 自体はポートが塞がっていると何も言わず rc=0 で引くので、その手前で止める）
+  確かめたこと: `bash -n` ✅・`--help` ✅・不正なポート rc=2 ✅・使い捨てのソケットで塞いだポートに対して rc=1 ✅（vibetab ／ vibeboard ／ dashboard は起こしていない）。CLAUDE.md の「実行・データのタブ」に起動の仕方を足した。vibeboard の説明と `vibeboard.config.json`・`run-vibeboard.sh` は変えていない（撤去は別の操作）
+  用途: vibeboard を撤去したあと、project-manager（Sx360 の `~/project-manager`）の Terminal のタブの「サーバ」の端末がこれを起こす。Sx360・titan（ssh 越し）の両方
 - 2026-10-13 vibeboard のブラウザのタブの題を「TODO」にした（新しい設定項目 `tabTitle`。左上のブランド名は変えない） [plan](docs/plans/archive/vibeboard-tasks-doc-title.md)
   利用者の指示（2026-10-13）「TODO のページのタイトル変更をやる」→ 確認の答え ＝ 対象は **ブラウザのタブの題（`<title>`）**・新しい題は **「TODO」**。⚠ 1 度目は「Tasks タブを開いている間だけ」と読み違えて作り、利用者の訂正「ブラウザのタブです。Tasks ではありません」で作り直した
   vibeboard に `vibeboard.config.json` の `tabTitle` を足した（無ければ `title` と同じ ＝ 書かないプロジェクトは変わらない。`config.ts` → `server.ts` → `index.html` の `<title>` と `VB_CONFIG.tabTitle` → `app.js` の `TITLE_BASE`。衝突の `(!)` は前に付いたまま。CLI ／ 環境変数は足していない）。このプロジェクトは `"tabTitle": "TODO"`

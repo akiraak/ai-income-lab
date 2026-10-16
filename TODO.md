@@ -270,3 +270,4 @@
       - [x] Phase 3: 「デプロイ」（利用者）→ 翌朝 06:00 PDT（09:00 ET）の `--prepare` で初めてできる
         ✅ 2026-10-14 07:30 PDT（10:30 ET）: `prod` 2aea697 → 69aee59（Sx360 で `run-deploy.sh`。関門 ✅）・13500t `done 69aee59`（管理画面も起こし直した）。最初の `yardstick.csv` は 10/15（木）06:00 PDT（09:00 ET）の `--prepare`
       - [ ] Phase 4: 手書きの A〜E と突き合わせ → 一致したら普段の日の手書きをやめる → DONE へ・プランを archive へ
+        ⏳ 2026-10-15 Sx360: A〜D は一致・**E は不一致**（権利落ち日の前日の終値を DXLink が配当ぶん下げて返す ＝ 10/8 の T ・ VZ。`daily.csv` の値洗いが 10/8 に約 −41bp・累計に +42bp が残る）。直し方は利用者の判断待ち（[plan Phase 4](docs/plans/daily-record-auto.md)）

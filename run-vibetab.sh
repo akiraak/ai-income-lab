@@ -10,8 +10,11 @@ set -euo pipefail
 #   ./run-vibetab.sh --runs-dir … --exp-dir …   # そのほかの引数は vibetab.py にそのまま渡す
 #
 # ⚠ **vibetab.py はポートが塞がっていると「先に居るものに任せる」で終了コード 0 で引く**
-#   （vibeboard の sidecar との競走を想定した振る舞い。ここでは変えない）。tmux の中で静かに
-#   消えると困るので、起こす前に LISTEN しているプロセスを引いて、居れば 1 行出して終了コード 1 で止まる。
+#   （vibeboard の sidecar との競走を想定した振る舞い。ここでは変えない）。tmux の中で
+#   「正常に終わった」に見えると困るので、起こす前に 2 段で確かめ、塞がっていれば 1 行出して終了コード 1 で止まる:
+#   ① LISTEN しているプロセスをポートから引く（PID とコマンドを出す）
+#   ② ①で見つからなくても、vibetab.py と同じ 127.0.0.1 に bind できるか試す（PID の見えない相手 ＝
+#      別のユーザーのプロセス・WSL の mirrored で Windows 側が掴んでいるポート）
 #   ⚠ 止めはしない（ポートを掴んでいるものには触らない）。
 # ⚠ **python3 は 3.11 以上**（vibetab.py が tomllib を読む）。足りなければ版を書いて終了コード 1。
 
@@ -20,7 +23,7 @@ SCRIPT="dashboard/vibetab.py"
 cd "$HERE"
 
 usage() {
-  sed -n '4,16p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
+  sed -n '4,19p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
   exit "${1:-0}"
 }
 
@@ -76,8 +79,27 @@ listeners() {
 
 BUSY="$(listeners)"
 if [ -n "$BUSY" ]; then
-  echo "[run-vibetab] ⚠ ポート $PORT は先に居るものが使っています（vibetab.py はこのまま起こすと何も言わず終了コード 0 で引く）:" >&2
+  echo "[run-vibetab] ⚠ ポート $PORT は先に居るものが使っています（vibetab.py はこのまま起こすと 1 行出して終了コード 0 で引く）:" >&2
   for pid in $BUSY; do echo "    pid=$pid $(ps -o args= -p "$pid" 2>/dev/null | cut -c1-100)" >&2; done
+  exit 1
+fi
+
+# ---- ①で見えなくても塞がっていることがある（PID の見えない相手）。vibetab.py と同じ形で bind を試す
+#      （ThreadingHTTPServer と同じく SO_REUSEADDR を立てる ＝ TIME_WAIT を塞がりと読まない。試したらすぐ閉じる）
+if ! BINDERR="$(python3 - "$PORT" <<'PY' 2>&1
+import socket, sys
+s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+try:
+    s.bind(("127.0.0.1", int(sys.argv[1])))
+except OSError as e:
+    print(e)
+    sys.exit(1)
+finally:
+    s.close()
+PY
+)"; then
+  echo "[run-vibetab] ⚠ ポート $PORT は先に居るものが使っています（PID は見えない ＝ 別のユーザーか Windows 側の可能性。bind: $BINDERR）" >&2
   exit 1
 fi
 

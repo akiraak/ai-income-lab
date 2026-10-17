@@ -1,4 +1,4 @@
-"""vibeboard カスタムタブのサーバ（`dashboard/vibetab.py`）の検査。
+"""外部のタブのサーバ（`dashboard/vibetab.py`）の検査。
 
 一時ディレクトリに最小の run / manifest / config を作って、
 sidebar と view が 200 相当の中身を返すこと・知らない item を弾くことを見る。

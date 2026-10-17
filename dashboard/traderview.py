@@ -1,4 +1,4 @@
-"""vibeboard の「トレーダー」タブの画面（HTML の body と CSS）。仕様は docs/specs/dashboard.md §16。
+"""外部のタブ「トレーダー」の画面（HTML の body と CSS）。仕様は docs/specs/dashboard.md §16。
 
 **トレーダー 1 人 1 ページ**。ページには「この人が使うモデル」と、そのモデルの**特性**を、やさしい言葉で出す。
 
@@ -11,7 +11,7 @@
   - 共通のしくみ（4 つの集合・規模 A ／ B・上限と停止・設定項目の意味）は「システム説明」の「トレーダーのしくみ」（`#system/trader`）に
     あり、このページは案内のリンクを置くだけ（2026-09-26。設定の説明の Step 6）
   - ⚠ **売買結果は出さない**。⚠ **`out/`・`state/`・`.env` を読まない**（このモジュールが開くのは TOML だけ）
-  - ⚠ **標準ライブラリだけ・読むだけ**（vibeboard の sidecar が `python3` で起こす。tailnet の閲覧者にも見える）
+  - ⚠ **標準ライブラリだけ・読むだけ**（`./run-vibetab.sh` が `python3` で起こす。tailnet の閲覧者にも見える）
 """
 
 from __future__ import annotations

@@ -1,4 +1,4 @@
-"""vibeboard のタブで使う図（サーバで組むインライン SVG）。仕様は docs/specs/dashboard.md §18-2。
+"""外部のタブで使う図（サーバで組むインライン SVG）。仕様は docs/specs/dashboard.md §18-2。
 
 「システム説明」（systemview.py）と「予測モデル」（modelview.py）の両方が使う ＝ 循環しない置き場。
 図は 3 種類 ＝ `flow`（箱と矢印）／ `folds`（期間を分けて、先へ進みながら試す図）／ `nest`（入れ子の四角 ＝ 絞り込み。2026-09-26）。`figure_html` が出し分ける。

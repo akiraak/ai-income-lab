@@ -1,4 +1,4 @@
-"""vibeboard の「システム説明」タブの画面（HTML の body）。仕様は docs/specs/dashboard.md §18。
+"""外部のタブ「システム説明」の画面（HTML の body）。仕様は docs/specs/dashboard.md §18。
 
 **全体像 ＋ パートごとの詳細**（2026-09-26 利用者決定「システム説明 ＝ 全体の説明と各パートの詳細説明。各モデル・各トレーダーの説明はしない」）。
 ページ ＝ 全体像（`overview`）→ 予測モデルのしくみ（`model`）→ トレーダーのしくみ（`trader`。共通のしくみと設定項目の意味だけ）→ 実際の売買（`live`）→ 名前と識別名（`names`）。
@@ -8,7 +8,7 @@
   - ⚠ **言葉の正本は `dashboard/system.toml`**（ページ → 段。説明をこのコードに書かない）
   - ⚠ **ページの描き方は `modelview.py` と同じもの**（段・図・表・「詳しく」の囲み ＝ 畳まない）。図の描き方は `figures.py`
   - ⚠ **売買結果は出さない・`out/`・`state/`・`.env`・`runs/` を開かない**（開くのは TOML と `ledger.md` だけ）
-  - ⚠ **標準ライブラリだけ・読むだけ**（vibeboard の sidecar が `python3` で起こす。tailnet の閲覧者にも見える）
+  - ⚠ **標準ライブラリだけ・読むだけ**（`./run-vibetab.sh` が `python3` で起こす。tailnet の閲覧者にも見える）
 """
 
 from __future__ import annotations

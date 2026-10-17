@@ -1,4 +1,4 @@
-"""vibeboard の「予測モデル」タブの画面（HTML の body）。仕様は docs/specs/dashboard.md §17。
+"""外部のタブ「予測モデル」の画面（HTML の body）。仕様は docs/specs/dashboard.md §17。
 
 **一覧 ＋ モデル 1 本 1 ページ**。モデルの「型」ごとに、何を見て・どう答えを出し・過去のデータで試したらどうだったかを、やさしい言葉で出す。
 ⚠ どのモデルにも共通のしくみ（予測モデルのしくみ ／ 実際の売買 ／ 名前と識別名）は「システム説明」タブ（`systemview.py`・`system.toml` の
@@ -25,7 +25,7 @@
   - ⚠ **`out/`・`state/`・`.env` を読まない**。開くのは TOML と、研究の DB の `ledger_rows`（検証結果一覧の生成物）・
     `files` の `checks.json` と `fitted/calibration_f*.json` だけで、DB は読み取り専用（無い DB は作らない）。
     「正式な名前」の段は実験の config から写す
-  - ⚠ **標準ライブラリだけ・読むだけ**（vibeboard の sidecar が `python3` で起こす。tailnet の閲覧者にも見える）
+  - ⚠ **標準ライブラリだけ・読むだけ**（`./run-vibetab.sh` が `python3` で起こす。tailnet の閲覧者にも見える）
 """
 
 from __future__ import annotations
@@ -102,7 +102,7 @@ def config_dir(paths: TraderPaths) -> Path:
 
 
 def doc_url(rel: str) -> str:
-    """リポジトリ直下からの道を vibeboard の hash URL にする（vibetab.doc_url と同じ決まり）。"""
+    """リポジトリ直下からの道を project-manager が読み替える hash（vibeboard の頃と同じ形）にする（vibetab.doc_url と同じ決まり）。"""
     def enc(p: str) -> str:
         return "/".join(quote(s, safe="") for s in p.split("/"))
 
@@ -114,7 +114,7 @@ def doc_url(rel: str) -> str:
 
 
 def _link(link: dict) -> str:
-    """`{ label, doc }`（文書 → Specs ／ Plans ／ Files タブ）か `{ label, tab, item }`（vibeboard のタブ。`item` を省くとタブの頭）。"""
+    """`{ label, doc }`（文書 → Specs ／ Plans ／ Files タブ）か `{ label, tab, item }`（外部のタブ。`item` を省くとタブの頭）。"""
     label = esc(link.get("label"))
     if link.get("doc"):
         return f"<a href='{esc(doc_url(str(link['doc'])))}' target='_top'>{label}</a>"

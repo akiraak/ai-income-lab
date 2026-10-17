@@ -1,4 +1,6 @@
 # DONE
+- 2026-10-17 vibeboard 撤去の後始末（dashboard の Python のコメント・docstring） [plan](docs/plans/archive/vibeboard-removal-py-comments.md)
+  `dashboard/*.py`・`dashboard/tests/*.py` の「vibeboard」を実態に合わせた: 先頭の docstring ＝ 外部のタブ「〇〇」／ 起こし方 ＝ `./run-vibetab.sh` ／ 中継 ＝ project-manager の表示用サーバ（8205）の `/ext/<名前>/…` ／ hash ＝ 「project-manager が読み替える hash（vibeboard の頃と同じ形）」／ `DOC_CATEGORIES` ＝ 出どころ（`vibeboard/src/config.ts`）が撤去で消えたこと。tailnet の閲覧者・ログの [name] は事実を足さず名前を外しただけ。残したのは hash の形の由来 3 か所・最初のプランのファイル名・`test_system_tab.py` の「vibeboard の撤去」・テストの関数名。docstring を除いた構文木は旧版と同じ（コードの動きは変えていない）・外部のタブのテスト 6 本 127 passed ／ 2 skipped
 - 2026-10-17 vibeboard 撤去の後始末（テストと CLAUDE.md） [plan](docs/plans/archive/vibeboard-removal-followup.md)
   `test_system_tab.py` の `vibeboard.config.json` を読む検査を外し `detail_label` だけ残した（タブの並び・3012 を baseUrl にしない決まりは `~/project-manager/projects.yaml` 側で守る）。CLAUDE.md の vibeboard 前提の記述を project-manager ／ 外部のタブに直し、「vibeboard のこのプロジェクト固有の運用」を「外部のタブ（project-manager）」にした（vibeboard そのものの機能の項は消した）。`dashboard/tests` 268 passed ／ 2 skipped・`./run-tests.sh` ✅。コード・docs に残る「vibeboard」は直していない
 - 2026-10-15 `run-vibetab.sh` を作った（独自タブ 7 本の中身 `dashboard/vibetab.py` を vibeboard 無しで起こす。利用者の依頼）

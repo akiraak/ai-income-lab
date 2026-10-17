@@ -1,4 +1,4 @@
-"""vibeboard の「トレーダー」タブ（`dashboard/traderview.py`・`dashboard/traders.toml`・`dashboard/models.toml`）の検査。仕様は dashboard.md §16。
+"""外部のタブ「トレーダー」（`dashboard/traderview.py`・`dashboard/traders.toml`・`dashboard/models.toml`）の検査。仕様は dashboard.md §16。
 
 ⚠ モデルの解説は `models.toml`（「予測モデル」タブと同じ 1 本。§17）。ここの `FORBIDDEN`・`COMPARING`・`_texts` は `test_models_tab.py` も使う。
 

@@ -1,4 +1,4 @@
-"""vibeboard の「ハード」タブの画面（HTML の body・CSS・inline script）。仕様は docs/specs/dashboard.md §14。
+"""外部のタブ「ハード」の画面（HTML の body・CSS・inline script）。仕様は docs/specs/dashboard.md §14。
 
 ⚠ **値は JSON で埋め込み、描くのは script の 1 経路だけ**（最初の表示も 5 秒ごとの更新も同じ関数が描く。
 Python と JS に同じ表を 2 回書かない）。⚠ **文字は必ず `textContent` で入れる**（プロセスの cmdline は

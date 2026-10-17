@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""vibeboard のカスタムタブ「実行」「データ」「用語」「ハード」「トレーダー」「予測モデル」「システム説明」の中身を出す小さなサーバ。
+"""外部のタブ（project-manager）「実行」「データ」「用語」「ハード」「トレーダー」「予測モデル」「システム説明」の中身を出す小さなサーバ。
 
-vibeboard 本体が `/ext/<name>/...` でこのサーバへ中継する（プラン:
-docs/plans/vibeboard-experiments-tabs.md）。読むものと読み方は管理画面と同じで、
+project-manager の別ポートの表示用サーバ（8205）が `/ext/<name>/...` でこのサーバへ中継する（タブの定義は
+`~/project-manager/projects.yaml`。最初のプラン: docs/plans/archive/vibeboard-experiments-tabs.md）。読むものと読み方は管理画面と同じで、
 `app/experiments.py`（runs/ の一覧と検査）と `app/inventory.py`（データの在庫）を
 そのまま import する。⚠ **読むだけ。資格情報・発注系のコードは import しない。**
 
@@ -20,11 +20,11 @@ docs/plans/vibeboard-experiments-tabs.md）。読むものと読み方は管理�
     （予測モデルの一覧と、1 本ずつの解説。言葉の正本は `dashboard/models.toml`、画面は `modelview.py`。
     ⚠ **売買結果は出さない・`runs/` も読まない**（試した結果の印は人が記録から写したもの）。dashboard.md §17）
   - `/system/api/sidebar` ・ `/system/view?item=<overview|build|verify|live|names>` ・ `/system/api/watch`
-    （このシステムの説明。vibeboard では先頭のタブ。言葉の正本は `dashboard/system.toml`、画面と図は `systemview.py`。
+    （このシステムの説明。先頭のタブ〔並びは `~/project-manager/projects.yaml`〕。言葉の正本は `dashboard/system.toml`、画面と図は `systemview.py`。
     ⚠ 開くのは TOML と検証結果一覧（`ledger.md`）だけ。dashboard.md §18）
 
-⚠ **標準ライブラリだけで書く**（venv 不要。vibeboard の sidecar が `python3` で起こす）。
-⚠ **bind は 127.0.0.1 固定**。外に出る経路は vibeboard の中継だけ。
+⚠ **標準ライブラリだけで書く**（venv 不要。`./run-vibetab.sh` が `python3` で起こす）。
+⚠ **bind は 127.0.0.1 固定**。外に出る経路は project-manager の表示用サーバ（8205）の中継だけ。
 """
 
 from __future__ import annotations
@@ -60,7 +60,8 @@ PING_INTERVAL_S = 30.0
 GLOSSARY_FILE = DASHBOARD_DIR / "glossary.toml"
 GLOSSARY_ALL = "all"
 
-# vibeboard の既定カテゴリ（vibeboard/src/config.ts の DEFAULT_CATEGORIES）。
+# 文書の hash の分け方。もとは vibeboard の既定カテゴリ（vibeboard/src/config.ts の DEFAULT_CATEGORIES）の写しで、
+# 出どころは 2026-10-17 の撤去で消えた。いまは project-manager が同じ形を読み替える約束なので値を変えない。
 # ⚠ ここに無い場所の文書は Files タブへ飛ばす（飛び先が変わるだけで壊れはしない）
 DOC_CATEGORIES = (("docs/plans/", "plans"), ("docs/specs/", "specs"))
 
@@ -801,9 +802,9 @@ def load_glossary(path: Path | None = None) -> list[dict]:
 
 
 def doc_url(rel: str) -> str:
-    """リポジトリ直下からの相対パスを vibeboard の hash URL にする。
+    """リポジトリ直下からの相対パスを project-manager が読み替える hash（vibeboard の頃と同じ形）にする。
 
-    ⚠ **節のアンカー（`#§13-7`）は付けない。** vibeboard は hash を経路に使っていて
+    ⚠ **節のアンカー（`#§13-7`）は付けない。** hash はそのまま経路として読まれ（8205 の `/` → `#/vb/<名前>/<hash>`）
     ⚠ **文書の中の節へは飛べない**ので、節は文字で横に書く（`where`）。
     """
     def enc(p: str) -> str:
@@ -817,10 +818,10 @@ def doc_url(rel: str) -> str:
 
 
 def _term_link(term: dict) -> str:
-    """「詳しく」の列。⚠ **iframe の中なので `target=_top`** で vibeboard ごと遷移させる。
+    """「詳しく」の列。⚠ **iframe の中なので `target=_top`** で project-manager の画面ごと遷移させる。
 
     `see = { label, tab, item }`（任意。2026-09-26）＝ しくみの説明があるタブのページへの 2 本目のリンク（システム説明 ／ 予測モデル ／
-    トレーダー）。`doc` は決めた経緯と数字のある文書のまま残す（説明の正本は vibeboard・経緯の正本は spec ＝ 設定の説明の Step 7）。
+    トレーダー）。`doc` は決めた経緯と数字のある文書のまま残す（説明の正本は外部のタブ・経緯の正本は spec ＝ 設定の説明の Step 7）。
     """
     rel = str(term.get("doc") or "")
     if not rel:
@@ -831,7 +832,7 @@ def _term_link(term: dict) -> str:
     out = f"{link}<div class='meta'>{where}</div>" if where else link
     see = term.get("see")
     if isinstance(see, dict) and see.get("tab"):
-        see_link = modelview._link(see)          # `{ label, tab, item }` → vibeboard のタブの URL（知らないタブなら空）
+        see_link = modelview._link(see)          # `{ label, tab, item }` → 外部のタブの URL（project-manager が読み替える hash。知らないタブなら空）
         if see_link:
             out += f"<div class='meta'>しくみ: {see_link}</div>"
     return out
@@ -948,7 +949,7 @@ def make_handler(runs_dir: Path, paths: ExpPaths, sampler: hwstat.Sampler | None
     class Handler(BaseHTTPRequestHandler):
         protocol_version = "HTTP/1.1"
 
-        def log_message(self, fmt_, *args):  # 1 行ログ（vibeboard 側で [name] が付く）
+        def log_message(self, fmt_, *args):  # 1 行ログ
             if "/hardware/api/" in (getattr(self, "path", "") or ""):
                 return                    # 画面が数秒おきに取りに来る。ログを埋めない
             sys.stdout.write(f"{self.address_string()} {fmt_ % args}\n")
@@ -961,7 +962,7 @@ def make_handler(runs_dir: Path, paths: ExpPaths, sampler: hwstat.Sampler | None
             self.send_header("Content-Length", str(len(data)))
             self.send_header("Cache-Control", "no-store")
             if ctype.startswith("text/html"):
-                # vibeboard が /ext/<name> で中継するので iframe は同一オリジン
+                # project-manager の表示用サーバ（8205）が /ext/<name> で中継するので iframe は同一オリジン
                 self.send_header("Content-Security-Policy", "frame-ancestors 'self'")
             self.end_headers()
             self.wfile.write(data)

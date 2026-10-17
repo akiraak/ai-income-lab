@@ -1,4 +1,4 @@
-"""vibeboard の「システム説明」タブ（`dashboard/systemview.py`・`dashboard/system.toml`）の検査。仕様は dashboard.md §18。
+"""外部のタブ「システム説明」（`dashboard/systemview.py`・`dashboard/system.toml`）の検査。仕様は dashboard.md §18。
 
 見るもの: 本文はやさしい言葉（⚠ `detail*` ＝ 「詳しく（用語あり）」の囲みは検査の外。⚠ 囲みは畳まない ＝ `<details>` にしない）／ 設定の数字と `$` が本文に無い ／
 ⚠ **全体像 ＋ パートごとの詳細**（2026-09-26 の利用者の決定。ページは overview → model → trader → live → names。各モデル・各トレーダーの説明はしない ＝

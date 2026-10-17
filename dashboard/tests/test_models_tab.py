@@ -1,4 +1,4 @@
-"""vibeboard の「予測モデル」タブ（`dashboard/modelview.py`・`dashboard/models.toml`）の検査。仕様は dashboard.md §17。
+"""外部のタブ「予測モデル」（`dashboard/modelview.py`・`dashboard/models.toml`）の検査。仕様は dashboard.md §17。
 
 見るもの: やさしい言葉・くらべる文が無い・設定の数字が無い（`[common]` も）／ 鍵（`id`）／ 試した結果の印と記録のファイル ／
 ⚠ 共通のしくみのページは「システム説明」タブ（test_system_tab.py。2026-09-26 に戻した）／

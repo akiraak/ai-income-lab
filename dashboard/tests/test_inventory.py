@@ -260,7 +260,7 @@ def test_exposure_is_listed_with_hindsight(settings):
 # --- 無くても落ちない -----------------------------------------------------
 
 def test_missing_exp_dir_is_ok(settings):
-    """⚠ **実験ディレクトリが無い環境でも落とさない**（空として返す。画面は vibeboard のデータタブ ＝ `test_vibetab.py`）。"""
+    """⚠ **実験ディレクトリが無い環境でも落とさない**（空として返す。画面は外部のタブ「データ」 ＝ `test_vibetab.py`）。"""
     d = inv.index(settings)
     assert d["empty"] is True
 

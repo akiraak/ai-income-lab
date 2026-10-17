@@ -343,37 +343,9 @@ cd experiments/live-trading
   - **`prod` を進めるのは `./run-deploy.sh` だけ**（`main` が push 済み → `./run-tests.sh` ＋ 予測の経路の指紋テスト → `git push origin HEAD:prod`。⏭ ／ skip も不合格 ＝ 依存のそろった Sx360 ／ titan で流す・15:00〜16:15 ET は拒む）。⚠ **Sx360 の `experiments/feature-discovery/.venv` には関門のために LightGBM・aeon（`--no-deps`）・torch〔CPU 版 `2.14.0+cpu` ＝ 13500t と同じ〕を入れてある**（2026-09-25。消さない）。⚠ **`prod` を進める ＝ 15 分以内に本番に反映**なので、進めるのは利用者に頼まれたときだけ
 - コミット・push はユーザーから依頼されたときだけ行う（「デプロイ」も依頼に含む）
 
-<!-- vibeboard:begin -->
-## 開発管理画面 (vibeboard)
+## 開発管理画面
 
-ローカル開発時のタスク・プラン管理は [vibeboard](https://github.com/akiraak/vibeboard) で行う。
-プロジェクト直下に degit で vendor してある（`./vibeboard/`）。
-
-```bash
-# 親プロジェクト直下から
-node vibeboard/dist/cli.js --root .
-```
-
-`http://localhost:3010` でプロジェクト直下の `docs/plans/`・`docs/specs/`・`TODO.md`・`DONE.md`・`CLAUDE.md`・`README.md` を閲覧・編集できる。
-
-- `Files` タブでプロジェクト内のファイル（`TODO.md` / `DONE.md` / `CLAUDE.md` / `README.md` を含む）をプレビュー表示・編集できる。`TODO.md` はツリー表示つき
-  - 編集は楽観ロック（mtime チェック）付き。外部で先に更新されていた場合は保存時に 409 を返し、リロード / 手元維持 / 強制上書き を選べる
-  - `fs.watch` + 2 秒ポーリングで外部変更を検知し、SSE でクライアントへ即時反映する
-- `Tasks` タブで `TODO.md` のタスクを、このプロジェクトで動いている Claude Code のセッションへ渡して実行できる（実行 / プラン作成 / 説明 / 削除）。
-  プラン作成は `docs/plans/` のプランファイルと `TODO.md` へのリンク・子タスクだけを作らせる（実装はしない）。
-  ボタンの上の **「追加の指示（任意）」** に書いた文面は、実行 / プラン作成 / 説明の文面の末尾に足して送る（空欄なら今までどおり。Ctrl+Enter で実行）。
-  左ペインの上の「プロジェクト全体」に **commit & push** があり、タスクとは無関係に作業ツリーの変更をまとめてコミットして push させる（メッセージと `TODO.md` / `DONE.md` の整理はセッションが行う）。
-  **タスク追加**（「プロジェクト全体」）と**子タスク追加**（タスク詳細）は投函せず、vibeboard がバックグラウンドの
-  Claude Code（`claude -p`。許すツールは `TODO.md` の Edit だけ）を起こして `TODO.md` に足させる。1 行目が
-  タスクの文面（そのまま入る）、2 行目以降はメモ。成功判定は「`TODO.md` に文面が増えたか」の事後検査で、
-  モデル・制限時間は `vibeboard.config.json` の `taskAdd`（`model` / `timeoutSec`。既定は CLI の既定モデル・120 秒）。
-  送り先は `claude agents` の一覧から選ぶ。セッションは起動時の hook（`vibeboard init` が `.claude/settings.json` に書く）で
-  自分の受信口を vibeboard に登録し、vibeboard がそこへ文面を投函する。登録が無くても Linux なら `claude agents` の pid から
-  受信口（`$XDG_RUNTIME_DIR/cc-socks/<pid>.sock`）を引いて投函する。hook が使えない環境では
-  `node vibeboard/dist/cli.js listen --name <画面の名前>` を回す
-- ローカル開発専用（本番管理画面とは独立）
-- ポート変更は `--port` または `VIBEBOARD_PORT` 環境変数で指定可能
-- 本体の更新は `node vibeboard/dist/cli.js update --restart`（再 degit → `npm install` → `init` → 同じ root の vibeboard の起動し直し、を 1 コマンドで）
+タスク・プラン・ファイルの閲覧と編集、Claude Code への依頼は project-manager（`http://127.0.0.1:8200`、`~/project-manager`）で行う。vibeboard は 2026-10 に撤去した。
 
 ## タスク管理ルール
 
@@ -421,7 +393,6 @@ node vibeboard/dist/cli.js --root .
 4. **作業完了時の後片付け**
    - 親タスクを `DONE.md` に移動する
    - 対応するプランファイルは `docs/plans/archive/` に移動する
-<!-- vibeboard:end -->
 
 ## vibeboard のこのプロジェクト固有の運用
 

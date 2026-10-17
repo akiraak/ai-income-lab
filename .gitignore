@@ -1,6 +1,3 @@
-vibeboard/dist/
-vibeboard/node_modules/
-
 # tastytrade API サンプル: 資格情報と実行記録は管理外
 experiments/tastytrade-api-sample/.env
 experiments/tastytrade-api-sample/out/

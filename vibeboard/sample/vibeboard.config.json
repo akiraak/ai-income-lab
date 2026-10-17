@@ -1,7 +1,0 @@
-{
-  "title": "vibeboard-sample",
-  "categories": [
-    { "name": "plans", "label": "プラン", "path": "docs/plans", "archive": true },
-    { "name": "specs", "label": "仕様",   "path": "docs/specs" }
-  ]
-}

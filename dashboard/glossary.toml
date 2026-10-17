@@ -1,12 +1,12 @@
-# 用語の正本（vibeboard の「用語」タブが読む。仕様は docs/specs/dashboard.md §12）
+# 用語の正本（外部のタブ「用語」が読む。仕様は docs/specs/dashboard.md §12）
 #
 # ⚠ 1 語 1〜2 行の索引であって、解説書ではない。詳しい定義は doc 側にあり、
 #    ⚠ 食い違ったら doc（リンク先）が勝つ。
 # ⚠ 動く数字（検証数・DSR の値・行数など）を書かない。数字は実行タブと spec が持つ。
 # ⚠ doc はリポジトリ直下からの相対パス。実在はテストが固定する（tests/test_vibetab.py）。
-#    where は節の番号や見出しを文字で書く（vibeboard は節アンカーへ飛べない）。
+#    where は節の番号や見出しを文字で書く（節アンカーへは飛べない）。
 # ⚠ see = { label, tab, item }（任意。2026-09-26）は、しくみの説明があるタブのページへの 2 本目のリンク（システム説明 ／ 予測モデル ／
-#    トレーダー）。⚠ **しくみの説明の正本は vibeboard（system.toml ほか）、決めた経緯と数字の正本は spec** なので、doc は spec のまま残し、
+#    トレーダー）。⚠ **しくみの説明の正本は外部のタブ（system.toml ほか）、決めた経緯と数字の正本は spec** なので、doc は spec のまま残し、
 #    説明は see で引く（設定の説明の Step 7。tab は modelview.TAB_URLS・system の item はページの id ＝ テストが見る）。
 
 [[section]]
@@ -51,14 +51,14 @@ note = "このプロジェクトの決めごと。文書を読む前に知って
   where = "進め方"
 
   [[section.term]]
-  name = "vibeboard"
-  short = "開発用の管理画面（3010）。この文書と TODO を見て、タスクをセッションへ渡す。"
+  name = "project-manager"
+  short = "開発用の画面（8200）。この文書とタスクを見て、Claude Code へ依頼する。"
   doc = "CLAUDE.md"
-  where = "開発管理画面 (vibeboard)"
+  where = "開発管理画面"
 
   [[section.term]]
   name = "管理画面（dashboard）"
-  short = "運用用の画面（3012）。tastytrade の口座と売買の記録を見る。vibeboard とは別物。"
+  short = "運用用の画面（3012）。tastytrade の口座と売買の記録を見る。project-manager とは別物。"
   doc = "docs/specs/dashboard.md"
   where = "§1 画面"
 

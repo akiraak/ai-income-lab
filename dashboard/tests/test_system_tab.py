@@ -189,12 +189,9 @@ def test_real_part_pages_render():
     assert not {"build", "verify"} & {i["id"] for i in modelview.sidebar(paths)["items"]}   # 予測モデルのタブにしくみの束は無い
 
 
-def test_system_tab_is_first_in_vibeboard_config():
-    tabs = json.loads((REPO_ROOT / "vibeboard.config.json").read_text(encoding="utf-8"))["customTabs"]
-    assert tabs[0]["name"] == "system" and tabs[0]["baseUrl"].endswith(":3015/system")
-    assert [t["name"] for t in tabs[:3]] == ["system", "models", "traders"]             # 並び ＝ システム説明 → 予測モデル → トレーダー（利用者の指示 2026-09-20）
-    assert tabs[0]["label"] == "システム説明" and _real()["common"]["detail_label"].startswith("詳しく")     # 利用者の指示 2026-09-20
-    assert not any(":3012" in t["baseUrl"] for t in tabs)                              # 管理画面を baseUrl にしない
+def test_system_detail_label():
+    # タブの並び・ラベル・baseUrl（3012 にしない）は 2026-10-17 から ~/project-manager/projects.yaml 側で守る（vibeboard の撤去）
+    assert _real()["common"]["detail_label"].startswith("詳しく")     # 利用者の指示 2026-09-20
 
 
 # ---------------------------------------------------------------- 最小の置き場

@@ -1,4 +1,6 @@
 # DONE
+- 2026-10-17 vibeboard 撤去の後始末（テストと CLAUDE.md） [plan](docs/plans/archive/vibeboard-removal-followup.md)
+  `test_system_tab.py` の `vibeboard.config.json` を読む検査を外し `detail_label` だけ残した（タブの並び・3012 を baseUrl にしない決まりは `~/project-manager/projects.yaml` 側で守る）。CLAUDE.md の vibeboard 前提の記述を project-manager ／ 外部のタブに直し、「vibeboard のこのプロジェクト固有の運用」を「外部のタブ（project-manager）」にした（vibeboard そのものの機能の項は消した）。`dashboard/tests` 268 passed ／ 2 skipped・`./run-tests.sh` ✅。コード・docs に残る「vibeboard」は直していない
 - 2026-10-15 `run-vibetab.sh` を作った（独自タブ 7 本の中身 `dashboard/vibetab.py` を vibeboard 無しで起こす。利用者の依頼）
   プロジェクト直下。`python3 dashboard/vibetab.py` を前景で exec（tmux の中で動かし続ける・デーモンにしない）。ポートは第 1 引数 > `AIL_VIBETAB_PORT` > vibetab.py の既定 3015。`--runs-dir` ／ `--exp-dir` はそのまま渡す。python3 3.11 未満は版を書いて rc=1。ポートを LISTEN しているものが居れば 1 行出して rc=1（⚠ 止めはしない。`vibetab.py` 自体はポートが塞がっていると何も言わず rc=0 で引くので、その手前で止める）
   確かめたこと: `bash -n` ✅・`--help` ✅・不正なポート rc=2 ✅・使い捨てのソケットで塞いだポートに対して rc=1 ✅（vibetab ／ vibeboard ／ dashboard は起こしていない）。CLAUDE.md の「実行・データのタブ」に起動の仕方を足した。vibeboard の説明と `vibeboard.config.json`・`run-vibeboard.sh` は変えていない（撤去は別の操作）

@@ -49,14 +49,14 @@ tastytrade の本口座で、**トレーダー（Trader）3 人に予算を割�
 ## ドキュメントの書き方
 
 - 説明が構造・流れ・位置関係を含むときは、文章だけで済ませず **図を使う**（Mermaid で書く）
-  - vibeboard が mermaid@11 でレンダリングするので、` ```mermaid ` フェンスで書けばそのまま閲覧できる
+  - ` ```mermaid ` フェンスで書く（GitHub などで描ける）。⚠ project-manager のファイルの表示は mermaid を描かない（2026-10-17 時点。ソースのまま出る）
   - プランや仕様書では、各層・各フェーズに最低 1 枚は図を置く
 - 図の原則
   - **1 図 1 主張**。その図で何を言いたいのかを図の直前に 1 行書く
   - **一覧や属性は表**、図は関係・流れ・位置を示すときだけ使う
   - ノードは 12 個以内。超えたら図を分割する
   - 本文と図が食い違ったら本文を正として図を直す
-- **説明の正本の分け方（2026-09-26 利用者決定。2026-09-27 に `live-trading.md` §0〜§0-2 の重複を削った）**: しくみ・設定項目の意味 ＝ vibeboard の TOML（`dashboard/system.toml`・`models.toml`・`traders.toml`・`glossary.toml`）／ 決めた日・利用者の言葉・【実測】【推測】の数字・実装の場所 ＝ 仕様書 ／ 値 ＝ `config/traders/*.toml`。⚠ 同じしくみの説明を仕様書に 2 度書かない（書くなら vibeboard へ 1 行で案内）。⚠ **例外: 実売買の日次の数字（物差し A〜E・異常）の正本は `experiments/live-trading/out/yardstick.csv`**（2026-10-13 利用者決定 K1「全部おススメで」・朝の `--prepare` で `yardstick.py` が作り直す・管理画面が出す ＝ [プラン](docs/plans/daily-record-auto.md)）。`live-trading.md` §1 には異常の日の読み方と週 1 回（金曜の引け後）の写しだけを書く⚠ vibeboard の札・用語の `where` は仕様書の見出しを文字で写しているだけで、テストはリンク先のファイルの実在しか見ない ＝ 仕様書の見出しを消したら grep で拾って直す
+- **説明の正本の分け方（2026-09-26 利用者決定。2026-09-27 に `live-trading.md` §0〜§0-2 の重複を削った）**: しくみ・設定項目の意味 ＝ 外部のタブの TOML（`dashboard/system.toml`・`models.toml`・`traders.toml`・`glossary.toml`）／ 決めた日・利用者の言葉・【実測】【推測】の数字・実装の場所 ＝ 仕様書 ／ 値 ＝ `config/traders/*.toml`。⚠ 同じしくみの説明を仕様書に 2 度書かない（書くなら外部のタブへ 1 行で案内）。⚠ **例外: 実売買の日次の数字（物差し A〜E・異常）の正本は `experiments/live-trading/out/yardstick.csv`**（2026-10-13 利用者決定 K1「全部おススメで」・朝の `--prepare` で `yardstick.py` が作り直す・管理画面が出す ＝ [プラン](docs/plans/daily-record-auto.md)）。`live-trading.md` §1 には異常の日の読み方と週 1 回（金曜の引け後）の写しだけを書く。⚠ 外部のタブの札・用語の `where` は仕様書の見出しを文字で写しているだけで、テストはリンク先のファイルの実在しか見ない ＝ 仕様書の見出しを消したら grep で拾って直す
 - **言葉（2026-09-21 の利用者の決定。「分かりにくい」を言い換えた）**。新しく書く文はこの言葉で書く
 
   | 前の言葉 | 使う言葉 | 意味 |
@@ -73,7 +73,7 @@ tastytrade の本口座で、**トレーダー（Trader）3 人に予算を割�
   | 台帳（トレーダー） | **売買履歴** | その人の持ち株・現金・手数料の記録（`state/<env>/<名前>.json`） |
   | 表 ／ 手法 ／ 形式（名前の部品） | **入力データ ／ 数字の選び方・作り方 ／ 学習範囲** | 予測モデル名の部品（rules.md 10-2） |
   | 窓 | **観測期間**（モデルが過去何日分を見るか）／ **取引時間帯**（注文してよい時間） | ⚠ 観測期間と、検証結果一覧の列「期間」（データの開始日）は別物 |
-  | 印（トレーダーの停止 ／ 手じまい）／ 候補（名簿の外の人）／ 停止（名簿の）| **トレーダーの状態**（停止 ／ 稼働 ／ 一時停止 ／ 手じまい中）と **指示**（開始 ／ 一時停止 ／ 手じまい） | 停止 ＝ 動かしていない・持ち株 0（前の候補 ＋ 手じまい済み）／ 一時停止 ＝ 持ち株を持ったまま休む（前の停止）。指示は執行器の次の回を通ると状態に変わる（2026-10-09 の利用者の決定。`dashboard.md` §13-9）。⚠ 全体の停止（`HALT`）・「本番の機械ではない」印・仮データの印・vibeboard の「（候補）」は別の意味で変えない |
+  | 印（トレーダーの停止 ／ 手じまい）／ 候補（名簿の外の人）／ 停止（名簿の）| **トレーダーの状態**（停止 ／ 稼働 ／ 一時停止 ／ 手じまい中）と **指示**（開始 ／ 一時停止 ／ 手じまい） | 停止 ＝ 動かしていない・持ち株 0（前の候補 ＋ 手じまい済み）／ 一時停止 ＝ 持ち株を持ったまま休む（前の停止）。指示は執行器の次の回を通ると状態に変わる（2026-10-09 の利用者の決定。`dashboard.md` §13-9）。⚠ 全体の停止（`HALT`）・「本番の機械ではない」印・仮データの印・外部のタブの「（候補）」は別の意味で変えない |
   | 買う線 ／ 売る線（画面の言葉） | **売買基準値** | θ（閾値）。出力スコアが売買基準値を超えたら買い、「100 − 売買基準値」を下回ったら売る（2026-09-21 の利用者の決定「意味が分からない」） |
 
   - ⚠ **変えないもの**: 記録やコードが参照する名前（列「鍵」「検証方式」「検証日数」・暗号の「署名鍵」・登録名 `T3 QUANT（60日窓）`・ファイル名 `ledger.md`・コードの識別子）・過去の実験の記録と済んだプラン・`DONE.md`。✅ 実売買の執行器（`run_day.py`・`reconcile.py`・`recovery.py`）のメッセージは 2026-10-08 に「売買履歴」へ直した
@@ -88,10 +88,10 @@ tastytrade の本口座で、**トレーダー（Trader）3 人に予算を割�
 - `docs/plans/` — 作業プラン（完了したものは `docs/plans/archive/` へ）
 - `docs/specs/` — 成果物となる仕様・体系
 - `docs/specs/experiments/` — 検証タスクごとの調査結果・試算・判定の記録（1 手法 1 ファイル）
-  - `docs/specs/howto-model-trader.md` — **新しい予測モデルを足す・複数モデルのトレーダーを足す手順書**（2026-09-27。どこに何を書くか・落ちるテスト。しくみの説明は vibeboard の「システム説明」）
+  - `docs/specs/howto-model-trader.md` — **新しい予測モデルを足す・複数モデルのトレーダーを足す手順書**（2026-09-27。どこに何を書くか・落ちるテスト。しくみの説明は project-manager の外部のタブ「システム説明」）
 - `experiments/` — 調査用コード（1 手法 1 ディレクトリ）。2026-08-27 の方針変更以降は新規追加の予定なし（例外: `experiments/live-trading/`。2026-09-17 の 2 つ目の例外の執行器）
 - `dashboard/` — **売買システムの管理画面**（実運用の監視 ＋ 開発時の検証）。仕様は `docs/specs/dashboard.md`
-- `vibeboard/` — 開発管理画面（vendor 済み）。`docs/` と `TODO.md` を見るためのもので、`dashboard/` とは別物
+- `dashboard/vibetab.py` — project-manager の外部のタブ 7 本の中身（`./run-vibetab.sh`・127.0.0.1:3015。下の「外部のタブ（project-manager）」）。`dashboard/` の管理画面とは別物。⚠ 開発管理画面だった `vibeboard/` は 2026-10-17 に撤去した（`85931e5`）
 
 ## 管理画面 (dashboard)
 
@@ -106,21 +106,21 @@ cp .env.example .env                                   # AIL_AUTH_MODE=local（�
 ```
 
 - `experiments/tastytrade-api-sample/` の `ttclient.py` / `record.py` を import し、記録（道は `out/*.jsonl` のまま・⚠ 2026-09-21 から中身はリポジトリ直下の `live.sqlite`。下の「記録の置き場」）をそのまま読む。資格情報もサンプルの `.env` を読む
-- 画面（2026-09-18 に作り直した。デザイン 3「数字とグラフが主役」・ナビは左ペイン）: **概要（`/`。監視の帯・大きな数字・損益の推移・執行の差・トレーダーの段）**・全体の詳細（`/overall`。日次・注文の履歴・口座と接続）・トレーダーの詳細（`/traders/<name>`）・記録と差分（`/records`）・6 観点の自動判定（`/judge`。観点 A まで）・操作（`/ops`。**停止 ／ 解除と履歴だけ**）。`/live` は `/` へ転送。**操作はローカル面だけ**。⚠ **実行の一覧（`/experiments`）・データ（`/data`）・手動の注文（dry-run ／ 発注 ／ 取消 ／ 後片付け）・開発（`/dev`）は 2026-09-18 に経路ごと消した** ＝ ⚠ **管理画面に発注の経路は無い**（発注は執行器と CLI だけ。`ops.py` のクライアントは取消の許可しか持たない）。残した部品: `app/experiments.py`・`app/inventory.py`（vibeboard のタブが import）・`devtools` の `MockServer`・`run_step`（デモ）。⚠ **紙上の損益・差 3 は、執行器の `out/daily.csv`（`paper.py`）があれば本物・無ければ仮データ**（印つき。仮は `/api/live` に出さない）。休場日は NYSE の暦（`experiments/tastytrade-api-sample/nyse_calendar.py`。執行器の発注できる時間帯と共有。⚠ **年に 1 度、次の年を足す**。載っていない年だけ「仮」に戻る）。図は `app/charts.py`（サーバで組む SVG）。仕様は `docs/specs/dashboard.md` §13・§15
+- 画面（2026-09-18 に作り直した。デザイン 3「数字とグラフが主役」・ナビは左ペイン）: **概要（`/`。監視の帯・大きな数字・損益の推移・執行の差・トレーダーの段）**・全体の詳細（`/overall`。日次・注文の履歴・口座と接続）・トレーダーの詳細（`/traders/<name>`）・記録と差分（`/records`）・6 観点の自動判定（`/judge`。観点 A まで）・操作（`/ops`。**停止 ／ 解除と履歴だけ**）。`/live` は `/` へ転送。**操作はローカル面だけ**。⚠ **実行の一覧（`/experiments`）・データ（`/data`）・手動の注文（dry-run ／ 発注 ／ 取消 ／ 後片付け）・開発（`/dev`）は 2026-09-18 に経路ごと消した** ＝ ⚠ **管理画面に発注の経路は無い**（発注は執行器と CLI だけ。`ops.py` のクライアントは取消の許可しか持たない）。残した部品: `app/experiments.py`・`app/inventory.py`（外部のタブ ＝ `vibetab.py` が import）・`devtools` の `MockServer`・`run_step`（デモ）。⚠ **紙上の損益・差 3 は、執行器の `out/daily.csv`（`paper.py`）があれば本物・無ければ仮データ**（印つき。仮は `/api/live` に出さない）。休場日は NYSE の暦（`experiments/tastytrade-api-sample/nyse_calendar.py`。執行器の発注できる時間帯と共有。⚠ **年に 1 度、次の年を足す**。載っていない年だけ「仮」に戻る）。図は `app/charts.py`（サーバで組む SVG）。仕様は `docs/specs/dashboard.md` §13・§15
 - **面ごとの期間**（2026-09-20）: **トレーダーの詳細（`/traders/<名前>`）だけ全期間**（図・数字・履歴とも。1 人を縦に追う面）。**概要・全体の詳細・`/api/live` は直近 20 営業日のまま**（人を横に比べる面）。⚠ **全部の見出しに期間を書く**（`b.period.label`）。注文の履歴は**月ごとにたたむ**（最新の月だけ開く・月の小計に件数 ／ 約定 ／ 代金 ／ 差 1 中央値 ／ error と取消）。行動のマス目は 1 日 18px を割ったら**横スクロール**（銘柄名は左に固定・既定は右端）。⚠ **3 秒ごとに取り直すのは数字と図だけ**（`?partial=live`。POST は増やしていない）。⚠ **記録は日ごとにキャッシュ**（上限 400 日。指紋は DB の行数 ＝ `livefs.stamp`）。仕様は `docs/specs/dashboard.md` §13-7・§15-12
-- **呼び名と試験用の人**（2026-09-23 利用者の指示「呼び名を表示する。T1,T2なども併記。テストトレーダーは削除」）: 名前は **`呼び名（識別名）`**（例 アキ（T1）。正本は `dashboard/traders.toml` の `[nicks]` ＝ vibeboard のトレーダーのタブと同じ 1 本。無い人は識別名だけ。URL・記録は識別名）。`test = true` の人は **本物のモード・デモでない・本物の人が 1 人以上** のとき一覧（左ペイン・概要の段と凡例・`/api/live` の `traders`）から外す（`live.show_test_traders`。URL を直接開けば見える。sim・デモ・本物の人が 0 人なら今までどおり）。⚠ 設定ファイル（`mock_*`・`sim_*`・`test_a`）は消さない。仕様は §13-1・§15-6
+- **呼び名と試験用の人**（2026-09-23 利用者の指示「呼び名を表示する。T1,T2なども併記。テストトレーダーは削除」）: 名前は **`呼び名（識別名）`**（例 アキ（T1）。正本は `dashboard/traders.toml` の `[nicks]` ＝ 外部のタブ「トレーダー」と同じ 1 本。無い人は識別名だけ。URL・記録は識別名）。`test = true` の人は **本物のモード・デモでない・本物の人が 1 人以上** のとき一覧（左ペイン・概要の段と凡例・`/api/live` の `traders`）から外す（`live.show_test_traders`。URL を直接開けば見える。sim・デモ・本物の人が 0 人なら今までどおり）。⚠ 設定ファイル（`mock_*`・`sim_*`・`test_a`）は消さない。仕様は §13-1・§15-6
 - **見張り「今日の起動が無い」**（2026-09-24。3 台の役割分け Phase 5）: 営業日の **16:15 ET** を過ぎて `out/<今日>/` に記録が無ければ、概要の帯に赤で出し、起動しなかった日に今日を足す（`live.watch()`・`/api/live` の `watch`）。⚠ **記録・暦・時刻だけで決める**（timer ／ cron の状態は読まない ＝ 13500t でも同じ）。印のある機械・`HALT`・デモでは見張らない。⚠ **管理画面は表示だけ**（機械の外へ知らせるのは 13500t の `check.sh` ＝ `live-trading.md` §0-15。2026-09-25）。⚠ テストは conftest が時計を 2026-09-01 09:00 ET に止める（止めないと 16:15 ET 以降に流すと落ちる）。仕様は `docs/specs/dashboard.md` §13-8
 - **シミュレーションモード**（2026-09-19）: 機械のモード（`experiments/live-trading/MODE`）が sim の間、管理画面は `sim/<名前>/` だけを読み、全ページの最上部に青緑の帯・`<title>` に `[SIM]`・数字に「仮」の印・`/api/*` に `mode`（`app/simmode.py`。リクエストごとに読む）。⚠ **表示だけ**（切り替え・速さ・停止は CLI の `simctl.py`）。⚠ **1 つの画面に本物とシミュレーションを混ぜない**（モードと木が食い違えば数字を出さない）。⚠ 公開面は `MODE` を読まない。仕様は `docs/specs/dashboard.md` §13-6・§15-11
-- **実行の一覧の部品**（`app/experiments.py`。画面は vibeboard の実行タブ。管理画面の `/experiments` は 2026-09-18 に消した）は `experiments/feature-discovery/runs/research.sqlite` を**読み取り専用で読むだけ**（`AIL_RUNS_DIR` ＝ DB の置き場）。**スコアは最良手法（基準線を除く）の純利 bp** で、fold の符号・上乗せ t・実効標本数・デフレーテッド SR を横に並べる。⚠ **検査は実験側が `checks.json` に書いたものを読むだけ**（管理画面に pandas / scipy を入れない）。仕様は `docs/specs/dashboard.md` §10
+- **実行の一覧の部品**（`app/experiments.py`。画面は外部のタブ「実行」。管理画面の `/experiments` は 2026-09-18 に消した）は `experiments/feature-discovery/runs/research.sqlite` を**読み取り専用で読むだけ**（`AIL_RUNS_DIR` ＝ DB の置き場）。**スコアは最良手法（基準線を除く）の純利 bp** で、fold の符号・上乗せ t・実効標本数・デフレーテッド SR を横に並べる。⚠ **検査は実験側が `checks.json` に書いたものを読むだけ**（管理画面に pandas / scipy を入れない）。仕様は `docs/specs/dashboard.md` §10
 - **資格情報なしでも動く（デモ）**: 資格情報が無いか `AIL_DEMO=1` なら、起動時にモックサーバを立てて全画面にモックのデータを出す（帯に「デモ」）。データは `data/demo/` に分ける。仕様 §6-2。実売買の画面は執行器のモックの記録（`dashboard/demo/live/`）を読む（`AIL_LIVE_DIR` を指定したときはそれ）
 - 面は `AIL_AUTH_MODE`: `loopback`（既定）/ `local`（＋ LAN）/ `cloudflare`（公開面。Access の JWT を全リクエストで検証。**監視と停止だけ**）/ `cloudflare-local`（2026-09-26。検証は `cloudflare` と同じで、通った人には**ローカル面と同じ機能**。13500t の `trade.chobi.me` 用 ＝ 利用者決定「ローカルのものと同一の機能」。[プラン](docs/plans/archive/dashboard-public-face-13500t.md)）
 - **停止ボタン** ＝ 記録ディレクトリに `HALT` を書き、働いている注文を全部取り消す。`sample.py` も `HALT` があると発注系の手順を拒否する
 - 本番の許可はサンプルと同じ 3 段（dry-run `TT_ALLOW_PROD_DRY_RUN=1` / 取消 `allow_prod_cancel` / 発注 `TT_ALLOW_PROD_ORDERS=1` ＋ 確認文）。**取消の許可では発注できない**。⚠ **管理画面が使うのは取消の許可（停止ボタン）だけ**（2026-09-18。dry-run と発注の許可は執行器と `sample.py` のもの）
 - 秘密（client secret・トークン・口座番号）はブラウザに送らない。全応答が `Redactor` を通る
-- **i マークのヘルプ**（2026-09-18）: 見出しの横に `{{ info("語") }}`。⚠ **文面の正本は `dashboard/glossary.toml`**（vibeboard の用語タブと同じ 1 本。説明を templates や Python に書かない）。`<details>` ＋ `app.js`（CSP の内）。⚠ **`<p>`・`.scroll-x`・左ペイン・停止ボタンの横には置かない**。語を消す・改名すると `tests/test_help.py` が落ちる。仕様と手順は `docs/specs/dashboard.md` §15-10
+- **i マークのヘルプ**（2026-09-18）: 見出しの横に `{{ info("語") }}`。⚠ **文面の正本は `dashboard/glossary.toml`**（外部のタブ「用語」と同じ 1 本。説明を templates や Python に書かない）。`<details>` ＋ `app.js`（CSP の内）。⚠ **`<p>`・`.scroll-x`・左ペイン・停止ボタンの横には置かない**。語を消す・改名すると `tests/test_help.py` が落ちる。仕様と手順は `docs/specs/dashboard.md` §15-10
 - g3plus に載せる契約は `docs/specs/dashboard.md` §7。デプロイ設定・公開ホスト名・Access は **g3plus-ops（private）側にだけ書く**
-- 起動は `dashboard/run.sh`、または**プロジェクト直下の `run-server.sh`**（⚠ **既にポートを掴んでいるプロセスを止めてから起動する**）。⚠ **プロセスは名前ではなくポートから引く**（`pgrep -f` のパターンは自分自身のコマンドラインにも当たるため）。⚠ **vibeboard（3010）は触らない**
-- vibeboard との棲み分け: vibeboard はこのリポジトリの文書とタスクを見る**開発用**、dashboard は tastytrade の口座と記録を見る**運用用**。ポートも別（3010 / 3012）
+- 起動は `dashboard/run.sh`、または**プロジェクト直下の `run-server.sh`**（⚠ **既にポートを掴んでいるプロセスを止めてから起動する**）。⚠ **プロセスは名前ではなくポートから引く**（`pgrep -f` のパターンは自分自身のコマンドラインにも当たるため）
+- project-manager との棲み分け: project-manager（8200）・外部のタブ（3015）はこのリポジトリの文書・タスク・研究を見る**開発用**、dashboard（3012）は tastytrade の口座と記録を見る**運用用**
 
 ## テスト
 
@@ -181,7 +181,7 @@ cd experiments/feature-discovery
 
 - ⚠ **実行の記録の正本は `runs/research.sqlite`**（利用者の裁定「2 か所には置かない。DB に入れたらファイルは削除」。プランは `docs/plans/archive/db-model-facts.md`）。`ail/runs.Run` が**書くたびにその場で**入れ、閉じた実行は書き換え・削除をトリガーが拒む。読み手は `runs.read_json` ／ `read_csv` ／ `materialized`（道が要る読み手は一時ディレクトリに書き戻す）。`cli.queue` の状態も同じ DB（`queue_state`）。⚠ **実行ディレクトリは 2026-09-21 に全部消した**（一致 255 ／ 255 を確かめてから。利用者の了承）。控えは `/mnt/c/Users/akira/ai-income-lab-backup/research-<日付>.sqlite`（⚠ Dropbox・OneDrive の下に置かない ＝ 外に出る）
 - 診断・突き合わせの出力（`cli.calibdiag`・`cli.crosscheck`。いままでの `experiments/feature-discovery/out/`）も 2026-09-21 から DB の `outputs`（道は `out/` からの相対のまま・書き換えない）。記録の文書の `out/diag/…` は `outputs` の `diag/…`
-- 検証結果一覧を吐き直す（`cli.report --catalog`・`cli.queue`）と、同じ行と判定が DB の `ledger_rows` にも入る（⚠ 記録ではなく生成物。まるごと入れ直す）。vibeboard の予測モデルのタブが、試した経緯の数をここから予測モデル名のパターンで数える（`dashboard.md` §17-3）。「詳しく」の門の数字と較正の係数も、`models.toml` の差し込み（`{{gate|…}}`・`{{calib|…}}`）で実行の記録から引く（⚠ 控えは DB の値と同じでないとテストが落ちる）
+- 検証結果一覧を吐き直す（`cli.report --catalog`・`cli.queue`）と、同じ行と判定が DB の `ledger_rows` にも入る（⚠ 記録ではなく生成物。まるごと入れ直す）。外部のタブ「予測モデル」が、試した経緯の数をここから予測モデル名のパターンで数える（`dashboard.md` §17-3）。「詳しく」の門の数字と較正の係数も、`models.toml` の差し込み（`{{gate|…}}`・`{{calib|…}}`）で実行の記録から引く（⚠ 控えは DB の値と同じでないとテストが落ちる）
 - ⚠ **検証結果一覧・`n_trials` の数え方は変えていない**（取り込み前後で `ledger.md` が 1 文字も変わらないことを確かめた）
 - 予測モデル名（検証結果一覧の識別項目の別名 `<入力データ>.<数字の選び方・作り方>.<学習器>.<学習範囲>[~…][@θ]`）は `ail/names.py`・綴りの一覧は `config/names.toml`。⚠ 名前の部品は「表・手法・形式・窓」と呼ばない（2026-09-21 の利用者の指示「分かりにくい」。検証結果一覧の列の名前との対応は rules.md 10-2）。規約は rules.md 10-2（綴りは 2026-09-21 に確定。学習範囲は `shared` ／ `each` ＝ 例 `T3` は `own-seq.t3-quant60.ridge.shared`）
 - 実売買（`experiments/live-trading/`）の記録も 2026-09-21 から DB（`live.sqlite`。下の「記録の置き場」）
@@ -345,19 +345,19 @@ cd experiments/live-trading
 
 ## 開発管理画面
 
-タスク・プラン・ファイルの閲覧と編集、Claude Code への依頼は project-manager（`http://127.0.0.1:8200`、`~/project-manager`）で行う。vibeboard は 2026-10 に撤去した。
+タスク・プラン・ファイルの閲覧と編集、Claude Code への依頼は project-manager（`http://127.0.0.1:8200`、`~/project-manager`）で行う。vibeboard は 2026-10-17 に撤去した（`85931e5`）。独自のタブ 7 本は下の「外部のタブ（project-manager）」。
 
 ## タスク管理ルール
 
 - タスクは `TODO.md` で管理する
-- **タスクの行は、親項目も含めて必ず `- [ ] 文面` の形で書く。** vibeboard はチェックボックス
+- **タスクの行は、親項目も含めて必ず `- [ ] 文面` の形で書く。** project-manager はチェックボックス
   （`[ ]` 未着手 / `[x]` 完了 / `[~]` 進行中 / `[-]` 中止）のある行だけをタスクとして拾う。
   `- 文面` のようにチェックボックスの無い行はタスクではなく直前のタスクのメモ扱いになり、ツリーにも
-  Tasks タブにも出ない（親に付け忘れると、子タスクだけが親を失って並ぶ）
+  タスクの一覧にも出ない（親に付け忘れると、子タスクだけが親を失って並ぶ）
 - **`TODO.md` に書くのはタスクだけ。** メモや決定事項を残すときは、関係するタスクの
   下に字下げして付ける（タスクに関連付ける）。タスクに属さないメモの節（「決まったこと」「備考」など）は
   作らない。プロジェクトとしての決定は `CLAUDE.md` へ、済んだ経緯は `DONE.md` へ書く
-- 字下げが親子。vibeboard はこれをツリーとして表示する
+- 字下げが親子。project-manager はこれをツリーとして表示する
 
   ```markdown
   - [ ] 親タスク [plan](docs/plans/foo.md)
@@ -367,10 +367,10 @@ cd experiments/live-trading
   ```
 - タスク同士の関係は、そのタスクの下に字下げした **`依存:` / `派生元:` / `関連:`** の行で書く。
   相手のタスクは `「文面」` で（例: `依存: 「スキーマに tags 列を追加」`）、プランや仕様は
-  Markdown リンクで（例: `関連: [spec](docs/specs/api.md)`）示す。vibeboard のツリーで両方向に辿れる
+  Markdown リンクで（例: `関連: [spec](docs/specs/api.md)`）示す。project-manager のツリーで両方向に辿れる
 - タスクの**期日**（いつやるか）は、そのタスクの下に字下げした **`期日:`** の行で書く（例: `期日: 2026-09-21` /
   `期日: 2026-09-21 06:35` / `期日: 2026-09-21 12:45〜13:05`）。時刻だけの行（`期日: 06:35`）は、親をさかのぼって
-  最初に見つかる期日の日付を借りる。vibeboard の Tasks タブの「タイムライン」が、期日のあるタスクを日ごと・時刻の順に並べる
+  最初に見つかる期日の日付を借りる。project-manager のタスクのタブの「タイムライン」が、期日のあるタスクを日ごと・時刻の順に並べる
 - タスクが完了したら `TODO.md` から該当項目を削除し、`DONE.md` に移動する
 - `DONE.md` には完了日を `YYYY-MM-DD` 形式で付けて記録する
 - 新しいタスクが発生したら `TODO.md` の適切なセクションに追加する
@@ -394,18 +394,16 @@ cd experiments/live-trading
    - 親タスクを `DONE.md` に移動する
    - 対応するプランファイルは `docs/plans/archive/` に移動する
 
-## vibeboard のこのプロジェクト固有の運用
+## 外部のタブ（project-manager）
 
-⚠ **この節はマーカーの外に置く**（`vibeboard update` / `init` はマーカー間を置換するので、中に書くと消える。2026-09-10 に一度消えた）。
+vibeboard は 2026-10-17 に撤去した（`85931e5`）。このプロジェクト独自のタブ 7 本は project-manager の「外部のタブ」で出す。
 
-- **titan で動かした vibeboard は tailnet から `http://titan-income-vibeboard`** で見る（Tailscale Services。titan の Windows 側 `tailscale serve --service=svc:titan-income-vibeboard --http=80 http://127.0.0.1:3010`、再起動をまたいで残る。Funnel なし。2026-09-10）。`ssh titan` で入って `./run-vibeboard.sh` を叩けば開く。⚠ **dashboard（3012）は serve に出さない**（serve 経由は全部ループバックに見え、発注の面が無認証で開く。外から見るなら `ssh -L 3013:127.0.0.1:3012 titan`）。⚠ **serve の外向きポートを 3010 にしない**（mirrored では Windows 側の listener が WSL の bind を塞ぎ、vibeboard が起動できなくなる）。経緯と切り分けは `docs/plans/archive/vibeboard-remote-view.md`
-- **実行・データのタブ**（2026-09-10）: `vibeboard.config.json` の customTabs。中身は `dashboard/vibetab.py`（127.0.0.1:3015、標準ライブラリのみ。vibeboard の sidecar が `python3` で自動起動）が `experiments/feature-discovery/` の実行の記録（`runs/research.sqlite`）と在庫を読んで出す。vibeboard 本体が `/ext/<name>` で中継する（upstream 改造）ので、`http://titan-income-vibeboard` 越しでもタブが動く。⚠ **customTabs の baseUrl に dashboard（3012）を指定しない**（中継後はループバック発に見え、ローカル面が開く）。プランは `docs/plans/archive/vibeboard-experiments-tabs.md`。**vibeboard 無しで起こすなら `./run-vibetab.sh [port]`**（2026-10-15。プロジェクト直下。`python3 dashboard/vibetab.py` を前景で exec ＝ tmux の中で動かし続ける・デーモンにしない。ポートは第 1 引数 > `AIL_VIBETAB_PORT` > 既定 3015、`--runs-dir` ／ `--exp-dir` はそのまま渡す。python3 3.11 未満・ポートが先に使われているときは 1 行出して rc=1 で止まる（塞がりは 2 段で見る ＝ ① LISTEN しているプロセスをポートから引く ② 見えなくても 127.0.0.1 に bind できるか試す ＝ PID の見えない相手〔別のユーザー・WSL の mirrored で Windows 側〕も拾う。2026-10-15）＝ ⚠ `vibetab.py` 自体はポートが塞がっていると「bind できない」の 1 行だけ出して rc=0 で引く。vibeboard を撤去したあとは project-manager〔Sx360 の `~/project-manager`〕の Terminal のタブの「サーバ」の端末がこれを起こす予定。Sx360・titan〔ssh 越し〕の両方で使う）
-- **ハードのタブ**（2026-09-18）: customTabs の 4 本目（`hardware`）。中身は同じ `dashboard/vibetab.py` の `/hardware`（読み手 `dashboard/hwstat.py`・画面 `dashboard/hwview.py`。標準ライブラリのみ）が `nvidia-smi` と `/proc` を読み、GPU・CPU・メモリ・ディスクの「いまの状態」と「この 1 時間」を出す。⚠ **vibeboard 本体は改造していない**（このプロジェクト専用。`dashboard/app/` の外なので g3plus にも載らない）。⚠ **値を読むのは sidecar の見張り 1 本**（5 秒おき。`AIL_HW_INTERVAL_S`）で、画面は `api/snapshot`・`api/history` を自前で取りに来る。履歴はメモリ上の 1 時間だけ（sidecar を入れ直すと消える）。⚠ **WSL2 ではプロセス別の GPU メモリ・CPU 温度は読めない**。⚠ **読むだけ。このサーバに「操作」を足さない**（tailnet の閲覧者にも見える）。仕様は `docs/specs/dashboard.md` §14、プランは `docs/plans/archive/vibeboard-hardware-tab.md`
-- **トレーダーのタブ**（2026-09-20）: customTabs の 5 本目（`traders`）。**トレーダー 1 人 1 ページ**で、その人が**使うモデル**（正式な名前も出す）と**モデルの特性**をやさしい言葉で出す（大見出し 5 つ ＝ 使うモデル ／ モデルの特性 ／ 何を見て、どう出力スコアを計算するか ／ この人の決まり〔出力スコアのものさし〕／ 気をつけること）。中身は同じ `dashboard/vibetab.py` の `/traders`（画面 `dashboard/traderview.py`・標準ライブラリのみ）。⚠ **だれが居るかは実売買の設定から引く**（`config/traders/` の試験用でない人 ＋ 直下に居ない `candidates/*/` の人 ＝「（候補）」。2026-09-28 に `notional/` だけから広げた）。⚠ **人数を数えない・見くらべるページを作らない・ほかの人やモデルとくらべる文を書かない**（利用者の指示「トレーダーは常に変わるし 1 人になるときもあれば 10 人になるときもある」。テストの `COMPARING` が弾く）。⚠ **言葉の正本は 2 本**: モデルの解説・特性 ＝ `dashboard/models.toml` の `[[model]]`（2026-09-20 に `traders.toml` から移した。予測モデルのタブと同じ 1 本）／ 人の側の文・呼び名 ＝ `dashboard/traders.toml`（`[nicks]`）。説明を Python に書かない。⚠ **特性には必ず「どこまで確かか」の印**（`basis` ＝ 作りから ／ 試し運転で見えた ／ 見立て。⚠ 確かめていない理由を言い切らない ＝ 最初の版は比較の文を作ろうとして誤りを 1 つ書いた）。⚠ **やさしい言葉で書く**（本文で 買い%・θ・特徴量・Ridge・fit・`sizing` などを使わない ＝ `FORBIDDEN`）。⚠ **呼び名は意味の無い名前**（`T1` ＝ アキ ／ `T2` ＝ アリス ／ `T3` ＝ カエデ。識別名は変えない・呼び名は変えない・使い回さない）。⚠ **白地に固定**（「黒背景はやめる」）。⚠ **数字は設定から写すだけ・売買結果は出さない・`out/`・`state/`・`.env` を読まない**。⚠ 新しいモデルを使う人を足したら `models.toml` に `[[model]]` を 1 つ書く。✅ **2026-09-26（設定の説明 Step 6）**: 4「この人の決まり」の頭に **どの株を**（売買する株の本数と名前は設定から・選んだ理由は人ごと `traders.toml` の `[symbols_why]`〔無い人は出ない〕・使うモデルが**出力スコアを出す株**は `models.toml` の `sets.output` を写して違いを見せる）。⚠ **共通のしくみ（4 つの集合・規模 A ／ B・上限と停止・設定項目の意味）はシステム説明の「トレーダーのしくみ」が正本**で、人のページは案内（`/#system/trader`）だけ。`unsettled` の帯は消した。仕様は `docs/specs/dashboard.md` §16、プランは `docs/plans/archive/vibeboard-traders-tab.md`
-- **予測モデルのタブ**（2026-09-20）: customTabs の 6 本目に足した（`models`）。中身は同じ `dashboard/vibetab.py` の `/models`（画面 `dashboard/modelview.py`・図 `dashboard/figures.py`・標準ライブラリのみ・読むだけ）。「モデル」から入るタブで、机上で試しただけのモデルも載る（いまは 12 本。選別・変換 5 本・上位 K は載せていない）。左の一覧は 一覧 → モデル 1 本ずつ（⚠ どのモデルにも共通のしくみのページは 2026-09-26 に「システム説明」へ戻した ＝ `system.toml` の `[[page]]`。`models.toml` に `[[page]]` は置かない）。モデルのページは 図 ・ 組み立て ・ **3 つの集合の表**（材料に入れるもの ／ 学ぶ株 ／ 出力スコアを出す株 ＝ `[[model]] sets`・行の名前は `dashboard.md` §18-2 の綴り。4 つ目の売買する株はトレーダーが決めるので 1 文と「トレーダーのしくみ」へのリンクだけ。2026-09-26）・ 出力スコアの出かたと読み方 ・ 試した経緯の表 ・ 大見出しごとの「詳しく（用語あり）」（畳まない）。⚠ **「試し運転」の話はどの形かを文で名指しする**（出力スコアの話 ／ 金額を決めて全部を買う形 `sim3` ／ 1 株単位の `sim4`。「試し運転の 64 日」の出どころは `[common] trial_note` に 1 か所 ＝ テスト）。⚠ **言葉の正本は `dashboard/models.toml`**（トレーダーのタブも同じ文を写す）。⚠ **決まりはトレーダーのタブと同じ**（やさしい言葉 ＝ `dashboard.md` §16-2 の表・特性に「どこまで確かか」の印・ほかのモデルとくらべる文を書かない・見くらべる表や順位を作らない・白地・数字は設定から写すだけ・売買結果を出さない）。⚠ **試した経緯の数（何通り・内訳）は研究の DB の `ledger_rows` から数える**（`[[model]]` の history の `names` ＝ 予測モデル名のパターン。読み取り専用）。⚠ **「試した結果」の印と文は人が記録から写す**（消すのは `[common] show_result = false` の 1 行）。「詳しく」の門の数字と較正の係数は差し込み（`{{gate|…}}`・`{{calib|…}}`）で実行の記録から引く。仕様は `docs/specs/dashboard.md` §17、プランは `docs/plans/archive/vibeboard-models-tab-deep.md`
-- **システム説明のタブ**（2026-09-20）: customTabs の先頭（`system`・ラベル「システム説明」）。中身は同じ `dashboard/vibetab.py` の `/system`（画面 `dashboard/systemview.py`・描き方は `modelview.py`・図は `figures.py` のインライン SVG）。⚠ **2026-09-26 から「全体像 ＋ パートごとの詳細」**（利用者決定「システム説明 ＝ 全体の説明と各パートの詳細説明。各モデル・各トレーダーの説明はしない」）＝ ページは 全体像（`overview`。流れの図はパートで塗り分け〔`figures.py` の `parts`〕・各パートへの入口）→ 予測モデルのしくみ（`model` ＝ 材料をそろえる → 学ぶ → 確かめる。型ごとのしくみ `models = true`・検証結果一覧の合計 `ledger = true`）→ トレーダーのしくみ（`trader`。✅ 2026-09-26 ＝ 共通のしくみと設定項目の意味だけ: 持ち物 5 つ ／ 4 つの集合を売買する株の側から〔入れ子の図 `nest` ＋ 表〕／ 選び方の考え方 ／ 売買基準値と合わせ方 ／ 予算と買い方 ／ 規模 A ／ B ／ 上限・含み損・停止 ／ 変えると新しい人 ／ 設定項目の一覧。⚠ 本文に各トレーダーの値・呼び名・識別名を書かない ＝ テストが見る）→ 実際の売買（`live`。「守っていること」を含む）→ 名前と識別名（`names`）。モデル 1 本ずつは予測モデルのタブ・トレーダー 1 人ずつはトレーダーのタブ。⚠ 2026-09-21〜26 は概要の 1 ページだけで、しくみの 4 ページは予測モデルのタブに居た（`dashboard.md` §17-7）。⚠ **言葉の正本は `dashboard/system.toml`**。本文はやさしい言葉、用語・正式な名前・コードの場所・細かい数字と出典は **「詳しく（用語あり）」の囲み（`detail*`。畳まない）にだけ**書く。⚠ 本文に実売買の設定の数字（予算・売買基準値・見る株の本数）と `$`・bp の数字を書かない。⚠ 検証結果一覧の合計は描くたびに `ledger.md` から読む（写さない）。⚠ **開くのは TOML と `ledger.md` だけ**・売買結果は出さない・白地
-- ⚠ **タブの並びは先頭から「システム説明」→「予測モデル」→「トレーダー」→ 実行 ／ データ ／ 用語 ／ ハード**（`vibeboard.config.json` の customTabs の配列順 ＝ テストが見る。「N 本目」は足した順で、並びではない。sidecar を起こす `command` は実行タブの項に付けたまま）。文を直すのは 3 本の TOML だけで、保存すれば 5 秒で画面が入れ替わる（コードを直したら vibeboard と sidecar〔3015〕の入れ直しが要る）。仕様は `docs/specs/dashboard.md` §18
-- **サイドバーの検索**（2026-09-18）: Tasks・Plans・Specs・Files の左ペイン上端の箱で絞り込む。文書のタブはサーバがパスと本文を探し（`GET /api/search/:category?q=`。空白区切りは AND・大文字小文字は区別しない・1MB 超と二進は本文を見ない）、Tasks は手元の木を文面・メモ・親の文面で絞る。結果は平らな一覧で、Escape で消すとツリーに戻る。✅ **akiraak/vibeboard 本体へ反映済み**（vendor と本体は一致）。プランは `docs/plans/archive/vibeboard-search.md`
-- **Tasks のタイムライン**（2026-09-20）: Tasks タブの左ペインを `ツリー` ｜ `タイムライン` で切り替える。時間軸に置くのは**予定だけ**（`TODO.md` の `期日:` の行。`DONE.md` の完了日は置かない ＝ 利用者の裁定）。日の見出しを押すと右ペインにその日の一覧（`#tasks/@day/<日付>`）。⚠ **済んだタスクは既定では出さない**（ツリーと同じ。全部済んだ日は見出しごと出ない。`済みも出す` で薄く出る）。⚠ **時刻は `TODO.md` に書いたままの土地の時刻（いまは PDT）で、vibeboard は時差を計算しない**（「いま」「過ぎた」は見ているブラウザの時計と比べる ＝ 別の時間帯から見るとずれる）。⚠ 日・時刻を文面の頭に書いても読まない（読むのは `期日:` の行だけ。文面の頭の時刻が期日と同じなら、タイムラインでは二重に出さない）。✅ **2026-09-20 に akiraak/vibeboard 本体へ反映済み**（`ca8134c`・済みを既定で出さない直しは `7f0184f`。vendor と本体は一致しており `vibeboard update` を流してよい）。プランは `docs/plans/archive/vibeboard-tasks-timeline.md`
-- **ブラウザのタブの題**（2026-10-13 利用者の指示「TODO のページのタイトル変更」＝「ブラウザのタブです。Tasks ではありません」）: `vibeboard.config.json` の **`tabTitle`**（新しい設定項目。`"TODO"`）が `<title>` になる。左上のブランド名（`title` ＝ root の名前 `ai-income-lab`）は変えない・衝突の `(!)` は前に付いたまま・無ければ `title` と同じ。⚠ 設定と `index.html` は起動時に読むので、変えたら 3010 を起こし直す（利用者が `./run-vibeboard.sh`）。⚠ 同じ差分を upstream の clone `/home/ubuntu/vibeboard` にも当ててある（本体への commit ／ push は利用者の依頼で。反映するまで `vibeboard update` を流すと vendor の差分が消える）。プランは `docs/plans/archive/vibeboard-tasks-doc-title.md`
-- **タスク追加 / 子タスク追加**（2026-09-11）: バックグラウンドの `claude -p` に TODO.md を編集させる（`vibeboard/src/claudeJob.ts`。詳細はマーカー内の Tasks の項）。✅ **2026-09-11 に akiraak/vibeboard 本体へ反映済み**（Ctrl+クリック修正も同時に反映。vendor と本体は一致しており `vibeboard update` を流してよい）。プランは `docs/plans/archive/vibeboard-task-add.md`
+- ⚠ **タブの定義（名前・ラベル・baseUrl・並び）は `~/project-manager/projects.yaml` にあり、このリポジトリには無い**。中身は今までどおり `dashboard/vibetab.py`（127.0.0.1:3015、標準ライブラリのみ）。起こすのは `projects.yaml` の `app`（`./run-vibetab.sh`）
+- ⚠ **タブの並び（先頭から「システム説明」→「予測モデル」→「トレーダー」→ 実行 ／ データ ／ 用語 ／ ハード）と「baseUrl に dashboard（3012）を指定しない」は `projects.yaml` 側で守る**（2026-09-20 の利用者の指示の並び。3012 は中継されるとループバック発に見え、ローカル面が開く）。⚠ このリポジトリのテストはもう見ていない（2026-10-17 まで `dashboard/tests/test_system_tab.py` が `vibeboard.config.json` で見ていた）。文を直すのは TOML（`system.toml`・`models.toml`・`traders.toml`・`glossary.toml`）だけで、`vibetab.py` が 5 秒ごとに見張って画面を入れ替える（コードを直したら 3015 の起こし直しが要る）。仕様は `docs/specs/dashboard.md` §18
+- titan の中身は project-manager の画面で機械を `titan` に切り替えて見る（ssh の転送）。⚠ tailnet の `titan-income-vibeboard` はもう使わない。⚠ **dashboard（3012）を tailnet・serve に出さない**（ループバックに見え、ローカル面が無認証で開く。外から見るなら `ssh -L 3013:127.0.0.1:3012 titan`）
+- **`./run-vibetab.sh [port]`**（2026-10-15。プロジェクト直下）: `python3 dashboard/vibetab.py` を前景で exec（デーモンにしない）。ポートは第 1 引数 > `AIL_VIBETAB_PORT` > 既定 3015、`--runs-dir` ／ `--exp-dir` はそのまま渡す。python3 3.11 未満・ポートが先に使われているときは 1 行出して rc=1 で止まる（塞がりは 2 段で見る ＝ ① LISTEN しているプロセスをポートから引く ② 見えなくても 127.0.0.1 に bind できるか試す ＝ PID の見えない相手〔別のユーザー・WSL の mirrored で Windows 側〕も拾う。2026-10-15）＝ ⚠ `vibetab.py` 自体はポートが塞がっていると「bind できない」の 1 行だけ出して rc=0 で引く。Sx360・titan の両方で使う
+- **実行・データのタブ**（2026-09-10）: `vibetab.py` が `experiments/feature-discovery/` の実行の記録（`runs/research.sqlite`）と在庫を読んで出す。プランは `docs/plans/archive/vibeboard-experiments-tabs.md`
+- **ハードのタブ**（2026-09-18）: `hardware`。中身は同じ `dashboard/vibetab.py` の `/hardware`（読み手 `dashboard/hwstat.py`・画面 `dashboard/hwview.py`。標準ライブラリのみ）が `nvidia-smi` と `/proc` を読み、GPU・CPU・メモリ・ディスクの「いまの状態」と「この 1 時間」を出す（このプロジェクト専用。`dashboard/app/` の外なので g3plus にも載らない）。⚠ **値を読むのは `vibetab.py` の見張り 1 本**（5 秒おき。`AIL_HW_INTERVAL_S`）で、画面は `api/snapshot`・`api/history` を自前で取りに来る。履歴はメモリ上の 1 時間だけ（`vibetab.py` を起こし直すと消える）。⚠ **WSL2 ではプロセス別の GPU メモリ・CPU 温度は読めない**。⚠ **読むだけ。このサーバに「操作」を足さない**（project-manager の閲覧者にも見える）。仕様は `docs/specs/dashboard.md` §14、プランは `docs/plans/archive/vibeboard-hardware-tab.md`
+- **トレーダーのタブ**（2026-09-20）: `traders`。**トレーダー 1 人 1 ページ**で、その人が**使うモデル**（正式な名前も出す）と**モデルの特性**をやさしい言葉で出す（大見出し 5 つ ＝ 使うモデル ／ モデルの特性 ／ 何を見て、どう出力スコアを計算するか ／ この人の決まり〔出力スコアのものさし〕／ 気をつけること）。中身は同じ `dashboard/vibetab.py` の `/traders`（画面 `dashboard/traderview.py`・標準ライブラリのみ）。⚠ **だれが居るかは実売買の設定から引く**（`config/traders/` の試験用でない人 ＋ 直下に居ない `candidates/*/` の人 ＝「（候補）」。2026-09-28 に `notional/` だけから広げた）。⚠ **人数を数えない・見くらべるページを作らない・ほかの人やモデルとくらべる文を書かない**（利用者の指示「トレーダーは常に変わるし 1 人になるときもあれば 10 人になるときもある」。テストの `COMPARING` が弾く）。⚠ **言葉の正本は 2 本**: モデルの解説・特性 ＝ `dashboard/models.toml` の `[[model]]`（2026-09-20 に `traders.toml` から移した。予測モデルのタブと同じ 1 本）／ 人の側の文・呼び名 ＝ `dashboard/traders.toml`（`[nicks]`）。説明を Python に書かない。⚠ **特性には必ず「どこまで確かか」の印**（`basis` ＝ 作りから ／ 試し運転で見えた ／ 見立て。⚠ 確かめていない理由を言い切らない ＝ 最初の版は比較の文を作ろうとして誤りを 1 つ書いた）。⚠ **やさしい言葉で書く**（本文で 買い%・θ・特徴量・Ridge・fit・`sizing` などを使わない ＝ `FORBIDDEN`）。⚠ **呼び名は意味の無い名前**（`T1` ＝ アキ ／ `T2` ＝ アリス ／ `T3` ＝ カエデ。識別名は変えない・呼び名は変えない・使い回さない）。⚠ **白地に固定**（「黒背景はやめる」）。⚠ **数字は設定から写すだけ・売買結果は出さない・`out/`・`state/`・`.env` を読まない**。⚠ 新しいモデルを使う人を足したら `models.toml` に `[[model]]` を 1 つ書く。✅ **2026-09-26（設定の説明 Step 6）**: 4「この人の決まり」の頭に **どの株を**（売買する株の本数と名前は設定から・選んだ理由は人ごと `traders.toml` の `[symbols_why]`〔無い人は出ない〕・使うモデルが**出力スコアを出す株**は `models.toml` の `sets.output` を写して違いを見せる）。⚠ **共通のしくみ（4 つの集合・規模 A ／ B・上限と停止・設定項目の意味）はシステム説明の「トレーダーのしくみ」が正本**で、人のページは案内（`/#system/trader`）だけ。`unsettled` の帯は消した。仕様は `docs/specs/dashboard.md` §16、プランは `docs/plans/archive/vibeboard-traders-tab.md`
+- **予測モデルのタブ**（2026-09-20）: `models`。中身は同じ `dashboard/vibetab.py` の `/models`（画面 `dashboard/modelview.py`・図 `dashboard/figures.py`・標準ライブラリのみ・読むだけ）。「モデル」から入るタブで、机上で試しただけのモデルも載る（いまは 12 本。選別・変換 5 本・上位 K は載せていない）。左の一覧は 一覧 → モデル 1 本ずつ（⚠ どのモデルにも共通のしくみのページは 2026-09-26 に「システム説明」へ戻した ＝ `system.toml` の `[[page]]`。`models.toml` に `[[page]]` は置かない）。モデルのページは 図 ・ 組み立て ・ **3 つの集合の表**（材料に入れるもの ／ 学ぶ株 ／ 出力スコアを出す株 ＝ `[[model]] sets`・行の名前は `dashboard.md` §18-2 の綴り。4 つ目の売買する株はトレーダーが決めるので 1 文と「トレーダーのしくみ」へのリンクだけ。2026-09-26）・ 出力スコアの出かたと読み方 ・ 試した経緯の表 ・ 大見出しごとの「詳しく（用語あり）」（畳まない）。⚠ **「試し運転」の話はどの形かを文で名指しする**（出力スコアの話 ／ 金額を決めて全部を買う形 `sim3` ／ 1 株単位の `sim4`。「試し運転の 64 日」の出どころは `[common] trial_note` に 1 か所 ＝ テスト）。⚠ **言葉の正本は `dashboard/models.toml`**（トレーダーのタブも同じ文を写す）。⚠ **決まりはトレーダーのタブと同じ**（やさしい言葉 ＝ `dashboard.md` §16-2 の表・特性に「どこまで確かか」の印・ほかのモデルとくらべる文を書かない・見くらべる表や順位を作らない・白地・数字は設定から写すだけ・売買結果を出さない）。⚠ **試した経緯の数（何通り・内訳）は研究の DB の `ledger_rows` から数える**（`[[model]]` の history の `names` ＝ 予測モデル名のパターン。読み取り専用）。⚠ **「試した結果」の印と文は人が記録から写す**（消すのは `[common] show_result = false` の 1 行）。「詳しく」の門の数字と較正の係数は差し込み（`{{gate|…}}`・`{{calib|…}}`）で実行の記録から引く。仕様は `docs/specs/dashboard.md` §17、プランは `docs/plans/archive/vibeboard-models-tab-deep.md`
+- **システム説明のタブ**（2026-09-20）: 先頭のタブ（`system`・ラベル「システム説明」）。中身は同じ `dashboard/vibetab.py` の `/system`（画面 `dashboard/systemview.py`・描き方は `modelview.py`・図は `figures.py` のインライン SVG）。⚠ **2026-09-26 から「全体像 ＋ パートごとの詳細」**（利用者決定「システム説明 ＝ 全体の説明と各パートの詳細説明。各モデル・各トレーダーの説明はしない」）＝ ページは 全体像（`overview`。流れの図はパートで塗り分け〔`figures.py` の `parts`〕・各パートへの入口）→ 予測モデルのしくみ（`model` ＝ 材料をそろえる → 学ぶ → 確かめる。型ごとのしくみ `models = true`・検証結果一覧の合計 `ledger = true`）→ トレーダーのしくみ（`trader`。✅ 2026-09-26 ＝ 共通のしくみと設定項目の意味だけ: 持ち物 5 つ ／ 4 つの集合を売買する株の側から〔入れ子の図 `nest` ＋ 表〕／ 選び方の考え方 ／ 売買基準値と合わせ方 ／ 予算と買い方 ／ 規模 A ／ B ／ 上限・含み損・停止 ／ 変えると新しい人 ／ 設定項目の一覧。⚠ 本文に各トレーダーの値・呼び名・識別名を書かない ＝ テストが見る）→ 実際の売買（`live`。「守っていること」を含む）→ 名前と識別名（`names`）。モデル 1 本ずつは予測モデルのタブ・トレーダー 1 人ずつはトレーダーのタブ。⚠ 2026-09-21〜26 は概要の 1 ページだけで、しくみの 4 ページは予測モデルのタブに居た（`dashboard.md` §17-7）。⚠ **言葉の正本は `dashboard/system.toml`**。本文はやさしい言葉、用語・正式な名前・コードの場所・細かい数字と出典は **「詳しく（用語あり）」の囲み（`detail*`。畳まない）にだけ**書く。⚠ 本文に実売買の設定の数字（予算・売買基準値・見る株の本数）と `$`・bp の数字を書かない。⚠ 検証結果一覧の合計は描くたびに `ledger.md` から読む（写さない）。⚠ **開くのは TOML と `ledger.md` だけ**・売買結果は出さない・白地

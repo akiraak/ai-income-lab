@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(./run-tests.sh:*)",
+      "Bash(.venv/bin/python -m pytest:*)",
+      "Bash(dashboard/.venv/bin/python -m pytest:*)"
+    ]
+  }
+}

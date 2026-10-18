@@ -185,3 +185,85 @@ def test_aligned_liquidation_sells_all_closes_the_period_and_restarts_from_cash(
     assert by[DATES[2]]["aligned_held"] == 0 and by[DATES[2]]["aligned_since"] == DATES[0]
     assert by[DATES[3]]["aligned_since"] is None                                     # 閉じた期間の後・停止の日は開かない
     assert by[DATES[4]]["aligned_since"] == DATES[4] and by[DATES[4]]["aligned_cum_bp"] == by[DATES[4]]["aligned_bp"]
+
+
+# --- 終値の控え（out/closes.json。プラン docs/plans/daily-record-auto.md Phase 4 ＝ 2026-10-18 利用者決定「案1で進めて」）
+
+def _bar(c, o=10.0, h=12.0, l=9.0, v=1000.0):
+    return {"open": o, "high": h, "low": l, "close": c, "volume": v}
+
+
+def test_close_only_rewrite_is_rejected_and_kept():
+    d1, d2 = "2026-10-08", "2026-10-09"
+    first, snap = paper.settle_closes({"T": {d1: _bar(11.0), d2: _bar(10.0)}}, [d1, d2], None)
+    assert first["T"] == {d1: 11.0, d2: 10.0}
+    # 権利落ち日の前日の終値だけを配当ぶん下げた（始値・高値・安値・出来高はそのまま）
+    again, snap2 = paper.settle_closes({"T": {d1: _bar(10.72), d2: _bar(10.0)}}, [d1, d2], snap, now="t")
+    assert again["T"][d1] == 11.0
+    assert snap2["kept"] == [{"symbol": "T", "date": d1, "kept": 11.0, "rejected": 10.72, "at": "t"}]
+    # 同じ書き換えを次の朝もう一度見ても、kept は増えない
+    _, snap3 = paper.settle_closes({"T": {d1: _bar(10.72), d2: _bar(10.0)}}, [d1, d2], snap2, now="t2")
+    assert snap3 == snap2
+
+
+def test_a_partial_bar_is_replaced_when_the_final_one_arrives():
+    """10/12 朝の 10/9 は 15:50 ごろの途中の値だった【実測】。確定すると出来高が増える ＝ 受け入れる。"""
+    d = "2026-10-09"
+    _, snap = paper.settle_closes({"T": {d: _bar(22.125, v=900.0)}}, [d], None)
+    closes, snap2 = paper.settle_closes({"T": {d: _bar(22.18, v=1000.0)}}, [d], snap)
+    assert closes["T"][d] == 22.18 and snap2["kept"] == []
+
+
+def test_only_record_dates_go_into_the_snapshot_and_a_vanished_bar_keeps_its_value():
+    d0, d1 = "2026-10-07", "2026-10-08"
+    closes, snap = paper.settle_closes({"T": {d0: _bar(1.0), d1: _bar(2.0)}}, [d1], None)
+    assert closes["T"] == {d0: 1.0, d1: 2.0} and list(snap["bars"]["T"]) == [d1]
+    closes2, _ = paper.settle_closes({"T": {d0: _bar(1.0)}}, [d1], snap)
+    assert closes2["T"][d1] == 2.0
+
+
+def test_a_fix_overrides_the_bar_and_the_rewrite_is_listed_once():
+    d = "2026-10-08"
+    fixes = {("T", d): 24.87}
+    closes, snap = paper.settle_closes({"T": {d: _bar(24.5925)}}, [d], None, fixes, now="t")
+    assert closes["T"][d] == 24.87 and snap["bars"]["T"][d]["fixed"] is True
+    assert snap["kept"] == [{"symbol": "T", "date": d, "kept": 24.87, "rejected": 24.5925, "at": "t"}]
+    closes2, snap2 = paper.settle_closes({"T": {d: _bar(24.5925)}}, [d], snap, fixes, now="t2")
+    assert closes2["T"][d] == 24.87 and snap2["kept"] == snap["kept"]
+
+
+def test_the_shipped_fixes_are_the_two_rewrites_of_oct_8():
+    assert paper.load_fixes() == {("T", "2026-10-08"): 24.87, ("VZ", "2026-10-08"): 46.2775}
+
+
+def _bars_csv(bars_dir, sym, closes, vol=1000.0):
+    from datetime import datetime, timezone
+    bars_dir.mkdir(parents=True, exist_ok=True)
+    lines = ["time_ms,open,high,low,close,volume"]
+    for d, c in closes.items():
+        ms = int(datetime.fromisoformat(d).replace(tzinfo=timezone.utc).timestamp() * 1000)
+        lines.append(f"{ms},{c},{c + 5},{c - 5},{c},{vol}")
+    (bars_dir / f"{sym}.csv").write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
+def _main(monkeypatch, out, bars):
+    monkeypatch.setattr("sys.argv", ["paper.py", "--out-dir", out, "--bars-dir", str(bars), "--close-fixes", str(bars / "none.toml")])
+    assert paper.main() == 0
+    return livefs.read_doc(os.path.join(out, "daily.csv"))
+
+
+def test_main_keeps_daily_csv_when_the_feed_rewrites_a_past_close(tmp_path, monkeypatch):
+    out, bars = _out(tmp_path), tmp_path / "bars"
+    for s, m in _closes().items():
+        _bars_csv(bars, s, m)
+    first = _main(monkeypatch, out, bars)
+    # 終値だけを後から下げる（始値・高値・安値・出来高は元の足のまま）
+    from datetime import datetime, timezone
+    ms = str(int(datetime.fromisoformat("2026-09-23").replace(tzinfo=timezone.utc).timestamp() * 1000))
+    lines = (bars / "AAA.csv").read_text(encoding="utf-8").splitlines()
+    lines = [f"{ms},99.0,104.0,94.0,98.0,1000.0" if l.startswith(ms + ",") else l for l in lines]
+    (bars / "AAA.csv").write_text("\n".join(lines) + "\n", encoding="utf-8")
+    assert paper.load_closes_from_bars(str(bars), {"AAA"})["AAA"]["2026-09-23"] == 98.0
+    assert _main(monkeypatch, out, bars) == first
+    snap = json.loads(livefs.read_doc(os.path.join(out, "closes.json")))
+    assert [(k["symbol"], k["date"], k["kept"], k["rejected"]) for k in snap["kept"]] == [("AAA", "2026-09-23", 99.0, 98.0)]

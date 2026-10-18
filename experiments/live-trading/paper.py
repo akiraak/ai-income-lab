@@ -25,6 +25,13 @@
   ③ 一時停止 ／ 手じまいと名簿: 発注の回が無い日（dry-run・窓の外・起動しなかった日）／ `paused` ／ `over_total_budget` の日は売買しない。
      `liquidate_flag` の日は合図を読まず終値で全部売る
   bp は USD の損益 ÷ その人の予算。累計は期間ごと（期間の外は空欄）。
+
+終値の控え（`out/closes.json`。2026-10-18 利用者決定「案1で進めて」＝ プラン docs/plans/daily-record-auto.md Phase 4）:
+  DXLink は権利落ち日の**前日の終値だけ**を配当ぶん下げた値に後から書き換える（始値・高値・安値・出来高はそのまま【実測 10/8 の T・VZ】）。
+  毎朝作り直すと、そろえた紙上が付いていない値で買ったことになり、差 3 に配当ぶんが残り続ける。そこで記録のある日の足を控えに残し、
+  ① 控えに無い日 → 足す ／ ② 終値**だけ**が変わった → 控えの終値を使う（書き換えを拒み `kept` に残す）／ ③ ほかも変わった → 受け入れる
+  （⚠ 朝の時点で前の日の足がまだ 15:50 ごろの途中の値のことがある【実測 10/12 朝の 10/9】＝ 確定すると出来高が増えるので ③ で入れ替わる）。
+  控えを作る前に起きた書き換えは `close_fixes.toml`（リポジトリ）で手で直す。`--close-from quotes` では使わない。
 """
 from __future__ import annotations
 
@@ -43,6 +50,8 @@ sys.path.insert(0, HERE)
 from _livefs import livefs  # noqa: E402
 
 DEFAULT_BARS = os.path.normpath(os.path.join(HERE, "..", "feature-discovery", "data-live", "adjusted", "d"))
+CLOSE_FIXES = os.path.join(HERE, "close_fixes.toml")
+BAR_KEYS = ("open", "high", "low", "volume")     # これが同じで終値だけ違う ＝ 配当の書き換え（控えの ②）
 COST_BP = 5.0          # 往復。片道 2.5bp（rules.md 13-4。バックテストと同じ）
 UNATTENDED = ("retry", "auth_5xx_retry", "auth_failed", "halted", "out_of_window", "journal_unresolved", "position_short", "ledger_error")
 
@@ -67,18 +76,68 @@ def record_dates(out_dir: str) -> list[str]:
     return [d for d in livefs.listdir(out_dir) if len(d) == 10 and d[4] == "-" and d[7] == "-" and d[:4].isdigit()]
 
 
-def load_closes_from_bars(bars_dir: str, symbols: set[str]) -> dict[str, dict[str, float]]:
-    """銘柄 → {日付: 終値}。ファイル名は `BRK/B` → `BRK-B.csv`（feature-discovery の流儀）。"""
+def load_bars(bars_dir: str, symbols: set[str]) -> dict[str, dict[str, dict[str, float]]]:
+    """銘柄 → {日付: {open, high, low, close, volume}}。ファイル名は `BRK/B` → `BRK-B.csv`（feature-discovery の流儀）。"""
     from datetime import datetime, timezone
-    out: dict[str, dict[str, float]] = {}
+    out: dict[str, dict[str, dict[str, float]]] = {}
     for s in symbols:
         path = os.path.join(bars_dir, s.replace("/", "-") + ".csv")
         if not os.path.exists(path):
             continue
         with open(path, encoding="utf-8", newline="") as f:
-            out[s] = {datetime.fromtimestamp(int(r["time_ms"]) / 1000, tz=timezone.utc).date().isoformat(): float(r["close"])
+            out[s] = {datetime.fromtimestamp(int(r["time_ms"]) / 1000, tz=timezone.utc).date().isoformat():
+                      {k: float(r[k]) for k in ("open", "high", "low", "close", "volume") if r.get(k) not in (None, "")}
                       for r in csv.DictReader(f)}
     return out
+
+
+def load_closes_from_bars(bars_dir: str, symbols: set[str]) -> dict[str, dict[str, float]]:
+    """銘柄 → {日付: 終値}（控えを通さない生の日足）。"""
+    return {s: {d: b["close"] for d, b in m.items()} for s, m in load_bars(bars_dir, symbols).items()}
+
+
+def load_fixes(path: str = CLOSE_FIXES) -> dict[tuple[str, str], float]:
+    """手で直した終値（`close_fixes.toml` の `[[fix]]`）。(銘柄, 日付) → 終値。無ければ空。"""
+    if not os.path.exists(path):
+        return {}
+    import tomllib
+    with open(path, "rb") as f:
+        return {(str(r["symbol"]), str(r["date"])): float(r["close"]) for r in tomllib.load(f).get("fix", [])}
+
+
+def settle_closes(bars: dict[str, dict[str, dict[str, float]]], dates: list[str], snap: dict | None,
+                  fixes: dict[tuple[str, str], float] | None = None, now: str = "") -> tuple[dict[str, dict[str, float]], dict]:
+    """控え（モジュールの頭の ①〜③）を通した終値と、新しい控え。控えに載せるのは `dates`（記録のある日）だけ。ほかの日は日足のまま。"""
+    snap = snap or {}
+    held: dict[str, dict[str, dict]] = {s: dict(m) for s, m in (snap.get("bars") or {}).items()}
+    kept: list[dict] = list(snap.get("kept") or [])
+    seen = {(k["symbol"], k["date"], k["rejected"]) for k in kept}
+    want = set(dates)
+    closes: dict[str, dict[str, float]] = {s: {d: b["close"] for d, b in m.items()} for s, m in bars.items()}
+    for s in sorted(set(bars) | set(held)):
+        mine = held.setdefault(s, {})
+        for d in sorted(want & (set(bars.get(s, {})) | set(mine))):
+            new, old = bars.get(s, {}).get(d), mine.get(d)
+            if new is None:
+                pass                                                       # 日足から消えた日は控えのまま
+            elif old is None:
+                mine[d] = dict(new)
+            elif new["close"] != old["close"] and all(new.get(k) == old.get(k) for k in BAR_KEYS):
+                if (s, d, new["close"]) not in seen:                       # ② 終値だけの書き換え ＝ 拒む
+                    kept.append({"symbol": s, "date": d, "kept": old["close"], "rejected": new["close"], "at": now})
+                    seen.add((s, d, new["close"]))
+            else:
+                mine[d] = dict(new)                                        # ③ 途中の値 → 確定など
+            if (s, d) in (fixes or {}) and d in mine:
+                fix, got = fixes[(s, d)], (new or {}).get("close")
+                if got is not None and got != fix and (s, d, got) not in seen:
+                    kept.append({"symbol": s, "date": d, "kept": fix, "rejected": got, "at": now})
+                    seen.add((s, d, got))
+                mine[d]["close"] = fix
+                mine[d]["fixed"] = True
+            if d in mine:
+                closes.setdefault(s, {})[d] = mine[d]["close"]
+    return closes, {"bars": {s: m for s, m in held.items() if m}, "kept": kept}
 
 
 def load_closes_from_quotes(out_dir: str, dates: list[str]) -> dict[str, dict[str, float]]:
@@ -370,6 +429,7 @@ def main() -> int:
     ap.add_argument("--bars-dir", default=DEFAULT_BARS, help="公式終値（日足の CSV）の置き場")
     ap.add_argument("--close-from", choices=["bars", "quotes"], default="bars",
                     help="quotes ＝ 合図時の気配の中値を終値の代役にする（モック ／ シミュレーション。⚠ 差 1 の「約定 → 終値」は意味を持たない）")
+    ap.add_argument("--close-fixes", default=CLOSE_FIXES, help="手で直した終値の表（既定: 隣の close_fixes.toml）")
     ap.add_argument("--last-date", default=None, help="この日まで（既定: 終値が 1 本でもある最後の日）")
     ap.add_argument("--csv", default=None, help="既定は <out-dir>/daily.csv")
     args = ap.parse_args()
@@ -383,7 +443,16 @@ def main() -> int:
     else:
         symbols = {r["symbol"] for d in dates for r in _jsonl(os.path.join(args.out_dir, d, "signals.jsonl"))}
         symbols |= {s for d in dates for r in _jsonl(os.path.join(args.out_dir, d, "ledger.jsonl")) for s in (r.get("holdings") or {})}
-        closes = load_closes_from_bars(args.bars_dir, symbols)
+        from datetime import datetime, timezone
+        snap_path = os.path.join(args.out_dir, "closes.json")
+        text = livefs.read_doc(snap_path, missing_ok=True)
+        snap = json.loads(text) if text else None
+        closes, snap2 = settle_closes(load_bars(args.bars_dir, symbols), dates, snap, load_fixes(args.close_fixes),
+                                      now=datetime.now(timezone.utc).isoformat(timespec="seconds"))
+        for k in snap2["kept"][len((snap or {}).get("kept") or []):]:
+            print(f"⚠ 終値だけの書き換えを拒んだ: {k['symbol']} {k['date']} {k['kept']} → {k['rejected']}（控えの値を使う）", file=sys.stderr)
+        if snap2 != snap:
+            livefs.write_doc(snap_path, json.dumps(snap2, ensure_ascii=False, sort_keys=True, indent=1))
     have = sorted({d for m in closes.values() for d in m})
     last = args.last_date or next((d for d in reversed(dates) if d in have), None)
     if last is None:

@@ -242,3 +242,18 @@ def test_csv_round_trip_gives_the_same_summary(tmp_path):
 def test_builds_nothing_without_records(tmp_path):
     livefs.write_doc(str(tmp_path / "out" / "daily.csv"), "date,trader\n")
     assert yardstick.build_rows(str(tmp_path / "out")) == []
+
+
+def test_close_snapshot_problems_go_on_the_day_and_do_not_break_d(tmp_path):
+    """paper.py の控え（out/closes.json）: 拒んだ書き換え ＝ close_kept ／ 安値〜高値の外 ＝ close_out_of_range。日足の癖なので D は崩さない。"""
+    out = _october(tmp_path)
+    base = {(r["date"], r["trader"]): r for r in yardstick.build_rows(out)}
+    snap = {"kept": [{"symbol": "VZ", "date": "2026-10-08", "kept": 46.2775, "rejected": 45.6425, "at": "t"}],
+            "bars": {"T": {"2026-10-09": {"open": 22.38, "high": 23.1, "low": 21.96, "close": 21.5, "volume": 1.0}}}}
+    livefs.write_doc(str(tmp_path / "out" / "closes.json"), json.dumps(snap))
+    rows = {(r["date"], r["trader"]): r for r in yardstick.build_rows(out)}
+    assert "close_kept" in rows[("2026-10-08", "T1")]["problems"].split(";")
+    assert "close_out_of_range" in rows[("2026-10-09", "T6")]["problems"].split(";")
+    assert "close_kept" not in rows[("2026-10-09", "T6")]["problems"]
+    for k, r in rows.items():
+        assert r["d_ok"] == base[k]["d_ok"]

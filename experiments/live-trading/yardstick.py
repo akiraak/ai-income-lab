@@ -63,7 +63,9 @@ ANOMALY = ("auth_failed", "signal_error", "quote_failed", "quote_client_failed",
            "refused_mode_sim", "refused_lock_busy", "refused_not_production")
 FLAG_KINDS = ("paused", "liquidate_flag")
 # D の「問題なく終わった」を崩さないもの（執行の差・配線・含み損の警告は別の物差しで見る）
-NOT_FAILURE = {"diff1_over", "c_mismatch", "drawdown_warning"}
+NOT_FAILURE = {"diff1_over", "c_mismatch", "drawdown_warning", "close_kept", "close_out_of_range"}
+# 終値の控え（paper.py の out/closes.json）から出す問題。⚠ 日足の癖で、執行の失敗ではない（D を崩さない）
+#   close_kept ＝ 終値だけの書き換え（権利落ち日の前日の配当の調整）を拒んで控えの値を使った ／ close_out_of_range ＝ 控えの終値が安値〜高値の外
 
 
 def _jsonl(path: str) -> list[dict]:
@@ -257,7 +259,39 @@ def build_rows(out_dir: str, daily_csv: str | None = None, state_dir: str | None
             if any(e.get("kind") == "liquidate_complete" for e in ev_t):
                 del period[t]
         prev_halted = halted_today
+    _add_close_problems(rows, out_dir, paper)
     return rows
+
+
+def _close_problems(out_dir: str) -> dict[str, dict[str, set[str]]]:
+    """日付 → {銘柄: 問題}（`out/closes.json` が無ければ空）。"""
+    text = livefs.read_doc(os.path.join(out_dir, "closes.json"), missing_ok=True)
+    if not text:
+        return {}
+    snap = json.loads(text)
+    out: dict[str, dict[str, set[str]]] = {}
+    for k in snap.get("kept") or []:
+        out.setdefault(k["date"], {}).setdefault(k["symbol"], set()).add("close_kept")
+    for s, m in (snap.get("bars") or {}).items():
+        for d, b in m.items():
+            if "low" in b and "high" in b and not (b["low"] <= b["close"] <= b["high"]):
+                out.setdefault(d, {}).setdefault(s, set()).add("close_out_of_range")
+    return out
+
+
+def _add_close_problems(rows: list[dict], out_dir: str, paper) -> None:
+    """その人の銘柄（設定。読めなければ全部）に当たった日の行に、控えの問題を足す。"""
+    cp = _close_problems(out_dir)
+    if not cp:
+        return
+    for r in rows:
+        day = cp.get(r["date"])
+        if not day:
+            continue
+        syms = set(paper._conf(out_dir, r["trader"])["symbols"]) or set(day)
+        add = sorted({k for s, ks in day.items() if s in syms for k in ks})
+        have = [p for p in (r.get("problems") or "").split(";") if p]
+        r["problems"] = ";".join(have + [k for k in add if k not in have])
 
 
 def _reconcile_log(out_dir: str, state_dir: str | None) -> list[dict]:

@@ -364,6 +364,7 @@ PROBLEM_LABEL = {
     "liquidate_mark_failed": "手じまいの印の失敗", "drawdown_warning": "含み損 20% の警告", "blocked_symbol": "売買しない銘柄",
     "over_total_budget": "予算の合計が上限を超えた", "refused_mode_sim": "シミュレーションモードで拒否",
     "refused_lock_busy": "二重起動で拒否", "refused_not_production": "本番の機械ではない印で拒否",
+    "close_kept": "終値の書き換えを拒んだ（配当の調整）", "close_out_of_range": "終値が安値〜高値の外",
 }
 STATUS_LABEL_YS = {"active": "稼働", "paused": "一時停止", "liquidating": "手じまい中", "no_run": "起動なし", "refused": "断られた"}
 

@@ -6,11 +6,11 @@
 
 ## 0. 目的・背景
 
-- モデルの軸の結論（GA 9 行・変換なし 6 行ほか）は全部 **ハイパーパラメータ既定のまま**で出ている（[13-6 規約 3](../specs/experiments/feature-discovery/rules.md)「動かさない」）。その理由「振った水準の数だけ n_trials が増える」は**評価期間の結果で選ぶ**ときの理由で、訓練分割の内側で選ぶなら [14-11 規約 2](../specs/experiments/feature-discovery/rules.md) により champion だけを数える
+- モデルの軸の結論（GA 9 行・変換なし 6 行ほか）は全部 **ハイパーパラメータ既定のまま**で出ている（[13-6 規約 3](../../specs/experiments/feature-discovery/rules.md)「動かさない」）。その理由「振った水準の数だけ n_trials が増える」は**評価期間の結果で選ぶ**ときの理由で、訓練分割の内側で選ぶなら [14-11 規約 2](../../specs/experiments/feature-discovery/rules.md) により champion だけを数える
 - 問い: **既定のハイパーパラメータが足を引っ張っていないか。** 選ぶ段を 1 つ入れ、軽い 3 モデル（Ridge・LightGBM・MLP）で `own_2018` × (A) を回し、既定の対と並べる
 - ⚠ 「進化」は要らない: Ridge は alpha 1 次元、LightGBM は格子 27 で尽くせる。MLP だけ層の数（1〜3）を候補に含める ＝ **構造はここまで**。GA（100 体 × 20 世代 ＝ 1 fold 最大 2,000 学習）は C として退けた（MLP 約 5.5 時間 ／ LightGBM 約 11 時間 per 本【推測】で、増えるのは尻への過適合だけ）
 - ⚠ **示せないもの**: 「内側で選んだから良くなった」（14-11 の注 ＝ 示せるのは champion がどこに着地したかだけ）。**示せるもの**: 採否（対 B&H）・champion が既定からどれだけ離れたか・尻での改善が評価期間に届いたか
-- ⚠ 回す理由は「効くはず」ではない（[14-10 規約 4](../specs/experiments/feature-discovery/rules.md)）。予想は §7 に回す前に書いた
+- ⚠ 回す理由は「効くはず」ではない（[14-10 規約 4](../../specs/experiments/feature-discovery/rules.md)）。予想は §7 に回す前に書いた
 
 比べた案（2026-10-09）:
 
@@ -61,7 +61,7 @@ flowchart LR
 | --- | --- | --- | --- |
 | 0 | Sx360 の Claude | プラン・TODO・規約（13-6 規約 3・14-11 の 1 行・14-12・付録） | ✅ 2026-10-09 |
 | 1 | titan の Claude | 実装（`ail/models/tuned.py`・`trees.py` ／ `deep.py` が ctx から読む・`fold_buy_pct` ／ `gate.py` の記録の拾い・`bootstrap.py` の import・綴り 3 行・config 3 本 `trade_own_{ridge,lgbm,mlp}_tuned_a.toml` ＋ queue `hp_inner.toml`）・テスト §4 |✅ 2026-10-09（`tests/test_tuned.py` 15 本・全 631 本 ✅・指紋そのまま） |
-| 2 | titan の Claude | `cli.queue --config hp_inner`（本番 3 ＋ leak 3。約 1 時間【推測】。GPU）→ 記録 `docs/specs/experiments/hyperparam-inner-selection.md`（§0 事前固定の写し → §1 結果 → 対の差〔既定の実行と同じ fold・日次〕→ fold ごとの champion の表 → 尻の改善と評価期間の IC の変化 → 検算 ＋9・leak 3 本が跳ねる）→ `cli.report --catalog` で検証結果一覧を吐き直す | ✅ 2026-10-09（採る 0 ／ 9・816 → 825・合計 26 分【実測】。[記録](../specs/experiments/hyperparam-inner-selection.md)） |
+| 2 | titan の Claude | `cli.queue --config hp_inner`（本番 3 ＋ leak 3。約 1 時間【推測】。GPU）→ 記録 `docs/specs/experiments/hyperparam-inner-selection.md`（§0 事前固定の写し → §1 結果 → 対の差〔既定の実行と同じ fold・日次〕→ fold ごとの champion の表 → 尻の改善と評価期間の IC の変化 → 検算 ＋9・leak 3 本が跳ねる）→ `cli.report --catalog` で検証結果一覧を吐き直す | ✅ 2026-10-09（採る 0 ／ 9・816 → 825・合計 26 分【実測】。[記録](../../specs/experiments/hyperparam-inner-selection.md)） |
 | 3 | Sx360 の Claude | ⚠ **追加の処置「1 度選んで較正にも配る」の事前固定**（§9・rules.md 14-12-3・TODO）。Phase 2 の記録 §2 で見つかった「較正と本番で champion が違う」を、結果を見てから直して回し直すのではなく**新しい処置**として登録する（14-12 規約 1）。利用者決定 2026-10-09「推すのですすめる」 | ✅ 2026-10-09 |
 | 4 | titan の Claude | 実装（`tuned.py` に `<モデル>（内側選抜・1 度）` 3 本・`fold_buy_pct` が較正の前に 1 度選んで配る・綴り 3 行・config 3 本 `trade_own_{ridge,lgbm,mlp}_tuned_once_a.toml` ＋ queue `hp_inner_once.toml`）・テスト §9-4 → `cli.queue --config hp_inner_once`（本番 3 ＋ leak 3。約 20 分【推測】）→ 記録 §4（⚠ §4-0 事前固定の写しは回す前に → 結果 → 対の差〔既定と `（内側選抜）` の両方〕→ champion の一致の表 → 検算 ＋9・leak 3 本が跳ねる）→ `cli.report --catalog` | ✅ 2026-10-10（採る 0 ／ 9・825 → 834・18 分【実測】・§9-5） |
 | 5 | 利用者 → Sx360 | 「デプロイ」（`ail/models/`・`cli/run.py` は 13500t の毎日の予測の経路。指紋テストが通ってから・15:00〜16:15 ET の外）→ TODO の子を DONE へ・プランを archive へ。⚠ **Phase 2 と Phase 4 をまとめて 1 回**（2026-10-09 時点で `prod` は 2aea697 ＝ Phase 1〜2 の `main` 13a2024 はまだ本番に無い） | |
@@ -127,7 +127,7 @@ flowchart LR
 
 ⚠ **次に何をしないか**: 結果を見てから候補を足さない・MLP の層を増やさない・C（GA）に進まない。進むなら新しい検証として先に水準を書き、数える。
 
-## 8. 結果（2026-10-09。本文は [記録](../specs/experiments/hyperparam-inner-selection.md)）
+## 8. 結果（2026-10-09。本文は [記録](../../specs/experiments/hyperparam-inner-selection.md)）
 
 - 採る 0 ／ 9（予想 1 どおり）・champion ≠ 既定 13/15 fold（予想 2）・対の差 \|t\| ≤ 2.05（予想 3 は θ 50 で \|t\| 0.80〜1.57 ＝ 1 を超えたものが 2 組）・尻の改善が評価期間に届いたのは 5/13（予想 4 の向き）。予想 5 は前提（既定の LightGBM θ 60 が取引 0）が対の相手の実行で成り立っておらず、読めない
 - 費用は見積りの 1/2 以下（本番 3 本で 4.7 分・leak 込み 26 分）
@@ -135,7 +135,7 @@ flowchart LR
 
 ## 9. 追加の処置: 1 度選んで較正にも配る（2026-10-09 利用者決定「推すのですすめる」。正本は rules.md 14-12-3）
 
-派生元: §8 の見つかったこと（[記録 §2](../specs/experiments/hyperparam-inner-selection.md)）。⚠ **結果を見てから作りを直して回し直すのではない**（14-12 規約 1・14-10）＝ 新しいモデル名で登録し、＋9 に数え、予想を先に書く。`（内側選抜）` の 9 行は規約 5 のまま残す。
+派生元: §8 の見つかったこと（[記録 §2](../../specs/experiments/hyperparam-inner-selection.md)）。⚠ **結果を見てから作りを直して回し直すのではない**（14-12 規約 1・14-10）＝ 新しいモデル名で登録し、＋9 に数え、予想を先に書く。`（内側選抜）` の 9 行は規約 5 のまま残す。
 
 比べた案（2026-10-09）: 回す（新しい処置として登録。費用ほぼ 0・`（内側選抜）` を器として直しておく価値）／ 回さない（結論「既定のまま」で閉じる。較正が噛み合わない作りが残る）→ 利用者「推すのですすめる」＝ 回す。
 
@@ -201,7 +201,7 @@ queue の `time_budget_s` は 7,200 のまま。
 
 ⚠ **次に何をしないか**: 候補・尻の割合・物差しを動かさない ／ 門に配らない（別の処置）／ 尻を 2 つに割らない ／ `（内側選抜）` の 9 行を消さない・数え直さない ／ 結果で本番の人のモデル・水準を替えない ／ `（内側選抜・1 度）` を vibeboard の予測モデルのタブに載せない（今回は載せない）
 
-### 9-5. 結果（✅ 2026-10-10 titan。[記録 §4](../specs/experiments/hyperparam-inner-selection.md)）
+### 9-5. 結果（✅ 2026-10-10 titan。[記録 §4](../../specs/experiments/hyperparam-inner-selection.md)）
 
 - 採る 0 ／ 9（予想 1）・較正 ＝ 本番の champion 15/15（予想 2）・本番の champion は `（内側選抜）` と 15/15 で同じ（予想 3。MLP も揺れなかった）・Ridge θ 50 の \|t\| 0.33・既定の fold は既定と純利 bp まで同一（予想 4）・費用 18 分【実測】（予想 6）。n_trials 825 → 834
 - 予想 5 は外れ: Ridge の 1 度 − `（内側選抜）` は正が 1 θ だけ・\|差\| が大きいのは MLP（3 θ とも正）。`（内側選抜）` で較正の a の符号が本番に合わなかった fold は Ridge 3・5・MLP 1・4 の 4/15 で、配ると全部直った（§2 の「MLP は軽い【推測】」は外れ）

@@ -29,20 +29,6 @@
     ⚠ **前段に GA を挟んで良くなったのは 6 対のうち 3 つだけ**（±30〜390bp）で、⚠ **向きが揃わない ＝ 「GA を通すと良くなる」とは言えない**。⚠ **上下の幅は B&H との差より小さい**
     ✅ 子「GA の適合度を順位相関以外に替えて回す」は 2026-10-08 に [DONE.md](DONE.md) へ（3 案 × θ 3 ＝ 9 行とも落とす・n_trials 789 → 798。[記録 §9](docs/specs/experiments/evolutionary-search.md)）
     ✅ 子「検知器に『変換済みの列を受け取る』口を足す」（判断 1 ＝ 利用者決定 A 汎用の口）は 2026-10-09 に [DONE.md](DONE.md) へ（GA 3 ＋ 残り 5 変換 15 ＝ **18 行とも落とす**・n_trials 798 → 816・デプロイ `prod` 2aea697。⚠ 口が届くのは `fwd` だけ・線形の変換 × Ridge は買い% を変えない ＝ [記録](docs/specs/experiments/transform-into-detectors.md)）
-    - [ ] ハイパーパラメータを訓練分割の内側で選ぶ段を入れる（判断 2「モデルの構造・ハイパラを進化させるか」） [plan](docs/plans/hyperparam-inner-selection.md)
-      ✅ 2026-10-09 利用者決定 **B（内側の選抜）**（比べた案 ＝ A 入れない ／ B 事前固定した候補から訓練分割の尻で選ぶ ／ C GA で構造まで）。⚠ **軽いモデルだけ**（Ridge・LightGBM・MLP）。GA は使わない（Ridge は alpha 1 次元・LightGBM は格子 27 で尽くせる。MLP は層の数 1〜3 を候補に含める ＝ 構造はここまで）
-      ⚠ 規約: [13-6 規約 3](docs/specs/experiments/feature-discovery/rules.md) を「評価期間の結果で動かさない」に書き換え・14-12 を足した（✅ 2026-10-09 Sx360）。数えるのは champion × θ ＝ 3 モデル × θ 3 ＝ **＋9**。候補 × fold は数えない（14-11 規約 2）
-      ⚠ 予想【推測。回す前】: 採る 0 ／ champion ≠ 既定 が fold の大半 ／ 対の差は θ 50 で |t| < 1 ／ 尻の改善は評価期間に届かない
-      - [x] Phase 0: プラン・TODO・規約（13-6 規約 3・14-11・14-12・付録）（✅ 2026-10-09 Sx360 の Claude）
-      - [x] Phase 1: 実装（`ail/models/tuned.py`・`trees.py` ／ `deep.py` が ctx から読む・`fold_buy_pct` ／ `gate.py` の記録の拾い・綴り 3 行・config 3 本 ＋ queue `hp_inner`）・テスト 8 本（titan）
-        ✅ 2026-10-09 titan: `tests/test_tuned.py` 15 本 ＋ 既定経路の指紋（`test_trading_run`・`test_predict`）そのまま ＝ 全 631 本 ✅。記録 `hyperparam-inner-selection.md` §0 は回す前に書いた
-      - [x] Phase 2: `cli.queue --config hp_inner`（本番 3 ＋ leak 3。約 1 時間【推測】）→ 記録 `docs/specs/experiments/hyperparam-inner-selection.md` → 検証結果一覧を吐き直す（titan）
-        ✅ 2026-10-09 titan: **採る 0 ／ 9**（n_trials 816 → 825・leak 3 本とも跳ねた）。champion ≠ 既定 13/15 fold・尻の改善が評価期間に届いたのは 5/13・対の差は 9 組とも |t| ≤ 2.05（θ 50 は 3 本とも負）。合計 26 分【実測】（見積り 1 時間より速い）。⚠ 見つかったこと: 較正と本番で champion が違う fold が 13/15（規約 5 の帰結。Ridge は alpha 1 と 1e6 でスケールが桁で違い、較正の係数が本番の予測に合わない ＝ [記録 §2](docs/specs/experiments/hyperparam-inner-selection.md)）。直すなら「1 度選んで較正にも配る」を新しい処置として登録（利用者の判断）
-      ✅ 2026-10-09 利用者決定「推すのですすめる」: 記録 §2 の「較正と本番で champion が違う（13/15 fold）」を **新しい処置「1 度選んで較正にも配る」** `<モデル>（内側選抜・1 度）` として登録（14-12 規約 1 ＝ 結果を見てから直して回し直すのではない）。＋9（825 → 834）・費用 約 20 分【推測】・予想は [rules.md 14-12-3](docs/specs/experiments/feature-discovery/rules.md)・[プラン §9](docs/plans/hyperparam-inner-selection.md)
-      - [x] Phase 3: 追加の処置「1 度選んで較正にも配る」の事前固定（プラン §9・rules.md 14-12-3・規約 5 の但し書き・付録）（✅ 2026-10-09 Sx360 の Claude）
-      - [x] Phase 4: 実装（`tuned.py` に `（内側選抜・1 度）` 3 本・`fold_buy_pct` が較正の前に 1 度選んで配る・綴り 3 行・config 3 本 `trade_own_{ridge,lgbm,mlp}_tuned_once_a` ＋ queue `hp_inner_once`）・テスト 6 本 → `cli.queue --config hp_inner_once`（本番 3 ＋ leak 3。約 20 分【推測】）→ 記録 §4（⚠ §4-0 事前固定の写しは回す前に）→ 検証結果一覧を吐き直す（titan）
-        ✅ 2026-10-10 titan: **採る 0 ／ 9**（n_trials 825 → 834・leak 3 本とも跳ねた・18 分【実測】）。較正 ＝ 本番の champion 15/15・本番の champion は `（内側選抜）` と 15/15 で同じ ＝ 違うのは較正の係数だけ。`（内側選抜）` で較正の符号が本番に合わなかった 4/15 fold（Ridge 3・5・MLP 1・4）は配ると全部直ったが対の差は \|t\| ≤ 2.31（予想 5「Ridge で効く」は外れ ＝ MLP でも反転していた）。`tests/test_tuned.py` 22 本 ＋ 指紋そのまま。[記録 §4](docs/specs/experiments/hyperparam-inner-selection.md)
-      - [ ] Phase 5: 「デプロイ」（利用者。`ail/models/`・`cli/run.py` は本番の予測の経路。⚠ Phase 2 と Phase 4 をまとめて 1 回 ＝ `prod` 69aee59〔10/14 の日次の記録のデプロイ〕には入っていない）→ DONE へ・プランを archive へ
 - [ ] 疑問に思ったことを登録し解決していく
   ⚠ **終了しないタスク**（完了にしない・`DONE.md` に移さない・消さない）。利用者の指示（2026-09-11）: **「疑問に思ったことを登録し解決していく大タスク」。このタスク自体は消さずにずっと残るようにする**
   使い方: ⚠ **子タスクの追加は利用者が指示する**（利用者の指示 2026-09-11。Claude は疑問に答えても、指示なしにここへ子タスクを足さない）。解決した子タスクは、答えの要点（と、ドキュメントに反映した場合はそのリンク）をメモで残して `DONE.md` へ移す。親のこの行は残す
@@ -271,3 +257,4 @@
         ✅ 2026-10-14 07:30 PDT（10:30 ET）: `prod` 2aea697 → 69aee59（Sx360 で `run-deploy.sh`。関門 ✅）・13500t `done 69aee59`（管理画面も起こし直した）。最初の `yardstick.csv` は 10/15（木）06:00 PDT（09:00 ET）の `--prepare`
       - [ ] Phase 4: 手書きの A〜E と突き合わせ → 一致したら普段の日の手書きをやめる → DONE へ・プランを archive へ
         ⏳ 2026-10-15 Sx360: A〜D は一致・**E は不一致**（権利落ち日の前日の終値を DXLink が配当ぶん下げて返す ＝ 10/8 の T ・ VZ。`daily.csv` の値洗いが 10/8 に約 −41bp・累計に +42bp が残る）。直し方は利用者の判断待ち（[plan Phase 4](docs/plans/daily-record-auto.md)）
+        ⏳ 2026-10-18 Sx360: 直し方の案 4 つをプラン Phase 4 に書いた（推す ＝ 案 1「最初に見た終値を固定する」・`paper.py` だけ）。利用者の選択待ち

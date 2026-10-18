@@ -1,5 +1,5 @@
 # ⚠ **「1 度選んで較正にも配る」の 3 本のうちの 1 本**（rules.md 14-12-3。2026-10-09 利用者決定「推すのですすめる」。
-# プラン plans/hyperparam-inner-selection.md §9・記録 hyperparam-inner-selection.md §4）。
+# プラン plans/archive/hyperparam-inner-selection.md §9・記録 hyperparam-inner-selection.md §4）。
 # ⚠ **trade_own_lgbm_tuned_a.toml と違うのはモデル（`LightGBM（内側選抜・1 度）`）だけ**（表・fold・θ・k・種・コスト・選別 は同じ
 #    ＝ 対の相手は 既定〔trade_own_lgbm_a〕と `（内側選抜）`〔trade_own_lgbm_tuned_a〕の 2 つ。13-8）。
 # ⚠ 違い: `fold_buy_pct` が較正の前に 1 度選び、同じ champion を較正と本番に配る（`（内側選抜）` は呼ばれるたびに選ぶ ＝ 規約 5）。

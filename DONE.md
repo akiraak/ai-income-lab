@@ -1,4 +1,11 @@
 # DONE
+- 2026-10-18 線形の変換（PCA・ウェーブレット）× 先 10 日の門 × LightGBM を机上で回す [plan](docs/plans/archive/transform-detector-lgbm.md)
+  ✅ 2026-10-18 titan: **6 行とも落とす**（n_trials 834 → 840・leak 2 本とも跳ねた・1 分 50 秒【実測】）。上乗せ −278〜−640bp/fold。Ridge と違い買い% は動いたが、対の差は |t| < 1.6（PCA −182 ／ −430 ／ ＋237・ウェーブレット −91 ／ −151 ／ −339bp）で大きな差は 1 つの fold から。予想 4 つのうち 3 が当たり・「向きが揃わない」はウェーブレットが 3 θ とも負で外れた。[記録 §3](docs/specs/experiments/transform-into-detectors.md)・検証結果一覧 titan `6833fd0`。⚠ デプロイは要らない（コードを直していない）
+  派生元: 利用者「1 で進めて」（2026-10-18。まだ回していない机上の検証の候補 1）／ [transform-into-detectors.md §2-3](docs/specs/experiments/transform-into-detectors.md)（線形 × 線形は試していないのと同じ）
+  ⚠ **Ridge の結果を見た後に登録した処置**（rules.md 24-2・24-3 の適用例 3・記録 §3-0 に書いた）。2 × θ 3 ＝ ＋6（834 → 840）・予想は採る 0 ／ 6。⚠ コードは直さない ＝ デプロイは要らない
+  - Phase 0: プラン・規約・記録 §3-0（結果を見る前）・config 2 本 ＋ queue `transform_detector_lgbm`（Sx360）
+  - Phase 1: titan で `cli.queue --config transform_detector_lgbm` → 記録 §3 → 検証結果一覧を吐き直す
+  - Phase 2: DONE へ・プランを archive へ
 - 2026-10-18 進化的探索を他のモデル・経路に広げる（⚠ **「既存のモデル全てに当てはめる」は計算量で成立しない**。意味が 2 つに分かれる）
   ✅ 2026-10-18 閉じた（利用者決定「1」）: **(a) GA が作った列を食わせる** ＝ 子 3 本とも落とす（GA × LightGBM ／ MLP 6 行・適合度 3 案 9 行・検知器に変換の口 18 行）／ **(b) モデルそのものを進化させる** ＝ 判断 2 で利用者決定 B（内側の選抜）・C（GA で構造まで）は退けた → B は採る 0 ／ 9 を 2 回（n_trials 816 → 834。[plan](docs/plans/archive/hyperparam-inner-selection.md)）。⚠ C は回さない（記録 [hyperparam-inner-selection.md](docs/specs/experiments/hyperparam-inner-selection.md) の「しないこと」）。親「DeepLearning と進化的探索…」は残す（2026-09-15 の利用者の指示「親タスクを残しつつ」）
   派生元: 利用者の質問（2026-09-16）: **遺伝的アルゴリズムは既存のモデル全てに当てはめることはできる？**

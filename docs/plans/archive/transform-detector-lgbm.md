@@ -1,6 +1,6 @@
 # 線形の変換（PCA・ウェーブレット）× 先 10 日の門 × LightGBM（机上。2026-10-18 利用者「1 で進めて」）
 
-派生元: [transform-into-detectors.md §2-3](../specs/experiments/transform-into-detectors.md)「線形の変換 × 線形の学習器の組は、この口では何も試していないのと同じ。試すなら非線形の学習器か『置き換える』口を新しい処置として先に登録する」。
+派生元: [transform-into-detectors.md §2-3](../../specs/experiments/transform-into-detectors.md)「線形の変換 × 線形の学習器の組は、この口では何も試していないのと同じ。試すなら非線形の学習器か『置き換える』口を新しい処置として先に登録する」。
 2026-10-18 に、まだ回していない机上の検証を手間の小さい順に並べた中の 1 番（利用者「1 で進めて」）。
 
 ## 0. 目的・背景
@@ -56,5 +56,5 @@ flowchart LR
 | Phase | 誰 | 中身 | 済み |
 | --- | --- | --- | --- |
 | 0 | Sx360 の Claude | プラン・TODO・rules.md 24-2 ／ 24-3・記録 §3-0（⚠ 結果を見る前）・config 2 本 ＋ queue | ✅ 2026-10-18 |
-| 1 | titan の Claude | `git pull` → `tests/test_transform_detector.py` → `cli.queue --config transform_detector_lgbm`（本番 2 ＋ leak 2。1〜2 分【推測】）→ 記録 §3-1 結果・§3-2 対の差・§3-3 検算・§3-4 かかった時間 → `cli.report --catalog` → push | |
-| 2 | Claude | TODO の項目を DONE へ・プランを archive へ（リンクを付け替える）。⚠ デプロイは要らない（コードを直していない） | |
+| 1 | titan の Claude | `git pull` → `tests/test_transform_detector.py` → `cli.queue --config transform_detector_lgbm`（本番 2 ＋ leak 2。1〜2 分【推測】）→ 記録 §3-1 結果・§3-2 対の差・§3-3 検算・§3-4 かかった時間 → `cli.report --catalog` → push | ✅ 2026-10-18（6 行とも落とす・840） |
+| 2 | Claude | TODO の項目を DONE へ・プランを archive へ（リンクを付け替える）。⚠ デプロイは要らない（コードを直していない） | ✅ 2026-10-18 |

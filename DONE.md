@@ -1,4 +1,17 @@
 # DONE
+- 2026-10-18 進化的探索を他のモデル・経路に広げる（⚠ **「既存のモデル全てに当てはめる」は計算量で成立しない**。意味が 2 つに分かれる）
+  ✅ 2026-10-18 閉じた（利用者決定「1」）: **(a) GA が作った列を食わせる** ＝ 子 3 本とも落とす（GA × LightGBM ／ MLP 6 行・適合度 3 案 9 行・検知器に変換の口 18 行）／ **(b) モデルそのものを進化させる** ＝ 判断 2 で利用者決定 B（内側の選抜）・C（GA で構造まで）は退けた → B は採る 0 ／ 9 を 2 回（n_trials 816 → 834。[plan](docs/plans/archive/hyperparam-inner-selection.md)）。⚠ C は回さない（記録 [hyperparam-inner-selection.md](docs/specs/experiments/hyperparam-inner-selection.md) の「しないこと」）。親「DeepLearning と進化的探索…」は残す（2026-09-15 の利用者の指示「親タスクを残しつつ」）
+  派生元: 利用者の質問（2026-09-16）: **遺伝的アルゴリズムは既存のモデル全てに当てはめることはできる？**
+  ⚠ **(a) GA が作った列を食わせる ＝ ✅ ほぼ全部に当てはまる**: モデル 9 本（Ridge・LightGBM・MLP ＋ GAN 増強 6 種）は config の `model =` を 1 行替えるだけ（GA は `transform` ＝ モデルの前段なので非依存）
+  ⚠ **だが検知器 23 本には届かない**: `cli/run.py` の `if detectors:` 枝が `prep.apply` より**前**にあり、検知器の契約は「買い% を直接返す」（[14-1](docs/specs/experiments/feature-discovery/rules.md)）ので変換の口を通らない。PatchTST も実質こちら側（観測期間の配列が要る）
+  ⚠ **先読みの罠**: 「GA の列を表にして `features_from` で読ませる」は ⚠ **表が fold を切る前に作られるので、式が全期間から学ばれる**（leak 対照が跳ねるのと同じ穴）
+  ⚠ **(b) モデルそのものを進化させる ＝ 軽いモデルだけ**: ⚠ **今の GA はモデルを 1 回も学習させていない**（適合度は式 1 列と y の順位相関）。⚠ **個体をモデルにすると 1 個体 ＝ 1 学習で 4〜6 桁変わる** — 2,000 体なら 時系列分類器 約 4.7 日/fold ／ PatchTST 約 26 日/fold【推測。1 fold の学習は 3.4 分・19 分の実測から】
+  ⚠ **モデルは検証結果一覧の識別項目**（`catalog.KEY`）なので、1 モデルにつき n_trials ＋3
+  関連: [evolutionary-search.md](docs/specs/experiments/evolutionary-search.md) ／ [rules.md 14-11](docs/specs/experiments/feature-discovery/rules.md)（選抜は訓練分割の内側）／ [ledger-blanks-large-two.md](docs/specs/experiments/ledger-blanks-large-two.md)（✅ **2026-09-16 に F4-3・F5-3 を同じ器から回した**）
+  ✅ **(a) の第一歩は 2026-09-16 に完了し [DONE.md](DONE.md) へ移した**: GA × LightGBM ／ GA × MLP（⚠ **6 行とも落とす**。⚠ **探索の出力は 3 モデルで 1 ビットも同じなので、これは「モデルだけを替えた」比較である**）。n_trials 592 → 598（[記録 §8](docs/specs/experiments/evolutionary-search.md)）
+  ⚠ **前段に GA を挟んで良くなったのは 6 対のうち 3 つだけ**（±30〜390bp）で、⚠ **向きが揃わない ＝ 「GA を通すと良くなる」とは言えない**。⚠ **上下の幅は B&H との差より小さい**
+  ✅ 子「GA の適合度を順位相関以外に替えて回す」は 2026-10-08 に [DONE.md](DONE.md) へ（3 案 × θ 3 ＝ 9 行とも落とす・n_trials 789 → 798。[記録 §9](docs/specs/experiments/evolutionary-search.md)）
+  ✅ 子「検知器に『変換済みの列を受け取る』口を足す」（判断 1 ＝ 利用者決定 A 汎用の口）は 2026-10-09 に [DONE.md](DONE.md) へ（GA 3 ＋ 残り 5 変換 15 ＝ **18 行とも落とす**・n_trials 798 → 816・デプロイ `prod` 2aea697。⚠ 口が届くのは `fwd` だけ・線形の変換 × Ridge は買い% を変えない ＝ [記録](docs/specs/experiments/transform-into-detectors.md)）
 - 2026-10-18 ハイパーパラメータを訓練分割の内側で選ぶ段を入れる（判断 2「モデルの構造・ハイパラを進化させるか」） [plan](docs/plans/archive/hyperparam-inner-selection.md)
   ✅ 2026-10-09 利用者決定 **B（内側の選抜）**（比べた案 ＝ A 入れない ／ B 事前固定した候補から訓練分割の尻で選ぶ ／ C GA で構造まで）。⚠ **軽いモデルだけ**（Ridge・LightGBM・MLP）。GA は使わない（Ridge は alpha 1 次元・LightGBM は格子 27 で尽くせる。MLP は層の数 1〜3 を候補に含める ＝ 構造はここまで）
   ⚠ 規約: [13-6 規約 3](docs/specs/experiments/feature-discovery/rules.md) を「評価期間の結果で動かさない」に書き換え・14-12 を足した（✅ 2026-10-09 Sx360）。数えるのは champion × θ ＝ 3 モデル × θ 3 ＝ **＋9**。候補 × fold は数えない（14-11 規約 2）

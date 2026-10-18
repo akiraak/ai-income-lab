@@ -1,0 +1,9 @@
+# ⚠ **線形の変換（PCA・ウェーブレット）× H1 先 10 日の門 × LightGBM**（rules.md 24-2・記録 transform-into-detectors.md §3。
+# 利用者「1 で進めて」2026-10-18）。事前固定は記録 §3-0（⚠ **回すと決めたのは結果を見る前。2 本全部か回さないか**）。
+# 2 本 × θ 3 ＝ n_trials ＋6（834 → 840）。表は作り直さない（`features_from`。leak 対照の表も既にある）。
+experiments = ["trade_own_fwd10_pca_lgbm_a", "trade_ownseq_fwd10_wave_lgbm_a"]
+
+leak = true              # ⚠ 配線の穴に気づく唯一の手。切らない
+ledger = false           # ⚠ 検証結果一覧は終わってから 1 回吐く
+max_failures = 1
+time_budget_s = 1800     # ⚠ 見積り 1〜2 分【推測。fwd × LightGBM 9〜14 秒・leak 15〜28 秒・PCA ／ ウェーブレット × Ridge 8〜11 秒（2026-09-27・10-09 の実測）】。尽きたら同じコマンドで再開

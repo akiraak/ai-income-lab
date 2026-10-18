@@ -257,3 +257,17 @@ def test_close_snapshot_problems_go_on_the_day_and_do_not_break_d(tmp_path):
     assert "close_kept" not in rows[("2026-10-09", "T6")]["problems"]
     for k, r in rows.items():
         assert r["d_ok"] == base[k]["d_ok"]
+
+
+def test_prepare_problems_come_from_the_launch_record_and_do_not_break_d(tmp_path):
+    """毎日の起動の記録（out/launches.jsonl）: 朝の準備の rc ≠ 0 ＝ prepare_failed ／ 記録が始まった後で朝の準備の行が無い日 ＝ prepare_missing。"""
+    import launchlog
+    out = _october(tmp_path)
+    base = {(r["date"], r["trader"]): r for r in yardstick.build_rows(out)}
+    launchlog.add(launchlog.make_row("prepare", "2026-10-08T13:00:00Z", 1, note="HTTP Error 500", end="2026-10-08T13:01:00Z", host="h"), out)
+    rows = {(r["date"], r["trader"]): r for r in yardstick.build_rows(out)}
+    assert "prepare_failed" in rows[("2026-10-08", "T1")]["problems"].split(";")
+    assert "prepare_missing" in rows[("2026-10-09", "T1")]["problems"].split(";")
+    assert not any("prepare_" in rows[k]["problems"] for k in rows if k[0] < "2026-10-08")   # 記録が始まる前の日は数えない
+    for k, r in rows.items():
+        assert r["d_ok"] == base[k]["d_ok"]

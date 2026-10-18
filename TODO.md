@@ -73,6 +73,12 @@
       10/7 ⚠ prepare **rc=1**（51 秒。外部系列の ECB〔為替〕が HTTP 500 ＝ 9/29・10/5 と同じ型。予測は発注の回が日足を取り直すので影響なし）／ trade rc=0（12:40:01 → 12:51:58 PDT・`--traders T1,T3,T4,T6`。印どおり手じまいの売り 9 本 Filled）／ `check.sh` `trade rc=0 prepare rc=1 → 0`（URL 無し ＝ not-sent）
       10/8 ✅ prepare rc=0（133 秒）／ trade rc=0（12:40:01 → 12:51:57 PDT・**`--traders @roster` の初回**。T1 ・ T6 が 5 本ずつ 10 本 Filled・T4 は skip）／ `check.sh` `→ 0`（URL 無し ＝ not-sent。同日 17:10 PDT に URL を書いて手で 1 度 `sent`）
       10/9 ⚠ prepare **rc=1**（59 秒。外部系列の ECB が HTTP 500 ＝ 10/7 と同じ型。⚠ ECB が先頭なので金利・気象・地震も更新なし ＝ 外部系列は 10/8 の取得のまま。`daily.csv` はその後に作り直された ＝ 10/8 の差 3a が入った）／ trade rc=0（12:40:01 → 12:51:55 PDT・`@roster` の 2 回目。T1 が T ・ NKE ・ VZ を売り 3 本 ＋ T4 が PFE ・ VZ ・ BAC を買い 3 本 ＝ 6 本 Filled・問題 0・`reconcile` 差 0）／ `check.sh` 13:20 PDT ＝ `sent: … trade rc=0 prepare rc=1 → 0`（✅ healthchecks へ自動で送った初回）。10/10・11 は土日
+      - [~] 毎日の起動の記録を自動で残す（朝の準備・売買の回 → `out/launches.jsonl`・管理画面の全体の詳細） [plan](docs/plans/launch-record-auto.md)
+        派生元: 利用者の指示（2026-10-18）「1を自動で行うようにして」（＝ 上のメモの手書きの 1 日 1 行。10/9 で止まっていた）
+        - [x] Step 1: `launchlog.py`・`run-live.sh` の `trap EXIT`・テスト
+        - [x] Step 2: `yardstick.py` の問題 2 つ・管理画面の表
+      ✅ 2026-10-18 Sx360: テスト 9 本（launchlog 7 ・ yardstick 1 ・ 管理画面 1）・`./run-tests.sh` ✅
+        - [ ] Step 3: 「デプロイ」（利用者）→ 次の営業日に 1 行ずつ入ることを確かめる → 手書きのメモをやめる
     - [x] 起動しなかった日を数える（⚠ 無人運転の成立はこれで測る。管理画面に「起動しなかった日」の考えは既にある ＝ [dashboard.md §13](docs/specs/dashboard.md)）
       ⚠ WSL2 の穴: **Windows を再起動して WSL が寝ていた時刻の回は実行されない**（`Persistent=false` ＝ 発注できる時間帯を過ぎてから起きても発注させない）。⚠ これは正しい挙動だが、**起動しなかった日として数える**必要がある
       関連: 管理画面の見張り「今日の起動が無い」（[dashboard.md §13-8](docs/specs/dashboard.md)）
@@ -263,4 +269,5 @@
         - [x] Step 4-2: 13500t の記録の写しで流し、10/8 の E が手書きに戻ることを確かめる（Sx360・読むだけ）
           ✅ 2026-10-18: 10/8 の E ＝ T1 2.52 ／ T6 2.44bp（手書きと一致）・T6 の累計 42.12 → 2.44
         - [ ] Step 4-3: 「デプロイ」（利用者）→ 次の朝の `--prepare` で直る
+          ✅ 2026-10-18 14:30 PDT（17:30 ET）: `prod` 3eafd1b → 7bda813（Sx360 の `run-deploy.sh`・関門 ✅）・13500t `done 7bda813`。⏳ 10/19（月）06:00 PDT（09:00 ET）の `--prepare` で直る
         - [ ] Step 4-4: 直った `yardstick.csv` と手書きを並べ、一致したら普段の日の手書きをやめる

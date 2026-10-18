@@ -48,6 +48,19 @@
 {% endfor %}</table></div></div>
 {% endif %}
 
+<div class="sec"><h2>毎日の起動{{ simmark(machine) }}</h2><span class="muted small">朝の準備（06:00 シアトル ＝ 09:00 ET）と売買の回（12:40 シアトル ＝ 15:40 ET）の終わり方 · {{ b.period.label }} · 新しい順 · 時刻はシアトル · <code>run-live.sh</code> が終わるときに書く</span></div>
+{% if b.launches is none %}<p class="muted small">起動の記録（<code>out/launches.jsonl</code>）がまだ無い（次の朝の準備から入る）。</p>
+{% else %}
+<div class="panel"><div class="scroll-x"><table class="small orders">
+<tr><th>日付</th><th>朝の準備</th><th>秒</th><th>売買の回</th><th>秒</th><th>理由（rc ≠ 0 のとき）</th></tr>
+{% for l in b.launches %}{% set p = l.prepare %}{% set t = l.trade %}
+<tr{% if not p or p.rc or not t or t.rc %} class="row-missing"{% endif %}><td>{{ l.date }}</td>
+<td>{% if p %}{{ p.start_local }} · rc={{ p.rc }}{% else %}記録なし{% endif %}</td><td class="num">{{ p.secs if p else '' }}</td>
+<td>{% if t %}{{ t.start_local }} · rc={{ t.rc }} · {{ t.mode }}{% else %}記録なし{% endif %}</td><td class="num">{{ t.secs if t else '' }}</td>
+<td class="small muted">{% if p and p.rc %}朝: {{ p.note }}{% endif %}{% if p and p.rc and t and t.rc %} · {% endif %}{% if t and t.rc %}売買: {{ t.note }}（{{ t.stage }}）{% endif %}</td></tr>
+{% endfor %}</table></div></div>
+{% endif %}
+
 <div class="sec"><h2>注文の履歴{{ simmark(machine) }}</h2><span class="muted small">全トレーダー · {{ b.period.label }} · 新しい順 · 月ごとにたたんである ｜ ⚠ 1 人ずつの全期間は左ペインのトレーダーから</span></div>
 {% include "orders_history.html" %}
 

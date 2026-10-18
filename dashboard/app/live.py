@@ -365,6 +365,7 @@ PROBLEM_LABEL = {
     "over_total_budget": "予算の合計が上限を超えた", "refused_mode_sim": "シミュレーションモードで拒否",
     "refused_lock_busy": "二重起動で拒否", "refused_not_production": "本番の機械ではない印で拒否",
     "close_kept": "終値の書き換えを拒んだ（配当の調整）", "close_out_of_range": "終値が安値〜高値の外",
+    "prepare_failed": "朝の準備が rc ≠ 0", "prepare_missing": "朝の準備の記録なし",
 }
 STATUS_LABEL_YS = {"active": "稼働", "paused": "一時停止", "liquidating": "手じまい中", "no_run": "起動なし", "refused": "断られた"}
 
@@ -387,6 +388,29 @@ def _ys_view(rows: list[dict], name: str) -> dict | None:
         r["status_label"] = STATUS_LABEL_YS.get(r["status"], r["status"])
         r["problem_labels"] = [PROBLEM_LABEL.get(p, p) for p in r["problems"].split(";") if p]
     return {**s, "rows": days[::-1]}
+
+
+def launch_rows(live_dir: Path, days: list[str]) -> list[dict] | None:
+    """全体の詳細の「毎日の起動」: 朝の準備と売買の回の終わり方（`run-live.sh` が終わるときに書く `out/launches.jsonl`。
+    プラン launch-record-auto.md）。見ている期間の営業日のうち記録が始まった日から・新しい順。⚠ **読むだけ**。1 行も無ければ None。"""
+    from datetime import datetime
+    from zoneinfo import ZoneInfo
+    by: dict[str, dict[str, dict]] = {}
+    for line in livefs.read_lines(live_dir / "out" / "launches.jsonl", missing_ok=True):
+        try:
+            r = json.loads(line)
+        except ValueError:
+            continue
+        try:
+            r["start_local"] = datetime.fromisoformat(r["start"]).astimezone(ZoneInfo("America/Los_Angeles")).strftime("%H:%M")
+        except (KeyError, TypeError, ValueError):
+            r["start_local"] = ""
+        by.setdefault(r.get("date", ""), {})[r.get("kind", "")] = r          # その日の最後の回が勝つ
+    if not by:
+        return None
+    first = min(by)
+    keep = {d for d in days if d >= first} | {d for d in by if not days or d >= days[0]}
+    return [{"date": d, "prepare": by.get(d, {}).get("prepare"), "trade": by.get(d, {}).get("trade")} for d in sorted(keep, reverse=True)]
 
 
 def anomalies(rows: list[dict], first: str | None) -> list[dict]:
@@ -683,4 +707,6 @@ def board(live_dir: Path, days: int | None = DAYS, today=None, now_et_=None, sup
         # 異常の一覧（yardstick.csv。見ている期間の中だけ）。yardstick_ready が False なら画面は「まだ無い」と出す
         "yardstick_ready": bool(ys),
         "anomalies": anomalies(ys, ds[0] if (ds and days is not None) else None),
+        # 毎日の起動（out/launches.jsonl。朝の準備・売買の回の rc ・秒・理由）。None なら画面は「まだ無い」と出す
+        "launches": launch_rows(live_dir, bd),
     }

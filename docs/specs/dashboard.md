@@ -736,6 +736,13 @@ flowchart LR
 - ⚠ **日次の数字の正本は `yardstick.csv`**（2026-10-13 利用者決定 K1）。仕様書（`live-trading.md` §1）には異常の日の読み方と週 1 回の写しだけを書く
 - E は前の営業日まで（公式終値が要る ＝ 翌朝の `--prepare` で埋まる）。テストは `tests/test_live.py` の `test_yardstick_*`
 
+### 13-14. 毎日の起動（2026-10-18。利用者の指示「1を自動で行うようにして」・[プラン](../plans/launch-record-auto.md)）
+
+- 全体の詳細に「毎日の起動」の表: 日ごとに朝の準備と売買の回の起動の時刻（シアトル）・rc・秒・rc ≠ 0 の理由。記録が始まった日からの営業日を全部並べ、行の無い回は「記録なし」（赤の行）
+- 出どころ ＝ `run-live.sh` が終わるとき（どの rc でも）に書く `experiments/live-trading/out/launches.jsonl`（`launchlog.py`）。⚠ `out/<日付>/` には書かない（§13-8 の見張りを崩さない）。⚠ **読むだけ**（POST は増やさない）
+- 物差しの表（§13-13）には `prepare_failed` ／ `prepare_missing` の札（D は崩さない）
+- ⚠ 拾えない日: `run.sh`（g3plus-ops）が容器の前で止めた日・cron が起きなかった日・機械が落ちた日 ＝ 「記録なし」で見える。外へ知らせるのは今までどおり `check.sh`（`live-trading.md` §0-15）
+
 ## 14. ハードの画面（2026-09-18）
 
 vibeboard の**ハード**タブ（`/ext/hardware`）。検証が何時間も使う機械（titan ＝ WSL2 ＋ RTX 3090 Ti ＋ 32 スレッド）の

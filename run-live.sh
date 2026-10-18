@@ -42,18 +42,40 @@ while [ $# -gt 0 ]; do
   esac
 done
 T0=$(date +%s)
-say() { echo "[$(TZ=America/New_York date +%H:%M:%S) ET ＋$(( $(date +%s) - T0 ))秒] $*"; }
+LAST_SAY=""
+say() { LAST_SAY="$*"; echo "[$(TZ=America/New_York date +%H:%M:%S) ET ＋$(( $(date +%s) - T0 ))秒] $*"; }
+
+# ---- 毎日の起動の記録（docs/plans/launch-record-auto.md）: 終わるとき（どの rc でも）に out/launches.jsonl へ 1 行。
+# ⚠ 書けなくても rc は変えない（DB の無い置き場では警告 1 行）。⚠ out/<日付>/ には書かない（見張り「今日の起動が無い」を崩す）
+LAUNCH_START=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+STAGE="start"; STEPS=""; NOTE=""; TMP=""
+on_exit() {
+  local rc=$? kind=trade mode="$MODE"
+  [ "$PREPARE" = 1 ] && { kind=prepare; mode=prepare; }
+  [ "$rc" != 0 ] && [ -z "$NOTE" ] && NOTE="$LAST_SAY"
+  "$PY_LT" "$LT/launchlog.py" add --kind "$kind" --start "$LAUNCH_START" --rc "$rc" --mode "$mode" --stage "$STAGE" \
+      --steps "$STEPS" --note "$NOTE" > /dev/null 2>&1 || echo "⚠ 起動の記録を書けなかった（売買には影響しない）" >&2
+  [ -n "$TMP" ] && rm -rf "$TMP"
+  exit "$rc"
+}
+trap on_exit EXIT
 
 if [ "$PREPARE" = 1 ]; then
   say "朝の準備: 日足 ＋ 外部系列（発注しない）"
-  "$FD/live_update.sh"; RC=$?
+  STAGE=update; TMP=$(mktemp -d)
+  "$FD/live_update.sh" 2>&1 | tee "$TMP/update.log"; RC=${PIPESTATUS[0]}
+  STEPS="update=$RC"
+  # rc ≠ 0 の理由 ＝ 取得元の例外か「どこまで入ったか」の ⚠ の最後の 1 行（起動の記録に残す）
+  [ "$RC" = 0 ] || NOTE=$(grep -E 'Error|⚠' "$TMP/update.log" | tail -1)
   # 紙上の対照（Phase 3）: 前の営業日までの公式終値が入ったので daily.csv を作り直す（読むだけ・何度流しても同じ）
   if "$PY_LT" "$LIVEFS" ls "${LT_OUT_DIR:-$LT/out}" 2>/dev/null | grep -q -E '^20[0-9]{2}-[0-9]{2}-[0-9]{2}$'; then
-    say "紙上の対照 → daily.csv"
-    (cd "$LT" && "$PY_LT" paper.py --bars-dir "${AIL_LIVE_DATA_DIR:-$FD/data-live}/adjusted/d") || say "⚠ paper.py が失敗した（売買には影響しない）"
+    say "紙上の対照 → daily.csv"; STAGE=paper
+    (cd "$LT" && "$PY_LT" paper.py --bars-dir "${AIL_LIVE_DATA_DIR:-$FD/data-live}/adjusted/d"); R=$?
+    STEPS="$STEPS,paper=$R"; [ "$R" = 0 ] || say "⚠ paper.py が失敗した（売買には影響しない）"
     # 物差し A〜E（docs/plans/daily-record-auto.md）: 記録と daily.csv から yardstick.csv を作り直す（読むだけ・何度流しても同じ）
-    say "物差し A〜E → yardstick.csv"
-    (cd "$LT" && "$PY_LT" yardstick.py) || say "⚠ yardstick.py が失敗した（売買には影響しない）"
+    say "物差し A〜E → yardstick.csv"; STAGE=yardstick
+    (cd "$LT" && "$PY_LT" yardstick.py); R=$?
+    STEPS="$STEPS,yardstick=$R"; [ "$R" = 0 ] || say "⚠ yardstick.py が失敗した（売買には影響しない）"
   fi
   exit $RC
 fi
@@ -64,6 +86,7 @@ DATE=${DATE:-$TODAY}
 # ---- シミュレーションと二重起動を**先に**見る（⚠ 排他の本体は run_day.py。ここは「95 秒むだにしない」ための早見）
 # ⚠ **ここで run.lock を持ち続けない**（持つと後で起こす run_day.py が自分で取れなくなる）＝ 取れるかだけ見てすぐ放す。
 # ⚠ **確かめられなくても止めない**（この早見の不具合で実売買を止めない。本物の関門は run_day.py の側）。
+STAGE=precheck
 PROD_SUBMIT=0
 if [ "$MODE" = "submit" ]; then for a in "${PASS[@]}"; do [ "$a" = "--env" ] && PROD_SUBMIT=pending; [ "$PROD_SUBMIT" = pending ] && [ "$a" = "prod" ] && PROD_SUBMIT=1; done; fi
 [ "$PROD_SUBMIT" = 1 ] || PROD_SUBMIT=0
@@ -108,6 +131,7 @@ esac
 case "$PRECHECK" in *'"warn"'*) say "⚠ 早見ができなかった（そのまま進む。関門は run_day.py の側）: $PRECHECK" ;; esac
 
 if [ "$WAIT" = 1 ]; then
+  STAGE=wait
   TARGET=$(TZ=America/New_York date -d "$DATE 15:50:00" +%s)
   if [ "$(date +%s)" -ge "$TARGET" ]; then
     # ⚠ 過ぎていたら待たずに進む。⚠ **これはブレーキではない**（遅れて起動したときは下の「引けに間に合うか」が止める）
@@ -149,9 +173,9 @@ fi
 
 # 1. 日足（今日の途中の足 ＝ 終値の代役が末尾に入る）。外部系列は朝の --prepare で済ませておく（--with-exog で一緒に取る）
 if [ "$SKIP_UPDATE" = 0 ] && [ "$DATE" = "$TODAY" ]; then
-  say "日足の更新"
+  say "日足の更新"; STAGE=update
   if [ "$EXOG" = 1 ]; then "$FD/live_update.sh"; else "$FD/live_update.sh" --no-exog; fi
-  RC=$?
+  RC=$?; STEPS="update=$RC"
   # rc=2 は「前の営業日に届いていない ／ 外部系列が古い」の知らせ。今日の足があるかは予測の側で確かめる
   [ "$RC" = 0 ] || [ "$RC" = 2 ] || { say "⚠ 日足の更新に失敗（rc=$RC）。執行器は起こさない"; exit 10; }
 else
@@ -159,7 +183,7 @@ else
 fi
 
 # 2. 今日の買い%（トレーダーの設定から 実験 × 手法 を拾い、並列で流す）。置き場は執行器と同じ（LT_OUT_DIR はテスト・モック用）
-OUT="${LT_OUT_DIR:-$LT/out}/$DATE"; TMP=$(mktemp -d); trap 'rm -rf "$TMP"' EXIT
+OUT="${LT_OUT_DIR:-$LT/out}/$DATE"; TMP=$(mktemp -d); STAGE=predict      # TMP は on_exit が消す
 # ⚠ 予測は回ごとに別の道（行は足すだけなので、同じ道に 2 回入れると前の回の行が残り、後の回に無い銘柄で古い値を読む）
 PRED="$OUT/predict.jsonl"
 TRADERS_DIR=""; for ((i=0; i<${#PASS[@]}; i++)); do [ "${PASS[$i]}" = "--traders-dir" ] && TRADERS_DIR="${PASS[$((i+1))]}"; done
@@ -208,8 +232,9 @@ if [ "$MODE" = "submit" ]; then
 fi
 
 # 4. 執行器
-say "執行器（--mode $MODE）"
+say "執行器（--mode $MODE）"; STAGE=executor
 cd "$LT" && "$PY_LT" run_day.py --traders "$TRADERS" --date "$DATE" --mode "$MODE" --predict "$PRED" "${PASS[@]}"
 RC=$?
+STEPS="${STEPS:+$STEPS,}executor=$RC"
 say "終了 rc=$RC"
 exit $RC

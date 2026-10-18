@@ -583,3 +583,26 @@ def test_yardstick_anomalies_list_problem_rows_but_not_test_traders(settings):
     with TestClient(create_app(settings, start_monitors=False), client=("127.0.0.1", 50000)) as c:
         page = c.get("/overall").text
         assert "異常の一覧" in page and "口座 − 売買履歴 ≠ 0" in page and "PFE: 規則 sell ／ 実物 hold" in page
+
+
+def test_launch_table_shows_each_day_and_marks_a_missing_or_failed_run(settings):
+    """毎日の起動（out/launches.jsonl。プラン launch-record-auto.md）: 無ければ「まだ無い」・あれば日ごとに朝の準備と売買の回・欠けは「記録なし」。"""
+    build_live_dir(settings.live_dir, with_real=True)
+    with TestClient(create_app(settings, start_monitors=False), client=("127.0.0.1", 50000)) as c:
+        assert "起動の記録（<code>out/launches.jsonl</code>）がまだ無い" in c.get("/overall").text
+    ds = lv.board(settings.live_dir)["dates"]
+    first, last = ds[0], ds[-1]
+    rows = [{"date": first, "kind": "prepare", "mode": "prepare", "start": f"{first}T13:00:01+00:00", "secs": 398, "rc": 1,
+             "stage": "yardstick", "steps": {"update": 1}, "note": "urllib.error.HTTPError: HTTP Error 500: Internal Server Error"},
+            {"date": first, "kind": "trade", "mode": "submit", "start": f"{first}T19:40:01+00:00", "secs": 713, "rc": 0, "stage": "executor",
+             "steps": {"executor": 0}, "note": ""},
+            {"date": last, "kind": "trade", "mode": "submit", "start": f"{last}T19:40:01+00:00", "secs": 700, "rc": 0, "stage": "executor",
+             "steps": {}, "note": ""}]
+    livefs.append_many(settings.live_dir / "out" / "launches.jsonl", [json.dumps(r) for r in rows])
+    b = lv.board(settings.live_dir)
+    got = {l["date"]: l for l in b["launches"]}
+    assert b["launches"][0]["date"] == last and got[first]["prepare"]["rc"] == 1 and got[last]["prepare"] is None
+    assert all(d in got for d in ds)                      # 記録が始まった日からの営業日は全部並ぶ（欠けも）
+    with TestClient(create_app(settings, start_monitors=False), client=("127.0.0.1", 50000)) as c:
+        page = c.get("/overall").text
+        assert "毎日の起動" in page and "朝: urllib.error.HTTPError: HTTP Error 500" in page and "記録なし" in page

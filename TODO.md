@@ -79,6 +79,7 @@
         - [x] Step 2: `yardstick.py` の問題 2 つ・管理画面の表
       ✅ 2026-10-18 Sx360: テスト 9 本（launchlog 7 ・ yardstick 1 ・ 管理画面 1）・`./run-tests.sh` ✅
         - [ ] Step 3: 「デプロイ」（利用者）→ 次の営業日に 1 行ずつ入ることを確かめる → 手書きのメモをやめる
+      ✅ 2026-10-18 15:00 PDT（18:00 ET）: `prod` 7bda813 → bbf8beb（Sx360 の `run-deploy.sh`・関門 ✅）・13500t `done bbf8beb`（管理画面も起こし直した）。⏳ 10/19（月）06:00 PDT の朝の準備・12:40 PDT の売買の回で 1 行ずつ入るかを見る
     - [x] 起動しなかった日を数える（⚠ 無人運転の成立はこれで測る。管理画面に「起動しなかった日」の考えは既にある ＝ [dashboard.md §13](docs/specs/dashboard.md)）
       ⚠ WSL2 の穴: **Windows を再起動して WSL が寝ていた時刻の回は実行されない**（`Persistent=false` ＝ 発注できる時間帯を過ぎてから起きても発注させない）。⚠ これは正しい挙動だが、**起動しなかった日として数える**必要がある
       関連: 管理画面の見張り「今日の起動が無い」（[dashboard.md §13-8](docs/specs/dashboard.md)）

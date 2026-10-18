@@ -73,6 +73,11 @@
       10/7 ⚠ prepare **rc=1**（51 秒。外部系列の ECB〔為替〕が HTTP 500 ＝ 9/29・10/5 と同じ型。予測は発注の回が日足を取り直すので影響なし）／ trade rc=0（12:40:01 → 12:51:58 PDT・`--traders T1,T3,T4,T6`。印どおり手じまいの売り 9 本 Filled）／ `check.sh` `trade rc=0 prepare rc=1 → 0`（URL 無し ＝ not-sent）
       10/8 ✅ prepare rc=0（133 秒）／ trade rc=0（12:40:01 → 12:51:57 PDT・**`--traders @roster` の初回**。T1 ・ T6 が 5 本ずつ 10 本 Filled・T4 は skip）／ `check.sh` `→ 0`（URL 無し ＝ not-sent。同日 17:10 PDT に URL を書いて手で 1 度 `sent`）
       10/9 ⚠ prepare **rc=1**（59 秒。外部系列の ECB が HTTP 500 ＝ 10/7 と同じ型。⚠ ECB が先頭なので金利・気象・地震も更新なし ＝ 外部系列は 10/8 の取得のまま。`daily.csv` はその後に作り直された ＝ 10/8 の差 3a が入った）／ trade rc=0（12:40:01 → 12:51:55 PDT・`@roster` の 2 回目。T1 が T ・ NKE ・ VZ を売り 3 本 ＋ T4 が PFE ・ VZ ・ BAC を買い 3 本 ＝ 6 本 Filled・問題 0・`reconcile` 差 0）／ `check.sh` 13:20 PDT ＝ `sent: … trade rc=0 prepare rc=1 → 0`（✅ healthchecks へ自動で送った初回）。10/10・11 は土日
+      10/12 ⚠ prepare **rc=1**（398 秒。外部系列の USGS〔地震 ＝ 偽薬の枠〕が HTTP 504。ECB ・ 金利は 10/9 まで取れた・気象は 10/8 まで ＝ 順で最後の地震だけ更新なし）／ trade rc=0（12:40:01 → 12:51:54 PDT。T1 が T 5 ・ NKE 3 ・ VZ 2 株 ＋ T4 が T 5 ・ NKE 3 株を買い ＝ 5 本 Filled・問題 0）／ `check.sh` 13:20 PDT ＝ `sent: … trade rc=0 prepare rc=1 → 0`
+      10/13 ✅ prepare rc=0（122 秒）／ trade rc=0（→ 12:51:55 PDT。T1 が NKE 3 株を売り 1 本 Filled・問題 0）／ `check.sh` `sent: … → 0`
+      10/14 ✅ prepare rc=0（125 秒）／ trade rc=0（→ 12:51:48 PDT。T1 が NKE 3 株を買い戻し 1 本 Filled・問題 0）／ `check.sh` `sent: … → 0`
+      10/15 ✅ prepare rc=0（⚠ 305 秒 ＝ いつもの 2 倍余り。外部系列の段が約 4 分〔55 → 298 秒〕・失敗はなし・`yardstick.csv` の初回）／ trade rc=0（→ 12:51:50 PDT。意図 0 ＝ 注文 0）／ `check.sh` `sent: … → 0`
+      10/16 ✅ prepare rc=0（114 秒）／ trade rc=0（→ 12:51:51 PDT。T1 が NKE 3 株を売り 1 本 Filled・問題 0）／ `check.sh` `sent: … → 0`。`reconcile.py show`（最後の記録 10/16 引け後）＝ 5 銘柄とも差 0・控えの未完 0。10/17・18 は土日。✅ 2026-10-18 Sx360 の Claude が 13500t のログと DB を読んで埋めた（読むだけ）。10/19 からは `out/launches.jsonl`（下の子）
       - [~] 毎日の起動の記録を自動で残す（朝の準備・売買の回 → `out/launches.jsonl`・管理画面の全体の詳細） [plan](docs/plans/launch-record-auto.md)
         派生元: 利用者の指示（2026-10-18）「1を自動で行うようにして」（＝ 上のメモの手書きの 1 日 1 行。10/9 で止まっていた）
         - [x] Step 1: `launchlog.py`・`run-live.sh` の `trap EXIT`・テスト

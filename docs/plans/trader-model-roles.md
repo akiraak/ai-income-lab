@@ -219,11 +219,27 @@ flowchart LR
 
 | # | 中身 | 場所 |
 | ---: | --- | --- |
-| 1 | `candidates/horizon/T7〜T10.toml`（§1・§2 の値。`note` に 3 係の期間）＋ `sim_T7〜T10`（$300・`sim_` 始まり）。§3-3 のモデルの人 `T11` は机上の後に | `experiments/live-trading/config/traders/` |
-| 2 | 作り置き `simpredict.py make sim7`（買い係・売り係 ＝ `trade_own_fwdmulti_a` の H1〜H4・損切り係 ＝ `trade_own_stopexit_a` X1。titan・研究用の `data/`）。⚠ 作り置きの買い% が銘柄・日で動いているか（幅が潰れていないか）を sim の前に見る（howto §3-4） | `sim-predict/` |
-| 3 | sim7 を 64 営業日（4 人同時）。見るもの: 最短保有の中で売り係が 100 を出した日に売っていないこと・損切り係で売った日・取引の回数が h_b の順 | `./run-sim.sh`（Sx360）／ titan は `LT_MODE_DIR` を scratch へ |
-| 4 | 外部のタブ: `models.toml` に `[[model]]`（先 5 ／ 20 ／ 40 日の買い係・売り係。`history.names` は `own.h*-gate*.ridge.shared`）・`traders.toml` に 4 人の文と呼び名（利用者）・`system.toml`「トレーダーのしくみ」に役割と最短保有の 1 段（✅ 設定項目の一覧は Phase 3 で書いた）・**トレーダーのタブ `traderview.py` に使うモデルの役割と最短保有を出す**（Phase 3 では画面に出していない ＝ §4-1 の 7） | `dashboard/*.toml`・`dashboard/traderview.py` |
-| 5 | 手順書 `howto-model-trader.md` に「2-8 役割と最短保有を持つ人」を足す | `docs/specs/howto-model-trader.md` |
+| 1 ✅ | `candidates/horizon/T7〜T10.toml`（§1・§2 の値。`note` に 3 係の期間）＋ `sim_T7〜T10`（$300・`sim_` 始まり）。§3-3 のモデルの人 `T11` は机上の後に（K10 (a) ＝ 作らない） | `experiments/live-trading/config/traders/` |
+| 2 ✅ | 作り置き `simpredict.py make sim7`（買い係・売り係 ＝ `trade_own_fwdmulti_a` の H1〜H4・損切り係 ＝ `trade_own_stopexit_a` X1。titan・研究用の `data/`）。⚠ 作り置きの買い% が銘柄・日で動いているか（幅が潰れていないか）を sim の前に見る（howto §3-4） | `sim-predict/` |
+| 3 ✅ | sim7 を 64 営業日（4 人同時）。見るもの: 最短保有の中で売り係が 100 を出した日に売っていないこと・損切り係で売った日・取引の回数が h_b の順 | `./run-sim.sh`（Sx360）／ titan は `LT_MODE_DIR` を scratch へ |
+| 4 ✅ | 外部のタブ: `models.toml` に `[[model]]`（先 5 ／ 20 ／ 40 日の買い係・売り係。`history.names` は `own.h*-gate*.ridge.shared`）・`traders.toml` に 4 人の文と呼び名（利用者）・`system.toml`「トレーダーのしくみ」に役割と最短保有の 1 段（✅ 設定項目の一覧は Phase 3 で書いた）・**トレーダーのタブ `traderview.py` に使うモデルの役割と最短保有を出す**（Phase 3 では画面に出していない ＝ §4-1 の 7） | `dashboard/*.toml`・`dashboard/traderview.py` |
+| 5 ✅ | 手順書 `howto-model-trader.md` に「2-8 役割と最短保有を持つ人」を足す | `docs/specs/howto-model-trader.md` |
+
+### 5-1. Phase 4 の実装（✅ 2026-10-19 07:17〜 PDT・titan。利用者「Phase 4 を進めて」。K10 は未決のまま (a) ＝ `T11` は作らない）
+
+上の表の 1〜5 を入れた。表に書いていなかった決めごと（Claude が決めた。変えるなら利用者）:
+
+| # | 決めたこと | 理由 |
+| ---: | --- | --- |
+| 1 | 4 人とも `combine = "asis"`・`combine_buy` ／ `combine_exit` は書かない | 買いの側 1 本・売りの側 1 本。損切り係は §4-1 の 1 で別の口（合わせ方に入らない）なので、§1 の「`combine_exit = "unanimous"`」は要らなくなった |
+| 2 | sim7 は 4 人同時（$1,200）。執行器の既定の上限 $1,000 を超えるぶんは **`config/sim/sim7.toml` の `max_total_budget_usd`** を運転手が `--max-total-budget` ／ `--max-day-usd` に渡す（`simrun.budget_args`。無い sim は空） | 候補の写しの予算を $300 のまま保つ（`test_horizon_sim_copies_match_…` が一致を見る）。本番の上限は `live.env` のまま ＝ sim の中だけの口 |
+| 3 | `models.toml` は先 5 ／ 20 ／ 40 日を **1 本ずつ**（`fwd5-gate` ／ `fwd20-gate` ／ `fwd40-gate`）。先 10 日は既存の `fwd10-gate` に **`also = [{ name, method }]`**（同じモデルの別の表の綴り）を足し、`traderview.find_model` が `name`・`method` と `also` の両方で当てる | トレーダーのタブはモデルの札を 1 本ずつ出すので、買う係（先 20 日）と売る係（先 5 日）の札が同じ文では区別できない。同じモデルを 2 度書かない |
+| 4 | 役割つきの組（`own-trend.roles-b*`）の経緯は、その型が買う係か売る係に入る組だけをその型の `history` に数える（型ごとに別のパターン） | 組の行は型ごとに重なるので、全部を 1 本に載せると数が二重になる。`test_real_history_matches_the_db` が DB と突き合わせる |
+| 5 | トレーダーのタブ: 係の札（`[common] role_*`）・`roles_intro` ＋ 最短保有の文（`min_hold` ／ `min_hold_none`）・側に 2 本以上あるときだけ合わせ方・`stop_blocks_buy` の文・「正式な名前」に役割と最短保有の行。役割の無い人は 1 文字も変わらない（テスト） | 文は `traders.toml` が正本（Python に書かない）。⚠ `traderview.py` を直したので sidecar（3015）の入れ直しが要る（project-manager の「再起動」。TOML だけの変更は 5 秒で反映） |
+| 6 | 識別名の並びを数の順に（`T7`・`T8`・`T9`・`T10`。文字の順だと `T10` が `T2` の前） | `traderview._natural_key` |
+| 7 | 予測の訓練の切れ目: 同じ表に 40 日先のラベルがあるので、`cli.predict` は先 5 日の係でも asof の 40 営業日前で訓練を切る（`split_asof` は最長の `y_fwd_W`）。直さない | 1 人の 3 本が同じ切れ目になるほうが単純。先 5 日の係だけ 35 日ぶん新しい行を学ばせるのは新しい処置（結果を見て変えない） |
+
+**sim7 の結果**（✅ 2026-10-19 07:40 PDT・titan。記録 [live-trading.md §0-7 (k) sim7](../specs/experiments/live-trading.md)）: 作り置き 256 本・失敗 0・1,232 秒 → 64 営業日 21 秒・注文 166 本 全部 Filled・検査 ✅。見るもの 3 つ ＝ ① ✅ 最短保有の中で売り係の出口% > θ の日に売っていない（0 本。黙らせた日 4）② 損切り係で売った日 17〜18 回（最短保有の中でも）③ ❌ **取引の回数は h_b の順にならない**（買い 24 ／ 23 ／ 23 ／ 23・最終日の持ち株は 4 人とも同じ）。売り 73 本のうち 71 本が損切り係・70 本は翌営業日に買い戻す往復 ＝ 机上 §3-1 と同じ動きが執行器でもそのまま出た。買い係 4 本が 5 本の株にほぼ毎日 50 を超える時期なので、期間の違いが注文の違いにならない。⚠ 成績の話ではない（K9 (a) の形そのもの）。本番で入れるなら `T5` と似た動きになる見込み【推測】。
 
 ## 6. 本番（Phase 5。⚠ 利用者・11/4（水）の判定の後）
 

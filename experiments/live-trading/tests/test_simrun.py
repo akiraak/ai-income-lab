@@ -235,3 +235,18 @@ def test_step_runs_one_day_then_pauses_and_stop_ends_the_driver(env):
         if proc.poll() is None:
             proc.kill()
     assert cli("simctl.py", ["mode", "real"], child).returncode == 0                                 # 運転手が止まれば戻せる
+
+
+def test_budget_args_come_only_from_the_sim_config(tmp_path):
+    """`max_total_budget_usd` のある sim だけ、運転手が執行器に `--max-total-budget` ／ `--max-day-usd` を渡す（2026-10-19 sim7 ＝ 4 人 × $300）。
+    無い sim は空 ＝ 1 ビットも変わらない（黄金の集計値 sim1 ／ sim2）。"""
+    conf = tmp_path / "sim"
+    conf.mkdir()
+    base = 'traders = ["sim_a"]\nstart = "2026-10-01"\nend = "2026-10-10"\nsource_start = "2026-06-01"\n'
+    (conf / "simp.toml").write_text('name = "simp"\n' + base, encoding="utf-8")
+    (conf / "simq.toml").write_text('name = "simq"\n' + base + "max_total_budget_usd = 1200.0\n", encoding="utf-8")
+    plain, lifted = simdata.load_config("simp", str(conf)), simdata.load_config("simq", str(conf))
+    assert plain.max_total_budget_usd is None and simrun.budget_args(plain) == []
+    assert lifted.max_total_budget_usd == 1200.0 and simrun.budget_args(lifted) == ["--max-total-budget", "1200", "--max-day-usd", "1200"]
+    for name in ("sim1", "sim2", "sim3", "sim4", "sim5", "sim6"):
+        assert simrun.budget_args(simdata.load_config(name, os.path.join(HERE, "config", "sim"))) == []

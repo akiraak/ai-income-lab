@@ -292,7 +292,7 @@
     - [x] Phase 2c: 別のモデル「1 本で買いと何日持つかを出す」（✅ 2026-10-18 利用者「別のモデルとしてプランに入れて」＝ プラン §3-3。先 5〜40 日の確率 4 本から期間を選ぶ検知器 `H5`・出力に保有日数・`simulate` に行ごとの保有日数）→ 登録 → 机上 ＋6 → 記録。候補の人 `T11`
       ✅ 2026-10-18 22:39 PDT（titan・利用者「2cを進めて」）: rules.md 25-5 に登録（4 つ返す検知器 ＝ 買い%・出口%・保有日数・記録 ／ `simulate` の `hold_days` ／ 合わせる口の `hold_from_buy`）→ queue `horizon_roles3`（47 秒【実測】）＝ **採る 0 ／ 落とす 6**（879 → 885。⚠ ＋5 は数え落とし ＝ 回す前に ＋6 に直した）。⚠ **「4 本の較正した確率の最大」は期間を選んでいない**（fold ごとに 1 つの期間に偏る ＝ 先 W 日の上がる確率の土台が W が長いほど高い）・日数で売る形は売買が増える。記録 §6・プラン §3-3-1
       ⚠ 利用者に聞くこと **K10**（プラン §7）: 候補の人 `T11` を (a) 作らない〔推す〕／ (b) 配線の確認のために作る（執行器に売る予定の日の経路を足す）
-    - [ ] Phase 3: 執行器（`role` ／ `combine_buy` ／ `combine_exit` ／ `min_hold_days` ／ `stop_blocks_buy`・signals を (実験名, 手法, 銘柄) で引く・plan の営業日の数え方）＋ テスト ＋ 黄金の集計値。⚠ 本番に出すのは 11/4 の後
+    - [x] Phase 3: 執行器（`role` ／ `combine_buy` ／ `combine_exit` ／ `min_hold_days` ／ `stop_blocks_buy`・signals を (実験名, 手法, 銘柄) で引く・plan の営業日の数え方）＋ テスト ＋ 黄金の集計値。⚠ 本番に出すのは 11/4 の後
       ✅ 2026-10-18 22:59 PDT 着手（titan・利用者「新しいトレーダーの作業を再開する」）。K10 は未決のまま (a) で進める（`T11` の経路は足さない。(b) に変わっても後から足せる）
       - [x] Step 3-1: `trader.py` ＝ `[[models]] role`（both ／ buy ／ exit ／ stop ／ watch）・`combine_buy` ／ `combine_exit`・`min_hold_days`・`stop_blocks_buy` と検査（`role` の無い設定は 1 ビットも変わらない）＋ テスト
       - [x] Step 3-2: `signals.py` ＝ 行を (実験名, 手法, 銘柄) で引く・役割で買い ／ 売り ／ 損切りに分けて合成・見るだけの 1 行（events）＋ テスト
@@ -302,5 +302,16 @@
         ✅ 2026-10-18 23:35 PDT: 入れた。⚠ ついでに `models.toml` の fwd10-gate の経緯の数が DB と食い違っていた（今日の Phase 1 で own ＋ trend の表の H1 が 3 行増えた ＝ 私の変更の前から落ちていた）ので、経緯を 2 行に分けて直した
       - [x] Step 3-5: `./run-tests.sh --full`（黄金の集計値が 1 件も変わらないこと）→ push
         ✅ 2026-10-18 23:45 PDT: 5 段とも ✅（執行器 241 ／ 管理画面 271 ／ selftest ／ mockrun ／ 黄金の集計値 12 ＝ 1 件も変わらない）【実測 titan】
-    - [ ] Phase 4: 候補 `candidates/horizon/T7〜T10` ＋ `sim_T7〜T10`・作り置き `sim7`・64 営業日の sim・外部のタブの TOML・手順書 2-8
+    - [x] Phase 4: 候補 `candidates/horizon/T7〜T10` ＋ `sim_T7〜T10`・作り置き `sim7`・64 営業日の sim・外部のタブの TOML・手順書 2-8
+      ✅ 2026-10-19 07:17 PDT 着手（titan・利用者「Phase 4 を進めて」）。K10 は未決のまま (a)（`T11` は作らない）
+      - [x] Step 4-1: 候補の設定 `candidates/horizon/T7〜T10.toml`（§1・§2 の値・役割 3 係・最短保有 ＝ 買い係の先の期間・`stop_blocks_buy` は書かない）＋ sim 用の写し `sim_T7〜T10` ＋ `config/sim/sim7.toml`（4 人 $1,200 ＝ 運転手が上限を執行器に渡す口 `max_total_budget_usd`）＋ `test_trader.py`・`test_simrun.py`
+        ✅ 2026-10-19 07:33 PDT: 書いた（4 人とも `combine = "asis"`・損切り係は別の口・`stop_blocks_buy` 無し）。`simdata.SimConfig.max_total_budget_usd` ＋ `simrun.budget_args`（無い sim は空 ＝ 1 ビットも変わらない）。テスト 3 本 ✅
+      - [x] Step 4-2: 作り置き `simpredict.py make sim7`（titan・H1〜H4 × 64 日 ＝ 256 本。X1 は sim5 のもの）→ 買い% が銘柄・日で動いているか（幅が潰れていないか）を見る
+        ✅ 2026-10-19 07:39 PDT: 256 本・失敗 0・1,232 秒【実測】。買い% の幅は潰れていない（H1 44.8〜61.1 ／ H2 43.9〜59.8 ／ H3 47.8〜57.5 ／ H4 49.6〜65.9）が、5 本の買い係はほぼ毎日「買う」・売り係が出口% > 50 を出す日は少ない（H2 5 日・H1 3 日・H3 0 日）
+      - [x] Step 4-3: sim7 を 64 営業日（titan の作業用の置き場・4 人同時）→ 見るもの 3 つ（最短保有の中で売り係の 100 で売っていない ／ 損切り係で売った日 ／ 取引の回数が h_b の順）→ 記録 `live-trading.md` §0-7 (k) sim7・§0-1 候補の人
+        ✅ 2026-10-19 07:45 PDT: 21 秒・注文 166 本 全部 Filled・検査 23,395 行 印なし 0。① ✅ 最短保有の中の売り係による売り 0（黙らせた日 4）② 損切り係で 17〜18 回 ③ ❌ 買い 24 ／ 23 ／ 23 ／ 23 ＝ h_b の順にならない（売り 73 本のうち 71 本が損切り係・70 本は翌日買い戻し ＝ 机上 §3-1 と同じ）。記録 §0-7 (k) sim7・§0-1・プラン §5-1
+      - [x] Step 4-4: 外部のタブ ＝ `models.toml` に先 5 ／ 20 ／ 40 日の `[[model]]`（経緯の数は DB）・`traders.toml` に 4 人の呼び名と文・`traderview.py` に役割と最短保有・`system.toml`「トレーダーのしくみ」の 1 段・`dashboard.md` §16 ＋ `dashboard/tests`
+        ✅ 2026-10-19 07:33 PDT: 入れた。`fwd5-gate` ／ `fwd20-gate` ／ `fwd40-gate` ＋ `fwd10-gate` に `also`（同じモデルの別の表の綴り ＝ `traderview.find_model` が当てる）・経緯の数は DB の `own-trend.h*-gate*` と役割つきの組 `own-trend.roles-b*`（`test_real_history_matches_the_db` ✅）・係の札と最短保有の文は設定から（役割の無い人は 1 文字も変わらない ＝ テスト）・識別名の並びを数の順に（T10 が T2 の前に来ていた）。管理画面のテスト ✅
+      - [x] Step 4-5: 手順書 `howto-model-trader.md` 2-8・CLAUDE.md → `./run-tests.sh --full`（黄金の集計値が変わらない）→ push
+        ✅ 2026-10-19 07:50 PDT: 5 段とも ✅（執行器 244 ／ 管理画面 279 ／ selftest ／ mockrun ／ 黄金の集計値 12 ＝ 1 件も変わらない。3 分 38 秒【実測 titan】）
     - [ ] Phase 5（⚠ 利用者・11/4 の後）: 誰を入れ替えるか → 13500t の予測の時間を測る → 「デプロイ」→ 名簿の ▶ 開始

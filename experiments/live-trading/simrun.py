@@ -189,6 +189,7 @@ class Driver:
     def run(self, max_days: int | None = None, extra_args: list[str] | None = None) -> int:
         with open(os.path.join(self.root, "sim", "data.json"), encoding="utf-8") as f:
             data = json.load(f)
+        extra_args = list(extra_args or []) + budget_args(self.cfg)
         days = data["days"]
         done = 0
         rcs: dict[str, int] = dict(self.status.get("rcs") or {})
@@ -227,7 +228,7 @@ class Driver:
                     if any(e["kind"] == "skip_day" for e in todays):
                         rc = "skipped"                          # 起動しない日（timer が動かなかった日の代役）。記録のディレクトリもできない
                     else:
-                        rc = self.run_window(day, quotes, extra_args or [], crash=any(e["kind"] == "crash_mid" for e in todays))
+                        rc = self.run_window(day, quotes, extra_args, crash=any(e["kind"] == "crash_mid" for e in todays))
                     if todays:
                         livefs.append(os.path.join(self.root, "sim", "scenario.jsonl"),
                                       json.dumps({"sim": True, "day_index": i + 1, "date": day, "events": todays, "quote_factor": round(factor, 6), "rc": rc}, ensure_ascii=False))
@@ -248,6 +249,15 @@ class Driver:
             self.stop_mock()
             # ⚠ 運転手がいない間に仮の時計だけが進むと、次に起こしたとき発注できる時間帯を通り過ぎている。終わるときは必ず止める
             simclock.pause(self.control)
+
+
+def budget_args(cfg) -> list[str]:
+    """設定の `max_total_budget_usd`（2026-10-19 sim7 ＝ 4 人 × $300 が執行器の既定の上限 $1,000 を超える）を執行器の引数にする。
+    無い sim は空 ＝ 1 ビットも変わらない。⚠ sim の中だけ（本番の上限は 13500t の live.env）。"""
+    v = getattr(cfg, "max_total_budget_usd", None)
+    if v is None:
+        return []
+    return ["--max-total-budget", f"{float(v):g}", "--max-day-usd", f"{float(v):g}"]
 
 
 def main() -> int:

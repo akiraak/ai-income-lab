@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import html
 import os
+import re
 import tomllib
 from dataclasses import dataclass
 from pathlib import Path
@@ -80,6 +81,7 @@ CSS = """
  .why { display: block; font-size: 12px; color: #656d76; }
  .sub { font-size: 12px; color: #656d76; }
  .note { border: 1px solid #d4a72c; background: #fff8c5; border-radius: 6px; padding: 8px 12px; margin: 12px 0; font-size: 13px; }
+ .role { display: inline-block; font-size: 11px; font-weight: 600; padding: 1px 8px; border-radius: 10px; background: #eef3ff; color: #1f3d7a; margin-right: 6px; vertical-align: middle; }
  .care { border: 1px solid #d0d7de; background: #f6f8fa; border-radius: 6px; padding: 6px 14px; }
  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; margin: 12px 0; }
  .card { display: block; border: 1px solid #d0d7de; border-top: 4px solid var(--who, #57606a); border-radius: 6px;
@@ -168,7 +170,12 @@ def trader_files(paths: TraderPaths) -> list[tuple[str, Path, bool]]:
             found[f.stem] = (f, True)
     for f in candidate_files(paths):
         found.setdefault(f.stem, (f, False))
-    return [(k, *found[k]) for k in sorted(found)]
+    return [(k, *found[k]) for k in sorted(found, key=_natural_key)]
+
+
+def _natural_key(name: str) -> tuple:
+    """識別名の並び（2026-10-19）: 数字は数として並べる（T7・T8・T9・T10。文字の順だと T10 が T2 の前に来る）。"""
+    return tuple(int(p) if p.isdigit() else p for p in re.split(r"(\d+)", name))
 
 
 def load_facts(paths: TraderPaths, name: str) -> dict | None:
@@ -190,9 +197,16 @@ def load_facts(paths: TraderPaths, name: str) -> dict | None:
         rel = src.relative_to(REPO_ROOT)
     except ValueError:
         rel = src
-    models = [{"name": str(m.get("name") or ""), "method": str(m.get("method") or ""), "kind": str(m.get("kind") or "")}
+    models = [{"name": str(m.get("name") or ""), "method": str(m.get("method") or ""), "kind": str(m.get("kind") or ""),
+               "role": str(m.get("role") or "both")}
               for m in doc.get("models", [])]
+    # 役割と最短保有（2026-10-19。執行器の trader.py と同じ読み: role ／ combine_buy ／ combine_exit ／ min_hold_days ／ stop_blocks_buy のどれかを書いた人）
+    combine_buy, combine_exit = doc.get("combine_buy"), doc.get("combine_exit")
+    min_hold, blocks = doc.get("min_hold_days"), bool(doc.get("stop_blocks_buy"))
+    has_roles = any(m["role"] != "both" for m in models) or combine_buy is not None or combine_exit is not None or min_hold is not None or blocks
     return {
+        "has_roles": has_roles, "combine_buy": combine_buy, "combine_exit": combine_exit, "stop_blocks_buy": blocks,
+        "min_hold_days": int(min_hold) if isinstance(min_hold, int) and not isinstance(min_hold, bool) else None,
         "settled": settled, "source": str(rel), "budget": budget, "n": n, "k": len(models),
         "per": budget / n if n else 0.0, "line": line, "sell": 100.0 - line,
         "sizing": str(doc.get("sizing") or ""), "combine": str(doc.get("combine") or "asis"),
@@ -203,16 +217,22 @@ def load_facts(paths: TraderPaths, name: str) -> dict | None:
 
 
 def find_model(words: dict, spec: dict) -> dict | None:
-    """設定の [[models]] の 1 本に当たる説明。⚠ 手法（method）まで同じものだけ（違う手法は別のモデル）。"""
-    return next((m for m in words["models"]
-                 if m.get("name") == spec["name"] and str(m.get("method") or "") == spec["method"]), None)
+    """設定の [[models]] の 1 本に当たる説明。⚠ 手法（method）まで同じものだけ（違う手法は別のモデル）。
+
+    `also = [{ name, method }]`（2026-10-19）＝ 同じモデルを別の表の実験名で使う綴り（例 `fwd10-gate` の `trade_own_fwdmulti_a`）。
+    """
+    def hit(m: dict) -> bool:
+        pairs = [(m.get("name"), str(m.get("method") or ""))] + [(a.get("name"), str(a.get("method") or "")) for a in (m.get("also") or [])]
+        return (spec["name"], spec["method"]) in pairs
+    return next((m for m in words["models"] if hit(m)), None)
 
 
 def _fill(text: str, facts: dict) -> str:
     """文の中の {budget} などを設定の数字で埋める。⚠ 知らない札はそのまま残す（落とさない）。"""
     values = {"budget": _money(facts["budget"]), "n": str(facts["n"]), "per": _money(facts["per"]),
               "line": _num(facts["line"]), "sell": _num(facts["sell"]), "k": str(facts["k"]),
-              "symbols": "、".join(facts.get("symbols") or [])}
+              "symbols": "、".join(facts.get("symbols") or []),
+              "hold": str(facts.get("min_hold_days") or "")}
     out = str(text or "")
     for k, v in values.items():
         out = out.replace("{" + k + "}", v)
@@ -281,19 +301,24 @@ def trader_body(paths: TraderPaths, name: str) -> str | None:
     out.append(_h2(1, "使うモデル"))
     for spec, m in models:
         formal = f"<code>{esc(spec['name'])}</code>" + (f" <code>{esc(spec['method'])}</code>" if spec["method"] else "")
+        # 係の札（役割のある人だけ。2026-10-19。言葉は traders.toml の role_*）
+        tag = f"<span class='role'>{esc(_role_word(common, spec['role']))}</span>" if facts["has_roles"] else ""
         if m is None:
-            out.append(f"<div class='model'><div>{formal}</div><p>{esc(mcommon.get('no_words'))}</p></div>")
+            out.append(f"<div class='model'><div>{tag}{formal}</div><p>{esc(mcommon.get('no_words'))}</p></div>")
             continue
         card = m.get("card") or {}
         chips = [(mcommon.get("card_sees"), card.get("sees")), (mcommon.get("card_decides"), card.get("decides"))]
         # 「予測モデル」タブのこのモデルのページへ（⚠ iframe の中なので target=_top）
         more = (f"<p class='sub'><a href='{MODEL_URL}{esc(m['id'])}' target='_top'>{esc(mcommon.get('open_page'))}</a></p>"
                 if m.get("id") else "")
-        out.append(f"<div class='model'><div class='lb'>{esc(m.get('label'))}</div><div>{formal}</div>"
+        out.append(f"<div class='model'><div class='lb'>{tag}{esc(m.get('label'))}</div><div>{formal}</div>"
                    f"<p>{esc(m.get('summary'))}</p><div class='chips'>"
                    + "".join(f"<div class='chip'><b>{esc(k)}</b>{esc(v)}</div>" for k, v in chips if v)
                    + f"</div>{more}</div>")
-    out.append(f"<p>{esc(_fill(common.get('combine_' + facts['combine']) or '', facts))}</p>")
+    if facts["has_roles"]:
+        out.append(_roles_text(common, facts))
+    else:
+        out.append(f"<p>{esc(_fill(common.get('combine_' + facts['combine']) or '', facts))}</p>")
 
     out.append(_h2(2, "モデルの特性"))
     for spec, m in models:
@@ -343,6 +368,7 @@ def trader_body(paths: TraderPaths, name: str) -> str | None:
     hints = common.get("formal_hint") or {}
     rows = [("model", "予測モデル", "、".join(f"<code>{esc(s['name'])}</code>（{esc(s['method'] or s['kind'])}）" for s, _m in models)),
             ("line", "売買基準値（θ）", esc(_num(facts["line"]))), ("combine", "合成規則", f"<code>{esc(facts['combine'])}</code>"),
+            *_roles_rows(common, facts),
             ("stocks", "銘柄集合", f"{esc(facts['universe'])}・{facts['n']} 本"),
             ("sizing", "株数の決め方（sizing）", f"<code>{esc(facts['sizing'])}</code>"), ("budget", "予算", esc(_money(facts["budget"]))),
             ("file", "設定のファイル", f"<code>{esc(facts['source'])}</code>" + ("" if facts["settled"] else "（候補）"))]
@@ -356,6 +382,41 @@ def trader_body(paths: TraderPaths, name: str) -> str | None:
                f"<a href='{SPEC_URL}' target='_top'>live-trading.md</a> §0-1。</p>{table}</details>")
     out.append("</div>")
     return "\n".join(out)
+
+
+def _role_word(common: dict, role: str) -> str:
+    """係の呼び方（traders.toml の role_both ／ role_buy ／ role_exit ／ role_stop ／ role_watch。無ければ設定の綴りのまま）。"""
+    return str(common.get("role_" + role) or role)
+
+
+def _roles_text(common: dict, facts: dict) -> str:
+    """役割のある人の「使うモデル」の下の文（2026-10-19）: 係のしくみ ＋ 係が 2 本以上の側の合わせ方 ＋ 最短保有 ＋ 損切り係が言う日は買わない。
+    ⚠ 損切り係は合わせ方に入らない（執行器では別の口 ＝ 言えば降りる）。"""
+    parts = [str(common.get("roles_intro") or "")]
+    sides = (("buy", ("both", "buy"), facts.get("combine_buy")), ("exit", ("both", "exit"), facts.get("combine_exit")))
+    for side, roles, rule in sides:
+        n = sum(1 for m in facts["models"] if m["role"] in roles)
+        if n >= 2:
+            text = _fill(common.get("combine_" + str(rule or facts["combine"])) or "", {**facts, "k": n})
+            parts.append(str(common.get("roles_side_" + side) or "") + text)
+    parts.append(_fill(common.get("min_hold") or "", facts) if facts.get("min_hold_days") else str(common.get("min_hold_none") or ""))
+    if facts.get("stop_blocks_buy"):
+        parts.append(str(common.get("stop_blocks_buy") or ""))
+    return "".join(f"<p>{esc(p)}</p>" for p in parts if p)
+
+
+def _roles_rows(common: dict, facts: dict) -> list[tuple[str, str, str]]:
+    """「正式な名前」の表に足す行（役割のある人だけ）: 役割（モデルごと）・最短保有・側ごとの合わせ方（書いた人だけ）。"""
+    if not facts.get("has_roles"):
+        return []
+    rows = [("role", "役割（role）", "、".join(f"<code>{esc(m['method'] or m['name'])}</code> ＝ {esc(_role_word(common, m['role']))}" for m in facts["models"])),
+            ("hold", "最短保有（min_hold_days）", f"{facts['min_hold_days']} 営業日" if facts.get("min_hold_days") else "—")]
+    if facts.get("combine_buy") is not None or facts.get("combine_exit") is not None:
+        rows.append(("combine_sides", "側ごとの合わせ方（combine_buy ／ combine_exit）",
+                     f"<code>{esc(facts.get('combine_buy') or facts['combine'])}</code> ／ <code>{esc(facts.get('combine_exit') or facts['combine'])}</code>"))
+    if facts.get("stop_blocks_buy"):
+        rows.append(("stop_blocks_buy", "損切りが言う日は買わない（stop_blocks_buy）", "<code>true</code>"))
+    return rows
 
 
 def _model_outputs(common: dict, mcommon: dict, models) -> str:

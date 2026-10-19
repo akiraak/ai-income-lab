@@ -141,7 +141,7 @@ def test_multi_candidates_parse_and_are_wired_as_decided():
         ("trade_own_ridge_a", "全部使う（基準）"), ("trade_ownex_lgbm_a", "全部使う（基準）"), ("trade_ownseq_ridge_a", "T3 QUANT（60日窓）")]
     assert ts["T5"].combine == "unanimous" and [(m.name, m.method) for m in ts["T5"].models] == [
         ("trade_own_ridge_a", "全部使う（基準）"), ("trade_own_stopexit_a", "X1 出口だけ 高値20日から−10%で降りる")]
-    # 同じ実験名の違う手法を 1 人の中で 2 本持てない（signals.py は (実験名, 銘柄) で行を引く）
+    # T4・T5 は実験名が 1 本ずつ（2026-09-28 の時点では signals.py が (実験名, 銘柄) で引いた。2026-10-18 から役割の人は同じ実験名の別の手法を持てる ＝ test_horizon_*）
     for t in ts.values():
         names = [m.name for m in t.models]
         assert len(names) == len(set(names)), t.name
@@ -210,3 +210,51 @@ def test_unanimous_with_exit_only_model_buys_on_the_main_model():
     assert combine("unanimous", [main_buy, 100.0], [main_exit, stop_exit], 50.0) == (main_buy, stop_exit)
     assert combine("unanimous", [main_buy, 100.0], [main_exit, 0.0], 50.0) == (main_buy, main_exit)       # 規則が立たない日は主モデルの出口
     assert combine("mean", [main_buy, 100.0], [main_exit, 0.0], 50.0)[0] == pytest.approx((main_buy + 100.0) / 2)
+
+
+# ---------- 先の期間が違う「買い係 ／ 売り係 ／ 損切り係」の候補（config/traders/candidates/horizon/。2026-10-19 プラン trader-model-roles.md §5 Phase 4）----------
+
+HORIZON = os.path.join(CONF, "candidates", "horizon")
+H = {5: "H2 先5日ゲート（全列・学習）", 10: "H1 先10日ゲート（全列・学習）", 20: "H3 先20日ゲート（全列・学習）", 40: "H4 先40日ゲート（全列・学習）"}
+X1 = "X1 出口だけ 高値20日から−10%で降りる"
+
+
+def test_horizon_candidates_are_wired_as_decided():
+    """`T7`〜`T10` ＝ 買い係 先 h_b 日 ／ 売り係 先 h_e 日（同じ実験 `trade_own_fwdmulti_a` の別の手法）／ 損切り係 X1 −10%・最短保有 ＝ h_b・
+    θ 50・3 人と同じ 5 本・整数株・$300（プラン §1・§2。利用者決定「期間を別々にすることが大切」・K9 (a) ＝ `stop_blocks_buy` は書かない）。
+    本番の人ではない（直下に無い）。"""
+    from trader import load_traders
+    ts = {t.name: t for t in load_traders(["T7", "T8", "T9", "T10"], HORIZON)}
+    want = {"T7": (10, 5), "T8": (20, 5), "T9": (40, 10), "T10": (5, 20)}
+    for name, (hb, he) in want.items():
+        t = ts[name]
+        assert t.has_roles and not t.test and t.sizing == "shares" and t.threshold == 50.0 and t.budget_usd == 300.0
+        assert t.symbols == ("T", "PFE", "NKE", "VZ", "BAC")
+        assert [(m.kind, m.name, m.method, m.role) for m in t.models] == [
+            ("experiment", "trade_own_fwdmulti_a", H[hb], "buy"), ("experiment", "trade_own_fwdmulti_a", H[he], "exit"),
+            ("experiment", "trade_own_stopexit_a", X1, "stop")]
+        assert t.min_hold_days == hb and not t.stop_blocks_buy                 # 最短保有 ＝ 買い係が見た期間・往復あり（K9 (a)）
+        assert t.combine == "asis" and t.combine_buy is None and t.combine_exit is None and t.buy_rule == t.exit_rule == "asis"
+        assert len(t.buy_models) == len(t.exit_models) == len(t.stop_models) == 1 and not t.watch_models
+        assert not os.path.exists(os.path.join(CONF, f"{name}.toml"))        # `--traders T7` では起動できない
+    # 4 人の違いは期間だけ（名前・note・min_hold_days・手法のほかは同じ）
+    assert len({(t.symbols, t.sizing, t.threshold, t.budget_usd, t.combine) for t in ts.values()}) == 1
+
+
+def test_horizon_sim_copies_match_and_sim7_lifts_the_total_budget():
+    """sim7 の人（`sim_T7`〜`sim_T10`）は候補の写し（`test = true` と名前だけ違う）。4 人 × $300 ＝ $1,200 は執行器の既定の上限 $1,000 を
+    超えるので、`config/sim/sim7.toml` の `max_total_budget_usd` を運転手が執行器に渡す（simrun.budget_args。⚠ sim の中だけ）。"""
+    import simdata
+    from trader import load_traders
+    want = {t.name: t for t in load_traders(["T7", "T8", "T9", "T10"], HORIZON)}
+    got = {t.name: t for t in load_traders(["sim_" + n for n in want], CONF)}
+    for name, w in want.items():
+        g = got["sim_" + name]
+        assert g.test and not w.test
+        key = lambda t: (t.symbols, t.sizing, t.threshold, t.budget_usd, t.combine, t.combine_buy, t.combine_exit, t.min_hold_days,   # noqa: E731
+                         t.stop_blocks_buy, [(m.kind, m.name, m.method, m.role) for m in t.models])
+        assert key(g) == key(w)
+    cfg = simdata.load_config("sim7", os.path.join(os.path.dirname(CONF), "sim"))
+    assert cfg.traders == ["sim_T7", "sim_T8", "sim_T9", "sim_T10"]
+    total = sum(got[n].budget_usd for n in cfg.traders)
+    assert total == 1200.0 > 1000.0 and cfg.max_total_budget_usd == total

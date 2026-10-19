@@ -34,7 +34,7 @@ FORBIDDEN = [
 REAL_WORDS = Path(traderview.DASHBOARD_DIR) / "traders.toml"
 REAL_MODELS = Path(traderview.DASHBOARD_DIR) / "models.toml"
 # モデルの `[[model]]` のうち、正式な名前・鍵・道を書く欄（本文の検査の外）
-FORMAL_KEYS = ("id", "name", "method", "formal", "configs", "records")
+FORMAL_KEYS = ("id", "name", "method", "formal", "configs", "records", "also")
 # 用語を書いてよい欄 ＝ 画面の「詳しく（用語あり）」の囲み（`[model.detail.*]`。dashboard.md §17-2）
 DETAIL_KEYS = ("detail",)
 
@@ -400,3 +400,100 @@ def test_http_routes(server):
 def test_fingerprint_sees_words_and_config(paths):
     fp = traderview.fingerprint(paths)
     assert str(paths.words) in fp and str(paths.models) in fp and any(k.endswith("TA.toml") for k in fp) and any(k.endswith("TB.toml") for k in fp)
+
+
+# ---------------------------------------------------------------- 役割と最短保有（2026-10-19。プラン trader-model-roles.md §5 Phase 4 の 4）
+
+ROLE_WORDS = '''
+role_both = "買いも売りも"
+role_buy = "買う係"
+role_exit = "売る係"
+role_stop = "損切り係"
+role_watch = "見るだけ"
+roles_intro = "このモデルには係がある。"
+roles_side_buy = "買う係の合わせ方: "
+roles_side_exit = "売る係の合わせ方: "
+min_hold = "買ってから {hold} 営業日は売る係を読まない。"
+min_hold_none = "最短保有は決めていない。"
+stop_blocks_buy = "損切り係が言う日は買わない。"
+'''
+
+
+def _role_trader(name: str, models: list[tuple[str, str, str]], extra: str = "") -> str:
+    blocks = "".join(f'[[models]]\nkind = "experiment"\nname = "{n}"\nmethod = "{m}"\nrole = "{r}"\n' for n, m, r in models)
+    return f'name = "{name}"\nbudget_usd = 300.0\nuniverse = "u4"\nuniverse_group = "company"\nsizing = "shares"\nthreshold = 50.0\n{extra}\n{blocks}'
+
+
+@pytest.fixture()
+def roles(paths):
+    """役割のある候補 TE（買う係 A ＋ 売る係 B ＋ 損切り係 C・最短保有 10）と、役割の無い人はそのまま。言葉の正本に role_* を足す。"""
+    words = paths.words.read_text(encoding="utf-8").replace("[common.formal_hint]", ROLE_WORDS + "\n[common.formal_hint]\nrole = \"係の一言\"\nhold = \"最短保有の一言\"\ncombine_sides = \"側ごとの一言\"")
+    paths.words.write_text(words, encoding="utf-8")
+    (paths.traders_dir / "candidates" / "horizon").mkdir()
+    (paths.traders_dir / "candidates" / "horizon" / "TE.toml").write_text(
+        _role_trader("TE", [("exp_a", "手法 A", "buy"), ("exp_b", "手法 B", "exit"), ("exp_c", "手法 C", "stop")], 'combine = "asis"\nmin_hold_days = 10'), encoding="utf-8")
+    return paths
+
+
+def test_roles_show_as_tags_and_min_hold_text(roles):
+    body = traderview.body(roles, "TE")
+    assert "<span class='role'>買う係</span>" in body and "<span class='role'>売る係</span>" in body and "<span class='role'>損切り係</span>" in body
+    assert "このモデルには係がある。" in body and "買ってから 10 営業日は売る係を読まない。" in body and "最短保有は決めていない" not in body
+    assert "買う係の合わせ方" not in body and "損切り係が言う日は買わない" not in body      # 側に 1 本ずつ・stop_blocks_buy 無し
+    assert "モデルは 1 本だけ。" not in body                                              # 役割のある人は combine_* の文を出さない
+    # 正式な名前の表: 役割（モデルごと）・最短保有の行と一言。側ごとの合わせ方は書いた人だけ
+    assert "役割（role）" in body and "<code>手法 A</code> ＝ 買う係" in body and "<code>手法 C</code> ＝ 損切り係" in body
+    assert "最短保有（min_hold_days）" in body and "10 営業日" in body and "係の一言" in body and "最短保有の一言" in body
+    assert "側ごとの合わせ方" not in body and "（候補）" in body
+    # 説明の無いモデル（exp_c）にも係の札は付く
+    assert "<span class='role'>損切り係</span><code>exp_c</code>" in body
+
+
+def test_roles_side_rules_and_stop_blocks_buy(roles):
+    (roles.traders_dir / "candidates" / "horizon" / "TF.toml").write_text(
+        _role_trader("TF", [("exp_a", "手法 A", "buy"), ("exp_b", "手法 B", "buy"), ("exp_a", "手法 A", "stop")],
+                     'combine = "asis"\ncombine_buy = "mean"\nstop_blocks_buy = true'), encoding="utf-8")
+    body = traderview.body(roles, "TF")
+    assert "買う係の合わせ方: 2 本のモデルの点を平均する。" in body and "売る係の合わせ方" not in body
+    assert "最短保有は決めていない。" in body and "損切り係が言う日は買わない。" in body
+    assert "側ごとの合わせ方（combine_buy ／ combine_exit）" in body and "<code>mean</code> ／ <code>asis</code>" in body
+    assert "損切りが言う日は買わない（stop_blocks_buy）" in body and "側ごとの一言" in body
+
+
+def test_people_without_roles_do_not_change(roles):
+    """役割の無い人（TA・TB・TD）は 1 文字も変わらない: 係の札も役割の文も行も出ない。"""
+    for name in ("TA", "TB", "TD"):
+        body = traderview.body(roles, name)
+        assert "class='role'" not in body and "係がある" not in body and "役割（role）" not in body and "最短保有" not in body
+    assert "2 本のモデルの点を平均する。" in traderview.body(roles, "TB")
+
+
+def test_find_model_also_matches_another_spelling(paths):
+    """`also` ＝ 同じモデルを別の表の実験名で使う綴り（2026-10-19）。name・method の両方が同じときだけ当たる。"""
+    paths.models.write_text(MODELS + '\n[[model]]\nid = "c-type"\nname = "exp_c"\nmethod = "手法 C"\nlabel = "C"\nsummary = "C のひとこと"\n'
+                            'also = [{ name = "exp_c_multi", method = "手法 C" }]\ntraits = []\nhow = "C"\n', encoding="utf-8")
+    words = traderview.load_words(paths)
+    assert traderview.find_model(words, {"name": "exp_c_multi", "method": "手法 C"})["id"] == "c-type"
+    assert traderview.find_model(words, {"name": "exp_c", "method": "手法 C"})["id"] == "c-type"
+    assert traderview.find_model(words, {"name": "exp_c_multi", "method": "別の手法"}) is None
+    assert traderview.find_model(words, {"name": "exp_a_multi", "method": "手法 A"}) is None
+
+
+def test_keys_sort_naturally(paths):
+    """識別名の並びは数字を数として（T7 → T10。文字の順だと T10 が T2 の前）。"""
+    for n in ("T2", "T10", "T9"):
+        (paths.traders_dir / f"{n}.toml").write_text(_trader(n, [("exp_a", "手法 A")], "threshold = 50.0"), encoding="utf-8")
+    assert [k for k, _f, _ok in traderview.trader_files(paths)] == ["T2", "T9", "T10", "TA", "TB", "TD"]
+
+
+def test_real_horizon_candidates_have_roles_words_and_models():
+    """候補 T7〜T10（candidates/horizon/）は 係の札・最短保有の文・「（候補）」が出て、3 本のモデルに説明がある（`also` で当てる H1 を含む）。"""
+    paths = traderview.TraderPaths.default()
+    words = traderview.load_words(paths)
+    for name, hold in (("T7", 10), ("T8", 20), ("T9", 40), ("T10", 5)):
+        facts = traderview.load_facts(paths, name)
+        assert facts["has_roles"] and facts["min_hold_days"] == hold and [m["role"] for m in facts["models"]] == ["buy", "exit", "stop"]
+        assert all(traderview.find_model(words, spec) is not None for spec in facts["models"]), name
+        body = traderview.body(paths, name)
+        assert "<span class='role'>買う係</span>" in body and "<span class='role'>損切り係</span>" in body and f"買ってから {hold} 営業日" in body and "（候補）" in body
+    assert [k for k, _f, _ok in traderview.trader_files(paths)][-4:] == ["T7", "T8", "T9", "T10"]

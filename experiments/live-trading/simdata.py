@@ -44,6 +44,7 @@ class SimConfig:
     fill_noise: float = 0.003
     seed: int = 0
     events: list[dict] = field(default_factory=list)   # 筋書き（故障の注入）。Phase 3
+    max_total_budget_usd: float | None = None          # 予算の合計の上限（2026-10-19 sim7 ＝ 4 人 × $300 が執行器の既定 $1,000 を超える）。無ければ執行器の既定
 
 
 def load_config(name: str, config_dir: str | None = None) -> SimConfig:
@@ -55,7 +56,8 @@ def load_config(name: str, config_dir: str | None = None) -> SimConfig:
                      source_start=date.fromisoformat(doc["source_start"]), windows=list(doc.get("windows") or ["15:45:30"]),
                      speed=doc.get("speed", 60), skip_outside_window=bool(doc.get("skip_outside_window", True)),
                      spread_bp=float(doc.get("spread_bp", 2.0)), fill_noise=float(doc.get("fill_noise", 0.003)), seed=int(doc.get("seed", 0)),
-                     events=list(doc.get("events") or []))
+                     events=list(doc.get("events") or []),
+                     max_total_budget_usd=(float(doc["max_total_budget_usd"]) if doc.get("max_total_budget_usd") is not None else None))
 
 
 def sim_days(cfg: SimConfig) -> list[date]:

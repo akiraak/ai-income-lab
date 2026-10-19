@@ -585,3 +585,21 @@ def test_real_detail_plugs_match_the_db():
             bad.append((mid, part, field, f"DB {modelview.plug_text(v, fmt)} ／ 控え {fallback}"))
     facts.close()
     assert not bad, bad
+
+
+def test_also_spelling_counts_as_a_user(paths):
+    """`also`（同じモデルの別の綴り。2026-10-19）で当たった人も「いま使っている」の束に入る。"""
+    models = paths.models.read_text(encoding="utf-8").replace('name = "exp_a"\nmethod = "手法 A"\n', 'name = "exp_a"\nmethod = "手法 A"\nalso = [{ name = "exp_a_multi", method = "手法 A" }]\n', 1)
+    paths.models.write_text(models, encoding="utf-8")
+    (paths.traders_dir / "TZ.toml").write_text('name = "TZ"\nbudget_usd = 300.0\nuniverse = "u4"\nthreshold = 50.0\n[[models]]\nkind = "experiment"\nname = "exp_a_multi"\nmethod = "手法 A"\n', encoding="utf-8")
+    data = modelview.load(paths)
+    assert "TZ" in [u["key"] for u in data["users"]["a-type"]]
+
+
+def test_real_horizon_gates_are_live_through_the_candidates():
+    """先 5 ／ 20 ／ 40 日の型と、`also` で当てる先 10 日の型は、候補 T7〜T10 が使う ＝「いま使っている」の束（未確定の印）。"""
+    paths = traderview.TraderPaths.default()
+    data = modelview.load(paths)
+    for mid, who in (("fwd5-gate", {"T7", "T8", "T10"}), ("fwd20-gate", {"T8", "T10"}), ("fwd40-gate", {"T9"}), ("fwd10-gate", {"T7", "T9"}), ("stop-exit", {"T5", "T7", "T8", "T9", "T10"})):
+        users = {u["key"]: u["settled"] for u in data["users"][mid]}
+        assert who <= set(users) and not any(users[k] for k in who), (mid, users)

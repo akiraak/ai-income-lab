@@ -68,7 +68,7 @@ flowchart LR
 | # | やること | 場所 | ⚠ | 実測【2026-09-28〜29・titan】（実例 A `T4`・B `T5`・sim5） |
 | --- | --- | --- | --- | --- |
 | 2-1 | **識別名・呼び名・銘柄を選んだ理由を書く**（識別名は新しく・変えない。呼び名は意味の無い名前・使い回さない ＝ ⚠ 利用者が選ぶ） | `dashboard/traders.toml` の `[nicks]`・`[symbols_why]` | 呼び名の無い人は識別名だけで出る | 呼び名 ハル（T4）・ミオ（T5）＝ 利用者が選んだ。`[symbols_why]` ＝ 3 人と同じ 5 本にした理由（株を変えるとモデルを合わせた違いと株の違いが混ざる） |
-| 2-2 | **設定を書く**: `[[models]]` × N（`kind = "experiment"`・`name` ＝ 実験名・`method` ＝ 登録名）・`combine`・`threshold` ≥ 50・`budget_usd`・`symbols`・`sizing = "shares"`・`test = false` | `config/traders/candidates/<組>/<識別名>.toml`（複数モデルの人は `candidates/multi/`） | 下の「合成規則の決まり」。⚠ **同じ実験名の違う手法を 1 人で 2 本持てない**（`signals.py` は実験名 × 銘柄で行を引く）。予算の合計 ≤ $1,000（`run_day.py` の既定の上限） | `candidates/multi/T4.toml`（3 本を `mean`）・`T5.toml`（主モデル ＋ `trade_own_stopexit_a` の `X1 −10%` を `unanimous`）。`test_trader.py` に 4 本（候補が読める・sim の写しが一致・`asis` は 2 本で拒む・`unanimous` の買いは主モデルの値）。執行器のコードは 0 |
+| 2-2 | **設定を書く**: `[[models]]` × N（`kind = "experiment"`・`name` ＝ 実験名・`method` ＝ 登録名）・`combine`・`threshold` ≥ 50・`budget_usd`・`symbols`・`sizing = "shares"`・`test = false` | `config/traders/candidates/<組>/<識別名>.toml`（複数モデルの人は `candidates/multi/`） | 下の「合成規則の決まり」。✅ 2026-10-18 から**同じ実験名の違う手法を 1 人で持てる**（`signals.py` は (実験名, 手法, 銘柄) で行を引く。`method` は必ず書く ＝ 2-8）。予算の合計 ≤ $1,000（`run_day.py` の既定の上限。sim は `config/sim` の `max_total_budget_usd` で上げられる ＝ 2-8-3） | `candidates/multi/T4.toml`（3 本を `mean`）・`T5.toml`（主モデル ＋ `trade_own_stopexit_a` の `X1 −10%` を `unanimous`）。`test_trader.py` に 4 本（候補が読める・sim の写しが一致・`asis` は 2 本で拒む・`unanimous` の買いは主モデルの値）。執行器のコードは 0 |
 | 2-3 | **sim 用の写しと筋書きを書く**（`test = true`・名前は `sim_` 始まり。`config/sim/simN.toml` の `traders` に並べる。雛形 `sim4.toml`） | `config/traders/sim_<識別名>.toml`・`config/sim/simN.toml` | `sim_` で始まらない人は `simdata` が拒む | `sim_T4.toml`・`sim_T5.toml`・`config/sim/sim5.toml`（2 人 $600・筋書きなし・期間は sim1 と同じ） |
 | 2-4 | **作り置き → 写す → 通す**: titan で `python simpredict.py make simN`（研究用の `data/` を読むだけ）→ `sim-predict/` を Sx360 へ写す → Sx360 で `./run-sim.sh simN --fresh --speed max` | titan → Sx360 | 1 日でも作り置きが欠けると運転手は rc=2。⚠ titan で `run-sim.sh` を流すなら作業用の置き場（本物の `MODE` に触らない） | titan `simpredict.py make sim5 --jobs 8` ＝ 増えた 64 本だけ **282 秒**（1 本 32〜39 秒。sim3 の 192 本は 16 分。学習なしでも表の組み立てに 30 秒）→ titan の作業用の置き場で `./run-sim.sh sim5 --fresh --speed max --no-dashboard` ＝ 64 営業日 **14 秒**・注文 81 本 全部 Filled・口座 − 売買履歴 0・検査 16,968 行 印なし 0。⚠ Sx360 へ写して通すのは残り |
 | 2-5 | **見る**: 管理画面 3012 の帯 `[SIM]`・トレーダーの段に新しい人 ／ vibeboard のトレーダーのタブに「（候補）」・予測モデルのタブの「いま使っている」 | ブラウザ | 本番の管理画面（13500t）には出ない。⚠ vibeboard の sidecar（3015）は起動時のコードのまま ＝ `traderview.py` を直したら入れ直す（TOML だけなら 5 秒で反映） | 管理画面（デモ 3014）に `[SIM]`・帯「シミュレーション sim5」・2 人の段 ／ vibeboard に ハル・ミオ「（候補）」と `stop-exit`。⚠ sidecar を入れ直すまで候補の人が出なかった（§4） |
@@ -112,6 +112,26 @@ flowchart LR
 
 **休ませる**: 「⏸ 一時停止」（持ち株はそのまま・売買しない）→「▶ 開始」。
 
+### 2-8 役割と最短保有を持つ人（✅ 2026-10-19 Phase 4。[プラン trader-model-roles.md](../plans/trader-model-roles.md) §4・§5。実例 `T7`〜`T10` ＝ リン ／ ユウ ／ ナギ ／ レン）
+
+> この図の主張: 役割のある人も 2-1〜2-7 と同じ道を通る。違うのは設定の 3 項目（`role`・`min_hold_days`・側ごとの合わせ方）と、予測が (実験名, 手法) ごとに 1 本ずつになること、画面の係の札だけ。
+
+```mermaid
+flowchart LR
+  C["設定<br/>[[models]] role ／ min_hold_days<br/>（combine_buy ／ combine_exit）"] --> P["予測<br/>(実験名, 手法) ごとに cli.predict 1 本<br/>run-live.sh ／ simpredict.py"]
+  P --> E["執行器<br/>買い係 → 買う ／ 売り係 → 最短保有の後 ／ 損切り係 → 毎日"]
+  C -.-> V["トレーダーのタブ<br/>係の札・最短保有の文"]
+```
+
+| # | やること | 場所 | ⚠ | 実測【2026-10-19・titan】（`T7`〜`T10`・sim7） |
+| --- | --- | --- | --- | --- |
+| 2-8-1 | **係を決める**: 買いの側（`buy` または `both`）1 本以上・売りの側（`exit` ／ `both` または `stop`）1 本以上。最短保有 `min_hold_days` ＝ 買い係が見る先の期間（プラン §1）。`stop_blocks_buy` は書かない（K9 (a) ＝ 往復あり） | `candidates/horizon/<識別名>.toml` | 側ごとに `asis` は 1 本・`majority` は奇数本（`trader._validate_roles`）。⚠ **損切り係は合わせ方に入らない**（別の口 ＝ 1 本でも言えば降りる・最短保有の中でも毎日）。`watch` は判断に効かない（`events` の 1 行だけ） | 買い H1 ／ H3 ／ H4 ／ H2・売り H2 ／ H2 ／ H1 ／ H3・損切り X1 −10%・最短保有 10 ／ 20 ／ 40 ／ 5（§2 の 4 組） |
+| 2-8-2 | **同じ実験名の別の手法を 2 本書いてよい**（買い係と売り係）。`method` は必ず書く | `[[models]]` | `signals.py` は (実験名, 手法, 銘柄) で引く（`method` の無い設定で手法が 2 本あれば止まる）。損切り係は `cli.predict` のためだけの別の実験（`trade_own_stopexit_a`）のまま | `trade_own_fwdmulti_a` の H1〜H4 ＋ X1 ＝ 1 人で予測 3 本。⚠ 同じ表に 40 日先のラベルがあるので、`cli.predict` の訓練は asof の 40 営業日前で切る（先 5 日の係でも同じ） |
+| 2-8-3 | **sim の写しと筋書き**。人数 × 予算が執行器の既定の上限 $1,000 を超えるなら `config/sim/simN.toml` に `max_total_budget_usd`（運転手が `--max-total-budget` ／ `--max-day-usd` に渡す ＝ `simrun.budget_args`。⚠ sim の中だけ。本番の上限は `live.env`） | `sim_<識別名>.toml`・`config/sim/sim7.toml` | 無い sim は 1 ビットも変わらない（黄金の集計値） | sim7 ＝ 4 人 × $300 ＝ $1,200 |
+| 2-8-4 | **作り置き → sim → 見るもの 3 つ**: ① 最短保有の中で売り係の出口% が θ を超えた日に売っていない（`events` の `hold` に `exit_muted: true`）② 損切り係で売った日（`stop_exit`。`orders` の `reason: "stop"`）③ 取引の回数が h_b の順（短いほど多い） | titan（`simpredict.py make sim7` → `./run-sim.sh sim7 --fresh --speed max --no-dashboard`） | 予測の時間は 1 本 33〜44 秒（表の組み立て）。本番で 3 本足すと線 60 秒を越える見込み ＝ 名簿に入れる前に 13500t で測る（プラン §8） | 作り置き 256 本・失敗 0・**1,232 秒**（8 並列）→ sim7 64 営業日 **21 秒**・注文 166 本 全部 Filled・検査 23,395 行 印なし 0。① ✅ 最短保有の中の売り係による売り 0（黙らせた日 4）② 損切り係で 17〜18 回 ③ ❌ 買い 24 ／ 23 ／ 23 ／ 23 ＝ 順にならない（売り 73 本のうち 71 本が損切り係・70 本は翌日買い戻し ＝ 机上 §3-1 と同じ）。[live-trading.md §0-7 (k) sim7](experiments/live-trading.md) |
+| 2-8-5 | **外部のタブ**: `models.toml` の `[[model]]`（同じモデルを別の表の実験名で使うなら既存の `[[model]]` に `also = [{ name, method }]`）・`traders.toml` の `[nicks]`・`[symbols_why]`。係の札・最短保有の文は `traderview.py` が設定から出す（文は `[common] role_* ／ roles_intro ／ roles_side_* ／ min_hold ／ min_hold_none ／ stop_blocks_buy`・一言は `[common.formal_hint] role ／ hold ／ combine_sides`） | `dashboard/*.toml`・`dashboard/traderview.py` | 役割の無い人は 1 文字も変わらない（`test_people_without_roles_do_not_change`）。⚠ `traderview.py` を直したら sidecar（3015）を入れ直す | `fwd5-gate` ／ `fwd20-gate` ／ `fwd40-gate`（経緯の数は DB の `own-trend.h*-gate*` と役割つきの組 `own-trend.roles-b*`）＋ `fwd10-gate` の `also` |
+| 2-8-6 | **テスト**: `test_trader.py`（候補が決めたとおり・sim の写しが一致・上限）・`test_simrun.py`（`budget_args`）・`test_roles.py`・`dashboard/tests`（係の札・`also`・「いま使っている」）・`./run-tests.sh --full`（黄金の集計値が**変わらない**） | — | 落ちたテスト: `test_role_defaults_and_existing_configs_have_no_roles`（直下の全員が役割なし、を見ていた → `sim_T7〜T10` だけ役割あり、に直す）／ `test_words_use_plain_language`（`also` の実験名の `own` を本文と読んだ → `FORMAL_KEYS` に `also`）／ `test_every_model_has_words_result_and_files`（`records` にプランを書いた → `docs/specs/` だけ） | 執行器 244 ✅・管理画面 279 ✅・`--full` ＝ Step 4-5 |
+
 ### 合成規則の決まり（`trader.py` の `COMBINE_RULES`。⚠ 執行器は変えない）
 
 | `combine` | 買い% | 出口% | 使える本数 |
@@ -121,7 +141,7 @@ flowchart LR
 | `majority` | θ 超えが過半なら 100、でなければ 0 | 同じ | 奇数本 |
 | `unanimous` | min（全員が θ 超えのときだけ買う） | max（1 本でも θ 超えなら売る） | 2 本以上 |
 
-- ✅ **2026-10-18 役割の口を執行器に足した**（[プラン trader-model-roles.md](../plans/trader-model-roles.md) Phase 3）: `[[models]] role`（both ／ buy ／ exit ／ stop ／ watch）・`combine_buy` ／ `combine_exit`・`min_hold_days`・`stop_blocks_buy`。役割の無い設定はこの表のまま 1 ビットも変わらない。役割のある人の書き方は「2-8」（Phase 4 で書く）。意味は [live-trading.md §0-1「役割と最短保有」](experiments/live-trading.md) とシステム説明「トレーダーのしくみ」の設定項目の一覧
+- ✅ **2026-10-18 役割の口を執行器に足した**（[プラン trader-model-roles.md](../plans/trader-model-roles.md) Phase 3）: `[[models]] role`（both ／ buy ／ exit ／ stop ／ watch）・`combine_buy` ／ `combine_exit`・`min_hold_days`・`stop_blocks_buy`。役割の無い設定はこの表のまま 1 ビットも変わらない。役割のある人の書き方は下の「2-8」（✅ 2026-10-19 Phase 4）。意味は [live-trading.md §0-1「役割と最短保有」](experiments/live-trading.md) とシステム説明「トレーダーのしくみ」の設定項目の一覧
 - **出口だけを言うモデル（損切りなど）は買い% を常に 100 で返し、`unanimous` で合わせる**（2026-09-27 利用者決定 K2）＝ 買いは主モデル・売りはどちらかが言ったら。⚠ `mean` に入れると買い% が半分になって使えない。⚠ 主モデルを 2 本以上入れると「全員が θ 超え」が買いの条件になる（意味が変わる）
 - 出口だけを言うモデルの実験 config は **`cli.predict` のためだけに 1 本**置く（例 `config/experiment/trade_own_stopexit_a.toml` ＝ 検知器 `X1`〜`X3`〔`ail/detectors/stop.py`〕。買い% 100・出口% ＝ 規則そのもの）。⚠ **queue に入れない**（検証ではない ＝ `n_trials` に数えない。机上の検証は「入口 ＝ 主モデル」の対の検知器で済ませる ＝ [rules.md 19-1 の 8](experiments/feature-discovery/rules.md)）。⚠ **主モデルとは別の実験名**（`signals.py` は `(model, symbol)` で行を引く）。人の設定では `[[models]]` の `method` で水準を 1 本選ぶ
 - 損切りモデルが買値を知る形（形 B）は執行器の変更が要る ＝ 10/20 の後（プラン §7 の道 1）。それまでに机上で載るのは買値を知らない形 A
@@ -132,6 +152,7 @@ flowchart LR
 | --- | --- | --- | --- | --- |
 | A `T4`（ハル）: いまの 3 本を `mean`・θ 50 | `config/traders/candidates/multi/T4.toml` | `config/traders/sim_T4.toml` | `dashboard/traders.toml` の `[nicks]`・`[symbols_why]`（モデルの解説は既存の 3 本） | `tests/test_trader.py` `test_multi_candidates_parse_and_are_wired_as_decided`・`test_sim_copies_match_the_multi_candidates` |
 | B `T5`（ミオ）: 主モデル ＋ 損切りモデルを `unanimous`・θ 50 | `config/traders/candidates/multi/T5.toml` | `config/traders/sim_T5.toml` | 同上 ＋ `dashboard/models.toml` の `[[model]] id = "stop-exit"`（経緯の数は研究の DB の対の検知器の行 3 ／ 21 ／ 9 と一致 ＝ `test_real_history_matches_the_db`） | 同上 ＋ `test_unanimous_with_exit_only_model_buys_on_the_main_model` |
+| 役割 `T7`〜`T10`（リン ／ ユウ ／ ナギ ／ レン）: 買い係 ＋ 売り係（同じ実験の別の手法）＋ 損切り係・最短保有・θ 50（✅ 2026-10-19 Phase 4 ＝ 2-8） | `config/traders/candidates/horizon/T7〜T10.toml` | `config/traders/sim_T7〜T10.toml`・`config/sim/sim7.toml` | `traders.toml` の `[nicks]`・`[symbols_why]`・`[common] role_* ／ roles_intro ／ min_hold`・`models.toml` の `fwd5-gate` ／ `fwd20-gate` ／ `fwd40-gate` ＋ `fwd10-gate` の `also` | `test_horizon_candidates_are_wired_as_decided`・`test_horizon_sim_copies_match_and_sim7_lifts_the_total_budget`・`test_budget_args_come_only_from_the_sim_config`・`dashboard/tests` の `test_roles_*`・`test_real_horizon_*` |
 
 - 2-2 で分かったこと: **`combine` の文の正本（`traders.toml` の `combine_unanimous`）が「売りも同じ」になっていた**（unanimous の売りは max ＝ どれか 1 本）。出口だけのモデルを合わせる形を書いて初めて気づいた ＝ 2026-09-28 に直した（`dashboard/tests/test_traders_tab.py` `test_candidate_in_another_group_is_listed`）
 - 2-5 で分かったこと: vibeboard のトレーダーのタブは `candidates/notional/` しか読んでいなかった → `candidates/*/` に広げた（`traderview.candidate_files`。同じ識別名が 2 つの組に居れば先の組）。⚠ 候補の人が使うモデルは予測モデルのタブで「いま使っている」の束に入る（使う人に「（未確定）」が付く）

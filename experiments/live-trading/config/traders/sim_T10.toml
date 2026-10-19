@@ -1,0 +1,36 @@
+# シミュレーションの試験用トレーダー sim_T10（live-trading.md §0-7 (k)・sim7）＝ 候補 `candidates/horizon/T10.toml` の写し
+# （モデル・役割・θ・最短保有・銘柄・sizing・予算は替えない。違いは `name` と `test = true` だけ）。
+# ⚠ `kind = "experiment"` ＝ 運転手が置く `sim/<名前>/out/<仮の日付>/predict.jsonl`（`simpredict.py make sim7` の作り置き）を読む。
+# ⚠ 日付は仮・値段は過去の実物 ＝ 損益に意味は無い（判定に混ぜない）。⚠ 名前は `sim_` 始まり（simdata が拒む）。
+# ⚠ 候補を直したらこの写しも直す（tests/test_trader.py が中身の一致を見る）。
+
+name = "sim_T10"
+test = true
+budget_usd = 300.0                  # 規模 A の 1 人分と同じ（⚠ 本番に入れるなら合計の上限を利用者が決める）
+symbols = ["T", "PFE", "NKE", "VZ", "BAC"]
+sizing = "shares"
+combine = "asis"                    # 買いの側 1 本・売りの側 1 本（損切り係は別の口 ＝ 言えば降りる）
+threshold = 50.0
+min_hold_days = 5                 # 建ててから 5 営業日は売り係を読まない（買い係が見た先の期間 ＝ プラン §1）
+note = "先の期間が違う 3 係: 買い係 先 5 日 ／ 売り係 先 20 日 ／ 損切り係 高値 20 日から −10%。最短保有 5 営業日。種 0"
+
+# 買い係（先 5 営業日）
+[[models]]
+kind = "experiment"
+name = "trade_own_fwdmulti_a"
+method = "H2 先5日ゲート（全列・学習）"
+role = "buy"
+
+# 売り係（先 20 営業日。最短保有の後だけ読む）
+[[models]]
+kind = "experiment"
+name = "trade_own_fwdmulti_a"
+method = "H3 先20日ゲート（全列・学習）"
+role = "exit"
+
+# 損切り係（毎日読む。T5 と同じ 1 本 ＝ 買い% は常に 100）
+[[models]]
+kind = "experiment"
+name = "trade_own_stopexit_a"
+method = "X1 出口だけ 高値20日から−10%で降りる"
+role = "stop"

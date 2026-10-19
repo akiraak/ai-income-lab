@@ -1,0 +1,9 @@
+# ⚠ **先 5 ／ 10 ／ 20 ／ 40 日の単体 ＋ 損切り係 X1 単体**（rules.md 25 章 Phase 1・記録 horizon-roles-trader.md §0。
+# 利用者決定 2026-10-18「推す案でいく」）。事前固定は記録 §0（⚠ **回すと決めたのは結果を見る前**）。
+# 1 本 × 検知器 5 × θ 3 ＝ n_trials ＋15（840 → 855）。表はこの 1 本が持ち主（先に `cli.build` で作る。記録 §0-4）。
+experiments = ["trade_own_fwdmulti_a"]
+
+leak = true              # ⚠ 配線の穴に気づく唯一の手。切らない
+ledger = false           # ⚠ 検証結果一覧は終わってから 1 回吐く
+max_failures = 1
+time_budget_s = 3600     # ⚠ 見積り 3〜5 分【推測。fwd × Ridge 1 本 約 1 分（2026-09-27 の実測）× 検知器 5 ＝ 本番 ＋ leak】

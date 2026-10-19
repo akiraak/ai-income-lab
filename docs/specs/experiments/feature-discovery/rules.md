@@ -1763,6 +1763,50 @@ flowchart LR
 
 ⚠ **2026-10-18 の適用例 3（回した結果）**: 採る 0 ／ 保留 0 ／ 落とす 6（`n_trials` 834 → **840**。記録は [transform-into-detectors.md §3](../transform-into-detectors.md)）。上乗せ −278〜−640bp/fold（変換なしの `fwd` × LightGBM −110〜−877）。⚠ **Ridge と違い買い% は動いた**が、対の差は \|t\| < 1.6（PCA −182 ／ −430 ／ ＋237・ウェーブレット −91 ／ −151 ／ −339bp）で、大きな差は 1 つの fold から来ている。leak は 2 本とも跳ねた。⚠ 「変換の列の情報」と「列の抽出の乱数」は分けていない（予想に書いたとおり）。
 
+## 25. ⚠ 先の期間が違う「買い係 ／ 売り係 ／ 損切り係」を 1 人に持たせる（2026-10-18）
+
+TODO「新しいトレーダーを作成する」。利用者の決定（2026-10-18）: **「モデルは特定の期間を保有した場合に買いと判断するモデルと、それとは別の期間で売りと判断するモデルと、損切りモデル。期間を別々にすることが大切です」**「複数パターンを作ってシミュレートする。何日にするかは任せる」・最短保有 ＝ 買い係の期間 ／ 入力は T1 と同じ own 35 列 × Ridge ／ 机上で 3 係の形を先に回す（「A」）→「推す案でいく」。プランは [trader-model-roles.md](../../../plans/trader-model-roles.md)、記録は [horizon-roles-trader.md](../horizon-roles-trader.md)。
+⚠ **この章は結果を見る前に書いた。** 13 章の状態機械・14 章の物差し・20 章の判定（対「持ち続ける」）は 1 行も変えない。足すのは ① 先 5 ／ 20 ／ 40 日の検知器（新しい登録名）と列の絞り ② 役割つきの合わせる口 ③ `simulate` ／ `simulate_topk` の最短保有と「毎日読む出口」の 2 口、だけである。
+
+> この図の主張: 買い% は買い係から、出口% は売り係から、毎日読む出口は損切り係から取り、状態機械は最短保有の中では売り係を読まない。
+
+```mermaid
+flowchart LR
+  B["買い係 H* 先 b 日<br/>（role = buy）"] -->|"買い%"| SM["状態機械（13-4）<br/>＋ min_hold_days ＝ b<br/>＋ stop_exit_pct"]
+  E["売り係 H* 先 e 日<br/>（role = exit）"] -->|"出口% ＝ 100 − 買い%<br/>⚠ 建ててから b 本は読まない"| SM
+  S["損切り係 X1 −10%<br/>（role = stop）"] -->|"毎日読む出口%"| SM
+  SM --> J["判定 ＝ 20 章のまま<br/>（対 持ち続ける）"]
+```
+
+### 25-1. 先の期間の検知器（Phase 1）
+
+| # | 規約 | ⚠ 理由・限界 |
+| ---: | --- | --- |
+| 1 | 先 5 ／ 20 ／ 40 営業日は**新しい登録名** `H2 先5日ゲート（全列・学習）`・`H3 先20日ゲート（全列・学習）`・`H4 先40日ゲート（全列・学習）`（`ail/detectors/fwd.py` の `EXTRA_WINDOWS`）。中身は `forward_gate(w)` ＝ H1 と同じ（表の説明変数 → 標準化 → `ctx["model"]` → Platt。較正の holdout は w 営業日ぶんパージ）。⚠ `H1`・`WINDOW` は 1 文字も変えない（10-1） | 期間は 1 つずつが自由度 ＝ 登録名を分けて全部数える（14-9） |
+| 2 | **列の絞り** `[model_args] fwd_columns = "own"`（ctx 経由）: `own_trend*` の列を見ない ＝ 入口と同じ own 35 列。`LEAK_` はそのまま入る。⚠ **項目の無い config は 1 ビットも変わらない**（この経路は 13500t の毎日の予測も通る ＝ 指紋 `tests/fixtures/fwd_fingerprint.json`） | 損切り係 X1 が高値 20 日の列を読むので表に `trend` 層が要るが、買い係・売り係に見せると「列が 35 → 41 に増えた」軸が混ざる |
+| 3 | 表は 1 枚 `trade_own_fwdmulti_a`（own ＋ trend〔窓 20〕・`label_scales = [5, 10, 20, 40]`・2018-01-31 から・63 銘柄・パージ 60 日）。⚠ **3 係とも同じ表に載せる** ＝ 合わせる口のメンバーの切れ目が同じ（20-6 の 4 の 2）。別の実験（`trade_own_stopexit_a` など）から読まない | 切れ目は表の日付の範囲で決まる（`date_edges`）＝ 尻の長さが違う表は混ぜられない |
+| 4 | 数え方: H1〜H4 × θ 3 ＝ 12（⚠ H1 の 3 行は既存の own 表の行と**層が違う**〔own ＋ trend〕ので新しい識別項目 ＝ 数える）＋ X1 単体（買い% 100 ＝ 持ち続ける ＋ 損切り）× θ 3 ＝ 3 → **＋15**。leak 対照は数えない | 回したものは全部数える（14-10） |
+
+### 25-2. 役割つきの合わせる口（Phase 2。⚠ 回す前に固定）
+
+| # | 規約 |
+| ---: | --- |
+| 1 | `[[trading.mix]]` に `combine = "roles"` を足す。メンバーは `role`（`buy` ／ `exit` ／ `stop`）を持ち、買い係 1 本以上・売り係 1 本以上・損切り係 0 本以上（`experiment` を省く ＝ この実行の手法。⚠ 25-1 の 3 により外の実験は使わない）。`min_hold_days`（1 以上の整数。無ければ None） |
+| 2 | 買い% ＝ 買い係の買い% の平均 ／ 出口% ＝ 売り係の（出口% を返さなければ 100 − 買い%）の平均 ／ 毎日読む出口% ＝ 損切り係の出口% の最大（0 本なら None）。⚠ 既存の `combine = "mean"` は 1 ビットも変わらない |
+| 3 | `simulate(..., min_hold_days=d, stop_exit_pct=s)`・`simulate_topk(..., min_hold_days=d, stop_exit_pct=s)`: 保有中の足 t で、`t − opened < d` なら `exit_pct` を読まない。`stop_exit_pct[t] > 売る線` は d に関わらず読む。⚠ **どちらも省けば 1 ビットも変わらない**（既存の全行がこの枝を通らない ＝ 既定経路の指紋） |
+| 4 | 役割つきの手法の行は、ほかの手法と同じ `_row`（13 章）とトレーダーの形（20 章）を通る。⚠ 乱択の診断（20-3 の 3）は (買い%, 出口%, 毎日読む出口%) の 3 つ組を同じ並べ替えで壊す ／ 逆売買の診断は最短保有と毎日読む出口をそのまま渡す（診断。採否に使わない） |
+| 5 | 手法名と綴り（`config/names.toml` の `[mix]`）: `R1 買い先10日・売り先5日・損切り` ＝ `roles-b10-e5` ／ `R2 買い先20日・売り先5日・損切り` ＝ `roles-b20-e5` ／ `R3 買い先40日・売り先10日・損切り` ＝ `roles-b40-e10` ／ `R4 買い先5日・売り先20日・損切り（対照）` ＝ `roles-b5-e20`。検証結果一覧の系統は「合成」。`fitted_doc[手法]` に `combine: "roles"`・メンバーの役割・`min_hold_days` |
+| 6 | 組（事前固定。プラン §2）: (買い b, 売り e, 最短保有 d ＝ b) ＝ (10, 5, 10)・(20, 5, 20)・(40, 10, 40)・(5, 20, 5)〔対照 ＝ 向きが逆〕。損切り係は 4 組とも X1 −10%。⚠ **結果を見て組を足さない・d を動かさない** |
+| 7 | トレーダーの形の条件（20-2）: 2a ＝ **5 本・$600**（⚠ 2026-10-04 に 1 人 $600 になったので、20-2 の「いまの人の条件」を $600 に更新して固定。綴り `tr5`。手法名 `〔トレーダー・5本・$600〕`）／ 2b ＝ 全銘柄を買える予算。θ ＝ 50 だけ（人の設定の 1 水準）。条件は合成の行にだけ当てる（`methods`。20-6 の 4 の 5） |
+| 8 | 数え方: 組 4 × （素の行 1 ＋ 条件 2）＝ **＋12**（単体の行は 25-1 の実行の識別項目にまとまる ＝ 再現の検算）。Phase 1 と合わせて **＋27（840 → 867）** |
+
+### 25-3. ⚠ 先に書く予想と読み方
+
+⚠ **事前に書く予想【推測】**: ① 単体 H1〜H4 は 12 行とも採る 0（先 10 日と同じ向き ＝ AUC 0.49〜0.51・門前が多い）。X1 単体は「持ち続ける」から損切りのぶん下がる（stoploss-as-model.md と同じ向き）② 役割つき 4 組は採る 0。2a の上乗せは正が多いが、1 つの fold（全員がほぼ現金だった下げの時期）から来る（20-6 の適用例と同じ形）③ 取引の回数は b が長いほど減る（R3 が最少）。保有の中央値は最短保有 d に張り付く（d より少し上）④ 対照 R4（5 ／ 20）は R1〜R3 より取引が多く、上乗せは下回る ⑤ leak 対照は全部跳ねる（`LEAK_fwd_W` が買い係・売り係に直接届く）。
+読み方: 判定は 20-3 のまま（対 持ち続ける）。添えるのは 取引の回数・保有の中央値・損切り係で降りた回数（`fitted_doc` ではなく `holds.csv` から）・R1〜R3 と R4 の向き。⚠ **この結果で実売買の 3 人を止めない・替えない・組を選び直さない・順位で人を採らない**（20-5 の 5）。
+
+⚠ **2026-10-18 の適用例（回した結果）**: 採る 0 ／ 保留 5 ／ 落とす 22（`n_trials` 840 → **867**。記録は [horizon-roles-trader.md §1〜§4](../horizon-roles-trader.md)）。単体 H2 θ55 ＋119・H4 θ55 ＋93・H4 θ50 ＋77bp/fold（fold 3/5）・4 本とも門前。役割つきは素の行・2b が 8 行とも落とす、2a は R1 ＋69・R3 ＋117（fold 3/5・t ≤ 0.42）が保留。⚠ **4 組とも fold 2・4・5 の数字が同じ**（買い% の幅が潰れ、売買を決めたのは損切り係だけ）／ **保有 1 日の取引が約 6 割**（損切り係が出口を言う日に買い係が買い、翌日売る往復 ＝ 本番の `unanimous` でも同じ）。予想は 6 つのうち 4 つ当たり・2 つ半分（保有の中央値は d に届かず 1〜2 日）。⚠ 直す口（「損切り係が言っている日は買わない」）は新しい処置として先に登録してから（14-10）。
+
 ## 付録: 本書と実装の対応
 
 ⚠ **試した結果の一覧は [ledger.md](ledger.md)**（`cli/report.py --catalog` の生成物）。
@@ -1795,5 +1839,6 @@ flowchart LR
 | ⚠ **22** | `cli/run.py` の `next_open_returns`（調整済み日足の始値を (銘柄, 日) で継ぐ）・`evaluate_trading`（損益の系列 `y_pnl`。⚠ **`execution` が無ければ `y` ＝ 既存と完全一致**）／ 識別項目 = `ail/catalog.py` の `threshold_style` ／ 綴り `~exec-open` = `config/names.toml` の `[execution]` ／ テスト `tests/test_next_open.py` |
 | ⚠ **23** | `ail/search/evolve.py` の `fitness_of`・`xs_rho`・`worst_blocks`（既定 `pooled` は既存の `fitness` そのまま）・`tf_symbolic`（`ctx` の `fitness`・`ts_tr`）＋ `ail/validation/prep.py` の `apply`・`label`（〔適合度・…〕）＋ `cli/run.py` の `fold_buy_pct`・`ail/validation/gate.py`（日付を渡す）／ 識別項目 = `ail/catalog.py` の `canonical` ／ 綴り = `config/names.toml` の `[fitness]` ／ テスト `tests/test_ga_fitness.py` |
 | ⚠ **24** | `ail/validation/prep.py` の `augment`（⚠ **`transform` が無ければ同じオブジェクトを返す**）＋ `cli/run.py` の `fold_buy_pct`（検知器の枝の頭）・`ail/validation/gate.py` の `_fold_detectors` ／ 鍵 = `ail/catalog.py` の `canonical`（`_DETECTOR_PART`）／ 綴り = `ail/names.py` の `_ID_DETECTOR` ／ テスト `tests/test_transform_detector.py`（指紋は `tests/fixtures/fwd_fingerprint.json`） |
+| ⚠ **25** | `ail/detectors/fwd.py` の `EXTRA_WINDOWS`・`name_of`・`fwd_columns`（ctx。⚠ **項目が無ければ全列 ＝ 既存と完全一致**）／ 25-2 ＝ `ail/validation/simulate.py` の `simulate`・`simulate_topk`（任意引数 `min_hold_days`・`stop_exit_pct`。⚠ **省くと既存と完全一致**）＋ `cli/run.py` の `mix_specs`・`_mix_fold`（`combine = "roles"`）・`_row`・`_trader_fold`（手法ごとの口を渡す）／ 綴り ＝ `config/names.toml` の `[method]`（`h2-gate5` ほか）・`[mix]`（`roles-*`）／ config `trade_own_fwdmulti_a`・`trader_roles_t7〜t10`・queue `horizon_roles1`・`horizon_roles2` ／ テスト `tests/test_fwd.py`（5 節）・`tests/test_roles_mix.py` |
 | ⚠ **14-12** | `ail/models/tuned.py`（候補・尻・champion・学び直し。Phase 1）＋ `ail/models/trees.py`・`deep.py`（ctx から読む。⚠ **既定はいまの定数と同じ ＝ 既存の config は指紋が動かない**）＋ `cli/run.py` の `fold_buy_pct`（記録の拾い）・`ail/validation/gate.py`（記録を捨てる）／ 綴り = `config/names.toml` の `[learner]`（`ridge-tuned`・`lgbm-tuned`・`mlp-tuned`）／ テスト `tests/test_tuned.py`（いずれも Phase 1。プラン [hyperparam-inner-selection.md](../../../plans/archive/hyperparam-inner-selection.md)）。⚠ **14-12-3**（1 度選んで配る）: `tuned.py` に `<モデル>（内側選抜・1 度）`・`cli/run.py` の `fold_buy_pct` が較正の前に選んで ctx で配る・`names.toml` に `*-tuned-once`・config `trade_own_*_tuned_once_a`・queue `hp_inner_once`・`tests/test_tuned.py` に 6 本（Phase 4） |
 | ⚠ **検証結果一覧** | `ail/catalog.py` ／ `cli/ledger.py` ／ `config/legacy.toml` ／ `config/catalog_notes.toml` |

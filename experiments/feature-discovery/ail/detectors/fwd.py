@@ -23,11 +23,18 @@ import pandas as pd
 from sklearn.preprocessing import StandardScaler
 
 from ail.detectors.scale import _fit_calibration
-from ail.features import labels
+from ail.features import labels, trend
 from ail.registry import register
 
 # ⚠ **窓は事前固定**（K4）。5 日（cGAN）と 20 日（D1）のあいだの空白。増やすときは新しい登録名で足す
 WINDOW = 10
+# ⚠ **2026-10-18 に先 5 ／ 20 ／ 40 日を新しい登録名で足した**（rules.md 25 章 ＝ 買い係・売り係で先の期間を分ける人。
+#    記録 horizon-roles-trader.md §0）。⚠ `WINDOW`・`H1 …` は 1 文字も変えない（登録名は記録の識別項目 ＝ rules.md 10-1）
+EXTRA_WINDOWS = {"H2": 5, "H3": 20, "H4": 40}
+# ⚠ **列の絞り**（rules.md 25-1 の 2）: `ctx["fwd_columns"]`（config の `[model_args] fwd_columns`）が "own" なら、
+#    損切りの規則のためだけに表に入っている高値 20 日の列（`own_trend*`）を見ない ＝ 入口と同じ own 35 列。
+#    無ければ今までどおり表の全列（⚠ 項目の無い config は 1 ビットも変わらない ＝ 指紋テスト）
+COLUMNS_OWN = "own"
 
 
 def forward_gate(w: int, tr: pd.DataFrame, te: pd.DataFrame, feats, ctx: dict):
@@ -37,6 +44,11 @@ def forward_gate(w: int, tr: pd.DataFrame, te: pd.DataFrame, feats, ctx: dict):
         raise SystemExit(f"⚠ {target} が表に無い。config の `label_scales` に {w} を入れて `cli.build` し直す")
     # ⚠ **説明変数は表の全部**（`feats` は呼ぶ側が META を外して渡す ＝ `y_fwd_` は接頭辞ごと外れている）
     cols = [c for c in feats if not c.startswith(labels.SCALE_PREFIX)]
+    which = ctx.get("fwd_columns")
+    if which == COLUMNS_OWN:
+        cols = [c for c in cols if not c.startswith(f"{trend.PREFIX}trend")]   # ⚠ `LEAK_` の列はそのまま残る（13-10）
+    elif which not in (None, "all"):
+        raise SystemExit(f"⚠ fwd_columns = {which!r} は受けない（\"own\" か \"all\"。rules.md 25-1 の 2）")
     # ⚠ **末尾はラベルが取れない行**（表の尻）。訓練からだけ落とす（検証の行はラベルを使わない）
     ok = tr[target].notna().to_numpy()
     tr_ok = tr.loc[ok]
@@ -47,7 +59,7 @@ def forward_gate(w: int, tr: pd.DataFrame, te: pd.DataFrame, feats, ctx: dict):
     ytr = tr_ok[target].to_numpy(dtype=float)
     cal = _fit_calibration(model, Xtr, ytr, tr_ok["ts"], w, ctx)   # ⚠ w 営業日ぶんパージした holdout で較正
     pred = model(Xtr, ytr, Xte, ctx)
-    doc = {"scale": w, "target": target, "columns": cols,
+    doc = {"scale": w, "target": target, "columns": cols, "fwd_columns": which or "all",
            "訓練の行": int(len(tr_ok)), "上がる割合": round(float((ytr > 0).mean()), 4), **cal.doc}
     return cal.buy_pct(pred), doc
 
@@ -55,3 +67,20 @@ def forward_gate(w: int, tr: pd.DataFrame, te: pd.DataFrame, feats, ctx: dict):
 @register("detector", f"H1 先{WINDOW}日ゲート（全列・学習）")
 def h1_forward10(tr, te, feats, ctx):
     return forward_gate(WINDOW, tr, te, feats, ctx)
+
+
+def name_of(tag: str, w: int) -> str:
+    return f"{tag} 先{w}日ゲート（全列・学習）"
+
+
+def _register_extra(tag: str, w: int) -> None:
+    @register("detector", name_of(tag, w))
+    def _h(tr, te, feats, ctx, _w=w):
+        return forward_gate(_w, tr, te, feats, ctx)
+
+
+for _tag, _w in EXTRA_WINDOWS.items():
+    _register_extra(_tag, _w)
+
+EXTRA_NAMES = tuple(name_of(t, w) for t, w in EXTRA_WINDOWS.items())
+

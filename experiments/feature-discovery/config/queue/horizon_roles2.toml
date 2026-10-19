@@ -1,0 +1,9 @@
+# ⚠ **役割つきの合わせる口 4 組**（rules.md 25-2 Phase 2・記録 horizon-roles-trader.md §0。利用者決定 2026-10-18「推す案でいく」）。
+# 事前固定は記録 §0（⚠ **回すと決めたのは結果を見る前。4 本全部か回さないか**）。
+# 4 本 × （素の行 1 ＋ 条件 2）＝ n_trials ＋12（855 → 867）。表は作り直さない（`features_from`。leak 対照の表も既にある）。
+experiments = ["trader_roles_t7", "trader_roles_t8", "trader_roles_t9", "trader_roles_t10"]
+
+leak = true              # ⚠ 配線の穴に気づく唯一の手。切らない
+ledger = false           # ⚠ 検証結果一覧は終わってから 1 回吐く
+max_failures = 1
+time_budget_s = 3600     # ⚠ 見積り 10 分【推測。fwd × Ridge 2 本 ＋ X1 ＋ 合成 ＝ 1 本 約 1 分 × 本番 4 ＋ leak 4】

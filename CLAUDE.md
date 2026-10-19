@@ -250,6 +250,17 @@ cd experiments/feature-discovery
 - 識別項目: 手法名「変換名 ＋ 検知器名」・鍵は **「ID ＋ 検知器名」**（`F4-1 ＋ H1 …`。残さないと GA × Ridge の行とまとまって数え落とす）・予測モデル名 `own.f4-1-h1-gate10.ridge.shared`
 - 結果: GA の 3 行とも落とす（n_trials 798 → 801。`fwd` のみとの対の差は |t| < 1.6）→ ✅ **Phase 3（残り 5 変換 × `fwd`。queue `transform_detector3`。利用者「進めて」）も 15 行とも落とす**（801 → 816）。⚠ **線形の変換（PCA・ウェーブレット）は `fwd` × Ridge の買い% を 1 ビットも変えない**（入力の線形結合を足しても空間が同じ）＝ 線形 × 線形の組はこの「足す」口では試していないのと同じ。試すなら非線形の学習器か「置き換える」口を新しい処置として先に登録する → ✅ **2026-10-18 に非線形の学習器のほう（PCA ／ ウェーブレット × `fwd` × LightGBM。queue `transform_detector_lgbm`・1 分 50 秒【実測】）を回し、6 行とも落とす**（834 → 840）。買い% は動いたが対の差は |t| < 1.6・1 つの fold で決まる。⚠ 列の抽出 0.8 の乱数が列の数で変わるので「変換の列の情報」とは分けられない。記録は `docs/specs/experiments/transform-into-detectors.md`（§1 GA・§2 Phase 3・§3 LightGBM）
 
+### experiments/feature-discovery の先の期間が違う「買い係 ／ 売り係 ／ 損切り係」（2026-10-18 利用者決定「期間を別々にすることが大切」）
+
+```bash
+cd experiments/feature-discovery
+.venv/bin/python -m cli.queue --config horizon_roles1   # 単体: H1〜H4 先 10 ／ 5 ／ 20 ／ 40 日 ＋ X1 損切り係 × own 35 列 × Ridge（本番 1 ＋ leak 1。16 秒【実測】）
+.venv/bin/python -m cli.queue --config horizon_roles2   # 役割つき 4 組 R1〜R4 × 条件 2（本番 4 ＋ leak 4。1 分 10 秒【実測】）。⚠ 回し直すと同じ識別項目の実行が増えるだけ
+```
+
+- 口は 3 つ（rules.md 25 章）。**無い config は 1 ビットも変わらない**: 先 W 日の検知器の新しい登録名 `H2 先5日 ／ H3 先20日 ／ H4 先40日ゲート（全列・学習）`（`fwd.EXTRA_WINDOWS`。⚠ `H1`・`WINDOW` は変えない）＋ 列の絞り `[model_args] fwd_columns = "own"`（`own_trend*` を見ない）／ `[[trading.mix]] combine = "roles"`（メンバーに `role = buy ／ exit ／ stop`・`min_hold_days`。⚠ メンバーはこの実行の手法だけ ＝ 表 1 枚 ＝ 切れ目が同じ）／ `simulate` ／ `simulate_topk` の `min_hold_days`（建ててから d 本は出口% を読まない）・`stop_exit_pct`（毎日読む出口%）
+- 結果: **採る 0 ／ 保留 5 ／ 落とす 22**（n_trials 840 → 867）。⚠ **損切り係 X1（高値 20 日から −10%）が出口を言う日に買い係が買い、翌日売り、翌日また買う往復が取引の約 6 割**（保有の中央値 1〜2 日 ＝ 最短保有に届かない。本番の `unanimous` でも同じ動き）。⚠ fold 2・4・5 は 4 組とも同じ数字（買い% の幅が潰れ、売買を決めたのは損切り係だけ）＝ 期間の良し悪しはこの表では測れない。⚠ 直すなら「損切り係が言っている日は買わない」を**新しい処置として登録してから**（14-10）。記録は `docs/specs/experiments/horizon-roles-trader.md`・プランは `docs/plans/trader-model-roles.md`（候補の人 `T7`〜`T10` ＝ リン ／ ユウ ／ ナギ ／ レン。執行器の `role`・`min_hold_days` は Phase 3 ＝ 11/4 の後）
+
 ### experiments/feature-discovery のハイパーパラメータを訓練分割の内側で選ぶ段（2026-10-09 利用者決定 B「内側の選抜」）
 
 ```bash

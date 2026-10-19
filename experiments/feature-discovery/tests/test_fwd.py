@@ -136,3 +136,52 @@ def test_existing_detector_names_are_untouched():
                  "D4 合成ゲート（3スケール平均）", "C1 短期 SMA20 フィルタ", "C2 中期 SMA60 フィルタ",
                  "C3 長期 SMA200 フィルタ"):
         assert want in have
+
+
+# --- 5. 先 5 ／ 20 ／ 40 日の登録名と列の絞り（rules.md 25 章。2026-10-18） ---------------------------------
+
+def test_extra_windows_are_registered_and_h1_untouched():
+    """新しい登録名 3 つが解けて、`H1` と `WINDOW` は変わっていない（rules.md 10-1）。"""
+    assert fwd.WINDOW == 10 and NAME == "H1 先10日ゲート（全列・学習）"
+    assert fwd.EXTRA_WINDOWS == {"H2": 5, "H3": 20, "H4": 40}
+    for n in fwd.EXTRA_NAMES:
+        registry.resolve("detector", n)
+    assert fwd.EXTRA_NAMES == ("H2 先5日ゲート（全列・学習）", "H3 先20日ゲート（全列・学習）", "H4 先40日ゲート（全列・学習）")
+
+
+def _panel_multi(leak=False):
+    """`y_fwd_5` と `own_trend20_dd`（損切り係の列の代役）を持つ合成パネル。"""
+    p = _panel(leak=leak)
+    rng = np.random.default_rng(1)
+    p["own_trend20_dd"] = -np.abs(rng.normal(0, 0.05, len(p)))
+    y5 = []
+    for _s, g in p.groupby("symbol", sort=False):
+        lc = np.log(g["close"].to_numpy())
+        y5.append(pd.Series(np.r_[lc[5:] - lc[:-5], [np.nan] * 5], index=g.index))
+    p["y_fwd_5"] = pd.concat(y5)
+    return p
+
+
+def test_fwd_columns_own_drops_trend_columns_and_keeps_leak():
+    """`ctx["fwd_columns"] = "own"` で `own_trend*` を見ない。`LEAK_` はそのまま入る（13-10）。無ければ全列（既存どおり）。"""
+    p = _panel_multi(leak=True)
+    tr, te = _split(p)
+    feats = [c for c in _feats(p) if c not in ("y_fwd_5",)]
+    _, doc_all = fwd.forward_gate(5, tr, te, feats, _ctx())
+    assert "own_trend20_dd" in doc_all["columns"] and doc_all["fwd_columns"] == "all"
+    _, doc_own = fwd.forward_gate(5, tr, te, feats, {**_ctx(), "fwd_columns": "own"})
+    assert "own_trend20_dd" not in doc_own["columns"] and doc_own["fwd_columns"] == "own"
+    assert any(c.startswith("LEAK_fwd_") for c in doc_own["columns"])
+    assert all(c in doc_all["columns"] for c in doc_own["columns"])
+    with pytest.raises(SystemExit):
+        fwd.forward_gate(5, tr, te, feats, {**_ctx(), "fwd_columns": "trend"})
+
+
+def test_h2_uses_its_own_window_label():
+    """`H2 先5日ゲート` は `y_fwd_5` を学ぶ（`y_fwd_10` は要らない）。買い% は 0〜100・検証の行数ぶん。"""
+    p = _panel_multi()
+    tr, te = _split(p)
+    fn = registry.resolve("detector", fwd.name_of("H2", 5))
+    bp, doc = fn(tr, te, _feats(p), _ctx())
+    assert len(bp) == len(te) and np.nanmin(bp) >= 0 and np.nanmax(bp) <= 100
+    assert doc["target"] == "y_fwd_5" and doc["scale"] == 5

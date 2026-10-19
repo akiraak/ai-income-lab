@@ -97,7 +97,7 @@ def _fold_detectors(panel, feats, exp, methods, per, edges, v, ctx) -> None:
         # ⚠ **`transform` の無い config は同じオブジェクトが返る ＝ 1 ビットも変わらない**
         head, hold, feats_f, _ = prep.augment(exp, head, hold, feats, ctx)
         for n, fn in methods.items():
-            buy = np.asarray(fn(head, hold, feats_f, ctx)[0], dtype=float)
+            buy = np.asarray(fn(head, hold, feats_f, ctx)[0], dtype=float)   # ⚠ 門は買い% だけ読む（4 つ返す検知器も同じ ＝ 25-5 の 2）
             tuned.drain(ctx)                           # 検知器が内側選抜のモデルを呼んでも取り残さない
             per[n]["auc"].append(_auc(yv, buy))
             per[n]["width"].append(round(float(np.percentile(buy, 95) - np.percentile(buy, 5)), 4))

@@ -185,3 +185,53 @@ def test_h2_uses_its_own_window_label():
     bp, doc = fn(tr, te, _feats(p), _ctx())
     assert len(bp) == len(te) and np.nanmin(bp) >= 0 and np.nanmax(bp) <= 100
     assert doc["target"] == "y_fwd_5" and doc["scale"] == 5
+
+
+# --- 25-5. H5: 1 本で買い% と保有日数を出す ----------------------------------------------
+
+def _panel_pick(leak=False):
+    """`y_fwd_5 ／ 10 ／ 20 ／ 40` を持つ合成パネル（H5 は 4 本の期間のラベルが要る）。"""
+    p = _panel(leak=leak)
+    for w in (5, 20, 40):
+        col = []
+        for _s, g in p.groupby("symbol", sort=False):
+            lc = np.log(g["close"].to_numpy())
+            col.append(pd.Series(np.r_[lc[w:] - lc[:-w], [np.nan] * w], index=g.index))
+        p[f"y_fwd_{w}"] = pd.concat(col)
+    return p.dropna().reset_index(drop=True)
+
+
+def test_h5_returns_buy_hold_and_zero_exit_and_leaves_h1_untouched():
+    """4 つ返す（買い%, 出口% 0, 保有日数 ∈ {5,10,20,40}, 記録）。買い% は 4 本の最大・保有日数は最大だった期間（rules.md 25-5 の 1・2）。"""
+    assert fwd.PICK_WINDOWS == (5, 10, 20, 40) and fwd.WINDOW == 10
+    fn = registry.resolve("detector", fwd.PICK_NAME)
+    p = _panel_pick()
+    tr, te = _split(p)
+    ctx = _ctx()
+    bp, ep, hd, doc = fn(tr, te, _feats(p), ctx)
+    assert len(bp) == len(ep) == len(hd) == len(te)
+    assert np.all(ep == 0.0) and set(np.unique(hd)) <= {5, 10, 20, 40}
+    # 4 本を別々に出して最大と突き合わせる（同じ ctx・同じ学び方）
+    singles = {w: np.asarray(fwd.forward_gate(w, tr, te, _feats(p), _ctx())[0], dtype=float) for w in fwd.PICK_WINDOWS}
+    stack = np.vstack([singles[w] for w in fwd.PICK_WINDOWS])
+    np.testing.assert_allclose(bp, stack.max(axis=0))
+    np.testing.assert_array_equal(hd, np.asarray(fwd.PICK_WINDOWS)[np.argmax(stack, axis=0)])
+    assert doc["windows"] == [5, 10, 20, 40] and sum(doc["選んだ期間の分布"].values()) == len(te)
+    assert fwd.HOLD_KEY not in ctx                       # 検知器は ctx に置かない（置くのは fold_buy_pct）
+
+
+def test_fold_buy_pct_puts_hold_days_in_ctx_and_drain_empties_it(run):
+    from cli.run import fold_buy_pct
+    p = _panel_pick()
+    tr, te = _split(p)
+    te = te.reset_index(drop=True)
+    ctx = _ctx()
+    dets = registry.resolve_all("detector", [fwd.PICK_NAME, NAME])
+    exp = {**_exp(), "detectors": [fwd.PICK_NAME, NAME]}
+    buy, exits, _n, _doc = fold_buy_pct(tr, te, _feats(p), exp, ctx, model=registry.resolve("model", "Ridge"),
+                                        selectors={}, detectors=dets, baselines={}, form="shared", k=8,
+                                        groups=te.groupby("symbol").indices, f=1, picked=[], log=lambda *_: None)
+    holds = fwd.drain_holds(ctx)
+    assert set(holds) == {fwd.PICK_NAME} and len(holds[fwd.PICK_NAME]) == len(te)   # H1 は置かない
+    assert fwd.drain_holds(ctx) == {} and fwd.HOLD_KEY not in ctx
+    assert exits[NAME] is None and np.all(exits[fwd.PICK_NAME] == 0.0)

@@ -84,3 +84,35 @@ for _tag, _w in EXTRA_WINDOWS.items():
 
 EXTRA_NAMES = tuple(name_of(t, w) for t, w in EXTRA_WINDOWS.items())
 
+
+
+# ⚠ **25-5（2026-10-18）: 1 本で「買い」と「何日持つか」を出す検知器。** 4 本の先 W 日ゲートを同じ学び方で持ち、
+#    買い% ＝ 4 本の最大・保有日数 ＝ その期間（同点は短いほう）・出口% ＝ 0（売り係を持たない）。
+#    ⚠ `forward_gate` は 1 文字も変えない（H1〜H4 の行の指紋）。期間の候補は足さない（25-5 の 8）
+PICK_WINDOWS = (5, 10, 20, 40)
+PICK_NAME = "H5 先5〜40日から期間を選ぶゲート（全列・学習）"
+HOLD_KEY = "_hold_days"      # ⚠ `fold_buy_pct` が保有日数を置く ctx の項目名。呼んだ側が `drain_holds` で取り出す（25-5 の 2）
+
+
+@register("detector", PICK_NAME)
+def h5_pick(tr, te, feats, ctx):
+    """⚠ **4 つ返す**（買い%, 出口%, 保有日数, 記録）＝ rules.md 25-5 の 2。"""
+    preds, docs = [], {}
+    for w in PICK_WINDOWS:
+        bp, doc = forward_gate(w, tr, te, feats, ctx)
+        preds.append(np.asarray(bp, dtype=float))
+        docs[str(w)] = doc
+    stack = np.vstack(preds)                                  # 期間 × 行
+    pick = np.argmax(stack, axis=0)                           # ⚠ 同点は先頭 ＝ 短いほう
+    buy = stack[pick, np.arange(stack.shape[1])]
+    hold = np.asarray(PICK_WINDOWS, dtype=int)[pick]
+    counts = {str(w): int((hold == w).sum()) for w in PICK_WINDOWS}
+    doc = {"windows": list(PICK_WINDOWS), "columns": docs[str(PICK_WINDOWS[0])]["columns"],
+           "fwd_columns": docs[str(PICK_WINDOWS[0])]["fwd_columns"],
+           "選んだ期間の分布": counts, "per_window": docs}
+    return buy, np.zeros(len(buy)), hold, doc
+
+
+def drain_holds(ctx: dict) -> dict:
+    """`fold_buy_pct` が ctx に置いた 手法 → 保有日数 を取り出して消す（⚠ 取り残すと fold をまたいで混ざる）。"""
+    return ctx.pop(HOLD_KEY, None) or {}

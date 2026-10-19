@@ -1,0 +1,9 @@
+# ⚠ **25-5: 1 本で「買い」と「何日持つか」を出すモデル H5**（rules.md 25-5・記録 horizon-roles-trader.md §6。利用者 2026-10-18「2cを進めて」）。
+# ① H5 単体 θ 3（trade_own_fwdpick_a）② H5 ＋ X1 のトレーダーの形（trader_roles_t11）。表は作り直さない（`features_from`。leak 対照の表も既にある）。
+# 2 本 ＝ n_trials ＋6（879 → 885）。⚠ **回すと決めたのは結果を見る前。2 本とも回す**。
+experiments = ["trade_own_fwdpick_a", "trader_roles_t11"]
+
+leak = true              # ⚠ 配線の穴に気づく唯一の手。切らない
+ledger = false           # ⚠ 検証結果一覧は終わってから 1 回吐く
+max_failures = 1
+time_budget_s = 3600     # ⚠ 見積り 3 分【推測。H5 は fwd × Ridge 4 本 ＝ 1 実行 約 30 秒】

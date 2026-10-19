@@ -1839,6 +1839,38 @@ flowchart LR
 
 ⚠ **2026-10-18 の適用例（回した結果）**: 採る 0 ／ 保留 0 ／ 落とす 12（`n_trials` 867 → **879**。記録は [horizon-roles-trader.md §5](../horizon-roles-trader.md)）。保有 1 日の取引は約 6 割 → 11〜16%・保有の中央値 10 ／ 19 ／ 19 ／ 5 日（予想 ① ✅）。⚠ **成績は 4 組とも下がった**: 同じ組の R1〜R4 との対の差は 素の行 −130〜−245・2b −112〜−217・2a −110〜−300bp/fold（12 対のうち 11 対が負・t −0.59〜−2.51）＝ 予想 ② は 2a で外れた（往復の費用より「高値から 10% 下にいる日に買わない ＝ 戻りの初日を取り損ねる」ほうが大きい）。§2-2 で保留だった 2a の R1・R3 も止める形では落とす。⚠ **取引の回数・保有の中央値を良し悪しの物差しにしない**（物差しは 14 章のまま）。⚠ 損切り係の水準・建値基準の損切りを試すなら新しい処置として先に登録してから（14-10）。
 
+### 25-5. ⚠ 1 本で「買い」と「何日持つか」を出すモデル（Phase 2c。2026-10-18 利用者「別のモデルとしてプランに入れて」→「2cを進めて」。⚠ 回す前に固定）
+
+利用者の問い: **「１つの予測モデルで買いと何日後に売るという２つの数値を出せるか？」** → 出せる。3 係に分ける形（25-2）とは別のモデルとして登録し、同じ表で並べる。プランは [trader-model-roles.md §3-3](../../../plans/trader-model-roles.md)。
+
+> この図の主張: 先 5 ／ 10 ／ 20 ／ 40 日の「上がる確率」を 1 つの検知器が 4 本まとめて出し、いちばん高い期間を保有日数にする。保有中は売り係を読まず、日数がたったら売る。損切り係だけ毎日読む。
+
+```mermaid
+flowchart LR
+  T["own 35 列"] --> M["H5: 先 5 ／ 10 ／ 20 ／ 40 日ゲート × 4<br/>（H2 ／ H1 ／ H3 ／ H4 と同じ学び方・較正）"]
+  M --> P{"max の確率 > θ ？"}
+  P -->|"はい"| BUY["建てる ＋ 保有日数 d* ＝ その期間"]
+  P -->|"いいえ"| SKIP["見送る"]
+  BUY --> H["d* 本持つ（出口% は 0 ＝ 読まない）<br/>損切り係 X1 だけ毎日読む"]
+  H --> SELL["d* 本たったら売る"]
+```
+
+| # | 規約 |
+| ---: | --- |
+| 1 | 検知器 `H5 先5〜40日から期間を選ぶゲート（全列・学習）`（`ail/detectors/fwd.py`。綴り `h5-gate-pick`）。中身は `forward_gate(w)` を w ∈ {5, 10, 20, 40} で 4 回呼ぶだけ（学び方・標準化・Platt 較正・パージは H1〜H4 と 1 ビットも同じ）。買い% ＝ 4 本の最大 ／ **保有日数 d\* ＝ 最大だった期間**（同点は短いほう）／ 出口% ＝ 0（売り係を持たない）。⚠ 期間を選ぶのに使うのは予測値だけ（答えは見ない）。`fwd_columns`（25-1 の 2）はそのまま効く |
+| 2 | **出力の契約を 3 本に広げる**（14-1 ／ 16-1 の拡張）: 検知器は (買い%, 出口%, **保有日数**, 記録) の 4 つを返してよい。`fold_buy_pct` は保有日数を `ctx["_hold_days"][手法]` に置き、呼んだ側が `fwd.drain_holds(ctx)` で取り出す（14-12 の `tuned.drain` と同じ作り。取り残すと fold をまたいで混ざる）。⚠ 3 つ以下を返す検知器は 1 ビットも変わらない。門（14-5）は買い% だけ読む（`[0]`）ので変わらない |
+| 3 | `simulate(..., hold_days=h)`・`simulate_topk(..., hold_days=h)`: 行ごとの保有日数（1 以上の整数）。足 t で建てたら `h[t]` 本持ち、`t − opened ≥ h[opened]` で足 t の終値で降りる（`max_hold_days` の行ごと版）。保有中も出口% は読む（H5 は 0 を返すので売らない）・`stop_exit_pct` は 25-2 の 3 のまま毎日読む。⚠ `min_hold_days` ／ `max_hold_days` とは同時に渡せない。⚠ **省けば 1 ビットも変わらない** |
+| 4 | 合わせる口: `[[trading.mix]] combine = "roles"` に `hold_from_buy = true`（買い係 1 本・売り係 0 本・損切り係 0 本以上。`min_hold_days` は書けない）。買い% ＝ 買い係・出口% ＝ 0・保有日数 ＝ 買い係の d\*・毎日読む出口% ＝ 損切り係の最大。⚠ K9 (a) により `stop_blocks_buy` は既定（false）のまま ＝ 損切り係が言っている日も買い係が買えば建てる（25-2 の 4 組と同じ扱い） |
+| 5 | 手法名と綴り: `R5 買い係が期間を選ぶ・損切り` ＝ `roles-pick-stop`。`fitted_doc[手法]` に `combine: "roles"`・`hold_from_buy: true`・選んだ期間の分布 |
+| 6 | 回すもの: ① `trade_own_fwdpick_a`（表は `trade_own_fwdmulti_a` を `features_from`・検知器 H5 だけ・`fwd_columns = "own"`・θ 50 ／ 55 ／ 60）＝ H5 単体 **3 行**（出口 ＝ 保有日数だけ。損切り係なし）② `trader_roles_t11`（検知器 H5 ＋ X1・θ 50・合成 R5 ＋ 条件 2a 5 本・$600 ／ 2b 全銘柄）＝ R5 の素の行 1 ＋ 条件 2 ＝ **3 行**（H5 θ 50 と X1 の行は持ち主の実行にまとまる）。queue `horizon_roles3` |
+| 7 | 数え方: **＋6（879 → 885）**。⚠ プラン §3-3 の「＋5」は合成の素の行を数え落としていた ＝ 回す前にここで直した。比べる相手: 判定は 20-3 のまま（単体は対 B&H・トレーダーの形は対「持ち続ける」）。添えるのは 選んだ期間の分布（fold 別）・保有の中央値・同じ表の R1〜R4（25-2）と X1 単体 |
+| 8 | ⚠ 期間の候補は 5 ／ 10 ／ 20 ／ 40 のまま足さない・「過去に何日持ったら一番儲かったか」を当てる形（案 B）は回さない・結果を見て θ・期間・損切り係の水準を動かさない |
+
+⚠ **事前に書く予想【推測】**: ① 採る 0（6 行とも）。買い% ＝ 4 本の最大は 1 本より上に偏る（4 本が 50 前後に並ぶとき最大は 52〜55）ので、θ 50 では H1〜H4 の単体より買う日が増え、「持ち続ける − 費用」に近づく ② 確率の幅が潰れる fold（2・4・5）では 4 本が同じくらいに並び、期間の選択は雑音で決まる（分布は 4 期間に散る）③ 売買の回数は R1〜R4 より減る（保有中は損切り係しか売らない・d\* の中央値は 10〜20 日）④ 「決まった日数で売る」基準線（stoploss-as-model.md の `〔N日で降りる〕`）は降りない形より悪かったので、上乗せは負に寄る ⑤ leak は跳ねる。
+読み方: ⚠ **この結果で実売買の 3 人を止めない・替えない・順位で人を採らない**（20-5 の 5）。候補の人 `T11` を作るかどうかは結果を見た後の利用者の判断（配線の確認のためなら成績に関わらず作れる）。
+
+⚠ **2026-10-18 の適用例（回した結果）**: 採る 0 ／ 落とす 6（`n_trials` 879 → **885**。記録は [horizon-roles-trader.md §6](../horizon-roles-trader.md)）。H5 単体 θ 50 ／ 55 ／ 60 ＝ −216 ／ −10 ／ −226bp/fold・R5 素の行 −410（−−−−−）・2a −20・2b −330。門前（AUC 0.504・幅 8.3 点）。⚠ **「4 本の較正した確率の最大」は期間を選んでいなかった**: 選んだ期間は fold ごとに 1 つに偏る（fold 1 ＝ 先 5 日 49%・fold 2 ／ 5 ＝ 先 40 日 88〜89%・fold 4 ＝ 20 ／ 40 日 100%）＝ 先 W 日の上がる確率の土台が W が長いほど高く、較正がそれを写す（予想 ③「4 期間に散る」は外れ）。売買は R1〜R4 より減らなかった（日数で売って買い直す。予想 ④ 外れ）。⚠ 期間を「土台との差」や順位で比べる形は新しい処置として先に登録してから（14-10。H5 の中身を結果を見て直さない）。
+
 ## 付録: 本書と実装の対応
 
 ⚠ **試した結果の一覧は [ledger.md](ledger.md)**（`cli/report.py --catalog` の生成物）。
@@ -1871,6 +1903,6 @@ flowchart LR
 | ⚠ **22** | `cli/run.py` の `next_open_returns`（調整済み日足の始値を (銘柄, 日) で継ぐ）・`evaluate_trading`（損益の系列 `y_pnl`。⚠ **`execution` が無ければ `y` ＝ 既存と完全一致**）／ 識別項目 = `ail/catalog.py` の `threshold_style` ／ 綴り `~exec-open` = `config/names.toml` の `[execution]` ／ テスト `tests/test_next_open.py` |
 | ⚠ **23** | `ail/search/evolve.py` の `fitness_of`・`xs_rho`・`worst_blocks`（既定 `pooled` は既存の `fitness` そのまま）・`tf_symbolic`（`ctx` の `fitness`・`ts_tr`）＋ `ail/validation/prep.py` の `apply`・`label`（〔適合度・…〕）＋ `cli/run.py` の `fold_buy_pct`・`ail/validation/gate.py`（日付を渡す）／ 識別項目 = `ail/catalog.py` の `canonical` ／ 綴り = `config/names.toml` の `[fitness]` ／ テスト `tests/test_ga_fitness.py` |
 | ⚠ **24** | `ail/validation/prep.py` の `augment`（⚠ **`transform` が無ければ同じオブジェクトを返す**）＋ `cli/run.py` の `fold_buy_pct`（検知器の枝の頭）・`ail/validation/gate.py` の `_fold_detectors` ／ 鍵 = `ail/catalog.py` の `canonical`（`_DETECTOR_PART`）／ 綴り = `ail/names.py` の `_ID_DETECTOR` ／ テスト `tests/test_transform_detector.py`（指紋は `tests/fixtures/fwd_fingerprint.json`） |
-| ⚠ **25** | `ail/detectors/fwd.py` の `EXTRA_WINDOWS`・`name_of`・`fwd_columns`（ctx。⚠ **項目が無ければ全列 ＝ 既存と完全一致**）／ 25-2 ＝ `ail/validation/simulate.py` の `simulate`・`simulate_topk`（任意引数 `min_hold_days`・`stop_exit_pct`。⚠ **省くと既存と完全一致**）＋ `cli/run.py` の `mix_specs`・`_mix_fold`（`combine = "roles"`）・`_row`・`_trader_fold`（手法ごとの口を渡す）／ 綴り ＝ `config/names.toml` の `[method]`（`h2-gate5` ほか）・`[mix]`（`roles-*`）／ config `trade_own_fwdmulti_a`・`trader_roles_t7〜t10`・queue `horizon_roles1`・`horizon_roles2` ／ テスト `tests/test_fwd.py`（5 節）・`tests/test_roles_mix.py` ／ ⚠ **25-4** ＝ `simulate`・`simulate_topk` の任意引数 `stop_blocks_buy`（⚠ **省くと既存と完全一致**）＋ `mix_specs`（`stop_blocks_buy`）・`_roles_fold`（`opts`）・`_row`・`_trader_fold` ／ 綴り `roles-*-block` ／ config `trader_roles_t7b〜t10b`・queue `horizon_roles2b` ／ テスト `tests/test_roles_mix.py` の 25-4 の節 |
+| ⚠ **25** | `ail/detectors/fwd.py` の `EXTRA_WINDOWS`・`name_of`・`fwd_columns`（ctx。⚠ **項目が無ければ全列 ＝ 既存と完全一致**）／ 25-2 ＝ `ail/validation/simulate.py` の `simulate`・`simulate_topk`（任意引数 `min_hold_days`・`stop_exit_pct`。⚠ **省くと既存と完全一致**）＋ `cli/run.py` の `mix_specs`・`_mix_fold`（`combine = "roles"`）・`_row`・`_trader_fold`（手法ごとの口を渡す）／ 綴り ＝ `config/names.toml` の `[method]`（`h2-gate5` ほか）・`[mix]`（`roles-*`）／ config `trade_own_fwdmulti_a`・`trader_roles_t7〜t10`・queue `horizon_roles1`・`horizon_roles2` ／ テスト `tests/test_fwd.py`（5 節）・`tests/test_roles_mix.py` ／ ⚠ **25-4** ＝ `simulate`・`simulate_topk` の任意引数 `stop_blocks_buy`（⚠ **省くと既存と完全一致**）＋ `mix_specs`（`stop_blocks_buy`）・`_roles_fold`（`opts`）・`_row`・`_trader_fold` ／ 綴り `roles-*-block` ／ config `trader_roles_t7b〜t10b`・queue `horizon_roles2b` ／ テスト `tests/test_roles_mix.py` の 25-4 の節 ／ ⚠ **25-5** ＝ `ail/detectors/fwd.py` の `H5`・`HOLD_KEY`・`drain_holds` ＋ `simulate`・`simulate_topk` の任意引数 `hold_days`（⚠ **省くと既存と完全一致**）＋ `fold_buy_pct`（4 つ返す検知器）・`mix_specs`（`hold_from_buy`）・`_roles_fold`・`_row`・`_trader_fold` ／ 綴り `h5-gate-pick`・`roles-pick-stop` ／ config `trade_own_fwdpick_a`・`trader_roles_t11`・queue `horizon_roles3` ／ テスト `tests/test_fwd.py` の H5 の節・`tests/test_roles_mix.py` の 25-5 の節 |
 | ⚠ **14-12** | `ail/models/tuned.py`（候補・尻・champion・学び直し。Phase 1）＋ `ail/models/trees.py`・`deep.py`（ctx から読む。⚠ **既定はいまの定数と同じ ＝ 既存の config は指紋が動かない**）＋ `cli/run.py` の `fold_buy_pct`（記録の拾い）・`ail/validation/gate.py`（記録を捨てる）／ 綴り = `config/names.toml` の `[learner]`（`ridge-tuned`・`lgbm-tuned`・`mlp-tuned`）／ テスト `tests/test_tuned.py`（いずれも Phase 1。プラン [hyperparam-inner-selection.md](../../../plans/archive/hyperparam-inner-selection.md)）。⚠ **14-12-3**（1 度選んで配る）: `tuned.py` に `<モデル>（内側選抜・1 度）`・`cli/run.py` の `fold_buy_pct` が較正の前に選んで ctx で配る・`names.toml` に `*-tuned-once`・config `trade_own_*_tuned_once_a`・queue `hp_inner_once`・`tests/test_tuned.py` に 6 本（Phase 4） |
 | ⚠ **検証結果一覧** | `ail/catalog.py` ／ `cli/ledger.py` ／ `config/legacy.toml` ／ `config/catalog_notes.toml` |

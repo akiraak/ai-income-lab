@@ -24,6 +24,7 @@ from sklearn.preprocessing import StandardScaler
 from ail import config, registry, runs
 from ail.contracts import META_COLUMNS
 from ail.data import store
+from ail.detectors import fwd
 from ail.validation import checks, metrics, prep
 import ail.bootstrap  # noqa: F401
 
@@ -167,7 +168,13 @@ def fold_buy_pct(tr: pd.DataFrame, te: pd.DataFrame, feats: list[str], exp: dict
             res = fn(tr, te, feats, ctx)
             lab = prep.label(exp, name)            # ⚠ 変換が無ければ検知器名そのまま
             # ⚠ **3 つ返すのは出口% を別に持つ検知器**（rules.md 16-1。`ail/detectors/pair.py`）
-            bp, ep, doc = res if len(res) == 3 else (res[0], None, res[1])
+            # ⚠ **4 つ返すのは保有日数も出す検知器**（rules.md 25-5 の 2。`fwd.py` の H5）: 保有日数は ctx に置き、呼んだ側が
+            #    `fwd.drain_holds(ctx)` で取り出す（戻り値の形は変えない ＝ 3 つ以下を返す検知器は 1 ビットも変わらない）
+            if len(res) == 4:
+                bp, ep, hd, doc = res
+                ctx.setdefault(fwd.HOLD_KEY, {})[lab] = np.asarray(hd, dtype=int)
+            else:
+                bp, ep, doc = res if len(res) == 3 else (res[0], None, res[1])
             buy[lab] = np.asarray(bp, dtype=float)
             exits[lab] = None if ep is None else np.asarray(ep, dtype=float)
             n_cols[lab] = float(len(doc.get("columns", [])))
@@ -323,10 +330,14 @@ def evaluate_trading(panel: pd.DataFrame, feats: list[str], exp: dict, run: runs
         buy, exits, n_cols, fitted_doc = fold_buy_pct(
             tr, te, feats, exp, ctx, model=model, selectors=selectors, detectors=detectors,
             baselines=baselines, form=form, k=k, groups=groups, f=f, picked=picked, log=run.log)
+        # ⚠ 保有日数を出す検知器（rules.md 25-5 の 2）: 手法ごとの行の口に置く。無ければ空 ＝ 既存の経路と同一
+        mix_opts.clear()
+        holds_by = fwd.drain_holds(ctx)
+        for lab, hd in holds_by.items():
+            mix_opts[lab] = {"hold_days": hd}
         if mixes:
             # ⚠ **既存の手法の買い% を作り終えた後に足すだけ**（後ろの行の作り方は既存の手法と同じ）
-            mix_opts.clear()
-            _mix_fold(mixes, mix_ext, te, buy, exits, n_cols, fitted_doc, f, run.log, opts=mix_opts)
+            _mix_fold(mixes, mix_ext, te, buy, exits, n_cols, fitted_doc, f, run.log, opts=mix_opts, holds=holds_by)
         run.fitted(f"calibration_f{f}", fitted_doc)     # ⚠ 再現用。次の実行では読み込まない（13-2 の 3）
 
         def _row(name: str, base: str, bp, ex, hit: float, ic: float, th: float, th_exit: float | None = None,
@@ -346,6 +357,7 @@ def evaluate_trading(panel: pd.DataFrame, feats: list[str], exp: dict, run: runs
             stop_all = mo.get("stop_exit")
             if mo.get("stop_blocks_buy") and stop_all is not None:
                 kw["stop_blocks_buy"] = True       # ⚠ 損切り係が言っている日は建てない（25-4。無い手法は渡さない）
+            hold_all = mo.get("hold_days")         # ⚠ 行ごとの保有日数（25-5。無い手法は渡さない）
             nets: dict[str, pd.Series] = {}
             grosses: dict[str, pd.Series] = {}
             rands: dict[str, pd.Series] = {}
@@ -360,6 +372,8 @@ def evaluate_trading(panel: pd.DataFrame, feats: list[str], exp: dict, run: runs
                 if ex is not None and np.isnan(ex[idx]).any():
                     continue                       # ⚠ 出口% が欠けた銘柄も同じく飛ばす
                 kws = kw if stop_all is None else {**kw, "stop_exit_pct": stop_all[idx]}
+                if hold_all is not None:
+                    kws = {**kws, "hold_days": hold_all[idx]}
                 r = sim.simulate(bp[idx], y_pnl[idx], th, cost_bp,
                                  exit_pct=None if ex is None else ex[idx], **kws)
                 rg = sim.shifted_gate(r["pos"], y_pnl[idx], cost_bp, rng)   # 14-6 の b
@@ -644,14 +658,25 @@ def mix_specs(t: dict) -> list[dict]:
             raise SystemExit(f"⚠ trading.mix {name!r} の members は method を持つ 2 本以上（rules.md 20-6 の 4 の 1）")
         if len({(x["experiment"], x["method"]) for x in members}) != len(members):
             raise SystemExit(f"⚠ trading.mix {name!r} に同じメンバーが 2 度ある")
-        spec = {"name": name, "members": members, "combine": combine, "min_hold_days": None, "stop_blocks_buy": False}
+        spec = {"name": name, "members": members, "combine": combine, "min_hold_days": None, "stop_blocks_buy": False,
+                "hold_from_buy": False}
         if combine == MIX_ROLES:
             # ⚠ 役割つきの合わせる口（rules.md 25-2 の 1）: 買い係 1 本以上・売り係 1 本以上・損切り係 0 本以上。外の実験は使わない（25-1 の 3）
             roles = [x["role"] for x in members]
             if any(r not in MIX_ROLE_NAMES for r in roles):
                 raise SystemExit(f"⚠ trading.mix {name!r}: combine = roles のメンバーは role が buy ／ exit ／ stop のどれか（rules.md 25-2 の 1）: {roles}")
-            if "buy" not in roles or "exit" not in roles:
+            # ⚠ 25-5 の 4: 買い係が保有日数を出す形（`hold_from_buy = true`）は 買い係 1 本・売り係 0 本・`min_hold_days` なし
+            hfb = m.get("hold_from_buy", False)
+            if not isinstance(hfb, bool):
+                raise SystemExit(f"⚠ trading.mix {name!r} の hold_from_buy は true ／ false だけ: {hfb!r}（rules.md 25-5 の 4）")
+            if hfb:
+                if roles.count("buy") != 1 or "exit" in roles:
+                    raise SystemExit(f"⚠ trading.mix {name!r}: hold_from_buy = true は買い係 1 本・売り係 0 本（rules.md 25-5 の 4）: {roles}")
+                if m.get("min_hold_days") is not None:
+                    raise SystemExit(f"⚠ trading.mix {name!r}: hold_from_buy = true に min_hold_days は書けない（保有日数は買い係が出す ＝ rules.md 25-5 の 4）")
+            elif "buy" not in roles or "exit" not in roles:
                 raise SystemExit(f"⚠ trading.mix {name!r}: 買い係（buy）と売り係（exit）がそれぞれ 1 本以上要る（rules.md 25-2 の 1）")
+            spec["hold_from_buy"] = hfb
             if any(x["experiment"] is not None for x in members):
                 raise SystemExit(f"⚠ trading.mix {name!r}: combine = roles のメンバーはこの実行の手法だけ（表を 1 枚にする ＝ rules.md 25-1 の 3）")
             d = m.get("min_hold_days")
@@ -665,8 +690,8 @@ def mix_specs(t: dict) -> list[dict]:
             if sb and "stop" not in roles:
                 raise SystemExit(f"⚠ trading.mix {name!r}: stop_blocks_buy = true には損切り係（stop）が要る（rules.md 25-4 の 1）")
             spec["stop_blocks_buy"] = sb
-        elif any(x["role"] is not None for x in members) or m.get("stop_blocks_buy") is not None:
-            raise SystemExit(f"⚠ trading.mix {name!r}: role ／ stop_blocks_buy は combine = roles のときだけ書く（rules.md 25-2 の 1・25-4 の 1）")
+        elif any(x["role"] is not None for x in members) or m.get("stop_blocks_buy") is not None or m.get("hold_from_buy") is not None:
+            raise SystemExit(f"⚠ trading.mix {name!r}: role ／ stop_blocks_buy ／ hold_from_buy は combine = roles のときだけ書く（rules.md 25-2 の 1・25-4 の 1・25-5 の 4）")
         specs.append(spec)
     if len({s["name"] for s in specs}) != len(specs):
         raise SystemExit("⚠ trading.mix に同じ name が 2 度ある")
@@ -730,11 +755,12 @@ def _member_buy_pct(mexp: dict, mtr: pd.DataFrame, mte: pd.DataFrame, mfeats: li
     b, x, _, doc = fold_buy_pct(mtr, mte, mfeats, mexp, mctx, model=mmodel, selectors=sels, detectors=dets,
                                 baselines={}, form="shared", k=mk, groups=mte.groupby("symbol").indices,
                                 f=f, picked=[], log=log)
+    fwd.drain_holds(mctx)                         # ⚠ 外のメンバーの保有日数は使わない（25-1 の 3）。取り残さない
     return b[lab], x.get(lab), doc.get(lab)
 
 
 def _mix_fold(specs: list[dict], ext: dict[str, dict], te: pd.DataFrame, buy: dict, exits: dict,
-              n_cols: dict, fitted_doc: dict, f, log, opts: dict | None = None) -> None:
+              n_cols: dict, fitted_doc: dict, f, log, opts: dict | None = None, holds: dict | None = None) -> None:
     """1 fold ぶんの合成の買い% ／ 出口% を `buy`・`exits` に足す（rules.md 20-6 の 4 の 3・4）。
 
     行は (銘柄, 日) で突き合わせる。1 本でも欠ける行は NaN ＝ その銘柄は後ろの `_row` が飛ばす（既存の規則）。
@@ -771,7 +797,7 @@ def _mix_fold(specs: list[dict], ext: dict[str, dict], te: pd.DataFrame, buy: di
     for s in specs:
         parts = [member(m) for m in s["members"]]
         if s.get("combine") == MIX_ROLES:
-            _roles_fold(s, parts, buy, exits, n_cols, fitted_doc, f, log, opts if opts is not None else {})
+            _roles_fold(s, parts, buy, exits, n_cols, fitted_doc, f, log, opts if opts is not None else {}, holds or {})
             continue
         mixed = np.vstack([p[0] for p in parts]).mean(axis=0)
         # ⚠ 出口% を返さないメンバーは 100 − 買い%（16-1 の 4）。全員がそうなら None ＝ 100 − 平均の買い% で既存と同じ経路
@@ -789,11 +815,22 @@ def _mix_fold(specs: list[dict], ext: dict[str, dict], te: pd.DataFrame, buy: di
 
 
 def _roles_fold(s: dict, parts: list[tuple], buy: dict, exits: dict, n_cols: dict, fitted_doc: dict, f, log,
-                opts: dict) -> None:
-    """役割つきの合わせる口の 1 fold（rules.md 25-2 の 2）。`parts` は `_mix_fold` の `member` の戻り（買い%, 出口%, doc）。"""
+                opts: dict, holds: dict | None = None) -> None:
+    """役割つきの合わせる口の 1 fold（rules.md 25-2 の 2）。`parts` は `_mix_fold` の `member` の戻り（買い%, 出口%, doc）。
+
+    ⚠ `hold_from_buy`（25-5 の 4）: 買い係 1 本の保有日数（`holds[手法]`）を行ごとに渡し、出口% ＝ 0（売り係を持たない）。
+    """
     by = {r: [p for m, p in zip(s["members"], parts) if m["role"] == r] for r in MIX_ROLE_NAMES}
     mixed = np.vstack([p[0] for p in by["buy"]]).mean(axis=0)
-    ex = np.vstack([100.0 - p[0] if p[1] is None else p[1] for p in by["exit"]]).mean(axis=0)
+    hold = None
+    if s.get("hold_from_buy"):
+        bm = [m for m in s["members"] if m["role"] == "buy"][0]
+        hold = (holds or {}).get(bm["method"])
+        if hold is None:
+            raise SystemExit(f"⚠ trading.mix {s['name']!r}: 買い係 {bm['method']!r} は保有日数を返さない（hold_from_buy ＝ rules.md 25-5 の 4）")
+        ex = np.zeros(len(mixed))
+    else:
+        ex = np.vstack([100.0 - p[0] if p[1] is None else p[1] for p in by["exit"]]).mean(axis=0)
     stop = None
     if by["stop"]:
         for m, p in zip(s["members"], parts):
@@ -804,10 +841,13 @@ def _roles_fold(s: dict, parts: list[tuple], buy: dict, exits: dict, n_cols: dic
     exits[s["name"]] = ex
     n_cols[s["name"]] = 0.0
     opts[s["name"]] = {"min_hold_days": s.get("min_hold_days"), "stop_exit": stop,
-                       "stop_blocks_buy": bool(s.get("stop_blocks_buy"))}     # ⚠ 25-4。false なら `_row`・`_trader_fold` は渡さない
+                       "stop_blocks_buy": bool(s.get("stop_blocks_buy")),     # ⚠ 25-4。false なら `_row`・`_trader_fold` は渡さない
+                       "hold_days": hold}                                     # ⚠ 25-5。None なら渡さない
     miss = int(np.isnan(mixed).sum() + np.isnan(ex).sum())
     fitted_doc[s["name"]] = {"combine": MIX_ROLES, "min_hold_days": s.get("min_hold_days"),
                              "stop_blocks_buy": bool(s.get("stop_blocks_buy")),
+                             "hold_from_buy": bool(s.get("hold_from_buy")),
+                             **({"選んだ期間の分布": {str(w): int((hold == w).sum()) for w in np.unique(hold)}} if hold is not None else {}),
                              "行": int(len(mixed)), "欠けた行": miss,
                              "members": [{"experiment": m["experiment"], "method": m["method"], "role": m["role"],
                                           "doc": p[2]} for m, p in zip(s["members"], parts)]}
@@ -921,6 +961,9 @@ def _trader_fold(conds: list[dict], te: pd.DataFrame, y, ts_te, buy: dict, exits
                 rk["stop_exit_pct"] = st
                 if mo.get("stop_blocks_buy"):
                     rk["stop_blocks_buy"] = True   # ⚠ 25-4（乱択の診断にも同じ口 ＝ 25-4 の 3）
+            hd = None if mo.get("hold_days") is None else mo["hold_days"][mask]
+            if hd is not None:
+                rk["hold_days"] = hd               # ⚠ 25-5 行ごとの保有日数
             ok = ~np.isnan(bp)
             hit = float(np.mean((bp[ok] > 50.0) == (yy[ok] > 0))) if ok.any() else 0.0
             ic = (float(np.corrcoef(bp[ok], yy[ok])[0, 1]) if ok.any() and np.std(bp[ok]) > 0 else 0.0)
@@ -934,6 +977,8 @@ def _trader_fold(conds: list[dict], te: pd.DataFrame, y, ts_te, buy: dict, exits
                     rkp = dict(rk)
                     if st is not None:
                         rkp["stop_exit_pct"] = st[perm]        # ⚠ 3 つ組を同じ並べ替えで壊す（25-2 の 4）
+                    if hd is not None:
+                        rkp["hold_days"] = hd[perm]            # ⚠ 保有日数も同じ並べ替え（25-5）
                     rnd.append(float(sim.simulate_topk(bp[perm], yy, dates, ss, th, n, cost_bp,
                                                        exit_pct=e_full[perm], **kw, **rkp)["port_net_bp"].sum()))
                 trader_out.append({"手法": trader_name(mname, c["tag"]), "閾値": th, "fold": f,

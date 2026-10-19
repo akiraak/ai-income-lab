@@ -8,6 +8,8 @@
   5. トレーダーの形（20 章）にも最短保有が届く（d を大きくすると取引が減る）
   6. 25-4「損切り係が言っている日は買わない」（`stop_blocks_buy`）: 省けば 1 ビットも変わらない ／ 言っている日は建てない ／
      `stop_exit_pct` 無しでは受けない ／ `mix_specs` の検査 ／ 役割つきの行で保有 1 日の取引が減り、ほかの行は変わらない
+  7. 25-5「買い係が保有日数を出す」（`hold_days`・`hold_from_buy`）: 省けば 1 ビットも変わらない ／ 建てた行の日数で降りる ／
+     `min_hold_days` と同時に渡せない ／ `mix_specs` の検査 ／ 4 つ返す検知器の保有日数が単体の行と合成の行に届く
 """
 from __future__ import annotations
 
@@ -23,6 +25,8 @@ from cli.run import MIX_ROLES, evaluate_trading, mix_specs, trader_name
 BUY, EXIT, STOP = "テスト用 買い係", "テスト用 売り係", "テスト用 損切り係"
 R1 = "R1 買い先10日・売り先5日・損切り"      # ⚠ names.toml の [mix] にある綴り（roles-b10-e5）
 R1B = "R1b 買い先10日・売り先5日・損切り（買いも止める）"   # 25-4（roles-b10-e5-block）
+R5 = "R5 買い係が期間を選ぶ・損切り"                         # 25-5（roles-pick-stop）
+PICK = "テスト用 期間を選ぶ買い係"
 TAG = "5本・$600"
 
 
@@ -43,6 +47,14 @@ def _stop(tr, te, feats, ctx):
     """入口 100・出口は `noise` < −2 のとき 100（損切り係の形 ＝ stop.py の X1 と同じ契約）。"""
     n = len(te)
     return np.full(n, 100.0), np.where(te["noise"].to_numpy() < -2.0, 100.0, 0.0), {"columns": []}
+
+
+@registry.register("detector", PICK)
+def _pick(tr, te, feats, ctx):
+    """4 つ返す: 買い% は `own_ret_1` > 0 で 70 ／ 30・出口% 0・保有日数は `noise` > 0 なら 3 日・でなければ 7 日。"""
+    n = len(te)
+    hold = np.where(te["noise"].to_numpy() > 0, 3, 7)
+    return np.where(te["own_ret_1"].to_numpy() > 0, 70.0, 30.0), np.zeros(n), hold, {"columns": ["own_ret_1"]}
 
 
 def _panel(n_days=600, n_sym=6, seed=0):
@@ -262,3 +274,90 @@ def test_stop_blocks_buy_row_reduces_one_day_holds_and_leaves_other_rows(run):
     assert 0 < t_block < t_plain, (t_plain, t_block)
     assert names.method_slug(R1B) == "roles-b10-e5-block"
     assert names.method_slug(trader_name(R1B, TAG)) == "roles-b10-e5-block-tr5-600"
+
+
+# --- 7. 25-5 買い係が保有日数を出す --------------------------------------------------------
+
+def test_hold_days_default_is_bit_identical_and_sells_after_row_days():
+    """買い% は足 0 と足 6 で 100。保有日数は足 0 の行が 3・足 6 の行が 2。出口% は 0（売らない）。"""
+    n = 12
+    b = np.zeros(n); b[0] = b[6] = 100.0
+    e = np.zeros(n)
+    y = np.zeros(n)
+    h = np.full(n, 5); h[0] = 3; h[6] = 2
+    plain = sim.simulate(b, y, 50.0, exit_pct=e)
+    same = sim.simulate(b, y, 50.0, exit_pct=e, hold_days=None)
+    np.testing.assert_array_equal(plain["pos"], same["pos"])
+    assert plain["hold_days"] == [12] and plain["forced_close"]           # 既定: 出口% 0 なので末尾まで持つ
+    held = sim.simulate(b, y, 50.0, exit_pct=e, hold_days=h)
+    assert held["hold_days"] == [3, 2] and held["entry_idx"] == [0, 6] and not held["forced_close"]
+    stop = np.zeros(n); stop[1] = 100.0
+    cut = sim.simulate(b, y, 50.0, exit_pct=e, hold_days=h, stop_exit_pct=stop)
+    assert cut["hold_days"][0] == 1                                        # 損切り係は保有日数の中でも読む
+    with pytest.raises(ValueError, match="hold_days"):
+        sim.simulate(b, y, 50.0, exit_pct=e, hold_days=h, min_hold_days=2)
+    with pytest.raises(ValueError, match="hold_days"):
+        sim.simulate(b, y, 50.0, exit_pct=e, hold_days=np.zeros(n))
+
+
+def test_topk_hold_days():
+    days = pd.date_range("2020-01-01", periods=8, freq="D")
+    rows = [(d, s) for d in days for s in ("S0", "S1")]
+    dates = np.array([r[0] for r in rows]); syms = np.array([r[1] for r in rows])
+    b = np.array([100.0 if d == days[0] else 0.0 for d, s in rows])      # 1 日目に 2 銘柄とも買う
+    e = np.zeros(len(rows)); y = np.zeros(len(rows))
+    h = np.array([2 if s == "S0" else 5 for d, s in rows])
+    kw = dict(threshold=50.0, k=2, cost_bp=5.0, exit_pct=e)
+    plain = sim.simulate_topk(b, y, dates, syms, **kw)
+    same = sim.simulate_topk(b, y, dates, syms, **kw, hold_days=None)
+    held = sim.simulate_topk(b, y, dates, syms, **kw, hold_days=h)
+    np.testing.assert_array_equal(plain["pos"], same["pos"])
+    assert int(plain["pos"].sum()) == 16                                   # 既定: 末尾まで持つ
+    assert int(held["pos"][syms == "S0"].sum()) == 2 and int(held["pos"][syms == "S1"].sum()) == 5
+    with pytest.raises(ValueError, match="hold_days"):
+        sim.simulate_topk(b, y, dates, syms, **kw, hold_days=h, min_hold_days=2)
+
+
+def _mix_pick(name=R5, members=None, **extra):
+    m = {"name": name, "combine": MIX_ROLES, "hold_from_buy": True,
+         "members": members or [{"method": PICK, "role": "buy"}, {"method": STOP, "role": "stop"}], **extra}
+    return [m]
+
+
+def test_hold_from_buy_spec_is_checked():
+    assert mix_specs({"mix": _mix_pick()})[0]["hold_from_buy"] is True
+    assert mix_specs({"mix": _mix()})[0]["hold_from_buy"] is False
+    with pytest.raises(SystemExit, match="買い係 1 本・売り係 0 本"):
+        mix_specs({"mix": _mix_pick(members=[{"method": PICK, "role": "buy"}, {"method": EXIT, "role": "exit"}])})
+    with pytest.raises(SystemExit, match="買い係 1 本・売り係 0 本"):
+        mix_specs({"mix": _mix_pick(members=[{"method": PICK, "role": "buy"}, {"method": BUY, "role": "buy"}])})
+    with pytest.raises(SystemExit, match="min_hold_days は書けない"):
+        mix_specs({"mix": _mix_pick(min_hold_days=3)})
+    with pytest.raises(SystemExit, match="true ／ false"):
+        mix_specs({"mix": _mix_pick(hold_from_buy="yes")})
+    with pytest.raises(SystemExit, match="roles のときだけ"):
+        mix_specs({"mix": [{"name": R5, "combine": "mean", "hold_from_buy": True, "members": [{"method": BUY}, {"method": EXIT}]}]})
+
+
+def test_hold_days_reach_single_row_and_roles_row(run):
+    """4 つ返す検知器の単体の行は保有日数で降りる（出口% 0 なのに取引が 1 銘柄 1 回で終わらない）。
+    合成 R5 は買い% ＝ 買い係・出口% 0・保有日数 ＝ 買い係・毎日読む出口 ＝ 損切り係。ほかの行は変わらない。"""
+    p = _panel()
+    base = {**_exp(), "detectors": [PICK, STOP]}
+    a, *_ = evaluate_trading(p, _feats(p), base, run)
+    tr = [{"tag": TAG, "symbols": ["S0", "S1", "S2", "S3", "S4"], "budget_usd": 600, "methods": [R5]}]
+    b, per_sym, _summary, _daily, _extra = evaluate_trading(p, _feats(p), {**base, "trading": {**base["trading"], "mix": _mix_pick(), "trader": tr}}, run)
+    plain = b[b["手法"].isin(set(a["手法"]))].reset_index(drop=True)
+    pd.testing.assert_frame_equal(a.reset_index(drop=True), plain, check_exact=True, check_dtype=False)
+    single = a[a["手法"] == PICK]
+    assert single["取引回数"].sum() > 6 * 3                                 # 1 銘柄 1 fold 1 回より多い ＝ 保有日数で降りて買い直す
+    hs = per_sym[per_sym["手法"] == PICK]
+    assert hs["保有日数最長"].max() <= 7                                   # 保有は 3 か 7 日まで（強制清算は短いだけ）
+    rows = b[b["手法"] == R5]
+    assert len(rows) == 3 and rows["取引回数"].sum() > 0
+    stop_rows = b[b["手法"] == STOP]
+    assert rows["取引回数"].sum() != stop_rows["取引回数"].sum()
+    assert names.method_slug(R5) == "roles-pick-stop"
+    assert names.method_slug(trader_name(R5, TAG)) == "roles-pick-stop-tr5-600"
+    with pytest.raises(SystemExit, match="保有日数を返さない"):
+        evaluate_trading(p, _feats(p), {**base, "detectors": [BUY, STOP], "trading": {**base["trading"], "mix": _mix_pick(members=[{"method": BUY, "role": "buy"}, {"method": STOP, "role": "stop"}])}}, run)

@@ -1,0 +1,47 @@
+# ⚠ **25-5（2026-10-18）: 1 本で「買い」と「何日持つか」を出す検知器 H5 の単体**（rules.md 25-5 の 6 ①・記録 horizon-roles-trader.md §6・プラン trader-model-roles.md §3-3）。
+#    利用者「１つの予測モデルで買いと何日後に売るという２つの数値を出せるか？」→ 別のモデルとして登録。買い% ＝ 先 5 ／ 10 ／ 20 ／ 40 日の 4 本の最大・保有日数 ＝ その期間・出口% ＝ 0。
+# ⚠ **表は `trade_own_fwdmulti_a` を `features_from` で借りる**（作り直さない ＝ 13-8）。損切り係は無し（保有日数だけで降りる）。θ 3 水準 ＝ 3 検証。⚠ **回すと決めたのは結果を見る前**。
+#
+# ⚠ **TOML の平の key はテーブル見出しより上に書く**（rules.md 10 章 規約 1）
+name = "trade_own_fwdpick_a"
+dataset = "daily"
+horizon = 1                    # ⚠ 損益のラベルは 1 日のまま
+cost_bp = 5.0
+features_from = "trade_own_fwdmulti_a"   # ⚠ 表は作り直さない（13-8）
+start_date = "2018-01-31"
+
+feature_layers = ["own", "trend"]   # ⚠ 元の表と同じ（trend は損切り係のため）
+label_scales = [5, 10, 20, 40]      # ⚠ 元の表と同じ
+targets = "all"
+
+horizon_min = 86400.0          # ⚠ 元の表と同じパージ（60 日 × 1440 分）
+bar_minutes = 1440.0
+
+detectors = [
+  "H5 先5〜40日から期間を選ぶゲート（全列・学習）",   # 1 本で買い% と保有日数（25-5 の 1）
+]
+
+model = "Ridge"
+baselines = ["常に上（ドリフト）", "直前リターンの符号"]
+
+[model_args]
+fwd_columns = "own"            # ⚠ 買い係・売り係は own 35 列だけ（25-1 の 2）
+
+[trading]
+style = "threshold"
+thresholds = [50, 55, 60]      # ⚠ 単体は 3 水準（H1〜H4 と同じ ＝ 25-5 の 6）
+form = "shared"
+
+[validation]
+split = "walk_forward_dates"
+folds = 5
+purge = true
+embargo_bars = 0
+seed = 0
+
+[features]
+trend_windows = [20]
+ex_lag_days = 1
+ex_zero_fill = ["usgs"]
+ex_transforms = ["d1", "z20"]
+ex_max_stale_days = 7

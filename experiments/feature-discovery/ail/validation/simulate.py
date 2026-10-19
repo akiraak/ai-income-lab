@@ -22,7 +22,7 @@ import pandas as pd
 def simulate(buy_pct, y, threshold: float, cost_bp: float = 5.0, exit_pct=None,
              exit_threshold: float | None = None, stop_loss_pct: float | None = None,
              max_hold_days: int | None = None, min_hold_days: int | None = None,
-             stop_exit_pct=None) -> dict:
+             stop_exit_pct=None, stop_blocks_buy: bool = False) -> dict:
     """1 銘柄 × 1 fold を状態機械で回す。
 
     buy_pct: 入口%（0〜100 の系列・時刻順。⚠ **未保有の日に読む**）。y: その日のリターン（対数）。
@@ -43,10 +43,14 @@ def simulate(buy_pct, y, threshold: float, cost_bp: float = 5.0, exit_pct=None,
     ⚠ **2026-10-18 に最短保有と「毎日読む出口」の口を 2 つ足した**（rules.md 25-2 の 3。⚠ **どちらも省けば 1 ビットも変わらない**）:
     `min_hold_days=d` ＝ 建ててから d 本は `exit_pct` を読まない（売り係は買い係が見た期間は黙る）／
     `stop_exit_pct=s` ＝ d に関わらず毎日読む出口%（損切り係。`s[t] > 売る線` で降りる）。
+    ⚠ **2026-10-18 に「損切り係が言っている日は買わない」の口を足した**（rules.md 25-4 の 2。⚠ **省けば 1 ビットも変わらない**）:
+    `stop_blocks_buy=True` ＝ 未保有の足 t で `s[t] > 売る線` なら、買い% > θ でも建てない（`stop_exit_pct` が無ければ何もしない）。
     """
     if min_hold_days is not None and int(min_hold_days) < 1:
         raise ValueError(f"min_hold_days = {min_hold_days} は受けない（1 日以上）")
     hold_min = None if min_hold_days is None else int(min_hold_days)
+    if stop_blocks_buy and stop_exit_pct is None:
+        raise ValueError("stop_blocks_buy は stop_exit_pct（毎日読む出口%）と一緒にだけ渡せる（rules.md 25-4 の 2）")
     if stop_loss_pct is not None and not (0.0 < float(stop_loss_pct) < 100.0):
         raise ValueError(f"stop_loss_pct = {stop_loss_pct} は受けない（0 より大きく 100 未満の %）")
     if max_hold_days is not None and int(max_hold_days) < 1:
@@ -83,7 +87,7 @@ def simulate(buy_pct, y, threshold: float, cost_bp: float = 5.0, exit_pct=None,
     cum = 0.0                                       # ⚠ 建ててからの累積対数リターン（位置を知る出口にだけ使う。既定の経路では読まない）
     for t in range(n):
         traded = False
-        if p == 0 and b[t] > threshold:             # 建てる（⚠ 未保有のときだけ入口% を読む）
+        if p == 0 and b[t] > threshold and not (stop_blocks_buy and se[t] > et):   # 建てる（⚠ 未保有のときだけ入口% を読む。損切り係が言っている日は建てない ＝ 25-4）
             p, traded, trades = 1, True, trades + 1
             opened = t
             cum = 0.0
@@ -143,7 +147,8 @@ def portfolio_daily(sym_series: dict[str, pd.Series]) -> pd.Series:
 
 def simulate_topk(buy_pct, y, dates, symbols, threshold: float, k: int, cost_bp: float = 5.0,
                   exit_pct=None, price=None, budget_usd: float | None = None, rng=None,
-                  rank=None, min_hold_days: int | None = None, stop_exit_pct=None) -> dict:
+                  rank=None, min_hold_days: int | None = None, stop_exit_pct=None,
+                  stop_blocks_buy: bool = False) -> dict:
     """⚠ **保有できる銘柄数に上限 K を置く閾値売買**（rules.md 17 章）。⚠ **純粋関数。`simulate` は触らない。**
 
     1 fold ぶんの行（銘柄 × 日。並びは問わない）を受け、日付の順に 1 日ずつ回す。
@@ -157,6 +162,7 @@ def simulate_topk(buy_pct, y, dates, symbols, threshold: float, k: int, cost_bp:
     重み ＝ 株数 × price ÷ 予算。渡さなければ端数の版で重みは 1/K。
     `min_hold_days`・`stop_exit_pct` は `simulate` と同じ（rules.md 25-2 の 3。建ててから d 営業日は出口% を読まない・
     毎日読む出口% は d に関わらず読む）。⚠ **どちらも省けば 1 ビットも変わらない**。
+    `stop_blocks_buy=True` ＝ 未保有で `stop_exit_pct > θ` の行は買いの候補にしない（rules.md 25-4 の 2。省けば 1 ビットも変わらない）。
 
     戻り値（行は入力と同じ並び）: pos（0/1）・weight（その行に掛かる重み）・net_unit_bp（重みを掛ける前の日次純利）・
     port_net_bp ／ port_gross_bp ／ invested（日付を index にした系列。invested ＝ その日の重みの合計）・
@@ -178,6 +184,8 @@ def simulate_topk(buy_pct, y, dates, symbols, threshold: float, k: int, cost_bp:
     se = None if stop_exit_pct is None else np.asarray(stop_exit_pct, dtype=float)
     if se is not None and se.shape != b.shape:
         raise ValueError("買い% と毎日読む出口% の長さが違う")
+    if stop_blocks_buy and se is None:
+        raise ValueError("stop_blocks_buy は stop_exit_pct（毎日読む出口%）と一緒にだけ渡せる（rules.md 25-4 の 2）")
     opened: dict[str, int] = {}                   # 銘柄 → 建てた日の通し番号（最短保有にだけ使う）
     # ⚠ 並べる値。NaN は −inf（最下位）。`rank` を省けば買い% そのもの
     key = b if rank is None else np.where(np.isnan(np.asarray(rank, dtype=float)), -np.inf,
@@ -221,7 +229,8 @@ def simulate_topk(buy_pct, y, dates, symbols, threshold: float, k: int, cost_bp:
                     traded[j] = True
                 else:
                     pos[i] = 1
-        cand = [j for j, i in enumerate(rows) if sym[i] not in held_start and b[i] > threshold]
+        cand = [j for j, i in enumerate(rows) if sym[i] not in held_start and b[i] > threshold
+                and not (stop_blocks_buy and se[i] > threshold)]        # ⚠ 損切り係が言っている行は候補にしない（25-4）
         signals += len(cand)
         if rng is not None:
             cand = [cand[q] for q in rng.permutation(len(cand))]

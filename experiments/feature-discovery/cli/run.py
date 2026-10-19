@@ -344,6 +344,8 @@ def evaluate_trading(panel: pd.DataFrame, feats: list[str], exp: dict, run: runs
             if mo.get("min_hold_days") is not None:
                 kw["min_hold_days"] = mo["min_hold_days"]
             stop_all = mo.get("stop_exit")
+            if mo.get("stop_blocks_buy") and stop_all is not None:
+                kw["stop_blocks_buy"] = True       # ⚠ 損切り係が言っている日は建てない（25-4。無い手法は渡さない）
             nets: dict[str, pd.Series] = {}
             grosses: dict[str, pd.Series] = {}
             rands: dict[str, pd.Series] = {}
@@ -642,7 +644,7 @@ def mix_specs(t: dict) -> list[dict]:
             raise SystemExit(f"⚠ trading.mix {name!r} の members は method を持つ 2 本以上（rules.md 20-6 の 4 の 1）")
         if len({(x["experiment"], x["method"]) for x in members}) != len(members):
             raise SystemExit(f"⚠ trading.mix {name!r} に同じメンバーが 2 度ある")
-        spec = {"name": name, "members": members, "combine": combine, "min_hold_days": None}
+        spec = {"name": name, "members": members, "combine": combine, "min_hold_days": None, "stop_blocks_buy": False}
         if combine == MIX_ROLES:
             # ⚠ 役割つきの合わせる口（rules.md 25-2 の 1）: 買い係 1 本以上・売り係 1 本以上・損切り係 0 本以上。外の実験は使わない（25-1 の 3）
             roles = [x["role"] for x in members]
@@ -656,8 +658,15 @@ def mix_specs(t: dict) -> list[dict]:
             if d is not None and (int(d) != d or int(d) < 1):
                 raise SystemExit(f"⚠ trading.mix {name!r} の min_hold_days は 1 以上の整数: {d!r}（rules.md 25-2 の 1）")
             spec["min_hold_days"] = None if d is None else int(d)
-        elif any(x["role"] is not None for x in members):
-            raise SystemExit(f"⚠ trading.mix {name!r}: role は combine = roles のときだけ書く（rules.md 25-2 の 1）")
+            # ⚠ 25-4: 損切り係が出口を言っている日は買い係が買わない。既定 false ＝ 25-2 の行と 1 ビットも同じ
+            sb = m.get("stop_blocks_buy", False)
+            if not isinstance(sb, bool):
+                raise SystemExit(f"⚠ trading.mix {name!r} の stop_blocks_buy は true ／ false だけ: {sb!r}（rules.md 25-4 の 1）")
+            if sb and "stop" not in roles:
+                raise SystemExit(f"⚠ trading.mix {name!r}: stop_blocks_buy = true には損切り係（stop）が要る（rules.md 25-4 の 1）")
+            spec["stop_blocks_buy"] = sb
+        elif any(x["role"] is not None for x in members) or m.get("stop_blocks_buy") is not None:
+            raise SystemExit(f"⚠ trading.mix {name!r}: role ／ stop_blocks_buy は combine = roles のときだけ書く（rules.md 25-2 の 1・25-4 の 1）")
         specs.append(spec)
     if len({s["name"] for s in specs}) != len(specs):
         raise SystemExit("⚠ trading.mix に同じ name が 2 度ある")
@@ -794,9 +803,11 @@ def _roles_fold(s: dict, parts: list[tuple], buy: dict, exits: dict, n_cols: dic
     buy[s["name"]] = mixed
     exits[s["name"]] = ex
     n_cols[s["name"]] = 0.0
-    opts[s["name"]] = {"min_hold_days": s.get("min_hold_days"), "stop_exit": stop}
+    opts[s["name"]] = {"min_hold_days": s.get("min_hold_days"), "stop_exit": stop,
+                       "stop_blocks_buy": bool(s.get("stop_blocks_buy"))}     # ⚠ 25-4。false なら `_row`・`_trader_fold` は渡さない
     miss = int(np.isnan(mixed).sum() + np.isnan(ex).sum())
     fitted_doc[s["name"]] = {"combine": MIX_ROLES, "min_hold_days": s.get("min_hold_days"),
+                             "stop_blocks_buy": bool(s.get("stop_blocks_buy")),
                              "行": int(len(mixed)), "欠けた行": miss,
                              "members": [{"experiment": m["experiment"], "method": m["method"], "role": m["role"],
                                           "doc": p[2]} for m, p in zip(s["members"], parts)]}
@@ -908,6 +919,8 @@ def _trader_fold(conds: list[dict], te: pd.DataFrame, y, ts_te, buy: dict, exits
             st = None if mo.get("stop_exit") is None else mo["stop_exit"][mask]
             if st is not None:
                 rk["stop_exit_pct"] = st
+                if mo.get("stop_blocks_buy"):
+                    rk["stop_blocks_buy"] = True   # ⚠ 25-4（乱択の診断にも同じ口 ＝ 25-4 の 3）
             ok = ~np.isnan(bp)
             hit = float(np.mean((bp[ok] > 50.0) == (yy[ok] > 0))) if ok.any() else 0.0
             ic = (float(np.corrcoef(bp[ok], yy[ok])[0, 1]) if ok.any() and np.std(bp[ok]) > 0 else 0.0)

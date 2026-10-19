@@ -6,6 +6,8 @@
   3. `combine = "roles"` の検査（買い係・売り係が要る ／ role は roles のときだけ ／ 外の実験は使えない ／ d は 1 以上の整数）
   4. 買い% ＝ 買い係・出口% ＝ 100 − 売り係の買い%・毎日読む出口 ＝ 損切り係 ＝ `opts` に置かれ、既存の手法の行は変わらない
   5. トレーダーの形（20 章）にも最短保有が届く（d を大きくすると取引が減る）
+  6. 25-4「損切り係が言っている日は買わない」（`stop_blocks_buy`）: 省けば 1 ビットも変わらない ／ 言っている日は建てない ／
+     `stop_exit_pct` 無しでは受けない ／ `mix_specs` の検査 ／ 役割つきの行で保有 1 日の取引が減り、ほかの行は変わらない
 """
 from __future__ import annotations
 
@@ -20,6 +22,7 @@ from cli.run import MIX_ROLES, evaluate_trading, mix_specs, trader_name
 
 BUY, EXIT, STOP = "テスト用 買い係", "テスト用 売り係", "テスト用 損切り係"
 R1 = "R1 買い先10日・売り先5日・損切り"      # ⚠ names.toml の [mix] にある綴り（roles-b10-e5）
+R1B = "R1b 買い先10日・売り先5日・損切り（買いも止める）"   # 25-4（roles-b10-e5-block）
 TAG = "5本・$600"
 
 
@@ -57,11 +60,13 @@ def _feats(p):
     return [c for c in p.columns if c not in ("symbol", "ts", "y", "close")]
 
 
-def _mix(min_hold=10, members=None, combine=MIX_ROLES, name=R1):
+def _mix(min_hold=10, members=None, combine=MIX_ROLES, name=R1, block=None):
     m = {"name": name, "combine": combine,
          "members": members or [{"method": BUY, "role": "buy"}, {"method": EXIT, "role": "exit"}, {"method": STOP, "role": "stop"}]}
     if min_hold is not None:
         m["min_hold_days"] = min_hold
+    if block is not None:
+        m["stop_blocks_buy"] = block
     return [m]
 
 
@@ -189,3 +194,71 @@ def test_stop_member_must_return_exit(run):
              "members": [{"method": BUY, "role": "buy"}, {"method": EXIT, "role": "stop"}, {"method": STOP, "role": "exit"}]}]
     with pytest.raises(SystemExit, match="出口% を返さない"):
         evaluate_trading(p, _feats(p), _exp(bad2), run)
+
+
+# --- 6. 25-4 損切り係が言っている日は買わない --------------------------------------------
+
+def test_stop_blocks_buy_default_is_bit_identical_and_blocks_entry():
+    """買い% 毎日 100・売り係 0。損切り係が足 0〜3 で 100 なら、止める口があると足 4 で初めて建てる（無ければ足 0 で建て、足 1 で損切り係が売り、足 2 でまた建てる往復）。"""
+    n = 10
+    b = np.full(n, 100.0)
+    e = np.zeros(n)
+    y = np.zeros(n)
+    stop = np.r_[100.0, 100.0, 100.0, 100.0, np.zeros(n - 4)]
+    plain = sim.simulate(b, y, 50.0, exit_pct=e, stop_exit_pct=stop)
+    same = sim.simulate(b, y, 50.0, exit_pct=e, stop_exit_pct=stop, stop_blocks_buy=False)
+    np.testing.assert_array_equal(plain["pos"], same["pos"])
+    assert plain["entry_idx"][:2] == [0, 2] and plain["hold_days"][:2] == [1, 1]     # 往復（建て → 翌足に損切り係で売り → その翌足にまた建てる ＝ 25-3 の適用例の動き）
+    blocked = sim.simulate(b, y, 50.0, exit_pct=e, stop_exit_pct=stop, stop_blocks_buy=True)
+    assert blocked["entry_idx"] == [4] and blocked["trades"] == 1
+    with pytest.raises(ValueError, match="stop_blocks_buy"):
+        sim.simulate(b, y, 50.0, exit_pct=e, stop_blocks_buy=True)
+
+
+def test_topk_stop_blocks_buy():
+    days = pd.date_range("2020-01-01", periods=6, freq="D")
+    rows = [(d, s) for d in days for s in ("S0", "S1")]
+    dates = np.array([r[0] for r in rows])
+    syms = np.array([r[1] for r in rows])
+    b = np.full(len(rows), 100.0)
+    e = np.zeros(len(rows))
+    y = np.zeros(len(rows))
+    stop = np.array([100.0 if (s == "S0" and d < days[2]) else 0.0 for d, s in rows])   # S0 だけ 2 日目まで損切り係が言う
+    kw = dict(threshold=50.0, k=2, cost_bp=5.0, exit_pct=e, stop_exit_pct=stop)
+    plain = sim.simulate_topk(b, y, dates, syms, **kw)
+    same = sim.simulate_topk(b, y, dates, syms, **kw, stop_blocks_buy=False)
+    blocked = sim.simulate_topk(b, y, dates, syms, **kw, stop_blocks_buy=True)
+    np.testing.assert_array_equal(plain["pos"], same["pos"])
+    s0 = syms == "S0"
+    assert plain["trades"] == 3 and blocked["trades"] == 2                      # S0 の往復（0 日目に建て 1 日目に売り 1 日目にまた建てる）が消える
+    assert int(blocked["pos"][s0][:2].sum()) == 0 and int(blocked["pos"][s0][2:].sum()) == 4
+    np.testing.assert_array_equal(plain["pos"][~s0], blocked["pos"][~s0])       # S1 は変わらない
+    with pytest.raises(ValueError, match="stop_blocks_buy"):
+        sim.simulate_topk(b, y, dates, syms, threshold=50.0, k=2, exit_pct=e, stop_blocks_buy=True)
+
+
+def test_stop_blocks_buy_spec_is_checked():
+    assert mix_specs({"mix": _mix()})[0]["stop_blocks_buy"] is False
+    assert mix_specs({"mix": _mix(block=True, name=R1B)})[0]["stop_blocks_buy"] is True
+    with pytest.raises(SystemExit, match="true ／ false"):
+        mix_specs({"mix": _mix(block="yes")})
+    with pytest.raises(SystemExit, match="損切り係"):
+        mix_specs({"mix": _mix(block=True, members=[{"method": BUY, "role": "buy"}, {"method": EXIT, "role": "exit"}])})
+    with pytest.raises(SystemExit, match="roles のときだけ"):
+        mix_specs({"mix": [{"name": R1, "combine": "mean", "stop_blocks_buy": True, "members": [{"method": BUY}, {"method": EXIT}]}]})
+
+
+def test_stop_blocks_buy_row_reduces_one_day_holds_and_leaves_other_rows(run):
+    """同じ係で R1（止めない）と R1b（止める）を 1 つの実行に並べる: 単体の行と R1 の行は R1 だけの実行と同じ・R1b は保有 1 日の取引が減る。"""
+    p = _panel()
+    tr = [{"tag": TAG, "symbols": ["S0", "S1", "S2", "S3", "S4"], "budget_usd": 600, "methods": [R1, R1B]}]
+    only, *_ = evaluate_trading(p, _feats(p), _exp(_mix(min_hold=3), tr), run)
+    both, per_sym, _summary, _daily, extra = evaluate_trading(p, _feats(p), _exp(_mix(min_hold=3) + _mix(min_hold=3, block=True, name=R1B), tr), run)
+    plain = both[both["手法"].isin(set(only["手法"]))].reset_index(drop=True)
+    pd.testing.assert_frame_equal(only.reset_index(drop=True), plain, check_exact=True, check_dtype=False)
+    assert set(both["手法"]) - set(only["手法"]) == {R1B, trader_name(R1B, TAG)}
+    t_plain = both[both["手法"] == R1]["取引回数"].sum()
+    t_block = both[both["手法"] == R1B]["取引回数"].sum()
+    assert 0 < t_block < t_plain, (t_plain, t_block)
+    assert names.method_slug(R1B) == "roles-b10-e5-block"
+    assert names.method_slug(trader_name(R1B, TAG)) == "roles-b10-e5-block-tr5-600"

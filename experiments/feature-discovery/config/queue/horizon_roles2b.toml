@@ -1,0 +1,9 @@
+# ⚠ **25-4: 損切り係が出口を言っている日は買い係が買わない（K8 (b)）の 4 組**（rules.md 25-4・記録 horizon-roles-trader.md §5。利用者決定 2026-10-18）。
+# 25-2 の 4 組（horizon_roles2）と組・最短保有・条件は同じで、`stop_blocks_buy = true` だけ違う。⚠ **結果を見てから足した処置 ＝ 新しく登録して全部回す（14-10）。1 組だけ選ばない**。
+# 4 本 × （素の行 1 ＋ 条件 2）＝ n_trials ＋12（867 → 879）。表は作り直さない（`features_from`。leak 対照の表も既にある）。
+experiments = ["trader_roles_t7b", "trader_roles_t8b", "trader_roles_t9b", "trader_roles_t10b"]
+
+leak = true              # ⚠ 配線の穴に気づく唯一の手。切らない
+ledger = false           # ⚠ 検証結果一覧は終わってから 1 回吐く
+max_failures = 1
+time_budget_s = 3600     # ⚠ 見積り 2 分【推測。horizon_roles2 が 1 分 10 秒【実測】】

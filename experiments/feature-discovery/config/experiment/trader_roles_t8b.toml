@@ -1,0 +1,78 @@
+# ⚠ **25-4（2026-10-18 利用者決定 K8 (b)）**: 25-2 の同じ組に `stop_blocks_buy = true` を足しただけ（損切り係が出口を言っている日は買い係が買わない）。
+#    組・最短保有・損切り係・θ・条件は元の config と 1 つも違わない ＝ 別の手法名 `R?b …（買いも止める）` ＝ 別の識別項目。記録 horizon-roles-trader.md §5。
+# ⚠ **役割つきの合わせる口（rules.md 25-2）**: 買い係 H3 先20日 ＋ 売り係 H2 先5日（買ってから 20 本は読まない）＋ 損切り係 X1 −10% を
+#    トレーダーと同じ形（20 章）で机上にかける。記録 `docs/specs/experiments/horizon-roles-trader.md` §0・プラン `docs/plans/trader-model-roles.md` §2。
+#    利用者決定 2026-10-18「期間を別々にすることが大切」「推す案でいく」。識別名の人 `T8`（候補。Phase 4 で `candidates/horizon/`）。
+# ⚠ **表は `trade_own_fwdmulti_a` を `features_from` で借りる**（作り直さない ＝ 13-8。3 係とも同じ表 ＝ 切れ目が同じ ＝ 25-1 の 3）。
+#    detectors はこの人の 3 係だけ・θ は 50 だけ（人の設定の 1 水準）。単体の行は持ち主の実行の識別項目にまとまる（再現の検算）。
+# ⚠ **数**: 素の行 1 ＋ 条件 2 ＝ 3 検証（25-2 の 8）。⚠ **回すと決めたのは結果を見る前**。
+#
+# ⚠ **TOML の平の key はテーブル見出しより上に書く**（rules.md 10 章 規約 1）
+name = "trader_roles_t8b"
+dataset = "daily"
+horizon = 1                    # ⚠ 損益のラベルは 1 日のまま
+cost_bp = 5.0
+features_from = "trade_own_fwdmulti_a"   # ⚠ 表は作り直さない（13-8）
+start_date = "2018-01-31"
+
+feature_layers = ["own", "trend"]   # ⚠ 元の表と同じ（trend は損切り係のため）
+label_scales = [5, 10, 20, 40]      # ⚠ 元の表と同じ
+targets = "all"
+
+horizon_min = 86400.0          # ⚠ 元の表と同じパージ（60 日 × 1440 分）
+bar_minutes = 1440.0
+
+detectors = [
+  "H3 先20日ゲート（全列・学習）",     # 買い係
+  "H2 先5日ゲート（全列・学習）",     # 売り係
+  "X1 出口だけ 高値20日から−10%で降りる",   # 損切り係
+]
+
+model = "Ridge"
+baselines = ["常に上（ドリフト）", "直前リターンの符号"]
+
+[model_args]
+fwd_columns = "own"            # ⚠ 買い係・売り係は own 35 列だけ（25-1 の 2）
+
+[trading]
+style = "threshold"
+thresholds = [50]              # ⚠ 人の設定の 1 水準だけ（20-6）
+form = "shared"
+
+# ⚠ 役割つきの合わせる口（25-2）。最短保有 ＝ 買い係の期間
+[[trading.mix]]
+name = "R2b 買い先20日・売り先5日・損切り（買いも止める）"
+combine = "roles"
+stop_blocks_buy = true       # ⚠ 25-4（K8 (b)）: 損切り係が出口を言っている日は買い係が買わない
+min_hold_days = 20
+members = [
+  { method = "H3 先20日ゲート（全列・学習）", role = "buy" },
+  { method = "H2 先5日ゲート（全列・学習）", role = "exit" },
+  { method = "X1 出口だけ 高値20日から−10%で降りる", role = "stop" },
+]
+
+# ⚠ 2a いまの人の条件（20-2。✅ 2026-10-04 から 1 人 $600 ＝ 25-2 の 7）。合成だけに当てる（20-6 の 4 の 5）
+[[trading.trader]]
+tag = "5本・$600"
+symbols = ["T", "PFE", "NKE", "VZ", "BAC"]
+budget_usd = 600
+methods = ["R2b 買い先20日・売り先5日・損切り（買いも止める）"]
+
+# ⚠ 2b 全銘柄を買える予算（20-2）
+[[trading.trader]]
+tag = "全銘柄・全部を買える予算"
+methods = ["R2b 買い先20日・売り先5日・損切り（買いも止める）"]
+
+[validation]
+split = "walk_forward_dates"
+folds = 5
+purge = true
+embargo_bars = 0
+seed = 0
+
+[features]
+trend_windows = [20]
+ex_lag_days = 1
+ex_zero_fill = ["usgs"]
+ex_transforms = ["d1", "z20"]
+ex_max_stale_days = 7

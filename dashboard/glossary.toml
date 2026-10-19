@@ -747,6 +747,20 @@ note = "管理画面の概要・全体の詳細・トレーダーの詳細に出
   see = { label = "トレーダーのしくみ — 売買基準値と合わせ方", tab = "system", item = "trader" }
 
   [[section.term]]
+  name = "役割（モデルの）"
+  short = "そのモデルを何に使うか ＝ 両方（既定）／ 買い係 ／ 売り係 ／ 損切り係 ／ 見るだけ。買い係は売りに入らず、損切り係は最短保有の中でも毎日読む。"
+  doc = "docs/specs/experiments/live-trading.md"
+  where = "§0-1 役割と最短保有"
+  see = { label = "トレーダーのしくみ — 設定項目の一覧", tab = "system", item = "trader" }
+
+  [[section.term]]
+  name = "最短保有"
+  short = "買ってから何営業日は売り係の出口% を読まないか（NYSE の暦。建てた日が 0）。損切り係だけは毎日読む。候補の人では買い係が見た先の期間。"
+  doc = "docs/specs/experiments/live-trading.md"
+  where = "§0-1 役割と最短保有"
+  see = { label = "トレーダーのしくみ — 設定項目の一覧", tab = "system", item = "trader" }
+
+  [[section.term]]
   name = "差 1（執行価格）"
   short = "合図を出したときの気配（mid）から約定までの値段のずれ。bp で出し、正 ＝ 不利。判定は中央値で見る。"
   doc = "docs/specs/dashboard.md"

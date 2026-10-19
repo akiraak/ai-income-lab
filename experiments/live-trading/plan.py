@@ -4,12 +4,18 @@
 
 状態機械は feature-discovery の `simulate()`（rules.md 13-4）と同じ向き:
   未保有で 買い% > θ → 建てる ／ 保有中で 出口% > θ → 手仕舞う ／ それ以外は何もしない（買い専用・買い増しなし）。
+役割のある人（2026-10-18。プラン trader-model-roles.md §4 の 3・rules.md 25-2 の 3・25-4）はこれに 3 つ足す:
+  最短保有 `min_hold_days` ＝ 建ててから d 営業日未満（NYSE の暦で `opened` から数える）は出口% を読まない ／
+  損切り係の「毎日読む出口%」`Signal.stop` > θ なら最短保有の中でも手仕舞う ／
+  `stop_blocks_buy` ＝ 損切り係が言っている日は買い% > θ でも建てない。
+⚠ 役割の無い人（`stop` が None・`min_hold_days` が None）は 1 ビットも変わらない。
 """
 
 from __future__ import annotations
 
 import math
 from dataclasses import dataclass, field
+from datetime import date as _date, timedelta
 
 from signals import Signal
 from state import TraderState
@@ -86,20 +92,59 @@ class Plan:
     events: list[dict]   # 見送り・予算超え・株数 0 などの理由
 
 
-def decide(trader: Trader, state: TraderState, signals: list[Signal]) -> tuple[list[dict], list[dict]]:
-    """状態機械。戻り値は (意図の素, 事象)。意図の素は {"symbol", "side", buy_pct, exit_pct}。"""
+def held_trading_days(opened: str, today: str, calendar=None) -> int:
+    """建ててから今日までの営業日の数 ＝ `opened` の翌日から `today` までの NYSE の営業日（休場日・土日は数えない）。
+
+    建てた日は 0・翌営業日が 1。`today` が `opened` 以前なら 0。暦は `market_calendar.nyse()`（管理画面・発注できる時間帯と同じもの）。
+    """
+    if calendar is None:
+        import market_calendar
+        calendar = market_calendar.nyse()
+    o, d = _date.fromisoformat(opened), _date.fromisoformat(today)
+    if d <= o:
+        return 0
+    return len(calendar.trading_days(o + timedelta(days=1), d))
+
+
+def decide(trader: Trader, state: TraderState, signals: list[Signal], today: str | None = None, calendar=None) -> tuple[list[dict], list[dict]]:
+    """状態機械。戻り値は (意図の素, 事象)。意図の素は {"symbol", "side", buy_pct, exit_pct}。
+
+    `today` は最短保有（`min_hold_days`）のある人にだけ要る（無ければ ValueError ＝ 設定の誤りで「読まずに売る」をしない）。
+    役割のある人の意図の素と事象には `stop_pct`・`reason`（exit ／ stop）・最短保有の数字が付く。役割の無い人は 1 ビットも変わらない。
+    """
     raw: list[dict] = []
     events: list[dict] = []
     for sg in signals:
         if sg.trader != trader.name:
             continue
         pos = state.position(sg.symbol)
-        if pos == 0 and sg.buy > trader.threshold:
-            raw.append({"symbol": sg.symbol, "side": "buy", "buy_pct": sg.buy, "exit_pct": sg.exit})
-        elif pos == 1 and sg.exit > trader.threshold:
-            raw.append({"symbol": sg.symbol, "side": "sell", "buy_pct": sg.buy, "exit_pct": sg.exit})
+        stop_says = sg.stop is not None and sg.stop > trader.threshold      # 損切り係（役割の無い人は常に False）
+        extra = {"stop_pct": sg.stop} if trader.has_roles else {}
+        if pos == 0:
+            if sg.buy > trader.threshold and trader.stop_blocks_buy and stop_says:
+                events.append({"kind": "stop_blocks_buy", "trader": trader.name, "symbol": sg.symbol, "buy_pct": sg.buy, "exit_pct": sg.exit, "stop_pct": sg.stop,
+                               "note": "損切り係が出口を言っている日は買わない（stop_blocks_buy。rules.md 25-4）"})
+            elif sg.buy > trader.threshold:
+                raw.append({"symbol": sg.symbol, "side": "buy", "buy_pct": sg.buy, "exit_pct": sg.exit, **extra})
+            else:
+                events.append({"kind": "skip", "trader": trader.name, "symbol": sg.symbol, "buy_pct": sg.buy, "exit_pct": sg.exit, **extra})
+            continue
+        # ---- 保有中
+        muted: dict = {}
+        if trader.min_hold_days is not None:
+            if today is None:
+                raise ValueError(f"{trader.name}: 最短保有（min_hold_days）のある人は today が要る")
+            held = held_trading_days(state.holdings[sg.symbol].opened, today, calendar)
+            if held < trader.min_hold_days:
+                muted = {"held_days": held, "min_hold_days": trader.min_hold_days, "exit_muted": True}
+        if sg.exit > trader.threshold and not muted:
+            raw.append({"symbol": sg.symbol, "side": "sell", "buy_pct": sg.buy, "exit_pct": sg.exit, **extra, **({"reason": "exit"} if trader.has_roles else {})})
+        elif stop_says:
+            raw.append({"symbol": sg.symbol, "side": "sell", "buy_pct": sg.buy, "exit_pct": sg.exit, **extra, "reason": "stop"})
+            events.append({"kind": "stop_exit", "trader": trader.name, "symbol": sg.symbol, "exit_pct": sg.exit, "stop_pct": sg.stop, **muted,
+                           "note": "損切り係の出口% が売買基準値を超えた（最短保有の中でも読む）"})
         else:
-            events.append({"kind": "hold" if pos else "skip", "trader": trader.name, "symbol": sg.symbol, "buy_pct": sg.buy, "exit_pct": sg.exit})
+            events.append({"kind": "hold", "trader": trader.name, "symbol": sg.symbol, "buy_pct": sg.buy, "exit_pct": sg.exit, **extra, **muted})
     return raw, events
 
 
@@ -189,7 +234,7 @@ def build_plan(traders: list[Trader], states: dict[str, TraderState], signals: l
     events: list[dict] = []
     cap = max_day_usd if isinstance(max_day_usd, DayCap) else DayCap(max_day_usd)   # ⚠ 1 日の上限は全員で 1 つ
     for t in traders:
-        raw, ev = decide(t, states[t.name], signals)
+        raw, ev = decide(t, states[t.name], signals, today)
         events.extend(ev)
         its, ev2 = size_intents(t, states[t.name], raw, quotes, today, cap)
         intents.extend(its)

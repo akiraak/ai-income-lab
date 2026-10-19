@@ -392,7 +392,8 @@ def main() -> int:
             rec.write("events", {"kind": "liquidate_done", "trader": t.name, "done": flags[t.name].done,
                                  "note": "手じまいは済んでいる（停止。開始の指示があるまで買わない）"})
     try:
-        sigs, sig_events = signalling.collect(active, date, predict_path)
+        sigs, sig_events = signalling.collect(active, date, predict_path,
+                                              positions={(t.name, s): states[t.name].position(s) for t in active for s in t.symbols})
     except signalling.SignalError as exc:
         rec.write("events", {"kind": "signal_error", "note": str(exc)})
         print(f"中断: {exc}", file=sys.stderr)
@@ -401,7 +402,8 @@ def main() -> int:
         rec.write("events", ev)
     for sg in sigs:
         rec.write("signals", {"trader": sg.trader, "symbol": sg.symbol, "buy": sg.buy, "exit": sg.exit, "inputs": [list(i) for i in sg.inputs],
-                              "position_before": states[sg.trader].position(sg.symbol), "test": sg.test})
+                              "position_before": states[sg.trader].position(sg.symbol), "test": sg.test,
+                              **({"stop": sg.stop} if sg.stop is not None else {})})     # 毎日読む出口%（損切り係のある人だけ）
 
     # ---- 3. 状態機械 → 気配 → 株数 → 合算
     raw_by_trader = {}
@@ -413,7 +415,7 @@ def main() -> int:
         if t in liquidating:
             raw, ev = planning.liquidation_raw(t, states[t.name])     # 手じまい中: 合図を読まず持ち株を全部売る（買いは組まない）
         else:
-            raw, ev = planning.decide(t, states[t.name], sigs)
+            raw, ev = planning.decide(t, states[t.name], sigs, date)    # date ＝ 最短保有を営業日で数える（役割の無い人は読まない）
         for r in [r for r in raw if r["symbol"] in blocked]:
             rec.write("events", {"kind": "blocked_symbol", "trader": t.name, "symbol": r["symbol"], "side": r["side"],
                                  "note": "口座と売買履歴の帳尻が合っていない銘柄（position_short ／ journal_unresolved）。今日は発注しない"})

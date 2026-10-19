@@ -121,6 +121,7 @@ flowchart LR
 | `majority` | θ 超えが過半なら 100、でなければ 0 | 同じ | 奇数本 |
 | `unanimous` | min（全員が θ 超えのときだけ買う） | max（1 本でも θ 超えなら売る） | 2 本以上 |
 
+- ✅ **2026-10-18 役割の口を執行器に足した**（[プラン trader-model-roles.md](../plans/trader-model-roles.md) Phase 3）: `[[models]] role`（both ／ buy ／ exit ／ stop ／ watch）・`combine_buy` ／ `combine_exit`・`min_hold_days`・`stop_blocks_buy`。役割の無い設定はこの表のまま 1 ビットも変わらない。役割のある人の書き方は「2-8」（Phase 4 で書く）。意味は [live-trading.md §0-1「役割と最短保有」](experiments/live-trading.md) とシステム説明「トレーダーのしくみ」の設定項目の一覧
 - **出口だけを言うモデル（損切りなど）は買い% を常に 100 で返し、`unanimous` で合わせる**（2026-09-27 利用者決定 K2）＝ 買いは主モデル・売りはどちらかが言ったら。⚠ `mean` に入れると買い% が半分になって使えない。⚠ 主モデルを 2 本以上入れると「全員が θ 超え」が買いの条件になる（意味が変わる）
 - 出口だけを言うモデルの実験 config は **`cli.predict` のためだけに 1 本**置く（例 `config/experiment/trade_own_stopexit_a.toml` ＝ 検知器 `X1`〜`X3`〔`ail/detectors/stop.py`〕。買い% 100・出口% ＝ 規則そのもの）。⚠ **queue に入れない**（検証ではない ＝ `n_trials` に数えない。机上の検証は「入口 ＝ 主モデル」の対の検知器で済ませる ＝ [rules.md 19-1 の 8](experiments/feature-discovery/rules.md)）。⚠ **主モデルとは別の実験名**（`signals.py` は `(model, symbol)` で行を引く）。人の設定では `[[models]]` の `method` で水準を 1 本選ぶ
 - 損切りモデルが買値を知る形（形 B）は執行器の変更が要る ＝ 10/20 の後（プラン §7 の道 1）。それまでに机上で載るのは買値を知らない形 A

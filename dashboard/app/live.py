@@ -627,7 +627,8 @@ def board(live_dir: Path, days: int | None = DAYS, today=None, now_et_=None, sup
                     grid[s].append({"a": "nostart", "tip": f"{d} {s}: 起動なし（営業日なのに執行器の記録が無い）"})
                     continue
                 sig = next((x for x in day_["signals"] if x.get("trader") == name and x.get("symbol") == s), None)
-                sig_t = f"（合図 買い {sig.get('buy', 0):.0f} ／ 出口 {sig.get('exit', 0):.0f}）" if sig else ""
+                stop_t = f" ／ 損切り {sig['stop']:.0f}" if sig and sig.get("stop") is not None else ""     # 損切り係のある人だけ（2026-10-18）
+                sig_t = f"（合図 買い {sig.get('buy', 0):.0f} ／ 出口 {sig.get('exit', 0):.0f}{stop_t}）" if sig else ""
                 act, detail = "none", ""
                 for o in day_["orders"]:
                     part = next((p for p in o.get("parts") or [] if p.get("trader") == name), None)

@@ -1,0 +1,9 @@
+# ⚠ **土台を引いた買い%（案 A）**: 単体 4 本 × θ 3 ＋ 土台差 × 損切りなしの組 4 本（rules.md 25-7・記録 horizon-roles-trader.md §8。
+# 利用者の指示 2026-10-19「そのうえで A」）。事前固定は記録 §8-0（⚠ **回すと決めたのは結果を見る前。5 本全部か回さないか**）。
+# 単体 ＋12 ＋ 組 4 × 3 ＝ ＋24（897 → 921）。表は作り直さない（`features_from`）。
+experiments = ["trade_own_fwdmulti_c", "trader_roles_t16", "trader_roles_t17", "trader_roles_t18", "trader_roles_t19"]
+
+leak = true              # ⚠ 配線の穴に気づく唯一の手。切らない
+ledger = false           # ⚠ 検証結果一覧は終わってから 1 回吐く
+max_failures = 1
+time_budget_s = 3600     # ⚠ 見積り 6 分【推測】

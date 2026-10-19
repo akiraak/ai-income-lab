@@ -500,7 +500,7 @@ text = [
   "この形で書いた人の決まりは、トレーダーのタブの「使うモデル」（係の札）と「正式な名前」（最短保有の営業日数）に出る。",
 ]
 detail = [
-  "設定: [[models]] role（both ／ buy ／ exit ／ stop ／ watch）・combine_buy ／ combine_exit・min_hold_days・stop_blocks_buy（2026-10-18 Phase 3。live-trading.md §0-1「役割と最短保有」・下の設定項目の一覧）。候補の人 T7〜T10（config/traders/candidates/horizon/）＝ 買い係 先 10 ／ 20 ／ 40 ／ 5 日・売り係 先 5 ／ 5 ／ 10 ／ 20 日・損切り係 X1 高値 20 日から −10%・最短保有 ＝ 買い係の期間（プラン trader-model-roles.md §2。2026-10-19 Phase 4）。",
+  "設定: [[models]] role（both ／ buy ／ exit ／ stop ／ watch）・combine_buy ／ combine_exit・min_hold_days・stop_blocks_buy（2026-10-18 Phase 3。live-trading.md §0-1「役割と最短保有」・下の設定項目の一覧）。候補の人 T7〜T10（config/traders/candidates/horizon/）＝ 買い係 先 10 ／ 20 ／ 40 ／ 5 日・売り係 先 5 ／ 5 ／ 10 ／ 20 日・損切り係 X1 高値 20 日から −10%・最短保有 ＝ 買い係の期間（プラン trader-model-roles.md §2。2026-10-19 Phase 4）。同じ組で損切り係を持たない T12〜T15 と、さらに買い係・売り係を土台を引いたゲート（rules.md 25-7 ＝ いつもどおりなら 50）にした T16〜T19（2026-10-19 Phase 6。プラン §10）。",
   "机上（horizon-roles-trader.md）: 役割つきの 4 組 R1〜R4 は採る 0（保留 2 ＝ R1・R3 の $600 の形）。損切り係の翌日買い戻しが取引の約 6 割 → 止める形 stop_blocks_buy（rules.md 25-4）は 12 対のうち 11 対が負（利用者決定 K9 (a) ＝ 既定は往復あり）。",
 ]
 

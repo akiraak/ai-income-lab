@@ -1,0 +1,52 @@
+# ⚠ **土台を引いた先 W 日ゲート（rules.md 25-7。案 A）**: 買い% ＝ 100 × σ(logit(p) − logit(π))・π ＝ 訓練の行の上がる割合。
+#    H1〜H4 の 4 本を「土台差」の登録名で回す（新しい識別項目）。記録 `docs/specs/experiments/horizon-roles-trader.md` §8・
+#    プラン `docs/plans/trader-model-roles.md` §10。利用者の指示 2026-10-19「そのうえで A」。
+# ⚠ **表は `trade_own_fwdmulti_a` を `features_from` で借りる**（作り直さない ＝ 13-8）。列は own 35 だけ（25-1 の 2）。
+# ⚠ **数**: 4 本 × θ 3 ＝ 12 検証（25-7 の 3）。⚠ 結果を見て π の取り方・θ を動かさない。
+#
+# ⚠ **TOML の平の key はテーブル見出しより上に書く**（rules.md 10 章 規約 1）
+name = "trade_own_fwdmulti_c"
+dataset = "daily"
+horizon = 1                    # ⚠ 損益のラベルは 1 日のまま
+cost_bp = 5.0
+features_from = "trade_own_fwdmulti_a"   # ⚠ 表は作り直さない（13-8）
+start_date = "2018-01-31"
+
+feature_layers = ["own", "trend"]   # ⚠ 元の表と同じ（trend 層は読まない ＝ fwd_columns = own）
+label_scales = [5, 10, 20, 40]      # ⚠ 元の表と同じ
+targets = "all"
+
+horizon_min = 86400.0          # ⚠ 元の表と同じパージ（60 日 × 1440 分）
+bar_minutes = 1440.0
+
+detectors = [
+  "H1 先10日ゲート（全列・学習・土台差）",
+  "H2 先5日ゲート（全列・学習・土台差）",
+  "H3 先20日ゲート（全列・学習・土台差）",
+  "H4 先40日ゲート（全列・学習・土台差）",
+]
+
+model = "Ridge"
+baselines = ["常に上（ドリフト）", "直前リターンの符号"]
+
+[model_args]
+fwd_columns = "own"            # ⚠ own 35 列だけ（25-1 の 2）
+
+[trading]
+style = "threshold"
+thresholds = [50, 55, 60]      # ⚠ 事前固定（25-7 の 3）
+form = "shared"
+
+[validation]
+split = "walk_forward_dates"
+folds = 5
+purge = true
+embargo_bars = 0
+seed = 0
+
+[features]
+trend_windows = [20]
+ex_lag_days = 1
+ex_zero_fill = ["usgs"]
+ex_transforms = ["d1", "z20"]
+ex_max_stale_days = 7

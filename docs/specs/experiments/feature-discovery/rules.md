@@ -1906,3 +1906,31 @@ flowchart LR
 | ⚠ **25** | `ail/detectors/fwd.py` の `EXTRA_WINDOWS`・`name_of`・`fwd_columns`（ctx。⚠ **項目が無ければ全列 ＝ 既存と完全一致**）／ 25-2 ＝ `ail/validation/simulate.py` の `simulate`・`simulate_topk`（任意引数 `min_hold_days`・`stop_exit_pct`。⚠ **省くと既存と完全一致**）＋ `cli/run.py` の `mix_specs`・`_mix_fold`（`combine = "roles"`）・`_row`・`_trader_fold`（手法ごとの口を渡す）／ 綴り ＝ `config/names.toml` の `[method]`（`h2-gate5` ほか）・`[mix]`（`roles-*`）／ config `trade_own_fwdmulti_a`・`trader_roles_t7〜t10`・queue `horizon_roles1`・`horizon_roles2` ／ テスト `tests/test_fwd.py`（5 節）・`tests/test_roles_mix.py` ／ ⚠ **25-4** ＝ `simulate`・`simulate_topk` の任意引数 `stop_blocks_buy`（⚠ **省くと既存と完全一致**）＋ `mix_specs`（`stop_blocks_buy`）・`_roles_fold`（`opts`）・`_row`・`_trader_fold` ／ 綴り `roles-*-block` ／ config `trader_roles_t7b〜t10b`・queue `horizon_roles2b` ／ テスト `tests/test_roles_mix.py` の 25-4 の節 ／ ⚠ **25-5** ＝ `ail/detectors/fwd.py` の `H5`・`HOLD_KEY`・`drain_holds` ＋ `simulate`・`simulate_topk` の任意引数 `hold_days`（⚠ **省くと既存と完全一致**）＋ `fold_buy_pct`（4 つ返す検知器）・`mix_specs`（`hold_from_buy`）・`_roles_fold`・`_row`・`_trader_fold` ／ 綴り `h5-gate-pick`・`roles-pick-stop` ／ config `trade_own_fwdpick_a`・`trader_roles_t11`・queue `horizon_roles3` ／ テスト `tests/test_fwd.py` の H5 の節・`tests/test_roles_mix.py` の 25-5 の節 |
 | ⚠ **14-12** | `ail/models/tuned.py`（候補・尻・champion・学び直し。Phase 1）＋ `ail/models/trees.py`・`deep.py`（ctx から読む。⚠ **既定はいまの定数と同じ ＝ 既存の config は指紋が動かない**）＋ `cli/run.py` の `fold_buy_pct`（記録の拾い）・`ail/validation/gate.py`（記録を捨てる）／ 綴り = `config/names.toml` の `[learner]`（`ridge-tuned`・`lgbm-tuned`・`mlp-tuned`）／ テスト `tests/test_tuned.py`（いずれも Phase 1。プラン [hyperparam-inner-selection.md](../../../plans/archive/hyperparam-inner-selection.md)）。⚠ **14-12-3**（1 度選んで配る）: `tuned.py` に `<モデル>（内側選抜・1 度）`・`cli/run.py` の `fold_buy_pct` が較正の前に選んで ctx で配る・`names.toml` に `*-tuned-once`・config `trade_own_*_tuned_once_a`・queue `hp_inner_once`・`tests/test_tuned.py` に 6 本（Phase 4） |
 | ⚠ **検証結果一覧** | `ail/catalog.py` ／ `cli/ledger.py` ／ `config/legacy.toml` ／ `config/catalog_notes.toml` |
+
+### 25-6. ⚠ 損切り係なしの組（Phase 6-1。2026-10-19 利用者「損切りを入れないトレーダーを用意する」。⚠ 回す前に固定）
+
+sim7（live-trading.md §0-7 (k)）で 4 組の売買がほぼ同じになり、売り 73 本のうち 71 本が損切り係、70 本が翌日の買い戻しだった。利用者の指示で損切り係を外した組を新しい手法として登録し、4 組全部を回して数える（14-10）。
+
+| # | 規約 |
+| ---: | --- |
+| 1 | 合わせる口は 25-2 のまま（損切り係 0 本 ＝ `stop_exit_pct` None）。**コードは変えない**。組 (b, e, d ＝ b) は 25-2 の 6 と同じ 4 組・θ 50・条件 2a ／ 2b は 25-2 の 7 と同じ |
+| 2 | 手法名と綴り（`[mix]`）: `R6 買い先10日・売り先5日（損切りなし）` ＝ `roles-b10-e5-nostop` ／ `R7 買い先20日・売り先5日（損切りなし）` ＝ `roles-b20-e5-nostop` ／ `R8 買い先40日・売り先10日（損切りなし）` ＝ `roles-b40-e10-nostop` ／ `R9 買い先5日・売り先20日（対照・損切りなし）` ＝ `roles-b5-e20-nostop`。config `trader_roles_t12`〜`t15`・queue `horizon_roles4` |
+| 3 | 数: 組 4 × （素の行 1 ＋ 条件 2）＝ **＋12（885 → 897）** |
+| 4 | ⚠ 先に書く予想【推測】: 売り係（100 − 買い%）が θ を超える日が少ないので「持ち続ける − 費用」に近づき、採る 0。R1〜R4 との差は損切り係のぶんだけ（stoploss-as-model.md と同じ向き ＝ 損切りを外すと純利は上がる見込み）。⚠ 結果で組を足さない・d を動かさない |
+
+⚠ **2026-10-19 の適用例（回した結果）**: 採る 0 ／ 保留 6 ／ 落とす 6（885 → **897**。記録 [horizon-roles-trader.md §7](../horizon-roles-trader.md)）。損切り係を外すと同じ行で R1〜R4 より純利が ＋208〜＋460bp/fold 上（12 行とも）・素の行は持ち続ける − 費用に近い。保留は $600 の形 4 本と R8 の素・2b（2/5）。
+
+### 25-7. ⚠ 土台を引いた買い%（先 W 日ゲートの中心化。Phase 6-2 ＝ 案 A。2026-10-19 利用者「そのうえで A」。⚠ 回す前に固定）
+
+先 W 日ゲートの買い% は「先 W 日で上がる確率」をそのまま 0〜100 にしたもの。上がる日の割合（土台）は W が長いほど高く（先 40 日で 6 割前後）、θ 50 では買い係がほぼ毎日「買う」（25-3 の適用例・sim7）。土台を引いて「いつもどおりなら 50」にする検知器の口を登録する。
+
+| # | 規約 |
+| ---: | --- |
+| 1 | `fwd.forward_gate(..., center=True)`: 較正した確率 p（0〜1）と、**訓練の行の `y_fwd_W > 0` の割合 π**（Platt の前に分かる・訓練だけ ＝ leak なし）から、**買い% ＝ 100 × σ(logit(p) − logit(π))**。p ＝ π なら 50。p は [0.005, 0.995] に収めてから logit を取る。出口% ＝ 100 − 買い%（既定のまま） |
+| 2 | 登録名は別（新しい識別項目）: `H1 先10日ゲート（全列・学習・土台差）` ／ `H2 先5日ゲート（全列・学習・土台差）` ／ `H3 先20日ゲート（全列・学習・土台差）` ／ `H4 先40日ゲート（全列・学習・土台差）`。綴り `h1-gate10-centered` ／ `h2-gate5-centered` ／ `h3-gate20-centered` ／ `h4-gate40-centered`。⚠ **既存の `H1`〜`H5` は 1 ビットも変わらない**（`center` の既定 False ＝ 指紋テスト） |
+| 3 | 表は `trade_own_fwdmulti_a` を `features_from` で借りる（作り直さない）。単体は `trade_own_fwdmulti_c`（4 本 × θ 50 ／ 55 ／ 60 ＝ ＋12）。列は `fwd_columns = "own"`（25-1 の 2） |
+| 4 | 組（土台差 × 損切りなし）: 25-6 と同じ 4 組で、メンバーを土台差の検知器にする。手法名 `R10 買い先10日・売り先5日（土台差・損切りなし）` ＝ `roles-b10-e5-centered-nostop` ／ `R11 買い先20日・売り先5日（土台差・損切りなし）` ＝ `roles-b20-e5-centered-nostop` ／ `R12 買い先40日・売り先10日（土台差・損切りなし）` ＝ `roles-b40-e10-centered-nostop` ／ `R13 買い先5日・売り先20日（対照・土台差・損切りなし）` ＝ `roles-b5-e20-centered-nostop`。config `trader_roles_t16`〜`t19`。単体と組を 1 つの queue `horizon_roles5` で回す（＋12 ＋ 12 ＝ ＋24。897 → 921） |
+| 5 | 記録に残すもの（`fitted_doc`）: `土台`（π）・`中心化 = true`。`cli.predict` の経路は検知器の中なので 13500t の毎日の予測・sim の作り置きも同じ値 |
+| 6 | ⚠ 先に書く予想【推測】: 単体は「買わない日」が出て保有日率が下がり、取引が増える。門（AUC）は変わらない（単調変換）＝ 採る 0 の見込み。組は 4 組の注文が違うものになる（sim で見る）。⚠ 結果を見て π の取り方（訓練 ／ holdout）や θ を動かさない |
+
+⚠ **2026-10-19 の適用例（回した結果）**: 採る 0 ／ 保留 4 ／ 落とす 20（897 → **921**。記録 [horizon-roles-trader.md §8](../horizon-roles-trader.md)）。単体 12 行は全部落とす（上乗せ −197〜−1,247bp/fold ＝ 休んだぶんが負に出た・保有日率 0.52〜0.69）。組は素の行・2b が落とす、$600 の形 4 本が保留（＋358〜＋562・1〜2/5）。4 組の取引は 169〜713 回で互いに違う。

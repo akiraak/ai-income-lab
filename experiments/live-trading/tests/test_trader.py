@@ -219,6 +219,49 @@ H = {5: "H2 先5日ゲート（全列・学習）", 10: "H1 先10日ゲート（
 X1 = "X1 出口だけ 高値20日から−10%で降りる"
 
 
+HC = {w: n.replace("（全列・学習）", "（全列・学習・土台差）") for w, n in H.items()}
+# 2026-10-19 Phase 6（利用者「損切りを入れないトレーダーを用意する。そのうえで A」）: 損切り係なし T12〜T15 ／ 土台差 × 損切りなし T16〜T19
+NO_STOP = {"T12": (10, 5), "T13": (20, 5), "T14": (40, 10), "T15": (5, 20)}
+CENTERED = {"T16": (10, 5), "T17": (20, 5), "T18": (40, 10), "T19": (5, 20)}
+
+
+def test_horizon_candidates_without_stop_and_centered_are_wired_as_decided():
+    """`T12`〜`T15` ＝ `T7`〜`T10` から損切り係を外しただけ（同じ作り置き H1〜H4）／ `T16`〜`T19` ＝ さらに買い係・売り係を土台差の
+    検知器（`trade_own_fwdmulti_c`）にした人。どちらも最短保有 ＝ 買い係の期間・θ 50・5 本・整数株・$300・本番の人ではない。"""
+    from trader import load_traders
+    for group, exp, names in ((NO_STOP, "trade_own_fwdmulti_a", H), (CENTERED, "trade_own_fwdmulti_c", HC)):
+        ts = {t.name: t for t in load_traders(list(group), HORIZON)}
+        for name, (hb, he) in group.items():
+            t = ts[name]
+            assert t.has_roles and not t.test and t.sizing == "shares" and t.threshold == 50.0 and t.budget_usd == 300.0
+            assert t.symbols == ("T", "PFE", "NKE", "VZ", "BAC") and t.combine == "asis"
+            assert [(m.kind, m.name, m.method, m.role) for m in t.models] == [("experiment", exp, names[hb], "buy"), ("experiment", exp, names[he], "exit")]
+            assert t.min_hold_days == hb and not t.stop_models and not t.stop_blocks_buy
+            assert not os.path.exists(os.path.join(CONF, f"{name}.toml"))
+    # 損切りなしの人の作り置きは T7〜T10 と同じ (実験名, 手法) ＝ sim8 に新しい予測は要らない
+    import simpredict
+    a = set(simpredict.experiment_models(load_traders(["T7", "T8", "T9", "T10"], HORIZON)))
+    b = set(simpredict.experiment_models(load_traders(list(NO_STOP), HORIZON)))
+    assert b < a and all(m[0] == "trade_own_fwdmulti_a" for m in b)
+
+
+def test_horizon_sim_copies_sim8_sim9_match_and_lift_the_total_budget():
+    """sim8（`sim_T12`〜`sim_T15`）／ sim9（`sim_T16`〜`sim_T19`）は候補の写し。4 人 × $300 ＝ $1,200 は `max_total_budget_usd` で上げる。"""
+    import simdata
+    from trader import load_traders
+    key = lambda t: (t.symbols, t.sizing, t.threshold, t.budget_usd, t.combine, t.combine_buy, t.combine_exit, t.min_hold_days,   # noqa: E731
+                     t.stop_blocks_buy, [(m.kind, m.name, m.method, m.role) for m in t.models])
+    for sim, group in (("sim8", NO_STOP), ("sim9", CENTERED)):
+        cfg = simdata.load_config(sim, os.path.join(os.path.dirname(CONF), "sim"))
+        assert cfg.traders == ["sim_" + n for n in group] and cfg.max_total_budget_usd == 1200.0
+        want = {t.name: t for t in load_traders(list(group), HORIZON)}
+        got = {t.name: t for t in load_traders(cfg.traders, CONF)}
+        for name, w in want.items():
+            g = got["sim_" + name]
+            assert g.test and not w.test and key(g) == key(w)
+        assert sum(got[n].budget_usd for n in cfg.traders) == 1200.0
+
+
 def test_horizon_candidates_are_wired_as_decided():
     """`T7`〜`T10` ＝ 買い係 先 h_b 日 ／ 売り係 先 h_e 日（同じ実験 `trade_own_fwdmulti_a` の別の手法）／ 損切り係 X1 −10%・最短保有 ＝ h_b・
     θ 50・3 人と同じ 5 本・整数株・$300（プラン §1・§2。利用者決定「期間を別々にすることが大切」・K9 (a) ＝ `stop_blocks_buy` は書かない）。

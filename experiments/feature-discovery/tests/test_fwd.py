@@ -235,3 +235,43 @@ def test_fold_buy_pct_puts_hold_days_in_ctx_and_drain_empties_it(run):
     assert set(holds) == {fwd.PICK_NAME} and len(holds[fwd.PICK_NAME]) == len(te)   # H1 は置かない
     assert fwd.drain_holds(ctx) == {} and fwd.HOLD_KEY not in ctx
     assert exits[NAME] is None and np.all(exits[fwd.PICK_NAME] == 0.0)
+
+
+# --- 25-7. 土台を引いた買い%（2026-10-19。案 A） ----------------------------------------------
+
+def test_centered_names_are_registered_and_plain_gates_untouched():
+    """登録名 4 つ（`… 土台差`）が解けて、既存の H1〜H5 の登録名と `center` の既定（False）は変わっていない。"""
+    assert fwd.CENTERED_WINDOWS == {"H1": 10, "H2": 5, "H3": 20, "H4": 40}
+    assert fwd.CENTERED_NAMES == ("H1 先10日ゲート（全列・学習・土台差）", "H2 先5日ゲート（全列・学習・土台差）",
+                                  "H3 先20日ゲート（全列・学習・土台差）", "H4 先40日ゲート（全列・学習・土台差）")
+    for n in fwd.CENTERED_NAMES:
+        registry.resolve("detector", n)
+    assert NAME in registry.available("detector") and fwd.EXTRA_NAMES == ("H2 先5日ゲート（全列・学習）", "H3 先20日ゲート（全列・学習）", "H4 先40日ゲート（全列・学習）")
+    import inspect
+    assert inspect.signature(fwd.forward_gate).parameters["center"].default is False
+
+
+def test_center_by_base_maps_the_base_to_50_and_keeps_order():
+    """π と同じ確率は 50・単調・0〜100 の内。π ＝ 0.5 なら何も変わらない。"""
+    b = np.array([0.0, 30.0, 50.0, 58.0, 70.0, 100.0])
+    c = fwd.center_by_base(b, 0.58)
+    assert abs(c[3] - 50.0) < 1e-9 and np.all(np.diff(c) > 0) and c.min() >= 0 and c.max() <= 100
+    assert c[2] < 50.0 and c[4] > 50.0
+    assert np.allclose(fwd.center_by_base(np.array([20.0, 50.0, 80.0]), 0.5), [20.0, 50.0, 80.0])
+    assert np.allclose(fwd.center_by_base(np.array([60.0]), 0.6), [50.0])
+
+
+def test_centered_gate_equals_the_plain_gate_passed_through_the_base():
+    """`H2 …（土台差）` ＝ `H2 …` の買い% を訓練の上がる割合 π で中心化したもの。記録に `中心化`・`土台`。素の H2 の値と記録は変わらない。"""
+    p = _panel_multi()
+    tr, te = _split(p)
+    plain, pdoc = registry.resolve("detector", fwd.name_of("H2", 5))(tr, te, _feats(p), _ctx())
+    cent, cdoc = registry.resolve("detector", fwd.centered_name_of("H2", 5))(tr, te, _feats(p), _ctx())
+    assert len(cent) == len(te) and np.nanmin(cent) >= 0 and np.nanmax(cent) <= 100
+    assert cdoc["中心化"] is True and abs(cdoc["土台"] - pdoc["上がる割合"]) < 1e-9 and "中心化" not in pdoc
+    base = float((tr["y_fwd_5"].dropna() > 0).mean())          # ⚠ 記録の「上がる割合」は 4 桁に丸めてあるので、π は訓練の行から取り直す
+    assert np.allclose(cent, fwd.center_by_base(plain, base))
+    assert cdoc["target"] == "y_fwd_5" and cdoc["columns"] == pdoc["columns"]
+    # 素の H2 を続けて呼んでも同じ（中心化が共有の状態を汚さない）
+    again, adoc = registry.resolve("detector", fwd.name_of("H2", 5))(tr, te, _feats(p), _ctx())
+    assert np.allclose(again, plain) and adoc == pdoc

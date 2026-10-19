@@ -37,8 +37,12 @@ EXTRA_WINDOWS = {"H2": 5, "H3": 20, "H4": 40}
 COLUMNS_OWN = "own"
 
 
-def forward_gate(w: int, tr: pd.DataFrame, te: pd.DataFrame, feats, ctx: dict):
-    """先 w 営業日のゲート。⚠ **戻り値は買い%（0〜100・検証の行数ぶん）と、記録に残す辞書**（rules.md 15-1）。"""
+def forward_gate(w: int, tr: pd.DataFrame, te: pd.DataFrame, feats, ctx: dict, center: bool = False):
+    """先 w 営業日のゲート。⚠ **戻り値は買い%（0〜100・検証の行数ぶん）と、記録に残す辞書**（rules.md 15-1）。
+
+    `center`（rules.md 25-7。2026-10-19）: 較正した確率 p から訓練の行の上がる割合 π を logit で引く ＝ 買い% ＝ 100 × σ(logit(p) − logit(π))。
+    π と同じなら 50。⚠ 既定 False ＝ 既存の H1〜H5 は 1 ビットも変わらない（指紋テスト）。
+    """
     target = f"{labels.SCALE_PREFIX}{w}"
     if target not in tr:
         raise SystemExit(f"⚠ {target} が表に無い。config の `label_scales` に {w} を入れて `cli.build` し直す")
@@ -59,9 +63,22 @@ def forward_gate(w: int, tr: pd.DataFrame, te: pd.DataFrame, feats, ctx: dict):
     ytr = tr_ok[target].to_numpy(dtype=float)
     cal = _fit_calibration(model, Xtr, ytr, tr_ok["ts"], w, ctx)   # ⚠ w 営業日ぶんパージした holdout で較正
     pred = model(Xtr, ytr, Xte, ctx)
+    base = float((ytr > 0).mean())
     doc = {"scale": w, "target": target, "columns": cols, "fwd_columns": which or "all",
-           "訓練の行": int(len(tr_ok)), "上がる割合": round(float((ytr > 0).mean()), 4), **cal.doc}
-    return cal.buy_pct(pred), doc
+           "訓練の行": int(len(tr_ok)), "上がる割合": round(base, 4), **cal.doc}
+    buy = cal.buy_pct(pred)
+    if center:
+        buy = center_by_base(buy, base)
+        doc = {**doc, "中心化": True, "土台": round(base, 4)}
+    return buy, doc
+
+
+def center_by_base(buy_pct, base: float):
+    """土台を引いた買い%（rules.md 25-7 の 1）: 100 × σ(logit(p) − logit(π))。p ＝ 買い% ／ 100 を [0.005, 0.995] に収めてから。"""
+    p = np.clip(np.asarray(buy_pct, dtype=float) / 100.0, 0.005, 0.995)
+    pi = min(max(float(base), 0.005), 0.995)
+    z = np.log(p / (1.0 - p)) - np.log(pi / (1.0 - pi))
+    return 100.0 / (1.0 + np.exp(-z))
 
 
 @register("detector", f"H1 先{WINDOW}日ゲート（全列・学習）")
@@ -83,6 +100,25 @@ for _tag, _w in EXTRA_WINDOWS.items():
     _register_extra(_tag, _w)
 
 EXTRA_NAMES = tuple(name_of(t, w) for t, w in EXTRA_WINDOWS.items())
+
+# ⚠ **25-7（2026-10-19）: 土台を引いた買い%。** H1〜H4 と同じ学び方・同じ較正で、出力だけを π で中心化した別の登録名。
+CENTERED_WINDOWS = {"H1": WINDOW, **EXTRA_WINDOWS}
+
+
+def centered_name_of(tag: str, w: int) -> str:
+    return f"{tag} 先{w}日ゲート（全列・学習・土台差）"
+
+
+def _register_centered(tag: str, w: int) -> None:
+    @register("detector", centered_name_of(tag, w))
+    def _h(tr, te, feats, ctx, _w=w):
+        return forward_gate(_w, tr, te, feats, ctx, center=True)
+
+
+for _tag, _w in CENTERED_WINDOWS.items():
+    _register_centered(_tag, _w)
+
+CENTERED_NAMES = tuple(centered_name_of(t, w) for t, w in CENTERED_WINDOWS.items())
 
 
 

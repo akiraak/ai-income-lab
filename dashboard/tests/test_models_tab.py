@@ -600,6 +600,8 @@ def test_real_horizon_gates_are_live_through_the_candidates():
     """先 5 ／ 20 ／ 40 日の型と、`also` で当てる先 10 日の型は、候補 T7〜T10 が使う ＝「いま使っている」の束（未確定の印）。"""
     paths = traderview.TraderPaths.default()
     data = modelview.load(paths)
-    for mid, who in (("fwd5-gate", {"T7", "T8", "T10"}), ("fwd20-gate", {"T8", "T10"}), ("fwd40-gate", {"T9"}), ("fwd10-gate", {"T7", "T9"}), ("stop-exit", {"T5", "T7", "T8", "T9", "T10"})):
+    for mid, who in (("fwd5-gate", {"T7", "T8", "T10", "T12", "T13", "T15"}), ("fwd20-gate", {"T8", "T10", "T13", "T15"}), ("fwd40-gate", {"T9", "T14"}),
+                     ("fwd10-gate", {"T7", "T9", "T12", "T14"}), ("stop-exit", {"T5", "T7", "T8", "T9", "T10"}),
+                     ("fwd5c-gate", {"T16", "T17", "T19"}), ("fwd20c-gate", {"T17", "T19"}), ("fwd40c-gate", {"T18"}), ("fwd10c-gate", {"T16", "T18"})):
         users = {u["key"]: u["settled"] for u in data["users"][mid]}
         assert who <= set(users) and not any(users[k] for k in who), (mid, users)

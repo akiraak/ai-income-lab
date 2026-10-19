@@ -1,0 +1,9 @@
+# ⚠ **損切り係なしの組 4 本**（rules.md 25-6・記録 horizon-roles-trader.md §7。利用者の指示 2026-10-19「損切りを入れないトレーダーを用意する」）。
+# 事前固定は記録 §7-0（⚠ **回すと決めたのは結果を見る前。4 本全部か回さないか**）。
+# 4 本 × （素の行 1 ＋ 条件 2）＝ n_trials ＋12（885 → 897）。表は作り直さない（`features_from`。leak 対照の表も既にある）。
+experiments = ["trader_roles_t12", "trader_roles_t13", "trader_roles_t14", "trader_roles_t15"]
+
+leak = true              # ⚠ 配線の穴に気づく唯一の手。切らない
+ledger = false           # ⚠ 検証結果一覧は終わってから 1 回吐く
+max_failures = 1
+time_budget_s = 3600     # ⚠ 見積り 5 分【推測。fwd × Ridge 2 本 ＋ 合成 ＝ 1 本 約 40 秒 × 本番 4 ＋ leak 4】

@@ -1,0 +1,19 @@
+# シミュレーション sim8（live-trading.md §0-7 (k)・プラン trader-model-roles.md §10 Phase 6）＝ 損切り係なしの候補の人
+# 4 人（`candidates/horizon/T12〜T15`）の通し方の確認。買い 10 ／ 20 ／ 40 ／ 5 日・売り 5 ／ 5 ／ 10 ／ 20 日・損切り係なし・最短保有 ＝ 買い係の期間。
+# 4 人とも θ 50・整数株・T・PFE・NKE・VZ・BAC の 5 本・$300。
+# ⚠ トレーダーのモデルは `kind = "experiment"`。先に予測を作り置く:  python simpredict.py make sim8（出来ているものは飛ばす。H1〜H4 × 64 日は sim7 の作り置きをそのまま使う ＝ 新しい予測は 0 本）
+# ⚠ 見るもの（プラン §10）: 4 人の注文が互いに違うか・売り係で売った日（損切り係が無いので売りは売り係だけ）・最短保有が効いた日（hold の exit_muted）
+# ⚠ 日付は仮・値段は過去の実物 ＝ 損益に意味は無い（判定に混ぜない・黄金の集計値には足さない）。期間・出どころ・気配の作り方は sim1 ／ sim7 と同じ。筋書きは無し
+name = "sim8"
+traders = ["sim_T12", "sim_T13", "sim_T14", "sim_T15"]
+start = "2026-10-01"
+end = "2026-12-31"
+source_start = "2026-06-01"
+windows = ["15:45:30"]
+speed = 60
+skip_outside_window = true
+spread_bp = 2.0
+fill_noise = 0.003
+seed = 0
+# ⚠ 4 人 × $300 ＝ $1,200 は執行器の既定の上限 $1,000 を超える ＝ 運転手が --max-total-budget ／ --max-day-usd にこの値を渡す（simrun.budget_args。sim の中だけ）
+max_total_budget_usd = 1200.0

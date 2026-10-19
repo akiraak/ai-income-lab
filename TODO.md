@@ -315,3 +315,15 @@
       - [x] Step 4-5: 手順書 `howto-model-trader.md` 2-8・CLAUDE.md → `./run-tests.sh --full`（黄金の集計値が変わらない）→ push
         ✅ 2026-10-19 07:50 PDT: 5 段とも ✅（執行器 244 ／ 管理画面 279 ／ selftest ／ mockrun ／ 黄金の集計値 12 ＝ 1 件も変わらない。3 分 38 秒【実測 titan】）
     - [ ] Phase 5（⚠ 利用者・11/4 の後）: 誰を入れ替えるか → 13500t の予測の時間を測る → 「デプロイ」→ 名簿の ▶ 開始
+    - [x] Phase 6: 損切り係なしの人（`T12`〜`T15`）と、そのうえで A ＝ 土台を引いた買い%（`T16`〜`T19`）[plan §10](docs/plans/trader-model-roles.md)
+      ✅ 2026-10-19 08:46 PDT 着手（titan・利用者「損切りを入れないトレーダーを用意する。そのうえで A」）。`T7`〜`T10` は触らない
+      - [x] Step 6-1: 損切り係なしの組 R6〜R9 を rules.md 25-6 に登録 → `trader_roles_t12〜t15` → queue `horizon_roles4`（＋12）→ 記録 §7
+        ✅ 2026-10-19 08:47 PDT: 採る 0 ／ 保留 6 ／ 落とす 6（885 → 897）。損切り係を外すと 12 行とも R1〜R4 より上（＋208〜＋460bp/fold）・素の行は持ち続ける − 費用
+      - [x] Step 6-2: 土台を引いたゲート（検知器の口 `center`・登録名 `… 土台差`・rules.md 25-7・テスト）→ 単体 `trade_own_fwdmulti_c`（＋12）＋ 土台差 × 損切りなしの組 R10〜R13 `trader_roles_t16〜t19`（＋12）→ queue `horizon_roles5` → 記録 §8・検証結果一覧
+        ✅ 2026-10-19 08:50 PDT: 採る 0 ／ 保留 4 ／ 落とす 20（897 → 921）。単体は買わない日ができたぶん 12 行とも持ち続けるを下回る・組は $600 の形だけ保留・4 組の取引 169〜713 回で互いに違う。`fwd.center_by_base`・`CENTERED_NAMES`・`test_fwd.py` 3 本・既定経路の指紋 ✅
+      - [x] Step 6-3: 候補 `candidates/horizon/T12〜T19` ＋ sim の写し ＋ `sim8`（損切りなし）／ `sim9`（土台差）＋ テスト
+        ✅ 2026-10-19 08:55 PDT: 書いた（呼び名 ハナ ／ ユキ ／ ミナ ／ サク ／ コウ ／ リク ／ アオ ／ シン）。`test_trader.py` 2 本・`test_roles.py` の直し ✅
+      - [x] Step 6-4: 作り置き（sim9 の 256 本）→ sim8 ／ sim9 を 64 営業日 → 見るもの（4 人の注文が違うか・売り係で売った日・最短保有が効いた日）→ 記録 §0-7 (k)・§0-1
+        ✅ 2026-10-19 09:11 PDT: sim8 ＝ 注文 26 本 全部 Filled（3 人は買って持ち続け・売りは先 5 日の売り係 3 本）／ sim9 ＝ 作り置き 256 本 1,234 秒・注文 4 本（3 人は 1 本も買わない ＝ 土台差の買い% が 50 を超える銘柄は中央値 0）。最短保有は 2 つとも設計どおり。記録 `live-trading.md` §0-7 (k) sim8 ／ sim9・§0-1・プラン §10-1
+      - [x] Step 6-5: 外部のタブ（`models.toml` 土台差 4 本・`traders.toml` 8 人）・手順書・CLAUDE.md → `./run-tests.sh --full` → push
+        ✅ 2026-10-19 09:20 PDT: 5 段とも ✅（執行器 246 ／ 管理画面 279 ／ selftest ／ mockrun ／ 黄金の集計値 12 ＝ 1 件も変わらない。3 分 38 秒【実測 titan】）。研究側 `test_fwd` 14 ／ `test_names`・`test_predict`・`test_trading_run` 40 ✅

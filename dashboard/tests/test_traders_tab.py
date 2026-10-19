@@ -487,13 +487,17 @@ def test_keys_sort_naturally(paths):
 
 
 def test_real_horizon_candidates_have_roles_words_and_models():
-    """候補 T7〜T10（candidates/horizon/）は 係の札・最短保有の文・「（候補）」が出て、3 本のモデルに説明がある（`also` で当てる H1 を含む）。"""
+    """候補 T7〜T10（損切り係あり）・T12〜T15（損切り係なし）・T16〜T19（土台差・損切り係なし。2026-10-19 Phase 6）は 係の札・最短保有の文・
+    「（候補）」が出て、全部のモデルに説明がある（`also` で当てる H1 を含む）。並びは数の順。"""
     paths = traderview.TraderPaths.default()
     words = traderview.load_words(paths)
-    for name, hold in (("T7", 10), ("T8", 20), ("T9", 40), ("T10", 5)):
+    holds = {"T7": 10, "T8": 20, "T9": 40, "T10": 5, "T12": 10, "T13": 20, "T14": 40, "T15": 5, "T16": 10, "T17": 20, "T18": 40, "T19": 5}
+    for name, hold in holds.items():
         facts = traderview.load_facts(paths, name)
-        assert facts["has_roles"] and facts["min_hold_days"] == hold and [m["role"] for m in facts["models"]] == ["buy", "exit", "stop"]
+        roles = [m["role"] for m in facts["models"]]
+        assert facts["has_roles"] and facts["min_hold_days"] == hold and roles == (["buy", "exit", "stop"] if int(name[1:]) <= 10 else ["buy", "exit"]), name
         assert all(traderview.find_model(words, spec) is not None for spec in facts["models"]), name
         body = traderview.body(paths, name)
-        assert "<span class='role'>買う係</span>" in body and "<span class='role'>損切り係</span>" in body and f"買ってから {hold} 営業日" in body and "（候補）" in body
-    assert [k for k, _f, _ok in traderview.trader_files(paths)][-4:] == ["T7", "T8", "T9", "T10"]
+        assert "<span class='role'>買う係</span>" in body and f"買ってから {hold} 営業日" in body and "（候補）" in body
+        assert ("<span class='role'>損切り係</span>" in body) == (int(name[1:]) <= 10), name
+    assert [k for k, _f, _ok in traderview.trader_files(paths)][-12:] == list(holds)

@@ -1,0 +1,35 @@
+# ⚠ **候補（本番の人ではない）**。先の期間が違う「買い係 ／ 売り係」を持ち、**損切り係を持たない**人に、土台を引いた買い%（案 A ＝ rules.md 25-7）を入れた人（プラン trader-model-roles.md §10 Phase 6。
+# 2026-10-19 利用者「損切りを入れないトレーダーを用意する。そのうえで A」）。識別名 `T17`（呼び名 リク ＝ dashboard/traders.toml）。ねらい: 1 か月先で買い・1 週先の弱さで降りる（本命）。
+# ⚠ **配線の確認が目的**。机上（horizon-roles-trader.md の `R11 買い先20日・売り先5日（土台差・損切りなし）`）で採る理由は出ていない ＝ 成績で採らない・成績で人を選ばない。
+# 係（役割 ＝ `[[models]] role`。意味は live-trading.md §0-1「役割と最短保有」）:
+#   買い係 `buy`  ＝ 先 20 営業日ゲート（own 35 列 × Ridge。先 W 日で上がる確率から訓練の上がる割合〔土台〕を引き、いつもどおりなら 50）。持ち株 0 の日に 買い% > θ で買う
+#   売り係 `exit` ＝ 先 5 営業日ゲート（同じ 35 列・土台差）。出口% ＝ 100 − 買い%。⚠ 建ててから `min_hold_days` ＝ 20 営業日は読まない
+#   損切り係 ＝ **無し**（sim7 で 4 人の売りの 71 ／ 73 本が損切り係で、翌日買い戻す往復だった ＝ live-trading.md §0-7 (k) sim7）
+# ⚠ 買い係と売り係は同じ実験名 `trade_own_fwdmulti_c` の別の手法（signals.py は (実験名, 手法, 銘柄) で引く）。`trade_own_fwdmulti_c` は表を `trade_own_fwdmulti_a` から借りる config（検知器が土台差の 4 本）。
+# ⚠ 側ごとの合わせ方は書かない（`combine = "asis"` ＝ 買いの側 1 本・売りの側 1 本）。`stop_blocks_buy` は書かない（損切り係が無いので検査が拒む）。
+# ⚠ `config/traders/` の直下に無いので `run_day.py --traders T17` では読めない ＝ 本番に入れるのは利用者の決定（11/4 の判定の後・プラン §6）。
+# ⚠ 銘柄集合・`sizing`・θ・予算は 3 人と同じ。⚠ ここから先にモデル・θ・期間・最短保有・銘柄・sizing を替えるのは新しい人。
+
+name = "T17"
+test = false
+budget_usd = 300.0                  # 規模 A の 1 人分と同じ（⚠ 本番に入れるなら合計の上限を利用者が決める）
+symbols = ["T", "PFE", "NKE", "VZ", "BAC"]
+sizing = "shares"
+combine = "asis"                    # 買いの側 1 本・売りの側 1 本
+threshold = 50.0
+min_hold_days = 20                 # 建ててから 20 営業日は売り係を読まない（買い係が見た先の期間 ＝ プラン §1）
+note = "先の期間が違う 2 係（土台差）: 買い係 先 20 日 ／ 売り係 先 5 日。損切り係なし。最短保有 20 営業日。種 0"
+
+# 買い係（先 20 営業日）
+[[models]]
+kind = "experiment"
+name = "trade_own_fwdmulti_c"
+method = "H3 先20日ゲート（全列・学習・土台差）"
+role = "buy"
+
+# 売り係（先 5 営業日。最短保有の後だけ読む）
+[[models]]
+kind = "experiment"
+name = "trade_own_fwdmulti_c"
+method = "H2 先5日ゲート（全列・学習・土台差）"
+role = "exit"

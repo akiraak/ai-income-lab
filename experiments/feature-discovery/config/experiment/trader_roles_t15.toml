@@ -1,0 +1,74 @@
+# ⚠ **役割つきの合わせる口・損切りなし（rules.md 25-6）**: 買い係 先5日 ＋ 売り係 先20日（買ってから 5 本は読まない）。損切り係は持たない。
+#    R4（trader_roles_t10）から損切り係 X1 を外しただけ。
+#    記録 `docs/specs/experiments/horizon-roles-trader.md` §7・プラン `docs/plans/trader-model-roles.md` §10。
+#    利用者の指示 2026-10-19「損切りを入れないトレーダーを用意する。そのうえで A」。識別名の人 `T15`（候補。Phase 6-3 で `candidates/horizon/`）。
+# ⚠ **表は `trade_own_fwdmulti_a` を `features_from` で借りる**（作り直さない ＝ 13-8。2 係とも同じ表 ＝ 切れ目が同じ ＝ 25-1 の 3）。
+#    detectors はこの人の 2 係だけ・θ は 50 だけ（人の設定の 1 水準）。
+# ⚠ **数**: 素の行 1 ＋ 条件 2 ＝ 3 検証（25-2 の 8）。⚠ **回すと決めたのは結果を見る前**。
+#
+# ⚠ **TOML の平の key はテーブル見出しより上に書く**（rules.md 10 章 規約 1）
+name = "trader_roles_t15"
+dataset = "daily"
+horizon = 1                    # ⚠ 損益のラベルは 1 日のまま
+cost_bp = 5.0
+features_from = "trade_own_fwdmulti_a"   # ⚠ 表は作り直さない（13-8）
+start_date = "2018-01-31"
+
+feature_layers = ["own", "trend"]   # ⚠ 元の表と同じ（trend 層は読まない ＝ fwd_columns = own）
+label_scales = [5, 10, 20, 40]      # ⚠ 元の表と同じ
+targets = "all"
+
+horizon_min = 86400.0          # ⚠ 元の表と同じパージ（60 日 × 1440 分）
+bar_minutes = 1440.0
+
+detectors = [
+  "H2 先5日ゲート（全列・学習）",     # 買い係
+  "H3 先20日ゲート（全列・学習）",     # 売り係
+]
+
+model = "Ridge"
+baselines = ["常に上（ドリフト）", "直前リターンの符号"]
+
+[model_args]
+fwd_columns = "own"            # ⚠ 買い係・売り係は own 35 列だけ（25-1 の 2）
+
+[trading]
+style = "threshold"
+thresholds = [50]              # ⚠ 人の設定の 1 水準だけ（20-6）
+form = "shared"
+
+# ⚠ 役割つきの合わせる口（25-2）。最短保有 ＝ 買い係の期間。損切り係なし（25-6）
+[[trading.mix]]
+name = "R9 買い先5日・売り先20日（対照・損切りなし）"
+combine = "roles"
+min_hold_days = 5
+members = [
+  { method = "H2 先5日ゲート（全列・学習）", role = "buy" },
+  { method = "H3 先20日ゲート（全列・学習）", role = "exit" },
+]
+
+# ⚠ 2a いまの人の条件（20-2。1 人 $600 ＝ 25-2 の 7）。合成だけに当てる（20-6 の 4 の 5）
+[[trading.trader]]
+tag = "5本・$600"
+symbols = ["T", "PFE", "NKE", "VZ", "BAC"]
+budget_usd = 600
+methods = ["R9 買い先5日・売り先20日（対照・損切りなし）"]
+
+# ⚠ 2b 全銘柄を買える予算（20-2）
+[[trading.trader]]
+tag = "全銘柄・全部を買える予算"
+methods = ["R9 買い先5日・売り先20日（対照・損切りなし）"]
+
+[validation]
+split = "walk_forward_dates"
+folds = 5
+purge = true
+embargo_bars = 0
+seed = 0
+
+[features]
+trend_windows = [20]
+ex_lag_days = 1
+ex_zero_fill = ["usgs"]
+ex_transforms = ["d1", "z20"]
+ex_max_stale_days = 7

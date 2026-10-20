@@ -75,6 +75,8 @@ flowchart LR
 
 ## 5. 決めごと（⚠ 利用者）
 
+✅ 2026-10-19 利用者「推す案で進めて」＝ E1・E3〜E6 は推す案で確定。⚠ E2 は利用者が決める（環境変数 `AIL_EDGAR_CONTACT="<名前> <メール>"` で渡す。リポジトリに書かない）。段 1 の実装と事前固定は [rules.md 26 章](../specs/experiments/feature-discovery/rules.md)・記録 [earnings-layer.md](../specs/experiments/earnings-layer.md)。
+
 | # | 決めること | 推す案 |
 | ---: | --- | --- |
 | E1 | 取得元 | EDGAR だけで始める（Alpha Vantage・tastytrade の EPS は後で） |

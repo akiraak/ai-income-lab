@@ -263,6 +263,17 @@ cd experiments/feature-discovery
 - ✅ **2026-10-18 Phase 2b（利用者決定 K8 (b)「損切り係が出口を言っている日は買い係が買わない」）**: 新しい処置 `stop_blocks_buy = true`（rules.md 25-4。`simulate` ／ `simulate_topk` の任意引数・合わせる口の項目。既定 false ＝ 1 ビットも変わらない）を登録し、同じ 4 組を `queue horizon_roles2b`（1 分 17 秒【実測】）で回した ＝ **採る 0 ／ 保留 0 ／ 落とす 12**（867 → 879）。往復は消えた（保有 1 日 6 割 → 11〜16%・中央値 10 ／ 19 ／ 19 ／ 5 日）が **成績は下がった**（R1〜R4 との対の差 12 対のうち 11 対が負・t −0.59〜−2.51 ＝ 往復は費用を払ってでも戻りの初日を拾っていた）。⚠ **取引の回数・保有の中央値を良し悪しの物差しにしない**。⚠ X1 は売りでも買いでも「持ち続ける」より悪い向き ＝ 水準・建値基準を試すなら新しい処置として先に登録。記録 §5・プラン §3-2-1。✅ 同日 利用者決定 **K9 (a)** ＝ 候補の人 `T7`〜`T10` と執行器の既定は往復あり（R1〜R4 の形）・`stop_blocks_buy` は執行器の口としてだけ持つ
 - ✅ **2026-10-18 Phase 2c（利用者「１つの予測モデルで買いと何日後に売るという２つの数値を出せるか？」→「2cを進めて」）**: 検知器 `H5 先5〜40日から期間を選ぶゲート（全列・学習）`（rules.md 25-5。先 5 ／ 10 ／ 20 ／ 40 日のゲート 4 本の較正した確率の最大 ＝ 買い%・その期間 ＝ 保有日数・出口% 0。**4 つ返す検知器**は `fold_buy_pct` が保有日数を `ctx` に置き `fwd.drain_holds` で取り出す）＋ `simulate` ／ `simulate_topk` の `hold_days`（行ごとの保有日数。既定 None ＝ 1 ビットも変わらない）＋ 合わせる口の `hold_from_buy`（買い係 1 本・売り係 0 本）。queue `horizon_roles3`（47 秒【実測】）＝ **採る 0 ／ 落とす 6**（879 → 885）。⚠ **「較正した確率の最大」は期間を選んでいない**（fold ごとに 1 つの期間に偏る ＝ 先 W 日の上がる確率の土台が W が長いほど高く、較正がそれを写す）・日数で売る形は売買が増える（上げ相場でも売って買い直す）。⚠ 期間を土台との差や順位で比べる形は新しい処置として先に登録。記録 §6・プラン §3-3-1・⏳ 利用者 K10（`T11` を作るか。推す ＝ 作らない）
 
+### experiments/feature-discovery の決算の層 `ern_`（SEC EDGAR。2026-10-19 利用者「推す案で進めて」＝ [プラン earnings-smallcap.md](docs/plans/earnings-smallcap.md) §5 の E1・E3〜E6）
+
+```bash
+cd experiments/feature-discovery
+AIL_EDGAR_CONTACT="<名前> <メール>" .venv/bin/python -m cli.fetch --exog earnings_daily   # 取得（us63 ＋ midcap48 の会社 96 本。⚠ 連絡先は利用者 ＝ E2。リポジトリに書かない）
+.venv/bin/python -m cli.queue --config earnings1   # own48 ／ own48 ＋ ern ／ midcap_cs ＋ ern（本番 3 ＋ leak 3）。⚠ 回し直すと同じ識別項目の実行が増えるだけ
+```
+
+- 口は 2 つ（rules.md 26 章。**無い config は 1 ビットも変わらない**）: 取得元 `edgar`（`ail/data/sources/edgar.py`。1 銘柄 3 系列 `ANN_` ／ `EPSYOY_` ／ `REVYOY_`・時刻 ＝ **提出日**・同じ期は最初に提出された値・前年同期比は対称な変化率）／ 層 `ern`（`ail/features/earnings.py`・接頭辞 `ern_`・`build.ORDER` の `im` の後・列は `ern_days_since_ann` ／ `ern_eps_yoy` ／ `ern_rev_yoy`・as-of ＝ 足の日 − `ern_lag_days`〔既定 1・0 以下は拒む〕・`ern_max_stale_days` 400 より古い値は欠損）。⚠ ETF には決算が無いので対象は会社だけ（`targets = "company"`）＝ 対の相手は同じ表の own だけの行 `ern_own48`（新しい行）
+- 数: 3 config × θ 3 ＝ ＋9（921 → 930）。記録は `docs/specs/experiments/earnings-layer.md`（§0 事前固定）。⏳ 取得と机上は E2（`AIL_EDGAR_CONTACT`）の後。⚠ sandbox の決まりと同じで、SEC は **User-Agent に連絡先・毎秒 10 回まで**（0.25 秒あける・失敗しても叩き直さない）
+
 ### experiments/feature-discovery のハイパーパラメータを訓練分割の内側で選ぶ段（2026-10-09 利用者決定 B「内側の選抜」）
 
 ```bash

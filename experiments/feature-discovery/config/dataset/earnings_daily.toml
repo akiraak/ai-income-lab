@@ -1,0 +1,14 @@
+# ⚠ **決算（SEC EDGAR）**。rules.md 26 章（2026-10-19 利用者「推す案で進めて」）。
+# ⚠ **User-Agent の連絡先は環境変数 `AIL_EDGAR_CONTACT`**（ここに書かない。SEC の決まり ＝ E2 は利用者）。
+# 1 銘柄 3 系列（時刻 ＝ 提出日）: ANN_<銘柄>（8-K Item 2.02 の提出日に 1）／ EPSYOY_<銘柄> ／ REVYOY_<銘柄>（前年同期比・対称な変化率）。
+# ETF には決算が無いので、universe の会社の group だけ（us63 の 48 ＋ midcap48 の 48）。
+name = "earnings_daily"
+period = "d"
+
+[[series]]
+source = "edgar"
+role = "本命"                      # 決算 ＝ 全銘柄で同じ値にならない材料（daily-data-sources.md §9）
+ids = ["ANN", "EPSYOY", "REVYOY"]
+universes = ["us63", "midcap48"]
+start = "2018-01-01"
+note = "提出日（filed ／ filingDate）の 00:00 UTC。層は翌日以降にしか貼らない（ern_lag_days ≥ 1）"

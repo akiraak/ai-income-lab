@@ -56,3 +56,5 @@ from ail.detectors import exomodel as _exomodel  # noqa: F401
 # ⚠ **進化的探索（記号回帰）**。⚠ **選抜は訓練分割の内側だけ**（plans/archive/evolutionary-search-runner.md）
 from ail.search import evolve as _evolve  # noqa: F401
 from ail.validation import splits            # noqa: F401
+from ail.data.sources import edgar                      # noqa: F401  決算（rules.md 26 章。2026-10-19）
+from ail.features import earnings                            # noqa: F401

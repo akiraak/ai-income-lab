@@ -1,0 +1,31 @@
+# ⚠ **決算の層の対の相手**: own だけ・会社 48 本（ETF を外す ＝ own_2018 とは「銘柄」が違う新しい行）。rules.md 26-5。
+# ⚠ `ern_own48_ern` と name ／ feature_layers 以外は 1 文字も違わない（同じ表の切れ目 ＝ fold で対にできる）。
+name = "ern_own48"
+dataset = "daily"
+horizon = 1
+cost_bp = 5.0
+start_date = "2018-01-31"
+feature_layers = ["own"]
+targets = "company"            # ⚠ ETF には決算が無い（26-5）
+horizon_min = 1440.0
+bar_minutes = 1440.0
+selectors = ["全部使う（基準）", "乱択（基準）"]
+k = 16
+model = "Ridge"
+baselines = ["常に上（ドリフト）", "直前リターンの符号"]
+
+[trading]
+style = "threshold"
+thresholds = [50, 55, 60]      # ⚠ 事前固定。結果を見て動かさない（rules.md 13-3）
+form = "shared"
+
+[validation]
+split = "walk_forward_dates"
+folds = 5
+purge = true
+embargo_bars = 0
+seed = 0
+
+[features]
+ern_lag_days = 1
+ern_max_stale_days = 400

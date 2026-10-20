@@ -1950,3 +1950,28 @@ sim7（live-trading.md §0-7 (k)）で 4 組の売買がほぼ同じになり、
 | 6 | ⚠ 先に書く予想【推測】: 基準線の保有日率は 0.5〜0.8（土台より弱い時期が 2〜4 割）。4 対の差は \|t\| < 2（区別がつかない）。基準線自身は上げの fold で「持ち続ける」を下回る（休んだぶん）。leak は本番と同じ値 |
 
 ⚠ **2026-10-19 の適用例（回した結果）**: n_trials 921 のまま（記録 [horizon-roles-trader.md §9](../horizon-roles-trader.md)）。土台差 12 行は 08-48 の実行と数値が全部同じ（再現「2〜5 実行・一致」）。基準線 4 本は持ち続けるより 5 fold 全部で下（−800〜−1,431bp/fold）で、**同じ保有日率の乱択ゲートより悪い**（−231〜−564）＝「直近 1 年が弱かったら休む」は休む時期を外す（戻りの初年を休む）。土台差 − 基準線の対の差は 4 対とも正（＋411〜＋1,234・正の fold 19/20）だが t は 2.04 ／ 1.98 ／ 2.27 ／ 1.46 ＝ **5 の線では決着なし**（2 対だけ t ≥ 2）。⚠ 読み: 保有日率が大きく違う（土台差は基準線より多く持つ）ので、土台差の休む日は直近の実現した割合をなぞったものではない。勝ちは多く持っていたぶんで、同じ保有日率の乱択ゲートとの差（＋58〜＋403・t < 1）は §8 から変わらない ＝ 採る 0 は動かない。⚠ **土台の期間を振らない・N ／ π ／ θ を動かさない**。
+
+## 26. ⚠ 決算の層 `ern_`（SEC EDGAR。2026-10-19 利用者「推す案で進めて」＝ [earnings-smallcap.md](../../../plans/earnings-smallcap.md) §5 E1・E3〜E6。⚠ 回す前に固定）
+
+決算は「全銘柄で同じ値にならない」数少ない材料（daily-data-sources.md §9・econ-calendar.md §6）。取得元は EDGAR だけ（E1）。列は**過去だけから作る**（E3。予定日は使わない）。段 1 ＝ 既にある表に足して机上で回す（E5）。
+
+> この図の主張: 取得は提出日つきで置き、層は提出日の翌日以降にしか貼らない。表に入るのは 3 列だけ。
+
+```mermaid
+flowchart LR
+  S["EDGAR<br/>submissions（8-K Item 2.02）<br/>companyfacts（EPS・売上の XBRL）"] --> R["raw/edgar/series/<br/>ANN_銘柄 ／ EPSYOY_銘柄 ／ REVYOY_銘柄<br/>（時刻 ＝ 提出日）"]
+  R --> L["ern 層（as-of・1 日以上ずらす）<br/>ern_days_since_ann ／ ern_eps_yoy ／ ern_rev_yoy"]
+  L --> T["表（own ＋ ern ／ own ＋ cs ＋ ll ＋ ern）"]
+  T --> V["閾値売買 θ 50 ／ 55 ／ 60（13 章のまま）"]
+```
+
+| # | 規約 |
+| ---: | --- |
+| 1 | 取得元 `edgar`（`ail/data/sources/edgar.py`。鍵は要らない・米政府の公開データ）。⚠ **User-Agent に連絡先が要る**（SEC の決まり ＝ 環境変数 `AIL_EDGAR_CONTACT`。リポジトリに書かない・無ければ取りに行かない）・**毎秒 10 回まで**（0.25 秒あける）。ティッカー → CIK は `company_tickers.json`（`BRK/B` は `BRK-B`） |
+| 2 | 置くもの（1 銘柄 3 系列。`raw/edgar/series/`・時刻 ＝ **提出日**の 00:00 UTC）: `ANN_<銘柄>` ＝ 8-K の Item 2.02（決算発表）の提出日に 1 ／ `EPSYOY_<銘柄>` ＝ 10-Q ／ 10-K の希薄化後 EPS の前年同期比 ／ `REVYOY_<銘柄>` ＝ 売上の前年同期比。前年同期 ＝ 同じ `fp` の `fy − 1`（10-Q は四半期〔期間 60〜120 日〕・10-K は年度〔340〜380 日〕）。⚠ **同じ期の値が複数あれば最初に提出された値**（修正は使わない。leak の 2）。前年が無ければ行を置かない |
+| 3 | 前年同期比は **対称な変化率** (今 − 前) ／ ((\|今\| ＋ \|前\|) ／ 2)（−2〜2 に収まる。手で置く閾値なし）。EPS の tag は `EarningsPerShareDiluted` → 無ければ `EarningsPerShareBasic`・売上は `Revenues` → `RevenueFromContractWithCustomerExcludingAssessedTax` → `SalesRevenueNet` → `RevenueFromContractWithCustomerIncludingAssessedTax` の順で最初にあるもの（事前固定。結果を見て足さない） |
+| 4 | 層 `ern`（`ail/features/earnings.py`・接頭辞 `ern_`・`build.ORDER` の `im` の後・`cal` の前）。列は 3 本: `ern_days_since_ann`（as-of の日から最後の発表の提出日までの暦日数）／ `ern_eps_yoy` ／ `ern_rev_yoy`（as-of の時点で最新の値）。**as-of ＝ 足の日 − `ern_lag_days`（既定 1・0 以下は拒む）** ＝ 提出日の翌日から（`ex` と同じ）。`ern_max_stale_days`（既定 400）より古い値は欠損。系列の無い銘柄は 3 列とも欠損（dropna で消える ＝ 記録に残す） |
+| 5 | ETF には決算が無いので **対象は会社だけ**（`targets = "company"`）。対の相手は同じ表の `own` だけの行（ETF を外すので新しい行）。config: `ern_own48`（own・48 社）／ `ern_own48_ern`（own ＋ ern）／ `ern_midcap_ern`（`midcap_cs` ＋ ern ＝ own ＋ cs ＋ ll ＋ ern・中位 48 本）。dataset `earnings_daily`（universes us63・midcap48）・queue `earnings1` |
+| 6 | 数: 3 config × θ 3 ＝ **＋9（921 → 930）**。leak 対照 3 本（数えない）。モデル Ridge・選別は全部使う ／ 乱択・判定は 13-7（対 B&H）のまま |
+| 7 | ⚠ 先に書く予想【推測】: 3 本とも採る 0（中位 48 本でも届かなかった）。ern の有無の対の差は \|t\| < 2。`ern_days_since_ann` は決算の直後（値が小さい日）の分散が高いだけで方向は持たない。⚠ 結果を見て列・tag・ずらし幅・対象を動かさない（14-9） |
+

@@ -1,0 +1,9 @@
+# ⚠ **決算の層 ern_（段 1）**: own48 ／ own48 ＋ ern ／ midcap_cs ＋ ern（rules.md 26 章・記録 earnings-layer.md §0。
+# 利用者 2026-10-19「推す案で進めて」）。事前固定は記録 §0（⚠ 回すと決めたのは結果を見る前。3 本全部か回さないか）。
+# 3 × θ 3 ＝ ＋9（921 → 930）。⚠ 先に `cli.fetch --exog earnings_daily`（AIL_EDGAR_CONTACT が要る）。
+experiments = ["ern_own48", "ern_own48_ern", "ern_midcap_ern"]
+
+leak = true              # ⚠ 配線の穴に気づく唯一の手。切らない（ern は変わらず own の LEAK 列で跳ねる）
+ledger = false           # ⚠ 検証結果一覧は終わってから 1 回吐く
+max_failures = 1
+time_budget_s = 3600     # ⚠ 見積り 5 分【推測】

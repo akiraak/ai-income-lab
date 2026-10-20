@@ -1,0 +1,36 @@
+# ⚠ **段 2 の対照**（2026-10-19・rules.md 27 章）: 小型 50 本を、その銘柄自身の履歴だけで当てる。
+# 相方は `small_cs.toml`（own ＋ cs ＋ ll）・`small_cs_ern.toml`（＋ ern）。違うのは特徴量の層だけ。
+# ⚠ 物差しは 13 章のまま。B&H は「対象 50 本の等加重」なので us63 ／ midcap の数字とは直接比べない（13-8）。
+name = "small_own"
+dataset = "small50_daily"
+horizon = 1
+cost_bp = 5.0
+
+# ⚠ **期間を 3 本で揃える**（rules.md 27-3）: 始まりは断面が揃う 2018-06-27（midcap と同じ）・
+# ⚠ **終わりは材料 63 本が止まっている 2026-09-09**（新しい 50 本の日足は 2026-10 まであるが、揃えないと
+#    own だけの行と cs ／ ll の行で fold の切れ目がずれる）。
+start_date = "2018-06-27"
+end_date = "2026-09-09"
+
+feature_layers = ["own"]
+targets = "company"            # ⚠ **当てる相手は小型 50 本だけ**（材料 63 本は当てない）
+
+horizon_min = 1440.0
+bar_minutes = 1440.0
+
+selectors = ["全部使う（基準）", "乱択（基準）"]
+k = 16
+model = "Ridge"
+baselines = ["常に上（ドリフト）", "直前リターンの符号"]
+
+[trading]
+style = "threshold"
+thresholds = [50, 55, 60]      # ⚠ 事前固定。結果を見て動かさない（rules.md 13-3）
+form = "shared"                # (A) 銘柄共通 1 本
+
+[validation]
+split = "walk_forward_dates"
+folds = 5
+purge = true
+embargo_bars = 0
+seed = 0

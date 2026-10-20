@@ -121,6 +121,20 @@ def assemble(experiment: str, layer: str = "adjusted", leak: bool = False, shift
     return df, panel, exp
 
 
+def cut_period(df: pd.DataFrame, start: str | None = None, end: str | None = None) -> pd.DataFrame:
+    """`start_date` ／ `end_date` で表の期間を揃える（両端とも含む）。⚠ **無ければ 1 行も変えない。**
+    ⚠ `end_date` は 2026-10-19 に足した（rules.md 27-3）: 新しく取った銘柄の日足は今日まであるが、
+    材料の銘柄は取り直さない（2026-09-09 で止まっている）ので、終わりを揃えないと own だけの行と
+    cs ／ ll の行で fold の切れ目がずれる。"""
+    if start:
+        df = df[df["ts"] >= pd.Timestamp(start, tz="UTC")]
+        print(f"  期間を {start} 以降に揃える → {len(df):,} 行")
+    if end:
+        df = df[df["ts"] <= pd.Timestamp(end, tz="UTC")]
+        print(f"  期間を {end} 以前に揃える → {len(df):,} 行")
+    return df
+
+
 def build(experiment: str, layer: str = "adjusted", leak: bool = False,
           max_elapsed: float | None = None, out: str | None = None,
           shift_days: int = 0) -> pd.DataFrame:
@@ -132,10 +146,7 @@ def build(experiment: str, layer: str = "adjusted", leak: bool = False,
     before = len(df)
     # ⚠ **期間を揃える。** ⚠ **層ごとに始まりが違うと、比べているのが層の差か期間の差か分からなくなる**
     # （外部系列は 2018 年から、価格は 1994 年から。§8-4）
-    start = exp.get("start_date")
-    if start:
-        df = df[df["ts"] >= pd.Timestamp(start, tz="UTC")]
-        print(f"  期間を {start} 以降に揃える → {len(df):,} 行")
+    df = cut_period(df, exp.get("start_date"), exp.get("end_date"))
     df = df.replace([np.inf, -np.inf], np.nan).dropna()
     if max_elapsed is not None:
         df = df[df["y_elapsed_min"] <= max_elapsed]

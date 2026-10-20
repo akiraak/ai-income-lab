@@ -1,0 +1,52 @@
+# 段 2 の銘柄集合（2026-10-19。rules.md 27-1）。⚠ **対象と材料を分ける。**
+#
+# ⚠ **規則は取得の前に固定した**（docs/specs/experiments/smallcap-stage2.md §0）:
+#   S&P 600 の構成銘柄（Wikipedia「List of S&P 600 companies」2026-10-19 取得・603 本）を
+#   ⚠ **ティッカーのアルファベット順**で先頭 70 本取り、取得したあと機械的に
+#   ① 2018-06-27 以前から日足が取れる ② 最後の終値 ≥ $5 ③ us63 に無い、を当てて先頭 50 本。
+#   ⚠ **落ちた 11 本と理由は記録 §1 に残す。成績では落としていない。**
+#
+# ⚠ **`etf` に材料 63 本（us63 のぜんぶ）を入れているのは midcap48 と同じ理由**（`config.symbols_of` が
+#    `etf` と `company` しか読まない・`ll_leaders = "etf"` が先行銘柄としてこの群を読む）。⚠ 中身が ETF だからではない。
+# ⚠ **`targets = "company"` で、当てる相手は下の 50 本だけ**（材料 63 本は説明変数に使うが当てない）。
+# ⚠ **生存バイアスは midcap48 より深い**（指数の入れ替えが多い。rules.md 12-1）。
+# ⚠ **`sector_of` は書いていない**ので `rel_` 層は使えない（midcap48 と同じ）。
+name = "small50"
+description = "対象 50 本（S&P 600・ティッカー順の先頭 70 から機械的な絞り）＋ 材料 63 本（us63）"
+survivorship_bias = true
+selected_on = "2026-10-19"
+
+# ⚠ **材料として使う 63 本**（説明変数。⚠ **当てる相手ではない**）
+inputs_us63 = [
+  "SPY", "QQQ", "IWM", "DIA", "XLK", "XLF", "XLE", "XLV",
+  "XLI", "XLY", "XLP", "XLU", "XLB", "XLRE", "XLC", "AAPL",
+  "MSFT", "NVDA", "AMZN", "GOOGL", "META", "TSLA", "AVGO", "BRK/B",
+  "JPM", "V", "MA", "UNH", "XOM", "JNJ", "WMT", "PG",
+  "HD", "COST", "ORCL", "CVX", "MRK", "ABBV", "KO", "PEP",
+  "BAC", "CRM", "AMD", "NFLX", "ADBE", "LLY", "TMO", "ACN",
+  "MCD", "CSCO", "ABT", "INTC", "QCOM", "TXN", "DIS", "VZ",
+  "T", "PFE", "NKE", "BA", "GS", "CAT", "HON",
+]
+
+[groups]
+# ⚠ **材料 63 本**（`ll_leaders = "etf"` がここを先行銘柄として読む）
+etf = [
+  "SPY", "QQQ", "IWM", "DIA", "XLK", "XLF", "XLE", "XLV",
+  "XLI", "XLY", "XLP", "XLU", "XLB", "XLRE", "XLC", "AAPL",
+  "MSFT", "NVDA", "AMZN", "GOOGL", "META", "TSLA", "AVGO", "BRK/B",
+  "JPM", "V", "MA", "UNH", "XOM", "JNJ", "WMT", "PG",
+  "HD", "COST", "ORCL", "CVX", "MRK", "ABBV", "KO", "PEP",
+  "BAC", "CRM", "AMD", "NFLX", "ADBE", "LLY", "TMO", "ACN",
+  "MCD", "CSCO", "ABT", "INTC", "QCOM", "TXN", "DIS", "VZ",
+  "T", "PFE", "NKE", "BA", "GS", "CAT", "HON",
+]
+# ⚠ **対象 50 本**（当てる相手）
+company = [
+  "AAMI", "AAP", "AAT", "ABCB", "ABG", "ABM", "ACAD", "ACHC",
+  "ACIW", "ACLS", "ACMR", "ACT", "ADAM", "ADEA", "ADMA", "ADNT",
+  "ADT", "ADUS", "AEO", "AGO", "AGX", "AGYS", "AHCO", "AIN",
+  "AIR", "AKR", "ALG", "ALGT", "ALKS", "ALRM", "AMN", "AMPH",
+  "AMRX", "AMSF", "ANDE", "ANIP", "AORT", "AOSL", "APAM", "APLE",
+  "APOG", "ARCB", "AROC", "ARR", "ASTE", "ASTH", "ATEN", "AUB",
+  "AVA", "AWI",
+]

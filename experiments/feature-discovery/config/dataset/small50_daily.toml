@@ -1,0 +1,9 @@
+# 段 2 の日足（対象 50 ＋ 材料 63 ＝ 113 銘柄。rules.md 27 章・2026-10-19）。⚠ **取得元と上限は `daily` と同じ。**
+# ⚠ **`daily.toml` は書き換えていない。** ⚠ 取るのは新しい銘柄だけ（`cli.fetch --dataset small50_daily --symbols …`）
+#    ＝ 既存の 136 本の raw ／ adjusted は触らない（研究用の data/ は取り直さない ＝ CLAUDE.md）。
+name = "small50_daily"
+source = "tastytrade"
+period = "d"
+days = 12000
+universe = "small50"
+adjust = "split"

@@ -1,0 +1,9 @@
+# ⚠ **段 2 中小型株の表**: own ／ own ＋ cs ＋ ll ／ ＋ ern（rules.md 27 章・記録 smallcap-stage2.md §0。利用者 2026-10-19「段 2 を進めて」）。
+# 事前固定は記録 §0（⚠ 回すと決めたのは結果を見る前。3 本全部か回さないか）。3 × θ 3 ＝ ＋9（930 → 939）。
+# ⚠ 先に 日足（cli.fetch --dataset small50_daily --symbols …）→ cli.adjust → EDGAR（cli.fetch --exog earnings_daily）→ cli.build × 6。
+experiments = ["small_own", "small_cs", "small_cs_ern"]
+
+leak = true              # ⚠ 配線の穴に気づく唯一の手。切らない
+ledger = false           # ⚠ 検証結果一覧は終わってから 1 回吐く
+max_failures = 1
+time_budget_s = 3600

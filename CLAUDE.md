@@ -339,6 +339,7 @@ cd experiments/live-trading
   - ⚠ **予測は今日の途中の足（終値の代役）が要る** ＝ 当日の実行で `--skip-update` を付けると `cli.predict` が「asof の行が無い」で止まる。更新は発注の回がやるので、朝の `--prepare` は必須ではない
   - `test_a` の往復は `test_signal.py buy|exit` で合図を書き換えて同じ日に 2 回起動する（利用者決定 D1 ＝ 案 B）
   - 紙上の対照は `paper.py` → `out/daily.csv`（読むだけの後処理。管理画面はあれば本物・無ければ仮データ）
+  - **手数料の実額**（2026-10-19 利用者「手数料を進めて」。[プラン](docs/plans/actual-fees.md)・`live-trading.md` §0-16）: 朝の準備の最後の段 `fees` ＝ `fees.py fetch --match`（読むだけの後処理。`ttclient.list_transactions` で口座の取引履歴を取り足し `out/fees.jsonl`、注文の `order_id` と突き合わせて `out/fees.csv`〔見積り ／ 実額 ／ 差・売買履歴の外・口座の精算〕）。⚠ 執行器・売買履歴は触らない（`fees_usd` は見積りのまま）・「本番の機械ではない」印のある機械では取りに行かない。【実測】sandbox は取引履歴を 1 行も返さない ／ 本番は注文 1 本 ＝ 取引 1 行（`order-id`）・1 行の手数料は見積りを $0.001 に丸めた値・`is-estimated-fee` は true のまま・規制費の精算は週 1 回の Balance Adjustment（注文に紐づかない）。管理画面は `fees.csv` があれば実額を横に出す
   - 毎日の自動起動の雛形は `experiments/live-trading/systemd/`（⚠ 入れるのも許可を置くのも利用者。水曜から ＝ D4）
   - ⚠ **2026-09-21 に踏んだ落とし穴 2 つ**（どちらも本番で起きる前に直した。`docs/plans/archive/live-trading-429-fix.md`）
     - **429 Too Many Requests で約定が売買履歴から漏れた**: cert は認証から 3〜4 本目の照会で 429 を返す【実測】。執行器は約定確認の照会が 1 回失敗すると「error・0 株」と確定し控えも閉じていた → 429 は待って取り直す（`Retry-After` か 5 秒 × 回数）・照会しきれない注文は **`unknown`（控えを開けたまま次の起動が照会して売買履歴に戻す）**。⚠ 照会の失敗を「約定 0」と読まない

@@ -76,6 +76,10 @@ if [ "$PREPARE" = 1 ]; then
     say "物差し A〜E → yardstick.csv"; STAGE=yardstick
     (cd "$LT" && "$PY_LT" yardstick.py); R=$?
     STEPS="$STEPS,yardstick=$R"; [ "$R" = 0 ] || say "⚠ yardstick.py が失敗した（売買には影響しない）"
+    # 手数料の実額（docs/plans/actual-fees.md）: 口座の取引履歴を取り足し、注文の見積りと突き合わせる（読むだけの照会・発注しない・売買履歴は書かない）
+    say "手数料の実額 → fees.jsonl ／ fees.csv"; STAGE=fees
+    (cd "$LT" && "$PY_LT" fees.py fetch --match); R=$?
+    STEPS="$STEPS,fees=$R"; [ "$R" = 0 ] || say "⚠ fees.py が失敗した（売買には影響しない）"
   fi
   exit $RC
 fi

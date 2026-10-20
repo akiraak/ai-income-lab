@@ -185,6 +185,33 @@ class Client:
     def get_trading_status(self, account_number: str) -> dict:
         return self.get(f"/accounts/{account_number}/trading-status")["data"]
 
+    # ---------- 取引履歴（読むだけ。約定後の手数料の実額 ＝ docs/plans/actual-fees.md。2026-10-19） ----------
+    def list_transactions(self, account_number: str, *, start_date: str | None = None, end_date: str | None = None,
+                          per_page: int = 250, sort: str = "Asc", max_pages: int = 100) -> list[dict]:
+        """`GET /accounts/{n}/transactions` を頁が尽きるまでめくる（`pagination.total-pages`）。⚠ 読むだけ・許可は要らない。
+
+        1 取引 1 行（`order-id`・`commission`・`clearing-fees`・`regulatory-fees`・`*-effect`・`is-estimated-fee` …）。
+        ⚠ sandbox（cert）は取引履歴を 1 行も返さない【実測 2026-10-19】＝ 形は本番の読むだけの照会で確かめた。
+        """
+        items: list[dict] = []
+        page = 0
+        while True:
+            params: dict = {"per-page": per_page, "page-offset": page, "sort": sort}
+            if start_date:
+                params["start-date"] = start_date
+            if end_date:
+                params["end-date"] = end_date
+            resp = self.get(f"/accounts/{account_number}/transactions", params=params) or {}
+            items.extend(((resp.get("data") or {}).get("items")) or [])
+            total = int(((resp.get("pagination") or {}).get("total-pages")) or 1)
+            page += 1
+            if page >= total or page >= max_pages:
+                return items
+
+    def get_total_fees(self, account_number: str, date: str | None = None) -> dict:
+        """その日の手数料の合計（`total-fees` ／ `total-fees-effect`）。読むだけ。"""
+        return self.get(f"/accounts/{account_number}/transactions/total-fees", params={"date": date} if date else None)["data"]
+
     # ---------- 手順 3: 現在値 ----------
 
     def get_quote(self, symbol: str, instrument: str = "equity") -> dict:

@@ -606,3 +606,42 @@ def test_launch_table_shows_each_day_and_marks_a_missing_or_failed_run(settings)
     with TestClient(create_app(settings, start_monitors=False), client=("127.0.0.1", 50000)) as c:
         page = c.get("/overall").text
         assert "毎日の起動" in page and "朝: urllib.error.HTTPError: HTTP Error 500" in page and "記録なし" in page
+
+
+# --- 手数料の実額（執行器の fees.py が書く out/fees.csv を写すだけ。プラン docs/plans/actual-fees.md） ---
+
+FEES_CSV = (
+    "kind,date,env,trader,symbol,side,shares,order_id,final_status,fee_est_usd,fee_actual_usd,diff_usd,n_tx,estimated,tx_qty,tx_price,clearing_usd,regulatory_usd,other_usd,note\n"
+    "order,2026-09-18,prod,test_a,T,buy,1.0,123,Filled,0.0,0.001,0.001,1,True,1.0,25.5,0.001,0.0,0.0,\n"
+    "adjustment,2026-09-26,prod,,,,,,,,0.017,,1,,,,,,,口座の精算: Regulatory fee adjustment（注文に紐づかない）\n"
+)
+
+
+def test_actual_fees_are_mirrored_from_fees_csv(settings):
+    build_live_dir(settings.live_dir)
+    livefs.write_doc(settings.live_dir / "out" / "fees.csv", FEES_CSV)
+    b = lv.board(settings.live_dir)
+    t = b["traders"][0]
+    assert t["fees"]["matched"] == 1 and t["fees"]["orders"] == 1 and t["fees"]["actual"] == 0.001 and t["fees"]["est"] == 0.0
+    assert b["summary"]["fees_actual_usd"] == 0.001 and b["fees_account"]["adjust"] == {"n": 1, "fee": 0.017}
+    months = lv.history(b, "test_a")
+    row = next(r for r in months[0]["rows"] if r["kind"] == "order")
+    assert row["fee"] == {"est": 0.0, "actual": 0.001, "estimated": True, "note": ""}
+    assert months[0]["fee_actual_usd"] == 0.001 and months[0]["n_fee_actual"] == 1
+    with TestClient(create_app(settings, start_monitors=False), client=("127.0.0.1", 50000)) as c:
+        page = c.get("/traders/test_a").text
+        assert "実額 $0.0010（1 ／ 1 本・見積りとの差 +0.0010）" in page
+        assert "0.0010" in page and "見積り" in page       # 注文の履歴の列（実額と、違うときは見積り）
+        assert "実額" in c.get("/").text                   # 概要の差 2 の凡例
+
+
+def test_without_fees_csv_nothing_changes(settings):
+    build_live_dir(settings.live_dir)
+    b = lv.board(settings.live_dir)
+    assert b["traders"][0]["fees"] is None and b["summary"]["fees_actual_usd"] is None and b["fees"] is None
+    months = lv.history(b, "test_a")
+    row = next(r for r in months[0]["rows"] if r["kind"] == "order")
+    assert row["fee"] == {"est": None, "actual": None, "estimated": None, "note": ""} or row["fee"] is None
+    with TestClient(create_app(settings, start_monitors=False), client=("127.0.0.1", 50000)) as c:
+        page = c.get("/traders/test_a").text
+        assert "dry-run の写し" in page and "実額 $" not in page       # 用語の説明文には「実額」の字がある ＝ タイルの字で見る

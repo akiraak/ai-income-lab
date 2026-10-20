@@ -130,7 +130,16 @@
     ✅ 2026-09-30（Sx360 の Claude）: §1 に 5 日目（9/29 ＝ T1 が BAC を買い戻し）・6 日目（9/30 ＝ T1 が NKE を買い戻し・T3 が初めて売り〔PFE 2 株・差 1 −1.75bp ＝ 初めて負〕）の行を足した（13500t の DB を読んだ）。2 日とも口座 − 売買履歴 ＝ 0・未完 0。⚠ 9/29 朝の prepare が NOAA の 503 で rc=1（夕方の回は通った）
     ✅ 2026-10-01（Sx360 の Claude）: §1 に 7 日目（10/1 ＝ T3 が 9/30 に売った PFE 2 株を買い戻し・差 1 0.00。T1 は 5 銘柄とも持ち続け・T2 は `skip`）の行を足した（13500t の DB を読んだ）。口座 − 売買履歴 ＝ 0・未完 0
     ✅ 2026-10-04（Sx360 の Claude）: §1 に 8 日目（10/2 ＝ T1 が NKE 1 株を売り〔9/30 に $35.345 で買い戻したものを $33.865 で〕・差 1 −1.48・T2 は `skip`・T3 は 5 銘柄とも持ち続け）の行を足した（13500t の DB を読んだ）。口座 − 売買履歴 ＝ 0・未完 0。次は 10/5（月）＝ 9 日目
-  - [ ] 約定後の実際の手数料を読む（いまは dry-run の見積り ＝ `orders.jsonl` の `amounts.fee_source: "dry_run_estimate"`。`/accounts/{n}/transactions`【記憶・未確認】を sandbox で確かめてから）
+  - [~] 約定後の実際の手数料を読む（いまは dry-run の見積り ＝ `orders.jsonl` の `amounts.fee_source: "dry_run_estimate"`。`/accounts/{n}/transactions` を sandbox で確かめてから） [plan](docs/plans/actual-fees.md)
+    ✅ 2026-10-19 利用者「手数料を進めて」（titan）。推す案 ＝ 読むだけの後処理 `fees.py`（朝の準備の最後・執行器と売買履歴は触らない・実額の正本は `out/fees.jsonl` ／ `out/fees.csv`）
+    - [x] Phase 1: API の確認（`list_transactions` ＋ sandbox で形を見る ＋ 本番の読むだけの照会で 9/23〜 の実額と見積りの差）
+      ✅ 2026-10-19 titan: sandbox は全期間で 0 件 → 本番の読むだけの照会で 63 件。注文 1 本 ＝ 取引 1 行（order-id）・1 行の手数料は見積りを $0.001 に丸めた値・規制費の精算は週 1 回の Balance Adjustment（`live-trading.md` §0-16）
+    - [x] Phase 2: `fees.py`（fetch ／ match ／ --print）＋ `run-live.sh --prepare` の段 `fees` ＋ テスト
+      ✅ 2026-10-19: テスト 5 本（符号と残す取引・取り足し・突き合わせ・取りに行く最初の日・頁めくり）。titan の記録の写しで通し（本番の読むだけの照会）＝ 本番の注文 13 本は全部当たり
+    - [x] Phase 3: 管理画面（トレーダーの詳細のタイル・注文の履歴の列・月の小計）
+      ✅ 2026-10-19: `live.fees_rows` ／ `fees_view`・概要の凡例・テスト 2 本（あるとき ／ 無いとき）
+    - [x] Phase 4: 記録（`live-trading.md` §0-15 ✅ ／ §0-16・`dashboard.md`・用語・CLAUDE.md）→ push
+    - [ ] Phase 5: 「デプロイ」（⚠ 利用者・Sx360）→ 翌朝の `--prepare` で `fees.csv` ができる
     派生元: [plan](docs/plans/archive/live-trading-executor-fixes.md)（利用者の指示 2026-09-19「手数料など金額の内訳も保存するように」）
     ✅ 2026-09-25 推す案で決めた（利用者「全部おススメで直して」。[live-trading.md §0-15](docs/specs/experiments/live-trading.md)・[plan](docs/plans/live-trading-open-decisions.md)）: **10/20 の判定の後**に入れる（20 営業日のあいだは執行器を変えない。整数株の成行の手数料は 1 注文 $0.001 級【実測 §0-3】で判定に効かない）
     依存: 「Phase 6: 20 営業日の記録と判定（`live-trading.md`。続ける・止める・予算を変えるは利用者。モデルや合成規則の入れ替えは新しい検証として n_trials に足す）」

@@ -278,7 +278,8 @@ def history(b: dict, who: str | None = None) -> list[dict]:
 
     def bucket(date: str) -> dict:
         return months.setdefault(date[:7], {"ym": date[:7], "rows": [], "n": 0, "n_filled": 0, "n_error": 0,
-                                            "n_cancelled": 0, "n_transfers": 0, "buy_usd": 0.0, "sell_usd": 0.0, "_diff1": []})
+                                            "n_cancelled": 0, "n_transfers": 0, "buy_usd": 0.0, "sell_usd": 0.0, "_diff1": [],
+                                            "fee_est_usd": 0.0, "fee_actual_usd": 0.0, "n_fee_actual": 0})
 
     for dd in reversed(b.get("days") or []):
         for o in dd["orders"]:
@@ -286,8 +287,15 @@ def history(b: dict, who: str | None = None) -> list[dict]:
             if who and part is None:
                 continue
             m = bucket(dd["date"])
-            m["rows"].append({"kind": "order", "date": dd["date"], "o": o, "part": part})
+            fee = _fee_of_order(b, o)
+            m["rows"].append({"kind": "order", "date": dd["date"], "o": o, "part": part, "fee": fee})
             m["n"] += 1
+            if fee:
+                # ⚠ 手数料の小計も表示のための足し算だけ（正本は売買履歴の fees_usd ＝ 見積り ／ fees.csv ＝ 実額）
+                m["fee_est_usd"] += fee["est"] or 0.0
+                if fee["actual"] is not None:
+                    m["fee_actual_usd"] += fee["actual"]
+                    m["n_fee_actual"] += 1
             m["n_filled"] += 1 if o.get("final_status") == "Filled" else 0
             m["n_error"] += 1 if o.get("status_class") == "ng" else 0
             m["n_cancelled"] += 1 if o.get("cancelled") else 0
@@ -304,6 +312,7 @@ def history(b: dict, who: str | None = None) -> list[dict]:
     for m in months.values():
         m["diff1_median"] = _median(m.pop("_diff1"))
         m["buy_usd"], m["sell_usd"] = round(m["buy_usd"], 2), round(m["sell_usd"], 2)
+        m["fee_est_usd"], m["fee_actual_usd"] = round(m["fee_est_usd"], 4), round(m["fee_actual_usd"], 4)
         out.append(m)
     return out
 
@@ -376,6 +385,53 @@ def yardstick_rows(live_dir: Path) -> list[dict]:
     if not text:
         return []
     return list(csv.DictReader(io.StringIO(text)))
+
+
+def _fees_mod():
+    """執行器の `fees.py`（手数料の実額。標準ライブラリだけ）を道で読む ＝ まとめ方の正本は執行器の側（画面は数え直さない）。"""
+    import importlib.util
+    import sys
+    mod = sys.modules.get("lt_fees")
+    if mod is None:
+        path = Path(__file__).resolve().parents[2] / "experiments" / "live-trading" / "fees.py"
+        spec = importlib.util.spec_from_file_location("lt_fees", path)
+        mod = importlib.util.module_from_spec(spec)
+        sys.modules["lt_fees"] = mod
+        spec.loader.exec_module(mod)
+    return mod
+
+
+def fees_rows(live_dir: Path) -> list[dict]:
+    """手数料の実額（執行器の `fees.py` が朝の準備で書く `out/fees.csv`。プラン actual-fees.md）。⚠ **読むだけ**。無ければ空。"""
+    text = livefs.read_doc(live_dir / "out" / "fees.csv", missing_ok=True)
+    if not text:
+        return []
+    return list(csv.DictReader(io.StringIO(text)))
+
+
+def fees_view(rows: list[dict]) -> dict | None:
+    """画面に出す形: 人ごとの 見積り ／ 実額（`fees.summarize`）と、注文番号 → 行（注文の履歴の列）。CSV が無ければ None。"""
+    if not rows:
+        return None
+    s = _fees_mod().summarize(rows)
+    return {"people": {p["trader"]: p for p in s["people"]}, "outside": s["outside"], "adjust": s["adjust"],
+            "total_est": s["total_est"], "total_actual": s["total_actual"],
+            "by_oid": {(r["env"], r["order_id"]): r for r in rows if r["kind"] == "order" and r["order_id"]}}
+
+
+def _fee_of_order(b: dict, o: dict) -> dict | None:
+    """注文の履歴の 1 行の手数料: 見積り（記録の `amounts`）と、あれば実額（`fees.csv`）。"""
+    amounts = o.get("amounts") or {}
+    est = amounts.get("fee_usd")
+    fv = b.get("fees")
+    row = fv["by_oid"].get((o.get("env"), str((o.get("submitted") or {}).get("order_id")))) if fv else None
+    if est is None and row and row.get("fee_est_usd") not in (None, ""):
+        est = row["fee_est_usd"]          # 内訳の無い古い記録は fees.csv の見積り（同じ出どころ ＝ 約定の fee_usd）
+    actual = float(row["fee_actual_usd"]) if row and row.get("fee_actual_usd") not in (None, "") else None
+    if est is None and actual is None:
+        return None
+    return {"est": float(est) if est is not None else None, "actual": actual,
+            "estimated": (row.get("estimated") == "True") if row else None, "note": (row.get("note") or "") if row else ""}
 
 
 def _ys_view(rows: list[dict], name: str) -> dict | None:
@@ -578,6 +634,7 @@ def board(live_dir: Path, days: int | None = DAYS, today=None, now_et_=None, sup
     missing = [d for d in bd if d not in dd]
     daily = daily_rows(live_dir)
     ys = yardstick_rows(live_dir)
+    fv = fees_view(fees_rows(live_dir))      # 手数料の実額（fees.csv がある機械だけ。無ければ None ＝ 今までどおり）
     for i, t in enumerate(tr):
         name = t["name"]
         t["cls"] = f"s{i % N_SERIES + 1}"
@@ -665,6 +722,7 @@ def board(live_dir: Path, days: int | None = DAYS, today=None, now_et_=None, sup
         t["pnl_now_usd"] = next((v for v in reversed(t["pnl_usd"]) if v is not None), None)
         t["pnl_now_pct"] = next((v for v in reversed(t["pnl_pct"]) if v is not None), None)
         t["ys"] = _ys_view(ys, name) if ys else None            # 物差し A〜E（yardstick.csv がある人だけ。無ければ出さない）
+        t["fees"] = (fv["people"].get(name) if fv else None)     # 手数料の実額（fees.csv にその人の注文がある人だけ）
     active = [t for t in tr if t["pnl_now_usd"] is not None]
     budget = sum(t["budget_usd"] for t in active)
     total = sum(t["pnl_now_usd"] for t in active) if active else None
@@ -694,7 +752,11 @@ def board(live_dir: Path, days: int | None = DAYS, today=None, now_et_=None, sup
             "transfers": sum(len(dd[d]["transfers"]) for d in ds),
             "diff1_median_bp": _median(all_diff1), "diff1_n": len(all_diff1),
             "fees_usd": round(sum(float(t["last"].get("fees_usd", 0) or 0) for t in tr), 4),
+            # 実額（fees.csv の、人に紐づく注文の合計。売買履歴の外と口座の精算は fees_account）。無ければ None
+            "fees_actual_usd": round(sum(p["actual"] for p in fv["people"].values()), 4) if fv else None,
         },
+        "fees": fv,
+        "fees_account": ({"outside": fv["outside"], "adjust": fv["adjust"], "total_actual": fv["total_actual"]} if fv else None),
         "calendar": cal_info,
         # ⚠ 仮データの印（画面はこれを見てバッジを出す）。暦は、見ている範囲が NYSE の暦の外に出たときだけ仮（平日＝営業日）
         # ⚠ 紙上の損益・差 3 は、daily.csv（実売買の Phase 3）がある人は本物・無い人は仮データ（`t.paper_real` で人ごとに分かれる）

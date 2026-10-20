@@ -272,7 +272,8 @@ AIL_EDGAR_CONTACT="<名前> <メール>" .venv/bin/python -m cli.fetch --exog ea
 ```
 
 - 口は 2 つ（rules.md 26 章。**無い config は 1 ビットも変わらない**）: 取得元 `edgar`（`ail/data/sources/edgar.py`。1 銘柄 3 系列 `ANN_` ／ `EPSYOY_` ／ `REVYOY_`・時刻 ＝ **提出日**・同じ期は最初に提出された値・前年同期比は対称な変化率）／ 層 `ern`（`ail/features/earnings.py`・接頭辞 `ern_`・`build.ORDER` の `im` の後・列は `ern_days_since_ann` ／ `ern_eps_yoy` ／ `ern_rev_yoy`・as-of ＝ 足の日 − `ern_lag_days`〔既定 1・0 以下は拒む〕・`ern_max_stale_days` 400 より古い値は欠損）。⚠ ETF には決算が無いので対象は会社だけ（`targets = "company"`）＝ 対の相手は同じ表の own だけの行 `ern_own48`（新しい行）
-- 数: 3 config × θ 3 ＝ ＋9（921 → 930）。記録は `docs/specs/experiments/earnings-layer.md`（§0 事前固定）。⏳ 取得と机上は E2（`AIL_EDGAR_CONTACT`）の後。⚠ sandbox の決まりと同じで、SEC は **User-Agent に連絡先・毎秒 10 回まで**（0.25 秒あける・失敗しても叩き直さない）
+- 数: 3 config × θ 3 ＝ ＋9（921 → 930）。記録は `docs/specs/experiments/earnings-layer.md`。⚠ SEC は **User-Agent に連絡先・毎秒 10 回まで**（0.25 秒あける・失敗しても叩き直さない）。E2 ＝ 連絡先は利用者が会話でくれたものを取得の環境変数にだけ渡す（リポジトリ・記録・メモリに書かない ＝ 次の取得のときも聞く）
+- ✅ **2026-10-19 22:14 PDT に回した**: **採る 0 ／ 保留 1 ／ 落とす 8**（921 → 930）。ern の有無の対の差（同じ切れ目・fold 対）は 6 対とも |t| ≤ 1.1・3 本とも門前（買い% 幅 4〜6 点 ＝ fold ごとにほぼ定数・fold 3〔2022-05〜2023-10〕は ern の有無にかかわらず 1 日も持たない）・leak 3 本は跳ねた。保留は `midcap_cs ＋ ern` θ50 だけで既存の `midcap_cs` θ50 と同じ形（対の差 ＋51・t 0.58）。⚠ **tag は「同じ候補のうち start 以降に提出された行が最も多いもの」**（1 回目の取得で `Revenues` が 2018 年より前の行しか持たない会社の売上が落ち〔0 行 13 社・15 行以下 23 社〕、回す前・成績を見る前に rules.md 26-3 を改めて取り直した）。系列の無い会社は 26-4 どおり表から落ちる（EPS の tag が無い BRK/B・V・ARES・売上の無い GS・APA ＝ own48 45 社・midcap 46 社）・登録者の替わった XOM（2026-07 持株会社化 ＝ 新しい CIK）・BG（2023）は新しい登録者の提出だけ。取得 96 社 4〜5 分【実測】・表 6 枚 70 秒・queue 78 秒【実測】。⚠ 直すなら新しい処置として先に登録（前の CIK をたどる・銀行の売上の tag・発表後 n 日の印・LightGBM × ern）。段 2（中小型株）は未着手（E4 ＝ S&P 600 からアルファベット順 50 本・株価 ≥ $5）
 
 ### experiments/feature-discovery のハイパーパラメータを訓練分割の内側で選ぶ段（2026-10-09 利用者決定 B「内側の選抜」）
 

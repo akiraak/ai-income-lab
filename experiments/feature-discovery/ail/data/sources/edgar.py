@@ -84,14 +84,18 @@ def announcements(docs: list[dict], start: str) -> list[str]:
     return sorted(out)
 
 
-def entries_of(facts: dict, tags, unit: str) -> tuple[str | None, list[dict]]:
-    """companyfacts から、最初に見つかった tag の単位 `unit` の値の一覧。"""
+def entries_of(facts: dict, tags, unit: str, start: str = "1900-01-01") -> tuple[str | None, list[dict]]:
+    """companyfacts から、`tags` のうち **`start` 以降に提出された行が最も多い tag** の単位 `unit` の値の一覧（同数なら `tags` の順）。
+    ⚠ 2026-10-19 に「最初に見つかった tag」から改めた（回す前・取得の直後。`Revenues` が 2018 年より前の行しか持たない会社が
+    13 社・15 行以下が 23 社あり、売上の系列が落ちていた。tag の集合は足していない ＝ rules.md 26-3）。"""
     gaap = (facts.get("facts") or {}).get("us-gaap") or {}
+    best: tuple[str | None, list[dict], int] = (None, [], -1)
     for tag in tags:
-        units = (gaap.get(tag) or {}).get("units") or {}
-        if units.get(unit):
-            return tag, list(units[unit])
-    return None, []
+        ents = list(((gaap.get(tag) or {}).get("units") or {}).get(unit) or [])
+        n = sum(1 for e in ents if str(e.get("filed") or "") >= start)
+        if ents and n > best[2]:
+            best = (tag, ents, n)
+    return best[0], best[1]
 
 
 def span_kind(e: dict) -> str | None:
@@ -195,7 +199,7 @@ def fetch(series: list[str], universes=("us63",), start: str = "2018-01-01", sle
         for key, tags, unit in (("EPSYOY", EPS_TAGS, EPS_UNIT), ("REVYOY", REV_TAGS, REV_UNIT)):
             if key not in series:
                 continue
-            tag, ents = entries_of(facts, tags, unit)
+            tag, ents = entries_of(facts, tags, unit, start)
             rows = yoy_rows(ents, start)
             if rows:
                 out[f"{key}_{s}"] = frame(rows)

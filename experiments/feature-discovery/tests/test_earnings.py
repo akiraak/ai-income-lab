@@ -5,7 +5,7 @@
   2. 発表日は 8-K の Item 2.02 だけ（8-K/A も。古い頁も読む・start より前は捨てる）
   3. 前年同期比は「最初に提出された値」で、同じ種類の期末 358〜372 日前と比べる対称な変化率。同じ提出日の四半期と年度は四半期
   4. 層は提出日の翌日からしか貼らない（lag ≥ 1・未来を切っても前の行は変わらない）・古い値は欠損・系列の無い銘柄は欠損
-  5. `fetch` が偽の HTTP で 3 系列を組み立てる（CIK の綴り・tag の順）
+  5. `fetch` が偽の HTTP で 3 系列を組み立てる（CIK の綴り・tag ＝ start 以降の行が最も多いもの・同数なら順）
   6. 登録と並び（`im` の後・`cal` の前）・接頭辞
 """
 
@@ -74,6 +74,13 @@ def test_yoy_uses_first_filed_value_and_symmetric_change():
     assert edgar.symmetric_change(0.0, 0.0) == 0.0 and edgar.symmetric_change(-1.0, 1.0) == -2.0
     tag, ents = edgar.entries_of(FACTS, edgar.REV_TAGS, edgar.REV_UNIT)
     assert tag == "RevenueFromContractWithCustomerExcludingAssessedTax"     # Revenues が無ければ次の tag
+    # ⚠ tag は「start 以降に提出された行が最も多いもの」（2026-10-19 に「最初にあるもの」から改めた。同数なら順）
+    sparse = {"facts": {"us-gaap": {
+        "Revenues": {"units": {"USD": [_e("2016-01-01", "2016-03-31", "2016-04-25", 1.0), _e("2024-01-01", "2024-03-31", "2024-04-25", 2.0)]}},
+        "RevenueFromContractWithCustomerExcludingAssessedTax": {"units": {"USD": [
+            _e("2024-01-01", "2024-03-31", "2024-04-25", 100.0), _e("2025-01-01", "2025-03-31", "2025-04-24", 120.0)]}}}}}
+    assert edgar.entries_of(sparse, edgar.REV_TAGS, edgar.REV_UNIT, "2018-01-01")[0] == "RevenueFromContractWithCustomerExcludingAssessedTax"
+    assert edgar.entries_of(sparse, edgar.REV_TAGS, edgar.REV_UNIT)[0] == "Revenues"              # 同数（2 対 2）なら順
     assert edgar.yoy_rows(ents, "2018-01-01") == [("2025-04-24", pytest.approx(20 / 110))]
     assert edgar.yoy_rows(ents, "2025-05-01") == []                           # start より前の提出は置かない
     f = edgar.frame([("2025-04-24", 0.4), ("2025-04-24", 0.5), ("2024-04-25", 0.1)])

@@ -67,7 +67,7 @@ flowchart LR
 
 | 段 | 中身 | 手間【推測】 | n_trials【推測】 |
 | --- | --- | --- | --- |
-| 1 | EDGAR の取得（`ail/data/sources/` に 1 本・控えは研究の `data/`）・決算の層 `ern_`（前の発表から何日・EPS の前年同期比・売上の前年同期比など数列。提出日の翌営業日から）・leak 対照・テスト → 既にある表（`us63` の own ／ 中位 48 本の `midcap_cs`）に足して回す | 2〜3 日 | 1 表 × 1 モデル × θ 3 ＝ ＋3 ずつ |
+| 1 | EDGAR の取得（`ail/data/sources/` に 1 本・控えは研究の `data/`）・決算の層 `ern_`（前の発表から何日・EPS の前年同期比・売上の前年同期比など数列。提出日の翌営業日から）・leak 対照・テスト → 既にある表（`us63` の own ／ 中位 48 本の `midcap_cs`）に足して回す。✅ **2026-10-19 に回した ＝ 採る 0 ／ 保留 1 ／ 落とす 8（921 → 930・[記録](../specs/experiments/earnings-layer.md)）** | 2〜3 日 → 1 日【実測】 | 1 表 × 1 モデル × θ 3 ＝ ＋3 ずつ |
 | 2 | 中小型株の銘柄の規則を固定（例: S&P 600 の構成銘柄からアルファベット順に 50 本・流動性の線）→ 日足の取得（`cli.fetch`）→ `own` ／ `own ＋ cs ＋ ll`（大型株の流れ）／ `＋ ern` の 3 本を並べる（動かす軸を 1 つずつ） | 2 日 ＋ 取得の時間 | ＋9 前後 |
 | 3 | 何かが残ったら候補の人（`candidates/`）・sim・費用を上げた机上の行。⚠ 本番に入れるかは利用者 | — | — |
 
@@ -75,7 +75,7 @@ flowchart LR
 
 ## 5. 決めごと（⚠ 利用者）
 
-✅ 2026-10-19 利用者「推す案で進めて」＝ E1・E3〜E6 は推す案で確定。⚠ E2 は利用者が決める（環境変数 `AIL_EDGAR_CONTACT="<名前> <メール>"` で渡す。リポジトリに書かない）。段 1 の実装と事前固定は [rules.md 26 章](../specs/experiments/feature-discovery/rules.md)・記録 [earnings-layer.md](../specs/experiments/earnings-layer.md)。
+✅ 2026-10-19 利用者「推す案で進めて」＝ E1・E3〜E6 は推す案で確定。✅ E2 は 2026-10-19 22:00 PDT に利用者から会話で受け取り、環境変数 `AIL_EDGAR_CONTACT="<名前> <メール>"` で取得の 1 回にだけ渡した（リポジトリ・記録に書かない。次の取得でも同じ 1 行が要る）。段 1 の実装と事前固定は [rules.md 26 章](../specs/experiments/feature-discovery/rules.md)・記録 [earnings-layer.md](../specs/experiments/earnings-layer.md)。
 
 | # | 決めること | 推す案 |
 | ---: | --- | --- |

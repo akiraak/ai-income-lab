@@ -144,6 +144,7 @@
       ✅ 2026-10-19: `live.fees_rows` ／ `fees_view`・概要の凡例・テスト 2 本（あるとき ／ 無いとき）
     - [x] Phase 4: 記録（`live-trading.md` §0-15 ✅ ／ §0-16・`dashboard.md`・用語・CLAUDE.md）→ push
     - [ ] Phase 5: 「デプロイ」（⚠ 利用者・Sx360）→ 翌朝の `--prepare` で `fees.csv` ができる
+      ✅ 2026-10-20 21:45 PDT（00:45 ET）: `prod` bbf8beb → 639460a（Sx360 の `run-deploy.sh`・関門 ✅ ＝ 4 段 ＋ 指紋 22 本）・13500t `done 639460a`（管理画面も起こし直した）。⚠ 役割と最短保有の口（`41c5be7`）も一緒に出た ＝ K6。⏳ 10/21（水）06:00 PDT（09:00 ET）の `--prepare` で `fees.jsonl` ／ `fees.csv` ができるかを見る
     派生元: [plan](docs/plans/archive/live-trading-executor-fixes.md)（利用者の指示 2026-09-19「手数料など金額の内訳も保存するように」）
     ✅ 2026-09-25 推す案で決めた（利用者「全部おススメで直して」。[live-trading.md §0-15](docs/specs/experiments/live-trading.md)・[plan](docs/plans/archive/live-trading-open-decisions.md)）: **10/20 の判定の後**に入れる（20 営業日のあいだは執行器を変えない。整数株の成行の手数料は 1 注文 $0.001 級【実測 §0-3】で判定に効かない）
     依存: 「Phase 6: 20 営業日の記録と判定（`live-trading.md`。続ける・止める・予算を変えるは利用者。モデルや合成規則の入れ替えは新しい検証として n_trials に足す）」

@@ -1,4 +1,6 @@
 # DONE
+- 2026-10-20 済んだプラン 2 本（B6 `live-trading-trader-attributes.md`・2026-09-25 の決めごと `live-trading-open-decisions.md`）を `docs/plans/archive/` へ移し、新しい 3 人の 20 営業日（1 日目 10/8・20 日目 11/4（水））の判定の雛形を [live-trading.md §2-2](docs/specs/experiments/live-trading.md) に書いた [plan](docs/plans/archive/plans-archive-and-judgment-template.md)
+  利用者「4」（2026-10-20「やるべき作業を見繕って」の答えの 4 ＝ 決定なしでできる片付け）。文書だけ ＝ デプロイは要らない。雛形は結果を見る前に書いた: 線（A ≤ 5bp ／ E ≤ 5bp ／ D 95%・人手 0・差 0 ／ C 0 日 ／ B は見るだけ）と `yardstick.csv` の列・`yardstick.py --print` の項目・起動した営業日で数える・E は 1 日遅れ ＝ 書くのは 11/5（木）06:00 PST の朝の準備の後（Sx360 の Claude が写す）。リンクは外から 9 か所・中から 5 か所を直した
 - 2026-10-18 線形の変換（PCA・ウェーブレット）× 先 10 日の門 × LightGBM を机上で回す [plan](docs/plans/archive/transform-detector-lgbm.md)
   ✅ 2026-10-18 titan: **6 行とも落とす**（n_trials 834 → 840・leak 2 本とも跳ねた・1 分 50 秒【実測】）。上乗せ −278〜−640bp/fold。Ridge と違い買い% は動いたが、対の差は |t| < 1.6（PCA −182 ／ −430 ／ ＋237・ウェーブレット −91 ／ −151 ／ −339bp）で大きな差は 1 つの fold から。予想 4 つのうち 3 が当たり・「向きが揃わない」はウェーブレットが 3 θ とも負で外れた。[記録 §3](docs/specs/experiments/transform-into-detectors.md)・検証結果一覧 titan `6833fd0`。⚠ デプロイは要らない（コードを直していない）
   派生元: 利用者「1 で進めて」（2026-10-18。まだ回していない机上の検証の候補 1）／ [transform-into-detectors.md §2-3](docs/specs/experiments/transform-into-detectors.md)（線形 × 線形は試していないのと同じ）
@@ -261,7 +263,7 @@
   - Step 7: 用語タブに語を足す（売買基準値・出力スコア・整数株 ／ 金額指定・規模 A ／ B・呼び名・識別名・予測モデル名）と §0-1 を指す `where` の行き先
     ✅ 2026-09-26（Sx360）: 7 語を足した（実売買の節に 6 語・予測モデル名は検証結果一覧の単位の節）。`where` の行き先 ＝ **`see = { label, tab, item }`**（用語 1 語に 2 本目のリンク「しくみ: …」。`vibetab._term_link` → `modelview._link`）を足し、§0-1 を指す 8 語 ＋ 含み損の停止条件・θ・買い% に「トレーダーのしくみ」「予測モデルのしくみ」「実際の売買」を付けた。`doc` ／ `where` は決めた経緯と数字の場所として残す（正本の分け方 ＝ アウトライン §5-4 の決定 4）＝ Step 8 で spec の重複を削っても行き先が残る。dashboard.md §12-1 規約 7。テスト: `see` の描画（知らないタブは出さない）＋ 実物の `see` の行き先が実在する（system の item はページの id）。`test_vibetab.py`・`test_help.py`・`test_traders_tab.py`・`test_system_tab.py` 95 ✅
   - Step 8: 仕様書 `live-trading.md` の重複した説明を削る提案（正本 ＝ vibeboard。残すのは決定の日付・【実測】・数字。⚠ 見せてから削る）
-    ✅ 2026-09-26（Sx360）: 提案 [plan](docs/plans/explain-settings-spec-dedupe.md)（§0 冒頭・§0-1・§0-2 を 14 ブロックに分け 削る 4〔O1・属性の表・O2・D2 の `aggregate` の行〕／ 詰める 2〔規模 A ／ B の表・お金と持ち株の表の説明の部分〕／ 残す 8〔3 人の表・規則と結果・K の表・⚠ の記録・§0-2 の表〕、削るときに直す参照先〔`system.toml` の札 1 つ・`glossary.toml` の `where`〕、利用者の決定の欄 4 つ）。⚠ **1 文字も削っていない**（決まってから）
+    ✅ 2026-09-26（Sx360）: 提案 [plan](docs/plans/archive/explain-settings-spec-dedupe.md)（§0 冒頭・§0-1・§0-2 を 14 ブロックに分け 削る 4〔O1・属性の表・O2・D2 の `aggregate` の行〕／ 詰める 2〔規模 A ／ B の表・お金と持ち株の表の説明の部分〕／ 残す 8〔3 人の表・規則と結果・K の表・⚠ の記録・§0-2 の表〕、削るときに直す参照先〔`system.toml` の札 1 つ・`glossary.toml` の `where`〕、利用者の決定の欄 4 つ）。⚠ **1 文字も削っていない**（決まってから）
   - Step 9: 通しで確かめる（`./run-tests.sh --fast`・vibeboard と sidecar の入れ直し・3 タブを目で見る）
     ✅ 2026-09-26（Sx360）: `./run-tests.sh --fast` ＝ 執行器 161 ✅ ／ 管理画面 241 ✅・1 ❌（既知の `test_real_detail_plugs_match_the_db` ＝ Sx360 の空の `research.sqlite`。Step 5 のときと同じ）・1 skip。`vibetab.py --port 3016` で T1・T3・`#system/trader`・用語（実売買・単位）・own-ridge の 6 ページが 200（T1: どの株を ／ `/#system/trader` 3 か所 ／ 意味の列・「未確定」の帯なし。用語: しくみの行 15）。⚠ **sidecar（3015）と vibeboard（3010）の入れ直しと 3010 での目視は利用者**（3010 は端末の前面。動いている sidecar は古いコードのまま）
   関連: [dashboard.md §16](docs/specs/dashboard.md)（トレーダーのタブ）／ §17（予測モデルのタブ）／ §18（システム説明）／ `config/traders/T1〜T3.toml`
@@ -277,7 +279,7 @@
   - 食い違った `state` の 3 本（9/21 の古い写し）は控えとの一致を `cmp` で確かめてから手で消した
   - 残したもの: `out/timer-*.log`（画面の写し ＝ 記録ではない）・`sim-predict/sim.sqlite`（DB そのもの）・`dashboard/data/demo`（デモ）
   - 控え: titan の `/mnt/c/Users/akira/ai-income-lab-backup/live-files-2026-09-25.tar.gz`（sha256 `673758753b4b…bcdbcf4f`）
-- 2026-09-25 実売買の残りの決めごとを推す案で決めた（利用者「全部おススメで直して」）[plan](docs/plans/live-trading-open-decisions.md)・[live-trading.md §0-15](docs/specs/experiments/live-trading.md)
+- 2026-09-25 実売買の残りの決めごとを推す案で決めた（利用者「全部おススメで直して」）[plan](docs/plans/archive/live-trading-open-decisions.md)・[live-trading.md §0-15](docs/specs/experiments/live-trading.md)
   - ⚠ 20 営業日のあいだは執行器を変えない（コードを変える案は 10/20 の後）
   - 起動しなかった日 ＝ §1 に 1 行「起動なし」・20 営業日は起動した営業日で数える ／ 失敗 ＝ `end rc=` が無い ／ rc≠0 → 13500t の見張り `check.sh`（16:20 ET・終了コードだけを healthchecks.io へ。g3plus-ops に書いて手元で 6 通り確かめた・入れるのは利用者の登録のあと）
   - 4 役への分け直し（A1〜A5・F23）と G24 は保留（再開は 1 日に何回も売買するモデルができたとき）・C10 その日の予測だけ ／ C11 編集せず新しい人 ／ C12 止めるのは全員だけ ／ D13 成行のまま ／ 手数料の読み取りは 10/20 の後

@@ -2,7 +2,7 @@
 
 作成日: 2026-09-19。利用者の指示（2026-09-19）: **「１モデルで６３銘柄の買いを閾値で判断する場合に、もっとも高い３銘柄を購入するようなことはできる？」→「テストを回します。保有可能な銘柄数をいくつかのパターンで試します」→「B で進めて」**（案 B ＝ K ∈ {1, 3, 5, 10, 20}）。
 追加の指示（同日）: **「$1000 と $10000 の両方を比較できるようにして。$10000 は実際の取引で使えない可能性があるのでそれを明記する」**。
-派生元: [B6 のプラン](../live-trading-trader-attributes.md)（実売買の 3 人。$300 ÷ 63 ＝ $4.76 では整数株を 1 株も買えない）。規約の事前登録: [rules.md 17 章](../../specs/experiments/feature-discovery/rules.md)。記録: [topk-holdings.md](../../specs/experiments/topk-holdings.md)。
+派生元: [B6 のプラン](live-trading-trader-attributes.md)（実売買の 3 人。$300 ÷ 63 ＝ $4.76 では整数株を 1 株も買えない）。規約の事前登録: [rules.md 17 章](../../specs/experiments/feature-discovery/rules.md)。記録: [topk-holdings.md](../../specs/experiments/topk-holdings.md)。
 
 ## 0. 目的・背景
 

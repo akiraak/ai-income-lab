@@ -88,19 +88,19 @@
       ⚠ WSL2 の穴: **Windows を再起動して WSL が寝ていた時刻の回は実行されない**（`Persistent=false` ＝ 発注できる時間帯を過ぎてから起きても発注させない）。⚠ これは正しい挙動だが、**起動しなかった日として数える**必要がある
       関連: 管理画面の見張り「今日の起動が無い」（[dashboard.md §13-8](docs/specs/dashboard.md)）
       ✅ 2026-09-24 に尻尾はふさいだ: 16:15 ET を過ぎて今日の記録が無ければ、その日から「起動しなかった日」に数える（[dashboard.md §13-8](docs/specs/dashboard.md)）。⚠ 残り: 数えた日を Phase 6 の 20 営業日の記録にどう書くか（`live-trading.md` §1 に「起動なし」の行を足す規則）
-      ✅ 2026-09-25 推す案で決めた（利用者「全部おススメで直して」。[live-trading.md §0-15](docs/specs/experiments/live-trading.md)・[plan](docs/plans/live-trading-open-decisions.md)）: §1 の表に 1 行「起動なし」（全員・注文 0・理由）・**20 営業日は起動した営業日で数える**（起動しなかった日は判定のときに件数を別に書く）
+      ✅ 2026-09-25 推す案で決めた（利用者「全部おススメで直して」。[live-trading.md §0-15](docs/specs/experiments/live-trading.md)・[plan](docs/plans/archive/live-trading-open-decisions.md)）: §1 の表に 1 行「起動なし」（全員・注文 0・理由）・**20 営業日は起動した営業日で数える**（起動しなかった日は判定のときに件数を別に書く）
     - [x] 失敗したときに気づける形にする（⚠ **いまは誰も気づかない**。15:40 に起きて落ちても、人が記録を見るまで分からない）
       決めること: 何を「失敗」とするか（起動しなかった ／ rc≠0 ／ 注文 0 件 ／ 口座と売買履歴が食い違う）・どこへ知らせるか（管理画面の帯だけでよいか・機械の外へ出すか）
       ⚠ **外へ出すなら秘密が乗らない形にする**（CLAUDE.md の「秘密をブラウザに送らない」と同じ考え方）
       関連: [three-machines-phase5.md](docs/plans/archive/three-machines-phase5.md)（知らせ方の候補。⚠ 決めるのは利用者）
       関連: 「いままでのファイル（`experiments/live-trading/out`・`state`…）を消す」
-      ✅ 2026-09-25 推す案で決めた（利用者「全部おススメで直して」。[live-trading.md §0-15](docs/specs/experiments/live-trading.md)・[plan](docs/plans/live-trading-open-decisions.md)）: 失敗 ＝ 今日の `end rc=` が無い ／ rc≠0。段 1 ＝ 管理画面の帯（済み）・段 2 ＝ 13500t の cron に見張り `check.sh`（16:20 ET・終了コードだけを healthchecks.io へ。機械が落ちた日は向こうが「来ない」で知らせる）。`run.sh` は変えない
+      ✅ 2026-09-25 推す案で決めた（利用者「全部おススメで直して」。[live-trading.md §0-15](docs/specs/experiments/live-trading.md)・[plan](docs/plans/archive/live-trading-open-decisions.md)）: 失敗 ＝ 今日の `end rc=` が無い ／ rc≠0。段 1 ＝ 管理画面の帯（済み）・段 2 ＝ 13500t の cron に見張り `check.sh`（16:20 ET・終了コードだけを healthchecks.io へ。機械が落ちた日は向こうが「来ない」で知らせる）。`run.sh` は変えない
     - [x] 見張り `check.sh` を入れる（⚠ **利用者**: healthchecks.io に登録 → 13500t の `live.env` に `AIL_HC_URL=https://hc-ping.com/<uuid>`・向こうの日程は Cron 式 `20 13 * * 1-5`・America/Los_Angeles・猶予 1 時間 ／ ⚠ Sx360 の Claude: `trade-runner/check.sh` を 13500t へ scp して crontab に `20 13 * * 1-5 /home/ubuntu/g3plus-ops/trade-runner/check.sh` を足す〔利用者の了承のあと〕）
       ✅ 2026-09-25: `check.sh` を書いて手元で 6 通り確かめた（rc=0 ／ rc=1 ／ 行なし → `fail` ／ `.old` に回った日 ／ 休場日 ／ 半日立会・URL なし・http の外は拒否）。g3plus-ops へは 9/25 23:20 PDT にコミット済み（`55ecfbd`）
       ✅ 2026-09-27（Sx360 の Claude。利用者の了承「2も了承する」）: `check.sh` を 13500t の `~/g3plus-ops/trade-runner/` へ scp（sha256 `952ed4f7…` ＝ 手元と一致・構文 OK）→ 13500t で `logs/` の写しに対して 4 日ぶん試験（9/24・9/25 ＝ open・rc 0 → `0` ／ 9/26・9/27 ＝ closed → `0`。本物の `checks.log` は書いていない）→ crontab に `20 13 * * 1-5 …/check.sh` を足した（6 行目。手順書 `trade-runner.md` の表と同じ）。**9/28（月）16:20 ET から動く**。⚠ **残るのは利用者**: healthchecks.io に登録（Cron 式 `20 13 * * 1-5`・America/Los_Angeles・猶予 1 時間）→ 13500t の `live.env` に `AIL_HC_URL=https://hc-ping.com/<uuid>`。URL が無い間は `logs/checks.log` に 1 行書くだけ（外へは何も送らない）
       ✅ 2026-09-28 16:20 ET に初回が動いた【実測・Sx360 の Claude が読んだ】: `logs/checks.log` に `not-sent（AIL_HC_URL が無い）: 2026-09-28 market=open trade rc=0 prepare rc=0 → 0` の 1 行（外へは送っていない）。⚠ 残るのは利用者の healthchecks.io の登録と `AIL_HC_URL` だけ
       ✅ 2026-10-08 利用者が healthchecks.io に登録（無料の Hobbyist・チェック 1 つ ＝ Cron `20 13 * * 1-5`・America/Los_Angeles・猶予 1 時間・通知はメール）→ 13500t の `live.env` に `AIL_HC_URL`（控え `live.env.bak-20261008b`）→ 手で 1 度流して `sent: 2026-10-08 market=open trade rc=0 prepare rc=0 → 0`（17:10 PDT）【実測】。⚠ URL はリポジトリに書かない
-      関連: [plan](docs/plans/live-trading-open-decisions.md) Phase 3
+      関連: [plan](docs/plans/archive/live-trading-open-decisions.md) Phase 3
     - [ ] 年が変わったら実売買の外部系列に次の年を足す（`experiments/feature-discovery/config/dataset/exog_live.toml` の treasury の `years` に `2027`。⚠ `exog_daily.toml` は書き換えない ＝ 研究の入力の指紋が動く。noaa ／ usgs の `end = "2026-12-31"` も先の日付へ）
       期日: 2027-01-04
       ⚠ 足さないと 2027 年の金利が取れず、`ex_max_stale_days = 7` を過ぎた日から金利の列が欠損になる【推測】（`exog_live.toml` の頭の注意）。足した後は執行器・予測のテスト → 「デプロイ」（本番に効く）。NYSE の暦は 2028 年まで載っている（`nyse_calendar.py`。2028 年の秋に 2029 年を足す）
@@ -145,7 +145,7 @@
     - [x] Phase 4: 記録（`live-trading.md` §0-15 ✅ ／ §0-16・`dashboard.md`・用語・CLAUDE.md）→ push
     - [ ] Phase 5: 「デプロイ」（⚠ 利用者・Sx360）→ 翌朝の `--prepare` で `fees.csv` ができる
     派生元: [plan](docs/plans/archive/live-trading-executor-fixes.md)（利用者の指示 2026-09-19「手数料など金額の内訳も保存するように」）
-    ✅ 2026-09-25 推す案で決めた（利用者「全部おススメで直して」。[live-trading.md §0-15](docs/specs/experiments/live-trading.md)・[plan](docs/plans/live-trading-open-decisions.md)）: **10/20 の判定の後**に入れる（20 営業日のあいだは執行器を変えない。整数株の成行の手数料は 1 注文 $0.001 級【実測 §0-3】で判定に効かない）
+    ✅ 2026-09-25 推す案で決めた（利用者「全部おススメで直して」。[live-trading.md §0-15](docs/specs/experiments/live-trading.md)・[plan](docs/plans/archive/live-trading-open-decisions.md)）: **10/20 の判定の後**に入れる（20 営業日のあいだは執行器を変えない。整数株の成行の手数料は 1 注文 $0.001 級【実測 §0-3】で判定に効かない）
     依存: 「Phase 6: 20 営業日の記録と判定（`live-trading.md`。続ける・止める・予算を変えるは利用者。モデルや合成規則の入れ替えは新しい検証として n_trials に足す）」
   - [x] Sx360 でシミュレーションを立ち上げる（⚠ **利用者**。`git pull` → プロジェクト直下で `./run-sim.sh --fetch titan --fresh --speed max` の 1 本 ＝ 依存・日足の写し・モード・管理画面・運転手・検査まで。⚠ `.env` は置かない。手順は [live-trading.md §0-7 (h)](docs/specs/experiments/live-trading.md)）
     本番と同じ形の `sim3`（金額指定）・`sim4`（整数株 5 本）を回すなら、titan の `experiments/live-trading/sim-predict/`（予測の作り置き。git 管理外）を写す ＝ Sx360 に LightGBM は要らない（2026-09-20）
@@ -166,7 +166,7 @@
     利用者の指示（2026-09-18）: 機能が限定すぎるので 4 つに分ける ＝ 予測（⚠ **モデルの作成・更新を含む**。1 日に何回動くかはモデルのルール次第）／ 売買判断（モデルの更新に合わせて、いつ何を売買するかを決める。予測と同じでもよい）／ 実際の売買 ／ ビュワー
     決まったこと（2026-09-18）: 1 日に何回売買するかはトレーダーの判断（CLAUDE.md の 2 つ目の例外を修正）／ 持ち株と持ち金はトレーダーごと・他のトレーダーの株は売れない・持ち金は固定の予算枠・口座全体の歯止めは置かず、口座に断られた買いはエラーとして記録（[live-trading.md §0-1](docs/specs/experiments/live-trading.md)）
     決める順番の見立て: A（骨組み）→ C9・D13（1 日に何度も売買する前提。✅ 規制の線 E17・E18 は 2026-09-18 に調べた ＝ [live-trading.md §0-6](docs/specs/experiments/live-trading.md)）→ B6・D15（動かす中身）→ F（画面は管理画面の Phase 5 で合わせる）
-    ✅ 2026-09-25 推す案で決めた（利用者「全部おススメで直して」。[live-trading.md §0-15](docs/specs/experiments/live-trading.md)・[plan](docs/plans/live-trading-open-decisions.md)）: **4 役への分け直しは保留**（再開は 1 日に何回も売買するモデルができたとき ＝ D13 の再検討の条件と同じ）。C10〜C12・D13 は決めた。下の子は全部そのメモつきで閉じた
+    ✅ 2026-09-25 推す案で決めた（利用者「全部おススメで直して」。[live-trading.md §0-15](docs/specs/experiments/live-trading.md)・[plan](docs/plans/archive/live-trading-open-decisions.md)）: **4 役への分け直しは保留**（再開は 1 日に何回も売買するモデルができたとき ＝ D13 の再検討の条件と同じ）。C10〜C12・D13 は決めた。下の子は全部そのメモつきで閉じた
     - [x] A. 4 役への分け方
       ✅ 2026-09-25 保留（見立て: 呼び名は 予測 ／ 判断 ／ 発注 ／ ビュワー・ディレクトリ名は変えない・受け渡しは今の `predict.jsonl`〔DB〕と定時・売買履歴を書くのは発注だけ・機械は全部 13500t・分けるなら `run_day.py` から判断〔`plan.py`〕と発注〔`execute.py`〕の呼び出しを分ける）
       - [x] A1: 4 役の名前（文書の呼び名・ディレクトリ名）
@@ -177,7 +177,7 @@
       - [x] A4: 4 役をそれぞれどの機械で動かすか（2026-09-25 から全部 13500t。予測は GPU を使う）
       - [x] A5: 作り直しの順番（いまの執行器 `experiments/live-trading/` をどう分解するか）
     - [x] B. 予測（モデルの作成・更新を含む）
-      - [x] B6: 実際に動かす 3 人の属性（モデル・θ・予算・銘柄集合） [plan](docs/plans/live-trading-trader-attributes.md)
+      - [x] B6: 実際に動かす 3 人の属性（モデル・θ・予算・銘柄集合） [plan](docs/plans/archive/live-trading-trader-attributes.md)
         ✅ 2026-09-19 利用者決定「候補プランでよい」: `T1` `trade_own_ridge_a` θ=50 ／ `T2` `trade_ownex_lgbm_a` θ=55 ／ `T3` `trade_ownseq_ridge_a`（T3 QUANT）θ=50 ／ 予算は 2 規模を並べる ＝ 規模 A $1,000（$300 × 3 ＋ 予備 $100。実際に使える・執行器の既定）／ 規模 B $10,000（$3,000 × 3 ＋ 予備 $1,000。⚠ **規模 B（$10,000）は実際の取引で使えない可能性がある**。執行器では上限を明示したときだけ）／ 合成 `asis` ／ 種 0。[live-trading.md §0-1](docs/specs/experiments/live-trading.md) に書いた
         ✅ 2026-09-25 閉じた: Step 1〜5 が済み（`config/traders/T1〜T3.toml`・3 人とも `shares`・5 本）
         ⚠ **残るのは銘柄集合と `sizing`**（→ Step 4 で決まった）: `dryrun2` で `Notional Market` が通れば `notional`・us63、通らなければ `shares` で銘柄を絞る（⚠ 絞り方と本数は利用者の裁定）
@@ -263,6 +263,7 @@
   - [x] Phase 4: 投入（⚠ 利用者: 誰・入金・上限 → Claude: 設定を `config/traders/` 直下へ・テスト・push → 利用者 ＋ Sx360 の Claude: デプロイ・`live.env`・予測の時間の計測 → 初日の記録）
     ✅ 2026-10-08 新しい 3 人の 1 日目（名簿で起動 ＝ `roster: true`）: T1 ・ T6 が 5 本ずつ買い 10 本 Filled・T4 は 5 本とも `skip`（買い% 47.7〜48.2 ＜ 50）・差 1 中央値 0.00bp・`reconcile` 差 0。予測 4 本 49 秒・回の全体 15:40:01 → 15:51:57 ET（刻限 15:58 の内）【実測】。記録 `live-trading.md` §1
   - [ ] Phase 5: 分析を回す（投入した人を Phase 2 の物差しで見る。20 営業日の判定には いまの 3 人のぶんだけを使う）
+    20 営業日の判定（11/4（水））の雛形 ＝ [live-trading.md §2-2](docs/specs/experiments/live-trading.md)（2026-10-20。線と `yardstick.csv` の列を結果を見る前に書いた。写すのは 11/5（木）の朝の準備の後・Sx360）
 
     - [ ] 実売買の日次の記録を自動で出す（A〜E と異常の一覧を DB から計算して管理画面へ・仕様書は異常の日と判定の写しだけ） [plan](docs/plans/daily-record-auto.md)
       派生元: 利用者の質問（2026-10-13）「記録はなんで毎回手動で行わないといけない？」→「プランを書いて」
@@ -328,6 +329,7 @@
       - [x] Step 4-5: 手順書 `howto-model-trader.md` 2-8・CLAUDE.md → `./run-tests.sh --full`（黄金の集計値が変わらない）→ push
         ✅ 2026-10-19 07:50 PDT: 5 段とも ✅（執行器 244 ／ 管理画面 279 ／ selftest ／ mockrun ／ 黄金の集計値 12 ＝ 1 件も変わらない。3 分 38 秒【実測 titan】）
     - [ ] Phase 5（⚠ 利用者・11/4 の後）: 誰を入れ替えるか → 13500t の予測の時間を測る → 「デプロイ」→ 名簿の ▶ 開始
+      判定の雛形は [live-trading.md §2-2](docs/specs/experiments/live-trading.md)（2026-10-20 に書いた。11/5（木）06:00 PST の朝の準備で `yardstick.csv` が 11/4 まで埋まってから Sx360 の Claude が写す）
     - [x] Phase 6: 損切り係なしの人（`T12`〜`T15`）と、そのうえで A ＝ 土台を引いた買い%（`T16`〜`T19`）[plan §10](docs/plans/trader-model-roles.md)
       ✅ 2026-10-19 08:46 PDT 着手（titan・利用者「損切りを入れないトレーダーを用意する。そのうえで A」）。`T7`〜`T10` は触らない
       - [x] Step 6-1: 損切り係なしの組 R6〜R9 を rules.md 25-6 に登録 → `trader_roles_t12〜t15` → queue `horizon_roles4`（＋12）→ 記録 §7

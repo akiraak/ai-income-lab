@@ -1456,4 +1456,4 @@ flowchart LR
 - 書き方は 2-1 と同じ。結果を入れたら、図を「線のうちどれが越えたか」の形（2-1 の図）に描き替える。起動しなかった営業日があれば件数と日付をここに書き、20 日目の日付を直す
 - `T4` は 10/8 に現金のまま・10/9 から買い（§1 の表）＝ A・E の本数が 2 人より少ない。本数（`a.n`・`e.n`）を結果に添える
 - 2-1 との違い: 差 3 は最初から「そろえた紙上」（`diff3a_bp`）で見る ／ 人手の数え方は K4（`yardstick.py` の docstring）／ 起動なしの日は行として出る（§1 の書き方）
-- 判定の後に利用者が決めること: 続ける ／ 止める ／ 予算 ／ 新しいトレーダーの Phase 5（誰を誰と入れ替えるか ＝ [trader-model-roles.md §6](../../plans/trader-model-roles.md)）／ 執行器の変更を本番に出す時期（同 K6）／ 決算 ＋ 中小型株の E6（[earnings-smallcap.md §5](../../plans/earnings-smallcap.md)）
+- 判定の後に利用者が決めること: 続ける ／ 止める ／ 予算 ／ 新しいトレーダーの Phase 5（誰を誰と入れ替えるか ＝ [trader-model-roles.md §6](../../plans/trader-model-roles.md)）／ 執行器の変更を本番に出す時期（同 K6）／ 決算 ＋ 中小型株の E6（[earnings-smallcap.md §5](../../plans/archive/earnings-smallcap.md)）

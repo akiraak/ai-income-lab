@@ -1,6 +1,6 @@
 # 段 2: 中小型株（S&P 600）の表 — own ／ 大型株の流れ ／ 決算
 
-2026-10-19（月）titan。利用者の指示「段 2 を進めて」（[プラン earnings-smallcap.md](../../plans/earnings-smallcap.md) §4 の段 2・§5 の E4 ＝ 推す案）。規約は [rules.md 27 章](feature-discovery/rules.md)。前の段は [earnings-layer.md](earnings-layer.md)（決算の層・段 1）・形の手本は [midcap-targets.md](midcap-targets.md)（中位 48 本）。
+2026-10-19（月）titan。利用者の指示「段 2 を進めて」（[プラン earnings-smallcap.md](../../plans/archive/earnings-smallcap.md) §4 の段 2・§5 の E4 ＝ 推す案）。規約は [rules.md 27 章](feature-discovery/rules.md)。前の段は [earnings-layer.md](earnings-layer.md)（決算の層・段 1）・形の手本は [midcap-targets.md](midcap-targets.md)（中位 48 本）。
 ⚠ **これは投資助言ではなく調査資料である。** ⚠ 数字は【実測】（自前の机上の検証）。⚠ **この結果で実売買の人を替えない・候補の人を作らない**（E6）。
 
 ## 0. 回す前に決めたこと（⚠ この節は取得の前に書いた）

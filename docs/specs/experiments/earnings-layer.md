@@ -1,6 +1,6 @@
 # 決算の層 `ern_`（SEC EDGAR）を既にある表に足す — 段 1（机上）
 
-2026-10-19（月）titan。利用者の指示「推す案で進めて」（[プラン earnings-smallcap.md](../../plans/earnings-smallcap.md) §5 の E1・E3〜E6 ＝ 推す案。⚠ E2〔EDGAR の User-Agent の連絡先〕は利用者が決める ＝ 環境変数 `AIL_EDGAR_CONTACT`）。規約は [rules.md 26 章](feature-discovery/rules.md)。
+2026-10-19（月）titan。利用者の指示「推す案で進めて」（[プラン earnings-smallcap.md](../../plans/archive/earnings-smallcap.md) §5 の E1・E3〜E6 ＝ 推す案。⚠ E2〔EDGAR の User-Agent の連絡先〕は利用者が決める ＝ 環境変数 `AIL_EDGAR_CONTACT`）。規約は [rules.md 26 章](feature-discovery/rules.md)。
 ⚠ **これは投資助言ではなく調査資料である。** ⚠ 数字は【実測】（自前の机上の検証）。⚠ **この結果で実売買の人を替えない**。
 
 ## 0. 回す前に決めたこと（⚠ この節は結果を見る前に書いた）

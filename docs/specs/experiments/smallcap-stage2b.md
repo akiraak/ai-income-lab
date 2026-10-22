@@ -1,6 +1,6 @@
 # 段 2b: 決算と小型株の 3 処置 — 欠損を印にする決算の層 `ernf` ／ 小型 50 × LightGBM ／ 費用 20bp
 
-2026-10-22（木）titan。利用者の指示「3 本まとめて進めて」（[プラン earnings-smallcap.md](../../plans/earnings-smallcap.md) §6 ＝ 段 2 の見立て [smallcap-stage2.md §4](smallcap-stage2.md) の ①②③）。規約は [rules.md 28 章](feature-discovery/rules.md)。前の段は [earnings-layer.md](earnings-layer.md)（段 1）・[smallcap-stage2.md](smallcap-stage2.md)（段 2）。
+2026-10-22（木）titan。利用者の指示「3 本まとめて進めて」（[プラン earnings-smallcap.md](../../plans/archive/earnings-smallcap.md) §6 ＝ 段 2 の見立て [smallcap-stage2.md §4](smallcap-stage2.md) の ①②③）。規約は [rules.md 28 章](feature-discovery/rules.md)。前の段は [earnings-layer.md](earnings-layer.md)（段 1）・[smallcap-stage2.md](smallcap-stage2.md)（段 2）。
 ⚠ **これは投資助言ではなく調査資料である。** ⚠ 数字は【実測】（自前の机上の検証）。⚠ **この結果で実売買の人を替えない・候補の人を作らない**（E6）。
 
 ## 0. 回す前に決めたこと（⚠ この節は結果を見る前に書いた）
@@ -158,3 +158,4 @@ flowchart LR
 - 1 日 2 回・9 分差の写し（日々の揺れ・決算日・寄りと引けの広がりは測っていない）。REST のスナップショット（気配の古さは行に残した）
 - 成行は気配の内側で付くこともある（5 本の差 1 が 0.00bp なのはそれ）＝ 気配の差は費用の**上限側**の目安。板の株数（小型 50 で中央値 200 株）は $120 の枠（1〜5 株）には十分
 - ⚠ この結果で銘柄を選び直さない（AMRX だけ残す等）＝ 結果を見てからの選択（14-9）
+- ✅ **2026-10-22 13:05 PDT 利用者「段 3 を閉じて」**: 親タスク「決算データを含めたモデル ＋ 大型株の流れで中小型株を売買する」を DONE へ・プランを `docs/plans/archive/earnings-smallcap.md` へ。候補の人は作らない

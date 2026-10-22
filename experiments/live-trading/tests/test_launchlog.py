@@ -1,4 +1,4 @@
-"""毎日の起動の記録（launchlog.py ＋ run-live.sh の trap。プラン docs/plans/launch-record-auto.md）。ネットワークを使わない。"""
+"""毎日の起動の記録（launchlog.py ＋ run-live.sh の trap。プラン docs/plans/archive/launch-record-auto.md）。ネットワークを使わない。"""
 import json
 import os
 import subprocess

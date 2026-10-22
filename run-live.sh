@@ -45,7 +45,7 @@ T0=$(date +%s)
 LAST_SAY=""
 say() { LAST_SAY="$*"; echo "[$(TZ=America/New_York date +%H:%M:%S) ET ＋$(( $(date +%s) - T0 ))秒] $*"; }
 
-# ---- 毎日の起動の記録（docs/plans/launch-record-auto.md）: 終わるとき（どの rc でも）に out/launches.jsonl へ 1 行。
+# ---- 毎日の起動の記録（docs/plans/archive/launch-record-auto.md）: 終わるとき（どの rc でも）に out/launches.jsonl へ 1 行。
 # ⚠ 書けなくても rc は変えない（DB の無い置き場では警告 1 行）。⚠ out/<日付>/ には書かない（見張り「今日の起動が無い」を崩す）
 LAUNCH_START=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 STAGE="start"; STEPS=""; NOTE=""; TMP=""
@@ -72,7 +72,7 @@ if [ "$PREPARE" = 1 ]; then
     say "紙上の対照 → daily.csv"; STAGE=paper
     (cd "$LT" && "$PY_LT" paper.py --bars-dir "${AIL_LIVE_DATA_DIR:-$FD/data-live}/adjusted/d"); R=$?
     STEPS="$STEPS,paper=$R"; [ "$R" = 0 ] || say "⚠ paper.py が失敗した（売買には影響しない）"
-    # 物差し A〜E（docs/plans/daily-record-auto.md）: 記録と daily.csv から yardstick.csv を作り直す（読むだけ・何度流しても同じ）
+    # 物差し A〜E（docs/plans/archive/daily-record-auto.md）: 記録と daily.csv から yardstick.csv を作り直す（読むだけ・何度流しても同じ）
     say "物差し A〜E → yardstick.csv"; STAGE=yardstick
     (cd "$LT" && "$PY_LT" yardstick.py); R=$?
     STEPS="$STEPS,yardstick=$R"; [ "$R" = 0 ] || say "⚠ yardstick.py が失敗した（売買には影響しない）"

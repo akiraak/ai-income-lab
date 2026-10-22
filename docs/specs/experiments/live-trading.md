@@ -1310,7 +1310,7 @@ flowchart LR
 
 Phase 5-1・Phase 6 で埋める。1 日 1 行 × トレーダー。数字は全部【実測】。
 
-⚠ **2026-10-13 から書き方を変える**（利用者決定 K1・K2「全部おススメで進めて」・[プラン](../../plans/daily-record-auto.md)）: 日次の数字（注文・約定・差 1・物差し A〜E・口座 − 売買履歴・人手）の正本は **`out/yardstick.csv`**（`yardstick.py` が朝の `--prepare` で作り直す・管理画面のトレーダーの詳細と全体の詳細の「異常の一覧」が出す）。**この表には、異常の札が付いた日の読み方（原因・判断）と、週 1 回（金曜の引け後）の A〜E の写しだけを書く**。普段の日の行は書かない。⚠ 手で書いた 10/9 までの行はそのまま残す（デプロイの後に `yardstick.csv` と突き合わせる ＝ プラン Phase 4）
+⚠ **2026-10-13 から書き方を変える**（利用者決定 K1・K2「全部おススメで進めて」・[プラン](../../plans/archive/daily-record-auto.md)）: 日次の数字（注文・約定・差 1・物差し A〜E・口座 − 売買履歴・人手）の正本は **`out/yardstick.csv`**（`yardstick.py` が朝の `--prepare` で作り直す・管理画面のトレーダーの詳細と全体の詳細の「異常の一覧」が出す）。**この表には、異常の札が付いた日の読み方（原因・判断）と、週 1 回（金曜の引け後）の A〜E の写しだけを書く**。普段の日の行は書かない。⚠ 手で書いた 10/9 までの行はそのまま残す（デプロイの後に `yardstick.csv` と突き合わせる ＝ プラン Phase 4）
 
 ⚠ **起動しなかった営業日も 1 行書く**（トレーダーは「全員」・注文 0・事象に「起動なし」と理由）。⚠ **20 営業日は起動した営業日で数える**（§0-15）。
 
@@ -1447,7 +1447,7 @@ flowchart LR
 | 線（§0-2・[trader-loop.md Phase 2](../../plans/trader-loop.md)） | 出どころ（`yardstick.csv` の列 → `yardstick.py --print` の項目） | 結果【実測】 | 判定 |
 | --- | --- | --- | --- |
 | A 差 1 の中央値 ≤ 5bp（人ごと。`A_LINE_BP`） | `a_diff1_bp`（注文ごと）→ `a.median_bp` ／ `a.max_bp` ／ `a.n` | T1: ／ T4: ／ T6: | |
-| E 差 3（そろえた紙上）の \|日次\| 平均 ≤ 5bp（人ごと。`E_LINE_BP`） | `e_diff3a_bp` → `e.mean_abs_bp` ／ `e.n`（`daily.csv` の `diff3a_bp` の写し。⚠ 10/8 の T ・ VZ の終値は `closes.json` で最初に見た値に固定 ＝ [daily-record-auto Phase 4](../../plans/daily-record-auto.md)） | T1: ／ T4: ／ T6: | |
+| E 差 3（そろえた紙上）の \|日次\| 平均 ≤ 5bp（人ごと。`E_LINE_BP`） | `e_diff3a_bp` → `e.mean_abs_bp` ／ `e.n`（`daily.csv` の `diff3a_bp` の写し。⚠ 10/8 の T ・ VZ の終値は `closes.json` で最初に見た値に固定 ＝ [daily-record-auto Phase 4](../../plans/archive/daily-record-auto.md)） | T1: ／ T4: ／ T6: | |
 | D 執行できた日 ≥ 95%（`D_LINE_RATE`）・人手 0 回・口座 − 売買履歴 ＝ 0 | `d_ran` ／ `d_ok` ／ `d_manual` ／ `d_gap_shares` → `d.ok_days` ／ `d.ran_days` ／ `d.manual` ／ `d.gap_shares`。起動の有無は `launches.jsonl`（10/19 から）・それ以前は TODO の cron のメモ | 起動 ／ 営業日・rc=0 の日・人手・差 | |
 | C 机上との一致 ＝ 合わない日 0 | `c_mismatch` ／ `c_detail` → `c.days` | T1: ／ T4: ／ T6: | |
 | B 持ち続けるとの差（⚠ 見るだけ・採否に使わない） | `b_diff_usd` ／ `b_diff_bp` → `b`（最後の日の累計） | T1: ／ T4: ／ T6: | — |

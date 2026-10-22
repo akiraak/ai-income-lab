@@ -322,7 +322,7 @@ def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description="約定後の実際の手数料（口座の取引履歴）を読む・注文の見積りと突き合わせる")
     ap.add_argument("cmd", choices=["fetch", "match", "print"])
     ap.add_argument("--out-dir", default=default_out_dir())
-    ap.add_argument("--env", default=None, choices=["cert", "prod"], help="既定は TT_ENV、無ければ prod（取引履歴があるのは本番だけ）")
+    ap.add_argument("--env", default=None, choices=["cert", "prod"], help="既定は prod（取引履歴があるのは本番だけ。`.env` の TT_ENV は読まない）")
     ap.add_argument("--since", default=None, help="取りに行く最初の日（YYYY-MM-DD）。既定は前回の最後の日の前日")
     ap.add_argument("--match", action="store_true", help="fetch の後に match も流す")
     args = ap.parse_args(argv)
@@ -333,7 +333,9 @@ def main(argv: list[str] | None = None) -> int:
             print(f"取引履歴は取りに行かない: {why}")
             return 0
         cfg = load_env(os.environ.get("TT_ENV_FILE") or os.path.join(SAMPLE_DIR, ".env"))
-        env = args.env or cfg.get("TT_ENV") or "prod"
+        # ⚠ `.env` の TT_ENV は読まない: 13500t の `.env` は `sample.py` の既定を sandbox にするため TT_ENV=cert で、
+        #   それに従うと cert の 0 件を取り続けた（2026-10-21・22 の朝の準備。cert は取引履歴を 1 行も返さない）
+        env = args.env or "prod"
         masker = record.Masker()
         try:
             client, account = make_client(cfg, env, masker)

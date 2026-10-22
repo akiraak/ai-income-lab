@@ -3,7 +3,7 @@
     python3 yardstick.py                    # out/ → out/yardstick.csv（毎回ぜんぶ作り直す ＝ 何度流しても同じ）
     python3 yardstick.py --print            # 書かずに、人ごとのいまの期間のまとめを出す
 
-プラン docs/plans/daily-record-auto.md（2026-10-13 利用者決定「全部おススメで進めて」＝ K1〜K4）。
+プラン docs/plans/archive/daily-record-auto.md（2026-10-13 利用者決定「全部おススメで進めて」＝ K1〜K4）。
 ⚠ **読むだけ**（ネットワークを使わない・発注しない・売買履歴を書かない）。`paper.py` の後に流す（E は `daily.csv` を写すだけ）。
 ⚠ **損益で人を採らない**（B は見るだけ。CLAUDE.md の 2 つ目の例外）。
 
@@ -64,7 +64,7 @@ ANOMALY = ("auth_failed", "signal_error", "quote_failed", "quote_client_failed",
 FLAG_KINDS = ("paused", "liquidate_flag")
 # D の「問題なく終わった」を崩さないもの（執行の差・配線・含み損の警告は別の物差しで見る）
 NOT_FAILURE = {"diff1_over", "c_mismatch", "drawdown_warning", "close_kept", "close_out_of_range", "prepare_failed", "prepare_missing"}
-# 毎日の起動の記録（launchlog.py の out/launches.jsonl。プラン docs/plans/launch-record-auto.md）から出す問題。⚠ 朝の準備は売買の回が
+# 毎日の起動の記録（launchlog.py の out/launches.jsonl。プラン docs/plans/archive/launch-record-auto.md）から出す問題。⚠ 朝の準備は売買の回が
 #   日足を取り直すので D を崩さない: prepare_failed ＝ その日の朝の準備の rc ≠ 0 ／ prepare_missing ＝ 記録が始まった後の日で朝の準備の行が無い
 # 終値の控え（paper.py の out/closes.json）から出す問題。⚠ 日足の癖で、執行の失敗ではない（D を崩さない）
 #   close_kept ＝ 終値だけの書き換え（権利落ち日の前日の配当の調整）を拒んで控えの値を使った ／ close_out_of_range ＝ 控えの終値が安値〜高値の外

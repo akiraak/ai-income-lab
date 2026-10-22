@@ -1,5 +1,5 @@
 # 手で直した終値（paper.py の控え `out/closes.json` を作る前に、DXLink が書き換えてしまった日だけ）。
-# ⚠ 足すのは記録で確かめられた値だけ（出どころを why に書く）。プラン docs/plans/daily-record-auto.md Phase 4。
+# ⚠ 足すのは記録で確かめられた値だけ（出どころを why に書く）。プラン docs/plans/archive/daily-record-auto.md Phase 4。
 # DXLink は権利落ち日の前日の終値だけを配当ぶん下げて返す（始値・高値・安値・出来高はそのまま）。
 
 [[fix]]

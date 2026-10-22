@@ -6,6 +6,7 @@
   3. 突き合わせ: `order_id` × env で 1 対 1・数量の違い・まだ無い注文・売買履歴の外・口座の精算 ＝ 何度流しても同じ CSV
   4. 取りに行く最初の日の既定（前回の最後の日の前日 ／ 初回は記録の最初の注文の日）
   5. `list_transactions` が頁を全部めくる（`total-pages`）
+  6. env の既定は prod（`.env` の `TT_ENV=cert` を読まない ＝ 2026-10-21・22 の朝の準備が cert の 0 件を取り続けた）
 """
 from __future__ import annotations
 
@@ -141,3 +142,19 @@ def test_list_transactions_turns_every_page(monkeypatch):
     assert [i["id"] for i in items] == [1, 2, 3, 4]
     assert [p["page-offset"] for _, p in seen] == [0, 1, 2] and seen[0][1]["start-date"] == "2026-09-20" and seen[0][1]["per-page"] == 250
     assert seen[0][0] == "/accounts/5WT00042/transactions"
+
+
+def test_fetch_goes_to_prod_even_when_the_env_file_says_cert(tmp_path, monkeypatch):
+    out = str(tmp_path / "out")
+    envf = tmp_path / ".env"
+    envf.write_text("TT_ENV=cert\n", encoding="utf-8")
+    monkeypatch.setenv("TT_ENV_FILE", str(envf))
+    monkeypatch.setattr(fees, "not_production_mark", lambda: None)
+    seen = []
+    def fake_make_client(cfg, env, masker):
+        seen.append(env)
+        return FakeClient([TX_BUY]), "5WT00042"
+    monkeypatch.setattr(fees, "make_client", fake_make_client)
+    assert fees.main(["fetch", "--out-dir", out, "--since", "2026-09-20"]) == 0
+    assert fees.main(["fetch", "--out-dir", out, "--since", "2026-09-20", "--env", "cert"]) == 0
+    assert seen == ["prod", "cert"]                                                  # 明示したときだけ cert

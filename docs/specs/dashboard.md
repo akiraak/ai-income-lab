@@ -725,7 +725,7 @@ flowchart LR
 
 `daily.csv` に `diff3a_*`（`paper.py` のそろえた紙上 ＝ 実物が発注した日から・整数株・印どおり）があれば、トレーダーの差 3 のタイル（累計はいまの期間 `aligned_since` から・日次の中央値）と概要の差 3 の中央値はそちらを使う。今までの形（等加重・端数）の累計はタイルに小さく残し、トレーダーの日次の表には両方の列を並べる。無い `daily.csv`（古い `paper.py`）は今までどおり。⚠ 紙上の線（図）は今までの形のまま。⚠ 管理画面は読むだけ（計算は `paper.py`）。テストは `tests/test_live.py` の `test_aligned_diff3_is_used_when_paper_py_writes_it`
 
-### 13-13. 物差し A〜E と異常の一覧（2026-10-13。利用者決定「全部おススメで進めて」・[プラン](../plans/daily-record-auto.md)）
+### 13-13. 物差し A〜E と異常の一覧（2026-10-13。利用者決定「全部おススメで進めて」・[プラン](../plans/archive/daily-record-auto.md)）
 
 執行器の `yardstick.py`（朝の `run-live.sh --prepare` で `paper.py` の後）が書く `out/yardstick.csv`（1 日 1 行 × トレーダー）を読むだけ。計算の決まり（A〜E・期間・人手の数え方）は `yardstick.py` の頭の注記が正本、物差しの定義は [trader-loop.md Phase 2](../plans/trader-loop.md)。
 
@@ -738,7 +738,7 @@ flowchart LR
 - ⚠ **日次の数字の正本は `yardstick.csv`**（2026-10-13 利用者決定 K1）。仕様書（`live-trading.md` §1）には異常の日の読み方と週 1 回の写しだけを書く
 - E は前の営業日まで（公式終値が要る ＝ 翌朝の `--prepare` で埋まる）。テストは `tests/test_live.py` の `test_yardstick_*`
 
-### 13-14. 毎日の起動（2026-10-18。利用者の指示「1を自動で行うようにして」・[プラン](../plans/launch-record-auto.md)）
+### 13-14. 毎日の起動（2026-10-18。利用者の指示「1を自動で行うようにして」・[プラン](../plans/archive/launch-record-auto.md)）
 
 - 全体の詳細に「毎日の起動」の表: 日ごとに朝の準備と売買の回の起動の時刻（シアトル）・rc・秒・rc ≠ 0 の理由。記録が始まった日からの営業日を全部並べ、行の無い回は「記録なし」（赤の行）
 - 出どころ ＝ `run-live.sh` が終わるとき（どの rc でも）に書く `experiments/live-trading/out/launches.jsonl`（`launchlog.py`）。⚠ `out/<日付>/` には書かない（§13-8 の見張りを崩さない）。⚠ **読むだけ**（POST は増やさない）

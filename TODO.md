@@ -77,13 +77,7 @@
       10/14 ✅ prepare rc=0（125 秒）／ trade rc=0（→ 12:51:48 PDT。T1 が NKE 3 株を買い戻し 1 本 Filled・問題 0）／ `check.sh` `sent: … → 0`
       10/15 ✅ prepare rc=0（⚠ 305 秒 ＝ いつもの 2 倍余り。外部系列の段が約 4 分〔55 → 298 秒〕・失敗はなし・`yardstick.csv` の初回）／ trade rc=0（→ 12:51:50 PDT。意図 0 ＝ 注文 0）／ `check.sh` `sent: … → 0`
       10/16 ✅ prepare rc=0（114 秒）／ trade rc=0（→ 12:51:51 PDT。T1 が NKE 3 株を売り 1 本 Filled・問題 0）／ `check.sh` `sent: … → 0`。`reconcile.py show`（最後の記録 10/16 引け後）＝ 5 銘柄とも差 0・控えの未完 0。10/17・18 は土日。✅ 2026-10-18 Sx360 の Claude が 13500t のログと DB を読んで埋めた（読むだけ）。10/19 からは `out/launches.jsonl`（下の子）
-      - [~] 毎日の起動の記録を自動で残す（朝の準備・売買の回 → `out/launches.jsonl`・管理画面の全体の詳細） [plan](docs/plans/launch-record-auto.md)
-        派生元: 利用者の指示（2026-10-18）「1を自動で行うようにして」（＝ 上のメモの手書きの 1 日 1 行。10/9 で止まっていた）
-        - [x] Step 1: `launchlog.py`・`run-live.sh` の `trap EXIT`・テスト
-        - [x] Step 2: `yardstick.py` の問題 2 つ・管理画面の表
-      ✅ 2026-10-18 Sx360: テスト 9 本（launchlog 7 ・ yardstick 1 ・ 管理画面 1）・`./run-tests.sh` ✅
-        - [ ] Step 3: 「デプロイ」（利用者）→ 次の営業日に 1 行ずつ入ることを確かめる → 手書きのメモをやめる
-      ✅ 2026-10-18 15:00 PDT（18:00 ET）: `prod` 7bda813 → bbf8beb（Sx360 の `run-deploy.sh`・関門 ✅）・13500t `done bbf8beb`（管理画面も起こし直した）。⏳ 10/19（月）06:00 PDT の朝の準備・12:40 PDT の売買の回で 1 行ずつ入るかを見る
+      ✅ 2026-10-22: 10/19 からは `out/launches.jsonl`（管理画面の全体の詳細「毎日の起動」）が正本 ＝ ここに手で足さない（[DONE.md](DONE.md) の「毎日の起動の記録を自動で残す」）
     - [x] 起動しなかった日を数える（⚠ 無人運転の成立はこれで測る。管理画面に「起動しなかった日」の考えは既にある ＝ [dashboard.md §13](docs/specs/dashboard.md)）
       ⚠ WSL2 の穴: **Windows を再起動して WSL が寝ていた時刻の回は実行されない**（`Persistent=false` ＝ 発注できる時間帯を過ぎてから起きても発注させない）。⚠ これは正しい挙動だが、**起動しなかった日として数える**必要がある
       関連: 管理画面の見張り「今日の起動が無い」（[dashboard.md §13-8](docs/specs/dashboard.md)）
@@ -145,6 +139,7 @@
     - [x] Phase 4: 記録（`live-trading.md` §0-15 ✅ ／ §0-16・`dashboard.md`・用語・CLAUDE.md）→ push
     - [ ] Phase 5: 「デプロイ」（⚠ 利用者・Sx360）→ 翌朝の `--prepare` で `fees.csv` ができる
       ✅ 2026-10-20 21:45 PDT（00:45 ET）: `prod` bbf8beb → 639460a（Sx360 の `run-deploy.sh`・関門 ✅ ＝ 4 段 ＋ 指紋 22 本）・13500t `done 639460a`（管理画面も起こし直した）。⚠ 役割と最短保有の口（`41c5be7`）も一緒に出た ＝ K6。⏳ 10/21（水）06:00 PDT（09:00 ET）の `--prepare` で `fees.jsonl` ／ `fees.csv` ができるかを見る
+      ⚠ 2026-10-22 Sx360: 10/21・10/22 の朝の準備は段 `fees` rc=0 だが **取引履歴を cert から取って 0 件**（「実額あり 0」）。原因 ＝ `fees.py` が env の既定を `.env` の `TT_ENV` から読み、13500t の `.env` は `TT_ENV=cert`（`sample.py` の既定を sandbox にするための値）→ 既定を prod に直した（`TT_ENV` は読まない・`--env cert` を明示したときだけ cert）・テスト 1 本。⏳ もう 1 度「デプロイ」（利用者）→ 次の朝の `--prepare` で本番の取引履歴が入る
     派生元: [plan](docs/plans/archive/live-trading-executor-fixes.md)（利用者の指示 2026-09-19「手数料など金額の内訳も保存するように」）
     ✅ 2026-09-25 推す案で決めた（利用者「全部おススメで直して」。[live-trading.md §0-15](docs/specs/experiments/live-trading.md)・[plan](docs/plans/archive/live-trading-open-decisions.md)）: **10/20 の判定の後**に入れる（20 営業日のあいだは執行器を変えない。整数株の成行の手数料は 1 注文 $0.001 級【実測 §0-3】で判定に効かない）
     依存: 「Phase 6: 20 営業日の記録と判定（`live-trading.md`。続ける・止める・予算を変えるは利用者。モデルや合成規則の入れ替えは新しい検証として n_trials に足す）」
@@ -266,27 +261,6 @@
   - [ ] Phase 5: 分析を回す（投入した人を Phase 2 の物差しで見る。20 営業日の判定には いまの 3 人のぶんだけを使う）
     20 営業日の判定（11/4（水））の雛形 ＝ [live-trading.md §2-2](docs/specs/experiments/live-trading.md)（2026-10-20。線と `yardstick.csv` の列を結果を見る前に書いた。写すのは 11/5（木）の朝の準備の後・Sx360）
 
-    - [ ] 実売買の日次の記録を自動で出す（A〜E と異常の一覧を DB から計算して管理画面へ・仕様書は異常の日と判定の写しだけ） [plan](docs/plans/daily-record-auto.md)
-      派生元: 利用者の質問（2026-10-13）「記録はなんで毎回手動で行わないといけない？」→「プランを書いて」
-      ✅ 2026-10-13 利用者決定「全部おススメで進めて」＝ K1〜K4 とも推す案
-      ⚠ 執行器（`run_day.py`・`execute.py`・`plan.py`）は変えない。足すのは読むだけの後処理 `yardstick.py`（朝の `--prepare`）と管理画面の表示
-      - [x] Phase 0: 決めごと K1〜K4（⚠ 利用者。日次の数字の正本 ／ 普段の日の §1 ／ B の基準の株数 ／ 人手の数え方 ＝ プラン §2）
-      - [x] Phase 1: `yardstick.py`（A〜E）・`--prepare` から起こす・テスト（10/8・10/9 の手計算の値を固定）
-        ✅ 2026-10-13 Sx360: テスト 10 本。C は合図の `position_before` から判定（`paper.py` は触らない）。B は手書きと $0.04 ずれる（基準 ＝ K3 の 1 日目の中値・手書きは T1 の約定）
-      - [x] Phase 2: 管理画面（トレーダーの詳細に A〜E・全体の詳細に異常の一覧）
-        ✅ 2026-10-13 Sx360: `./run-tests.sh` ✅。sim ／ デモは `daily.csv` も無いのでやめた（紙上の対照と同じ扱い）
-      - [x] Phase 3: 「デプロイ」（利用者）→ 翌朝 06:00 PDT（09:00 ET）の `--prepare` で初めてできる
-        ✅ 2026-10-14 07:30 PDT（10:30 ET）: `prod` 2aea697 → 69aee59（Sx360 で `run-deploy.sh`。関門 ✅）・13500t `done 69aee59`（管理画面も起こし直した）。最初の `yardstick.csv` は 10/15（木）06:00 PDT（09:00 ET）の `--prepare`
-      - [ ] Phase 4: 手書きの A〜E と突き合わせ → 一致したら普段の日の手書きをやめる → DONE へ・プランを archive へ
-        ⏳ 2026-10-15 Sx360: A〜D は一致・**E は不一致**（権利落ち日の前日の終値を DXLink が配当ぶん下げて返す ＝ 10/8 の T ・ VZ。`daily.csv` の値洗いが 10/8 に約 −41bp・累計に +42bp が残る）。直し方は利用者の判断待ち（[plan Phase 4](docs/plans/daily-record-auto.md)）
-        ⏳ 2026-10-18 Sx360: 直し方の案 4 つをプラン Phase 4 に書いた（推す ＝ 案 1「最初に見た終値を固定する」・`paper.py` だけ）。利用者の選択待ち
-        ✅ 2026-10-18 利用者決定「案1で進めて」（最初に見た終値を固定する。規則は「終値だけが変わった書き換えを拒む」に絞った ＝ プラン Phase 4「案 1 の作り」）
-        - [x] Step 4-1: `paper.py` の控え（`out/closes.json`）と直しの表・`yardstick.py` の問題 2 つ・管理画面の札・テスト
-        - [x] Step 4-2: 13500t の記録の写しで流し、10/8 の E が手書きに戻ることを確かめる（Sx360・読むだけ）
-          ✅ 2026-10-18: 10/8 の E ＝ T1 2.52 ／ T6 2.44bp（手書きと一致）・T6 の累計 42.12 → 2.44
-        - [ ] Step 4-3: 「デプロイ」（利用者）→ 次の朝の `--prepare` で直る
-          ✅ 2026-10-18 14:30 PDT（17:30 ET）: `prod` 3eafd1b → 7bda813（Sx360 の `run-deploy.sh`・関門 ✅）・13500t `done 7bda813`。⏳ 10/19（月）06:00 PDT（09:00 ET）の `--prepare` で直る
-        - [ ] Step 4-4: 直った `yardstick.csv` と手書きを並べ、一致したら普段の日の手書きをやめる
   - [ ] 新しいトレーダーを作成する [plan](docs/plans/trader-model-roles.md)
     利用者の指示（2026-10-18）: **「TODOに追加。新しいトレーダーを作成する」**
     手順: [howto-model-trader.md §3](docs/specs/howto-model-trader.md)「検証結果から候補の人を作る」（物差し 6 つ → 机上〔rules.md 20 章〕→ 候補 `config/traders/candidates/`）。⚠ 着手のときにプランを書く

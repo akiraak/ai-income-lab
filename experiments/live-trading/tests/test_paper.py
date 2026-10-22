@@ -187,7 +187,7 @@ def test_aligned_liquidation_sells_all_closes_the_period_and_restarts_from_cash(
     assert by[DATES[4]]["aligned_since"] == DATES[4] and by[DATES[4]]["aligned_cum_bp"] == by[DATES[4]]["aligned_bp"]
 
 
-# --- 終値の控え（out/closes.json。プラン docs/plans/daily-record-auto.md Phase 4 ＝ 2026-10-18 利用者決定「案1で進めて」）
+# --- 終値の控え（out/closes.json。プラン docs/plans/archive/daily-record-auto.md Phase 4 ＝ 2026-10-18 利用者決定「案1で進めて」）
 
 def _bar(c, o=10.0, h=12.0, l=9.0, v=1000.0):
     return {"open": o, "high": h, "low": l, "close": c, "volume": v}

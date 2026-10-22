@@ -1,4 +1,4 @@
-"""物差し A〜E（yardstick.py。プラン docs/plans/daily-record-auto.md）: 手で書いた 10/8・10/9 の表を合成の記録で再現する ／
+"""物差し A〜E（yardstick.py。プラン docs/plans/archive/daily-record-auto.md）: 手で書いた 10/8・10/9 の表を合成の記録で再現する ／
 期間の開け閉め ／ C の不一致 ／ D の人手 ／ 起動しなかった日 ／ E は写すだけ。ネットワークもファイルの外も使わない。
 
 ⚠ 13500t の記録はテストに入れない（口座の数字をリポジトリに入れない）＝ 10/7〜10/9 の形を、記録（live-trading.md §1）に書いた値から作り直した。

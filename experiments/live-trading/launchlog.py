@@ -1,4 +1,4 @@
-"""毎日の起動の記録（朝の準備・売買の回）。`run-live.sh` が終わるとき（どの rc でも）に 1 行足す。プラン docs/plans/launch-record-auto.md。
+"""毎日の起動の記録（朝の準備・売買の回）。`run-live.sh` が終わるとき（どの rc でも）に 1 行足す。プラン docs/plans/archive/launch-record-auto.md。
 
     python3 launchlog.py add --kind prepare --start 2026-10-19T13:00:01Z --rc 1 --stage update --steps update=1,paper=0,yardstick=0 --note "…"
     python3 launchlog.py show [--days 20]          # 直近の行（日付・種類・rc・秒・理由）

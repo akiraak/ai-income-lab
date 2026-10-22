@@ -44,6 +44,7 @@ flowchart LR
 | 3 管理画面 ✅ | 3-1 | トレーダーの詳細のタイル・注文の履歴の列・月の小計（`fees.csv` を読むだけ。無ければ今までどおり） | `dashboard/tests` に 2 本 |
 | 4 記録 ✅ | 4-1 | `live-trading.md` §0-15 の行を ✅ に・§0-16「手数料の実額」（取引履歴の形・差の【実測】）・`dashboard.md`・`glossary.toml` の「手数料」・CLAUDE.md・TODO → push | — |
 | 5 デプロイ | 5-1 | ⚠ 利用者の「デプロイ」（Sx360）→ 翌朝の `--prepare` で `fees.jsonl` ／ `fees.csv` ができる → 管理画面で見える | 13500t |
+| | 5-2 | ⚠ 2026-10-22 に見つけた: 段 `fees` が cert の取引履歴（0 件）を取っていた → `fees.py` の env の既定を prod に（`.env` の `TT_ENV` は読まない）→ もう 1 度「デプロイ」 | テスト 1 本（`.env` が `TT_ENV=cert` でも prod へ・`--env cert` を明示したときだけ cert） |
 
 ## 4. 影響範囲・手間・危ないところ
 
@@ -57,3 +58,9 @@ flowchart LR
 - 本番 9/20〜10/19 ＝ 63 件（Trade 58・規制費の精算 4・入金 1）。**注文 1 本 ＝ 取引 1 行**（`order-id` が一意）。1 行の手数料は dry-run の見積りを $0.001 に丸めた値（T1 の 6 本 ＝ 見積り $0.0182 → 実額 $0.0180）。`is-estimated-fee` は 58 行とも true のまま。規制費の精算は週 1 回の Balance Adjustment（9/26 ＋0.017・10/3 ＋0.019・10/10 −0.067・10/17 −0.015）で注文に紐づかない ＝ `kind = adjustment`。日ごとの `total-fees` は行の合計と一致。
 - 入れたもの: `ttclient.list_transactions` ／ `get_total_fees`・`fees.py`（fetch ／ match ／ print）・`run-live.sh --prepare` の段 `fees`・管理画面（タイルの脚注・注文の履歴の列「手数料 $」・月の小計・概要の凡例）・テスト（執行器 5 本・管理画面 2 本）・記録 `live-trading.md` §0-16・`dashboard.md` §13-2・用語「差 2」・CLAUDE.md。
 - 残り: Phase 5 ＝ ⚠ 利用者の「デプロイ」（Sx360）→ 翌朝 06:00 PDT の `--prepare` で `fees.jsonl` ／ `fees.csv` ができ、10/8 以降の注文（T1・T4・T6）と 10/7 の手じまい（outside）が初めて当たる。
+
+## 6. デプロイの後（2026-10-22 Sx360。13500t のログと DB を読むだけ）
+
+- 2026-10-20 21:45 PDT に `prod` → 639460a。10/21・10/22 の朝の準備（06:02 PDT）は段 `fees` rc=0 だが「取引履歴 cert: 2026-09-18 から 0 件」「注文 67 ／ 70 本（実額あり 0）」【実測】。
+- 原因 ＝ `fees.py` の env の既定が「`--env` ＞ `.env` の `TT_ENV` ＞ prod」で、13500t の `.env` は `TT_ENV=cert`（`sample.py` の既定を sandbox にするための値。執行器は `run.sh` が `--env prod` を渡すので影響なし）。`run-live.sh` は `fees.py fetch --match` に `--env` を渡していない。⚠ titan で確かめたときは `--env prod` を明示していたので見えなかった。
+- 直し: 既定を prod にした（cert は取引履歴を 1 行も返さないので `TT_ENV` に従う意味が無い）。cert の 0 件は `fees.jsonl` に 1 行も残していないので、次の取得は記録の最初の注文の日（9/18）から全部取る。

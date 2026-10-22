@@ -1,4 +1,35 @@
 # DONE
+- 2026-10-22 実売買の日次の記録を自動で出す（A〜E と異常の一覧を DB から計算して管理画面へ・仕様書は異常の日と判定の写しだけ） [plan](docs/plans/archive/daily-record-auto.md)
+  派生元: 利用者の質問（2026-10-13）「記録はなんで毎回手動で行わないといけない？」→「プランを書いて」
+  ✅ 2026-10-13 利用者決定「全部おススメで進めて」＝ K1〜K4 とも推す案
+  ⚠ 執行器（`run_day.py`・`execute.py`・`plan.py`）は変えない。足すのは読むだけの後処理 `yardstick.py`（朝の `--prepare`）と管理画面の表示
+  - Phase 0: 決めごと K1〜K4（⚠ 利用者。日次の数字の正本 ／ 普段の日の §1 ／ B の基準の株数 ／ 人手の数え方 ＝ プラン §2）
+  - Phase 1: `yardstick.py`（A〜E）・`--prepare` から起こす・テスト（10/8・10/9 の手計算の値を固定）
+    ✅ 2026-10-13 Sx360: テスト 10 本。C は合図の `position_before` から判定（`paper.py` は触らない）。B は手書きと $0.04 ずれる（基準 ＝ K3 の 1 日目の中値・手書きは T1 の約定）
+  - Phase 2: 管理画面（トレーダーの詳細に A〜E・全体の詳細に異常の一覧）
+    ✅ 2026-10-13 Sx360: `./run-tests.sh` ✅。sim ／ デモは `daily.csv` も無いのでやめた（紙上の対照と同じ扱い）
+  - Phase 3: 「デプロイ」（利用者）→ 翌朝 06:00 PDT（09:00 ET）の `--prepare` で初めてできる
+    ✅ 2026-10-14 07:30 PDT（10:30 ET）: `prod` 2aea697 → 69aee59（Sx360 で `run-deploy.sh`。関門 ✅）・13500t `done 69aee59`（管理画面も起こし直した）。最初の `yardstick.csv` は 10/15（木）06:00 PDT（09:00 ET）の `--prepare`
+  - Phase 4: 手書きの A〜E と突き合わせ → 一致したら普段の日の手書きをやめる → DONE へ・プランを archive へ
+    ⏳ 2026-10-15 Sx360: A〜D は一致・**E は不一致**（権利落ち日の前日の終値を DXLink が配当ぶん下げて返す ＝ 10/8 の T ・ VZ。`daily.csv` の値洗いが 10/8 に約 −41bp・累計に +42bp が残る）。直し方は利用者の判断待ち（[plan Phase 4](docs/plans/archive/daily-record-auto.md)）
+    ⏳ 2026-10-18 Sx360: 直し方の案 4 つをプラン Phase 4 に書いた（推す ＝ 案 1「最初に見た終値を固定する」・`paper.py` だけ）。利用者の選択待ち
+    ✅ 2026-10-18 利用者決定「案1で進めて」（最初に見た終値を固定する。規則は「終値だけが変わった書き換えを拒む」に絞った ＝ プラン Phase 4「案 1 の作り」）
+    - Step 4-1: `paper.py` の控え（`out/closes.json`）と直しの表・`yardstick.py` の問題 2 つ・管理画面の札・テスト
+    - Step 4-2: 13500t の記録の写しで流し、10/8 の E が手書きに戻ることを確かめる（Sx360・読むだけ）
+      ✅ 2026-10-18: 10/8 の E ＝ T1 2.52 ／ T6 2.44bp（手書きと一致）・T6 の累計 42.12 → 2.44
+    - Step 4-3: 「デプロイ」（利用者）→ 次の朝の `--prepare` で直る
+      ✅ 2026-10-18 14:30 PDT（17:30 ET）: `prod` 3eafd1b → 7bda813（Sx360 の `run-deploy.sh`・関門 ✅）・13500t `done 7bda813`。⏳ 10/19（月）06:00 PDT（09:00 ET）の `--prepare` で直る
+      ✅ 2026-10-22 Sx360: 13500t の `yardstick.csv`（10/19 からの朝の準備）で 10/8 の E ＝ T1 2.52 ／ T4 0.00 ／ T6 2.44・T6 の累計 2.44 のまま ＝ 直った
+    - Step 4-4: 直った `yardstick.csv` と手書きを並べ、一致したら普段の日の手書きをやめる
+      ✅ 2026-10-22 Sx360: 10/8・10/9 の A ・ C ・ D ・ E は手書きと一致・B は 10/15 と同じ基準のずれ $0.04（K3）＝ 一致として扱う → 普段の日の手書きをやめた（[plan Phase 4](docs/plans/archive/daily-record-auto.md)）
+- 2026-10-22 毎日の起動の記録を自動で残す（朝の準備・売買の回 → `out/launches.jsonl`・管理画面の全体の詳細） [plan](docs/plans/archive/launch-record-auto.md)
+  派生元: 利用者の指示（2026-10-18）「1を自動で行うようにして」（＝ 上のメモの手書きの 1 日 1 行。10/9 で止まっていた）
+  - Step 1: `launchlog.py`・`run-live.sh` の `trap EXIT`・テスト
+  - Step 2: `yardstick.py` の問題 2 つ・管理画面の表
+    ✅ 2026-10-18 Sx360: テスト 9 本（launchlog 7 ・ yardstick 1 ・ 管理画面 1）・`./run-tests.sh` ✅
+  - Step 3: 「デプロイ」（利用者）→ 次の営業日に 1 行ずつ入ることを確かめる → 手書きのメモをやめる
+    ✅ 2026-10-18 15:00 PDT（18:00 ET）: `prod` 7bda813 → bbf8beb（Sx360 の `run-deploy.sh`・関門 ✅）・13500t `done bbf8beb`（管理画面も起こし直した）。⏳ 10/19（月）06:00 PDT の朝の準備・12:40 PDT の売買の回で 1 行ずつ入るかを見る
+  ✅ 2026-10-22 Sx360: `out/launches.jsonl` に 10/19〜10/22 の朝の準備 4 行・売買の回 3 行（rc はすべて 0）→ 手書きのメモ（13500t の host cron の 1 日 1 行）は 10/16 で終わり
 - 2026-10-20 済んだプラン 2 本（B6 `live-trading-trader-attributes.md`・2026-09-25 の決めごと `live-trading-open-decisions.md`）を `docs/plans/archive/` へ移し、新しい 3 人の 20 営業日（1 日目 10/8・20 日目 11/4（水））の判定の雛形を [live-trading.md §2-2](docs/specs/experiments/live-trading.md) に書いた [plan](docs/plans/archive/plans-archive-and-judgment-template.md)
   利用者「4」（2026-10-20「やるべき作業を見繕って」の答えの 4 ＝ 決定なしでできる片付け）。文書だけ ＝ デプロイは要らない。雛形は結果を見る前に書いた: 線（A ≤ 5bp ／ E ≤ 5bp ／ D 95%・人手 0・差 0 ／ C 0 日 ／ B は見るだけ）と `yardstick.csv` の列・`yardstick.py --print` の項目・起動した営業日で数える・E は 1 日遅れ ＝ 書くのは 11/5（木）06:00 PST の朝の準備の後（Sx360 の Claude が写す）。リンクは外から 9 か所・中から 5 か所を直した
 - 2026-10-18 線形の変換（PCA・ウェーブレット）× 先 10 日の門 × LightGBM を机上で回す [plan](docs/plans/archive/transform-detector-lgbm.md)

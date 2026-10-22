@@ -1,0 +1,37 @@
+# ⚠ **欠損を印にする決算の層 `ernf` を中位 48 本の表に足した行**（rules.md 28 章・2026-10-22）。対の相手は既存の `midcap_cs`
+#    （own ＋ cs ＋ ll・48 社。name ／ feature_layers ／ [features] の ern_* 以外は 1 文字も違わない）。
+# ⚠ `ernf` は銘柄を落とさないので対の相手と銘柄・行が同じ（`ern_midcap_ern` は 46 社だった ＝ earnings-layer.md §2）。
+name = "ern_midcap_ernf"
+dataset = "midcap48_daily"
+horizon = 1
+cost_bp = 5.0
+feature_layers = ["own", "cs", "ll", "ernf"]
+targets = "company"            # ⚠ **当てる相手は 48 本だけ**（材料 63 本は当てない）
+horizon_min = 1440.0
+bar_minutes = 1440.0
+selectors = ["全部使う（基準）", "乱択（基準）"]
+k = 16
+model = "Ridge"
+baselines = ["常に上（ドリフト）", "直前リターンの符号"]
+
+[trading]
+style = "threshold"
+thresholds = [50, 55, 60]      # ⚠ 事前固定。結果を見て動かさない（rules.md 13-3）
+form = "shared"                # (A) 銘柄共通 1 本
+
+[validation]
+split = "walk_forward_dates"
+folds = 5
+purge = true
+embargo_bars = 0
+seed = 0
+
+[features]
+ll_leaders = "etf"
+ll_lags = [1, 2, 3, 5]
+beta_window = 60
+ern_lag_days = 1
+ern_max_stale_days = 400
+
+[notes]
+common_window_only = true

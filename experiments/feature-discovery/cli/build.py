@@ -28,7 +28,7 @@ import ail.bootstrap  # noqa: F401
 # ⚠ **`seq` は `trend` の後**（過去 60 営業日のリターンの窓。時系列分類器の入力。⚠ **足しても既存の表の列の並びは変わらない**）
 # ⚠ **`trendvol` は `trend` の直後**（出来高の長い窓。同じ `own_trend{W}_` の接頭辞。⚠ **config に書いたときだけ入る**）
 # ⚠ **`cal` は最後**（暦の列。既存の層の並びを 1 つも動かさない ＝ 既存の表の列順は変わらない）
-ORDER = ("own", "trend", "trendvol", "seq", "cs", "rel", "ll", "ex", "im", "ern", "cal")
+ORDER = ("own", "trend", "trendvol", "seq", "cs", "rel", "ll", "ex", "im", "ern", "ernf", "cal")   # ernf ＝ 欠損を印にする決算の層（rules.md 28-1）
 # ⚠ **`ex` と `im` は価格に依存しない**（外部系列を貼るだけ）が、並びは固定する
 
 
@@ -42,6 +42,9 @@ def assemble(experiment: str, layer: str = "adjusted", leak: bool = False, shift
     `panel_hook` ＝ 読んだ足に手を入れる口（`asof` より後を切る・今日の足の代役を末尾に足す）。
     """
     exp = config.resolve_experiment(experiment)
+    if {"ern", "ernf"} <= set(exp.get("feature_layers", [])):
+        # ⚠ 同じ 3 列が 2 度入る（片方は欠損のまま ＝ dropna で結局落ちる）。どちらか 1 つ（rules.md 28-1）
+        raise SystemExit(f"⚠ feature_layers に ern と ernf を両方書かない（{experiment}）")
     if shift_days:
         # ⚠ **偽薬: `ex_` の日付だけを過去へずらす。** ⚠ **`ex_` の無い実験では何もずれないので止める**
         if "ex" not in exp.get("feature_layers", []):

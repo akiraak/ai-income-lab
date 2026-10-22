@@ -1,0 +1,46 @@
+# ⚠ **段 2b の処置 ①**（2026-10-22・rules.md 28 章）: `small_cs` に欠損を印にする決算の層 `ernf` を足した行。
+# 相方は `small_cs.toml`。違うのは層だけ（name ／ feature_layers ／ ern_* 以外は 1 文字も違わない）。
+# ⚠ `small_cs_ern`（26-4 の「3 列そろった行だけ」）は 45 社・fold 1 は 39 社で対の相手と集合が違った（smallcap-stage2.md §3-3）。
+#    `ernf` は欠損を印の列にして残すので、50 社・行も `small_cs` と同じ ＝ 決算の有無の対が初めて同じ集合の比較になる。
+name = "small_cs_ernf"
+dataset = "small50_daily"
+horizon = 1
+cost_bp = 5.0
+
+# ⚠ **期間を揃える**（rules.md 27-3）: 2018-06-27 〜 2026-09-09（材料 63 本が止まっている日まで）
+start_date = "2018-06-27"
+end_date = "2026-09-09"
+
+feature_layers = ["own", "cs", "ll", "ernf"]
+targets = "company"            # ⚠ **当てる相手は小型 50 本だけ**（材料 63 本は当てない）
+
+horizon_min = 1440.0
+bar_minutes = 1440.0
+
+selectors = ["全部使う（基準）", "乱択（基準）"]
+k = 16
+model = "Ridge"
+baselines = ["常に上（ドリフト）", "直前リターンの符号"]
+
+[trading]
+style = "threshold"
+thresholds = [50, 55, 60]      # ⚠ 事前固定。結果を見て動かさない（rules.md 13-3）
+form = "shared"                # (A) 銘柄共通 1 本
+
+[validation]
+split = "walk_forward_dates"
+folds = 5
+purge = true
+embargo_bars = 0
+seed = 0
+
+[features]
+# ⚠ **先行銘柄は universe の `etf` 群 ＝ 材料 63 本**（midcap_cs と同じ）
+ll_leaders = "etf"
+ll_lags = [1, 2, 3, 5]
+beta_window = 60
+ern_lag_days = 1
+ern_max_stale_days = 400
+
+[notes]
+common_window_only = true

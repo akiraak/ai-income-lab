@@ -69,6 +69,7 @@ flowchart LR
 | --- | --- | --- | --- |
 | 1 | EDGAR の取得（`ail/data/sources/` に 1 本・控えは研究の `data/`）・決算の層 `ern_`（前の発表から何日・EPS の前年同期比・売上の前年同期比など数列。提出日の翌営業日から）・leak 対照・テスト → 既にある表（`us63` の own ／ 中位 48 本の `midcap_cs`）に足して回す。✅ **2026-10-19 に回した ＝ 採る 0 ／ 保留 1 ／ 落とす 8（921 → 930・[記録](../specs/experiments/earnings-layer.md)）** | 2〜3 日 → 1 日【実測】 | 1 表 × 1 モデル × θ 3 ＝ ＋3 ずつ |
 | 2 | 中小型株の銘柄の規則を固定（例: S&P 600 の構成銘柄からアルファベット順に 50 本・流動性の線）→ 日足の取得（`cli.fetch`）→ `own` ／ `own ＋ cs ＋ ll`（大型株の流れ）／ `＋ ern` の 3 本を並べる（動かす軸を 1 つずつ）。✅ **2026-10-19 に回した ＝ 採る 0 ／ 保留 5 ／ 落とす 4（930 → 939・[記録](../specs/experiments/smallcap-stage2.md)）。大型株の流れ ＋883bp（t 1.41）・決算は読めない** | 2 日 → 1 時間【実測】 | ＋9 |
+| 2b | 段 2 の見立ての ①②③ を新しい処置として登録して 1 回で回す: 欠損を印にする決算の層 `ernf`（own48 ／ 中位 48 ／ 小型 50 の 3 表）／ 小型 50 × LightGBM ／ 小型 50 の費用 20bp（[rules.md 28 章](../specs/experiments/feature-discovery/rules.md)・[記録 smallcap-stage2b.md](../specs/experiments/smallcap-stage2b.md)。§6）。✅ **2026-10-22 に回した ＝ 採る 0 ／ 保留 4 ／ 落とす 11（939 → 954）。同じ集合にすると決算の対の差は数十 bp・\|t\| ≤ 1.64 ＝ 段 1・段 2 の差は集合の差だった／ LightGBM は Ridge より下 ／ 費用 20bp で θ50 は沈む（損益分岐 5.2bp）** | 半日【推測】→ 1 時間 20 分【実測】 | ＋15（939 → 954） |
 | 3 | 何かが残ったら候補の人（`candidates/`）・sim・費用を上げた机上の行。⚠ 本番に入れるかは利用者 | — | — |
 
 ⚠ 机上の検証は「可能性が低くても回す」（CLAUDE.md 2026-09-12）。⚠ 前の結果からの見立て【推測】: 段 1 は採る 0 の見込み（中位 48 本でも届かなかった）。それでも「全銘柄同値でない材料」が初めて入るので、空白を埋める意味はある。
@@ -85,3 +86,29 @@ flowchart LR
 | E4 | 中小型株の範囲と銘柄の規則 | S&P 600（小型）の構成銘柄からアルファベット順 50 本・株価 ≥ $5・取得の前に固定 |
 | E5 | 順番 | 段 1（決算の層を既にある表で）→ 段 2（中小型株） |
 | E6 | 本番 | 段 3 まで机上と sim。⚠ 本番に入れるかは 11/4 の判定の後・利用者 |
+
+## 6. 段 2b: 段 2 の後の 3 処置（2026-10-22。利用者「3 本まとめて進めて」）
+
+**目的・背景**: 段 2 は採る 0 だったが、決算の対が「読めない」のは結果ではなく表の作り（26-4 の「3 列そろった行だけ」で会社が fold ごとに抜ける）にあった。段 2 の見立て（[記録 §4](../specs/experiments/smallcap-stage2.md)）の ①〜③ を新しい処置として先に登録し、1 回の queue で回す。④ 最短保有は回さない（25 章の形 ＝ 別の回）。
+
+> この図の主張: 3 つとも既存の行から軸を 1 本だけ動かす。① は表を作り直す（層が増える）が ② ③ は `small_cs` の表を借りる（表の差を混ぜない）。
+
+```mermaid
+flowchart LR
+  T["small_cs の表<br/>（2018-06-27 〜 2026-09-09・50 社）"] --> R["small_cs（既存・Ridge・5bp）"]
+  T -->|"features_from"| L["② small_cs_lgbm<br/>LightGBM"]
+  T -->|"features_from"| C["③ small_cs_cost20<br/>費用 20bp ＝ 検証方式の変種"]
+  E["EDGAR の系列<br/>（2026-10-19 の 146 社のまま）"] --> N["① 層 ernf<br/>欠損を印の列 3 本に ＋ 値を埋める"]
+  N --> B1["small_cs_ernf（対 small_cs）"]
+  N --> B2["ern_own48_ernf（対 ern_own48）"]
+  N --> B3["ern_midcap_ernf（対 midcap_cs）"]
+```
+
+| 項目 | 中身 |
+| --- | --- |
+| 対応方針 | 規約は [rules.md 28 章](../specs/experiments/feature-discovery/rules.md)（層 `ernf` の列と埋め値・費用を検証方式の変種 `閾値売買（費用20bp）` にする・config 5 本・＋15・予想）。事前固定は記録 §0 に写す。回すのは queue `earnings2`（本番 5 ＋ leak 5） |
+| 影響範囲 | `ail/features/earnings.py`（層 `ernf` を足す。`ern` は不変）／ `cli/build.py`（`ORDER` に `ernf`・両方書いた config を拒む）／ `ail/catalog.py`（`threshold_style` に費用の変種。5bp は書かない）／ `ail/names.py`（`~cost20`）／ config 5 本 ＋ queue 1 本。⚠ **既存の表・既存の行・13500t の毎日の予測の経路は 1 ビットも変わらない**（`ernf` の無い config は層を通らない・費用 5bp は変種にならない） |
+| テスト方針 | `tests/test_stage2b.py`（印と埋め値・`ern` 不変・系列の無い銘柄が残る・登録と並び・両方は拒む・費用の変種と名前）＋ 既存の `test_earnings` ／ `test_names` ／ `test_catalog` ／ `test_next_open` ／ `test_train_window`。回す前に `cli.report --catalog` を吐き直して生成日以外が 1 文字も変わらないこと（既存の行が割れない）。`./run-tests.sh --fast`（予測の経路の指紋） |
+| 手順 | Step 1 登録（規約・記録 §0・コード・config・テスト）→ Step 2 表 6 枚（`ernf` × 3 × 本番 ／ leak）→ queue `earnings2` → 検証結果一覧 → Step 3 記録 §1〜§4・プラン・TODO・CLAUDE.md |
+| 決めごと | 無し（E6 のまま: 本番に入れるかは 11/4 の判定の後・利用者）。段 3 に進むかは結果を見てから利用者 |
+| 結果（2026-10-22 09:46 PDT） | 採る 0 ／ 保留 4 ／ 落とす 11。[記録 §1](../specs/experiments/smallcap-stage2b.md)。⚠ 段 3 に進む材料は無い（決算は読める差を作らない・小型 50 の θ50 は費用 5.2bp で B&H を割る）＝ 進めるなら予想データ（サプライズ）か最短保有を新しい処置として先に登録 ＝ 利用者 |

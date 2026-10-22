@@ -314,13 +314,16 @@ def is_threshold(style: str | None) -> bool:
 
 
 def threshold_style(cfg: dict) -> str:
-    """閾値売買の検証方式の名前。⚠ **訓練の窓（21 章）・翌日始値の執行（22 章）が無い config は「閾値売買」のまま**
-    （既存の行は 1 行も割れない）。変種は括弧の中に `・` でつなぐ。"""
+    """閾値売買の検証方式の名前。⚠ **訓練の窓（21 章）・翌日始値の執行（22 章）・費用 5bp 以外（28 章）が無い config は
+    「閾値売買」のまま**（既存の行は 1 行も割れない）。変種は括弧の中に `・` でつなぐ。"""
     parts = []
     if n := (cfg.get("validation") or {}).get("max_train_days"):
         parts.append(f"訓練直近{int(n)}日")
     if ((cfg.get("trading") or {}).get("execution") or "close") == "next_open":
         parts.append("翌日始値")
+    if (c := float(cfg.get("cost_bp", 5.0))) != 5.0:
+        # ⚠ 費用を上げた行（rules.md 28-3。2026-10-22）。既定 5bp（13-4）は書かない ＝ 既存の行は 1 行も割れない
+        parts.append(f"費用{c:g}bp")
     return "閾値売買" + (f"（{'・'.join(parts)}）" if parts else "")
 
 

@@ -1,0 +1,10 @@
+# ⚠ **段 2b: 決算と小型株の 3 処置**（rules.md 28 章・記録 smallcap-stage2b.md §0。利用者 2026-10-22「3 本まとめて進めて」）。
+# ① 欠損を印にする決算の層 `ernf`（own48 ／ midcap ／ small50 の 3 表）② 小型 50 × LightGBM ③ 小型 50 の費用 20bp。
+# 事前固定は記録 §0（⚠ 回すと決めたのは結果を見る前。5 本全部か回さないか）。5 × θ 3 ＝ ＋15（939 → 954）。
+# ⚠ 先に `cli.build` × 6（ernf の 3 表 × 本番 ／ leak）。② ③ は `small_cs` の表を借りる（作り直さない）。
+experiments = ["ern_own48_ernf", "ern_midcap_ernf", "small_cs_ernf", "small_cs_lgbm", "small_cs_cost20"]
+
+leak = true              # ⚠ 配線の穴に気づく唯一の手。切らない
+ledger = false           # ⚠ 検証結果一覧は終わってから 1 回吐く
+max_failures = 1
+time_budget_s = 5400     # ⚠ 見積り 15〜25 分【推測。Ridge 4 本 × 2 は各 10〜20 秒・LightGBM 313 列 × 101k 行 × 2 が大半】

@@ -10,6 +10,10 @@
 | `ern_days_since_ann` | as-of の日から、最後の決算発表（8-K Item 2.02）の提出日までの暦日数（0 ＝ 前日に提出） |
 | `ern_eps_yoy` | as-of の時点で最新の、希薄化後 EPS の前年同期比（対称な変化率。取得時に計算） |
 | `ern_rev_yoy` | 同じく売上 |
+
+⚠ **層 `ernf`（2026-10-22・rules.md 28 章）＝ 同じ 3 列の欠損を印の列 3 本（`ern_na_ann` ／ `ern_na_eps` ／ `ern_na_rev`。1 ＝ 無い）に写し、
+値の列は埋める**（日数 ＝ `ern_max_stale_days`・前年同期比 ＝ 0）。系列の無い銘柄・欠損の期間も表に残る ＝ 対の相手（own ／ cs の行）と銘柄・行が同じになる。
+⚠ `ern` と `ernf` を 1 つの config に両方書かない（`cli/build.py` が止める）。⚠ `ern` 層は 1 ビットも変わらない。
 """
 
 from __future__ import annotations
@@ -29,6 +33,8 @@ DEFAULT_LAG_DAYS = 1
 DEFAULT_MAX_STALE_DAYS = 400
 COLUMNS = (f"{PREFIX}days_since_ann", f"{PREFIX}eps_yoy", f"{PREFIX}rev_yoy")
 KEYS = ("ANN", "EPSYOY", "REVYOY")
+FLAG_COLUMNS = (f"{PREFIX}na_ann", f"{PREFIX}na_eps", f"{PREFIX}na_rev")   # ernf の印（1 ＝ 無い）。rules.md 28-1
+FLAG_FILL_YOY = 0.0                                                          # 前年同期比の埋め値（分からない ＝ 変化なし）
 
 
 def load_symbol_series(symbol: str) -> dict[str, pd.Series]:
@@ -62,8 +68,22 @@ def build_one(bars: pd.DataFrame, series: dict[str, pd.Series], lag_days: int = 
     return x
 
 
-@register("feature", "ern")
-def layer(panel: dict[str, pd.DataFrame], ctx: dict) -> dict[str, pd.DataFrame]:
+def flag_missing(x: pd.DataFrame, max_stale_days: int = DEFAULT_MAX_STALE_DAYS) -> pd.DataFrame:
+    """`build_one` の 3 列の欠損を **印の列 3 本（1 ＝ 無い）に写し、値の列は埋める**（層 `ernf`。rules.md 28-1）。
+
+    埋める値: `ern_days_since_ann` ＝ `max_stale_days`（「少なくともこれだけ古い」の上限）／ 前年同期比 ＝ 0（分からない ＝ 変化なし）。
+    返り値は 6 列・同じ行数・欠損なし。⚠ **`ern` 層（欠損のまま ＝ dropna で落とす）は 1 ビットも変わらない。**
+    """
+    out = x.copy()
+    for col, flag in zip(COLUMNS, FLAG_COLUMNS):
+        out[flag] = out[col].isna().astype(float)
+    out[COLUMNS[0]] = out[COLUMNS[0]].fillna(float(max_stale_days))
+    for col in COLUMNS[1:]:
+        out[col] = out[col].fillna(FLAG_FILL_YOY)
+    return out
+
+
+def _layer(panel: dict[str, pd.DataFrame], ctx: dict, flag: bool) -> dict[str, pd.DataFrame]:
     lag = int(ctx.get("ern_lag_days", DEFAULT_LAG_DAYS))
     if lag < 1:
         raise ValueError(f"⚠ ern_lag_days は 1 以上でなければならない: {lag}")
@@ -74,7 +94,21 @@ def layer(panel: dict[str, pd.DataFrame], ctx: dict) -> dict[str, pd.DataFrame]:
         series = load_symbol_series(s)
         if not series:
             empty.append(s)
-        out[s] = build_one(bars, series, lag, max_stale)
+        x = build_one(bars, series, lag, max_stale)
+        out[s] = flag_missing(x, max_stale) if flag else x
     if empty:
-        print(f"  ⚠ ern: 決算の系列が無い銘柄 {len(empty)} 本（3 列とも欠損 ＝ 対象なら dropna で消える）: {' '.join(empty[:20])}", flush=True)
+        how = "3 列とも印 1 で表に残る（ernf）" if flag else "3 列とも欠損 ＝ 対象なら dropna で消える"
+        print(f"  ⚠ {'ernf' if flag else 'ern'}: 決算の系列が無い銘柄 {len(empty)} 本（{how}）: {' '.join(empty[:20])}", flush=True)
     return out
+
+
+@register("feature", "ern")
+def layer(panel: dict[str, pd.DataFrame], ctx: dict) -> dict[str, pd.DataFrame]:
+    """欠損は欠損のまま（26-4。対象なら dropna で落ちる）。"""
+    return _layer(panel, ctx, flag=False)
+
+
+@register("feature", "ernf")
+def layer_flag(panel: dict[str, pd.DataFrame], ctx: dict) -> dict[str, pd.DataFrame]:
+    """欠損を印の列にして銘柄を落とさない（28-1。2026-10-22）。列は 3 ＋ 3 ＝ 6 本。"""
+    return _layer(panel, ctx, flag=True)

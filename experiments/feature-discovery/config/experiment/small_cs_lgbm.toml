@@ -1,0 +1,43 @@
+# ⚠ **段 2b の処置 ②**（2026-10-22・rules.md 28 章）: 小型 50 本 × 大型株の流れ（own ＋ cs ＋ ll）を**非線形の学習器 LightGBM** で。
+# ⚠ **表は作り直さず `small_cs` のものを読む**（`features_from`。13-8 ＝ 表の差を混ぜない・fold の切れ目も同じ）。
+# 相方は `small_cs`（Ridge）。違うのは name ／ features_from ／ model だけ（θ・選別・k・種・費用・パージは同じ）。
+# ⚠ ハイパーパラメータは既定（`ail/models/trees.py`。結果を見て動かさない）。
+name = "small_cs_lgbm"
+dataset = "small50_daily"
+horizon = 1
+cost_bp = 5.0
+features_from = "small_cs"     # ⚠ 表は持ち主のものを読む（2018-06-27 〜 2026-09-09 に切った後）
+
+# ⚠ 下は借りる表の作られ方を写しただけ（build 時の設定。ここでは効かない）
+start_date = "2018-06-27"
+end_date = "2026-09-09"
+feature_layers = ["own", "cs", "ll"]
+targets = "company"
+
+horizon_min = 1440.0
+bar_minutes = 1440.0
+
+selectors = ["全部使う（基準）", "乱択（基準）"]
+k = 16
+model = "LightGBM"
+baselines = ["常に上（ドリフト）", "直前リターンの符号"]
+
+[trading]
+style = "threshold"
+thresholds = [50, 55, 60]      # ⚠ 事前固定。結果を見て動かさない（rules.md 13-3）
+form = "shared"                # (A) 銘柄共通 1 本
+
+[validation]
+split = "walk_forward_dates"
+folds = 5
+purge = true
+embargo_bars = 0
+seed = 0
+
+[features]
+ll_leaders = "etf"
+ll_lags = [1, 2, 3, 5]
+beta_window = 60
+
+[notes]
+common_window_only = true

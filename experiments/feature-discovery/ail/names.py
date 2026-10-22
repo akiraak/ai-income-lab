@@ -44,6 +44,7 @@ _GRAN = re.compile(r"^(\d+) 分足$")
 _TOKEN = re.compile(r"^[a-z0-9][a-z0-9-]*$")
 _STYLE_VARIANT = re.compile(r"^(閾値売買)（([^）]+)）$")                    # 閾値売買（訓練直近2520日・翌日始値）（rules.md 21-3・22-3）
 _TRAIN_DAYS = re.compile(r"^訓練直近(\d+)日$")
+_COST_BP = re.compile(r"^費用(\d+(?:\.\d+)?)bp$")                            # 閾値売買（費用20bp）→ ~cost20（rules.md 28-3）
 
 
 @functools.lru_cache(maxsize=None)
@@ -153,6 +154,8 @@ def _options(row: dict) -> list[str]:
                 variants.append(f"train{t.group(1)}")
             elif part in table().get("execution", {}):
                 variants.append(table()["execution"][part])
+            elif c := _COST_BP.match(part):
+                variants.append("cost" + c.group(1).replace(".", "p"))       # 20 → cost20・7.5 → cost7p5
             else:
                 _stop("検証方式", row["検証方式"])
     if style == "毎日往復":

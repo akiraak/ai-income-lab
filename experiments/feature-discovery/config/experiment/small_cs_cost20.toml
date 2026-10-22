@@ -1,0 +1,43 @@
+# ⚠ **段 2b の処置 ③**（2026-10-22・rules.md 28 章）: `small_cs` と同じ表・同じ合図で、**往復の費用だけ 5bp → 20bp**
+# （小型株の気配の差【推測】。プラン earnings-smallcap.md §3）。⚠ **表は作り直さず `small_cs` のものを読む**（`features_from`）。
+# 検証結果一覧では検証方式の変種 `閾値売買（費用20bp）`・予測モデル名は `~cost20`（28-3）＝ 既存の `small_cs` の行とは別の行。
+# 相方は `small_cs`。違うのは name ／ features_from ／ cost_bp だけ。
+name = "small_cs_cost20"
+dataset = "small50_daily"
+horizon = 1
+cost_bp = 20.0                 # ⚠ 往復。売買した日だけ片道 10bp（13-4 の形のまま水準だけ）
+features_from = "small_cs"     # ⚠ 表は持ち主のものを読む
+
+# ⚠ 下は借りる表の作られ方を写しただけ（build 時の設定。ここでは効かない）
+start_date = "2018-06-27"
+end_date = "2026-09-09"
+feature_layers = ["own", "cs", "ll"]
+targets = "company"
+
+horizon_min = 1440.0
+bar_minutes = 1440.0
+
+selectors = ["全部使う（基準）", "乱択（基準）"]
+k = 16
+model = "Ridge"
+baselines = ["常に上（ドリフト）", "直前リターンの符号"]
+
+[trading]
+style = "threshold"
+thresholds = [50, 55, 60]      # ⚠ 事前固定。結果を見て動かさない（rules.md 13-3）
+form = "shared"                # (A) 銘柄共通 1 本
+
+[validation]
+split = "walk_forward_dates"
+folds = 5
+purge = true
+embargo_bars = 0
+seed = 0
+
+[features]
+ll_leaders = "etf"
+ll_lags = [1, 2, 3, 5]
+beta_window = 60
+
+[notes]
+common_window_only = true

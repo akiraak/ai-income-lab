@@ -475,7 +475,9 @@ def test_real_closed_entries_each_hit_exactly_one_held_row():
     # ⚠ **2026-09-16 に 62 件足した**（保留の処遇。plans/ledger-hold-disposition.md）。16 ＋ 62 ＝ 78
     # ⚠ 78 → 77（2026-09-17）: LightGBM × own cs rel ex × θ=50 の「閉じる」は、`ex_` の修正後の回し直しで判定が
     # 保留 → 落とす に変わったので外した（daily-data-sources.md §16-1 の 3）
-    assert len(closed) == len(catalog.closed_notes()) == 77
+    # ⚠ 77 → 149（2026-10-22）: 2026-09-16 以降に増えた注記なしの保留 84 行の棚卸しで 72 件足した（利用者「案どおり閉じて」。
+    # 残す 12 行 ＝ 役割つきの組は注記なし。docs/specs/experiments/ledger-hold-inventory.md §2・validation-power.md §6-2-3）
+    assert len(closed) == len(catalog.closed_notes()) == 149
     assert all(r["判定"] == "保留" for r in closed)
 
 
@@ -484,3 +486,4 @@ def test_ledger_mentions_closed_rows():
     text = ledger.build()
     assert "「閉じる」の注記つき" in text
     assert text.count("閉じる（2026-09-11") >= 16
+    assert text.count("閉じる（2026-10-22") >= 72    # 2026-10-22 の棚卸し（ledger-hold-inventory.md §2）

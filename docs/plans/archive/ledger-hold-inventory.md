@@ -1,7 +1,9 @@
 # 検証結果一覧の「保留」の棚卸し（2026-10-22）
 
 2026-10-22（木）titan。利用者「次のおすすめの作業は？」→ 推し 1 →「1 を進めて」。
-前の処遇は 2026-09-11（16 行）・2026-09-16（62 行 ＝ [ledger-hold-disposition.md](archive/ledger-hold-disposition.md)・[validation-power.md §6-2](../specs/experiments/feature-discovery/validation-power.md)）。それ以降に増えた保留に、同じ規則で棚卸しをかける。
+前の処遇は 2026-09-11（16 行）・2026-09-16（62 行 ＝ [ledger-hold-disposition.md](ledger-hold-disposition.md)・[validation-power.md §6-2](../../specs/experiments/feature-discovery/validation-power.md)）。それ以降に増えた保留に、同じ規則で棚卸しをかける。
+
+✅ **2026-10-22 14:10 PDT に完了**（利用者「案どおり閉じて」）: 72 行に注記・12 行は残す。検算は記録 §0 と `validation-power.md` §6-2-3。
 
 ## 1. 目的・背景
 

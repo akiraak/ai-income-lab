@@ -1,4 +1,26 @@
 # DONE
+- 2026-10-22 小型・中位株から成績の良い銘柄を選ぶ処理（訓練期間で選ぶ walk-forward の選抜） [plan](docs/plans/archive/symbol-selection-by-training.md)
+  利用者の指示（2026-10-22）: **「小型中型から成績を良い銘柄を選ぶ処理を行う」**
+  ⚠ 評価期間の銘柄別の成績で選んで同じ fold で測り直すのは循環（rules.md 13-7・14-9・17-6）。処理は fold ごとに訓練分割だけで K 本を選ぶ walk-forward の選抜にし、同じ規則を全期間に当てた「いまの選抜」を候補の人の銘柄の案として出す
+  関連: 「決算データを含めたモデル ＋ 大型株の流れで中小型株を売買する（検討）」（[DONE.md](DONE.md)。段 3 は閉じたまま ＝ 開け直さず新しいタスク）
+  - [x] Phase 0: 利用者の決定（成績の物差し ①株自身の訓練リターン ／ ②モデルの訓練の尻の銘柄別純利・K・予算の条件）→ rules.md 29 章に固定
+    ✅ 2026-10-22 利用者「両方」「一人 600 ドル使えるものとする」＝ 物差し 2 つ・K 5（いまの人と同じ本数）・予算 $600（枠 $120 ＝ 候補は買える株だけ）。rules.md 29 章・記録 §0 を回す前に書いた
+  - [x] Phase 1: 口（`[[trading.trader]] select`）と物差しの実装 ＋ テスト（無い config は 1 ビットも変わらない・選抜が評価期間を読まない）
+    ✅ 2026-10-22: `ail/validation/select.py`（`pool` ／ `by_return` ／ `by_model_net` ／ `random_sets`）・`cli/run.py` の `_select_fold`（20 章の分岐は触らず、合成データの行が変更前と 1 ビットも違わないことを確かめた）・`names.toml`・`catalog.py`・config `sel_small_cs` ／ `sel_midcap_cs`・queue `symbol_select`・`tests/test_symbol_select.py` 9 本（指紋・名前のテストも ✅）
+  - [x] Phase 2: `small_cs`・`midcap_cs` の形で回す（queue `symbol_select`）→ 検証結果一覧を吐き直す → 記録 `symbol-selection-by-training.md`
+  - [x] Phase 3: いまの選抜（全期間を訓練に）を出して記録に書く。候補の人を作るかは利用者
+    ✅ 2026-10-22 17:12 PDT: queue `symbol_select`（本番 2 ＋ leak 2・各 16 秒）＝ **採る 0 ／ 保留 4 ／ 落とす 8**（954 → 966）。判定は θ50 の `net` だけ保留（小型 +443・3/5 ／ 中位 +587・4/5）。選抜の価値（選んだ 5 本を持ち続ける − 乱数の 5 本）は `ret` で +552（t 0.69）／ +1,466（t 1.62）＝ 届かず・`net` は 0 の周り。leak 4 本跳ねた。⚠ 1 回目で `net` θ55 ／ 60 の「取引なし ＝ 0」の同点が銘柄名の順で選ばれる退化 → 29-3 を直して回し直し（1 回目は DB に残る）。記録 `symbol-selection-by-training.md`
+    ✅ Phase 3: `cli.select_symbols` ＝ 小型 ret ACMR AAMI ANDE ADEA AMRX ／ net θ50 ACMR AAMI ADEA AMN ACHC・中位 ret APA ADM APH AKAM BEN ／ net θ50 APA BEN ADM BAX BALL（候補 44 ／ 16 本。記録 §3）。⚠ 候補の人は作っていない ＝ 作るかは利用者（成績で採らない）。コミットは利用者の指示を待つ
+  - [x] Phase 4: 値段の設定の訂正（2026-10-22 利用者「600/5=120 ドルが最低じゃなくて、600 ドルを 1 銘柄の最低購入額にする。プランの変更」＝ 枠 $600 ／ 銘柄・予算 $3,000・候補 $600 以下。rules.md 29-9・新しい条件 ＋12 → 記録 §6・いまの選抜の出し直し）
+    ✅ 2026-10-22 17:31 PDT: 条件 `〔…・1本$600〕`（枠 $600 ／ 銘柄・予算 $3,000）を rules.md 29-9 に固定して回した ＝ **採る 1 ／ 保留 5 ／ 落とす 6**（966 → 978）。⚠ 検証結果一覧で初めての「採る」（中位 48・ret θ50・対 持ち続ける +1,003・5/5・fold の t 2.26）だが、日次 t 1.15・DSR 0.18・選抜の価値 +336（t 0.23）・乱択選抜との差 t 0.88・枠 $120 では落とす ＝ 根拠「中」・扱いは保留と同じ（13-7・11 章 規約 3）。いまの選抜（案・1 人 $3,000）＝ 小型 ACMR AAMI ARCB AGX ANDE（ret）／ ACMR AAMI ARCB ADEA AMN（net θ50）・中位 AMAT APA ALB BIIB BG（ret）／ AMAT APA BEN ADI ANET（net θ50）。⚠ 候補の人は作っていない ＝ 利用者。コミットは利用者の指示を待つ
+- 2026-10-22 既存のモデルとトレーダーの検証結果を比較できるように表示する [plan](docs/plans/archive/compare-validation-view.md)
+  利用者の指示（2026-10-22）: **「既存のモデルとトレーダーの検証結果を比較できるように表示して」**
+  置き場: 外部のタブ「実行」の目次の 2 番目「モデルとトレーダーの比較」（`/experiments/view?item=compare`。同じ中身を接頭辞 `compare` でも出す ＝ `projects.yaml` にタブを足せば単独のタブになる）。数字は全部 研究の DB の `ledger_rows` から（手で写す欄なし）
+  ⚠ 「予測モデル」「トレーダー」のタブの決まり（見くらべる表・順位・くらべる文を置かない ＝ 2026-09-20 の利用者の指示）は変えない。⚠ 成績で人を選ばない（ページの頭に注意）・売買結果は出さない
+  - [x] Step 1: `compare.toml`（言葉 ＋ 人 ／ モデル → 検証名の対応）と `compareview.py`（3 つの表）・`vibetab.py` の経路と見張り
+  - [x] Step 2: テスト（小さな DB ＋ 本物の DB で対応の実在）・`./run-tests.sh --fast`
+  - [x] Step 3: 仕様 `dashboard.md` §19・README・CLAUDE.md・3015 の入れ直し → プランを archive へ
+  ✅ 2026-10-22 16:30 PDT（titan）: `dashboard/compare.toml`（人 19 ＝ T1〜T6・T7〜T10・T12〜T19・モデル 21 の対応）・`compareview.py`（3 つの表 ＋ 並べ替えの JS）・`vibetab.py`（実行タブの目次の 2 番目 ＋ 接頭辞 `compare` ＋ 見張り）・`tests/test_compare_tab.py` 9 本（小さな DB ＋ 本物の DB で対応の実在 ＝ 宣言 19 人 × 3 条件（T6 は 2 形）の 60 行とモデルの base 29 本が全部 DB にある）・`dashboard.md` §19・CLAUDE.md。`./run-tests.sh --fast` ✅（執行器 ／ 管理画面 290）。3015 を入れ直して `/experiments/view?item=compare` 200【実測】。⚠ 判定・数字・検証結果一覧・研究側のコードは 1 つも触っていない（読むだけ）。⚠ 「予測モデル」「トレーダー」のタブは変えていない。コミットは利用者の指示を待つ
 - 2026-10-22 検証結果一覧の「保留」の棚卸し（2026-09-16 以降に増えた注記なしの 84 行を 7 区分に分け、72 行を閉じ 12 行を残した） [plan](docs/plans/archive/ledger-hold-inventory.md)
   2026-10-22 titan（利用者「1 を進めて」）。保留 161 ＝ 注記つき 77 ＋ 注記なし 84【実測 DB】。⚠ 判定・数字・n_trials は変えない・閉じるかは利用者（前の 2 回 2026-09-11 ／ 09-16 と同じ規則 ＝ 行ごとの数字でなく区分で決める）
   - Step 1: 84 行を引いて区分（実験の族 ＝ 記録 1 本）に分ける・付随情報（上乗せ・fold の符号・1 fold を外した符号・取引回数）を機械で引く

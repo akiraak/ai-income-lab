@@ -120,7 +120,8 @@ def test_exp_sidebar_groups_and_badge(runs_dir):
 
 def test_exp_sidebar_missing_dir(tmp_path):
     items = vibetab.exp_sidebar(tmp_path / "nai")["items"]
-    assert [i["id"] for i in items] == ["overview"]
+    # 「モデルとトレーダーの比較」（2026-10-22）は実行が 1 つも無くても目次に出る（DB が無ければ中で「数字を出せない」と言う）
+    assert [i["id"] for i in items] == ["overview", "compare"]
 
 
 def test_exp_overview_html(runs_dir):

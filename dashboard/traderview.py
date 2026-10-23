@@ -48,17 +48,23 @@ class TraderPaths:
     # 「予測モデル」タブ（modelview.py）が試した経緯の数を引く研究の DB（`ledger_rows` だけ・読み取り専用）。
     # ⚠ None ＝ 読まない（TOML の数を出す）。vibetab は実行タブと同じ置き場（`--runs-dir`）の DB を渡す
     research_db: Path | None = None
+    # 「モデルとトレーダーの比較」（compareview.py。2026-10-22）が読むもの: 言葉と「人 ／ モデル → 検証名」の対応の正本と、
+    # トレーダーの形の綴り（`[trader]`）を引く研究の `names.toml`（読むだけ。無ければ compare.toml に書いた綴りだけで動く）
+    compare: Path = DASHBOARD_DIR / "compare.toml"
+    names: Path = REPO_ROOT / "experiments" / "feature-discovery" / "config" / "names.toml"
 
     @classmethod
     def default(cls) -> "TraderPaths":
         lt = REPO_ROOT / "experiments" / "live-trading" / "config" / "traders"
+        fd = REPO_ROOT / "experiments" / "feature-discovery" / "config"
         return cls(
             words=Path(os.environ.get("AIL_TRADERS_WORDS") or DASHBOARD_DIR / "traders.toml"),
             models=Path(os.environ.get("AIL_MODELS_WORDS") or DASHBOARD_DIR / "models.toml"),
             system=Path(os.environ.get("AIL_SYSTEM_WORDS") or DASHBOARD_DIR / "system.toml"),
             traders_dir=Path(os.environ.get("AIL_TRADERS_DIR") or lt),
-            universe_dir=Path(os.environ.get("AIL_UNIVERSE_DIR")
-                              or REPO_ROOT / "experiments" / "feature-discovery" / "config" / "universe"),
+            universe_dir=Path(os.environ.get("AIL_UNIVERSE_DIR") or fd / "universe"),
+            compare=Path(os.environ.get("AIL_COMPARE_WORDS") or DASHBOARD_DIR / "compare.toml"),
+            names=Path(os.environ.get("AIL_NAMES_TOML") or fd / "names.toml"),
         )
 
 

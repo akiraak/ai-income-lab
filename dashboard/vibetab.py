@@ -6,7 +6,9 @@ project-manager の別ポートの表示用サーバ（8205）が `/ext/<name>/.
 `app/experiments.py`（runs/ の一覧と検査）と `app/inventory.py`（データの在庫）を
 そのまま import する。⚠ **読むだけ。資格情報・発注系のコードは import しない。**
 
-  - `/experiments/api/sidebar` ・ `/experiments/view?item=<run_id|overview>` ・ `/experiments/api/watch`
+  - `/experiments/api/sidebar` ・ `/experiments/view?item=<run_id|overview|compare>` ・ `/experiments/api/watch`
+    （`compare` ＝ モデルとトレーダーの比較。2026-10-22。中身は `compareview.py`・言葉と対応は `dashboard/compare.toml`。§19）
+  - `/compare/api/sidebar` ・ `/compare/view?item=all` ・ `/compare/api/watch`（同じ中身。project-manager にタブを足すときの接頭辞）
   - `/data/api/sidebar` ・ `/data/view?item=<節>` ・ `/data/api/watch`
   - `/glossary/api/sidebar` ・ `/glossary/view?item=<節|all>` ・ `/glossary/api/watch`
     （用語は `dashboard/glossary.toml` が正本。⚠ **説明をこのコードに持たない**）
@@ -45,6 +47,7 @@ DASHBOARD_DIR = Path(__file__).resolve().parent
 REPO_ROOT = DASHBOARD_DIR.parent
 sys.path.insert(0, str(DASHBOARD_DIR))
 
+import compareview  # noqa: E402
 import hwstat  # noqa: E402
 import hwview  # noqa: E402
 import modelview  # noqa: E402
@@ -359,7 +362,9 @@ def _analysis_html(idx: dict, groups: list[dict]) -> str:
 def exp_sidebar(runs_dir: Path) -> dict:
     idx = experiments.index(runs_dir)
     items = [{"id": "overview", "label": "まとめ",
-              "sub": f"実行 {idx['total']} 件・純利>0 は {idx['positive']} 件", "group": "まとめ"}]
+              "sub": f"実行 {idx['total']} 件・純利>0 は {idx['positive']} 件", "group": "まとめ"},
+             # モデルとトレーダーの比較（2026-10-22。中身は compareview.py ＝ 研究の DB の ledger_rows を読むだけ。dashboard.md §19）
+             {"id": compareview.ITEM, "label": compareview.SIDEBAR_LABEL, "sub": compareview.SIDEBAR_SUB, "group": "まとめ"}]
     # ⚠ index() はスコアの降順。サイドバーは種類でまとめないと group 見出しが繰り返されるので、
     # 種類の並び（kinds の順）を保ったまま各種類の中をスコア順にする
     for kind in idx["kinds"]:
@@ -901,10 +906,14 @@ def hw_html(item: str, sampler: hwstat.Sampler) -> str | None:
 # ---------------------------------------------------------------- 変更の見張り（SSE）
 
 
-def exp_fingerprint(runs_dir: Path) -> dict[str, float]:
-    """run ごとの指紋（記録は DB。中の 5 ファイルの sha256 から作る ＝ 中身が変われば動く）。"""
+def exp_fingerprint(runs_dir: Path, trader_paths: traderview.TraderPaths | None = None) -> dict[str, float]:
+    """run ごとの指紋（記録は DB。中の 5 ファイルの sha256 から作る ＝ 中身が変われば動く）。
+    `trader_paths` を渡すと「モデルとトレーダーの比較」の指紋（検証結果一覧を DB に入れ直した時刻・compare.toml・設定）も 1 つの鍵にまとめて足す。"""
     with experiments.Store(runs_dir) as store:
-        return store.digests()
+        out = store.digests()
+    if trader_paths is not None:
+        out["compare"] = float(sum(compareview.fingerprint(trader_paths).values()))
+    return out
 
 
 def data_fingerprint(paths: ExpPaths) -> dict[str, float]:
@@ -974,7 +983,7 @@ def make_handler(runs_dir: Path, paths: ExpPaths, sampler: hwstat.Sampler | None
             if url.path == "/":
                 self._send(200, "text/plain; charset=utf-8", "vibetab ok\n")
                 return
-            if tab not in ("experiments", "data", "glossary", "hardware", "traders", "models", "system"):
+            if tab not in ("experiments", "data", "glossary", "hardware", "traders", "models", "system", "compare"):
                 self._send(404, "text/plain; charset=utf-8", "not found\n")
                 return
             if rest == "":
@@ -986,13 +995,20 @@ def make_handler(runs_dir: Path, paths: ExpPaths, sampler: hwstat.Sampler | None
                            "hardware": hw_sidebar,
                            "traders": lambda: traderview.sidebar(trader_paths),
                            "models": lambda: modelview.sidebar(trader_paths),
-                           "system": lambda: systemview.sidebar(trader_paths)}[tab]()
+                           "system": lambda: systemview.sidebar(trader_paths),
+                           "compare": lambda: compareview.sidebar(trader_paths)}[tab]()
                 self._send(200, "application/json; charset=utf-8",
                            json.dumps(sidebar, ensure_ascii=False))
             elif rest == "view":
                 item = (parse_qs(url.query).get("item") or [""])[0]
                 if tab == "experiments":
-                    body = exp_overview_html(runs_dir) if item == "overview" else exp_run_html(runs_dir, item)
+                    if item == compareview.ITEM:        # モデルとトレーダーの比較（実行タブの目次の 2 番目）
+                        body = page(compareview.SIDEBAR_LABEL, compareview.page_body(trader_paths), compareview.CSS)
+                    else:
+                        body = exp_overview_html(runs_dir) if item == "overview" else exp_run_html(runs_dir, item)
+                elif tab == "compare":
+                    inner = compareview.body(trader_paths, item)
+                    body = None if inner is None else page(compareview.SIDEBAR_LABEL, inner, compareview.CSS)
                 elif tab == "glossary":
                     body = glossary_html(item)
                 elif tab == "hardware":
@@ -1026,13 +1042,14 @@ def make_handler(runs_dir: Path, paths: ExpPaths, sampler: hwstat.Sampler | None
             self.send_header("Cache-Control", "no-store")
             self.end_headers()
             # ハードは画面が自前で取りに来る（README の契約の「自前更新」）。ここは繋がるだけで何も投げない
-            take = {"experiments": lambda: exp_fingerprint(runs_dir),
+            take = {"experiments": lambda: exp_fingerprint(runs_dir, trader_paths),
                     "data": lambda: data_fingerprint(paths),
                     "glossary": glossary_fingerprint,
                     "hardware": dict,
                     "traders": lambda: traderview.fingerprint(trader_paths),
                     "models": lambda: modelview.fingerprint(trader_paths),
-                    "system": lambda: systemview.fingerprint(trader_paths)}[tab]
+                    "system": lambda: systemview.fingerprint(trader_paths),
+                    "compare": lambda: compareview.fingerprint(trader_paths)}[tab]
             last = take()
             last_ping = time.monotonic()
             try:
@@ -1056,6 +1073,8 @@ def make_handler(runs_dir: Path, paths: ExpPaths, sampler: hwstat.Sampler | None
                             ids = [i["id"] for i in modelview.sidebar(trader_paths)["items"]]
                         elif tab == "system":
                             ids = [i["id"] for i in systemview.sidebar(trader_paths)["items"]]
+                        elif tab == "compare":
+                            ids = ["all"]
                         else:
                             ids = [sec for sec, _ in DATA_SECTIONS]
                         for i in ids:
@@ -1063,6 +1082,7 @@ def make_handler(runs_dir: Path, paths: ExpPaths, sampler: hwstat.Sampler | None
                             self.wfile.write(f"event: item-changed\ndata: {payload}\n\n".encode())
                         if tab == "experiments":
                             self.wfile.write(b'event: item-changed\ndata: {"id": "overview"}\n\n')
+                            self.wfile.write(b'event: item-changed\ndata: {"id": "compare"}\n\n')
                         last = now
                         self.wfile.flush()
                     if time.monotonic() - last_ping >= PING_INTERVAL_S:

@@ -1398,3 +1398,51 @@ flowchart LR
 
 - 説明の文と経緯の表は人が書いたもの（§18-3 の 2）
 - タブが出るのは vibeboard の入れ直しの後（`vibeboard.config.json` は起動時に読む。⚠ 3015 に古い sidecar が居座る罠は §12-3）
+
+## 19. モデルとトレーダーの比較（外部のタブ「実行」の 1 ページ。2026-10-22）
+
+利用者の指示（2026-10-22）: **「既存のモデルとトレーダーの検証結果を比較できるように表示して」**。プランは [compare-validation-view.md](../plans/archive/compare-validation-view.md)。
+
+机上の検証結果（検証結果一覧 ＝ 研究の DB の `ledger_rows`）を、**トレーダー 1 人 ／ モデル 1 本につき 1 行**に並べる表。置き場は外部のタブ「実行」の目次の 2 番目「モデルとトレーダーの比較」（`/experiments/view?item=compare`）。同じ中身を接頭辞 `compare`（`/compare/api/sidebar`・`/compare/view?item=all`・`/compare/api/watch`）でも出すので、project-manager の `projects.yaml`（このリポジトリに無い）にタブを 1 本足せば単独のタブになる。画面は `dashboard/compareview.py`、言葉と対応の正本は `dashboard/compare.toml`。
+
+⚠ **「予測モデル」「トレーダー」のタブの決まり（見くらべる表・順位・くらべる文を置かない ＝ §16・§17。利用者の指示 2026-09-20）は変えない。** このページは研究の側（実行タブ）の表で、用語（θ・bp・fold・B&H）をそのまま使い、あちらからここへのリンクは置かない。
+
+> この図の主張: ⚠ **数字は全部 DB から。手で写す欄は 1 つも無い。** TOML に書くのは「どの行か」と画面の言葉だけ。
+
+```mermaid
+flowchart LR
+  C["dashboard/compare.toml<br/>言葉 ＋ 人 ／ モデル → 検証名"] --> V["compareview.py"]
+  T["live-trading/config/traders/<br/>だれが居るか・モデル・θ・予算"] --> V
+  M["dashboard/models.toml<br/>モデルの一覧・経緯の names"] --> V
+  N["feature-discovery/config/names.toml<br/>[trader] の綴り（tr5 ／ tr5-600 ／ trall）"] --> V
+  D["runs/research.sqlite<br/>ledger_rows（leak 0・n_trials に数える行）"] --> V
+  V --> P["vibetab.py（3015）<br/>/experiments?item=compare ／ /compare"]
+  X["out/ ・ state/ ・ .env ・ 3012"] -. "読まない" .-> V
+```
+
+### 19-1. 3 つの表
+
+| 表 | 行 | 列 |
+| --- | --- | --- |
+| 1. トレーダー | 実売買の設定に居る人（直下 ＋ `candidates/<組>/`。試験用を除く。識別名の数の順）。`compare.toml` に形が 2 つある人（`T6` ＝ 1995 年から学ぶ ／ 2018 年から学ぶ）は 1 形 1 行 | 呼び名（識別名）／ 状態（本番の設定 ／ 候補・注記）／ 使うモデル（係・合わせ方）／ θ ／ 設定の予算 ／ 銘柄数 ／ **素の形（対 B&H）** ／ **5 本・予算（対 持ち続ける）**（欄の頭に検証した条件 `5本・$300` など）／ **全銘柄・全部を買える予算（対 持ち続ける）** ／ 記録 |
+| 2. 予測モデル | `models.toml` の `[[model]]` の全部（その順）。`compare.toml` に `base`（素の形の予測モデル名）が 2 つ以上あるモデルは 1 形 1 行 | モデル ／ 正式な名前 ／ 使う人 ／ 形 ／ **θ 50 ／ 55 ／ 60**（`base@θ` の行）／ 試した数（経緯の `names` のうち `old` ／ `aside` でない行に当たる行の数と 採る ／ 保留 ／ 落とす）／ 上乗せが最大の形（素の形の中から 1 行。⚠ 多重検定のいちばん甘い見方 ＝ 採否に使わない） |
+| 3. 人のいないトレーダーの形 | DB にある `〔トレーダー・…〕` の行のうち 1 の表で使わなかった素の形（F1-7・D2・R1b〜R4b・R5 など） | 形（手法名・θ）／ 素の形 ／ 5 本 ／ 全銘柄 |
+
+1 つの欄 ＝ **上乗せ bp/fold**（符号つき）／ **fold の符号**（`3/5 −＋＋−＋`。0 ＝ 1 度も売買しなかった期間）／ **判定**（採る ／ 保留 ／ 落とす の札）＋ 閉じる注記の印「閉」（印の上に理由）。印の上に検証名と実行日。行が無い条件は「—」（印の上に探した検証名）。列の見出しを押すとその列で並べ替え（数の列は最初が降順・空欄はいつも最後。同梱の小さな JS ＝ 外部リソースなし）。
+
+### 19-2. 対応の決まり（`compare.toml`）
+
+- `[[trader]]` の `id` ＝ 実売買の設定の識別名。`forms` の 1 つ ＝ `base`（素の形の**検証名** ＝ 予測モデル名 ＋ `@θ`。rules.md 10-2）＋ `shape`（トレーダーの形の綴り ＝ `names.toml` の `[trader]`: `5本・$300` → `tr5` ／ `5本・$600` → `tr5-600`）＋ 任意の `label`。**5 本 ／ 全銘柄の行の名前は画面が機械で作る**: 2 つ目の部品に `-<shape>` ／ `-trall` を差し込む（`own.all.ridge.shared@50` → `own.all-tr5.ridge.shared@50` ／ `own.all-trall.ridge.shared@50` ＝ rules.md 20-4 の 2 と同じ規則）。⚠ **設定に居る人は全員書く**（`test_real_mapping_covers_every_trader_in_config` が集合の一致を見る。人を足す・外すときはここも直す）。対応の無い人は「対応なし」、設定に居ない対応は「⚠ 設定に居ない」と出る
+- `[[model]]` は任意。`id` ＝ `models.toml` の `id`。`base` ＝ 素の形の予測モデル名（θ を除く）の一覧。書かないモデル（1 本に決まらない族 ＝ GAN 増強・門の組）は試した数と上乗せが最大の形だけ。`none` ＝ 検証結果一覧に行の無い理由（cGAN のシナリオ予測 ＝ 別の物差し CRPS）
+- 本物の DB がある機械では、宣言した素の形と機械で作った 5 本 ／ 全銘柄の名前が DB に 1 行ずつあること・モデルの `base` に θ 50 の行があることをテストが見る（`test_real_mapping_rows_exist_in_the_db`）
+- 読むもの ＝ `compare.toml`・`traders.toml`（呼び名・係の言葉）・`models.toml`・`names.toml`・実売買の設定・研究の DB（読み取り専用）。⚠ `out/`・`state/`・`.env`・3012 は読まない。売買結果（損益・注文・約定）は出さない
+- 見張り: タブ `compare` は `compareview.fingerprint`（予測モデルのタブの指紋 ＋ `compare.toml` の mtime ＋ 検証結果一覧を DB に入れ直した時刻）。実行タブの指紋（`exp_fingerprint`）にも同じ値を 1 つの鍵 `compare` でまとめて足し、動いたら目次の `compare` も読み直す
+
+### 19-3. 読み方と限界
+
+- ⚠ **「採る」は 978 行のうち 1 行（2026-10-22 の銘柄の選抜。DSR 0.18 ＝ 根拠「中」）。この表で人を選ばない・止めない・替えない**（CLAUDE.md。検証数 978 の多重検定の下では良く見えた形もたまたまの可能性が高い）。ページの頭に同じ注意を出す（文は `compare.toml` の `caution` ＝ 検証数が動いたら人が直す）
+- 素の形は 63 ／ 48 本を等加重・端数で・相手は B&H。トレーダーの形は決めた 5 本を整数株・予算つきで・相手は同じ銘柄・同じ予算で持ち続ける（rules.md 20-3）＝ 同じ予測で**売買の器だけ**が違う。5 本の形は実質 1〜4 本の運に支配される（[trader-shaped-validation.md §2-2](experiments/trader-shaped-validation.md)）
+- 人の設定の予算は今の値（$600 など）で、机上の 5 本の形は検証した時の予算（欄の頭の `5本・$300` ／ `$600`）。θ・銘柄・合わせ方は設定と同じ
+- 机上の形と本番の形は同じではない（毎日の学び直し・15:50 ET の途中の足・気配と約定の差・`data-live/` は机上に無い）。`T6` の 1995 年から学ぶ形は本番の日足（2018 年から）では別の形になるので 2 行とも出す
+- 「試した数」はモデルのタブの経緯と同じ数え方（役割つきの組の行も含む）。「上乗せが最大の形」だけは素の形（対 B&H）に限る（トレーダーの形は相手が違うので混ぜない）
+- 直す手順: 文と対応 ＝ `dashboard/compare.toml`（見張りが 5 秒おきに入れ替える）／ 画面 ＝ `compareview.py`（直したら 3015 の入れ直し）／ テスト ＝ `cd dashboard && .venv/bin/python -m pytest -q tests/test_compare_tab.py`／ 手元で見る ＝ `python3 dashboard/vibetab.py --port 3016` → `http://127.0.0.1:3016/experiments/view?item=compare`

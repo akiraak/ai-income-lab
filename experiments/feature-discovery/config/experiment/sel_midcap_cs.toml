@@ -1,0 +1,52 @@
+# ⚠ **訓練分割の成績で銘柄を選ぶ**（rules.md 29 章・記録 symbol-selection-by-training.md §0。2026-10-22 利用者「小型中型から成績を良い銘柄を選ぶ処理を行う」
+#    → 物差しは「両方」・予算は「一人 600 ドル使えるものとする」）。表は `midcap_cs` のものを借りる（`features_from`。13-8 ＝ 表の差を混ぜない・fold の切れ目も同じ）。
+# ⚠ 素の行（全部使う × θ 3）は既存の `midcap_cs` の行と同じ識別項目にまとまる ＝ 再現の検算（20-4 の 3）。新しい検証は〔トレーダー・選抜…〕の 2 条件 × θ 3 ＝ ＋6。
+# ⚠ 選抜は fold ごとに訓練分割だけで行う（評価期間を読まない）。候補は「枠 $120（＝ $600 ÷ 5）以下で買える株」だけ。数は回す前に固定。
+name = "sel_midcap_cs"
+dataset = "midcap48_daily"
+horizon = 1
+cost_bp = 5.0
+features_from = "midcap_cs"      # ⚠ 表は作り直さず midcap_cs のものを読む
+
+feature_layers = ["own", "cs", "ll"]
+targets = "company"            # ⚠ 当てる相手は 中位 48 本だけ（材料 63 本は当てない）
+horizon_min = 1440.0
+bar_minutes = 1440.0
+selectors = ["全部使う（基準）"]   # ⚠ 1 本だけ（「モデルの成績」の選抜は手法 1 本の条件 ＝ 29-3）
+k = 16
+model = "Ridge"
+baselines = ["常に上（ドリフト）", "直前リターンの符号"]
+
+[trading]
+style = "threshold"
+thresholds = [50, 55, 60]      # ⚠ 事前固定。結果を見て動かさない（rules.md 13-3）
+form = "shared"
+
+# ① 株自身の成績（訓練分割の最後の 252 営業日の累積リターン）で上位 5 本。予算 $600・整数株
+[[trading.trader]]
+tag = "選抜5・訓練リターン・$600"
+select = { by = "ret", k = 5 }
+budget_usd = 600
+methods = ["全部使う（基準）"]
+
+# ② モデルの成績（訓練の尻で回した閾値売買の銘柄別純利。θ ごと）で上位 5 本。予算 $600・整数株
+[[trading.trader]]
+tag = "選抜5・モデル純利・$600"
+select = { by = "net", k = 5 }
+budget_usd = 600
+methods = ["全部使う（基準）"]
+
+[validation]
+split = "walk_forward_dates"
+folds = 5
+purge = true
+embargo_bars = 0
+seed = 0
+
+[features]
+ll_leaders = "etf"
+ll_lags = [1, 2, 3, 5]
+beta_window = 60
+
+[notes]
+common_window_only = true

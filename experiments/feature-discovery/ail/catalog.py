@@ -730,7 +730,7 @@ def ledger() -> dict:
                      else "検知器" if base in dets
                      else "合成" if base in mixes else "基準線")       # 合成 ＝ 合わせる口（rules.md 20-6 の 4）
         r["実装"] = "✅" if (r["ID"] in impl or base in bases or base in dets or base in mixes
-                             or base == "持ち続ける") else "⚠ 無"      # 持ち続ける ＝ rules.md 20-3 の 1
+                             or base in ("持ち続ける", "乱択選抜")) else "⚠ 無"   # 持ち続ける ＝ rules.md 20-3 の 1 ／ 乱択選抜 ＝ 29-4
         r["判定"], r["理由"] = judge(r, bases)
     # ⚠ 判定が出そろってから「閉じる」注記を当てる（判定は変えない。rules.md 14 章）
     _apply_closed(rows, closed_notes())

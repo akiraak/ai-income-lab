@@ -1,0 +1,256 @@
+# 「モデルとトレーダーの比較」（外部のタブ「実行」の 1 ページ ＝ /experiments/view?item=compare。接頭辞 /compare でも同じ中身）の
+# 言葉と、**人 ／ モデル → 検証結果一覧のどの行か** の対応の正本（docs/specs/dashboard.md §19。画面は dashboard/compareview.py）。
+#
+# ⚠ **数字をここに書かない**。上乗せ・fold の符号・判定・閉じる注記・実行日は全部 研究の DB `runs/research.sqlite` の `ledger_rows`
+#    （検証結果一覧の生成物。leak = 0・n_trials に数える行）から引く。ここに書くのは「どの行か」（予測モデル名 ＝ rules.md 10-2）と画面の言葉だけ。
+# ⚠ **人の対応**: `[[trader]]` の `id` は実売買の設定の識別名（experiments/live-trading/config/traders/ の直下と candidates/<組>/）。
+#    `forms` の 1 つ ＝ `base`（素の形 ＝ 全銘柄・等加重・端数・対 B&H の検証名。θ つき）＋ `shape`（トレーダーの形の綴り ＝
+#    experiments/feature-discovery/config/names.toml の [trader]: "5本・$300" → tr5 ／ "5本・$600" → tr5-600）。
+#    5 本の行 ／ 全銘柄の行の名前は画面が機械で作る: 2 つ目の部品に `-<shape>` ／ `-trall` を差し込む
+#    （own.all.ridge.shared@50 → own.all-tr5.ridge.shared@50 ／ own.all-trall.ridge.shared@50）。
+#    ⚠ 設定に居る人は全員ここに書く（テストが集合の一致を見る）。人を足す・外すときはここも直す（対応が無い人は画面に「対応なし」と出る）。
+# ⚠ **モデルの対応**: `[[model]]` は任意。`id` は dashboard/models.toml の `[[model]] id`。`base` ＝ 素の形の予測モデル名（θ を除く）の一覧で、
+#    θ 50 ／ 55 ／ 60 の行を横に出す。書かないモデル（1 本に決まらない族）は、models.toml の経緯の `names`（old ／ aside を除く）から
+#    試した数と上乗せが最大の形だけを出す。`none` ＝ 検証結果一覧に行の無い理由（cGAN のシナリオ予測は別の物差し）。
+# ⚠ **「予測モデル」「トレーダー」のタブの決まり（見くらべる表・順位・くらべる文を置かない）は変えない** ＝ このページはそちらにリンクしない。
+#    このページは研究の側（実行タブ）の表で、用語（θ・bp・fold・B&H）をそのまま使う。
+# ⚠ **成績で人を選ばない・この表で誰かを止めない・替えない**（CLAUDE.md。n_trials 954 の多重検定の下では良く見えた形もたまたまの可能性が高い）。
+
+[common]
+title = "モデルとトレーダーの検証結果の比較"
+lead = "机上の検証（検証結果一覧 ＝ 研究の DB の ledger_rows）の数字を、トレーダー 1 人 ／ モデル 1 本につき 1 行に並べたもの。数字は全部 DB から引き、手で写した欄は無い。"
+caution = [
+  "⚠ 「採る」は 978 行のうち 1 行だけ（2026-10-22 ＝ 中位 48 の銘柄の選抜 θ50。DSR 0.18 で根拠は「中」止まり ＝ symbol-selection-by-training.md §6）。良く見えた形があっても、検証数（n_trials）が多いのでたまたまの可能性が高い（rules.md 11 章・14-10）。⚠ この表で人を選ばない・止めない・替えない（CLAUDE.md）。",
+  "上乗せ ＝ 5 つの評価期間（fold）の平均（bp/fold）。素の形は対 B&H（買って持つ）・トレーダーの形は対「同じ銘柄・同じ予算でただ持ち続ける」（rules.md 13-7・20-3）。fold ＝ 上乗せが正だった期間の数と符号の並び（0 ＝ 1 度も売買しなかった期間）。",
+  "判定 ＝ 採る（5 期間とも正）／ 保留（平均は正だが期間で割れる）／ 落とす（平均で上回らない）。「閉」＝ 保留のまま決着しないと確かめて閉じた注記つきの行（理由は印の上に置くと出る）。判定は 1 行も変えていない。",
+  "⚠ 実際の売買の結果（損益・注文・約定）はここに出さない。それは管理画面（3012）の仕事。⚠ 机上の形と本番の形は同じではない（毎日の学び直し・途中の足・気配と約定の差は机上に無い）。",
+]
+section_traders = "1. トレーダー（本番の人と候補の人。識別名の数の順）"
+section_models = "2. 予測モデル（models.toml に載っている全部。その順）"
+section_orphans = "3. 人のいないトレーダーの形（机上だけで試した組と銘柄の選抜。上の表で使っていない行。1 行 1 条件）"
+section_howto = "読み方と限界"
+howto = [
+  "列の見出しを押すとその列で並べ替えられる（もう一度押すと逆順）。既定の並びは識別名の数の順・models.toml の順。",
+  "トレーダーの行の 3 つの条件は同じ予測で売買の器だけが違う（rules.md 20 章）。素の形は 63 ／ 48 本を等加重・端数で、トレーダーの形は決めた 5 本を整数株・予算つきで ＝ 5 本の形は実質 1〜4 本の運に支配される（trader-shaped-validation.md §2-2）。",
+  "モデルの行の「試した数」は models.toml の経緯のパターン（計算を直す前の試し・ちがう売り買いの決まりの試しを除く）に当たる行の数。「上乗せが最大の形」はその中で上乗せ bp/fold がいちばん大きい 1 行 ＝ ⚠ 多重検定のいちばん甘い見方で、採否には使わない。",
+  "人の設定の予算は今の値（$600 など）で、机上の 5 本の形は検証した時の予算（$300 ／ $600 ＝ 条件の欄）で回してある。θ・銘柄・合わせ方は設定と同じ。",
+  "空欄「—」＝ その条件の行が検証結果一覧に無い（回していない）。「対応なし」＝ compare.toml に対応が書かれていない人。",
+]
+# 列の見出し
+col_trader = "トレーダー"
+col_status = "状態"
+col_models = "使うモデル（係）"
+col_theta = "θ"
+col_budget = "設定の予算 ／ 銘柄"
+col_base = "素の形（対 B&H）"
+col_tr5 = "5 本・予算（対 持ち続ける）"
+col_trall = "全銘柄・全部を買える予算（対 持ち続ける）"
+col_record = "記録"
+col_model = "モデル"
+col_formal = "正式な名前"
+col_users = "使う人"
+col_counts = "試した数（採る ／ 保留 ／ 落とす）"
+col_best = "上乗せが最大の形（⚠ 多重検定）"
+col_form = "形"
+col_orphan_name = "形（手法名）"
+col_cond = "条件"
+col_cond_row = "その条件の行（対 持ち続ける）"
+# 札・印
+status_settled = "本番の設定"
+status_candidate = "候補"
+missing = "—"
+no_mapping = "対応なし"
+not_in_config = "⚠ 設定に居ない"
+closed_mark = "閉"
+rows_unit = "行"
+no_db = "⚠ この機械には研究の DB（ledger_rows）が無いので、数字を出せない。対応と設定だけを出す。"
+no_rows_model = "検証結果一覧に行なし"
+db_built = "検証結果一覧を DB に入れ直した時刻"
+form_label_default = "設定どおり"
+
+# ---------------------------------------------------------------- 人 → 検証名
+# 本番の 3 人（2026-10-08 から T1・T4・T6）と、直下に残る T2・T3（2026-10-07 に手じまいして外した）。
+# 素の形: threshold-trading.md ／ calibration-rerun.md。5 本・$300 ／ 全銘柄: trader-shaped-validation.md §5（2026-10-02・rules.md 20 章）
+[[trader]]
+id = "T1"
+forms = [{ base = "own.all.ridge.shared@50", shape = "tr5" }]
+record = "docs/specs/experiments/trader-shaped-validation.md"
+
+[[trader]]
+id = "T2"
+note = "2026-10-07 に手じまいして外した（設定は直下に残る）"
+forms = [{ base = "own-cs-rel-ex.all.lgbm.shared~n48@55", shape = "tr5" }]
+record = "docs/specs/experiments/trader-shaped-validation.md"
+
+[[trader]]
+id = "T3"
+note = "2026-10-07 に手じまいして外した（設定は直下に残る）"
+forms = [{ base = "own-seq.t3-quant60.ridge.shared@50", shape = "tr5" }]
+record = "docs/specs/experiments/trader-shaped-validation.md"
+
+[[trader]]
+id = "T4"
+forms = [{ base = "own-cs-rel-ex.mix3-mean.lgbm.shared~n48@50", shape = "tr5" }]
+record = "docs/specs/experiments/trader-shaped-validation.md"
+
+# T5 ＝ 主モデル ＋ 損切り（unanimous）＝ 机上の L1（高値 20 日から −10% で降りる）の形
+[[trader]]
+id = "T5"
+forms = [{ base = "own-trend.l1-dd20-10.ridge.shared@50", shape = "tr5" }]
+record = "docs/specs/experiments/stoploss-as-model.md"
+
+# T6 ＝ F2-2 RFE（1995 年から学ぶ）。本番の日足は 2018 年からなので、2018 年から学ぶ形（trader_sel_small4_2018）も並べる
+[[trader]]
+id = "T6"
+forms = [
+  { label = "設定どおり（1995 年から学ぶ）", base = "own.f2-2.ridge.shared~p1995-02-10@50", shape = "tr5" },
+  { label = "本番の日足の形（2018 年から学ぶ）", base = "own.f2-2.ridge.shared@50", shape = "tr5" },
+]
+record = "docs/specs/experiments/trader-shaped-validation.md"
+
+# 先の期間が違う係の候補（2026-10-18〜19。horizon-roles-trader.md・rules.md 25 章）。5 本の形は $600（tr5-600）
+[[trader]]
+id = "T7"
+forms = [{ base = "own-trend.roles-b10-e5.ridge.shared@50", shape = "tr5-600" }]
+record = "docs/specs/experiments/horizon-roles-trader.md"
+
+[[trader]]
+id = "T8"
+forms = [{ base = "own-trend.roles-b20-e5.ridge.shared@50", shape = "tr5-600" }]
+record = "docs/specs/experiments/horizon-roles-trader.md"
+
+[[trader]]
+id = "T9"
+forms = [{ base = "own-trend.roles-b40-e10.ridge.shared@50", shape = "tr5-600" }]
+record = "docs/specs/experiments/horizon-roles-trader.md"
+
+[[trader]]
+id = "T10"
+forms = [{ base = "own-trend.roles-b5-e20.ridge.shared@50", shape = "tr5-600" }]
+record = "docs/specs/experiments/horizon-roles-trader.md"
+
+[[trader]]
+id = "T12"
+forms = [{ base = "own-trend.roles-b10-e5-nostop.ridge.shared@50", shape = "tr5-600" }]
+record = "docs/specs/experiments/horizon-roles-trader.md"
+
+[[trader]]
+id = "T13"
+forms = [{ base = "own-trend.roles-b20-e5-nostop.ridge.shared@50", shape = "tr5-600" }]
+record = "docs/specs/experiments/horizon-roles-trader.md"
+
+[[trader]]
+id = "T14"
+forms = [{ base = "own-trend.roles-b40-e10-nostop.ridge.shared@50", shape = "tr5-600" }]
+record = "docs/specs/experiments/horizon-roles-trader.md"
+
+[[trader]]
+id = "T15"
+forms = [{ base = "own-trend.roles-b5-e20-nostop.ridge.shared@50", shape = "tr5-600" }]
+record = "docs/specs/experiments/horizon-roles-trader.md"
+
+[[trader]]
+id = "T16"
+forms = [{ base = "own-trend.roles-b10-e5-centered-nostop.ridge.shared@50", shape = "tr5-600" }]
+record = "docs/specs/experiments/horizon-roles-trader.md"
+
+[[trader]]
+id = "T17"
+forms = [{ base = "own-trend.roles-b20-e5-centered-nostop.ridge.shared@50", shape = "tr5-600" }]
+record = "docs/specs/experiments/horizon-roles-trader.md"
+
+[[trader]]
+id = "T18"
+forms = [{ base = "own-trend.roles-b40-e10-centered-nostop.ridge.shared@50", shape = "tr5-600" }]
+record = "docs/specs/experiments/horizon-roles-trader.md"
+
+[[trader]]
+id = "T19"
+forms = [{ base = "own-trend.roles-b5-e20-centered-nostop.ridge.shared@50", shape = "tr5-600" }]
+record = "docs/specs/experiments/horizon-roles-trader.md"
+
+# ---------------------------------------------------------------- モデル → 素の形（任意）
+[[model]]
+id = "own-ridge"
+base = ["own.all.ridge.shared"]
+
+[[model]]
+id = "ownex-lgbm"
+base = ["own-cs-rel-ex.all.lgbm.shared~n48"]
+
+[[model]]
+id = "seq-quant"
+base = ["own-seq.t3-quant60.ridge.shared"]
+
+[[model]]
+id = "mlp"
+base = ["own.all.mlp.shared", "own.all.mlp.each", "own-cs-rel-ex.all.mlp.shared~n48", "own-cs-rel-ex.all.mlp.each~n48"]
+
+[[model]]
+id = "symbolic-regression"
+base = ["own.f4-1.ridge.shared", "own.f4-1.lgbm.shared", "own.f4-1.mlp.shared"]
+
+[[model]]
+id = "fwd10-gate"
+base = ["own-trend.h1-gate10.ridge.shared", "own.h1-gate10.ridge.shared"]
+
+[[model]]
+id = "fwd5-gate"
+base = ["own-trend.h2-gate5.ridge.shared"]
+
+[[model]]
+id = "fwd20-gate"
+base = ["own-trend.h3-gate20.ridge.shared"]
+
+[[model]]
+id = "fwd40-gate"
+base = ["own-trend.h4-gate40.ridge.shared"]
+
+[[model]]
+id = "fwd10c-gate"
+base = ["own-trend.h1-gate10-centered.ridge.shared"]
+
+[[model]]
+id = "fwd5c-gate"
+base = ["own-trend.h2-gate5-centered.ridge.shared"]
+
+[[model]]
+id = "fwd20c-gate"
+base = ["own-trend.h3-gate20-centered.ridge.shared"]
+
+[[model]]
+id = "fwd40c-gate"
+base = ["own-trend.h4-gate40-centered.ridge.shared"]
+
+[[model]]
+id = "minirocket"
+base = ["own-seq.t1-minirocket60.ridge.shared"]
+
+[[model]]
+id = "hydra"
+base = ["own-seq.t2-hydra60.ridge.shared"]
+
+[[model]]
+id = "patchtst"
+base = ["own-seq.s1-patchtst60.patchtst.shared"]
+
+[[model]]
+id = "cgan-scenario"
+none = "検証結果一覧に行が無い（別の物差し CRPS ＝ cgan-scenario.md。試した構成は記録の §0-3 に数える）"
+
+[[model]]
+id = "chronos2-exog"
+base = ["own-seq.s2-chronos2-60-fwd10-cov.chronos2.shared", "own-seq.s3-chronos2-60-fwd10-nocov.chronos2.shared"]
+
+[[model]]
+id = "timexer-exog"
+base = ["own-seq.s4-timexer-60-fwd10-exo.timexer.shared"]
+
+# 損切りのモデル: X1 ＝ 出口だけ（単体では買い% 常に 100 ＝ 買って損切りで降りるだけ）／ L1 ＝ 主モデル（own Ridge）＋ 損切り ＝ T5 の形
+[[model]]
+id = "stop-exit"
+base = ["own-trend.x1-exit-dd20-10.ridge.shared", "own-trend.l1-dd20-10.ridge.shared"]
+
+[[model]]
+id = "rfe-own1995"
+base = ["own.f2-2.ridge.shared~p1995-02-10", "own.f2-2.ridge.shared"]

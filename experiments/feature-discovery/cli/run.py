@@ -26,6 +26,7 @@ from ail.contracts import META_COLUMNS
 from ail.data import store
 from ail.detectors import fwd
 from ail.validation import checks, metrics, prep
+from ail.validation import select as symsel
 import ail.bootstrap  # noqa: F401
 
 warnings.filterwarnings("ignore")
@@ -303,8 +304,12 @@ def evaluate_trading(panel: pd.DataFrame, feats: list[str], exp: dict, run: runs
     if t.get("top_k") and form == "per_symbol":
         raise SystemExit("⚠ 上位 K（rules.md 17 章）は形式 (A) と検知器だけ（(B) は銘柄ごとに較正が違い、買い% を銘柄間で比べられない）")
     # ⚠ **トレーダーと同じ形**（rules.md 20 章。2026-10-01）。⚠ **`[trading] trader` の無い config は経路が 1 行も変わらない**
-    trader_conds = trader_conditions(t, panel)
+    trader_conds = trader_conditions(t, panel, exp)
     trader_out: list[dict] = []
+    if any(c.get("select") for c in trader_conds) and form == "per_symbol":
+        raise SystemExit("⚠ 訓練分割の成績で銘柄を選ぶ条件（rules.md 29 章）は形式 (A) だけ")
+    # ⚠ 選抜の「モデルの成績」が使う選別（手法名 → 関数）。⚠ `select` の無い config では読まれない
+    sel_fns = {prep.label(exp, n): fn for n, fn in selectors.items()}
     # ⚠ **合わせる口**（rules.md 20-6 の 4。2026-10-02）: ほかの実験の手法の買い% ／ 出口% を行ごとに平均した手法を足す。
     # ⚠ **`[[trading.mix]]` の無い config は経路が 1 行も変わらない**（メンバーの表も読まない）
     mixes = mix_specs(t)
@@ -462,7 +467,9 @@ def evaluate_trading(panel: pd.DataFrame, feats: list[str], exp: dict, run: runs
         if trader_conds:
             # ⚠ **既存の行を作り終えた後に足すだけ**（上位 K と同じ形）
             _trader_fold(trader_conds, te, y_pnl, ts_te, buy, exits, n_cols, thresholds, cost_bp, seed, f,
-                         out, daily, extra, trader_out, opts=mix_opts)
+                         out, daily, extra, trader_out, opts=mix_opts,
+                         select_ctx={"tr": tr, "feats": feats, "exp": exp, "ctx": ctx, "model": model,
+                                     "sel_fns": sel_fns, "k_cols": k})
         run.log(f"  fold {f}: 訓練 {len(tr):,} / 検証 {len(te):,}（{len(groups)} 銘柄）")
 
     if picked:
@@ -858,7 +865,7 @@ def _roles_fold(s: dict, parts: list[tuple], buy: dict, exits: dict, n_cols: dic
 TRADER_RANDOM_SEEDS = 5      # ⚠ 診断「乱択」は種 5 つの平均（rules.md 20-3 の 3。事前固定）
 
 
-def trader_conditions(t: dict, panel: pd.DataFrame) -> list[dict]:
+def trader_conditions(t: dict, panel: pd.DataFrame, exp: dict | None = None) -> list[dict]:
     """`[[trading.trader]]`（rules.md 20-2）。⚠ **無ければ空 ＝ 既存の経路**。
 
     各項: `tag`（手法名の印。必須）・`symbols`（省けば表の全部）・`budget_usd`（省けば fold ごとに
@@ -878,9 +885,24 @@ def trader_conditions(t: dict, panel: pd.DataFrame) -> list[dict]:
         only = c.get("methods")
         if only is not None and (not only or not all(isinstance(m, str) and m for m in only)):
             raise SystemExit(f"⚠ trading.trader {tag!r} の methods は手法名の一覧だけ（省けば全部。rules.md 20-6 の 4 の 5）")
+        # ⚠ **訓練分割の成績で銘柄を選ぶ**（rules.md 29 章。2026-10-22）: `select = { by = "ret" | "net", k = K }`。
+        # ⚠ **`select` の無い条件は 1 ビットも変わらない**（選抜の分岐は `_select_fold` に閉じる）
+        sel = c.get("select")
+        if sel is not None:
+            if not isinstance(sel, dict) or str(sel.get("by")) not in symsel.BY \
+                    or not isinstance(sel.get("k"), int) or isinstance(sel.get("k"), bool) or int(sel["k"]) < 1:
+                raise SystemExit(f"⚠ trading.trader {tag!r} の select は {{ by = \"ret\" | \"net\", k = 1 以上の整数 }} だけ（rules.md 29-1）")
+            if syms is not None:
+                raise SystemExit(f"⚠ trading.trader {tag!r} は select と symbols を同時に書けない（選ぶのは訓練分割 ＝ rules.md 29-1）")
+            if usd is None:
+                raise SystemExit(f"⚠ trading.trader {tag!r} の select には budget_usd が要る（候補 ＝ 枠 ＝ 予算 ÷ K で買える株。rules.md 29-2）")
+            if str(sel["by"]) == "net" and exp is not None and exp.get("detectors"):
+                raise SystemExit(f"⚠ trading.trader {tag!r} の select by = \"net\" は選別 × モデルの config だけ（検知器では受けない。rules.md 29-3）")
+            sel = {"by": str(sel["by"]), "k": int(sel["k"])}
         conds.append({"tag": tag, "symbols": None if syms is None else sorted(str(s) for s in syms),
                       "budget_usd": None if usd is None else float(usd),
-                      "methods": None if only is None else [str(m) for m in only]})
+                      "methods": None if only is None else [str(m) for m in only],
+                      "select": sel})
     if conds:
         if "close" not in panel:
             raise SystemExit("⚠ トレーダーの形（rules.md 20 章）は表に close 列が要る（整数株）")
@@ -901,10 +923,15 @@ def trader_hold_name(tag: str) -> str:
     return f"基準 持ち続ける〔トレーダー・{tag}〕"
 
 
+def trader_random_name(tag: str) -> str:
+    """対照「乱択選抜」（rules.md 29-4）＝ 同じ候補から乱数で K 本を選んで同じ器で売買。⚠ **`基準 ` で始める** ＝ 数えない。"""
+    return f"基準 乱択選抜〔トレーダー・{tag}〕"
+
+
 def _trader_fold(conds: list[dict], te: pd.DataFrame, y, ts_te, buy: dict, exits: dict, n_cols: dict,
                  thresholds: list[float], cost_bp: float, seed: int, f: int,
                  out: list[dict], daily: dict, extra: dict, trader_out: list[dict],
-                 opts: dict | None = None) -> None:
+                 opts: dict | None = None, select_ctx: dict | None = None) -> None:
     """1 fold ぶんのトレーダーの形の行（手法 × 条件 × θ）と基準線「持ち続ける」を足す（rules.md 20 章）。
 
     ⚠ 器は 17 章の `simulate_topk` を K ＝ 銘柄数・整数株で呼ぶだけ（20-1 の 2・3）。
@@ -913,6 +940,11 @@ def _trader_fold(conds: list[dict], te: pd.DataFrame, y, ts_te, buy: dict, exits
 
     syms_all = te["symbol"].astype(str).values
     for c in conds:
+        if c.get("select"):
+            # ⚠ **訓練分割の成績で銘柄を選ぶ条件**（rules.md 29 章）。⚠ 既存の条件の経路には触れない（下はそのまま）
+            _select_fold(c, te, y, ts_te, buy, exits, n_cols, thresholds, cost_bp, seed, f,
+                         out, daily, extra, trader_out, opts=opts, **(select_ctx or {}))
+            continue
         mask = (np.ones(len(te), dtype=bool) if c["symbols"] is None
                 else np.isin(syms_all, c["symbols"]))
         if not mask.any():
@@ -991,6 +1023,132 @@ def _trader_fold(conds: list[dict], te: pd.DataFrame, y, ts_te, buy: dict, exits
                                    "平均の投下率": round(float(r["invested"].mean()), 4),
                                    "持ち続ける投下率": round(float(holds[th]["invested"].mean()), 4),
                                    "買った銘柄の種類数": r["symbols_bought"]})
+
+
+def _zero_result(dates) -> dict:
+    """売買する銘柄が 1 本も無い fold（候補ゼロ ／ 評価期間に行なし）＝ 全期間 現金。`simulate_topk` の戻り値と同じ形。"""
+    idx = pd.Index(pd.unique(np.asarray(dates)))
+    z = pd.Series(0.0, index=idx)
+    return {"port_net_bp": z, "port_gross_bp": z.copy(), "invested": z.copy(),
+            "trades": 0, "signals": 0, "skipped_full": 0, "skipped_price": 0, "symbols_bought": 0}
+
+
+def _select_fold(c: dict, te: pd.DataFrame, y, ts_te, buy: dict, exits: dict, n_cols: dict,
+                 thresholds: list[float], cost_bp: float, seed: int, f: int,
+                 out: list[dict], daily: dict, extra: dict, trader_out: list[dict], *,
+                 opts: dict | None = None, tr: pd.DataFrame | None = None, feats: list[str] | None = None,
+                 exp: dict | None = None, ctx: dict | None = None, model=None, sel_fns: dict | None = None,
+                 k_cols: int = 0) -> None:
+    """1 fold ぶんの**訓練分割の成績で銘柄を選ぶ条件**（rules.md 29 章）の行 ＝ 手法 × θ と、基準線「持ち続ける」（同じ K 本 ＝ 判定の相手）・
+    対照「乱択選抜」（同じ候補から乱数で K 本・種 5 の平均）。
+
+    ⚠ 選ぶのは `tr`（訓練分割）だけから（`ail/validation/select.py`）。評価期間 `te` は選んだ後に売買するだけ。
+    ⚠ 器は 20 章と同じ `simulate_topk`（K ＝ 選ぶ本数・整数株・予算）。枠は K で固定（選べた本数が K に満たなくても動かさない）。
+    """
+    from ail.validation import simulate as sim
+
+    if tr is None or exp is None or ctx is None or model is None:
+        raise SystemExit("⚠ 選抜の条件（rules.md 29 章）には訓練分割とモデルが要る（evaluate_trading から呼ぶ）")
+    sel, tag = c["select"], c["tag"]
+    K, budget = int(sel["k"]), float(c["budget_usd"])
+    cap = budget / K                                      # 枠 ＝ 1 銘柄に使える額（この額で 1 株買える株だけが候補 ＝ 29-2）
+    methods = [m for m in buy if not (m.startswith("基準 ") or m == "乱択（基準）")
+               and (c.get("methods") is None or m in c["methods"])]
+    if sel["by"] == "net" and len(methods) != 1:
+        raise SystemExit(f"⚠ trading.trader {tag!r} の select by = \"net\" は条件を当てる手法が 1 本のときだけ（いま {methods}。rules.md 29-3）")
+    cands = symsel.pool(tr, cap)
+    if sel["by"] == "ret":
+        chosen_ret, _tab = symsel.by_return(tr, K, cap)
+        chosen_by_th = {float(th): list(chosen_ret) for th in thresholds}
+    else:
+        if sel_fns is None or methods[0] not in sel_fns:
+            raise SystemExit(f"⚠ 手法 {methods[0]!r} の選別が見つからない（select by = \"net\" は選別 × モデルの config だけ。rules.md 29-3）")
+        chosen_by_th, _tab = symsel.by_model_net(tr, feats, exp, ctx, model, sel_fns[methods[0]], k_cols,
+                                                 thresholds, cost_bp, K, cap)
+    rand_sets = symsel.random_sets(cands, K, seed, TRADER_RANDOM_SEEDS)
+    syms_all = te["symbol"].astype(str).values
+    all_dates = ts_te.values
+    kw_px = te["close"].values
+
+    def _run(symbols: list[str], bp_full, ex_full, th: float, rk: dict, hold: bool = False) -> dict:
+        mask = np.isin(syms_all, list(symbols)) if symbols else np.zeros(len(te), dtype=bool)
+        if not mask.any():
+            return _zero_result(all_dates)
+        yy, dates, ss, px = y[mask], all_dates[mask], syms_all[mask], kw_px[mask]
+        kw = {"price": px, "budget_usd": budget}
+        if hold:
+            return sim.simulate_topk(np.full(int(mask.sum()), 100.0), yy, dates, ss, th, K, cost_bp,
+                                     exit_pct=np.zeros(int(mask.sum())), **kw)
+        bp = bp_full[mask]
+        ex = None if ex_full is None else ex_full[mask]
+        rkm = {k_: (v[mask] if isinstance(v, np.ndarray) else v) for k_, v in rk.items()}
+        return sim.simulate_topk(bp, yy, dates, ss, th, K, cost_bp, exit_pct=ex, **kw, **rkm)
+
+    def _avg(results: list[dict]) -> dict:
+        idx = pd.Index(pd.unique(np.asarray(all_dates)))
+
+        def mean_series(key):
+            return sum(r[key].reindex(idx, fill_value=0.0) for r in results) / len(results)
+        return {"port_net_bp": mean_series("port_net_bp"), "port_gross_bp": mean_series("port_gross_bp"),
+                "invested": mean_series("invested"),
+                **{k_: float(np.mean([r[k_] for r in results]))
+                   for k_ in ("trades", "signals", "skipped_full", "skipped_price", "symbols_bought")}}
+
+    def _emit(name: str, res: dict, th: float, cols: float, hit: float, ic: float) -> None:
+        daily.setdefault((name, th), []).append(res["port_net_bp"])
+        extra["hold"].setdefault((name, th), []).append(res["invested"])
+        out.append({"手法": name, "fold": f, "閾値": th, "選んだ本数": cols, "的中率": hit, "IC": ic,
+                    "粗利bp": float(res["port_gross_bp"].sum()),
+                    "純利bp": float(res["port_net_bp"].sum()),
+                    "取引回数": res["trades"],
+                    "保有日率": float(res["invested"].mean()),
+                    "検証日数": int(len(res["port_net_bp"])),
+                    "乱択ゲート純利bp": np.nan, "乱択ゲート取引回数": np.nan,
+                    "逆売買純利bp": np.nan, "逆売買取引回数": np.nan})
+
+    for th in thresholds:
+        th = float(th)
+        chosen = chosen_by_th.get(th, [])
+        hold = _run(chosen, None, None, th, {}, hold=True)
+        _emit(trader_hold_name(tag), hold, th, 0.0, np.nan, np.nan)
+        rand_holds = [_run(rs, None, None, th, {}, hold=True) for rs in rand_sets]
+        for mname in methods:
+            bp_all = buy[mname]
+            ex_all = exits.get(mname)
+            # 役割つきの合わせる口（rules.md 25-2）。無い手法は空 ＝ 20 章と同じ
+            mo = (opts or {}).get(mname) or {}
+            rk: dict = {}
+            if mo.get("min_hold_days") is not None:
+                rk["min_hold_days"] = mo["min_hold_days"]
+            if mo.get("stop_exit") is not None:
+                rk["stop_exit_pct"] = mo["stop_exit"]
+                if mo.get("stop_blocks_buy"):
+                    rk["stop_blocks_buy"] = True
+            if mo.get("hold_days") is not None:
+                rk["hold_days"] = mo["hold_days"]
+            mask_c = np.isin(syms_all, list(chosen)) if chosen else np.zeros(len(te), dtype=bool)
+            bp_c = bp_all[mask_c]
+            ok = ~np.isnan(bp_c)
+            hit = float(np.mean((bp_c[ok] > 50.0) == (y[mask_c][ok] > 0))) if ok.any() else 0.0
+            ic = (float(np.corrcoef(bp_c[ok], y[mask_c][ok])[0, 1]) if ok.any() and np.std(bp_c[ok]) > 0 else 0.0)
+            r = _run(chosen, bp_all, ex_all, th, rk)
+            _emit(trader_name(mname, tag), r, th, n_cols.get(mname, 0.0), hit, ic)
+            rnd = [_run(rs, bp_all, ex_all, th, rk) for rs in rand_sets]
+            rand = _avg(rnd)
+            _emit(trader_random_name(tag), rand, th, 0.0, np.nan, np.nan)
+            trader_out.append({"手法": trader_name(mname, tag), "閾値": th, "fold": f,
+                               "条件": tag, "銘柄数": K, "予算USD": round(budget, 2),
+                               "純利bp": round(float(r["port_net_bp"].sum()), 4),
+                               "持ち続ける純利bp": round(float(hold["port_net_bp"].sum()), 4),
+                               "乱択純利bp": round(float(rand["port_net_bp"].sum()), 4),
+                               "乱択持ち続ける純利bp": round(float(np.mean([float(h["port_net_bp"].sum()) for h in rand_holds])), 4),
+                               "買いの合図": r["signals"], "買えた数": r["trades"],
+                               "株価で見送り": r["skipped_price"],
+                               "平均の投下率": round(float(r["invested"].mean()), 4),
+                               "持ち続ける投下率": round(float(hold["invested"].mean()), 4),
+                               "買った銘柄の種類数": r["symbols_bought"],
+                               "選び方": sel["by"], "候補数": len(cands), "選んだ本数": len(chosen),
+                               "選んだ銘柄": " ".join(chosen)})
 
 
 def apply_gate(exp: dict, gate_doc: dict, enforce: bool, run: runs.Run) -> dict | None:

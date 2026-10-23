@@ -24,6 +24,9 @@ def main() -> None:
     ap.add_argument("--source", default="tastytrade")
     ap.add_argument("--report", action="store_true", help="⚠ 書かずに継ぎ目の一覧だけ出す")
     ap.add_argument("--symbols", help="カンマ区切り。省略時は raw/ にある全部")
+    ap.add_argument("--fix-split-close", action="store_true",
+                    help="⚠ 分割の日の終値 1 本だけが未調整の足を先に直す（2026-10-23。rules.md 30-9）。"
+                         "既定では今までと 1 ビットも変わらない。既存の銘柄に流すと adjusted が変わる ＝ 研究用の data/ では新しい銘柄だけ")
     args = ap.parse_args()
 
     src = store.raw_dir(args.source, args.period)
@@ -35,7 +38,7 @@ def main() -> None:
     all_breaks, entries, reports, summaries = [], {}, {}, {}
     for s in symbols:
         raw = store.read_bars(src, s)
-        out, breaks, summary = adj.adjust(raw)
+        out, breaks, summary = adj.adjust(raw, fix_split_close=args.fix_split_close)
         if len(breaks):
             b = breaks.copy()
             b.insert(0, "symbol", s)

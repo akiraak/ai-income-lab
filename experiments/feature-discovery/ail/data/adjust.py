@@ -44,6 +44,8 @@ KIND_SPLIT = "直す（分割比）"
 KIND_OTHER = "直す（非整数比）"
 KIND_REAL = "直さない（実際の変動）"
 KIND_CHECK = "直さない（要確認）"
+KIND_CLOSE = "直す（分割日の終値だけ）"   # 2026-10-23（rules.md 30-9）。⚠ 既定では使わない
+CLOSE_NEAR = 0.12       # 「前日終値 ≈ 当日始値」「翌日始値 ≈ 直した終値」とみなす |log| の幅
 
 
 def _snap(gap: float) -> tuple[float | None, float]:
@@ -123,9 +125,53 @@ def repair_factors(df: pd.DataFrame, breaks: pd.DataFrame) -> tuple[pd.Series, p
     return pd.Series(pf, index=df.index), pd.Series(vf, index=df.index)
 
 
-def adjust(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame, dict]:
-    """`raw` の 1 系列を調整する。返り値は (調整後, 継ぎ目の一覧, 記録用の要約)。"""
+def fix_split_close(df: pd.DataFrame) -> tuple[pd.DataFrame, list[dict]]:
+    """分割の日の**終値 1 本だけ**が旧目盛りのまま、という足を直す（2026-10-23。rules.md 30-9）。
+
+    ⚠ 取得元の歴史は分割で調整済みなのに、分割の日の終値だけが未調整、という型が raw 306 銘柄のうち 76 銘柄にある
+    （例 CSX 2021-06-28: 始値 31.95・高値 32.08・安値 31.64・**終値 95.32**・翌日始値 32.31）。
+    ⚠ これを `detect_scale_breaks` が「翌日に 3:1 の分割」と読み（前日終値 95.32 ÷ 翌日始値 32.31）、
+    ⚠ **分割より前の歴史を全部 1/3 にしていた**（既に調整済みの区間を二重に割る）。日中の値動きが大きいと
+    「実際の変動」と読んで直さず、終値 1 本だけ 3 倍の棘が残る（CSGP 2021-06-25 の ×10）。
+    条件（全部満たすときだけ）: 前日終値 ≈ 当日始値（|log| < CLOSE_NEAR）／ |log(終値 ÷ 始値)| ≥ GAP_MIN ／
+    比が SPLIT_RATIOS に吸着（RATIO_TOL）／ 翌日始値 ≈ 終値 ÷ 比（|log| < CLOSE_NEAR）。
+    直すのは終値だけ（始値・高値・安値・出来高は調整済みの目盛り）。
+    ⚠ **既定では呼ばない**（`cli.adjust --fix-split-close`）＝ 既存の adjusted は 1 ビットも変わらない。
+    2026-10-23 に直したのは 新しく取った 100 銘柄 ＋ 中位 48 本のうち型のある 9 本だけ（30-9）。
+    """
     d = df.reset_index(drop=True).copy()
+    o, c = d["open"].to_numpy(dtype=float), d["close"].to_numpy(dtype=float).copy()
+    events = []
+    for i in range(1, len(d) - 1):
+        if min(o[i], c[i], o[i + 1], c[i - 1]) <= 0:
+            continue
+        gap = c[i] / o[i]
+        if abs(np.log(gap)) < GAP_MIN:
+            continue
+        ratio, _err = _snap(gap)
+        if ratio is None:
+            continue
+        step = ratio if gap > 1 else 1 / ratio
+        fixed = c[i] / step
+        if abs(np.log(c[i - 1] / o[i])) < CLOSE_NEAR and abs(np.log(fixed / o[i + 1])) < CLOSE_NEAR:
+            events.append({"date": str(pd.Timestamp(d["ts"][i]).date()), "kind": KIND_CLOSE,
+                           "gap": round(float(gap), 4), "ratio": round(float(step), 4),
+                           "close_before": float(c[i]), "close_after": float(fixed)})
+            c[i] = fixed
+    d["close"] = c
+    return d, events
+
+
+fix_split_close_fn = fix_split_close
+
+
+def adjust(df: pd.DataFrame, fix_split_close: bool = False) -> tuple[pd.DataFrame, pd.DataFrame, dict]:
+    """`raw` の 1 系列を調整する。返り値は (調整後, 継ぎ目の一覧, 記録用の要約)。
+    ⚠ `fix_split_close` は 2026-10-23 の口（`fix_split_close()`）。既定 False ＝ 今までと 1 ビットも変わらない。"""
+    d = df.reset_index(drop=True).copy()
+    close_events: list[dict] = []
+    if fix_split_close:
+        d, close_events = fix_split_close_fn(d)
     breaks = detect_scale_breaks(d)
     pf, vf = repair_factors(d, breaks)
     out = d.copy()
@@ -141,7 +187,8 @@ def adjust(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame, dict]:
         "kept_as_real_move": int((breaks["kind"] == KIND_REAL).sum()),
         "needs_primary_source": int((breaks["kind"] == KIND_CHECK).sum()),
         "rows_rescaled": int((pf != 1.0).sum()),
-        "events": [{"date": str(b["ts"].date()), "kind": b["kind"],
+        "fixed_split_close": len(close_events),
+        "events": close_events + [{"date": str(b["ts"].date()), "kind": b["kind"],
                     "gap": round(float(b["gap"]), 4),
                     "ratio": None if np.isnan(b["ratio"]) else round(float(b["ratio"]), 4),
                     "dollar_vol_x": None if np.isnan(b["dollar_vol_x"]) else round(float(b["dollar_vol_x"]), 2)}

@@ -1,0 +1,54 @@
+# 「採る」になった選抜の規則の追試 A ＝ 中位 48 本 × 2000 年より前からある材料 46 本（rules.md 30 章・2026-10-23 利用者「推す案で進めて」）。
+#
+# ⚠ **材料の線は日付だけで決めた（成績では選ばない）**: `us63` の 63 本のうち **2000-01-01 より前から日足のあるもの 46 本**。
+#   外れた 17 本 ＝ IWM（2000-05）・VZ（2000-07）・JPM（2001-01）・ACN（2001-07）・CVX（2001-10）・NFLX（2002-05）・CRM（2004-06）・
+#   GOOGL（2004-08）・T（2005-12）・MA（2006-05）・V（2008-03）・AVGO（2009-08）・TSLA（2010-06）・META（2012-05）・ABBV（2013-01）・
+#   XLRE（2015-10）・XLC（2018-06）【実測 data/adjusted/d の最初の日】。
+# ⚠ **対象は midcap48 と同じ 48 本**（居る期間だけ表に載る。24 本は 1994 年から・31 本は 2000 年より前から）。
+# ⚠ いまの表（midcap_cs）が 2018-06 から始まる理由は材料の XLC ＝ この表は材料を絞ることで ≈ 2000 年から始まる【推測】。
+# ⚠ **材料が違うので別の表・別のモデル**（13-8 ＝ 2018 表の数字と直接比べない）。
+# ⚠ **`etf` に材料（us63）を入れているのは midcap48 と同じ理由**（`config.symbols_of` が `etf` と `company` しか読まない・
+#    `ll_leaders = "etf"` が先行銘柄としてこの群を読む）。⚠ 中身が ETF だからではない。
+# ⚠ **`targets = "company"` で、当てる相手は下の会社だけ**（材料は説明変数に使うが当てない）。
+# ⚠ **生存バイアスは midcap48 と同じ**（いまの S&P 500 の構成銘柄を過去に当てる。rules.md 12-1）。
+# ⚠ **`sector_of` は書いていない**ので `rel_` 層は使えない（midcap48 と同じ）。
+name = "midcap48_long"
+description = "追試 A: 中位 47 本（midcap48 から APP を除く）＋ 材料 46 本（us63 のうち 2000 年より前から日足のあるもの）"
+survivorship_bias = true
+selected_on = "2026-10-23"
+
+# ⚠ **材料として使う 46 本**（説明変数。⚠ **当てる相手ではない**）
+inputs_us63 = [
+  "SPY", "QQQ", "DIA", "XLK", "XLF", "XLE", "XLV", "XLI",
+  "XLY", "XLP", "XLU", "XLB", "AAPL", "MSFT", "NVDA", "AMZN",
+  "BRK/B", "UNH", "XOM", "JNJ", "WMT", "PG", "HD", "COST",
+  "ORCL", "MRK", "KO", "PEP", "BAC", "AMD", "ADBE", "LLY",
+  "TMO", "MCD", "CSCO", "ABT", "INTC", "QCOM", "TXN", "DIS",
+  "PFE", "NKE", "BA", "GS", "CAT", "HON",
+]
+
+[groups]
+# ⚠ **材料 46 本**（`ll_leaders = "etf"` がここを先行銘柄として読む）
+etf = [
+  "SPY", "QQQ", "DIA", "XLK", "XLF", "XLE", "XLV", "XLI",
+  "XLY", "XLP", "XLU", "XLB", "AAPL", "MSFT", "NVDA", "AMZN",
+  "BRK/B", "UNH", "XOM", "JNJ", "WMT", "PG", "HD", "COST",
+  "ORCL", "MRK", "KO", "PEP", "BAC", "AMD", "ADBE", "LLY",
+  "TMO", "MCD", "CSCO", "ABT", "INTC", "QCOM", "TXN", "DIS",
+  "PFE", "NKE", "BA", "GS", "CAT", "HON",
+]
+# ⚠ **当てる相手 47 本**（midcap48 の 48 本から APP を落とした ＝ rules.md 30-9: APP の 2011〜2021-04 の日足は別の銘柄（AppLovin の上場は 2021-04-15・その日に 1 日で ×578）
+#    ＝ ティッカーの使い回し。長い表では 10 年ぶんの偽の歴史が訓練と 12 か月モメンタムに入るので、機械的な線「1 日の |log リターン| > 2 ＝ 別の銘柄」で落とした。
+#    ⚠ 既存の midcap48（2018 年からの表）にも APP の 2018-06〜2021-04 の偽の歴史は入っている ＝ 既存の結果の限界として記録に書く。表は触らない）
+company = [
+  "A", "ACGL", "ADI", "ADM", "ADP", "ADSK", "AEE", "AEP",
+  "AES", "AFL", "AIG", "AIZ", "AJG", "AKAM", "ALB", "ALGN",
+  "ALL", "ALLE", "AMAT", "AME", "AMGN", "AMP", "AMT", "ANET",
+  "AON", "AOS", "APA", "APD", "APH", "APO", "APTV", "ARE",
+  "ARES", "ATO", "AVY", "AWK", "AXON", "AXP", "AZO", "BALL",
+  "BAX", "BBY", "BDX", "BEN", "BG", "BIIB", "BKNG",
+]
+
+[market_proxy]
+market = "SPY"
+sectors = {}

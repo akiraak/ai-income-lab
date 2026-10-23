@@ -1,0 +1,60 @@
+# 「採る」になった選抜の規則の追試 C ＝ S&P 500 の残り・ティッカー順のその次の 50 本（rules.md 30 章・2026-10-23 利用者「推す案で進めて」）。
+#
+# ⚠ **規則は取得の前に固定した**（docs/plans/archive/symbol-selection-widen.md §4-3・rules.md 30-3）:
+#   S&P 500 の構成銘柄（Wikipedia「List of S&P 500 companies」2026-10-23 12:39 PDT 取得・503 本 ＝ docs/specs/experiments/assets/sp500-constituents-2026-10-23.csv）
+#   のうち `us63`（63 本）と `midcap50`（midcap48 の 48 ＋ 落ちた ABNB・AMCR）に無い 405 本を ⚠ **ティッカーのアルファベット順**に並べ、
+#   先頭 50 本 ＝ B（BE〜CRH）・次の 50 本 ＝ C（CRL〜ETN）。取得したあと ⚠ **2018-06-27 以前から日足の無いものを機械的に落とす**
+#   （足りないぶんを次のティッカーで埋めない ＝ midcap48 と同じ「落ちたら落ちたまま」。成績では落とさない）。
+# ⚠ 取得の前の候補 50 本をまず書き、取得のあとに落ちた銘柄をコメントに残して `company` から外す（記録 §1）。
+# ⚠ **`etf` に材料（us63）を入れているのは midcap48 と同じ理由**（`config.symbols_of` が `etf` と `company` しか読まない・
+#    `ll_leaders = "etf"` が先行銘柄としてこの群を読む）。⚠ 中身が ETF だからではない。
+# ⚠ **`targets = "company"` で、当てる相手は下の会社だけ**（材料は説明変数に使うが当てない）。
+# ⚠ **生存バイアスは midcap48 と同じ**（いまの S&P 500 の構成銘柄を過去に当てる。rules.md 12-1）。
+# ⚠ **`sector_of` は書いていない**ので `rel_` 層は使えない（midcap48 と同じ）。
+name = "midcap_c"
+description = "追試 C: S&P 500 の残り（us63・midcap50 に無い）ティッカー順の 51〜100 本目 ＋ 材料 63 本（us63）"
+survivorship_bias = true
+selected_on = "2026-10-23"
+
+# ⚠ **材料として使う 63 本**（説明変数。⚠ **当てる相手ではない**）
+inputs_us63 = [
+  "SPY", "QQQ", "IWM", "DIA", "XLK", "XLF", "XLE", "XLV",
+  "XLI", "XLY", "XLP", "XLU", "XLB", "XLRE", "XLC", "AAPL",
+  "MSFT", "NVDA", "AMZN", "GOOGL", "META", "TSLA", "AVGO", "BRK/B",
+  "JPM", "V", "MA", "UNH", "XOM", "JNJ", "WMT", "PG",
+  "HD", "COST", "ORCL", "CVX", "MRK", "ABBV", "KO", "PEP",
+  "BAC", "CRM", "AMD", "NFLX", "ADBE", "LLY", "TMO", "ACN",
+  "MCD", "CSCO", "ABT", "INTC", "QCOM", "TXN", "DIS", "VZ",
+  "T", "PFE", "NKE", "BA", "GS", "CAT", "HON",
+]
+
+[groups]
+# ⚠ **材料 63 本**（`ll_leaders = "etf"` がここを先行銘柄として読む）
+etf = [
+  "SPY", "QQQ", "IWM", "DIA", "XLK", "XLF", "XLE", "XLV",
+  "XLI", "XLY", "XLP", "XLU", "XLB", "XLRE", "XLC", "AAPL",
+  "MSFT", "NVDA", "AMZN", "GOOGL", "META", "TSLA", "AVGO", "BRK/B",
+  "JPM", "V", "MA", "UNH", "XOM", "JNJ", "WMT", "PG",
+  "HD", "COST", "ORCL", "CVX", "MRK", "ABBV", "KO", "PEP",
+  "BAC", "CRM", "AMD", "NFLX", "ADBE", "LLY", "TMO", "ACN",
+  "MCD", "CSCO", "ABT", "INTC", "QCOM", "TXN", "DIS", "VZ",
+  "T", "PFE", "NKE", "BA", "GS", "CAT", "HON",
+]
+# ⚠ **当てる相手 45 本**（候補 50 本から取得のあとに機械的に落とした 5 本 ＝ rules.md 30-9・記録 §1）:
+#   落ちた DASH: 2020-12-09 から（上場 2020-12）
+#   落ちた DDOG: 2019-09-19 から（上場 2019-09）
+#   落ちた DELL: 2018-12-26 から（再上場）
+#   落ちた DOW: 2019-04-02 から（分社）
+#   落ちた CRWD: 2012-12〜2019-06 に 465 日・1,902 日の空白・終値 0.06 ＝ 別の銘柄の歴史（ティッカーの使い回し。上場は 2019-06）
+company = [
+  "CRL", "CSGP", "CSX", "CTAS", "CTSH", "CVNA", "CVS", "D",
+  "DAL", "DD", "DE", "DECK", "DG", "DGX", "DHI", "DHR",
+  "DLR", "DLTR", "DOC", "DOV", "DPZ", "DRI", "DTE", "DUK",
+  "DVA", "DVN", "DXCM", "EBAY", "ECHO", "ECL", "ED", "EFX",
+  "EG", "EIX", "EL", "ELV", "EME", "EMR", "EOG", "EQIX",
+  "EQT", "ERIE", "ES", "ESS", "ETN",
+]
+
+[market_proxy]
+market = "SPY"
+sectors = {}

@@ -1,0 +1,8 @@
+# 追試 C（対象 50 ＋ 材料 63）の日足（rules.md 30 章・2026-10-23）。⚠ **取得元と上限は `daily` と同じ。** ⚠ **`daily.toml` は書き換えていない。**
+# ⚠ 取るのは新しい銘柄だけ（`cli.fetch --dataset midcap_c_daily --symbols …`）＝ 既存の銘柄の raw ／ adjusted は触らない（研究用の data/ は取り直さない ＝ CLAUDE.md）。
+name = "midcap_c_daily"
+source = "tastytrade"
+period = "d"
+days = 12000
+universe = "midcap_c"
+adjust = "split"

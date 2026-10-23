@@ -1,0 +1,53 @@
+# ⚠ **「採る」になった選抜の規則の追試 ＝ B ＝ S&P 500 の残り・ティッカー順の次の 50 本（universe midcap_b）**（rules.md 30 章・プラン docs/plans/archive/symbol-selection-widen.md・2026-10-23 利用者「推す案で進めて」）。
+# ⚠ 規則（rules.md 29-9）は 1 ビットも変えない: 物差し `ret` ／ `net`・K 5・窓 252 日・枠 $600 ／ 銘柄・予算 $3,000・候補 ＝ 1 株 $600 以下・θ 50 ／ 55 ／ 60・器 20 章。
+# ⚠ 表は自前で作る（`features_from` 無し。層・先行銘柄・fold の切り方・費用は `midcap_cs` と同じ）。`end_date` で材料の終わり（2026-09-09）に揃える（rules.md 27-3 の口）。
+# ⚠ 素の行（全部使う × θ 3）は新しい集合の新しい検証 ＝ 1 集合 ＋9（素 3 ＋ 選抜 6。29 章では既存の表を借りたので素の行は増えなかった）。
+# ⚠ 主の仮説は `ret` θ50 の 1 行（30-5）。ほかの 8 行は並べて数えるだけ。
+name = "sel600_midcap_b_cs"
+dataset = "midcap_b_daily"
+horizon = 1
+cost_bp = 5.0
+end_date = "2026-09-09"          # ⚠ 材料 63 本の研究用の日足は 2026-09-08 ／ 09-11 で止めている（表の終わりを midcap_cs と同じにする）
+
+feature_layers = ["own", "cs", "ll"]
+targets = "company"            # ⚠ 当てる相手は会社だけ（材料は当てない）
+horizon_min = 1440.0
+bar_minutes = 1440.0
+selectors = ["全部使う（基準）"]   # ⚠ 1 本だけ（「モデルの成績」の選抜は手法 1 本の条件 ＝ 29-3）
+k = 16
+model = "Ridge"
+baselines = ["常に上（ドリフト）", "直前リターンの符号"]
+
+[trading]
+style = "threshold"
+thresholds = [50, 55, 60]      # ⚠ 事前固定。結果を見て動かさない（rules.md 13-3）
+form = "shared"
+
+# ① 株自身の成績（訓練分割の最後の 252 営業日の累積リターン）で上位 5 本。枠 $600 ／ 銘柄・整数株（29-9）
+[[trading.trader]]
+tag = "選抜5・訓練リターン・1本$600"
+select = { by = "ret", k = 5 }
+budget_usd = 3000
+methods = ["全部使う（基準）"]
+
+# ② モデルの成績（訓練の尻で回した閾値売買の銘柄別純利。θ ごと）で上位 5 本。枠 $600 ／ 銘柄・整数株（29-9）
+[[trading.trader]]
+tag = "選抜5・モデル純利・1本$600"
+select = { by = "net", k = 5 }
+budget_usd = 3000
+methods = ["全部使う（基準）"]
+
+[validation]
+split = "walk_forward_dates"
+folds = 5
+purge = true
+embargo_bars = 0
+seed = 0
+
+[features]
+ll_leaders = "etf"             # ⚠ 先行銘柄 ＝ universe の `etf` 群 ＝ 材料
+ll_lags = [1, 2, 3, 5]
+beta_window = 60
+
+[notes]
+common_window_only = true

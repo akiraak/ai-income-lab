@@ -44,6 +44,11 @@ LIVE = {"鍵": "全部使う（基準）", "モデル": "Ridge", "粒度": "日�
     ({"鍵": "ボラ上位〔T3 QUANT（60日窓）・上位3・整数株B⚠〕", "モデル": "—", "特徴量の層": "own seq"},
      "own-seq.voltop-t3-quant60-top3-shb.none.shared@50"),
     ({"鍵": "全部使う（基準）〔上位10・端数〕"}, "own.all-top10-frac.ridge.shared@50"),
+    # 集合（実行が記録している dataset。2026-10-23 に識別項目へ足した ＝ rules.md 30-2）: 既定 daily と記録なし（—）は書かない
+    ({"期間": "2018-06-27", "銘柄": "48", "集合": "midcap48_daily", "特徴量の層": "own cs ll"},
+     "own-cs-ll.all.ridge.shared~p2018-06-27~n48~midcap48@50"),
+    ({"集合": "daily"}, "own.all.ridge.shared@50"),
+    ({"集合": "—"}, "own.all.ridge.shared@50"),
 ])
 def test_names_are_built_from_the_key(change, want):
     row = {**LIVE, **change}

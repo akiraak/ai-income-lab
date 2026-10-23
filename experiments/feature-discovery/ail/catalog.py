@@ -200,6 +200,20 @@ def _symbols_of(run: dict) -> str:
     return f"{int(n)}" if isinstance(n, (int, float)) and n else "—"
 
 
+def _set_of(run: dict) -> str:
+    """鍵に入れる**銘柄集合の名前**（2026-10-23。rules.md 10 章 規約・11 章 規約 4「銘柄集合」）。
+
+    ⚠ **その実行が記録している config の `dataset`**（`config.json` ＝ 回したときの写し）を正とする。
+    いまの `config/` からは引かない（`_symbols_of` と同じ向き）。無ければ「—」。
+    ⚠ **`_symbols_of` は本数だけ**なので、同じ本数で中身の違う集合（中位 48 本と S&P 500 の次の 48 本・
+    小型 50 本と次の 50 本）が同じ鍵にまとまる。⚠ **まとまると既存の行が「2 実行・不一致」に化け、
+    新しい集合も試行として数えられない**（2026-10-23 に S&P 500 の残りで追試する前に見つけた。
+    プラン plans/symbol-selection-widen.md）。⚠ 名前には既定（`daily`）から外れたときだけ `~<綴り>` で出る（`ail/names.py`）。
+    """
+    ds = (run.get("config") or {}).get("dataset")
+    return str(ds) if ds else "—"
+
+
 def _granularity(config: dict) -> tuple[str, float]:
     """粒度の表示名と 1 本の分数。⚠ **`bar_minutes` を正とし、無ければ dataset 名から引く。**"""
     m = config.get("bar_minutes")
@@ -380,7 +394,7 @@ def _run_trials(run: dict) -> list[dict]:
             "手法名": str(method), "粒度": gran, "地平": _horizon(cfg.get("horizon", 0), bar_min),
             # ⚠ **「基準 」の行はモデルを使わない**（常に上・直前符号）。モデル別に割れないよう「—」
             "モデル": "—" if str(method).startswith("基準 ") else model,
-            "層": layer, "期間": period, "銘柄": _symbols_of(run),
+            "層": layer, "期間": period, "銘柄": _symbols_of(run), "集合": _set_of(run),
             "特徴量の層": " ".join(cfg.get("feature_layers", [])),
             "対象": cfg.get("targets") or "all", "k": cfg.get("k"),
             "コストbp": cfg.get("cost_bp"), "本数": s.get("本数"), "的中率": s.get("的中率"),
@@ -422,7 +436,7 @@ def _gate_rows(run: dict, gran: str, bar_min: float, layer: str, period: str,
         g = (gate.get("methods") or {}).get(m, {})
         rows.append({
             "手法名": str(m), "粒度": gran, "地平": _horizon(cfg.get("horizon", 0), bar_min),
-            "モデル": model, "層": layer, "期間": period, "銘柄": _symbols_of(run),
+            "モデル": model, "層": layer, "期間": period, "銘柄": _symbols_of(run), "集合": _set_of(run),
             "特徴量の層": " ".join(cfg.get("feature_layers", [])),
             "対象": cfg.get("targets") or "all", "k": cfg.get("k"),
             "コストbp": cfg.get("cost_bp"), "本数": None, "的中率": None, "IC": None,
@@ -477,7 +491,7 @@ def legacy_trials(decl: dict) -> list[dict]:
             "地平": _horizon(float(decl.get("horizon", 0)), bar_min),
             "モデル": "—" if name.startswith("基準") else decl.get("model", "Ridge"),
             # ⚠ 旧配線の表は表の期間を残していない（「—」。後から埋めない）
-            "層": decl.get("layer", "?"), "期間": "—", "銘柄": "—",
+            "層": decl.get("layer", "?"), "期間": "—", "銘柄": "—", "集合": "—",
             "特徴量の層": " ".join(decl.get("feature_layers", [])),
             "対象": decl.get("targets", "all"), "k": decl.get("k"),
             "コストbp": decl.get("cost_bp"),
@@ -580,8 +594,11 @@ def _judge_trading(row: dict, note: str) -> tuple[str, str]:
 
 # --- 台帳の行 -----------------------------------------------------------
 
-KEY = ("鍵", "モデル", "粒度", "地平", "特徴量の層", "層", "期間", "銘柄",
+KEY = ("鍵", "モデル", "粒度", "地平", "特徴量の層", "層", "期間", "銘柄", "集合",
        "検証方式", "形式", "較正", "閾値")   # ⚠ 利用者が決めた 1 行の粒度
+# ⚠ **集合（実行が記録している dataset の名前）は 2026-10-23 に足した**（`_set_of`。11 章 規約 4 の「銘柄集合」。
+# ⚠ 本数だけでは 中位 48 本と S&P 500 の次の 48 本が同じ鍵にまとまる）。⚠ **既存の行はどれも割れない**
+# ⚠ （足す前後で検証結果一覧の行数 978・判定の内訳が同じことを確かめた。名前は `daily` 以外の行に `~<集合>` が付く）
 # ⚠ **モデルは 2026-09-09 に鍵へ足した**（plans/archive/gpu-models.md §3-2）。それまでは Ridge 1 本だったので
 # ⚠ **既存の行はどれも割れない**（旧実行はモデル未指定 = Ridge として読む）
 # ⚠ **検証方式・形式・閾値は 2026-09-10 に足した**（rules.md 13-9 の 1）。旧実行・旧配線は
@@ -785,7 +802,9 @@ _CLOSED_FIELDS = {"key": "鍵", "model": "モデル", "layers": "特徴量の層
                   # ⚠ **銘柄は 2026-09-16 に足した**（保留 62 行の処遇。plans/ledger-hold-disposition.md）。
                   # ⚠ **us63 / us70 / us74 の D 系は銘柄しか違わず、鍵が足りないと「3 行に一致」で落ちる。**
                   # ⚠ **足したのは照合の鍵だけで、判定の規則は 1 行も変えていない**
-                  "symbols": "銘柄"}
+                  "symbols": "銘柄",
+                  # ⚠ **集合は 2026-10-23 に足した**（KEY に入れたのと同時。照合に使うのは任意）
+                  "dataset": "集合"}
 
 
 def closed_notes(path: str | None = None) -> list[dict]:

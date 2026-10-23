@@ -171,4 +171,16 @@ horizon = "1"                   # 390 本先 → ~h390
 layer = "adjusted"              # raw → ~raw
 period = "2018-01-31"           # 1995-02-10 → ~p1995-02-10 ／ 記録なし（—）→ ~p-na
 symbols = "63"                  # 48 → ~n48 ／ 記録なし（—）→ ~n-na
+dataset = "daily"               # 集合（実行が記録している dataset）。midcap48_daily → ~midcap48 ／ 記録なし（—）→ 書かない（2026-10-23）
 calibration = "std"             # 閾値売買で「旧」→ ~cal-old（毎日往復の既定は「—」）
+
+# 集合（識別項目「集合」＝ 実行が記録している dataset の名前。2026-10-23 に足した ＝ rules.md 10 章・catalog._set_of）。
+# ⚠ **既定 `daily`（us63）は書かない。** 新しい dataset を足したらここにも綴りを足す（無いと `cli.report --catalog` が止まる）
+[dataset]
+daily70 = "us70"
+daily74 = "us74"
+midcap48_daily = "midcap48"
+small50_daily = "small50"
+midcap_b_daily = "midcap-b"            # S&P 500 の残り・ティッカー順の次の 50（rules.md 30 章）
+midcap_c_daily = "midcap-c"            # 〃 その次の 50
+midcap48_long_daily = "midcap48-long"  # 中位 48 本 × 材料 46 本（2000 年より前からある材料。rules.md 30 章）

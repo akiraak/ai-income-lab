@@ -1,0 +1,10 @@
+# ⚠ **「採る」になった選抜の規則の追試 A** ＝ 中位 48 本 × 2000 年より前からある材料 46 本（rules.md 30 章・2026-10-23）。
+# ⚠ **`AIL_DATA_DIR=$PWD/data-widen` で回す**（30-9: 中位 48 本のうち分割の日の終値が未調整だった 9 本を直した写し。`data/` の既存の表は触らない）:
+#   AIL_DATA_DIR=$PWD/data-widen .venv/bin/python -m cli.queue --config symbol_select_widen_a
+# 表は先に同じ環境変数で `cli.build --experiment sel600_midcap48_long_cs`（本番）と `--leak`。＋9（素 3 ＋ 選抜 6）。leak 対照は数えない。
+experiments = ["sel600_midcap48_long_cs"]
+
+leak = true
+ledger = false
+max_failures = 1
+time_budget_s = 3600

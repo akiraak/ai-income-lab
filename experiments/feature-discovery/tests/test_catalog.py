@@ -261,6 +261,25 @@ def test_rows_of_different_periods_do_not_merge():
     assert len(split) == 2 and all(r["実行数"] == 1 for r in split)
 
 
+def test_set_is_part_of_the_key():
+    """⚠ **鍵が本数だけだと、S&P 500 の次の 48 本が中位 48 本に飲まれる**（2026-10-23。rules.md 30-2）。"""
+    assert "集合" in catalog.KEY
+    assert catalog._set_of({"config": {"dataset": "midcap_b_daily"}}) == "midcap_b_daily"
+    assert catalog._set_of({"config": {}}) == "—"
+
+
+def test_rows_of_different_sets_do_not_merge():
+    """同じ本数・同じ期間・同じ層でも、集合（実行が記録している dataset）が違えば別の試行。"""
+    base = {"鍵": "全部使う（基準）", "モデル": "Ridge", "粒度": "日足", "地平": "1 本（1 日）",
+            "特徴量の層": "own cs ll", "層": "adjusted", "期間": "2018-06-27", "銘柄": "48",
+            "検証方式": "閾値売買", "形式": "共通", "較正": "std",
+            "閾値": "50", "純利bp": 1.0, "fold": None, "出所": "runs", "実行": "r"}
+    same = catalog._collapse([{**base, "集合": "midcap48_daily"}, {**base, "集合": "midcap48_daily"}])
+    split = catalog._collapse([{**base, "集合": "midcap48_daily"}, {**base, "集合": "midcap_b_daily"}])
+    assert len(same) == 1 and same[0]["実行数"] == 2
+    assert len(split) == 2 and all(r["実行数"] == 1 for r in split)
+
+
 def test_closed_note_can_pin_a_row_by_period():
     """⚠ **期間で釘付けできないと、1995 表の行まで「閉じる」が当たる**（当たれば生成が止まる）。"""
     rows = [_held_row(期間="—"), _held_row(期間="1995-02-10")]

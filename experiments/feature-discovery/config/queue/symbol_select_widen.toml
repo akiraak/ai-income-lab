@@ -1,0 +1,9 @@
+# ⚠ **「採る」になった選抜の規則の追試**（rules.md 30 章・プラン docs/plans/archive/symbol-selection-widen.md。2026-10-23 利用者「推す案で進めて」＝ K1 B → A・K2 2 集合・K3 46 本）。
+# B（`sel600_midcap_b_cs`）・C（`sel600_midcap_c_cs`）＝ S&P 500 の残りを 50 本ずつ（取得のあと 44 ／ 45 本）。A は別の queue `symbol_select_widen_a`。
+# ⚠ 表は先に `cli.build --experiment <名前>`（本番）と `--leak` で作る。1 集合 ＋9（素 3 ＋ 選抜 6）＝ ＋27（978 → 1,005）。leak 対照 3 本は数えない。
+experiments = ["sel600_midcap_b_cs", "sel600_midcap_c_cs"]   # ⚠ A は `symbol_select_widen_a`（AIL_DATA_DIR=data-widen で回す ＝ 30-9）
+
+leak = true
+ledger = false
+max_failures = 1
+time_budget_s = 3600

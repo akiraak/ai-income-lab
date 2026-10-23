@@ -103,3 +103,39 @@ def test_snapping_keeps_cumulative_ratio_exactly_one():
     broken = rescale(rescale(base, 100, 200, 2.0), 130, 160, 5.0)
     out, _, _ = adjust.adjust(broken)
     assert np.allclose(out["close"].values, base["close"].values, rtol=1e-9)
+
+
+def _walk(n=300, seed=3):
+    rng = np.random.default_rng(seed)
+    close = 30 * np.exp(np.cumsum(rng.normal(0, 0.01, n)))
+    open_ = np.r_[close[0], close[:-1]] * np.exp(rng.normal(0, 0.002, n))
+    high = np.maximum(open_, close) * 1.005
+    low = np.minimum(open_, close) * 0.995
+    ts = pd.date_range("2020-01-01", periods=n, freq="B", tz="UTC")
+    return pd.DataFrame({"ts": ts, "time_ms": ts.astype("int64") // 10**6, "open": open_, "high": high,
+                         "low": low, "close": close, "volume": np.full(n, 1_000_000.0)})
+
+
+def test_fix_split_close_repairs_only_that_close():
+    """⚠ **分割の日の終値 1 本だけが旧目盛り**（CSX 2021-06-28 の型。rules.md 30-9）。直すのは終値 1 本で、ほかは 1 ビットも触らない。"""
+    df = _walk()
+    bad = df.copy()
+    k = 150
+    bad.loc[k, "close"] = df.loc[k, "close"] * 3        # 3:1 の分割の日の終値だけ未調整
+    out, _breaks, summary = adjust.adjust(bad, fix_split_close=True)
+    assert summary["fixed_split_close"] == 1 and summary["events"][0]["kind"] == adjust.KIND_CLOSE
+    assert abs(out.loc[k, "close"] - df.loc[k, "close"]) < 1e-9
+    np.testing.assert_array_equal(out.drop(columns="close").to_numpy(), bad.drop(columns="close").to_numpy())
+    assert summary["rows_rescaled"] == 0                 # 分割と読んで前の歴史を割らない
+
+
+def test_fix_split_close_is_off_by_default():
+    """既定では今までどおり（前の歴史を 1/3 にする誤りも含めて 1 ビットも変わらない）。"""
+    df = _walk()
+    bad = df.copy()
+    bad.loc[150, "close"] = df.loc[150, "close"] * 3
+    out_default, _b, s_default = adjust.adjust(bad)
+    out_plain, _b2, _s2 = adjust.adjust(bad, fix_split_close=False)
+    pd.testing.assert_frame_equal(out_default, out_plain)
+    assert "fixed_split_close" in s_default and s_default["fixed_split_close"] == 0
+    assert s_default["rows_rescaled"] > 0                # 今までの読み方: 翌日を分割と見て前を割る

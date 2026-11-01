@@ -302,6 +302,8 @@ def evaluate_trading(panel: pd.DataFrame, feats: list[str], exp: dict, run: runs
     extra: dict = {"hold": {}, "rand": {}}
     # ⚠ **1 取引 1 行の保有日数**（13-4 の 6）。⚠ **成果物であって採否には使わない**。`extra["holds"]` で持ち出す
     holds_out: list[dict] = []
+    # ⚠ **行ごとの買い% ／ 出口% の写し**（2026-11-01・プラン save-buy-pct.md）。⚠ 保存するだけで売買・判定には使わない
+    bp_out: list[pd.DataFrame] = []
     topk_out: list[dict] = []
     if t.get("top_k") and form == "per_symbol":
         raise SystemExit("⚠ 上位 K（rules.md 17 章）は形式 (A) と検知器だけ（(B) は銘柄ごとに較正が違い、買い% を銘柄間で比べられない）")
@@ -346,6 +348,8 @@ def evaluate_trading(panel: pd.DataFrame, feats: list[str], exp: dict, run: runs
             # ⚠ **既存の手法の買い% を作り終えた後に足すだけ**（後ろの行の作り方は既存の手法と同じ）
             _mix_fold(mixes, mix_ext, te, buy, exits, n_cols, fitted_doc, f, run.log, opts=mix_opts, holds=holds_by)
         run.fitted(f"calibration_f{f}", fitted_doc)     # ⚠ 再現用。次の実行では読み込まない（13-2 の 3）
+        if not leak:                                     # ⚠ leak 対照は配線の検査 ＝ 測り直す材料は要らない（1 本 約 4MB【実測】を半分に）
+            bp_out.append(buy_pct_frame(f, te, buy, exits))   # ⚠ 写しを取るだけ（buy ／ exits は書き換えない）
 
         def _row(name: str, base: str, bp, ex, hit: float, ic: float, th: float, th_exit: float | None = None,
                  stop: float | None = None, hold: int | None = None):
@@ -479,6 +483,8 @@ def evaluate_trading(panel: pd.DataFrame, feats: list[str], exp: dict, run: runs
     if picked:
         run.selected(pd.DataFrame(picked))
     extra["holds"] = pd.DataFrame(holds_out)        # ⚠ 成果物。`run.holds` と `checks` が読む
+    if bp_out:
+        extra["buy_pct"] = pd.concat(bp_out, ignore_index=True)   # ⚠ 成果物（並べ替え検定などの材料）。採否には使わない
     if topk_out:
         extra["topk"] = pd.DataFrame(topk_out)      # ⚠ 診断（17-5 の 4）。採否には使わない
     if trader_out:
@@ -645,6 +651,22 @@ def _topk_fold(t: dict, te: pd.DataFrame, y, ts_te, buy: dict, exits: dict, n_co
 
 MIX_ROLES = "roles"                          # 役割つきの合わせる口（rules.md 25-2）
 MIX_ROLE_NAMES = ("buy", "exit", "stop")     # 買い係 ／ 売り係 ／ 損切り係
+
+
+BUY_PREFIX, EXIT_PREFIX = "買い%|", "出口%|"
+
+
+def buy_pct_frame(f: int, te: pd.DataFrame, buy: dict, exits: dict) -> pd.DataFrame:
+    """1 fold ぶんの行ごとの買い% ／ 出口%（評価分割の並びのまま）。列 ＝ fold・ts・symbol・`買い%|<手法>`・`出口%|<手法>`。
+    出口% は手法が別に持つときだけ（無い手法は売買で 100 − 買い% を使う ＝ 13-4）。⚠ float64 のまま（売買を 1 ビットも違わず回し直せる）。"""
+    cols = {"fold": np.full(len(te), int(f), dtype=np.int16), "ts": pd.to_datetime(te["ts"]).to_numpy(),
+            "symbol": te["symbol"].astype(str).to_numpy()}
+    for name, b in buy.items():
+        cols[BUY_PREFIX + str(name)] = np.asarray(b, dtype=float)
+        e = exits.get(name)
+        if e is not None:
+            cols[EXIT_PREFIX + str(name)] = np.asarray(e, dtype=float)
+    return pd.DataFrame(cols)
 
 
 def mix_specs(t: dict) -> list[dict]:
@@ -1303,6 +1325,7 @@ def main() -> None:
         run.holds(extra.get("holds"))              # ⚠ 1 取引 1 行の保有日数（13-4 の 6。採否には使わない）
         run.topk(extra.get("topk"))                # ⚠ 上位 K の診断（rules.md 17-5 の 4。採否には使わない）
         run.trader(extra.get("trader"))            # ⚠ トレーダーの形の診断（rules.md 20-3 の 3。採否には使わない）
+        run.buy_pct(extra.get("buy_pct"))          # ⚠ 行ごとの買い% ／ 出口%（2026-11-01。採否には使わない）
         # ⚠ **日次のポートフォリオ系列を残す。** これが無かったので、検出限界の検討は同じ config を
         # ⚠ **回し直して系列を作り直すしかなかった**（validation-power.md §1）。エピソード表もここを読む
         run.daily(daily, extra)

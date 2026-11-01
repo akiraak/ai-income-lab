@@ -211,6 +211,14 @@ class Run:
         if df is not None and len(df):
             self._csv("trader.csv", df, index=False)
 
+    def buy_pct(self, df) -> None:
+        """⚠ **行ごとの買い% ／ 出口%**（2026-11-01・プラン save-buy-pct.md）。後から別の物差しで回し直さずに測り直す材料。
+        ⚠ **採否には使わない**。parquet（列ごとに圧縮）で入れる ＝ 読むのは `read_parquet`。"""
+        if df is not None and len(df):
+            buf = io.BytesIO()
+            df.to_parquet(buf, index=False)
+            self._put("buy_pct.parquet", buf.getvalue())
+
     def per_symbol(self, df: pd.DataFrame) -> None:
         """⚠ **銘柄別 bp は成果物**（rules.md 13-7。利用者の求める出力）。⚠ **採否には使わない。**"""
         if len(df):
@@ -244,6 +252,12 @@ def read_json(run: str, path: str):
 def read_csv(run: str, path: str, **kw) -> pd.DataFrame | None:
     data = read_bytes(run, path)
     return None if data is None else pd.read_csv(io.BytesIO(data), **kw)
+
+
+def read_parquet(run: str, path: str = "buy_pct.parquet") -> pd.DataFrame | None:
+    """`Run.buy_pct` が入れた表（2026-11-01）。無い実行（それより前）は None。"""
+    data = read_bytes(run, path)
+    return None if data is None else pd.read_parquet(io.BytesIO(data))
 
 
 def exists(run: str, path: str) -> bool:

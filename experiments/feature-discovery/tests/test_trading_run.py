@@ -193,3 +193,26 @@ def test_reverse_columns_follow_the_identity(run):
     assert e["reverse"]["edge_vs_bh"]["folds"] == 5 and "採否" in e["reverse"]["注記"]
     # S の逆は −S: 逆売買の粗利 − 逆の保有日率 × B&H 粗利 ＝ −S（最初の合図以降。fold 平均で近い）
     assert e["selection_edge"]["folds"] == 5
+
+
+@pytest.mark.parametrize("form", ["shared", "per_symbol"])
+def test_saved_buy_pct_replays_the_same_trades(run, form):
+    """⚠ 2026-11-01（プラン save-buy-pct.md）: 保存した行ごとの買い% から `simulate` を回し直すと、`per_symbol.csv` の純利と同じ。
+    写しを取るだけで、売買・判定は変えない（指紋 `test_default_path_fingerprint_is_unchanged` も通る）。"""
+    from ail.validation import simulate as sim
+    panel = _panel()
+    res, per_sym, summary, daily, extra = evaluate_trading(panel, _feats(panel), _exp(form), run)
+    bp = extra["buy_pct"]
+    assert {"fold", "ts", "symbol", "買い%|全部使う（基準）", "買い%|基準 常に上（ドリフト）"} <= set(bp.columns)
+    y = panel.set_index(["symbol", "ts"])["y"]
+    for (f, s), g in bp.groupby(["fold", "symbol"]):
+        g = g.sort_values("ts")
+        yy = y.loc[[(s, t) for t in pd.to_datetime(g["ts"])]].to_numpy()
+        for th in (50.0, 55.0, 60.0):
+            r = sim.simulate(g["買い%|全部使う（基準）"].to_numpy(), yy, th, 5.0)
+            want = per_sym[(per_sym["手法"] == "全部使う（基準）") & (per_sym["閾値"] == th)
+                           & (per_sym["fold"] == f) & (per_sym["銘柄"] == s)]["純利bp"]
+            assert len(want) == 1 and np.isclose(r["net_bp"].sum(), float(want.iloc[0]), rtol=0, atol=5e-5), (f, s, th)   # per_symbol は小数 4 桁に丸めて書く
+    run.buy_pct(bp)
+    back = runs.read_parquet(run.name)
+    pd.testing.assert_frame_equal(back, bp)

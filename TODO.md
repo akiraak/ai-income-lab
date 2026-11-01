@@ -343,6 +343,11 @@
   - [~] Phase 3（Step 3）: 毎日回す仕組み（`run-devloop.sh` ＋ `cli.devloop`〔段 0 門 → 段 1〜4 → 日誌 → commit〕／ `claude -p` の呼び方と allowlist・費用の上限 ／ timer `ail-devloop.timer` 01:00 PDT〔入れるのは利用者〕／ 実行タブの「開発ループ」ページ ／ 止め方 `DEVLOOP_HALT`・打ち切り 3 つ ／ テスト ／ 試運転 3 晩 ＋ 7 晩）
     ✅ 2026-10-25 17:50 PDT titan（利用者「次へ」）: 3-1〜3-6 済み ＝ `run-devloop.sh`・`cli.devloop night`（段 0〜4・日誌・commit・状態 `queue_state` の `devloop`・錠）・`systemd/ail-devloop.{service,timer}` ＋ README・実行タブ「開発ループ」（`devloopview.py`・dashboard.md §20）・テスト 20 本。dry-run は実リポジトリと systemd-run で ✅・初回の上位 3 を `state --seed-top` で写した。⚠ timer の環境は PATH に `~/.local/bin` が無い（絶対パスなら claude -p は動く【実測 $0.21】＝ `run-devloop.sh` が足す）
     - [ ] 3-7 試運転（⚠ 利用者: `systemd/README.md` の手順で timer を入れる）→ 3 晩 ＝ 段 1 だけ自動（`[build] mode = "manual"`・段 2 は朝に手で）→ 7 晩 ＝ 全段（`mode = "claude"`）→ 記録 §3（費用【実測】・落ちた段・直したこと）
+  - [ ] 実験の行ごとの買い% ／ 出口% を記録に残す（並べ替え検定の物差し `20261025-permutation-yardstick` の材料） [plan](docs/plans/save-buy-pct.md)
+    利用者（2026-11-01）:「これからでも埋めた方がいいと思うが、なぜ記録を取らない？」→ 2 段の案に「進めて」
+    - [x] 段 1: 保存する（`buy_pct.parquet`・判定は 1 ビットも変えない）
+      ✅ 2026-11-01 titan: 1 実行 約 4.2MB【実測】・leak には残さない・実データで回し直して出力が 1 バイトも同じ。⚠ 測定の 1 回が本物の DB に入った（同じ識別項目の回し直し・n_trials 不変）
+    - [ ] 段 2: 並べ替え検定の列 2 本（判定に使わない）
   - [ ] Phase 4（Step 4）: 毎日の結果から最良のものを見つける（選ぶ段の固定を rules.md 31 章に〔結果を見る前〕→ 週 1 回の候補の棚 `candidates/dev/`〔配線だけ〕→ 投入は利用者〔trader-loop Phase 4・検証は 3 人まで〕→ 月 1 回の棚卸し〔区分 ＝ アイデア id〕）
     ✅ 2026-11-01 titan: 4-1（選ぶ段の固定を rules.md 31 章で確定）・4-2（`--weekly` と土曜の段 `weekly_stage`・下書きは `dev-loop/drafts/`）・4-4 の材料（`--inventory`）済み。残り 4-3 投入（利用者）・月 1 回の棚卸しそのもの（案 → 利用者「閉じて」）
   - [ ] Phase 5: 片付け（CLAUDE.md の節・howto §3 の 1 行・TODO → DONE・プランを archive へ）

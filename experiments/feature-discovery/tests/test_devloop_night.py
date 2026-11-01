@@ -396,3 +396,69 @@ def test_inventory_groups_open_holds_by_idea_id(world):
     assert groups[0]["group"] == "trader_roles"                      # 行の多い順
     text = sc.render_inventory(groups, 100)
     assert "3 行 ／ 2 区分" in text and "閉じて" in text
+
+
+# ---------- 31-6（2026-11-01 利用者「未知なものへのトライが増えたらいいな」→「推す案で」）: 枠・確率つきの予想・差なしで分かること・当たり方
+
+IDEA_V2 = '''```toml
+[[idea]]
+slug = "vol-target"
+title = "値動きの大きさを当てる"
+kind = "検証方式"
+question = "問い"
+structure = "口"
+n_trials_planned = 3
+key_shape = ["own.volpred.ridge.shared"]
+failure_modes = ["型"]
+prediction = "予想"
+effort = "中"
+measurable = "測れる: 理由"
+touches = "新しいモジュールだけ"
+frame = "外"
+p_hold = 0.35
+learn_if_null = "分かること"
+
+[[idea]]
+slug = "no-prob"
+title = "確率が無い"
+kind = "モデル"
+question = "問い"
+structure = "口"
+n_trials_planned = 3
+key_shape = ["own.noprob.ridge.shared"]
+failure_modes = ["型"]
+prediction = "予想"
+effort = "小"
+measurable = "測れる: 理由"
+touches = "新しいモジュールだけ"
+frame = "内"
+```'''
+
+
+def test_contract2_requires_frame_probability_and_learning_and_counts_outside(world):
+    root, cfg, conn = world
+    cfg["ideation"]["contract"] = 2
+    cfg["ideation"]["outside_frame_min"] = 2
+    fake = FakeEnv(root, conn, claude_result=IDEA_V2)
+    logs = []
+    out = devloop.ideate(cfg, fake.env, "2026-11-02", logs.append, [])
+    by = {d["title"]: d for d in out["ideas"]}
+    assert by["値動きの大きさを当てる"]["status"] == "登録" and by["値動きの大きさを当てる"]["p_hold"] == 0.35
+    assert by["確率が無い"]["status"] == "案" and "p_hold" in by["確率が無い"]["notes"]
+    assert out["outside"] == 2 and "outside_short" not in out                # 2 束 × 外 1 本
+    cfg["ideation"]["outside_frame_min"] = 3
+    out = devloop.ideate(cfg, fake.env, "2026-11-03", logs.append, [])
+    assert out["outside_short"] == "枠の外 2 本 ＜ 下限 3 本" and any("枠の外" in m for m in logs)
+
+
+def test_calibration_counts_hits_and_warns_when_too_safe():
+    ideas = [("p", {"id": f"i{k}", "status": "回した", "p_hold": 0.1, "runs": [f"r{k}"]}, []) for k in range(5)]
+    outcomes = {f"r{k}": {"落とす"} for k in range(5)}
+    cal = devloop.calibration(ideas, outcomes)
+    assert cal["n"] == 5 and cal["acc"] == 1.0 and abs(cal["brier"] - 0.01) < 1e-9
+    text = devloop.build_register({"ideation": {"reference_pct": 30, "ideas_per_night": 5}}, ideas, [], 1, outcomes)
+    assert "探り方が安全すぎる" in text
+    outcomes["r0"] = {"保留"}
+    cal = devloop.calibration(ideas, outcomes)
+    assert cal["acc"] == 0.8
+    assert devloop.calibration([("p", {"id": "x", "status": "回した", "runs": ["r0"]}, [])], outcomes)["n"] == 0   # 確率の無い案は数えない

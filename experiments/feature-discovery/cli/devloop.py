@@ -29,6 +29,8 @@ KINDS = ("モデル", "データ", "検証方式", "物差し", "執行", "ル�
 STATUSES = ("案", "登録", "作成中", "回した", "既出", "人の手", "失敗")
 FORWARD = {"案": {"登録", "既出", "人の手"}, "登録": {"作成中", "人の手", "失敗", "既出"}, "作成中": {"回した", "失敗", "人の手"}}
 EFFORTS = ("小", "中", "大")
+FRAMES = ("内", "外")      # 問いの枠（2026-11-01 利用者「未知なものへのトライが増えたらいいな」→「推す案で」＝ rules.md 31-6）
+CONTRACT_VERSION = 2       # 段 1 の契約の版。2 から frame ／ p_hold ／ learn_if_null が要る（それより前の登録簿は求めない）
 SEATTLE = ZoneInfo("America/Los_Angeles")
 REQUIRED = ("id", "date", "title", "kind", "origin", "question", "structure", "n_trials_planned", "key_shape",
             "failure_modes", "prediction", "effort", "measurable", "touches", "status")
@@ -67,6 +69,15 @@ def validate(doc: dict, path: str) -> list[str]:
         bad.append("n_trials_planned は 0 以上の整数")
     if doc.get("effort") not in EFFORTS:
         bad.append(f"effort は {EFFORTS} のどれか")
+    if int((o if isinstance(o, dict) else {}).get("contract", 1)) >= 2:
+        # ⚠ 31-6: 問いの枠・確率つきの予想・差なしでも何が分かるか（契約 2 から）
+        if doc.get("frame") not in FRAMES:
+            bad.append(f"frame は {FRAMES} のどれか")
+        p_hold = doc.get("p_hold")
+        if not isinstance(p_hold, (int, float)) or isinstance(p_hold, bool) or not 0.0 <= float(p_hold) <= 1.0:
+            bad.append("p_hold は 0〜1 の数（保留以上の行が 1 つでも出る確率）")
+        if not str(doc.get("learn_if_null") or "").strip():
+            bad.append("learn_if_null（決着なし ／ 差なしのとき何が分かり、次に何を変えるか）が無い")
     if not str(doc.get("measurable", "")).startswith(("測れる", "測れない")):
         bad.append("measurable は「測れる: …」か「測れない: …」")
     if not str(doc.get("touches", "")).startswith(("新しいモジュールだけ", "共有の経路")):
@@ -137,7 +148,7 @@ def _toml_value(v) -> str:
 
 def dump_idea(doc: dict) -> str:
     """登録簿の 1 ファイル（機械で書く。並びは 31-1 の項目順）。"""
-    order = list(REQUIRED) + ["registered_at", "reference_mode", "notes", "runs"]
+    order = list(REQUIRED) + ["frame", "p_hold", "p_positive", "learn_if_null", "registered_at", "reference_mode", "notes", "runs"]
     keys = [k for k in order if k in doc] + [k for k in doc if k not in order]
     lines = ["# ⚠ 開発ループの登録簿（rules.md 31-1）。cli.devloop が書く。status が 登録 より先なら structure ／ prediction ／ n_trials_planned ／ key_shape を直さない（直すなら新しい id）"]
     for k in keys:
@@ -156,7 +167,45 @@ def _esc(s) -> str:
     return str(s).replace("|", "／").replace("\n", " ")
 
 
-def build_register(cfg: dict, ideas: list[tuple[str, dict, list[str]]], models: list[str] | None, n_trials: int | None) -> str:
+def run_verdicts(db: str | None) -> dict[str, set[str]] | None:
+    """実行名 → その実行が出した検証の判定の集まり（研究の DB の ledger_rows。予想の当たり方 ＝ 31-6 の 3 に使う）。"""
+    from ail import rundb, runs
+    path = db or runs.db_path()
+    if not os.path.exists(path):
+        return None
+    try:
+        conn = rundb.connect(path, readonly=True)
+        try:
+            out: dict[str, set[str]] = {}
+            for doc, verdict in conn.execute("SELECT doc, verdict FROM ledger_rows WHERE leak = 0 AND is_trial = 1"):
+                for r in (json.loads(doc).get("実行一覧") or []):
+                    out.setdefault(str(r), set()).add(str(verdict))
+            return out
+        finally:
+            conn.close()
+    except sqlite3.Error:
+        return None
+
+
+def calibration(ideas: list[tuple[str, dict, list[str]]], outcomes: dict[str, set[str]] | None) -> dict:
+    """回した案のうち p_hold のあるもの: 当たり（p ≥ 0.5 と「保留以上が出た」が一致）の割合と Brier（31-6 の 3）。"""
+    rows = []
+    for _p, d, _b in ideas:
+        if d.get("status") != "回した" or not isinstance(d.get("p_hold"), (int, float)) or not outcomes:
+            continue
+        vs = set().union(*(outcomes.get(r, set()) for r in d.get("runs") or [])) if d.get("runs") else set()
+        if not vs:
+            continue
+        hit = bool(vs & {"保留", "採る"})
+        rows.append((d["id"], float(d["p_hold"]), hit))
+    n = len(rows)
+    acc = sum((p >= 0.5) == h for _i, p, h in rows) / n if n else None
+    brier = sum((p - h) ** 2 for _i, p, h in rows) / n if n else None
+    return {"n": n, "acc": acc, "brier": brier, "rows": rows}
+
+
+def build_register(cfg: dict, ideas: list[tuple[str, dict, list[str]]], models: list[str] | None, n_trials: int | None,
+                   outcomes: dict[str, set[str]] | None = None) -> str:
     counts: dict[str, int] = {}
     for _p, d, _b in ideas:
         counts[d.get("status", "?")] = counts.get(d.get("status", "?"), 0) + 1
@@ -166,8 +215,8 @@ def build_register(cfg: dict, ideas: list[tuple[str, dict, list[str]]], models: 
              f"登録簿 {len(ideas)} 本（" + "・".join(f"{k} {v}" for k, v in sorted(counts.items())) + "）／ "
              f"r {cfg['ideation']['reference_pct']}%・N {cfg['ideation']['ideas_per_night']}", "",
              "⚠ 良し悪し・意味の有無の印は無い（利用者の指示 2026-10-24）。印は 手間・測れるか・触る場所 の 3 つ。「既出の疑い」は `key_shape` が検証結果一覧の予測モデル名に当たった数（印は人 ／ ループが付ける）。", "",
-             "| id | 題 | 種類 | 出どころ | 状態 | 登録時刻 | 数える | 識別項目の形 | 既出の疑い | 手間 | 測れるか | 触る場所 |",
-             "| --- | --- | --- | --- | --- | --- | ---: | --- | --- | --- | --- | --- |"]
+             "| id | 題 | 種類 | 枠 | 保留以上の確率 | 出どころ | 状態 | 登録時刻 | 数える | 識別項目の形 | 既出の疑い | 手間 | 測れるか | 触る場所 |",
+             "| --- | --- | --- | --- | ---: | --- | --- | --- | ---: | --- | --- | --- | --- | --- |"]
     for _p, d, bad in ideas:
         o = d.get("origin") or {}
         src = "参考あり" if o.get("source") == "reference" else "参考なし"
@@ -178,14 +227,27 @@ def build_register(cfg: dict, ideas: list[tuple[str, dict, list[str]]], models: 
         ks = d.get("key_shape", "")
         ks = " ／ ".join(ks) if isinstance(ks, list) else str(ks)
         status = d.get("status", "?") + (" ⚠ " + "・".join(bad) if bad else "")
-        lines.append(f"| `{d.get('id')}` | {_esc(d.get('title'))} | {_esc(d.get('kind'))} | {src} | {_esc(status)} | {_esc(d.get('registered_at') or '—')} | "
+        ph = f"{float(d['p_hold']):.2f}" if isinstance(d.get("p_hold"), (int, float)) else "—"
+        lines.append(f"| `{d.get('id')}` | {_esc(d.get('title'))} | {_esc(d.get('kind'))} | {_esc(d.get('frame') or '—')} | {ph} | {src} | {_esc(status)} | {_esc(d.get('registered_at') or '—')} | "
                      f"{d.get('n_trials_planned')} | `{_esc(ks)}` | {dup} | {_esc(d.get('effort'))} | {_esc(d.get('measurable'))} | {_esc(d.get('touches'))} |")
+    lines.append("")
+    cal = calibration(ideas, outcomes)
+    lines += ["## 予想の当たり方（31-6 の 3。回した案のうち確率つきの予想があるもの）", ""]
+    if cal["n"]:
+        lines.append(f"- {cal['n']} 本・当たり {cal['acc']:.0%}（確率 ≥ 0.5 と「保留以上が出た」が一致）・Brier {cal['brier']:.3f}（0 が最良・いつも 0.5 と言うと 0.25）")
+        if cal["n"] >= 5 and cal["acc"] >= 0.9:
+            lines.append("- ⚠ **当たりが 9 割を超えた ＝ 探り方が安全すぎる合図**（枠の外を増やす ／ r を下げるかは利用者）")
+        lines += [f"  - `{i}` 確率 {p:.2f} → {'保留以上あり' if h else '保留以上なし'}" for i, p, h in cal["rows"]]
+    else:
+        lines.append("- まだ無い（契約 2 の案を回すと出る）")
     lines.append("")
     for _p, d, _bad in ideas:
         lines += [f"## `{d.get('id')}` {d.get('title')}", "",
                   f"- 問い: {d.get('question')}", f"- 構造: {d.get('structure')}",
                   "- 失敗の型: " + " ／ ".join(str(x) for x in d.get("failure_modes") or []),
                   f"- 予想（先に書いた）: {d.get('prediction')}"]
+        if d.get("learn_if_null"):
+            lines.append(f"- 決着なしのとき分かること: {d['learn_if_null']}")
         o = d.get("origin") or {}
         if o.get("refs"):
             lines.append("- 参考にした記録: " + " ／ ".join(f"`{x}`" for x in o["refs"]))
@@ -257,7 +319,7 @@ def cmd_register(args) -> int:
         finally:
             conn.close()
         n_trials = int(row[0]) if row and str(row[0]).isdigit() else None
-    text = build_register(cfg, ideas, models, n_trials)
+    text = build_register(cfg, ideas, models, n_trials, run_verdicts(args.db))
     out = args.out or _path(cfg, "register")
     os.makedirs(os.path.dirname(out), exist_ok=True)
     with open(out, "w", encoding="utf-8") as f:
@@ -520,6 +582,12 @@ def register_ideas(cfg: dict, raw_ideas: list[dict], *, source: str, meta: dict,
                "measurable": str(raw.get("measurable") or ""), "touches": str(raw.get("touches") or ""), "status": "案"}
         if raw.get("reference_mode"):
             doc["reference_mode"] = str(raw["reference_mode"])
+        for k in ("frame", "learn_if_null"):
+            if raw.get(k) not in (None, ""):
+                doc[k] = str(raw[k])
+        for k in ("p_hold", "p_positive"):
+            if isinstance(raw.get(k), (int, float)) and not isinstance(raw.get(k), bool):
+                doc[k] = float(raw[k])
         doc["notes"] = f"段 1 の出力の key_shape の原文: {raw.get('key_shape')}"
         bad = validate(doc, os.path.join(ideas_dir, f"{id_}.toml"))
         if bad:
@@ -559,13 +627,19 @@ def ideate(cfg: dict, env: dict, date: str, log, models: list[str] | None) -> di
             log(f"  ⚠ 段 1（{which}）{tries} 回目: {'; '.join(res['errors']) or '結果が空'}")
         raw = parse_ideas(res["result"]) if res else []
         meta = {"r_pct": ide["reference_pct"], "n_per_night": ide["ideas_per_night"], "prompt": f"ideate_{which}",
-                "model": "claude", "cost_usd": round(res["cost"], 3) if res else 0.0, "turns": res["turns"] if res else 0}
+                "contract": int(ide.get("contract", 1)), "model": "claude", "cost_usd": round(res["cost"], 3) if res else 0.0, "turns": res["turns"] if res else 0}
         docs = register_ideas(cfg, raw, source=("reference" if which == "ref" else "independent"), meta=meta, date=date, models=models)
         out["bundles"][which] = {"n": n, "got": len(raw), "cost": round(res["cost"], 3) if res else 0.0, "turns": res["turns"] if res else 0,
                                  "errors": res["errors"] if res else ["呼ばなかった"], "tries": tries, "raw": res["result"] if res else ""}
         out["ideas"] += docs
         log(f"  段 1（{which}）: {len(raw)} ／ {n} 本・${out['bundles'][which]['cost']:.2f}・{out['bundles'][which]['turns']} turns")
     out["counts"] = {s: sum(1 for d in out["ideas"] if d["status"] == s) for s in STATUSES if any(d["status"] == s for d in out["ideas"])}
+    # ⚠ 31-6: 枠の外の本数（下限に届かなくても止めない ＝ 日誌に書く）
+    need = int(ide.get("outside_frame_min", 2))
+    out["outside"] = sum(1 for d in out["ideas"] if d.get("frame") == "外")
+    if out["outside"] < need:
+        out["outside_short"] = f"枠の外 {out['outside']} 本 ＜ 下限 {need} 本"
+        log(f"  ⚠ 段 1: {out['outside_short']}")
     return out
 
 
@@ -933,9 +1007,12 @@ def write_journal(cfg: dict, date: str, parts: dict, path: str) -> str:
         L += [f"## 段 1 アイデア出し — 参考あり {s1['n_ref']} ／ 参考なし {s1['n_free']} → " + "・".join(f"{k} {v}" for k, v in c.items()) + f"（${s1['cost']:.2f}）", ""]
         for which, b in (s1.get("bundles") or {}).items():
             L.append(f"- {which}: {b['got']} ／ {b['n']} 本・${b['cost']:.2f}・{b['turns']} turns・{b['tries']} 回" + (f"・⚠ {'; '.join(b['errors'])}" if b["errors"] else ""))
-        L += ["", "| id | 題 | 状態 | 手間 | 数える | 触る場所 |", "| --- | --- | --- | --- | ---: | --- |"]
+        if s1.get("outside_short"):
+            L.append(f"- ⚠ {s1['outside_short']}（31-6 の 1。止めない）")
+        L += ["", "| id | 題 | 枠 | 保留以上の確率 | 状態 | 手間 | 数える | 触る場所 |", "| --- | --- | --- | ---: | --- | --- | ---: | --- |"]
         for d in s1.get("ideas") or []:
-            L.append(f"| `{d['id']}` | {_esc(d['title'])} | {d['status']} | {d.get('effort')} | {d.get('n_trials_planned')} | {_esc(d.get('touches'))} |")
+            ph = f"{float(d['p_hold']):.2f}" if isinstance(d.get("p_hold"), (int, float)) else "—"
+            L.append(f"| `{d['id']}` | {_esc(d['title'])} | {d.get('frame') or '—'} | {ph} | {d['status']} | {d.get('effort')} | {d.get('n_trials_planned')} | {_esc(d.get('touches'))} |")
         L.append("")
     elif parts.get("ideate_error"):
         L += ["## 段 1 アイデア出し", "", f"⚠ 落ちた: {parts['ideate_error']}", ""]

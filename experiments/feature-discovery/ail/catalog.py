@@ -333,8 +333,11 @@ def threshold_style(cfg: dict) -> str:
     parts = []
     if n := (cfg.get("validation") or {}).get("max_train_days"):
         parts.append(f"訓練直近{int(n)}日")
-    if ((cfg.get("trading") or {}).get("execution") or "close") == "next_open":
+    ex = (cfg.get("trading") or {}).get("execution") or "close"
+    if ex == "next_open":
         parts.append("翌日始値")
+    elif ex == "next_close":
+        parts.append("翌日終値")      # ⚠ 1 日遅れの引け（rules.md 32-3。2026-11-01）
     if (c := float(cfg.get("cost_bp", 5.0))) != 5.0:
         # ⚠ 費用を上げた行（rules.md 28-3。2026-10-22）。既定 5bp（13-4）は書かない ＝ 既存の行は 1 行も割れない
         parts.append(f"費用{c:g}bp")

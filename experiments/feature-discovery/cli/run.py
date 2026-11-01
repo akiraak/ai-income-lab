@@ -54,12 +54,12 @@ EXEC_COLUMN = "y_exec"          # 翌日始値で執行したときの 1 日の�
 def execution_of(t: dict) -> str:
     """`[trading] execution`（rules.md 22-1）。⚠ **無ければ "close" ＝ 経路は 1 行も変わらない**。"""
     e = str(t.get("execution", "close"))
-    if e not in ("close", "next_open"):
-        raise SystemExit(f"⚠ trading.execution は \"close\" か \"next_open\": {e!r}（rules.md 22-1）")
+    if e not in ("close", "next_open", "next_close"):
+        raise SystemExit(f"⚠ trading.execution は \"close\" ／ \"next_open\" ／ \"next_close\": {e!r}（rules.md 22-1・32-1）")
     return e
 
 
-def next_open_returns(panel: pd.DataFrame, directory: str) -> tuple[pd.Series, int]:
+def next_open_returns(panel: pd.DataFrame, directory: str, column: str = "open") -> tuple[pd.Series, int]:
     """(y_exec, 継げなかった行の数)。y_exec[t] ＝ log(始値 t+2 ／ 始値 t+1)（rules.md 22-1）。
 
     ⚠ **始値は調整済み日足の `open`**（表の `close` と同じ層）。足の並びで 1 本先・2 本先を取ってから (銘柄, 日) で継ぐ
@@ -71,7 +71,7 @@ def next_open_returns(panel: pd.DataFrame, directory: str) -> tuple[pd.Series, i
     parts = []
     for s in panel["symbol"].unique():
         bars = _store.read_bars(directory, s)
-        o = bars["open"].astype(float).where(lambda x: x > 0)
+        o = bars[column].astype(float).where(lambda x: x > 0)   # ⚠ "close" ＝ 1 日遅れの引け（rules.md 32-1 の 2）
         parts.append(pd.DataFrame({"symbol": s, "ts": bars["ts"],
                                    EXEC_COLUMN: np.log(o.shift(-2) / o.shift(-1)).values}))
     ex = pd.concat(parts, ignore_index=True)
@@ -277,9 +277,10 @@ def evaluate_trading(panel: pd.DataFrame, feats: list[str], exp: dict, run: runs
     pexits = position_exits(t)
     # ⚠ **翌日始値で執行する**（rules.md 22 章。2026-10-08）: 状態機械に渡す損益の系列だけを `y_exec` に替える。
     # ⚠ **`execution` の無い config は `y` のまま ＝ 経路は 1 行も変わらない**（的中率・IC は常に `y` で測る）
-    next_open = execution_of(t) == "next_open"
+    # ⚠ 1 日遅れの引け（rules.md 32 章。2026-11-01）も同じ口: 系列を継ぐ値段が終値なだけ
+    next_open = execution_of(t) in ("next_open", "next_close")
     if next_open and EXEC_COLUMN not in panel:
-        raise SystemExit(f"⚠ execution = \"next_open\" には表に {EXEC_COLUMN} が要る（`next_open_returns` で継ぐ。rules.md 22-1）")
+        raise SystemExit(f"⚠ execution = \"{execution_of(t)}\" には表に {EXEC_COLUMN} が要る（`next_open_returns` で継ぐ。rules.md 22-1）")
     form = str(t.get("form", "shared"))
     v = exp.get("validation", {})
     k = int(exp.get("k", 8))
@@ -1266,12 +1267,16 @@ def main() -> None:
     # ⚠ **期間は「読んだ表」から取る**（sidecar の自己申告ではなく実物）。台帳の鍵の「期間」が
     # ⚠ **これを正として読む**（rules.md 14-4。⚠ **無い実行は「—」で、後から埋めない**）
     exec_doc = {}
-    if (exp.get("trading") or {}).get("style") == "threshold" and execution_of(exp["trading"]) == "next_open":
-        # ⚠ **特徴量を決めた後に継ぐ**（`feats` に入らない）。表は作り直さない（rules.md 22-1 の 2）
-        y_exec, missing = next_open_returns(panel, store.adjusted_dir(ds["period"]))
+    _exec = execution_of(exp.get("trading") or {})
+    if (exp.get("trading") or {}).get("style") == "threshold" and _exec in ("next_open", "next_close"):
+        # ⚠ **特徴量を決めた後に継ぐ**（`feats` に入らない）。表は作り直さない（rules.md 22-1 の 2・32-1 の 2）
+        col = "open" if _exec == "next_open" else "close"
+        y_exec, missing = next_open_returns(panel, store.adjusted_dir(ds["period"]), column=col)
         panel = panel.assign(**{EXEC_COLUMN: y_exec})
-        exec_doc = {"execution": "next_open", "exec_missing_rows": missing}
-        run.log(f"⚠ 翌日始値で執行する（rules.md 22 章）: 損益 ＝ log(始値 t+2 ／ 始値 t+1)。継げなかった {missing} 行は 0")
+        exec_doc = {"execution": _exec, "exec_missing_rows": missing}
+        what = "翌日始値（rules.md 22 章）: 損益 ＝ log(始値 t+2 ／ 始値 t+1)" if col == "open" else \
+            "1 日遅れの引け（rules.md 32 章）: 損益 ＝ log(終値 t+2 ／ 終値 t+1)"
+        run.log(f"⚠ {what} で執行する。継げなかった {missing} 行は 0")
     ts = pd.to_datetime(panel["ts"])
     run.inputs({**exec_doc, "features_file": os.path.relpath(path, store.ROOT),
                 "layer": (meta or {}).get("layer") or args.layer,

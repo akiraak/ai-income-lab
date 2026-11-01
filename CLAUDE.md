@@ -236,6 +236,7 @@ cd experiments/feature-discovery
 - 口は 3 つとも **無い config は 1 ビットも変わらない**: `[validation] max_train_days`（訓練を検証の初日より前の N 日に絞る）／ `[trading] execution = "next_open"`（損益だけ log(始値 t+2 ／ 始値 t+1)・始値は調整済み日足から継ぐ）／ 平の key `fitness = "xs_mean" | "xs_ir" | "worst4"`（GA の適合度。既定 `pooled`）
 - 識別項目: 窓と執行は **検証方式の変種** `閾値売買（訓練直近N日）`・`閾値売買（翌日始値）`（`catalog.threshold_style`・判定と数え方は `catalog.is_threshold` で閾値売買のまま。名前は `~trainN`・`~exec-open`）／ 適合度は手法名の `〔適合度・…〕`（カタログ ID の行でも鍵に残す）
 - 結果: 3 件とも採る 0（n_trials 765 → 798）。窓 ＝ 「古い行が役に立つ／邪魔」とは言えない ／ 翌日始値 ＝ ほとんど変わらない（上乗せの差 ≤ 0.87bp/日）／ 適合度 ＝ 9 行とも落とす。記録は `old-data-relevance.md` §5・`next-open-execution.md`・`evolutionary-search.md` §9
+- ✅ **2026-11-01 1 日遅れの引け `execution = "next_close"`**（rules.md 32 章・検証方式の変種 `閾値売買（翌日終値）`・名前 `~exec-close`・queue `lag1_close` ＝ 本番に入りうる人の机上の形 14 本・6 分【実測】）: 予測を前の晩・発注を翌営業日 15:50 ET にする日程（[プラン nightly-predict.md](docs/plans/nightly-predict.md)・利用者「予想をそんな１０分くらいの短い時間に縛られるのは間違っている」→「進める案で」）の机上の確かめ ＝ 採る 0 ／ 保留 13 ／ 落とす 39（1,032 → 1,084）・事前の線に当たる形 0。ハル（1 日ラベル）は縮む（素の行 −1.52bp/日・t −2.85）・先 5〜40 日の係の人は \|差\| ≤ 0.45bp/日。⚠ 1 日ラベルの leak は跳ねないのが正しい（32-1 の 5）
 
 ### experiments/feature-discovery の変換を検知器に通す口（2026-10-09 利用者決定 A「汎用の口」）
 

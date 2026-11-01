@@ -1,0 +1,11 @@
+# ⚠ **1 日遅れの引けで執行する**（rules.md 32 章・プラン docs/plans/nightly-predict.md Phase 1。2026-11-01 利用者「進める案で」）。
+# 事前固定は rules.md 32-2（⚠ 回すと決めたのは結果を見る前）。本番に入りうる人の机上の形 14 本。表は作り直さない（features_from）。
+experiments = ["lag1_trader_mix_t4", "lag1_trader_trade_own_stop_ridge_a",
+               "lag1_trader_roles_t7", "lag1_trader_roles_t8", "lag1_trader_roles_t9", "lag1_trader_roles_t10",
+               "lag1_trader_roles_t12", "lag1_trader_roles_t13", "lag1_trader_roles_t14", "lag1_trader_roles_t15",
+               "lag1_trader_roles_t16", "lag1_trader_roles_t17", "lag1_trader_roles_t18", "lag1_trader_roles_t19"]
+
+leak = true              # ⚠ 配線の穴に気づく唯一の手。切らない（1 日ラベルの leak は跳ねないのが正しい ＝ 32-1 の 5）
+ledger = false           # ⚠ 検証結果一覧は終わってから 1 回吐く
+max_failures = 2
+time_budget_s = 5400     # ⚠ 見積り 15 分【推測。horizon_roles2 の 4 本 ＋ leak が 1 分 10 秒【実測】・ハルは 3 本の学習】の 6 倍

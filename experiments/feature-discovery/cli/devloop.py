@@ -436,7 +436,9 @@ def gate(cfg: dict, env: dict, state: dict) -> str | None:
         rc, out, err = env["sh"](["git", "status", "--porcelain"], cwd=env["repo"])
         if rc:
             return f"git status が失敗: {err.strip()[-200:]}"
-        dirty = [l for l in out.splitlines() if l.strip()]
+        # ⚠ 自分の錠（devloop.lock）は数えない（night が門の前に取る ＝ 数えると門は毎晩止まる。2026-11-01 に踏んだ）
+        mine = os.path.basename((cfg.get("stop") or {}).get("lock_file", "devloop.lock"))
+        dirty = [l for l in out.splitlines() if l.strip() and os.path.basename(l[3:].strip()) != mine]
         if dirty:
             return f"作業ツリーが汚れている（利用者の未コミット {len(dirty)} 件: {', '.join(l[3:] for l in dirty[:5])}）"
     if git.get("pull", True):

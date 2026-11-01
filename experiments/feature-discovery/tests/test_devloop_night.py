@@ -169,6 +169,8 @@ def test_gate_stops_on_halt_dirty_tree_pull_and_counters(world):
     assert "止める手" in devloop.gate(cfg, fake.env, devloop.load_state(conn))
     (root / "DEVLOOP_HALT").unlink()
     assert "汚れている" in devloop.gate(cfg, FakeEnv(root, conn, dirty=" M TODO.md\n").env, devloop.load_state(conn))
+    # 自分の錠だけなら汚れていない（night が門の前に取る。2026-11-01）
+    assert devloop.gate(cfg, FakeEnv(root, conn, dirty="?? experiments/feature-discovery/devloop.lock\n").env, devloop.load_state(conn)) is None
     assert "pull" in devloop.gate(cfg, FakeEnv(root, conn, pull_rc=1).env, devloop.load_state(conn))
     st = devloop.load_state(conn)
     st["consecutive_build_failures"] = 3

@@ -1,4 +1,6 @@
 # DONE
+- 2026-11-01 日足の「分割の日の終値 1 本だけ旧目盛り」を `data-live/`（実売買）で調べ、検出器の取り違えを直した（titan・利用者「行える作業を見繕って」→「推す順で進めて」の 4）
+  `data-live/` の 63 本は欠陥 0【実測・〜9/25 の写し】・種の後の分割は `live_merge` が止める ＝ 実売買の直しは不要。⚠ `fix_split_close` が本物の下げ（C 2009-01-20 −20% など）を 4:5 の分割と読んでいた → 「終値が当日の高安の内なら直さない」を足した（テスト 1 本）。`data/adjusted` で書き換わっていた 5 日は 2018 年より前 ＝ 既存の結果は不変・書き直さない。記録 rules.md 30-9 の追記
 - 2026-10-23 「採る」になった選抜の規則（中位 48・12 か月モメンタムで選んだ 5 本・枠 $600・θ50）を、もっと広いデータで追試する [plan](docs/plans/archive/symbol-selection-widen.md)・[記録](docs/specs/experiments/symbol-selection-widen.md)
   利用者の指示（2026-10-23）: **「採るになった手法をもっと広くデータを取る。どのように広げるかも検討する」**
   対象 ＝ 検証結果一覧 978 行で唯一の「採る」（rules.md 29-9 の適用例・記録 [symbol-selection-by-training.md §6](docs/specs/experiments/symbol-selection-by-training.md)）。根拠は「中」（日次 t 1.15・DSR 0.18・乱択選抜と区別がつかない）

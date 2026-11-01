@@ -45,7 +45,8 @@ KIND_OTHER = "直す（非整数比）"
 KIND_REAL = "直さない（実際の変動）"
 KIND_CHECK = "直さない（要確認）"
 KIND_CLOSE = "直す（分割日の終値だけ）"   # 2026-10-23（rules.md 30-9）。⚠ 既定では使わない
-CLOSE_NEAR = 0.12       # 「前日終値 ≈ 当日始値」「翌日始値 ≈ 直した終値」とみなす |log| の幅
+RANGE_TOL = 0.01        # 2026-11-01: 終値がこの幅を含めて当日の高安の内なら直さない（本物の値動き）
+CLOSE_NEAR = 0.12      # 「前日終値 ≈ 当日始値」「翌日始値 ≈ 直した終値」とみなす |log| の幅
 
 
 def _snap(gap: float) -> tuple[float | None, float]:
@@ -141,6 +142,7 @@ def fix_split_close(df: pd.DataFrame) -> tuple[pd.DataFrame, list[dict]]:
     """
     d = df.reset_index(drop=True).copy()
     o, c = d["open"].to_numpy(dtype=float), d["close"].to_numpy(dtype=float).copy()
+    hi, lo = d["high"].to_numpy(dtype=float), d["low"].to_numpy(dtype=float)
     events = []
     for i in range(1, len(d) - 1):
         if min(o[i], c[i], o[i + 1], c[i - 1]) <= 0:
@@ -153,6 +155,10 @@ def fix_split_close(df: pd.DataFrame) -> tuple[pd.DataFrame, list[dict]]:
             continue
         step = ratio if gap > 1 else 1 / ratio
         fixed = c[i] / step
+        # ⚠ 2026-11-01: 終値が当日の高値・安値の内なら本物の値動き（C 2009-01-20 −20%・TSLA 2012-01-13 −19% を
+        #    5:4 ／ 4:5 の分割と取り違えていた）。旧目盛りの終値は必ず高安の外に出る（CSX 2021-06-28 ＝ 高値 32.08・終値 95.32）
+        if lo[i] * (1 - RANGE_TOL) <= c[i] <= hi[i] * (1 + RANGE_TOL):
+            continue
         if abs(np.log(c[i - 1] / o[i])) < CLOSE_NEAR and abs(np.log(fixed / o[i + 1])) < CLOSE_NEAR:
             events.append({"date": str(pd.Timestamp(d["ts"][i]).date()), "kind": KIND_CLOSE,
                            "gap": round(float(gap), 4), "ratio": round(float(step), 4),

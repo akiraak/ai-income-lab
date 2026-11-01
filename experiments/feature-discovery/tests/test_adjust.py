@@ -139,3 +139,17 @@ def test_fix_split_close_is_off_by_default():
     pd.testing.assert_frame_equal(out_default, out_plain)
     assert "fixed_split_close" in s_default and s_default["fixed_split_close"] == 0
     assert s_default["rows_rescaled"] > 0                # 今までの読み方: 翌日を分割と見て前を割る
+
+
+def test_fix_split_close_keeps_real_drop_inside_the_days_range():
+    """⚠ **本物の下げを分割と取り違えない**（2026-11-01。C 2009-01-20 は 始値 35.8 → 終値 28.0 ＝ 0.78 で 4:5 に吸着し、
+    翌日始値も近かったので「直して」いた）。終値が当日の高安の内にあれば直さない。"""
+    df = _walk()
+    real = df.copy()
+    k = 150
+    real.loc[k, "close"] = df.loc[k, "open"] * 0.8           # 1 日で −20%（安値まで売られて引けた）
+    real.loc[k, "low"] = real.loc[k, "close"] * 0.997
+    # 翌日は前の水準から寄る（C 2009-01-21 の型）＝ 旧来の条件「翌日始値 ≈ 終値 ÷ 比」を満たしてしまう
+    out, _breaks, summary = adjust.adjust(real, fix_split_close=True)
+    assert summary["fixed_split_close"] == 0
+    assert abs(out.loc[k, "close"] / out.loc[k, "open"] - 0.8) < 1e-9

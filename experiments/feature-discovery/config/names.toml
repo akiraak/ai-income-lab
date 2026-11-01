@@ -119,6 +119,11 @@
 "R11 買い先20日・売り先5日（土台差・損切りなし）" = "roles-b20-e5-centered-nostop"
 "R12 買い先40日・売り先10日（土台差・損切りなし）" = "roles-b40-e10-centered-nostop"
 "R13 買い先5日・売り先20日（対照・土台差・損切りなし）" = "roles-b5-e20-centered-nostop"
+# 開発ループの登録簿 20261025-roles-entry-stop（2026-11-01）: R6〜R9 に「建値から −10% で降りる」（simulate の形 B）を足しただけ。⚠ 登録簿の R14〜R17 は R14 が先に使われたので R15〜R18
+"R15 買い先10日・売り先5日（建値から−10%）" = "roles-b10-e5-entrystop10"
+"R16 買い先20日・売り先5日（建値から−10%）" = "roles-b20-e5-entrystop10"
+"R17 買い先40日・売り先10日（建値から−10%）" = "roles-b40-e10-entrystop10"
+"R18 買い先5日・売り先20日（対照・建値から−10%）" = "roles-b5-e20-entrystop10"
 
 [execution]
 # 閾値売買の変種「どの値段で執行したか」（rules.md 22-3）。`閾値売買（翌日始値）` → `~exec-open`。

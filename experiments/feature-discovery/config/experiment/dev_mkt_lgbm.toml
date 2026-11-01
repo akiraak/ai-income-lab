@@ -1,0 +1,40 @@
+# ⚠ **開発ループの登録簿 `20261025-mkt-layer`（参考なし）**（rules.md 31 章・記録 dev-loop.md・事前固定は登録簿）。
+#    `trade_own_lgbm_a` との違いは `feature_layers` に `mkt`（市場全体の状態の層・`ail/ideas/i20261025_mkt_layer.py`）を足した 1 点だけ。
+#    器・θ・fold（日付）・種・選別は同じ。対の相手は `trade_own_lgbm_a`（own だけ・同じ日付の表）。全部使う × θ 3 ＝ 3 検証（乱択は基準線）。
+# ⚠ 列は足 i の終値まで（own_ と同じ）＝ 予測する日の前日の終値まで（登録簿の「前日の終値までで作り」）。
+# ⚠ **回すと決めたのは結果を見る前（登録 2026-10-25 12:31 PDT）**。
+name = "dev_mkt_lgbm"
+dataset = "daily"
+horizon = 1
+cost_bp = 5.0
+features_from = "dev_mkt_ridge"  # ⚠ 表は作り直さず dev_mkt_ridge のものを読む（13-8）
+
+feature_layers = ["own", "mkt"]
+targets = "all"
+
+horizon_min = 1440.0
+bar_minutes = 1440.0
+
+selectors = ["全部使う（基準）", "乱択（基準）"]
+k = 16
+
+model = "LightGBM"
+baselines = ["常に上（ドリフト）", "直前リターンの符号"]
+
+[trading]
+style = "threshold"
+thresholds = [50, 55, 60]      # ⚠ 事前固定。結果を見て動かさない（rules.md 13-3）
+form = "shared"
+
+[validation]
+split = "walk_forward_dates"
+folds = 5
+purge = true
+embargo_bars = 0
+seed = 0
+
+[features]
+ex_lag_days = 1
+ex_zero_fill = ["usgs"]
+ex_transforms = ["d1", "z20"]
+ex_max_stale_days = 7

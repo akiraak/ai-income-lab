@@ -162,7 +162,7 @@ def portfolio_daily(sym_series: dict[str, pd.Series]) -> pd.Series:
 def simulate_topk(buy_pct, y, dates, symbols, threshold: float, k: int, cost_bp: float = 5.0,
                   exit_pct=None, price=None, budget_usd: float | None = None, rng=None,
                   rank=None, min_hold_days: int | None = None, stop_exit_pct=None,
-                  stop_blocks_buy: bool = False, hold_days=None) -> dict:
+                  stop_blocks_buy: bool = False, hold_days=None, stop_loss_pct: float | None = None) -> dict:
     """⚠ **保有できる銘柄数に上限 K を置く閾値売買**（rules.md 17 章）。⚠ **純粋関数。`simulate` は触らない。**
 
     1 fold ぶんの行（銘柄 × 日。並びは問わない）を受け、日付の順に 1 日ずつ回す。
@@ -178,6 +178,8 @@ def simulate_topk(buy_pct, y, dates, symbols, threshold: float, k: int, cost_bp:
     毎日読む出口% は d に関わらず読む）。⚠ **どちらも省けば 1 ビットも変わらない**。
     `stop_blocks_buy=True` ＝ 未保有で `stop_exit_pct > θ` の行は買いの候補にしない（rules.md 25-4 の 2。省けば 1 ビットも変わらない）。
     `hold_days=h` ＝ 行ごとの保有日数（rules.md 25-5 の 3。建てた行の `h` 営業日たったら売る。`min_hold_days` とは同時に渡せない。省けば 1 ビットも変わらない）。
+    `stop_loss_pct=x` ＝ `simulate` の形 B と同じ式（建ててからの累積対数リターンが log(1 − x/100) を割ったら降りる・最短保有の中でも読む。
+    2026-11-01・登録簿 20261025-roles-entry-stop）。省けば 1 ビットも変わらない。
 
     戻り値（行は入力と同じ並び）: pos（0/1）・weight（その行に掛かる重み）・net_unit_bp（重みを掛ける前の日次純利）・
     port_net_bp ／ port_gross_bp ／ invested（日付を index にした系列。invested ＝ その日の重みの合計）・
@@ -209,6 +211,10 @@ def simulate_topk(buy_pct, y, dates, symbols, threshold: float, k: int, cost_bp:
         if hd.shape != b.shape or np.isnan(hd).any() or (hd < 1).any() or (hd != np.floor(hd)).any():
             raise ValueError("hold_days は買い% と同じ長さの 1 以上の整数だけ（rules.md 25-5 の 3）")
         hd = hd.astype(int)
+    if stop_loss_pct is not None and not (0.0 < float(stop_loss_pct) < 100.0):
+        raise ValueError(f"stop_loss_pct = {stop_loss_pct} は受けない（0 より大きく 100 未満の %）")
+    stop_line = None if stop_loss_pct is None else float(np.log1p(-float(stop_loss_pct) / 100.0))
+    cum: dict[str, float] = {}                    # 銘柄 → 建ててからの累積対数リターン（形 B にだけ使う）
     opened: dict[str, int] = {}                   # 銘柄 → 建てた日の通し番号（最短保有・行ごとの保有日数に使う）
     hold_of: dict[str, int] = {}                  # 銘柄 → 建てた行の保有日数（25-5。`hold_days` のときだけ）
     # ⚠ 並べる値。NaN は −inf（最下位）。`rank` を省けば買い% そのもの
@@ -249,7 +255,8 @@ def simulate_topk(buy_pct, y, dates, symbols, threshold: float, k: int, cost_bp:
                 weight[i] = held[s]
                 if ((e[i] > threshold and (hold_min is None or day - opened.get(s, day) >= hold_min))   # 手仕舞う（⚠ 保有中のときだけ出口% を読む。最短保有の中は読まない）
                         or (se is not None and se[i] > threshold)                                        # 毎日読む出口（25-2）
-                        or (hd is not None and day - opened[s] >= hold_of[s])):                          # 行ごとの保有日数（25-5）
+                        or (hd is not None and day - opened[s] >= hold_of[s])                            # 行ごとの保有日数（25-5）
+                        or (stop_line is not None and cum[s] < stop_line)):                              # 形 B: 建値から −x%
                     del held[s]
                     traded[j] = True
                 else:
@@ -276,6 +283,7 @@ def simulate_topk(buy_pct, y, dates, symbols, threshold: float, k: int, cost_bp:
                 w = 1.0 / k
             held[sym[i]] = w
             opened[sym[i]] = day
+            cum[sym[i]] = 0.0
             if hd is not None:
                 hold_of[sym[i]] = int(hd[i])
             weight[i] = w
@@ -285,6 +293,10 @@ def simulate_topk(buy_pct, y, dates, symbols, threshold: float, k: int, cost_bp:
             free -= 1
             bought_syms.add(sym[i])
         net_unit[rows] = pos[rows] * yy[rows] * 1e4 - np.where(traded, half, 0.0)
+        if stop_line is not None:
+            for i in rows:
+                if pos[i] == 1:
+                    cum[sym[i]] += yy[i]          # 足の y を取ったので、翌日の判断では Σ_{建てた日..今日}
     for s in held:                                # ⚠ fold 末尾の強制清算（13-4 の 4）
         net_unit[last_row[s]] -= half
     idx = pd.Index(d, name="ts")

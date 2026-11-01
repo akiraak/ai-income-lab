@@ -295,6 +295,12 @@
         ✅ 2026-10-19 07:50 PDT: 5 段とも ✅（執行器 244 ／ 管理画面 279 ／ selftest ／ mockrun ／ 黄金の集計値 12 ＝ 1 件も変わらない。3 分 38 秒【実測 titan】）
     - [ ] Phase 5（⚠ 利用者・11/4 の後）: 誰を入れ替えるか → 13500t の予測の時間を測る → 「デプロイ」→ 名簿の ▶ 開始
       判定の雛形は [live-trading.md §2-2](docs/specs/experiments/live-trading.md)（2026-10-20 に書いた。11/5（木）06:00 PST の朝の準備で `yardstick.csv` が 11/4 まで埋まってから Sx360 の Claude が写す）
+      - [ ] 本番の 3 人のうちハル（T4）だけ残し、アキ（T1）とソラ（T6）を新しい 2 人に入れ替える
+        利用者の指示（2026-11-01）: **「現在動いているトレーダーのうちハルだけ残して、２トレーダーを入れ替えます」**
+        決めること（⚠ 利用者）: 入れる 2 人（候補の棚 ＝ `candidates/horizon/` の `T7`〜`T10`・`T12`〜`T19` など）・予算（いまは 1 人 $600・上限 $1,900 のまま）・いつ（11/4 の 20 営業日の判定の後）
+        手順: 誰かを決める → 新しい 2 人の設定を `config/traders/` 直下へ・テスト（Claude）→ 13500t で予測の時間を測る（1 人で予測 3 本 ＝ 線 60 秒の内か）→ 「デプロイ」→ 名簿でアキ・ソラに 🧹 手じまい → 持ち株 0 を確かめてから新しい 2 人に ▶ 開始（⚠ 名簿の操作・`live.env` は利用者）
+        ⚠ 手じまいは翌営業日の回で執行器が売る（指示 → 状態は次の回）。売り切る前に新しい人を入れると予算の合計が上限に当たる（後から入った人から休む）
+        関連: 「Phase 5（⚠ 利用者・11/4 の後）: 誰を入れ替えるか → 13500t の予測の時間を測る → 「デプロイ」→ 名簿の ▶ 開始」・[howto-model-trader.md](docs/specs/howto-model-trader.md) の 2-7 ／ 2-8
     - [x] Phase 6: 損切り係なしの人（`T12`〜`T15`）と、そのうえで A ＝ 土台を引いた買い%（`T16`〜`T19`）[plan §10](docs/plans/trader-model-roles.md)
       ✅ 2026-10-19 08:46 PDT 着手（titan・利用者「損切りを入れないトレーダーを用意する。そのうえで A」）。`T7`〜`T10` は触らない
       - [x] Step 6-1: 損切り係なしの組 R6〜R9 を rules.md 25-6 に登録 → `trader_roles_t12〜t15` → queue `horizon_roles4`（＋12）→ 記録 §7
@@ -337,4 +343,5 @@
     ✅ 2026-10-25 17:50 PDT titan（利用者「次へ」）: 3-1〜3-6 済み ＝ `run-devloop.sh`・`cli.devloop night`（段 0〜4・日誌・commit・状態 `queue_state` の `devloop`・錠）・`systemd/ail-devloop.{service,timer}` ＋ README・実行タブ「開発ループ」（`devloopview.py`・dashboard.md §20）・テスト 20 本。dry-run は実リポジトリと systemd-run で ✅・初回の上位 3 を `state --seed-top` で写した。⚠ timer の環境は PATH に `~/.local/bin` が無い（絶対パスなら claude -p は動く【実測 $0.21】＝ `run-devloop.sh` が足す）
     - [ ] 3-7 試運転（⚠ 利用者: `systemd/README.md` の手順で timer を入れる）→ 3 晩 ＝ 段 1 だけ自動（`[build] mode = "manual"`・段 2 は朝に手で）→ 7 晩 ＝ 全段（`mode = "claude"`）→ 記録 §3（費用【実測】・落ちた段・直したこと）
   - [ ] Phase 4（Step 4）: 毎日の結果から最良のものを見つける（選ぶ段の固定を rules.md 31 章に〔結果を見る前〕→ 週 1 回の候補の棚 `candidates/dev/`〔配線だけ〕→ 投入は利用者〔trader-loop Phase 4・検証は 3 人まで〕→ 月 1 回の棚卸し〔区分 ＝ アイデア id〕）
+    ✅ 2026-11-01 titan: 4-1（選ぶ段の固定を rules.md 31 章で確定）済み。残り 4-2 `--weekly` と候補の棚 ／ 4-3 投入（利用者）／ 4-4 棚卸し
   - [ ] Phase 5: 片付け（CLAUDE.md の節・howto §3 の 1 行・TODO → DONE・プランを archive へ）

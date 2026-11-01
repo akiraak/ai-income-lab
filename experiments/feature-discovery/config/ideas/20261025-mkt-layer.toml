@@ -13,6 +13,6 @@ prediction = "買い% の日ごとの平均が own だけより大きく上下�
 effort = "中"
 measurable = "測れる: 層の有無の対の差を同じ切れ目の fold で取る。市場の状態が効くなら時期ごとの差は数百 bp/fold の級で出る。効かないなら対の差が 0 の周りに収まることで「この列には翌日の方向の情報が無い」と言える。"
 touches = "共有の経路: ail/features（新しい層のモジュール 1 本を足し build.ORDER に 1 行）。無い config は 1 ビットも変わらないことを既存の指紋テストで見る ＝ 人の手"
-status = "登録"
+status = "回した"
 registered_at = "2026-10-25 12:31 PDT"
 notes = "key_shape の綴りを names.toml に合わせて直した（段 1 の出力は `full`。全部使う ＝ `all`）。層の綴り `mkt` は未登録（[layers]）。段 1 の出力の key_shape の原文: own-mkt.full.ridge.shared@θ ／ own-mkt.full.lgbm.shared@θ（対の相手 own.full.ridge.shared@θ ／ own.full.lgbm.shared@θ）"

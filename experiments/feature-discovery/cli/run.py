@@ -364,6 +364,8 @@ def evaluate_trading(panel: pd.DataFrame, feats: list[str], exp: dict, run: runs
             stop_all = mo.get("stop_exit")
             if mo.get("stop_blocks_buy") and stop_all is not None:
                 kw["stop_blocks_buy"] = True       # ⚠ 損切り係が言っている日は建てない（25-4。無い手法は渡さない）
+            if mo.get("entry_stop_pct") is not None:
+                kw["stop_loss_pct"] = mo["entry_stop_pct"]   # ⚠ 建値から −x%（2026-11-01。無い手法は渡さない）
             hold_all = mo.get("hold_days")         # ⚠ 行ごとの保有日数（25-5。無い手法は渡さない）
             nets: dict[str, pd.Series] = {}
             grosses: dict[str, pd.Series] = {}
@@ -699,7 +701,14 @@ def mix_specs(t: dict) -> list[dict]:
             if sb and "stop" not in roles:
                 raise SystemExit(f"⚠ trading.mix {name!r}: stop_blocks_buy = true には損切り係（stop）が要る（rules.md 25-4 の 1）")
             spec["stop_blocks_buy"] = sb
-        elif any(x["role"] is not None for x in members) or m.get("stop_blocks_buy") is not None or m.get("hold_from_buy") is not None:
+            # ⚠ 2026-11-01（登録簿 20261025-roles-entry-stop）: 建値から −x% で降りる（simulate の形 B）。既定 None ＝ 1 ビットも変わらない
+            es = m.get("entry_stop_pct")
+            if es is not None:
+                if isinstance(es, bool) or not isinstance(es, (int, float)) or not (0.0 < float(es) < 100.0):
+                    raise SystemExit(f"⚠ trading.mix {name!r} の entry_stop_pct は 0 より大きく 100 未満の %: {es!r}")
+                spec["entry_stop_pct"] = float(es)
+        elif any(x["role"] is not None for x in members) or m.get("stop_blocks_buy") is not None or m.get("hold_from_buy") is not None \
+                or m.get("entry_stop_pct") is not None:
             raise SystemExit(f"⚠ trading.mix {name!r}: role ／ stop_blocks_buy ／ hold_from_buy は combine = roles のときだけ書く（rules.md 25-2 の 1・25-4 の 1・25-5 の 4）")
         specs.append(spec)
     if len({s["name"] for s in specs}) != len(specs):
@@ -851,11 +860,13 @@ def _roles_fold(s: dict, parts: list[tuple], buy: dict, exits: dict, n_cols: dic
     n_cols[s["name"]] = 0.0
     opts[s["name"]] = {"min_hold_days": s.get("min_hold_days"), "stop_exit": stop,
                        "stop_blocks_buy": bool(s.get("stop_blocks_buy")),     # ⚠ 25-4。false なら `_row`・`_trader_fold` は渡さない
-                       "hold_days": hold}                                     # ⚠ 25-5。None なら渡さない
+                       "hold_days": hold,                                     # ⚠ 25-5。None なら渡さない
+                       "entry_stop_pct": s.get("entry_stop_pct")}             # ⚠ 2026-11-01。None なら渡さない
     miss = int(np.isnan(mixed).sum() + np.isnan(ex).sum())
     fitted_doc[s["name"]] = {"combine": MIX_ROLES, "min_hold_days": s.get("min_hold_days"),
                              "stop_blocks_buy": bool(s.get("stop_blocks_buy")),
                              "hold_from_buy": bool(s.get("hold_from_buy")),
+                             **({"entry_stop_pct": s["entry_stop_pct"]} if s.get("entry_stop_pct") is not None else {}),
                              **({"選んだ期間の分布": {str(w): int((hold == w).sum()) for w in np.unique(hold)}} if hold is not None else {}),
                              "行": int(len(mixed)), "欠けた行": miss,
                              "members": [{"experiment": m["experiment"], "method": m["method"], "role": m["role"],
@@ -998,6 +1009,8 @@ def _trader_fold(conds: list[dict], te: pd.DataFrame, y, ts_te, buy: dict, exits
             hd = None if mo.get("hold_days") is None else mo["hold_days"][mask]
             if hd is not None:
                 rk["hold_days"] = hd               # ⚠ 25-5 行ごとの保有日数
+            if mo.get("entry_stop_pct") is not None:
+                rk["stop_loss_pct"] = mo["entry_stop_pct"]   # ⚠ 建値から −x%（2026-11-01）
             ok = ~np.isnan(bp)
             hit = float(np.mean((bp[ok] > 50.0) == (yy[ok] > 0))) if ok.any() else 0.0
             ic = (float(np.corrcoef(bp[ok], yy[ok])[0, 1]) if ok.any() and np.std(bp[ok]) > 0 else 0.0)
@@ -1128,6 +1141,8 @@ def _select_fold(c: dict, te: pd.DataFrame, y, ts_te, buy: dict, exits: dict, n_
                     rk["stop_blocks_buy"] = True
             if mo.get("hold_days") is not None:
                 rk["hold_days"] = mo["hold_days"]
+            if mo.get("entry_stop_pct") is not None:
+                rk["stop_loss_pct"] = mo["entry_stop_pct"]   # ⚠ 建値から −x%（2026-11-01）
             mask_c = np.isin(syms_all, list(chosen)) if chosen else np.zeros(len(te), dtype=bool)
             bp_c = bp_all[mask_c]
             ok = ~np.isnan(bp_c)

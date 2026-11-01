@@ -27,8 +27,12 @@ def test_layer_order_keeps_existing_configs_bit_identical():
     assert build.layer_order(["cs", "own", "zzz", "trend"]) == ["own", "trend", "cs", "zzz"]   # ORDER の後ろに config の順
     assert build.layer_order(["ex", "own", "ex"]) == ["own", "ex"]
     # 登録済みの層は全部 ORDER にある ＝ 既存の config の並びは前と同じ式（[l for l in ORDER if l in layers]）
-    assert set(registry.available("feature")) <= set(build.ORDER)
+    # ⚠ 2026-11-01: `ail/ideas/` が足した層（`mkt`）は ORDER に無い ＝ 後ろに足される側。それ以外は全部 ORDER にある
+    idea_layers = {"mkt"}
+    assert set(registry.available("feature")) - idea_layers <= set(build.ORDER)
     for p in glob.glob(os.path.join(config.CONFIG, "experiment", "*.toml")):
         with open(p, "rb") as f:
             layers = tomllib.load(f).get("feature_layers", ["own"])
+        if set(layers) & idea_layers:
+            continue                               # 新しい層を使う config（dev_mkt_*）は後ろに足す形
         assert build.layer_order(layers) == [l for l in build.ORDER if l in layers], p

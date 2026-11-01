@@ -1,0 +1,11 @@
+# ⚠ **開発ループの 2 周目（手で・2026-11-01）**: 2026-10-25 に登録して残っていた 2 本（rules.md 31-2 の 3「次の晩」）。
+# `20261025-mkt-layer`（Ridge ／ LightGBM × θ 3 ＝ 6）→ `20261025-roles-entry-stop`（4 組 × 素 ＋ 条件 2 ＝ 12）＝ n_trials ＋18 の予定（1,014 → 1,032）。
+# ⚠ devloop.toml の「1 晩 n_trials ≤ 12」は運転手（毎晩）の上限。これは登録簿の残りを手で回す 1 回（登録簿どおりの数・分けて回しても数は同じ）。
+# 表: mkt は dev_mkt_ridge（＋ _leak）を作った・組は trade_own_fwdmulti_a を借りる。⚠ **回すと決めたのは結果を見る前（登録 2026-10-25 12:31 PDT）**。
+experiments = ["dev_mkt_ridge", "dev_mkt_lgbm",
+               "dev_roles_entrystop_b10e5", "dev_roles_entrystop_b20e5", "dev_roles_entrystop_b40e10", "dev_roles_entrystop_b5e20"]
+
+leak = true
+ledger = true
+max_failures = 1
+time_budget_s = 7200     # ⚠ 見積り 10 分【推測】の 10 倍以上

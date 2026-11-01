@@ -831,6 +831,78 @@ def select_stage(cfg: dict, env: dict, state: dict, date: str, log) -> dict:
     return out
 
 
+# ---------------------------------------------------------------- 週 1 回の候補の棚（rules.md 31-3 の 4・プラン 4-2・2026-11-01）
+
+WEEKLY_WEEKDAY = 5          # 土曜 01:00 の回 ＝ 金曜の晩（31-3 の 4）
+DRAFTS = os.path.abspath(os.path.join(ROOT, "..", "..", "docs", "specs", "experiments", "dev-loop", "drafts"))   # ⚠ 執行器の側（live-trading/）には書かない（allowlist の forbid）
+_RUN_ID = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}_(.+)$")
+
+
+def is_weekly_night(date: str) -> bool:
+    return dt.date.fromisoformat(date).weekday() == WEEKLY_WEEKDAY
+
+
+def draft_name(model: str, theta: str) -> str:
+    """下書きの識別名（ファイル名）。⚠ 本番の識別名（T<数>）は利用者が付ける ＝ これは仮の名前。"""
+    slug = re.sub(r"[^a-z0-9]+", "-", model.lower()).strip("-")[:60]
+    return f"dev_{slug}_{theta}"
+
+
+def draft_toml(name: str, *, experiment: str, method: str, theta: str, trial: str, date: str) -> str:
+    """配線だけの人の下書き（howto 2 章 2-1 の形・5 本・$600・整数株・asis）。"""
+    return (f"# ⚠ **下書き（候補の人ではない・本番の人ではない）**。開発ループの週 1 回の段（rules.md 31-3 の 4）が {date} に書いた。\n"
+            f"#    元の行: `{trial}`（20 章の机上で 採る ＝ 対「持ち続ける」の上乗せ > 0 かつ fold 5/5）。⚠ 成績で人を選ばない\n"
+            "# ⚠ ここ（docs/specs/experiments/dev-loop/drafts/）は外部のタブも執行器も読まない。候補にするなら利用者が呼び名を決め、識別名 T<数> で\n#    experiments/live-trading/config/traders/candidates/dev/ へ写し、\n"
+            "#    models.toml ／ traders.toml ／ compare.toml を書く（howto 2-1〜2-6）。cli.predict で予測が出るかを先に確かめる\n\n"
+            f'name = "{name}"\n'
+            "test = false\n"
+            "budget_usd = 600.0\n"
+            'symbols = ["T", "PFE", "NKE", "VZ", "BAC"]\n'
+            'sizing = "shares"\n'
+            'combine = "asis"\n'
+            f"threshold = {float(theta):.1f}\n\n"
+            "[[models]]\n"
+            'kind = "experiment"\n'
+            f'name = "{experiment}"\n'
+            f'method = "{method}"\n')
+
+
+def weekly_stage(cfg: dict, env: dict, date: str, log, drafts_dir: str | None = None) -> dict:
+    """週 1 回: `select_candidates.weekly` の行を並べ、1 本の手法の行だけ下書きを書く（合成の行は人の手）。読むのは DB と config だけ。"""
+    from cli import select_candidates as sc
+
+    drafts_dir = drafts_dir or DRAFTS
+    rows = sc.weekly(env["conn"])
+    out: dict = {"rows": [(r.name, r.method, r.fold, r.edge, r.theta) for r in rows], "drafts": [], "manual": []}
+    for r in rows:
+        base = r.method[: -len(sc.SHAPE_600)]
+        m = _RUN_ID.match((r.runs or [""])[-1])
+        if not m:
+            out["manual"].append((r.name, "実行名から実験名を引けない"))
+            continue
+        exp = m.group(1).removesuffix("_leak")
+        try:
+            with open(os.path.join(ROOT, "config", "experiment", f"{exp}.toml"), "rb") as f:
+                cfg_exp = tomllib.load(f)
+        except OSError:
+            out["manual"].append((r.name, f"config/experiment/{exp}.toml が無い"))
+            continue
+        if base in {str(x.get("name")) for x in ((cfg_exp.get("trading") or {}).get("mix") or [])}:
+            out["manual"].append((r.name, "合成の行（members と役割を人が写す）"))
+            continue
+        name = draft_name(r.model, r.theta)
+        path = os.path.join(drafts_dir, f"{name}.toml")
+        if not os.path.exists(path):
+            os.makedirs(drafts_dir, exist_ok=True)
+            with open(path, "w", encoding="utf-8") as f:
+                f.write(draft_toml(name, experiment=exp, method=base, theta=r.theta, trial=r.name, date=date))
+        out["drafts"].append(name)
+        log(f"  週 1 回: {r.name} → 下書き {name}")
+    if not rows:
+        log("  週 1 回: 候補の棚に載る行なし")
+    return out
+
+
 # ---------------------------------------------------------------- 日誌・commit・1 晩
 
 
@@ -895,6 +967,17 @@ def write_journal(cfg: dict, date: str, parts: dict, path: str) -> str:
         L.append("")
     elif parts.get("select_error"):
         L += ["## 段 4 選ぶ", "", f"⚠ 落ちた: {parts['select_error']}", ""]
+    wk = parts.get("weekly")
+    if wk is not None:
+        L += [f"## 週 1 回の候補の棚（rules.md 31-3 の 4）— 採るの 5 本・$600 の行 {len(wk['rows'])}", ""]
+        for name, method, fold, edge, theta in wk["rows"]:
+            L.append(f"- `{name}` {method}・θ {theta}・{fold}・上乗せ {edge:+,.1f}bp/fold")
+        L.append("- 下書き（`docs/specs/experiments/dev-loop/drafts/`）: " + (", ".join(f"`{d}`" for d in wk["drafts"]) or "—")
+                 + " ／ 人の手: " + (", ".join(f"`{n}`（{why}）" for n, why in wk["manual"]) or "—"))
+        L.append("- ⚠ 候補にするか・呼び名・本番に入れるかは利用者（成績で人を選ばない）")
+        L.append("")
+    elif parts.get("weekly_error"):
+        L += ["## 週 1 回の候補の棚", "", f"⚠ 落ちた: {parts['weekly_error']}", ""]
     st = parts.get("state") or {}
     L += ["## 状態", "", f"- 連続で段 2 が 0 本: {st.get('consecutive_build_failures', 0)} ／ 連続で登録 0: {st.get('consecutive_no_new', 0)} ／ "
           f"費用の累計 ${st.get('cost_usd_total', 0.0):.2f} ／ 机上の持ち越し: {', '.join(st.get('pending_shapes') or []) or '—'}", ""]
@@ -999,6 +1082,12 @@ def night(cfg: dict, env: dict, *, date: str | None = None, stages: tuple[int, .
             except Exception as e:           # noqa: BLE001
                 parts["select_error"] = f"{type(e).__name__}: {e}"
                 log(f"⚠ 段 4 が落ちた: {parts['select_error']}")
+            if is_weekly_night(date):        # ⚠ 週 1 回（31-3 の 4）。読む ＋ 下書きを書くだけ
+                try:
+                    parts["weekly"] = weekly_stage(cfg, env, date, log, drafts_dir=env.get("drafts_dir"))
+                except Exception as e:       # noqa: BLE001
+                    parts["weekly_error"] = f"{type(e).__name__}: {e}"
+                    log(f"⚠ 週 1 回の段が落ちた: {parts['weekly_error']}")
         state["cost_usd_total"] = round(float(state.get("cost_usd_total", 0.0)) + parts["cost"], 3)
         state["last_night"] = date
         state["nights"] = (state.get("nights") or [])[-29:] + [{"date": date, "cost": round(parts["cost"], 3), "stopped": parts.get("stopped") or "",

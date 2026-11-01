@@ -320,3 +320,77 @@ def test_dry_run_calls_nothing_outside(world):
     parts, _ = _night(world, fake, dry_run=True)
     assert not any(c[0] in ("claude", "queue") for c in fake.calls) and "commit" not in parts and "select" in parts
     assert devloop.load_state(conn).get("last_night") is None                 # 状態も書かない
+
+
+# --- 週 1 回の候補の棚（rules.md 31-3 の 4・2026-11-01）--------------------------------------------------------
+
+def _add_row(conn, trial, model, verdict, method, runs):
+    doc = {"手法名": method, "判定": verdict, "上乗せbp": 120.0, "上乗せfold": "5/5 ＋＋＋＋＋", "閾値": "50", "検証方式": "閾値売買",
+           "実行一覧": runs}
+    conn.execute("INSERT INTO ledger_rows (leak, trial_name, model_name, is_trial, verdict, closed, first_run, last_run, runs, doc) VALUES (0, ?, ?, 1, ?, 0, '2026-10-31', '2026-10-31', ?, ?)",
+                 (trial, model, verdict, json.dumps(runs), json.dumps(doc, ensure_ascii=False)))
+    conn.commit()
+
+
+def test_weekly_stage_drafts_single_method_and_leaves_mix_to_hand(world, tmp_path):
+    root, cfg, conn = world
+    (root / "config" / "experiment" / "trader_x.toml").write_text('name = "trader_x"\n[trading]\nstyle = "threshold"\n', encoding="utf-8")
+    (root / "config" / "experiment" / "trader_m.toml").write_text(
+        'name = "trader_m"\n[trading]\nstyle = "threshold"\n[[trading.mix]]\nname = "R99 組"\n', encoding="utf-8")
+    _add_row(conn, "own.f9-1-tr5-600.ridge.shared@50", "own.f9-1-tr5-600.ridge.shared", "採る",
+             "F9-1 試し〔トレーダー・5本・$600〕", ["2026-10-31T01-10-00_trader_x"])
+    _add_row(conn, "own.r99-tr5-600.ridge.shared@50", "own.r99-tr5-600.ridge.shared", "採る",
+             "R99 組〔トレーダー・5本・$600〕", ["2026-10-31T01-11-00_trader_m"])
+    _add_row(conn, "own.f9-2-tr5-600.ridge.shared@50", "own.f9-2-tr5-600.ridge.shared", "保留",          # 保留は載らない
+             "F9-2〔トレーダー・5本・$600〕", ["2026-10-31T01-12-00_trader_x"])
+    _add_row(conn, "own.f9-1-trall.ridge.shared@50", "own.f9-1-trall.ridge.shared", "採る",               # 2b は載らない
+             "F9-1 試し〔トレーダー・全銘柄・全部を買える予算〕", ["2026-10-31T01-10-00_trader_x"])
+    drafts = tmp_path / "drafts"
+    logs: list[str] = []
+    out = devloop.weekly_stage(cfg, {"conn": conn}, "2026-10-31", logs.append, drafts_dir=str(drafts))
+    assert sorted(r[0] for r in out["rows"]) == ["own.f9-1-tr5-600.ridge.shared@50", "own.r99-tr5-600.ridge.shared@50"]
+    assert out["drafts"] == ["dev_own-f9-1-tr5-600-ridge-shared_50"]
+    assert [n for n, _ in out["manual"]] == ["own.r99-tr5-600.ridge.shared@50"]
+    text = (drafts / "dev_own-f9-1-tr5-600-ridge-shared_50.toml").read_text(encoding="utf-8")
+    import tomllib
+    d = tomllib.loads(text)
+    assert d["budget_usd"] == 600.0 and d["threshold"] == 50.0 and d["models"] == [
+        {"kind": "experiment", "name": "trader_x", "method": "F9-1 試し"}]
+    # 2 度目は書き換えない（利用者が手で直した下書きを壊さない）
+    (drafts / "dev_own-f9-1-tr5-600-ridge-shared_50.toml").write_text(text + "# 手で直した\n", encoding="utf-8")
+    devloop.weekly_stage(cfg, {"conn": conn}, "2026-11-07", logs.append, drafts_dir=str(drafts))
+    assert (drafts / "dev_own-f9-1-tr5-600-ridge-shared_50.toml").read_text(encoding="utf-8").endswith("# 手で直した\n")
+
+
+def test_weekly_runs_only_on_saturday_and_is_in_the_journal(world, tmp_path):
+    root, cfg, conn = world
+    assert devloop.is_weekly_night("2026-10-31") and not devloop.is_weekly_night("2026-10-26")
+    fake = FakeEnv(root, conn)
+    fake.env["drafts_dir"] = str(tmp_path / "drafts")
+    logs: list[str] = []
+    parts = devloop.night(cfg, fake.env, date="2026-10-31", stages=(4,), log=logs.append)
+    assert parts["weekly"]["rows"] == []
+    text = (root / "log" / "2026-10-31.md").read_text(encoding="utf-8")
+    assert "週 1 回の候補の棚" in text
+    parts = devloop.night(cfg, fake.env, date="2026-10-26", stages=(4,), log=logs.append)
+    assert "weekly" not in parts
+
+
+# --- 月 1 回の棚卸しの材料（プラン 4-4・2026-11-01）---------------------------------------------------------
+
+def test_inventory_groups_open_holds_by_idea_id(world):
+    from cli import select_candidates as sc
+    root, cfg, conn = world
+    exp_dir = root / "config" / "experiment"
+    (exp_dir / "dev_foo.toml").write_text("# ⚠ 開発ループの登録簿 `20261101-foo`（参考なし）\nname = \"dev_foo\"\n", encoding="utf-8")
+    _add_row(conn, "own.foo.ridge.shared@50", "own.foo.ridge.shared", "保留", "Foo", ["2026-11-01T01-00-00_dev_foo"])
+    _add_row(conn, "own.r1-tr5-600.ridge.shared@50", "own.r1-tr5-600.ridge.shared", "保留", "R1〔トレーダー・5本・$600〕", ["2026-10-18T10-00-00_trader_roles_t7"])
+    _add_row(conn, "own.r2-tr5-600.ridge.shared@50", "own.r2-tr5-600.ridge.shared", "保留", "R2〔トレーダー・5本・$600〕", ["2026-10-18T10-01-00_trader_roles_t8b"])
+    _add_row(conn, "own.x.ridge.shared@50", "own.x.ridge.shared", "落とす", "X", ["2026-10-18T10-02-00_trader_roles_t9"])   # 落とすは載らない
+    conn.execute("UPDATE ledger_rows SET closed = 1 WHERE trial_name = 'own.f9-1.ridge.shared@50'")                       # 閉じた保留は載らない
+    conn.commit()
+    groups = sc.inventory(conn, experiment_dir=str(exp_dir))
+    assert {g["group"]: g["n"] for g in groups} == {"trader_roles": 2, "登録簿 20261101-foo": 1}
+    assert groups[0]["group"] == "trader_roles"                      # 行の多い順
+    text = sc.render_inventory(groups, 100)
+    assert "3 行 ／ 2 区分" in text and "閉じて" in text

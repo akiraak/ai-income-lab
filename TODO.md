@@ -344,5 +344,5 @@
     ✅ 2026-10-25 17:50 PDT titan（利用者「次へ」）: 3-1〜3-6 済み ＝ `run-devloop.sh`・`cli.devloop night`（段 0〜4・日誌・commit・状態 `queue_state` の `devloop`・錠）・`systemd/ail-devloop.{service,timer}` ＋ README・実行タブ「開発ループ」（`devloopview.py`・dashboard.md §20）・テスト 20 本。dry-run は実リポジトリと systemd-run で ✅・初回の上位 3 を `state --seed-top` で写した。⚠ timer の環境は PATH に `~/.local/bin` が無い（絶対パスなら claude -p は動く【実測 $0.21】＝ `run-devloop.sh` が足す）
     - [ ] 3-7 試運転（⚠ 利用者: `systemd/README.md` の手順で timer を入れる）→ 3 晩 ＝ 段 1 だけ自動（`[build] mode = "manual"`・段 2 は朝に手で）→ 7 晩 ＝ 全段（`mode = "claude"`）→ 記録 §3（費用【実測】・落ちた段・直したこと）
   - [ ] Phase 4（Step 4）: 毎日の結果から最良のものを見つける（選ぶ段の固定を rules.md 31 章に〔結果を見る前〕→ 週 1 回の候補の棚 `candidates/dev/`〔配線だけ〕→ 投入は利用者〔trader-loop Phase 4・検証は 3 人まで〕→ 月 1 回の棚卸し〔区分 ＝ アイデア id〕）
-    ✅ 2026-11-01 titan: 4-1（選ぶ段の固定を rules.md 31 章で確定）済み。残り 4-2 `--weekly` と候補の棚 ／ 4-3 投入（利用者）／ 4-4 棚卸し
+    ✅ 2026-11-01 titan: 4-1（選ぶ段の固定を rules.md 31 章で確定）・4-2（`--weekly` と土曜の段 `weekly_stage`・下書きは `dev-loop/drafts/`）・4-4 の材料（`--inventory`）済み。残り 4-3 投入（利用者）・月 1 回の棚卸しそのもの（案 → 利用者「閉じて」）
   - [ ] Phase 5: 片付け（CLAUDE.md の節・howto §3 の 1 行・TODO → DONE・プランを archive へ）

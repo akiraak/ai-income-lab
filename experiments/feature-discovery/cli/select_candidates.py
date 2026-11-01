@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import sqlite3
 import sys
@@ -261,6 +262,88 @@ def select(conn: sqlite3.Connection, asof: str | None = None, top: int = 3, diag
     return res
 
 
+# ---------------------------------------------------------------- 週 1 回（rules.md 31-3 の 4・プラン 4-2・2026-11-01）
+
+SHAPE_600 = "〔トレーダー・5本・$600〕"   # 20 章の条件 2a（いまの人の条件 ＝ rules.md 25-2 の 7）
+ADOPT = "採る"
+
+
+def weekly(conn: sqlite3.Connection) -> list[Row]:
+    """候補の棚に載せる行 ＝ 20 章の机上で **採る**（20-3 の 2 ＝ 対「持ち続ける」の上乗せ > 0 かつ fold 5/5）になった
+    条件 2a（5 本・$600）の行。⚠ 物差しは足さない（判定の列をそのまま読む）。並びは `sort_key`（fold の正の数 → 上乗せ）。"""
+    rows = [r for r in load_rows(conn) if r.verdict == ADOPT and r.method.endswith(SHAPE_600)]
+    return sorted(rows, key=sort_key)
+
+
+def render_weekly(rows: list[Row], n_trials: int | None) -> str:
+    L = [f"## 週 1 回の候補の棚（rules.md 31-3 の 4・読むだけ）— n_trials {n_trials if n_trials is not None else '—'}", "",
+         "- 対象 ＝ 20 章の机上で **採る** になった条件 2a（5 本・$600）の行。⚠ 候補の人にするか・呼び名・本番に入れるかは利用者（成績で人を選ばない）", ""]
+    if not rows:
+        return "\n".join(L + ["（該当なし）", ""])
+    L += ["| 検証名 | 手法 | fold | 上乗せ bp/fold | θ | 実行 |", "| --- | --- | --- | ---: | ---: | --- |"]
+    for r in rows:
+        L.append(f"| `{r.name}` | {r.method} | {r.fold} | {_f(r.edge)} | {r.theta} | `{(r.runs or ['—'])[-1]}` |")
+    return "\n".join(L + [""])
+
+
+# ---------------------------------------------------------------- 月 1 回の棚卸しの材料（プラン 4-4・2026-11-01）
+
+_IDEA_IN_CONFIG = re.compile(r"登録簿 `(\d{8}-[a-z0-9-]+)`")
+_RUN_EXP = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}_(.+)$")
+
+
+def _experiment_of(r: Row) -> str:
+    m = _RUN_EXP.match((r.runs or [""])[0])
+    return m.group(1).removesuffix("_leak") if m else "?"
+
+
+def group_of(experiment: str, experiment_dir: str | None = None) -> str:
+    """区分 ＝ 開発ループの行は **アイデア id**（config の頭の「登録簿 `<id>`」）・机上の持ち越し（`dev_tr_*`）・
+    それ以外は実験名の末尾の番号（`_t14`・`_t7b` など）を落とした族（2026-10-22 の棚卸しの「実験の族」と同じ粒度）。"""
+    if experiment.startswith("dev_tr_"):
+        return "机上の持ち越し（31-3 の 3）"
+    if experiment.startswith("dev_"):
+        path = os.path.join(experiment_dir or os.path.join(runs.ROOT, "config", "experiment"), f"{experiment}.toml")
+        try:
+            with open(path, encoding="utf-8") as f:
+                m = _IDEA_IN_CONFIG.search(f.read(2000))
+        except OSError:
+            m = None
+        return f"登録簿 {m.group(1)}" if m else f"開発ループ（id 不明）{experiment}"
+    return re.sub(r"_t\d+b?$", "", experiment)
+
+
+def inventory(conn: sqlite3.Connection, experiment_dir: str | None = None) -> list[dict]:
+    """棚卸しの材料 ＝ **保留で「閉じる」注記の無い行**を区分ごとに並べる（読むだけ）。⚠ 処遇（閉じる ／ 残す）の案は人が書き、
+    閉じるのは利用者の「閉じて」の後に `config/catalog_notes.toml` の `[[closed]]`（2026-10-22 と同じ規則・判定と n_trials は変えない）。"""
+    groups: dict[str, list[Row]] = {}
+    for r in load_rows(conn):
+        if r.verdict != VERDICT or r.closed:
+            continue
+        groups.setdefault(group_of(_experiment_of(r), experiment_dir), []).append(r)
+    out = []
+    for g, rows in sorted(groups.items(), key=lambda kv: (-len(kv[1]), kv[0])):
+        edges = [r.edge for r in rows if r.edge is not None]
+        out.append({"group": g, "n": len(rows), "edge_min": min(edges) if edges else None, "edge_max": max(edges) if edges else None,
+                    "positive": sorted(r.positive for r in rows), "first_run": min((r.first_run or "") for r in rows),
+                    "trials": [r.name for r in sorted(rows, key=sort_key)]})
+    return out
+
+
+def render_inventory(groups: list[dict], n_trials: int | None) -> str:
+    total = sum(g["n"] for g in groups)
+    L = [f"## 棚卸しの材料（保留・閉じる注記なし）— {total} 行 ／ {len(groups)} 区分 ／ n_trials {n_trials if n_trials is not None else '—'}", "",
+         "- ⚠ 処遇の案（閉じる ／ 残す）は区分ごとに人が書く・閉じるのは利用者の「閉じて」の後（`[[closed]]`）。判定と n_trials は変えない・「閉じる」は「効かないと確かめた」ではない", ""]
+    if not groups:
+        return "\n".join(L + ["（該当なし）", ""])
+    L += ["| 区分 | 行 | 上乗せ bp/fold（最小〜最大） | fold の正の数 | 最初の実行 | 検証名（並べ順・先頭 3） |", "| --- | ---: | --- | --- | --- | --- |"]
+    for g in groups:
+        rng = "—" if g["edge_min"] is None else f"{_f(g['edge_min'])} 〜 {_f(g['edge_max'])}"
+        L.append(f"| {g['group']} | {g['n']} | {rng} | {'・'.join(str(p) for p in g['positive'])} | {g['first_run'] or '—'} | "
+                 + " ／ ".join(f"`{t}`" for t in g["trials"][:3]) + (" …" if g["n"] > 3 else "") + " |")
+    return "\n".join(L + [""])
+
+
 def _f(v, digits: int = 1, sign: bool = True) -> str:
     if v is None or (isinstance(v, float) and np.isnan(v)):
         return "—"
@@ -314,8 +397,22 @@ def main(argv: list[str] | None = None) -> None:
     ap.add_argument("--all", action="store_true", help="決まり 4 まで通した全部を並べ順で出す")
     ap.add_argument("--no-diag", action="store_true", help="併記（実行の記録を読む）を省く")
     ap.add_argument("--json", default=None, help="結果を JSON で書く道")
+    ap.add_argument("--inventory", action="store_true", help="月 1 回の棚卸しの材料（保留で閉じる注記の無い行を区分ごとに）だけを出す")
+    ap.add_argument("--weekly", action="store_true", help="週 1 回の候補の棚（20 章の机上で採るになった 5 本・$600 の行）だけを出す")
     args = ap.parse_args(argv)
     conn = open_db(args.db)
+    if args.inventory:
+        try:
+            print(render_inventory(inventory(conn), meta(conn)["n_trials"]))
+        finally:
+            conn.close()
+        return
+    if args.weekly:
+        try:
+            print(render_weekly(weekly(conn), meta(conn)["n_trials"]))
+        finally:
+            conn.close()
+        return
     try:
         res = select(conn, asof=args.asof, top=args.top, diag=not args.no_diag, all_rows=args.all)
     finally:

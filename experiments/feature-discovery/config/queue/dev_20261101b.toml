@@ -1,0 +1,9 @@
+# ⚠ 開発ループ 3 周目（2026-11-01 利用者「開発ループの3周目を進めて」・手で）。登録簿 20261101 の 3 本（rules.md 31 章）。回すと決めたのは結果を見る前。
+# ⚠ 手で回すので 1 晩 ≤ 12 の上限には数えない（rules.md 31-2 の 3a）・n_trials には全部数える。順は手間の小さい順（14-10 規約 4）。
+experiments = ["dev_vol_label_own", "dev_owncs_ridge", "dev_vol_label_cs", "dev_gap_ridge",
+               "dev_roles_midcap_b10e5", "dev_roles_midcap_b20e5", "dev_roles_midcap_b40e10", "dev_roles_midcap_b5e20"]
+
+leak = true
+ledger = true
+max_failures = 2
+time_budget_s = 5400

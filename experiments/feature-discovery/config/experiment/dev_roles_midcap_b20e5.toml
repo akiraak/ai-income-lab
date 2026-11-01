@@ -1,0 +1,60 @@
+# ⚠ 開発ループ 3 周目（2026-11-01 利用者「開発ループの3周目を進めて」）。登録簿 `20261101-roles-nostop-midcap-c20`（rules.md 31 章・記録 dev-loop.md §5）。
+# ⚠ `trader_roles_t13.toml` との違い: name・dataset（中位 48 本）・start_date・targets・cost_bp 20・表は dev_roles_midcap_b10e5 を借りる・2a（5 本・$600）を外した。規則（係・最短保有・θ）は 1 ビットも動かさない。回すと決めたのは結果を見る前。
+name = "dev_roles_midcap_b20e5"
+dataset = "midcap48_daily"     # ⚠ 銘柄集合だけ中位 48 本に（材料は 63 本・当てるのは 48 本）
+horizon = 1                    # ⚠ 損益のラベルは 1 日のまま
+cost_bp = 20.0                 # ⚠ 費用の変種 閾値売買（費用20bp）（rules.md 28-3）
+features_from = "dev_roles_midcap_b10e5"   # ⚠ 表は作り直さない（同じ切れ目）
+start_date = "2018-06-27"      # ⚠ 中位 48 本の表と同じ
+
+feature_layers = ["own", "trend"]   # ⚠ 元の表と同じ（trend 層は読まない ＝ fwd_columns = own）
+label_scales = [5, 10, 20, 40]      # ⚠ 元の表と同じ
+targets = "company"
+
+horizon_min = 86400.0          # ⚠ 元の表と同じパージ（60 日 × 1440 分）
+bar_minutes = 1440.0
+
+detectors = [
+  "H3 先20日ゲート（全列・学習）",     # 買い係
+  "H2 先5日ゲート（全列・学習）",     # 売り係
+]
+
+model = "Ridge"
+baselines = ["常に上（ドリフト）", "直前リターンの符号"]
+
+[model_args]
+fwd_columns = "own"            # ⚠ 買い係・売り係は own 35 列だけ（25-1 の 2）
+
+[trading]
+style = "threshold"
+thresholds = [50]              # ⚠ 人の設定の 1 水準だけ（20-6）
+form = "shared"
+
+# ⚠ 役割つきの合わせる口（25-2）。最短保有 ＝ 買い係の期間。損切り係なし（25-6）
+[[trading.mix]]
+name = "R7 買い先20日・売り先5日（損切りなし）"
+combine = "roles"
+min_hold_days = 20
+members = [
+  { method = "H3 先20日ゲート（全列・学習）", role = "buy" },
+  { method = "H2 先5日ゲート（全列・学習）", role = "exit" },
+]
+
+# ⚠ 2b 全銘柄を買える予算（20-2）
+[[trading.trader]]
+tag = "全銘柄・全部を買える予算"
+methods = ["R7 買い先20日・売り先5日（損切りなし）"]
+
+[validation]
+split = "walk_forward_dates"
+folds = 5
+purge = true
+embargo_bars = 0
+seed = 0
+
+[features]
+trend_windows = [20]
+ex_lag_days = 1
+ex_zero_fill = ["usgs"]
+ex_transforms = ["d1", "z20"]
+ex_max_stale_days = 7

@@ -1,0 +1,17 @@
+# ⚠ 開発ループの登録簿（rules.md 31-1）。cli.devloop が書く。status が 登録 より先なら structure ／ prediction ／ n_trials_planned ／ key_shape を直さない（直すなら新しい id）
+id = "20261101-subperiod-sign-count"
+date = "2026-11-01"
+title = "評価期間を四半期に細かく切って上乗せの符号の揃いを数える物差し"
+kind = "検証方式"
+origin = { r_pct = 30, n_per_night = 5, prompt = "ideate_free", model = "claude", cost_usd = 0.544, turns = 1, source = "independent", refs = [] }
+question = "5 つの評価期間（各 ≈ 1.7 年）を学び直しは変えずに四半期ごとの非重複区間に分けて対 B&H の上乗せを出すと、「1 つの fold が作った上乗せ」とそうでない上乗せを区別できるか。"
+structure = "物差しの口 `subperiods = \"quarter\"` を足す: fold の学習・予測はそのまま、評価期間の中を暦の四半期で区切り、各区間の頭で全額現金から始めて末尾で清算した上乗せを出す（区間 ≈ 35）。列は 正の区間の割合・区間の上乗せの中央値・最大の区間を外した平均。判定式は変えず、併記の診断列として出す。当てるのは事前固定した 1 形: own 35 列 × Ridge × shared（新しい変種として回す）。口の無い config は 1 ビットも変わらない。"
+n_trials_planned = 3
+key_shape = ["own.own.ridge.shared~subq", "55", "60）"]
+failure_modes = ["区間の頭で全額現金から始めるため、持ち続けた期間の多い形ほど区間ごとの入り直しの費用で不利になる", "四半期の区間どうしが同じ相場局面で強く相関し、正の割合が独立な試行の数のように読まれる", "区間の上乗せの分散が大きく、中央値が 0 の周りに張り付いて形を区別しない"]
+prediction = "正の区間の割合は 5 割前後に散り、元の fold で正だった形でも区間の多くは 0 の周り。leak 対照は区間のほとんどで正になる。"
+effort = "中"
+measurable = "測れる: 新しい学習はせず既存の買い% から区間ごとの損益を出すだけ（leak 対照で配線を確かめられる）。ただし区間 1 つあたりの上乗せは検出限界より小さく、物差しとして効くのは区間をまたいだ符号の数のほう"
+touches = "共有の経路: ail/validation（損益の集計）・ail/catalog.py（検証方式の変種の識別）"
+status = "人の手"
+notes = "段 1 の出力の key_shape の原文: own.own.ridge.shared~subq@θ（θ ＝ 50 ／ 55 ／ 60）"

@@ -1,0 +1,21 @@
+# ⚠ 開発ループの登録簿（rules.md 31-1）。cli.devloop が書く。status が 登録 より先なら structure ／ prediction ／ n_trials_planned ／ key_shape を直さない（直すなら新しい id）
+id = "20261101-vol-scaled-label"
+date = "2026-11-01"
+title = "訓練のラベルを各銘柄のボラティリティで割って、荒い銘柄に偏らないようにする"
+kind = "モデル"
+origin = { r_pct = 30, n_per_night = 5, prompt = "ideate_ref", model = "claude", cost_usd = 1.59, turns = 7, source = "reference", refs = ["topk-holdings.md §6-4（ボラ上位の基準線がモデルの並びを上回った＝上乗せの正体は荒い銘柄への集中）", "config/names.toml [label]（断面超過ラベル ~xs-label の口）", "ledger.md §0（保留の大半は fold の符号が割れる）"] }
+question = "訓練のラベルを y ÷（その銘柄の直近 60 日の日次 σ）に替えて学ぶと、買い% の並びと閾値売買の上乗せは素のラベルのときと違うか。上位 K で起きた「荒い銘柄に集中する」動きは、モデルを使わない並べ方の基準線と比べて減るか。"
+structure = "prep.train_label に新しい種類 label = \"vol_scaled\" を足す（既存の xs_excess と同じ口・無い config は 1 ビットも変わらない）。σ はその日までの own_ の観測期間 60 日の列から as-of で取る（未来を見ない）。評価の損益は今までの y のまま。検証方式の変種は「閾値売買（ボラ割りラベル）」・名前 ~vol-label。表は own_2018 と cs ＋ own の 2 種類 × Ridge × θ 3 水準。比べる相手は同じ表・同じ切れ目の素のラベルの行（対の差）と、表に close があれば自動で出る 基準 ボラ上位（数えない）。違い: 既存の ~xs-label は断面の平均を引くだけで、銘柄ごとの荒さで割ってはいない"
+n_trials_planned = 6
+key_shape = ["own.<既存の選び方・作り方>.ridge.shared~vol-label", "own-cs.<既存>.ridge.shared~vol-label"]
+failure_modes = ["σ で割るとラベルの裾が縮み、Ridge の買い% の幅がさらに潰れて門前（幅 < 20 点）になる＝θ をまたがず「ずっと持つ／ずっと休む」になる", "σ が小さい日（静かな相場）にラベルが膨らみ、静かな fold だけで上乗せが決まる（1 つの fold が作る）", "σ の列を作るときに当日の y が入って leak（leak 対照と同じ程度に跳ねたら配線を疑う）"]
+prediction = "素のラベルとの対の差は 6 対とも |t| < 2 で、向きはそろわない。上乗せは B&H 未満（fold の符号は割れる）。荒い銘柄に偏る動き（選んだ銘柄の平均 σ）は素のラベルより下がる。leak は跳ねる"
+effort = "小"
+measurable = "測れる: 対の差（同じ切れ目・fold の対）と fold の符号、選んだ銘柄の σ の平均という配線の診断は数百 bp/fold 級なら拾える。0.1bp/日 級の差は測れない（その大きさなら「決着なし」と書く）"
+touches = "共有の経路: ail/validation の prep.train_label（ラベルの口）・ail/catalog.py の threshold_style（変種の名前）・config/names.toml の [label]"
+status = "回した"
+registered_at = "2026-11-01 15:12 PST"
+reference_mode = "避ける"
+notes = "段 1 の出力の key_shape の原文: own.<既存の選び方・作り方>.ridge.shared~vol-label@θ ／ own-cs.<既存>.ridge.shared~vol-label@θ ／ 3 周目の作り（2026-11-01 回す前）: own ＋ cs の閾値売買の表が既に無いので、対の相手として素のラベルの dev_owncs_ridge を新しく回す（＋3）。σ は own_vol_60（標準化の前）・欠けた ／ 0 以下は訓練の正の σ の中央値。"
+runs = ["2026-11-01T15-17-50_dev_vol_label_own", "2026-11-01T15-18-19_dev_owncs_ridge", "2026-11-01T15-18-49_dev_vol_label_cs"]
+built_by = "人の手（利用者のセッション）"

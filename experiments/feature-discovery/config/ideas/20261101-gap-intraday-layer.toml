@@ -1,0 +1,20 @@
+# ⚠ 開発ループの登録簿（rules.md 31-1）。cli.devloop が書く。status が 登録 より先なら structure ／ prediction ／ n_trials_planned ／ key_shape を直さない（直すなら新しい id）
+id = "20261101-gap-intraday-layer"
+date = "2026-11-01"
+title = "夜間（前日終値→始値）と日中（始値→終値）に分けたリターンの層"
+kind = "データ"
+origin = { r_pct = 30, n_per_night = 5, prompt = "ideate_free", model = "claude", cost_usd = 0.544, turns = 1, source = "independent", refs = [] }
+question = "日足の 1 日のリターンを夜間のギャップと日中の動きに分け、それぞれの過去の積み上がりを説明変数にすると、翌日の方向の情報が足されるか。"
+structure = "新しい層 `gap_`（接頭辞 gap_）を足す。列の種類を事前固定: 夜間リターン・日中リターンそれぞれの 観測期間 1 ／ 5 ／ 20 日の和、両者の符号が逆だった日の割合（20 日）、夜間 ÷ 日中の絶対値の比（20 日）。調整済みの始値・終値だけから作る。表は own ＋ gap と、対の相手 own だけ。学習器 Ridge・学習範囲 shared。層の無い config は 1 ビットも変わらない。"
+n_trials_planned = 3
+key_shape = ["own+gap.own.ridge.shared", "55", "60）"]
+failure_modes = ["調整済みの始値が配当・分割の日に旧目盛りのまま残り、夜間リターンに偽の跳ねが入る", "own の列（高値安値の位置など）と線形にほぼ同じで、Ridge の買い% が 1 ビットも変わらない", "ETF と会社で夜間の動きの大きさが桁で違い、shared の学習で片方に引っ張られる"]
+prediction = "own だけとの対の差は小さく、符号は fold で割れる。leak 対照は跳ねる。"
+effort = "小"
+measurable = "測れる: 同じ切れ目の own だけの行と fold 対で比べられる（数百 bp/fold 級の差に限る）"
+touches = "共有の経路: ail/features（新しい層）・cli/build.py（層の順）"
+status = "回した"
+registered_at = "2026-11-01 15:12 PST"
+notes = "段 1 の出力の key_shape の原文: own+gap.own.ridge.shared@θ（θ ＝ 50 ／ 55 ／ 60） ／ 3 周目の作り（2026-11-01 回す前）: ail/ideas/i20261101_gap_layer.py（8 列）・表は dev_gap_ridge が作る（own ＋ gap・2018-01-31 から）・対の相手は own_2018。"
+runs = ["2026-11-01T15-19-18_dev_gap_ridge"]
+built_by = "人の手（利用者のセッション）"

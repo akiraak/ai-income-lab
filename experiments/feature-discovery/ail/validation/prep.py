@@ -41,6 +41,8 @@ def apply(exp: dict, Xtr: pd.DataFrame, Xte: pd.DataFrame, ctx: dict, ytr=None, 
 
 
 XS_LABEL = "xs_excess"     # 登録簿 20261025-xs-excess-label（2026-10-25）
+VOL_LABEL = "vol_scaled"   # 登録簿 20261101-vol-scaled-label（2026-11-01）
+VOL_COLUMN = "own_vol_60"  # その銘柄の直近 60 日の日次 σ（足 t の終値まで ＝ 未来を見ない）
 
 
 def train_label(exp: dict, tr: pd.DataFrame):
@@ -53,8 +55,15 @@ def train_label(exp: dict, tr: pd.DataFrame):
     kind = exp.get("label")
     if not kind:
         return tr["y"].values
+    if kind == VOL_LABEL:
+        # 訓練のラベルを y ÷ σ（`own_vol_60`・標準化の前の値）にする。⚠ σ が欠けた ／ 0 以下の行は訓練の σ の中央値で割る（行を落とさない）
+        if VOL_COLUMN not in tr:
+            raise SystemExit(f"⚠ label = {VOL_LABEL!r} には表に {VOL_COLUMN} が要る（own 層）")
+        sig = tr[VOL_COLUMN].astype(float)
+        sig = sig.where(sig > 0).fillna(float(sig[sig > 0].median()))
+        return (tr["y"].astype(float) / sig).to_numpy(dtype=float)
     if kind != XS_LABEL:
-        raise SystemExit(f"⚠ label = {kind!r} は受けない（{XS_LABEL!r} だけ。rules.md 31 章の登録簿）")
+        raise SystemExit(f"⚠ label = {kind!r} は受けない（{XS_LABEL!r} ／ {VOL_LABEL!r} だけ。rules.md 31 章の登録簿）")
     y = tr["y"].astype(float)
     return (y - y.groupby(tr["ts"]).transform("mean")).to_numpy(dtype=float)
 

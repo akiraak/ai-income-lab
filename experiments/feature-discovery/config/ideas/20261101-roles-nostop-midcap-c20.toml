@@ -1,0 +1,20 @@
+# ⚠ 開発ループの登録簿（rules.md 31-1）。cli.devloop が書く。status が 登録 より先なら structure ／ prediction ／ n_trials_planned ／ key_shape を直さない（直すなら新しい id）
+id = "20261101-roles-nostop-midcap-c20"
+date = "2026-11-01"
+title = "損切りなしの役割つきの組（R6〜R9）を中位 48 本の表に、費用 20bp で当てる"
+kind = "検証方式"
+origin = { r_pct = 30, n_per_night = 5, prompt = "ideate_ref", model = "claude", cost_usd = 1.59, turns = 7, source = "reference", refs = ["horizon-roles-trader.md §4（限界 1・2：買い% の幅が潰れた fold では期間を測れない）・§5（2b：損切りで買いを止めると戻りを取り損ねる）", "config/names.toml [mix] R6〜R9（損切りなし）", "CLAUDE.md の段 2b 記録の写し（費用 20bp の変種・気配の差の実測 中位 48 ≈ 5.5〜6.5bp・小型 50 ≈ 15bp）"] }
+question = "保留だった R6〜R9（買い係 先 b 日・売り係 先 e 日・最短保有・損切りなし）の形を、銘柄集合だけ中位 48 本に替え、気配の差の実測に近い費用 20bp で回すと、上乗せの向きと fold の割れ方は us63 のときと同じか。"
+structure = "規則（係の期間の組 4 つ・最短保有 d ＝ b・θ 50・combine = roles・損切り係なし）は 1 ビットも動かさない。替えるのは表（midcap48_daily ＋ own 35 列・fwd_columns = own で H1〜H4 を学び直す）と費用の変種「閾値売買（費用20bp）」（既存の口 ~cost20）だけ。条件は素の行と 2b（全銘柄・全部を買える予算）。2a の決めた 5 本は中位 48 本の外なので回さない。違い: 既存の roles-*-nostop は daily（us63）・費用 5bp だけで、~midcap48 と ~cost20 の組は無い"
+n_trials_planned = 8
+key_shape = ["own.roles-b10-e5-nostop.ridge.shared~midcap48~cost20", "own.roles-b10-e5-nostop-trall.ridge.shared~midcap48~cost20", "b40-e10"]
+failure_modes = ["中位 48 本の表でも買い% の幅が潰れる fold（毎日 θ の上）があり、4 組が同じ数字になる＝期間の違いを測れない", "費用 20bp で売り係（先 5 日）の往復の費用が上乗せを全部食い、4 組とも B&H を下回る（X2 費用で消える）", "中位 48 本は 2026 年時点の集合なので生存バイアスが us63 より大きく、上げ相場の fold が作る上乗せになる"]
+prediction = "4 組とも素の行は B&H 未満で、fold の符号は割れる（上げ相場の fold が負）。2b は us63 のときより上乗せが小さく、売り係の期間が短い組（e ＝ 5）ほど費用 20bp で下がる。採る 0。leak は跳ねる"
+effort = "中"
+measurable = "測れる: us63 で保留になった上乗せ（数百 bp/fold 級）と同じ物差しで、向きと fold の符号がそろうかを見る。費用の差は式 純利(c) ＝ 粗利 −（粗利 − 純利₅）× c ／ 5 で検算できる。数十 bp/fold の違いは測れない"
+touches = "新しいモジュールだけ（config/experiment と config/queue を足すだけ。口 ~cost20・combine = roles・fwd_columns・midcap48 の表は既存）"
+status = "回した"
+registered_at = "2026-11-01 15:07 PST"
+reference_mode = "当てる"
+notes = "段 1 の出力の key_shape の原文: own.roles-b10-e5-nostop.ridge.shared~midcap48~cost20@50 ／ own.roles-b10-e5-nostop-trall.ridge.shared~midcap48~cost20@50（b20-e5 ／ b40-e10 ／ b5-e20 も同じ形） ／ 3 周目の作り（2026-11-01 回す前）: 表は dev_roles_midcap_b10e5 が作る（中位 48 本・own ＋ trend・先 5〜40 日）。各 config は係の単体の行（H1〜H4 × θ 50・費用 20bp）も出す ＝ 数は計画の 8 より最大 4 多い（全部数える）。"
+runs = ["2026-11-01T15-19-47_dev_roles_midcap_b10e5", "2026-11-01T15-20-12_dev_roles_midcap_b20e5", "2026-11-01T15-20-37_dev_roles_midcap_b40e10", "2026-11-01T15-21-01_dev_roles_midcap_b5e20"]

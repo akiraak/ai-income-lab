@@ -209,8 +209,11 @@ def cmd_register(args) -> int:
         if i not in by_id:
             raise SystemExit(f"⚠ 登録簿に {i!r} が無い")
         p, d, bad = by_id[i]
-        if d.get("status") != "案":
-            raise SystemExit(f"⚠ {i}: 登録できるのは 案 だけ（いま {d.get('status')}。31-1 の 2）")
+        if d.get("status") not in ("案", "人の手"):
+            raise SystemExit(f"⚠ {i}: 登録できるのは 案 ／ 人の手 だけ（いま {d.get('status')}。31-1 の 2）")
+        if d.get("status") == "人の手":
+            # ⚠ 人の手 ＝ 自動では作らず利用者のセッションで作る（K7）。そのセッションで作ると決めたら、ここで登録する（2026-11-01 の 3 周目）
+            d["built_by"] = "人の手（利用者のセッション）"
         if bad:
             raise SystemExit(f"⚠ {i}: 項目がそろっていない ＝ 登録できない（31-1 の 3）: " + "・".join(bad))
         d["status"], d["registered_at"] = "登録", now_seattle()

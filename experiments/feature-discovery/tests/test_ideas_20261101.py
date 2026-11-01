@@ -1,0 +1,59 @@
+"""登録簿 2026-11-01 の 2 本: 夜間 ／ 日中の層 `gap_`（`ail/ideas/i20261101_gap_layer.py`）とボラ割りラベル（`prep.train_label`）。
+
+⚠ 見るもの: 無い config は 1 ビットも変わらない ／ 足 i の値は足 i までで決まる ／ 列の中身 ／ ラベル ＝ y ÷ own_vol_60・欠けた σ は中央値・識別項目。
+"""
+
+from __future__ import annotations
+
+import numpy as np
+import pandas as pd
+import pytest
+
+import ail.bootstrap  # noqa: F401
+from ail import catalog, names, registry
+from ail.ideas import i20261101_gap_layer as gap
+from ail.validation import prep
+from cli import build
+
+
+def _df(n=80, seed=0):
+    rng = np.random.default_rng(seed)
+    c = 50 * np.exp(np.cumsum(rng.normal(0, 0.01, n)))
+    o = c * np.exp(rng.normal(0, 0.005, n))
+    return pd.DataFrame({"ts": pd.date_range("2020-01-01", periods=n, freq="B", tz="UTC"), "open": o, "close": c})
+
+
+def test_gap_layer_is_opt_in_and_correct():
+    assert "gap" in registry.available("feature") and "gap" not in build.ORDER
+    assert build.layer_order(["own"]) == ["own"]
+    df = _df()
+    x = gap.gap_one(df)
+    on = np.log(df["open"] / df["close"].shift(1))
+    iday = np.log(df["close"] / df["open"])
+    assert x["on_1"].iloc[10] == pytest.approx(on.iloc[10]) and x["id_5"].iloc[30] == pytest.approx(iday.iloc[26:31].sum())
+    assert x["on_1"].iloc[1] + x["id_1"].iloc[1] == pytest.approx(np.log(df["close"].iloc[1] / df["close"].iloc[0]))   # 夜間 ＋ 日中 ＝ 1 日
+    assert ((x["opp_20"].dropna() >= 0) & (x["opp_20"].dropna() <= 1)).all()
+    out = registry.resolve("feature", "gap")({"A": df}, {})
+    assert list(out["A"].columns) == [f"gap_{c}" for c in gap.COLUMNS]
+
+
+def test_gap_layer_no_lookahead():
+    df = _df()
+    full = gap.gap_one(df)
+    part = gap.gap_one(df.iloc[:50])
+    pd.testing.assert_frame_equal(full.iloc[:50], part)
+
+
+def test_vol_scaled_label():
+    tr = pd.DataFrame({"y": [0.02, -0.01, 0.03, 0.0], "own_vol_60": [0.01, 0.02, np.nan, 0.0], "ts": [1, 1, 2, 2]})
+    assert np.array_equal(prep.train_label({}, tr), tr["y"].values)                   # 無い config は y のまま
+    got = prep.train_label({"label": "vol_scaled"}, tr)
+    med = 0.015                                                                         # 正の σ の中央値
+    assert got == pytest.approx([2.0, -0.5, 0.03 / med, 0.0])
+    with pytest.raises(SystemExit):
+        prep.train_label({"label": "vol_scaled"}, tr.drop(columns="own_vol_60"))
+    style = catalog.threshold_style({"trading": {"style": "threshold"}, "label": "vol_scaled"})
+    assert style == "閾値売買（ボラ割りラベル）" and catalog.is_threshold(style)
+    key = dict(鍵="全部使う（基準）", モデル="Ridge", 粒度="日足", 地平="1 本（1 日）", 特徴量の層="own",
+               層="adjusted", 期間="2018-01-31", 銘柄="63", 検証方式=style, 形式="共通", 較正="std", 閾値="50")
+    assert names.trial_name(key) == "own.all.ridge.shared~vol-label@50"

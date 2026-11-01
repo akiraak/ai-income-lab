@@ -1,0 +1,30 @@
+# ⚠ 開発ループ 3 周目（2026-11-01）。登録簿 `20261101-vol-scaled-label` の **対の相手**（own ＋ cs の表・素のラベル）。表はここで作る。
+# ⚠ 既存に own ＋ cs だけの閾値売買の表が無いので新しく回す（＋3 検証。回すと決めたのは結果を見る前）。
+name = "dev_owncs_ridge"
+dataset = "daily"
+horizon = 1
+cost_bp = 5.0
+start_date = "2018-01-31"      # ⚠ own_2018 と同じ
+feature_layers = ["own", "cs"]
+targets = "all"
+horizon_min = 1440.0
+bar_minutes = 1440.0
+selectors = ["全部使う（基準）", "乱択（基準）"]
+k = 16
+model = "Ridge"
+baselines = ["常に上（ドリフト）", "直前リターンの符号"]
+
+[trading]
+style = "threshold"
+thresholds = [50, 55, 60]
+form = "shared"
+
+[validation]
+split = "walk_forward_dates"
+folds = 5
+purge = true
+embargo_bars = 1               # ⚠ 断面は同じ足の他銘柄を見るので、境目を 1 本空ける
+seed = 0
+
+[features]
+beta_window = 60

@@ -1,0 +1,17 @@
+# ⚠ 開発ループの登録簿（rules.md 31-1）。cli.devloop が書く。status が 登録 より先なら structure ／ prediction ／ n_trials_planned ／ key_shape を直さない（直すなら新しい id）
+id = "20261101-deadzone-label"
+date = "2026-11-01"
+title = "小さな値動きの日を訓練のラベルから外す"
+kind = "モデル"
+origin = { r_pct = 30, n_per_night = 5, prompt = "ideate_free", model = "claude", cost_usd = 0.544, turns = 1, source = "independent", refs = [] }
+question = "翌日の動きが自分の直近のボラティリティに比べて小さい行を訓練から外し、大きく動いた日だけで「上がるか」を学ばせると、買い% の並びと閾値売買の上乗せはどう変わるか。"
+structure = "訓練のラベルに口 `label_deadzone` を足す（評価・較正の行は外さない）。水準の種類は 2 つを事前固定: (a) |y| が銘柄ごとの直近 60 日の日次 σ の 0.25 倍未満の行を外す ／ (b) 同 0.5 倍未満を外す。学習器は Ridge・入力は own 35 列・学習範囲 shared。対の相手は口の無い同じ形（既存の行）。無い config は 1 ビットも変わらない。"
+n_trials_planned = 6
+key_shape = ["own.own~deadzone-<a|b>.ridge.shared", "55", "60）"]
+failure_modes = ["外した行の割合が fold ごとに大きく違い、訓練の行数の差が成績の差に混ざる", "較正の土台（上がる割合）が外した後の訓練に合わせて動き、買い% の幅が狭まって門前になる", "σ の計算窓が評価期間の頭で訓練の尻の行を使い、パージが足りなくなる"]
+prediction = "買い% の幅は口の無い形より広がる向き。上乗せの向きは fold ごとに割れ、5 fold の符号はそろわない。leak 対照は口の有無にかかわらず跳ねる。"
+effort = "小"
+measurable = "測れる: 対の相手が同じ表・同じ切れ目なので fold 対の差で数百 bp/fold の差なら見える（それ未満は測れない）"
+touches = "共有の経路: ail/validation（訓練のラベルを作る prep）・ail/catalog.py（検証方式の変種の識別）"
+status = "人の手"
+notes = "段 1 の出力の key_shape の原文: own.own~deadzone-<a|b>.ridge.shared@θ（θ ＝ 50 ／ 55 ／ 60）"

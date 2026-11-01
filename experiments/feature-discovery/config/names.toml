@@ -134,6 +134,7 @@
 [label]
 # 訓練のラベルを替えた閾値売買の変種（開発ループの登録簿 20261025-xs-excess-label・rules.md 31 章。2026-10-25）。`閾値売買（断面超過ラベル）` → `~xs-label`
 "断面超過ラベル" = "xs-label"
+"ボラ割りラベル" = "vol-label"      # 登録簿 20261101-vol-scaled-label（2026-11-01）
 
 [fitness]
 # GA の適合度を替えた行（rules.md 23-2）。`F4-1〔適合度・断面の平均〕` → `f4-1-fit-xsmean`

@@ -344,6 +344,8 @@ def threshold_style(cfg: dict) -> str:
     if cfg.get("label") == "xs_excess":
         # ⚠ 訓練のラベルを断面の超過リターンにした行（開発ループの登録簿 20261025-xs-excess-label。2026-10-25）。無い config は書かない ＝ 既存の行は割れない
         parts.append("断面超過ラベル")
+    elif cfg.get("label") == "vol_scaled":
+        parts.append("ボラ割りラベル")   # 開発ループの登録簿 20261101-vol-scaled-label（2026-11-01）
     return "閾値売買" + (f"（{'・'.join(parts)}）" if parts else "")
 
 

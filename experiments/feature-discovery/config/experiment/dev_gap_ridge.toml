@@ -1,0 +1,37 @@
+# ⚠ 開発ループ 3 周目（2026-11-01 利用者「開発ループの3周目を進めて」）。登録簿 `20261101-gap-intraday-layer`（rules.md 31 章・記録 dev-loop.md §5）。回すと決めたのは結果を見る前。
+# 対の相手 ＝ own_2018 の行（既存。同じ期間・同じ切れ目）。表はここで作る（own ＋ gap）。
+name = "dev_gap_ridge"
+dataset = "daily"
+horizon = 1
+cost_bp = 5.0
+start_date = "2018-01-31"      # ⚠ own_2018 と同じ（外部系列が揃う最初の日）
+
+feature_layers = ["own", "gap"]
+targets = "all"
+
+horizon_min = 1440.0
+bar_minutes = 1440.0
+
+selectors = ["全部使う（基準）", "乱択（基準）"]
+k = 16
+
+model = "Ridge"
+baselines = ["常に上（ドリフト）", "直前リターンの符号"]
+
+[trading]
+style = "threshold"
+thresholds = [50, 55, 60]      # ⚠ 事前固定。結果を見て動かさない（rules.md 13-3）
+form = "shared"
+
+[validation]
+split = "walk_forward_dates"
+folds = 5
+purge = true
+embargo_bars = 0
+seed = 0
+
+[features]
+ex_lag_days = 1
+ex_zero_fill = ["usgs"]
+ex_transforms = ["d1", "z20"]
+ex_max_stale_days = 7

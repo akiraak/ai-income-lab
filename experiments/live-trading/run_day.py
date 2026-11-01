@@ -179,6 +179,9 @@ def main() -> int:
     ap.add_argument("--mode", default="dry-run", choices=["plan", "dry-run", "submit"])
     ap.add_argument("--ignore-window", action="store_true", help="15:45〜16:05 ET の外でも動かす（テスト・モック用）")
     ap.add_argument("--predict", default=None, help="experiment モデルが読む predict.jsonl（既定 out/<日付>/predict.jsonl）")
+    ap.add_argument("--signal-date", default=None,
+                    help="予測の行を引く日付（夜の予測 ＝ 前の営業日。2026-11-01 nightly-predict.md）。無ければ --date と同じ ＝ 今までの形。"
+                         "submit で前の営業日でなければ起動を拒む（rc=13）")
     ap.add_argument("--out-dir", default=os.environ.get("LT_OUT_DIR") or os.path.join(HERE, "out"))
     ap.add_argument("--state-dir", default=None, help="既定は state/<env>/（cert と prod の売買履歴を混ぜない）")
     ap.add_argument("--traders-dir", default=os.environ.get("LT_TRADERS_DIR") or os.path.join(HERE, "config", "traders"))
@@ -238,6 +241,7 @@ def main() -> int:
             return 2
     print(modes.banner(machine, CLOCK.describe() if sim else ""))
     date = args.date or now_et().strftime("%Y-%m-%d")
+    signal_date = args.signal_date or date      # ⚠ 無ければ今までと 1 ビットも同じ（sim ・mockrun ・テスト）
     run_id = CLOCK.now().strftime("%Y%m%dT%H%M%SZ")
 
     from_roster = args.traders.strip() == roster.TOKEN
@@ -284,6 +288,7 @@ def main() -> int:
             "halt_file": halt_file, "now_et": now_et().isoformat(timespec="seconds"), "sdk": record.sdk_versions(),
             "max_total_budget": args.max_total_budget, "max_day_usd": args.max_day_usd,
             **({"roster": True} if from_roster else {}),
+            **({"signal_date": signal_date} if args.signal_date else {}),
             **({"flags": {t.name: flags[t.name].describe() for t in traders if flags[t.name]}} if any(flags.values()) else {})}
     if sim:
         meta["sim_name"], meta["sim_speed"] = machine.name, CLOCK.control()["speed"]
@@ -332,6 +337,17 @@ def main() -> int:
         rec.write("events", {**meta, "kind": "out_of_window", "reason": refusal, "note": "NYSE の営業日の 15:45〜16:05 ET の外では発注しない"})
         print(f"拒否: {refusal}。テストなら --ignore-window", file=sys.stderr)
         return 4
+    if args.signal_date and args.mode == "submit":
+        # ⚠ 古い予測の歯止め（本体。nightly-predict.md §8-2 の 3）: 夜の予測は「前の営業日」の終値で作ったものだけを読む
+        try:
+            expected = market_calendar.nyse().previous_trading_day(datetime.strptime(date, "%Y-%m-%d").date()).isoformat()
+        except ValueError as exc:
+            expected = f"（{exc}）"
+        if signal_date != expected:
+            rec.write("events", {**meta, "kind": "refused_stale_predict", "signal_date": signal_date, "expected": expected,
+                                 "note": "予測が前の営業日の夜のものではないので発注しない（その場で予測して埋めることはしない）"})
+            print(f"拒否: 予測の日付 {signal_date} が前の営業日 {expected} ではない。今日は発注しない", file=sys.stderr)
+            return 13
     rec.write("events", meta)
 
     states = {t.name: load_state(state_dir, t.name) for t in traders}
@@ -392,7 +408,7 @@ def main() -> int:
             rec.write("events", {"kind": "liquidate_done", "trader": t.name, "done": flags[t.name].done,
                                  "note": "手じまいは済んでいる（停止。開始の指示があるまで買わない）"})
     try:
-        sigs, sig_events = signalling.collect(active, date, predict_path,
+        sigs, sig_events = signalling.collect(active, signal_date, predict_path,
                                               positions={(t.name, s): states[t.name].position(s) for t in active for s in t.symbols})
     except signalling.SignalError as exc:
         rec.write("events", {"kind": "signal_error", "note": str(exc)})
@@ -403,6 +419,7 @@ def main() -> int:
     for sg in sigs:
         rec.write("signals", {"trader": sg.trader, "symbol": sg.symbol, "buy": sg.buy, "exit": sg.exit, "inputs": [list(i) for i in sg.inputs],
                               "position_before": states[sg.trader].position(sg.symbol), "test": sg.test,
+                              **({"signal_date": signal_date} if args.signal_date else {}),
                               **({"stop": sg.stop} if sg.stop is not None else {})})     # 毎日読む出口%（損切り係のある人だけ）
 
     # ---- 3. 状態機械 → 気配 → 株数 → 合算

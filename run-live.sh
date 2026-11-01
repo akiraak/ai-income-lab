@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
-# 実売買の 1 日ぶんを 1 本で流す: 日足の更新 → 今日の買い%（3 モデル並列）→ 台帳の控え → 執行器。
+# 実売買の 1 日ぶんを流す。⚠ 2026-11-02 から予測は前の晩（docs/plans/nightly-predict.md）:
+#   夜  ./run-live.sh --predict-only                         # 引けの後: 日足（公式の終値）＋ 外部系列 → 直下の本物の人全員の予測 → out/<今日>/predict.done.jsonl（済みの印）
+#   15:50 ./run-live.sh --traders @roster --wait …           # 前の営業日の「済み」の印を確かめ、その予測で執行器（日足の更新・予測はしない）。印が無い ／ 欠けていれば rc 13（発注しない）
+#   ./run-live.sh --traders T1 --same-day --mode plan …      # 今までの形（その場で予測して同じ日に読む）。⚠ plan ／ dry-run だけ（submit は拒む）
 #   ./run-live.sh --prepare                                   # 朝に 1 度: 日足 ＋ 外部系列の更新 → 紙上の対照 daily.csv（発注しない）
 #   ./run-live.sh --traders T1,T2,T3                           # 既定は --mode dry-run・接続先は .env の TT_ENV（無ければ cert）
 #   ./run-live.sh --traders T1,T2,T3 --wait                    # 15:50:00 ET まで待ってから流す（窓の中で使う形）
@@ -27,7 +30,7 @@ PY_LT="$ROOT/experiments/tastytrade-api-sample/.venv/bin/python"
 # ⚠ 記録は DB（2026-09-21 から。道はそのまま・本物はリポジトリ直下の live.sqlite）。見る・足す・書き出すのは livefs.py
 LIVEFS="$ROOT/experiments/tastytrade-api-sample/livefs.py"
 
-TRADERS=""; MODE="dry-run"; DATE=""; WAIT=0; PREPARE=0; EXOG=0; SKIP_UPDATE=0; PASS=()
+TRADERS=""; MODE="dry-run"; DATE=""; WAIT=0; PREPARE=0; EXOG=0; SKIP_UPDATE=0; PREDICT_ONLY=0; SAME_DAY=0; PASS=()
 while [ $# -gt 0 ]; do
   case "$1" in
     --traders) TRADERS="$2"; shift 2 ;;
@@ -37,8 +40,10 @@ while [ $# -gt 0 ]; do
     --prepare) PREPARE=1; shift ;;
     --with-exog) EXOG=1; shift ;;
     --skip-update) SKIP_UPDATE=1; shift ;;
+    --predict-only) PREDICT_ONLY=1; shift ;;
+    --same-day) SAME_DAY=1; shift ;;
     --) shift; PASS=("$@"); break ;;
-    *) echo "使い方: $0 [--prepare] [--traders A,B] [--mode plan|dry-run|submit] [--date YYYY-MM-DD] [--wait] [--with-exog] [--skip-update] [-- run_day.py の引数]" >&2; exit 64 ;;
+    *) echo "使い方: $0 [--prepare] [--traders A,B] [--mode plan|dry-run|submit] [--date YYYY-MM-DD] [--wait] [--with-exog] [--skip-update] [--predict-only] [--same-day] [-- run_day.py の引数]" >&2; exit 64 ;;
   esac
 done
 T0=$(date +%s)
@@ -52,6 +57,7 @@ STAGE="start"; STEPS=""; NOTE=""; TMP=""
 on_exit() {
   local rc=$? kind=trade mode="$MODE"
   [ "$PREPARE" = 1 ] && { kind=prepare; mode=prepare; }
+  [ "$PREDICT_ONLY" = 1 ] && { kind=predict; mode=predict; }
   [ "$rc" != 0 ] && [ -z "$NOTE" ] && NOTE="$LAST_SAY"
   "$PY_LT" "$LT/launchlog.py" add --kind "$kind" --start "$LAUNCH_START" --rc "$rc" --mode "$mode" --stage "$STAGE" \
       --steps "$STEPS" --note "$NOTE" > /dev/null 2>&1 || echo "⚠ 起動の記録を書けなかった（売買には影響しない）" >&2
@@ -59,6 +65,41 @@ on_exit() {
   exit "$rc"
 }
 trap on_exit EXIT
+
+NIGHTLY="$LT/nightly.py"
+# ---- 予測を並列で流し、そろったものを 1 本の predict-<時刻>.jsonl にして「済み」の印を書く（2026-11-01 nightly-predict.md §8-2 の 1）
+# 引数: $1 ＝ 「実験\t手法」の行 ／ $2 ＝ asof ／ $3 ＝ 置き場（out/<asof>）。PRED に道を入れる。rc 0 ＝ 全部そろった ／ 12 ＝ 1 本でも失敗（そろった分だけ印に書く）
+run_predict() {
+  local models="$1" asof="$2" out="$3" n=0 fail=0 pids=() keys=()
+  [ -n "$TMP" ] || TMP=$(mktemp -d)
+  export AIL_DATA_DIR="${AIL_LIVE_DATA_DIR:-$FD/data-live}"
+  : > "$TMP/ok.tsv"; : > "$TMP/failed.tsv"
+  while IFS=$'\t' read -r EXP METHOD; do
+    [ -n "$EXP" ] || continue
+    n=$((n+1)); keys+=("$EXP"$'\t'"$METHOD")
+    ( cd "$FD" && if [ -n "$METHOD" ]; then "$PY_FD" -m cli.predict --experiment "$EXP" --method "$METHOD" --asof "$asof" --out "$TMP/p$n.jsonl" --meta-out "$TMP/m$n.json"
+      else "$PY_FD" -m cli.predict --experiment "$EXP" --asof "$asof" --out "$TMP/p$n.jsonl" --meta-out "$TMP/m$n.json"; fi ) &
+    pids+=($!)
+  done <<< "$models"
+  local i
+  for ((i=0; i<${#pids[@]}; i++)); do
+    if wait "${pids[$i]}"; then echo "${keys[$i]}" >> "$TMP/ok.tsv"; else echo "${keys[$i]}" >> "$TMP/failed.tsv"; fail=1; rm -f "$TMP/p$((i+1)).jsonl" "$TMP/m$((i+1)).json"; fi
+  done
+  PRED=""
+  if [ -s "$TMP/ok.tsv" ]; then
+    PRED="$out/predict-$(date -u +%Y%m%dT%H%M%SZ).jsonl"
+    cat "$TMP"/p*.jsonl | "$PY_LT" "$LIVEFS" append "$PRED" || { say "⚠ 予測を記録に入れられない"; return 12; }
+    for m in "$TMP"/m*.json; do [ -e "$m" ] && { tr -d '\n' < "$m"; echo; }; done | "$PY_LT" "$LIVEFS" append "$out/predict.meta.jsonl" || say "⚠ 予測の付記を記録に入れられない（売買には影響しない）"
+    say "予測 $(cat "$TMP"/p*.jsonl | grep -c .) 行 → ${PRED#$ROOT/}（DB）"
+  fi
+  if [ "${4:-}" = "mark" ] && [ -s "$TMP/ok.tsv" ]; then
+    "$PY_LT" "$NIGHTLY" done --out-dir "${out%/*}" --date "$asof" --file "$PRED" --ok "$TMP/ok.tsv" --failed "$TMP/failed.tsv" > /dev/null \
+      && say "済みの印 → ${out#$ROOT/}/predict.done.jsonl（そろった $(grep -c . "$TMP/ok.tsv") 本 ／ 失敗 $(grep -c . "$TMP/failed.tsv") 本）" \
+      || { say "⚠ 済みの印を書けない"; return 12; }
+  fi
+  [ "$fail" = 0 ] || { say "⚠ 予測が $(grep -c . "$TMP/failed.tsv") 本失敗した: $(tr '\n' ' ' < "$TMP/failed.tsv")"; return 12; }
+  return 0
+}
 
 if [ "$PREPARE" = 1 ]; then
   say "朝の準備: 日足 ＋ 外部系列（発注しない）"
@@ -81,6 +122,36 @@ if [ "$PREPARE" = 1 ]; then
     (cd "$LT" && "$PY_LT" fees.py fetch --match); R=$?
     STEPS="$STEPS,fees=$R"; [ "$R" = 0 ] || say "⚠ fees.py が失敗した（売買には影響しない）"
   fi
+  # 夜の予測の回し直し（2026-11-01 nightly-predict.md §8-2 の 5）: 前の営業日の「済み」の印が無ければ、ここで asof ＝ 前の営業日で流す（時間はある）
+  TODAY_P=$(TZ=America/New_York date +%F)
+  if [ -z "${AIL_NO_PREDICT_RETRY:-}" ] && ! "$PY_LT" "$NIGHTLY" find --out-dir "${LT_OUT_DIR:-$LT/out}" --date "$TODAY_P" --traders "$( "$PY_LT" "$NIGHTLY" real-traders )" > /dev/null 2>&1; then
+    PREV=$("$PY_LT" "$NIGHTLY" prev --date "$TODAY_P") && {
+      say "⚠ 前の営業日 $PREV の夜の予測がそろっていない → ここで回し直す"; STAGE=predict_retry
+      run_predict "$("$PY_LT" "$NIGHTLY" models --all-real)" "$PREV" "${LT_OUT_DIR:-$LT/out}/$PREV" mark; R=$?
+      STEPS="$STEPS,predict_retry=$R"; [ "$R" = 0 ] || { NOTE="夜の予測の回し直しが失敗（rc=$R）"; RC=12; }
+    }
+  fi
+  exit $RC
+fi
+
+# ---- 夜の予測（2026-11-01 nightly-predict.md）: 日足（公式の終値）＋ 外部系列 → 直下の本物の人全員の予測 → 済みの印。⚠ 発注しない
+if [ "$PREDICT_ONLY" = 1 ]; then
+  TODAY=$(TZ=America/New_York date +%F); DATE=${DATE:-$TODAY}; STAGE=predict_only
+  "$PY_LT" "$NIGHTLY" is-trading-day --date "$DATE" || { say "$DATE は営業日ではない ＝ 何もしない"; exit 0; }
+  if [ "$DATE" = "$TODAY" ] && ! "$PY_LT" "$NIGHTLY" after-close --date "$DATE"; then
+    say "拒否: 引けの 15 分後より前（途中の足で予測しない）"; exit 14
+  fi
+  TMP=$(mktemp -d)
+  if [ "$SKIP_UPDATE" = 0 ] && [ "$DATE" = "$TODAY" ]; then
+    say "日足 ＋ 外部系列の更新（公式の終値）"; STAGE=update
+    "$FD/live_update.sh"; RC=$?; STEPS="update=$RC"
+    [ "$RC" = 0 ] || [ "$RC" = 2 ] || { say "⚠ 日足の更新に失敗（rc=$RC）。予測しない"; exit 10; }
+  fi
+  STAGE=predict
+  MODELS=$("$PY_LT" "$NIGHTLY" models --all-real) || { say "⚠ トレーダーの設定が読めない"; exit 11; }
+  say "夜の予測（asof $DATE・$(grep -c . <<< "$MODELS") 本）"
+  run_predict "$MODELS" "$DATE" "${LT_OUT_DIR:-$LT/out}/$DATE" mark; RC=$?
+  STEPS="${STEPS:+$STEPS,}predict=$RC"
   exit $RC
 fi
 [ -n "$TRADERS" ] || { echo "--traders が要る" >&2; exit 64; }
@@ -157,6 +228,7 @@ if [ "$MODE" = "submit" ] && [ "$DATE" = "$TODAY" ] && [ "$IGNORE_WINDOW" = 0 ];
   # 見積り【実測 2026-09-21・09-22】: 日足の更新 55 秒 ＋ 予測 38 秒。余裕を見て 120 秒（飛ばすなら 60 秒）
   PREP=${AIL_PREP_SECONDS:-120}
   [ "$SKIP_UPDATE" = 1 ] && PREP=${AIL_PREP_SECONDS:-60}
+  [ "$SAME_DAY" = 0 ] && PREP=${AIL_PREP_SECONDS:-15}      # ⚠ 夜の予測を読むだけ（2026-11-01）
   # 発注を始めていてよい刻限。⚠ 引けは 16:00 ET で、引け後の成行は拒否される（tif_no_after_hours_opening_market_orders）
   DEADLINE_AT=${AIL_SUBMIT_DEADLINE:-15:58:00}
   DEADLINE=$(TZ=America/New_York date -d "$DATE $DEADLINE_AT" +%s)
@@ -175,55 +247,42 @@ if [ "$MODE" = "submit" ] && [ "$DATE" = "$TODAY" ] && [ "$IGNORE_WINDOW" = 0 ];
   say "引けに間に合う（発注の開始の見込み $(TZ=America/New_York date -d "@$START_AT" +%H:%M:%S) ET ／ 刻限 ${DEADLINE_AT} ET）"
 fi
 
-# 1. 日足（今日の途中の足 ＝ 終値の代役が末尾に入る）。外部系列は朝の --prepare で済ませておく（--with-exog で一緒に取る）
-if [ "$SKIP_UPDATE" = 0 ] && [ "$DATE" = "$TODAY" ]; then
-  say "日足の更新"; STAGE=update
-  if [ "$EXOG" = 1 ]; then "$FD/live_update.sh"; else "$FD/live_update.sh" --no-exog; fi
-  RC=$?; STEPS="update=$RC"
-  # rc=2 は「前の営業日に届いていない ／ 外部系列が古い」の知らせ。今日の足があるかは予測の側で確かめる
-  [ "$RC" = 0 ] || [ "$RC" = 2 ] || { say "⚠ 日足の更新に失敗（rc=$RC）。執行器は起こさない"; exit 10; }
-else
-  say "日足の更新は飛ばす（--skip-update か、過去の日付）"
-fi
-
-# 2. 今日の買い%（トレーダーの設定から 実験 × 手法 を拾い、並列で流す）。置き場は執行器と同じ（LT_OUT_DIR はテスト・モック用）
-OUT="${LT_OUT_DIR:-$LT/out}/$DATE"; TMP=$(mktemp -d); STAGE=predict      # TMP は on_exit が消す
-# ⚠ 予測は回ごとに別の道（行は足すだけなので、同じ道に 2 回入れると前の回の行が残り、後の回に無い銘柄で古い値を読む）
-PRED="$OUT/predict.jsonl"
 TRADERS_DIR=""; for ((i=0; i<${#PASS[@]}; i++)); do [ "${PASS[$i]}" = "--traders-dir" ] && TRADERS_DIR="${PASS[$((i+1))]}"; done
-MODELS=$(cd "$LT" && "$PY_LT" - "$TRADERS" "${TRADERS_DIR:-$LT/config/traders}" <<'PY'
-import sys
-import roster
-import trader
-seen = []
-# 名簿（--traders @roster）は執行器と同じ道で引く（TT_HALT_FILE ／ TT_OUT_DIR の HALT の隣）。⚠ 無い ／ 壊れた名簿はここで止まる（執行器も拒む）
-names = roster.names(roster.default_path()) if sys.argv[1].strip() == roster.TOKEN else sys.argv[1].split(",")
-for name in names:
-    t = trader.load_trader(name.strip(), sys.argv[2])
-    for m in t.models:
-        if m.kind == "experiment" and (m.name, m.method) not in seen:
-            seen.append((m.name, m.method))
-for n, meth in seen:
-    print(f"{n}\t{meth or ''}")
-PY
-) || { say "⚠ トレーダーの設定 ／ 名簿が読めない"; exit 11; }
-
-if [ -n "$MODELS" ]; then
-  say "今日の買い%（asof $DATE）"
-  export AIL_DATA_DIR="${AIL_LIVE_DATA_DIR:-$FD/data-live}"
-  PIDS=(); N=0
-  while IFS=$'\t' read -r EXP METHOD; do
-    N=$((N+1))
-    ( cd "$FD" && if [ -n "$METHOD" ]; then "$PY_FD" -m cli.predict --experiment "$EXP" --method "$METHOD" --asof "$DATE" --out "$TMP/p$N.jsonl" --meta-out "$TMP/m$N.json"
-      else "$PY_FD" -m cli.predict --experiment "$EXP" --asof "$DATE" --out "$TMP/p$N.jsonl" --meta-out "$TMP/m$N.json"; fi ) &
-    PIDS+=($!)
-  done <<< "$MODELS"
-  FAIL=0; for p in "${PIDS[@]}"; do wait "$p" || FAIL=1; done
-  [ "$FAIL" = 0 ] || { say "⚠ 予測が失敗した。執行器は起こさない"; exit 12; }
-  PRED="$OUT/predict-$(date -u +%Y%m%dT%H%M%SZ).jsonl"
-  cat "$TMP"/p*.jsonl | "$PY_LT" "$LIVEFS" append "$PRED" || { say "⚠ 予測を記録に入れられない。執行器は起こさない"; exit 12; }
-  for m in "$TMP"/m*.json; do tr -d '\n' < "$m"; echo; done | "$PY_LT" "$LIVEFS" append "$OUT/predict.meta.jsonl" || say "⚠ 予測の付記を記録に入れられない（売買には影響しない）"
-  say "予測 $(cat "$TMP"/p*.jsonl | grep -c .) 行 → ${PRED#$ROOT/}（DB）"
+OUT="${LT_OUT_DIR:-$LT/out}/$DATE"; TMP=$(mktemp -d)      # TMP は on_exit が消す
+NEED=$("$PY_LT" "$NIGHTLY" models --traders "$TRADERS" ${TRADERS_DIR:+--traders-dir "$TRADERS_DIR"}) || { say "⚠ トレーダーの設定 ／ 名簿が読めない"; exit 11; }
+if [ "$SAME_DAY" = 0 ] && [ -z "$NEED" ]; then
+  say "experiment のモデルを使う人がいない ＝ 予測は読まない（試験用の合図だけ）"; PRED="$OUT/predict.jsonl"
+elif [ "$SAME_DAY" = 0 ]; then
+  # ---- 前の営業日の夜の予測を読む（2026-11-01 nightly-predict.md §8-2 の 2）。⚠ 印が無い ／ 欠けていれば発注しない（その場で予測して埋めない）
+  STAGE=find
+  FOUND=$("$PY_LT" "$NIGHTLY" find --out-dir "${LT_OUT_DIR:-$LT/out}" --date "$DATE" --traders "$TRADERS" ${TRADERS_DIR:+--traders-dir "$TRADERS_DIR"})
+  RC=$?
+  if [ "$RC" != 0 ]; then
+    say "⚠ 夜の予測が使えない: $FOUND。執行器は起こさない（発注しない）"; NOTE="$FOUND"; exit 13
+  fi
+  PRED=$("$PY_LT" -c 'import json,sys; print(json.loads(sys.argv[1])["predict"])' "$FOUND")
+  SIGDATE=$("$PY_LT" -c 'import json,sys; print(json.loads(sys.argv[1])["signal_date"])' "$FOUND")
+  say "夜の予測（asof $SIGDATE）を読む → ${PRED#$ROOT/}"
+  PASS+=(--signal-date "$SIGDATE")
+else
+  [ "$MODE" = "submit" ] && { say "拒否: --same-day（その場で予測して同じ日に読む今までの形）は plan ／ dry-run だけ"; exit 64; }
+  # 1. 日足（今日の途中の足 ＝ 終値の代役が末尾に入る）
+  if [ "$SKIP_UPDATE" = 0 ] && [ "$DATE" = "$TODAY" ]; then
+    say "日足の更新"; STAGE=update
+    if [ "$EXOG" = 1 ]; then "$FD/live_update.sh"; else "$FD/live_update.sh" --no-exog; fi
+    RC=$?; STEPS="update=$RC"
+    [ "$RC" = 0 ] || [ "$RC" = 2 ] || { say "⚠ 日足の更新に失敗（rc=$RC）。執行器は起こさない"; exit 10; }
+  else
+    say "日足の更新は飛ばす（--skip-update か、過去の日付）"
+  fi
+  # 2. 今日の買い%（名簿 ／ 指定の人のモデル）
+  STAGE=predict
+  MODELS="$NEED"
+  PRED="$OUT/predict.jsonl"
+  if [ -n "$MODELS" ]; then
+    say "今日の買い%（asof $DATE）"
+    run_predict "$MODELS" "$DATE" "$OUT" || { say "⚠ 予測が失敗した。執行器は起こさない"; exit 12; }
+  fi
 fi
 
 # 3. 台帳の控え（発注する回だけ。台帳を失うと「何も持っていない」つもりで買い直す ＝ live-trading.md §0-8 の限界）

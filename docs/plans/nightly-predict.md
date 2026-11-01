@@ -148,3 +148,40 @@ flowchart LR
 | 11/5 の回の後 | 新しい 2 人に ▶ 開始 → 11/6（金）から |
 
 - 夜の日足の確定は、デプロイの前に titan で確かめる: 11/2（月）・11/3（火）の 17:30 PST に作業用の写しへ `live_update.sh` を流し、翌朝の足と突き合わせる（発注しない・本物の `data-live/` は触らない）
+
+## 9. 日程の変更と Phase 3（2026-11-01 利用者「手じまいを月曜にして、火曜からの開始にする」）
+
+§8-5 の案（11/5 切り替え）を、次に置き換えた（PST）:
+
+| いつ | 何をする | 誰 |
+| --- | --- | --- |
+| 〜11/2（月）12:40 | 名簿でアキ（T1）・ソラ（T6）に 🧹 手じまい（15:40〜16:10 ET は名簿を書けない） | 利用者 |
+| 11/2 12:50 | 今の形での最後の回: ハルが売買・アキ ・ソラの持ち株を売る | 自動 |
+| 11/2 13:15 以降 | 「デプロイ」（夜の予測 ＋ `T18` ・`T19`）→ Sx360 の Claude が cron に夜の 1 本・`check.sh` に夜の行 → `reconcile.py show` で差 0 → `T18` ・`T19` に ▶ 開始 | 利用者 → Sx360 の Claude → 利用者 |
+| 11/2 17:30 | 最初の夜の予測（asof 11/2） | 自動 |
+| 11/3（火）06:00 | 朝の準備（印がそろっているか。11/2 の夜の足と朝の足を突き合わせる） | 自動 → Claude |
+| 11/3 12:50 | 新しい形の最初の回（ハル ＋ `T18` ＋ `T19`） | 自動 |
+
+- ⚠ デプロイを 11/2 の回より**前**にすると、11/2 の回が 10/30 の夜の予測を探して見つからず rc 13（手じまいの売りも止まる）
+- ⚠ アキ ・ソラの記録は 20 営業日目（11/4）の前で切れる・ハルは 11/3 から新しい形（20 日のうち最後の 2 日）
+- ⚠ 夜の足の確定は前もって確かめられない ＝ 11/2 の夜の分を 11/3 の朝に突き合わせる
+
+### 9-1. Phase 3 でやったこと（2026-11-01 titan）
+
+| 場所 | 中身 |
+| --- | --- |
+| `run-live.sh` | `--predict-only`（夜）・発注の回は前の営業日の印を読む（rc 13）・`--prepare` の回し直し・`--same-day`（今までの形。plan ／ dry-run だけ）・刻限の準備の見積り 120 → 15 秒 |
+| `experiments/live-trading/nightly.py`（新規） | `models`（`--all-real` ＝ 直下の本物の人全員）・`done`（済みの印）・`find`（前の営業日の印 ＋ 名簿の人のモデル）・`prev` ・`is-trading-day` ・`after-close` ・`real-traders` |
+| `run_day.py` | `--signal-date`・submit の歯止め（rc 13・`refused_stale_predict`）・`start` ／ `signals` に `signal_date` |
+| `market_calendar.py` | `previous_trading_day`（暦の外は止める） |
+| `paper.py` ・`launchlog.py` | 拒否の種類に `refused_stale_predict`・起動の記録に `kind = predict` |
+| テスト | `tests/test_nightly.py` 12 本（前の営業日・印を探す・歯止め・run-live.sh の rc 13 と受け渡し・signal_date で行を引く）。`./run-tests.sh --full` ✅ |
+| 実地 | titan の作業用の置き場で `--predict-only --date 2026-09-24 --skip-update` ＝ 8 本 49 秒【実測】・印 → `find --date 2026-09-25` が見つける ／ 9-28 は rc 13 |
+| 文書 | `live-trading.md` §0-17（正本）・D13 の注・`system.toml` ・CLAUDE.md |
+
+### 9-2. Sx360 の Claude に頼むこと（g3plus-ops。デプロイの後）
+
+- `trade-runner/run.sh` に `predict` を足す: コンテナで `./run-live.sh --predict-only`（今の `prepare` と同じ起こし方・同じ環境）
+- host cron: 平日 17:30 PST（`30 17 * * 1-5`。休場日は `run-live.sh` が何もしないで rc 0）
+- `check.sh`: 夜の回の rc を見る行（`launches.jsonl` の `kind = predict`）。rc 13（15:50 で印が無い）も失敗として知らせる
+- ⚠ 夜の回が 15:40〜16:10 ET の売買の回と重ならないこと（17:30 PST ＝ 20:30 ET なので重ならない）

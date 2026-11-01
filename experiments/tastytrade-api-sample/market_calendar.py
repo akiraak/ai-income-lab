@@ -59,6 +59,16 @@ class Calendar:
         et = dt.astimezone(ET)
         return self.is_trading_day(et.date()) and OPEN_ET <= et.time() < self.close_et(et.date())
 
+    def previous_trading_day(self, d: date) -> date:
+        """d より前の最後の営業日（2026-11-01。夜の予測を翌営業日に読む ＝ docs/plans/nightly-predict.md）。
+        ⚠ 暦に載っていない年に入ったら止める（休場日を平日と読んで、古い予測を新しいと思わない）。"""
+        p = d - timedelta(days=1)
+        while not self.is_trading_day(p):
+            p -= timedelta(days=1)
+        if not self.covered(p):
+            raise ValueError(f"暦に {p.year} 年が載っていない（market_calendar に足す）")
+        return p
+
     def trading_days(self, first: date, last: date) -> list[date]:
         out, d = [], first
         while d <= last:

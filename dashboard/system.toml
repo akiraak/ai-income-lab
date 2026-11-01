@@ -648,7 +648,7 @@ after = [
   "出力スコアが 1 本でも出せなかった日は、注文の仕組みを起こさない（古い出力スコアや欠けた出力スコアで売り買いしない）。",
 ]
 detail = [
-  "run-live.sh の 1 本。朝 ＝ --prepare（日足 ＋ 外部系列の更新 約 2 分 → 紙上の対照 out/daily.csv。発注しない）。15:50 ET ＝ --wait で起こす → 日足の更新（足だけ 52 秒）→ cli.predict × 3（並列 36 秒）→ out/<日付>/predict-<時刻>.jsonl（回ごとに別の道。2026-09-21 から中身は live.sqlite）→ 売買履歴の控え state-backup/（submit の回だけ）→ run_day.py【所要時間は実測・titan】。",
+  "⚠ 2026-11-02 から予測は前の晩（live-trading.md §0-17）: 夜 17:30 PST ＝ run-live.sh --predict-only（日足 ＋ 外部系列 → 直下の本物の人全員の予測 → 済みの印 predict.done.jsonl）／ 15:50 ET ＝ 前の営業日の印を確かめて run_day.py --signal-date に渡すだけ（無ければ発注しない）。以下は 2026-11-01 までの形: run-live.sh の 1 本。朝 ＝ --prepare（日足 ＋ 外部系列の更新 約 2 分 → 紙上の対照 out/daily.csv。発注しない）。15:50 ET ＝ --wait で起こす → 日足の更新（足だけ 52 秒）→ cli.predict × 3（並列 36 秒）→ out/<日付>/predict-<時刻>.jsonl（回ごとに別の道。2026-09-21 から中身は live.sqlite）→ 売買履歴の控え state-backup/（submit の回だけ）→ run_day.py【所要時間は実測・titan】。",
   "cli.predict は表 ＝ cli.build.assemble・買い% ＝ cli.run.fold_buy_pct の切り出しで、モデル・較正のコードは足していない。訓練 ＝ ラベルが asof より前に確定している行 ／ 予測する行 ＝ asof の行。asof より後の足は読んだ直後に捨てる。runs/ を作らない（検証ではない）。",
   "取引時間帯は 15:45〜16:05 ET（NYSE の営業日。休場日は暦で見る。半日立会の日は発注しない）。合図は 15:50 の気配、注文は成行。未約定は発注から 600 秒で取消。Session offline と 5xx は 60 秒おき 3 回まで再送（external-identifier で重複を探してから）。",
 ]
@@ -678,8 +678,8 @@ points = [
 ]
 links = [{ label = "モデルの一覧（1 本ずつの組み立て）", tab = "models", item = "all" }]
 detail = [
-  "学習 ＝ cli.predict が毎営業日 15:50 ET 過ぎに fit し直す（保存した重みは無い・runs/ も作らない）。訓練 ＝ 2018-01-31 から、ラベル（1 日先の対数リターン）の終わりの足が asof より前の行 ＝ asof の 2 営業日前まで（asof 2026-09-22 なら train_end 2026-09-18・136,529 行〔T1・T3〕／ 101,589 行〔T2〕【実測】）。予測する行 ＝ asof の行（63 ／ 48 ／ 63 銘柄）。3 本並列で 43〜48 秒【実測 titan ／ 13500t】。",
-  "入力の 1 行 ＝ (symbol, ts) の 1 営業日。元は data-live/adjusted/d/<銘柄>.csv（time_ms・open・high・low・close・volume。分割だけ調整）＋ T2 は外部系列（ECB 為替・米国債・NOAA・USGS を 1 日ずらし）。末尾の行は 15:50 ET の途中の足（終値の代役 ＝ predict.jsonl の proxy_close）。列は T1 own_ 35 ／ T2 124（own 35 ＋ cs 26 ＋ rel 13 ＋ ex 50）／ T3 は表 95 列（own 35 ＋ own_seq60_r0..r59）のうち 60 日の道筋だけ → QUANT 653 列。float64・StandardScaler は訓練で fit・欠損（inf → NaN）の行は落とす。",
+  "学習 ＝ cli.predict が毎営業日の夜（2026-11-02 から。それまでは 15:50 ET 過ぎ）に fit し直す（保存した重みは無い・runs/ も作らない）。訓練 ＝ 2018-01-31 から、ラベル（1 日先の対数リターン）の終わりの足が asof より前の行 ＝ asof の 2 営業日前まで（asof 2026-09-22 なら train_end 2026-09-18・136,529 行〔T1・T3〕／ 101,589 行〔T2〕【実測】）。予測する行 ＝ asof の行（63 ／ 48 ／ 63 銘柄）。3 本並列で 43〜48 秒【実測 titan ／ 13500t】。",
+  "入力の 1 行 ＝ (symbol, ts) の 1 営業日。元は data-live/adjusted/d/<銘柄>.csv（time_ms・open・high・low・close・volume。分割だけ調整）＋ T2 は外部系列（ECB 為替・米国債・NOAA・USGS を 1 日ずらし）。末尾の行は公式の終値（2026-11-02 から夜の予測。それまでは 15:50 ET の途中の足 ＝ 終値の代役・predict.jsonl の proxy_close）。列は T1 own_ 35 ／ T2 124（own 35 ＋ cs 26 ＋ rel 13 ＋ ex 50）／ T3 は表 95 列（own 35 ＋ own_seq60_r0..r59）のうち 60 日の道筋だけ → QUANT 653 列。float64・StandardScaler は訓練で fit・欠損（inf → NaN）の行は落とす。",
   "出力 ＝ out/<日付>/predict-<時刻>.jsonl（2026-09-21 から中身は live.sqlite）の 1 行 1 銘柄。買い% は Platt 較正を通した 0〜100（小数 6 桁）・出口% ＝ 100 − 買い%。予測の記録 predict.meta.jsonl に訓練の範囲・列数・較正の版と係数・入力の指紋・所要時間が 1 モデル 1 行。項目は下の表。",
   "執行器（run_day.py）: signals.py が今日の日付の行だけ読み（古い予測では売買しない・method が設定と違えば止まる）、トレーダーごとに合成 asis → plan.decide ＝ 持ち株 0 ＆ 買い% > θ で買い ／ 持ち株あり ＆ 出口% > θ で売り ／ それ以外は hold ・ skip の事象 → plan.size_intents ＝ 1 銘柄の枠 min(予算 ÷ 銘柄数, 空き) を気配の中値で割って整数株に切り捨て（1 株に満たなければ too_small）→ 1 注文 1 トレーダーの成行を 15:45〜16:05 ET に出す（売りが先）。正本は live-trading.md §0-9 (f)。",
 ]

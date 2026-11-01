@@ -89,7 +89,7 @@ def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser()
     sub = ap.add_subparsers(dest="cmd", required=True)
     a = sub.add_parser("add")
-    a.add_argument("--kind", required=True, choices=["prepare", "trade"])
+    a.add_argument("--kind", required=True, choices=["prepare", "trade", "predict"])
     a.add_argument("--start", required=True, help="起動した時刻（ISO 8601）")
     a.add_argument("--rc", required=True, type=int)
     a.add_argument("--mode", default="")

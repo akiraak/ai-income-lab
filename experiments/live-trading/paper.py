@@ -63,7 +63,8 @@ COLUMNS = ["date", "trader", "test", "budget_usd", "n_symbols", "n_signals",
            "diff1_quote_to_fill_bp", "diff1_fill_to_close_bp", "diff2_half_spread_bp", "diff2_fees_usd",
            "diff4_events", "close_missing", "close_source",
            "aligned_since", "aligned_held", "aligned_trades", "aligned_bp", "aligned_cum_bp", "diff3a_bp", "diff3a_cum_bp"]
-REFUSED = ("out_of_window", "halted", "refused_mode_sim", "refused_lock_busy", "refused_not_production", "auth_failed", "signal_error")
+REFUSED = ("out_of_window", "halted", "refused_mode_sim", "refused_lock_busy", "refused_not_production", "auth_failed", "signal_error",
+           "refused_stale_predict")
 
 
 def _jsonl(path: str) -> list[dict]:

@@ -497,15 +497,18 @@ def ledger_rows(paths: TraderPaths) -> Ledger | None:
 
 
 def counted(ledger: Ledger | None, patterns) -> dict | None:
-    """経緯の 1 行の数を DB から数える。`patterns` ＝ 予測モデル名のパターン（`fnmatch`。θ はまとめて数える）。
+    """経緯の 1 行の数を DB から数える。`patterns` ＝ 予測モデル名のパターン（`fnmatch`。θ はまとめて数える・頭に `!` は除く）。
 
     返すのは `{adopt, hold, drop, rows, first, last}`（rows ＝ 当たった行の数・first/last ＝ 実行の最初と最後の日）。
     DB が無い・`names` が無い・1 行も当たらないときは None（TOML の数を出す）。
     """
     if ledger is None or not patterns:
         return None
-    pats = [str(p) for p in patterns]
-    hit = [r for r in ledger if any(fnmatch.fnmatchcase(r[0], p) for p in pats)]
+    pats = [str(p) for p in patterns if not str(p).startswith("!")]
+    # ⚠ 頭に `!` のパターンは除く（2026-11-01。例 `!*~exec-close*` ＝ 同じ形を別の執行で試した行を、元の経緯の行に数えない）
+    nots = [str(p)[1:] for p in patterns if str(p).startswith("!")]
+    hit = [r for r in ledger if any(fnmatch.fnmatchcase(r[0], p) for p in pats)
+           and not any(fnmatch.fnmatchcase(r[0], p) for p in nots)]
     if not hit:
         return None
     out: dict = {v: 0 for v in VERDICTS}

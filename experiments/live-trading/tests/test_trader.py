@@ -223,6 +223,7 @@ HC = {w: n.replace("（全列・学習）", "（全列・学習・土台差）")
 # 2026-10-19 Phase 6（利用者「損切りを入れないトレーダーを用意する。そのうえで A」）: 損切り係なし T12〜T15 ／ 土台差 × 損切りなし T16〜T19
 NO_STOP = {"T12": (10, 5), "T13": (20, 5), "T14": (40, 10), "T15": (5, 20)}
 CENTERED = {"T16": (10, 5), "T17": (20, 5), "T18": (40, 10), "T19": (5, 20)}
+LIVE = {"T18", "T19"}       # 2026-11-01 利用者「T18 と T19 で」＝ 直下へ写した本番の人
 
 
 def test_horizon_candidates_without_stop_and_centered_are_wired_as_decided():
@@ -237,7 +238,13 @@ def test_horizon_candidates_without_stop_and_centered_are_wired_as_decided():
             assert t.symbols == ("T", "PFE", "NKE", "VZ", "BAC") and t.combine == "asis"
             assert [(m.kind, m.name, m.method, m.role) for m in t.models] == [("experiment", exp, names[hb], "buy"), ("experiment", exp, names[he], "exit")]
             assert t.min_hold_days == hb and not t.stop_models and not t.stop_blocks_buy
-            assert not os.path.exists(os.path.join(CONF, f"{name}.toml"))
+            if name in LIVE:
+                # ⚠ 2026-11-01 本番の人（直下の写し）。原本との違いは予算 $600 だけ
+                live = load_traders([name], CONF)[0]
+                assert live.budget_usd == 600.0 and [(m.name, m.method, m.role) for m in live.models] == [(m.name, m.method, m.role) for m in t.models]
+                assert (live.symbols, live.sizing, live.threshold, live.combine, live.min_hold_days) == (t.symbols, t.sizing, t.threshold, t.combine, t.min_hold_days)
+            else:
+                assert not os.path.exists(os.path.join(CONF, f"{name}.toml"))
     # 損切りなしの人の作り置きは T7〜T10 と同じ (実験名, 手法) ＝ sim8 に新しい予測は要らない
     import simpredict
     a = set(simpredict.experiment_models(load_traders(["T7", "T8", "T9", "T10"], HORIZON)))

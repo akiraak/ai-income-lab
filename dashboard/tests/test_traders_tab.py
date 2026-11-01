@@ -498,6 +498,7 @@ def test_real_horizon_candidates_have_roles_words_and_models():
         assert facts["has_roles"] and facts["min_hold_days"] == hold and roles == (["buy", "exit", "stop"] if int(name[1:]) <= 10 else ["buy", "exit"]), name
         assert all(traderview.find_model(words, spec) is not None for spec in facts["models"]), name
         body = traderview.body(paths, name)
-        assert "<span class='role'>買う係</span>" in body and f"買ってから {hold} 営業日" in body and "（候補）" in body
+        assert "<span class='role'>買う係</span>" in body and f"買ってから {hold} 営業日" in body
+        assert ("（候補）" in body) == (name not in {"T18", "T19"}), name     # ⚠ 2026-11-01 T18・T19 は本番の人（直下の写し）
         assert ("<span class='role'>損切り係</span>" in body) == (int(name[1:]) <= 10), name
     assert [k for k, _f, _ok in traderview.trader_files(paths)][-12:] == list(holds)

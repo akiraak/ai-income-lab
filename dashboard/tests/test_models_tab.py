@@ -604,4 +604,5 @@ def test_real_horizon_gates_are_live_through_the_candidates():
                      ("fwd10-gate", {"T7", "T9", "T12", "T14"}), ("stop-exit", {"T5", "T7", "T8", "T9", "T10"}),
                      ("fwd5c-gate", {"T16", "T17", "T19"}), ("fwd20c-gate", {"T17", "T19"}), ("fwd40c-gate", {"T18"}), ("fwd10c-gate", {"T16", "T18"})):
         users = {u["key"]: u["settled"] for u in data["users"][mid]}
-        assert who <= set(users) and not any(users[k] for k in who), (mid, users)
+        live = who & {"T18", "T19"}     # ⚠ 2026-11-01 本番の人になった（利用者「T18 と T19 で」）＝ 未確定の印は付かない
+        assert who <= set(users) and not any(users[k] for k in who - live) and all(users[k] for k in live), (mid, users)

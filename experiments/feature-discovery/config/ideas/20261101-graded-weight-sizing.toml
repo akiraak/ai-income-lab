@@ -1,0 +1,21 @@
+# ⚠ 開発ループの登録簿（rules.md 31-1）。cli.devloop が書く。status が 登録 より先なら structure ／ prediction ／ n_trials_planned ／ key_shape を直さない（直すなら新しい id）
+id = "20261101-graded-weight-sizing"
+date = "2026-11-01"
+title = "買う／売るの 2 択をやめ、買い% に応じて持つ量を変える"
+kind = "執行"
+origin = { r_pct = 30, n_per_night = 5, prompt = "ideate_free", contract = 2, model = "claude", cost_usd = 0.601, turns = 1, source = "independent", refs = [] }
+question = "決めるものを『いつ買うか』から『どれだけ持つか』に替える。買い% が θ を超えた分だけ線形に持つ量を増やしたとき、同じ θ で全部持つか持たないかの閾値売買と比べて、上乗せと fold の割れ方は変わるか。"
+structure = "売買の器に新しい口 sizing = \"graded\" を足す。持つ割合 w ＝ clip((買い% − θ) ／ (100 − θ) × 2, 0, 1)、θ 以下では 0。毎日の終値で w に合わせ直し、費用は動かした量 × 5bp で引く。θ は 50 ／ 55 ／ 60 の 3 水準。予測モデルは own.ridge の素のまま（買い% は 1 ビットも変えない）。対の相手は同じ θ・同じ実行の閾値売買の行。leak 対照は同じ器に leak 列入りの買い% を渡す。"
+n_trials_planned = 3
+key_shape = ["own.ridge.shared~sizing-graded"]
+failure_modes = ["買い% の幅が狭い（門前の 4〜6 点）ので、w がほぼ 0 か小さな一定値になり、現金を持つだけの形になる", "毎日合わせ直すので回転が増え、費用が上乗せを食う（費用だけで負になる）", "w が小さい日が多いぶん、持ち続けると比べて上げ相場で置いていかれ、B&H に対しては一様に負に出る"]
+prediction = "閾値売買との対の差は小さな負（費用ぶん）、|t| < 1。B&H に対しては 5 fold とも負に寄る。leak は持つ量が極端に寄るので跳ねる。"
+effort = "小"
+measurable = "測れる: 持つ量が平均で半分以下になれば、B&H との差は数百 bp/fold の大きさで出る。閾値売買との対の差も、同じ買い% を使うので揺れが小さく比べやすい。"
+touches = "共有の経路: ail/validation の simulate（sizing の任意引数を足す。既定 None ＝ 1 ビットも変わらない）"
+status = "人の手"
+frame = "外"
+p_hold = 0.15
+p_positive = 0.3
+learn_if_null = "対の差が 0 の周りなら、買い% の大きさに閾値を超えるかどうか以上の情報は無い（較正した確率の強弱は売買に効かない）と分かる。次は順位（断面で何番目か）で持つ量を配る形に替える。"
+notes = "段 1 の出力の key_shape の原文: own.ridge.shared~sizing-graded@θ"

@@ -1,0 +1,22 @@
+# ⚠ 開発ループの登録簿（rules.md 31-1）。cli.devloop が書く。status が 登録 より先なら structure ／ prediction ／ n_trials_planned ／ key_shape を直さない（直すなら新しい id）
+id = "20261101-trough-entry-cond"
+date = "2026-11-01"
+title = "外にいる日だけで学ぶ再進入の係（C3 の出口 ＋ 谷の入口）"
+kind = "モデル"
+origin = { r_pct = 30, n_per_night = 5, prompt = "ideate_ref", contract = 2, model = "claude", cost_usd = 1.246, turns = 10, source = "reference", refs = ["downtrend-detection.md §7・§8", "entry-timing.md §9-5・§9-7・§9-8"] }
+question = "C3（SMA200）が「外にいる」と言う日の行だけを訓練に使い、先 20 日で上がるかを学んだ入口の係は、C3 単独が谷で取り損ねる回復をどれだけ取り戻すか。"
+structure = "新しい口 `[model_args] train_rows_when = \"c3_out\"`（訓練の行を、出口の検知器が保有なしと言う日に絞る。無い config は 1 ビットも変わらない）を足し、入口の検知器 R1 ＝ own 35 列 ＋ trend 6 列 × Ridge × ラベル y_fwd_20 > 0 を外の日だけで学ぶ。売買は 16 章の入口 × 出口の対（入口 R1・出口 C3）。表は 1995 年からの長い表（12 回の下げを含む）。θ は 50 ／ 55 ／ 60 の 3 水準。既存の in-<入口>-out-<出口> の対との違いは「入口の訓練行を条件で絞る」口だけ"
+n_trials_planned = 3
+key_shape = ["own.in-r1-trough20-cond-out-c3-sma200.ridge.shared~p1995-02-10"]
+failure_modes = ["外にいる日が fold あたり数十日しかなく、条件で絞った訓練行が少なすぎて較正が中心付近に潰れる（entry-timing 9-5 と同じ型）", "回復の初日ではなく C3 が戻る日とほぼ同じ日に入り、C3 単独と 1 日も違わない fold が出る", "生存バイアス（12 回とも回復）で入口側が甘く出る"]
+prediction = "C3 単独との対の差は正の向き（取り損ねの一部を拾う）だが、B&H に対する上乗せは 5 fold 中 3〜4 fold で負のまま。差は下げを含む fold に集中し、ほかの fold では 0 近く。leak（未来の列 1 本）は跳ねる"
+effort = "中"
+measurable = "測れる: 対の相手 C3 単独の負けは −1,650bp/fold 級で、その 1/3 を取り戻せば数百 bp/fold の対の差になり、検出限界（σ 88bp/日・限界 ≈ 5,000bp/fold は B&H 対の値で、対の差は同じ日の差なので小さく済む）の内に入りうる"
+touches = "共有の経路: ail/validation（訓練行を条件で絞る口）・ail/detectors/pair.py"
+status = "人の手"
+frame = "内"
+p_hold = 0.25
+p_positive = 0.65
+learn_if_null = "対の差が 0 なら、谷の取り損ねは「外の日の中の情報では当てられない」側だと分かり、次は入口の材料を変える（他の銘柄がもう戻り始めたかを見る断面 cs_ の回復の割合）。対の差が正で B&H に届かないなら、出口の側（C3 の遅さ）が律速と分かる"
+reference_mode = "組み合わせる"
+notes = "段 1 の出力の key_shape の原文: own.in-r1-trough20-cond-out-c3-sma200.ridge.shared~p1995-02-10@θ"

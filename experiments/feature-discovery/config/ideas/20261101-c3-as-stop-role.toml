@@ -1,0 +1,23 @@
+# ⚠ 開発ループの登録簿（rules.md 31-1）。cli.devloop が書く。status が 登録 より先なら structure ／ prediction ／ n_trials_planned ／ key_shape を直さない（直すなら新しい id）
+id = "20261101-c3-as-stop-role"
+date = "2026-11-01"
+title = "遅い出口 C3 を損切り係にした役割つきの組"
+kind = "執行"
+origin = { r_pct = 30, n_per_night = 5, prompt = "ideate_ref", contract = 2, model = "claude", cost_usd = 1.246, turns = 10, source = "reference", refs = ["horizon-roles-trader.md §5・§7", "downtrend-detection.md §7・§8"] }
+question = "損切り係を X1（高値 20 日から −10%）から C3（SMA200 割れ）に替えると、往復（売って翌日買い戻す）が消えたうえで、組の成績は損切り係なしの組（R6〜R9）とどう違うか。"
+structure = "既存の合わせる口 `[[trading.mix]] combine = \"roles\"` のメンバーに、損切り係として C3 SMA200 フィルタの出口を `role = \"stop\"` で入れる（新しい口なし・設定だけ。C3 を stop の係として読めない場合だけ、検知器の出口を係に渡す薄い口を足す）。買い係 ／ 売り係は R6〜R9 と同じ（先 10 ／ 20 ／ 40 ／ 5 日・最短保有 ＝ 買い係の期間）。4 組 × 条件 2（5 本 $600 ／ 全銘柄）。既存の R1〜R4 との違いは損切り係が X1 か C3 かだけ"
+n_trials_planned = 8
+key_shape = ["own.mix-roles-h1-gate10-h2-gate5-c3-sma200-tr5-600.ridge.shared"]
+failure_modes = ["C3 はこの表の大半の期間で「中にいる」と言うので損切り係が 1 度も効かず、R6〜R9 と 1 ビットも同じになる", "SMA200 割れの日に買い係が買いを言い続け、損切り係が出口を言う間は持てないので現金のまま回復を逃す（downtrend-detection の取り損ねの型）", "2018 年からの表では SMA200 割れが 2020・2022 の 2 回だけで、fold の差が 1〜2 fold で決まる"]
+prediction = "往復は X1 の組より大きく減る（保有の中央値が延びる）。R6〜R9 との対の差は 2022 年を含む fold で正・2020 年の V 字の fold で負、平均は 0 の周り。leak は跳ねる"
+effort = "小"
+measurable = "測れる: R6〜R9 と同じ切れ目・同じ買い係なので対の差は損切り係の違いだけ。差が出る fold は限られるが、下げの区間の圧縮は downtrend-detection で数千 bp 級だったので、5 本の形でも数百 bp/fold の差になりうる"
+touches = "新しいモジュールだけ"
+status = "登録"
+frame = "内"
+p_hold = 0.35
+p_positive = 0.4
+learn_if_null = "R6〜R9 と同じなら、2018 年からの表では遅い損切りが起動する場面が足りないと分かり、次は 1995 年からの長い表（12 回の下げ）で同じ組を回す。差なしでも往復の数が減っていれば、X1 の往復は損切りの速さが原因だったと分かる"
+registered_at = "2026-11-01 15:49 PST"
+reference_mode = "当てる"
+notes = "段 1 の出力の key_shape の原文: own.mix-roles-h1-gate10-h2-gate5-c3-sma200-tr5-600.ridge.shared@50（ほか 3 組と -trall）"

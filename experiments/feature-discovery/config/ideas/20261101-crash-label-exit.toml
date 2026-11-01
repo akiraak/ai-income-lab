@@ -1,0 +1,21 @@
+# ⚠ 開発ループの登録簿（rules.md 31-1）。cli.devloop が書く。status が 登録 より先なら structure ／ prediction ／ n_trials_planned ／ key_shape を直さない（直すなら新しい id）
+id = "20261101-crash-label-exit"
+date = "2026-11-01"
+title = "方向ではなく『先 5 日の急落』を当て、出口だけに使う"
+kind = "モデル"
+origin = { r_pct = 30, n_per_night = 5, prompt = "ideate_free", contract = 2, model = "claude", cost_usd = 0.601, turns = 1, source = "independent", refs = [] }
+question = "当てるものを翌日の方向から『先 5 日のうちに、訓練期間の日次σの 2 倍を超えて下がる日があるか』に替える。その確率を出口% にし、買いは常に持つ形にしたとき、B&H との上乗せの向きと fold ごとの割れ方はどうなるか。"
+structure = "新しいラベルの口 label = \"crash_fwd5\"（y_fwd の道筋から作る 0/1。σ は fold の訓練分割だけで銘柄ごとに求める）。新しい検知器は ail/ideas/ に置く（own 35 列 × Ridge のロジスティック・較正つき）。買い% は常に 100、出口% ＝ 急落の確率を較正した値。売る線は 100 − θ（θ 50 ／ 55 ／ 60 の 3 水準）。leak 対照は y_fwd_5 を 1 本混ぜる。対の相手は同じ表・同じ切れ目の B&H と、own.ridge の素の行。"
+n_trials_planned = 3
+key_shape = ["own.crash5-exit.ridge.shared~crash-label"]
+failure_modes = ["訓練期間の急落の日が少なすぎて（正例が数 %）較正が潰れ、出口% が fold ごとにほぼ定数になる（門の幅 20 点に届かない）", "急落の確率がボラの高い局面で上がるだけで、戻りの初日も売ってしまう（休むのが遅れて、戻りを取り逃がす）", "σ を訓練全体で取るので、評価期間の荒れ方とずれて、ある fold では 1 日も出口を言わない"]
+prediction = "上乗せは平均で小さな負（−100〜0bp/fold 程度）。fold の符号は割れて、2020 年の急落を含む fold だけ正になる。leak（y_fwd_5）は大きく跳ねる。"
+effort = "中"
+measurable = "測れる: 急落を避けた・避け損ねたの差は 1 回で数百 bp/fold になる。急落を含む fold と含まない fold で符号がそろうかも見える。"
+touches = "共有の経路: ail/validation のラベルの口（prep.train_label に label 種別を 1 つ足す。無い config は 1 ビットも変わらない形）＋ 新しい検知器は ail/ideas/ だけ"
+status = "人の手"
+frame = "外"
+p_hold = 0.2
+p_positive = 0.35
+learn_if_null = "差が出なければ、急落の確率は日足の own 列からは較正できる幅で出ない（＝ 下げの手がかりは方向の手がかりと同じくらい薄い）と分かる。次は日中の足か気配の差など、別のデータの層で同じラベルを試す。"
+notes = "段 1 の出力の key_shape の原文: own.crash5-exit.ridge.shared~crash-label@θ"

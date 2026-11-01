@@ -988,7 +988,11 @@ def weekly_stage(cfg: dict, env: dict, date: str, log, drafts_dir: str | None = 
 def _journal_path(cfg: dict, date: str) -> str:
     d = _path(cfg, "log")
     os.makedirs(d, exist_ok=True)
-    return os.path.join(d, f"{date}.md")
+    # ⚠ 同じ日の 2 回目以降は <日付>-2.md … に書く（前の回の日誌を上書きしない。2026-11-01 に踏んだ）
+    path, k = os.path.join(d, f"{date}.md"), 2
+    while os.path.exists(path):
+        path, k = os.path.join(d, f"{date}-{k}.md"), k + 1
+    return path
 
 
 def write_journal(cfg: dict, date: str, parts: dict, path: str) -> str:

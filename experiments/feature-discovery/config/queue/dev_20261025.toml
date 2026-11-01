@@ -1,0 +1,9 @@
+# ⚠ **開発ループの最初の 1 周（Phase 2-1・手で）の queue**（rules.md 31 章・プラン daily-dev-loop.md・記録 dev-loop.md §2）。
+# 登録簿の手間の小さい順（31-1 の 6）: `20261025-h5-pick-centered`（単体 3 ＋ 組 3）→ `20261025-xs-excess-label`（3）＝ n_trials ＋9（1,005 → 1,014）。
+# 表は作り直さない（`features_from`。leak 対照の表も既にある）。⚠ **回すと決めたのは結果を見る前（登録簿の registered_at 2026-10-25 12:31 PDT）**。
+experiments = ["dev_h5_pick_centered", "dev_roles_pick_centered", "dev_xs_excess_label"]
+
+leak = true              # ⚠ 配線の穴に気づく唯一の手。切らない（devloop.toml [run]）
+ledger = true            # ⚠ 終わったら検証結果一覧を吐き直す（ループの形）
+max_failures = 1
+time_budget_s = 5400     # ⚠ 見積り 4 分【推測。H5 系は 1 実行 約 30 秒・Ridge は 20 秒】の 20 倍（devloop.toml [run]）

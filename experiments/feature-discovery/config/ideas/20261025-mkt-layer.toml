@@ -1,0 +1,18 @@
+# ⚠ 開発ループの登録簿（rules.md 31-1）。cli.devloop が書く。status が 登録 より先なら structure ／ prediction ／ n_trials_planned ／ key_shape を直さない（直すなら新しい id）
+id = "20261025-mkt-layer"
+date = "2026-10-25"
+title = "市場全体の状態の層 mkt_（幅・ばらつき・等加重指数の動き）を足す"
+kind = "データ"
+origin = { source = "independent", refs = [], r_pct = 30, n_per_night = 5, prompt = "ideate_free", model = "claude-fable-5-1", cost_usd = 1.42, turns = 1, seconds = 114 }
+question = "63 本を束ねた「市場の状態」（その日に上がった銘柄の割合・銘柄間のばらつき・等加重指数のリターンとボラ）を前日までで作り、銘柄自身の列に足すと、翌日の方向の買い% が動くか。銘柄ごとの列（own_）と断面の相対（cs_）のどちらにも無い「全銘柄に同じ値が入る列」が、学習器に時期の切り替わりを渡せるかを確かめる。"
+structure = "新しい層 `mkt`（接頭辞 `mkt_`・config の `layers` に名前があるときだけ組む。無い config は 1 ビットも変わらない）。列の種類: 幅 ＝ 20 日 ／ 60 日移動平均より上にいる銘柄の割合、ばらつき ＝ 同日のリターンの断面の標準偏差、等加重指数の 1 日 ／ 5 日 ／ 20 日リターン、等加重指数の 20 日実現ボラ、幅の 5 日差分。全部 前日の終値までで作り、同じ日の全銘柄に同じ値を入れる。学習器は Ridge と LightGBM の 2 種、対の相手は同じ表の own だけ。θ は 50 ／ 55 ／ 60。"
+n_trials_planned = 6
+key_shape = ["own-mkt.all.ridge.shared", "own-mkt.all.lgbm.shared"]
+failure_modes = ["全銘柄に同じ値が入るので、学習器がその日の全銘柄をまとめて買う ／ 売る「市場のタイミング」に寄り、買い% の幅が銘柄間で潰れて門（幅 20 点）に届かない", "下げ相場の fold（2022 年）だけで対 B&H の上乗せが出て、上げ相場の fold で負 ＝ fold の符号が割れ、1 fold が平均を作る", "幅・ばらつきは 63 本から作るので、同じ 63 本の y と同日の情報を共有しやすく、1 日ずらし忘れると leak と同じ形になる（leak 対照との差を必ず見る）", "LightGBM では列の数が増えたぶん列の抽出の乱数が変わり、層の情報と乱数の差を分けられない"]
+prediction = "買い% の日ごとの平均が own だけより大きく上下する（日の相関が上がる）。対 B&H の上乗せは 2022 年の fold で正・ほかの fold で 0 の周りか負 ＝ 平均は 0 の周りで 5 fold の符号はそろわない。leak 対照は数千 bp/fold に跳ねる。Ridge と LightGBM で向きは同じ。"
+effort = "中"
+measurable = "測れる: 層の有無の対の差を同じ切れ目の fold で取る。市場の状態が効くなら時期ごとの差は数百 bp/fold の級で出る。効かないなら対の差が 0 の周りに収まることで「この列には翌日の方向の情報が無い」と言える。"
+touches = "共有の経路: ail/features（新しい層のモジュール 1 本を足し build.ORDER に 1 行）。無い config は 1 ビットも変わらないことを既存の指紋テストで見る ＝ 人の手"
+status = "登録"
+registered_at = "2026-10-25 12:31 PDT"
+notes = "key_shape の綴りを names.toml に合わせて直した（段 1 の出力は `full`。全部使う ＝ `all`）。層の綴り `mkt` は未登録（[layers]）。段 1 の出力の key_shape の原文: own-mkt.full.ridge.shared@θ ／ own-mkt.full.lgbm.shared@θ（対の相手 own.full.ridge.shared@θ ／ own.full.lgbm.shared@θ）"

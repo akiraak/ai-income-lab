@@ -186,6 +186,8 @@ def fold_buy_pct(tr: pd.DataFrame, te: pd.DataFrame, feats: list[str], exp: dict
                 fitted_doc[lab] = {**doc, "内側選抜": tuned.fold_doc(sel)}
     elif form == "per_symbol":
         # (B) 銘柄別: fit も較正も銘柄ごと（13-6 の 2）。fold の切れ目は上で決めた日付を共有
+        if exp.get("label"):
+            raise SystemExit("⚠ `label`（断面超過ラベル）は学習範囲 shared だけ（銘柄別では同じ日の平均が自分だけになる）")
         labels = {n: prep.label(exp, n) for n in selectors}   # ⚠ 変換名を混ぜた手法名
         sel_sum: dict[str, float] = {l: 0.0 for l in labels.values()}
         sel_cnt: dict[str, int] = {l: 0 for l in labels.values()}
@@ -227,7 +229,7 @@ def fold_buy_pct(tr: pd.DataFrame, te: pd.DataFrame, feats: list[str], exp: dict
         sc = StandardScaler().fit(tr[feats])
         Xtr = pd.DataFrame(sc.transform(tr[feats]), columns=feats)
         Xte = pd.DataFrame(sc.transform(te[feats]), columns=feats)
-        ytr = tr["y"].values
+        ytr = prep.train_label(exp, tr)       # ⚠ `label` の無い config は tr["y"].values そのまま（登録簿 20261025-xs-excess-label。rules.md 31 章）
         # ⚠ **標本から学ぶ変換の 1 段**（3 章 B）。⚠ **config に `transform` が無ければ素通り**
         Xtr, Xte, tdoc = prep.apply(exp, Xtr, Xte, ctx, ytr, ts_tr=tr["ts"].to_numpy())   # 日付は 23 章の適合度だけが読む
         if tdoc is not None:

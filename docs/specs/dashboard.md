@@ -1446,3 +1446,27 @@ flowchart LR
 - 机上の形と本番の形は同じではない（毎日の学び直し・15:50 ET の途中の足・気配と約定の差・`data-live/` は机上に無い）。`T6` の 1995 年から学ぶ形は本番の日足（2018 年から）では別の形になるので 2 行とも出す
 - 「試した数」はモデルのタブの経緯と同じ数え方（役割つきの組の行も含む）。「上乗せが最大の形」だけは素の形（対 B&H）に限る（トレーダーの形は相手が違うので混ぜない）
 - 直す手順: 文と対応 ＝ `dashboard/compare.toml`（見張りが 5 秒おきに入れ替える）／ 画面 ＝ `compareview.py`（直したら 3015 の入れ直し）／ テスト ＝ `cd dashboard && .venv/bin/python -m pytest -q tests/test_compare_tab.py`／ 手元で見る ＝ `python3 dashboard/vibetab.py --port 3016` → `http://127.0.0.1:3016/experiments/view?item=compare`
+
+## 20. 開発ループ（外部のタブ「実行」の 1 ページ。2026-10-25）
+
+利用者の指示（2026-10-24）「毎日回す仕組みも考える」。規約は [rules.md 31 章](experiments/feature-discovery/rules.md)・プラン [daily-dev-loop.md](../plans/daily-dev-loop.md)・記録 [dev-loop.md](experiments/dev-loop.md)。画面は `dashboard/devloopview.py`（`/experiments/view?item=devloop`・接頭辞 `/devloop` でも同じ中身）。
+
+> この図の主張: ページは 3 つの正本（登録簿の TOML・日誌・研究の DB）を写すだけで、操作の経路は無い。
+
+```mermaid
+flowchart LR
+  I["登録簿<br/>config/ideas/*.toml"] --> P["devloopview.py<br/>（読むだけ）"]
+  J["日誌<br/>docs/specs/experiments/dev-loop/log/*.md"] --> P
+  D["研究の DB<br/>ledger_rows（読み取り専用）"] --> P
+  S["数と置き場<br/>config/devloop.toml"] --> P
+  P --> V["実行タブの目次 3 番目「開発ループ」"]
+```
+
+| # | 決まり |
+| ---: | --- |
+| 1 | 出すもの: 設定の要点（r・N・費用の上限・時間帯）／ 登録簿の表（id・題・種類・出どころ・状態・登録時刻・数える・手間・触る場所・**結果** ＝ 登録簿の `runs` を含む検証結果一覧の行〔θ・上乗せ・fold・判定〕）／ 日誌（最新 1 晩の本文を「段 1 の原文」の前まで・ほかは名前） |
+| 2 | ⚠ **良し悪し・意味の有無の印を付けない**（利用者の指示 2026-10-24）。印は 手間・測れるか・触る場所。判定は検証結果一覧の列をそのまま写す（leak の行・基準線は出さない） |
+| 3 | ⚠ **並べたものであって採用ではない**（頭に注意）。「予測モデル」「トレーダー」のタブにはリンクしない（くらべない決まりは変えない） |
+| 4 | ⚠ **読むだけ・標準ライブラリだけ**。操作の経路は無い（止める手は `experiments/feature-discovery/DEVLOOP_HALT` ＝ CLI ／ 利用者）。`out/`・`state/`・`.env` を読まない |
+| 5 | 置き場は `TraderPaths` の `ideas_dir`・`devloop_toml`・`devloop_log`（環境変数 `AIL_IDEAS_DIR`・`AIL_DEVLOOP_TOML`・`AIL_DEVLOOP_LOG`）。見張りは登録簿・日誌・設定の mtime ＋ 検証結果一覧を DB に入れ直した時刻（`fingerprint`） |
+| 6 | テスト `dashboard/tests/test_devloop_tab.py`（小さな登録簿・日誌・DB で画面 ／ 空でも落ちない ／ 指紋 ／ 目次の並び） |

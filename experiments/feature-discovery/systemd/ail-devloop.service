@@ -1,0 +1,11 @@
+# 開発ループの 1 晩（rules.md 31 章）。⚠ 入れるのは利用者（README.md）。titan でだけ。
+[Unit]
+Description=ai-income-lab 開発ループ: 毎晩 01:00 PDT に 1 周（アイデア出し → 作る → 机上で検証 → 選ぶ）
+
+[Service]
+Type=oneshot
+WorkingDirectory=%h/ai-income-lab
+ExecStart=%h/ai-income-lab/run-devloop.sh
+StandardOutput=append:%h/ai-income-lab/experiments/feature-discovery/devloop/logs/timer.log
+StandardError=inherit
+# claude -p は利用者のログイン情報（~/.claude）を読む。timer の環境でも HOME が同じなら動く（README の確かめ方）

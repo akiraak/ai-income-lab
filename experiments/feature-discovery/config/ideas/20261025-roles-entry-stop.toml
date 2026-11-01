@@ -1,0 +1,19 @@
+# ⚠ 開発ループの登録簿（rules.md 31-1）。cli.devloop が書く。status が 登録 より先なら structure ／ prediction ／ n_trials_planned ／ key_shape を直さない（直すなら新しい id）
+id = "20261025-roles-entry-stop"
+date = "2026-10-25"
+title = "役割つきの組の損切り係を「建値から −10%」の位置を知る口に替える"
+kind = "執行"
+origin = { source = "reference", refs = ["horizon-roles-trader.md §4 限界 1（損切り係の翌日買い戻し・建値基準は新しい処置として先に登録）・§5-3 注意 1・5（X1 を買いの側に流すと悪くなる ≠ 損切りを外すとよい／建値基準を試すなら先に登録）・§7（損切りなし R6〜R9 の行が対照として在る）", "stoploss-as-model.md §0-3（形 B `simulate(stop_loss_pct=x)` の式と水準 5 ／ 10 ／ 20%・高値からと買値からを同じ値で比べる置き方）・§4 限界 5（形 B は建ててからの累積対数リターンで位置を見る・本番の買値の差は入らない）・§6（形 B を本番で持つ口は後）", "rules.md 25-2（役割つきの合わせる口・`stop_exit_pct` は毎日読む）・25-4（買いも止める形は別の識別項目）・25-6（損切りなしの 4 組と数え方 ＋12）", "config/names.toml [mix]（roles-*・-block・-nostop・-centered-nostop は在る・建値基準の組は無い）"], r_pct = 30, n_per_night = 5, prompt = "ideate_ref", model = "claude-fable-5-1", cost_usd = 3.82, turns = 14, seconds = 184 }
+question = "損切り係を「高値 20 日から −10%」（位置を知らない X1。買った翌日に売る往復が取引の約 6 割）から「建ててからの累積対数リターンが log(0.9) を割ったら降りる」（位置を知る形 B）に替えると、同じ 4 組で往復の型が消えるか。消えたとき、R1〜R4（X1）と R6〜R9（損切りなし）の両側との fold 対の差がどちらを向くか。"
+structure = "合わせる口 `[[trading.mix]] combine = \"roles\"` に項目 `entry_stop_pct = 10`（任意・既定 None）を足し、`_roles_fold` が `simulate` ／ `simulate_topk` の既存の `stop_loss_pct`（stoploss-as-model.md 形 B）へ渡す。損切り係（`role = stop`）は置かない（`stop_exit_pct` None）＝ 売り係の出口% と形 B の「どちらか」で降りる。最短保有・買い係・売り係・θ 50・条件 2a ／ 2b は R1〜R4 と同じ 4 組 (b, e) ＝ (10, 5)・(20, 5)・(40, 10)・(5, 20)。水準は X1 と同じ 10% の 1 水準だけ（高値基準と建値基準を同じ値で直接比べる ＝ stoploss-as-model.md §0-3 と同じ置き方。5 ／ 20% は足さない）。`simulate_topk` に `stop_loss_pct` が無ければ `simulate` と同じ式で足す（省けば既存と完全一致）。既存の R1〜R4 との違いはこの 1 文: 損切りの基準が「直近 20 日の高値」から「自分の建値」に変わり、建てた日の位置を知る。"
+n_trials_planned = 12
+key_shape = ["own.roles-b10-e5-entrystop10.ridge.shared", "own.roles-b20-e5-entrystop10.ridge.shared", "own.roles-b40-e10-entrystop10.ridge.shared", "own.roles-b5-e20-entrystop10.ridge.shared"]
+failure_modes = ["買い係が建てた後に建値から 10% 下がる日がまれで、形 B はほぼ沈黙し、R6〜R9（損切りなし）と数十 bp 以内の行になる ＝ 検出限界の下（発火した回数が 0 に近いなら「替えた」と言えない）", "下げの fold 3 で建値から −10% の後に戻る往復（12 回の下げが 12 回とも戻った生存バイアスの集合 ＝ stoploss-as-model.md §4 の 2）が R1〜R4 の往復と形を変えて残る", "2a の 5 本・$600 では枠を超えて買えない銘柄（fold 2 の NKE）があり、損切りが効く機会そのものが減って 2a と素の行で向きが割れる", "最短保有 d の中でも形 B は毎日読む（25-2 の 3 と同じ扱い）ので、d が長い組（b40）では最短保有の意味が形 B の側で崩れる"]
+prediction = "採る 0。保有 1 日の取引の割合は R1〜R4 の約 6 割から R1b〜R4b（11〜16%）と同じ 1 割台に落ちる。R1〜R4 との対の差は 4 組とも正（往復の費用のぶん・fold 1・2・5 が作る）、R6〜R9 との対の差は 0 の周り（|t| < 1）で fold 3 だけ負に寄る【推測】。形 B の発火は fold 3 に集中し、fold 2・4・5 では各組 50 回/fold 未満。leak 対照は R1〜R4 と同じ桁で跳ねる（形 B は説明変数を読まないので跳ねの大きさは買い係の側のもの）。"
+effort = "中"
+measurable = "測れる: 同じ表・同じ組・同じ θ の対照が両側に既にある（R1〜R4 ＝ X1 あり・R6〜R9 ＝ なし・R1b〜R4b ＝ 買いも止める）ので、fold 対の差と保有 1 日の割合（診断）が機械で出る。R1〜R4 との差は ＋200〜＋460bp/fold 級（25-6 で見えた大きさ）なら見える。R6〜R9 との差が数十 bp なら検出限界の下 ＝ そのときは形 B の発火回数（fitted_doc に残す）で「沈黙した」と分かる形にしておく。"
+touches = "共有の経路: cli/run.py の `mix_specs`・`_roles_fold`（項目 1 つを simulate へ渡すだけ。無い config は 1 ビットも変わらない ＝ tests/test_roles_mix.py に「省くと R6〜R9 と同じ」の 1 本）＋ ail/validation/simulate.py の `simulate_topk`（`stop_loss_pct` が未対応なら `simulate` と同じ式を足す・既定 None）＋ config/names.toml [mix] 4 行 ＋ config/experiment 4 本（`trader_roles_t21〜t24`。表は `trade_own_fwdmulti_a` を `features_from`）＋ queue 1 本。執行器（`experiments/live-trading/`）には建値を渡す口が無いので触らない ＝ 机上だけ"
+status = "登録"
+registered_at = "2026-10-25 12:31 PDT"
+reference_mode = "避ける"
+notes = "段 1 の出力の key_shape の原文: own.roles-b10-e5-entrystop10.ridge.shared@50（同じ行に -tr5-600 ／ -trall）。4 組 ＝ roles-b10-e5-entrystop10 ／ roles-b20-e5-entrystop10 ／ roles-b40-e10-entrystop10 ／ roles-b5-e20-entrystop10（名前は [mix] に R14〜R17 として登録）"

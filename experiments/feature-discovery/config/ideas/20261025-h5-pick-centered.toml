@@ -1,0 +1,21 @@
+# ⚠ 開発ループの登録簿（rules.md 31-1）。cli.devloop が書く。status が 登録 より先なら structure ／ prediction ／ n_trials_planned ／ key_shape を直さない（直すなら新しい id）
+id = "20261025-h5-pick-centered"
+date = "2026-10-25"
+title = "期間を選ぶゲート H5 を土台差で選ばせる（H5 × 中心化）"
+kind = "モデル"
+origin = { source = "reference", refs = ["horizon-roles-trader.md §6-1（4 本の最大は期間を選んでいない）・§6-2（選んだ期間の fold 別分布）・§6-3 注意 1（土台との差や順位で比べる形は新しい処置として先に登録）", "rules.md 25-5（H5 の規約 1〜8 と適用例）・25-7（中心化の式 100 × σ(logit(p) − logit(π))・π は訓練の行の割合・既存の H1〜H5 は変えない）・25-8（土台の期間を振らない）", "config/names.toml [method]（h5-gate-pick・h1〜h4-gate*-centered は在る・pick-centered は無い）・[mix]（roles-pick-stop）"], r_pct = 30, n_per_night = 5, prompt = "ideate_ref", model = "claude-fable-5-1", cost_usd = 3.82, turns = 14, seconds = 184 }
+question = "先 5 ／ 10 ／ 20 ／ 40 日のゲート 4 本を「較正した確率の最大」ではなく「土台を引いた買い%（logit(p_W) − logit(π_W)）の最大」で比べると、選ぶ期間が fold ごとに 1 つへ偏らず散るか。散ったとき、保有日数を期間から決める形の上乗せが H5（土台なし）と fold 対でどう違うか。"
+structure = "検知器の新しい登録名 `H5 先5〜40日から期間を選ぶゲート（全列・学習・土台差）`（綴り `h5-gate-pick-centered`）を 1 本足す。中身は既存の H5 が `forward_gate(w, center=True)` を 4 回呼ぶだけ（25-5 の max と d* の規則・出口% 0・`hold_days` の器はそのまま。25-7 の π は訓練の行の割合 1 水準のまま ＝ 土台の期間は振らない）。既存の H5 との違いはこの 1 文: 比べる量が p_W から logit(p_W) − logit(π_W) に変わり、同じ π_W の式で W ごとの土台の差を消してから最大を取る。回すのは ① 単体 × θ 50 ／ 55 ／ 60（表は `trade_own_fwdmulti_a` を `features_from`・`fwd_columns = \"own\"`）② 合わせる口 `R14 買い係が期間を選ぶ（土台差）・損切り` ＝ `roles-pick-centered-stop`（H5c ＋ X1・`hold_from_buy`・θ 50・素の行 ＋ 2a 5 本・$600 ＋ 2b 全銘柄）。対の相手は同じ表の H5 単体（§6-2）と R5。期間の候補・θ・X1 の水準は足さない・動かさない。"
+n_trials_planned = 6
+key_shape = ["own.h5-gate-pick-centered.ridge.shared", "own.roles-pick-centered-stop.ridge.shared"]
+failure_modes = ["土台を引いても logit 差の散らばりが W の長いほうで大きく（先 40 日の p の幅が最も広い）、最大は結局 1 つの期間に偏る ＝ H5 と同じ分布になり「選んだ」と言えない", "中心化で買い% が 50 を跨がない日が増え、25-7 の単体 12 行と同じ「休んだぶんが負」の型に落ちる（保有日率 0.5〜0.7）", "日数がたったら売って翌日買い直す形の往復費用（25-5 注意 2）が上乗せを決め、選び方の違いが費用の下に埋もれる", "R14 では損切り係 X1 の翌日買い戻し（§4 の 1）が 3〜4 割残り、組の行は単体の違いを写さない"]
+prediction = "採る 0。選んだ期間の fold 別分布は H5（fold ごとに 1 期間が 88〜100%）より散り、2 つ以上の fold で最大の期間の占める割合が 7 割を切る【推測】。単体の上乗せは 25-7 の土台差 H1〜H4 単体（−197〜−1,247bp/fold）と H5 単体（−10〜−226）の間で、fold の符号は割れる（2〜3/5）。H5 との対の差は |t| < 2。R14 対 R5 の差は正負どちらも fold 3（下げ相場）が決める。leak 対照は H5 ＋3,877・R5 ＋2,877 と同じ桁で跳ねる。"
+effort = "小"
+measurable = "測れる: 対の相手（同じ表・同じ fold・同じ θ の H5 単体と R5）が既にあり、違いは選ぶ量 1 つだけなので fold 対の差が出る。「期間が散ったか」は fitted_doc の選んだ期間の分布（fold 別の行数）で結果の良し悪しと独立に読める。上乗せの差は数百 bp/fold 級（25-7 の単体が見えた大きさ）なら見え、数十 bp なら検出限界の下 ＝ 分布の変化だけが答えになる。"
+touches = "共有の経路: ail/detectors/fwd.py（H5 の中心化版の登録名を 1 本足す。`center` の既定 False ＝ 既存の H1〜H5 は 1 ビットも変わらない・指紋テスト tests/fixtures/fwd_fingerprint.json で確かめる）＋ config/names.toml の [method] と [mix] に綴り 2 行 ＋ config/experiment 2 本（`trade_own_fwdpick_c`・`trader_roles_t20`）＋ queue 1 本。cli/run.py・simulate は触らない（`hold_from_buy`・`hold_days` の口をそのまま使う）"
+status = "回した"
+registered_at = "2026-10-25 12:31 PDT"
+reference_mode = "組み合わせる"
+notes = "段 1 の出力の key_shape の原文: own.h5-gate-pick-centered.ridge.shared@{50,55,60}（単体 3）／ own.roles-pick-centered-stop.ridge.shared@50 と同じ行に -tr5-600 ／ -trall（組 3）"
+runs = ["2026-10-25T12-49-35_dev_h5_pick_centered", "2026-10-25T12-50-05_dev_roles_pick_centered"]
+experiments = ["dev_h5_pick_centered", "dev_roles_pick_centered"]

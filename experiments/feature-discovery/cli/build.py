@@ -29,6 +29,15 @@ import ail.bootstrap  # noqa: F401
 # ⚠ **`trendvol` は `trend` の直後**（出来高の長い窓。同じ `own_trend{W}_` の接頭辞。⚠ **config に書いたときだけ入る**）
 # ⚠ **`cal` は最後**（暦の列。既存の層の並びを 1 つも動かさない ＝ 既存の表の列順は変わらない）
 ORDER = ("own", "trend", "trendvol", "seq", "cs", "rel", "ll", "ex", "im", "ern", "ernf", "cal")   # ernf ＝ 欠損を印にする決算の層（rules.md 28-1）
+
+
+def layer_order(layers) -> list[str]:
+    """表に入れる層の並び ＝ `ORDER` の順。⚠ **`ORDER` に無い登録済みの層（`ail/ideas/` が足したもの。rules.md 31 章・2026-10-25）は
+    config に書いた順で後ろに足す**。`ORDER` の層だけの config は 1 ビットも変わらない（登録済みの 12 層は全部 `ORDER` にある ＝ `tests/test_ideas_loader.py`）。"""
+    layers = list(layers)
+    wanted = [l for l in ORDER if l in layers]
+    wanted += [l for l in layers if l not in ORDER and l not in wanted]
+    return wanted
 # ⚠ **`ex` と `im` は価格に依存しない**（外部系列を貼るだけ）が、並びは固定する
 
 
@@ -71,7 +80,7 @@ def assemble(experiment: str, layer: str = "adjusted", leak: bool = False, shift
     ctx = {"market": market, "sector_of": u.get("sector_of", {}), "universe": ds["universe"],
            "etf": u.get("groups", {}).get("etf", []), **exp.get("features", {})}
 
-    wanted = [l for l in ORDER if l in exp.get("feature_layers", ["own"])]
+    wanted = layer_order(exp.get("feature_layers", ["own"]))
     if "own" not in wanted:
         wanted.insert(0, "own")        # ⚠ cs / rel / ll は own を土台にするので必ず作る
     parts: dict[str, dict[str, pd.DataFrame]] = {}

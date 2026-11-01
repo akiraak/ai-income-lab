@@ -156,6 +156,8 @@ def _options(row: dict) -> list[str]:
                 variants.append(table()["execution"][part])
             elif c := _COST_BP.match(part):
                 variants.append("cost" + c.group(1).replace(".", "p"))       # 20 → cost20・7.5 → cost7p5
+            elif part in table().get("label", {}):
+                variants.append(table()["label"][part])                      # 断面超過ラベル → xs-label（rules.md 31 章の登録簿。2026-10-25）
             else:
                 _stop("検証方式", row["検証方式"])
     if style == "毎日往復":

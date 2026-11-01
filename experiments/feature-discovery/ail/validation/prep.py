@@ -40,6 +40,25 @@ def apply(exp: dict, Xtr: pd.DataFrame, Xte: pd.DataFrame, ctx: dict, ytr=None, 
     return registry.resolve("transform", name)(Xtr, Xte, ctx)
 
 
+XS_LABEL = "xs_excess"     # 登録簿 20261025-xs-excess-label（2026-10-25）
+
+
+def train_label(exp: dict, tr: pd.DataFrame):
+    """訓練のラベル。⚠ **`label` の無い config は `tr["y"].values` そのまま**（1 ビットも変わらない ＝ 既定経路の指紋）。
+
+    `label = "xs_excess"`（開発ループの登録簿 `20261025-xs-excess-label`・rules.md 31 章）: 訓練のラベルを **y − 同じ日の表の全銘柄の y の平均**
+    （断面の超過リターン）にする。訓練の行だけで作る（検証の行の y は使わない）。評価の損益・売買の器・θ・較正の式は変えない
+    （較正は符号で行うので「平均を上回ったか」の確率になる）。⚠ 学習範囲 shared だけ（銘柄別は呼ぶ側が拒む）。
+    """
+    kind = exp.get("label")
+    if not kind:
+        return tr["y"].values
+    if kind != XS_LABEL:
+        raise SystemExit(f"⚠ label = {kind!r} は受けない（{XS_LABEL!r} だけ。rules.md 31 章の登録簿）")
+    y = tr["y"].astype(float)
+    return (y - y.groupby(tr["ts"]).transform("mean")).to_numpy(dtype=float)
+
+
 def label(exp: dict, method: str) -> str:
     """手法名に変換を混ぜる。⚠ **変換名を先頭に置く。**
 

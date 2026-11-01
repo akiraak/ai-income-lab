@@ -58,3 +58,7 @@ from ail.search import evolve as _evolve  # noqa: F401
 from ail.validation import splits            # noqa: F401
 from ail.data.sources import edgar                      # noqa: F401  決算（rules.md 26 章。2026-10-19）
 from ail.features import earnings                            # noqa: F401
+# ⚠ **開発ループが足す新しい口**（rules.md 31 章・2026-10-25。登録簿 config/ideas/）: `ail/ideas/i*.py` を全部 import する。
+#    registry に登録するだけ ＝ 既存の経路は 1 ビットも変わらない（指紋テスト）。⚠ 共有の経路（この並び・features・detectors・cli/run.py）は人の手のまま
+from ail import ideas as _ideas                               # noqa: E402
+_ideas.load_all()

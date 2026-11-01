@@ -1,0 +1,20 @@
+# ⚠ 開発ループの登録簿（rules.md 31-1）。cli.devloop が書く。status が 登録 より先なら structure ／ prediction ／ n_trials_planned ／ key_shape を直さない（直すなら新しい id）
+id = "20261025-xs-excess-label"
+date = "2026-10-25"
+title = "ラベルを「その日の全銘柄の平均を上回るか」（断面の超過リターン）に替えて学ぶ"
+kind = "モデル"
+origin = { source = "independent", refs = [], r_pct = 30, n_per_night = 5, prompt = "ideate_free", model = "claude-fable-5-1", cost_usd = 1.42, turns = 1, seconds = 114 }
+question = "翌日の log リターンそのものではなく「翌日に 63 本の等加重平均をどれだけ上回るか」を学ぶと、市場全体の上下（学べない部分）を取り除いたぶん、銘柄ごとの買い% の順序づけが変わるか。売買の器はそのままで、学ぶ目標だけを替えたときに対 B&H の上乗せがどう動くかを確かめる。"
+structure = "config に `label = \"xs_excess\"`（無ければ今までの `y` ＝ 1 ビットも変わらない）。訓練のラベル ＝ `y` − 同日の 63 本の `y` の平均、較正は超過が正か負かの符号で行う。予測する行・評価の損益・売買の器・θ は変えない（損益は今までどおり実際のリターンで測る）。学習器は Ridge 1 種、入力は own 35 列。θ 50 ／ 55 ／ 60。学習範囲は shared。"
+n_trials_planned = 3
+key_shape = ["own.all.ridge.shared~xs-label"]
+failure_modes = ["超過リターンの符号は日ごとに約半分ずつなので、較正した買い% が 50 の周りに集まり、θ 55 ／ 60 では 1 日も買わない（持ち続けるを割る）", "器が等加重で「上回りそうな銘柄」の順位を使わないため、相対の情報が売買に写らない（上位 K の器でないと意味を持たない形）", "下げ相場では「平均を上回る」銘柄も下がるので、買い% が高い日に全部買って負ける ＝ 対 B&H の上乗せが下げ相場の fold で大きく負", "同日の平均に自分自身が入る（63 分の 1）ぶんのラベルの縫い目"]
+prediction = "買い% の幅は今までの `y` より狭くなり、θ 60 の行は売買がほぼ無くなる。θ 50 では保有日率が約 5 割になり、対 B&H の上乗せは 5 fold とも負か 0 の周り（市場の上昇を半分しか取れない）。leak 対照（未来の超過リターンを 1 本混ぜる）は跳ねる。訓練内の AUC は `y` のときより 0.01〜0.02 上がる。"
+effort = "小"
+measurable = "測れる: 同じ表・同じ切れ目でラベルだけが違う対の差を取れる。上乗せの向きと保有日率の変化は数百 bp/fold の級で出る。順位の情報は等加重の器では測れないので、この検証で測るのは「ラベルを替えても等加重の器で上乗せが出るか」だけに限る。"
+touches = "共有の経路: cli/run.py（ラベルの作り方の分岐 1 か所）・ail/catalog.py（変種の名前）。無い config で既定経路の指紋が変わらないことを見る ＝ 人の手"
+status = "回した"
+registered_at = "2026-10-25 12:31 PDT"
+notes = "ラベルの変種 `~xs-label` は識別項目（検証方式の変種）の新しい綴り ＝ catalog ／ names を触る（人の手の側）。段 1 の出力の key_shape の原文: own.full.ridge.shared~xs-label@θ（ラベルの変種を検証方式の変種として識別項目に残す。対の相手 own.full.ridge.shared@θ）"
+runs = ["2026-10-25T12-50-34_dev_xs_excess_label"]
+experiments = ["dev_xs_excess_label"]

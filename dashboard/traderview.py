@@ -52,6 +52,10 @@ class TraderPaths:
     # トレーダーの形の綴り（`[trader]`）を引く研究の `names.toml`（読むだけ。無ければ compare.toml に書いた綴りだけで動く）
     compare: Path = DASHBOARD_DIR / "compare.toml"
     names: Path = REPO_ROOT / "experiments" / "feature-discovery" / "config" / "names.toml"
+    # 「開発ループ」（devloopview.py。2026-10-25）が読むもの: 登録簿・数と置き場・日誌（読むだけ）
+    ideas_dir: Path = REPO_ROOT / "experiments" / "feature-discovery" / "config" / "ideas"
+    devloop_toml: Path = REPO_ROOT / "experiments" / "feature-discovery" / "config" / "devloop.toml"
+    devloop_log: Path = REPO_ROOT / "docs" / "specs" / "experiments" / "dev-loop" / "log"
 
     @classmethod
     def default(cls) -> "TraderPaths":
@@ -65,6 +69,9 @@ class TraderPaths:
             universe_dir=Path(os.environ.get("AIL_UNIVERSE_DIR") or fd / "universe"),
             compare=Path(os.environ.get("AIL_COMPARE_WORDS") or DASHBOARD_DIR / "compare.toml"),
             names=Path(os.environ.get("AIL_NAMES_TOML") or fd / "names.toml"),
+            ideas_dir=Path(os.environ.get("AIL_IDEAS_DIR") or fd / "ideas"),
+            devloop_toml=Path(os.environ.get("AIL_DEVLOOP_TOML") or fd / "devloop.toml"),
+            devloop_log=Path(os.environ.get("AIL_DEVLOOP_LOG") or REPO_ROOT / "docs" / "specs" / "experiments" / "dev-loop" / "log"),
         )
 
 

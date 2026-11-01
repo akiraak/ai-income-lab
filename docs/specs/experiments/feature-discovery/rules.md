@@ -1906,6 +1906,7 @@ flowchart LR
 | ⚠ **25** | `ail/detectors/fwd.py` の `EXTRA_WINDOWS`・`name_of`・`fwd_columns`（ctx。⚠ **項目が無ければ全列 ＝ 既存と完全一致**）／ 25-2 ＝ `ail/validation/simulate.py` の `simulate`・`simulate_topk`（任意引数 `min_hold_days`・`stop_exit_pct`。⚠ **省くと既存と完全一致**）＋ `cli/run.py` の `mix_specs`・`_mix_fold`（`combine = "roles"`）・`_row`・`_trader_fold`（手法ごとの口を渡す）／ 綴り ＝ `config/names.toml` の `[method]`（`h2-gate5` ほか）・`[mix]`（`roles-*`）／ config `trade_own_fwdmulti_a`・`trader_roles_t7〜t10`・queue `horizon_roles1`・`horizon_roles2` ／ テスト `tests/test_fwd.py`（5 節）・`tests/test_roles_mix.py` ／ ⚠ **25-4** ＝ `simulate`・`simulate_topk` の任意引数 `stop_blocks_buy`（⚠ **省くと既存と完全一致**）＋ `mix_specs`（`stop_blocks_buy`）・`_roles_fold`（`opts`）・`_row`・`_trader_fold` ／ 綴り `roles-*-block` ／ config `trader_roles_t7b〜t10b`・queue `horizon_roles2b` ／ テスト `tests/test_roles_mix.py` の 25-4 の節 ／ ⚠ **25-5** ＝ `ail/detectors/fwd.py` の `H5`・`HOLD_KEY`・`drain_holds` ＋ `simulate`・`simulate_topk` の任意引数 `hold_days`（⚠ **省くと既存と完全一致**）＋ `fold_buy_pct`（4 つ返す検知器）・`mix_specs`（`hold_from_buy`）・`_roles_fold`・`_row`・`_trader_fold` ／ 綴り `h5-gate-pick`・`roles-pick-stop` ／ config `trade_own_fwdpick_a`・`trader_roles_t11`・queue `horizon_roles3` ／ テスト `tests/test_fwd.py` の H5 の節・`tests/test_roles_mix.py` の 25-5 の節 |
 | ⚠ **14-12** | `ail/models/tuned.py`（候補・尻・champion・学び直し。Phase 1）＋ `ail/models/trees.py`・`deep.py`（ctx から読む。⚠ **既定はいまの定数と同じ ＝ 既存の config は指紋が動かない**）＋ `cli/run.py` の `fold_buy_pct`（記録の拾い）・`ail/validation/gate.py`（記録を捨てる）／ 綴り = `config/names.toml` の `[learner]`（`ridge-tuned`・`lgbm-tuned`・`mlp-tuned`）／ テスト `tests/test_tuned.py`（いずれも Phase 1。プラン [hyperparam-inner-selection.md](../../../plans/archive/hyperparam-inner-selection.md)）。⚠ **14-12-3**（1 度選んで配る）: `tuned.py` に `<モデル>（内側選抜・1 度）`・`cli/run.py` の `fold_buy_pct` が較正の前に選んで ctx で配る・`names.toml` に `*-tuned-once`・config `trade_own_*_tuned_once_a`・queue `hp_inner_once`・`tests/test_tuned.py` に 6 本（Phase 4） |
 | ⚠ **検証結果一覧** | `ail/catalog.py` ／ `cli/ledger.py` ／ `config/legacy.toml` ／ `config/catalog_notes.toml` |
+| ⚠ **31** | 登録簿 `config/ideas/<id>.toml`・`cli/devloop.py`（`register`）・新しい口の置き場 `ail/ideas/`（`ail/bootstrap.py` が読む）・`cli/build.py` の `layer_order`・`ail/validation/prep.py` の `train_label`（`label`）・`cli/select_candidates.py`・`cli/trader_shape.py`・プロンプト `devloop/prompts/`・数と置き場 `config/devloop.toml`（31-5） |
 
 ### 25-6. ⚠ 損切り係なしの組（Phase 6-1。2026-10-19 利用者「損切りを入れないトレーダーを用意する」。⚠ 回す前に固定）
 
@@ -2124,3 +2125,86 @@ B・C の 100 本を取って始まりの日を見たところ、**取得元の�
 ⚠ **実売買への注意**: 同じ取得元を `data-live/` も毎日継いでいる。本番の 5 本（T・PFE・NKE・VZ・BAC）と候補の人の銘柄に分割が来た日は、終値 1 本が旧目盛りのまま届く可能性がある（13500t の日足の更新は `cli.adjust` を通らない ＝ 別のタスクとして起こす）。
 
 ⚠ **2026-10-23 の適用例（回した結果。13:10〜13:12 PDT titan・queue `symbol_select_widen` 66 秒 ＋ `symbol_select_widen_a` 65 秒【実測】）**: **採る 0 ／ 保留 1 ／ 落とす 26（978 → 1,005）。「採る」は 3 表とも再現しなかった**（記録 [symbol-selection-widen.md](../symbol-selection-widen.md)）。主の行 `ret` θ50 ＝ **B −591（0/5）／ C −700（3/5 だが平均は負）／ A −1,108（1/5・DSR 0.05）**・新しい 3 表の 15 fold ＝ 平均 −800・t −2.05・正 4/15。選抜の価値は 4 表とも 0 の周り（|t| ≤ 0.86）。素の行（全部使う θ50）も 3 表とも落とす（A は 2000 年からの 4.4 年 fold で 対 B&H −1,502）。leak 3 本は跳ねた。見立て 7 つのうち 5 つ ✅・外れ 2 つ（A の向きは負・DSR 0.05）。⚠ **29-9 の「採る」の判定は変えない**（規則どおり ＝ 中位 48 本 × 2018 年からの表に固有の 1 行と読む。11 章 規約 2）・候補の人は作らない・C（S&P 400）／ D（前向き）に進む材料は無い（進めるかは利用者）。
+
+## 31. ⚠ 開発ループ — 毎晩「アイデア出し → 作る → 机上で検証 → 選ぶ」を回すときの一般形（2026-10-25・⚠ 下書き。ループを回す前に確定する ＝ プラン Phase 4-1）
+
+利用者の指示（2026-10-24）「「採る」モデルやトレーダーを開発する手法を作る。既存の改善プロセスと被るので上手く統合する」「毎日回す仕組みも考える」。決めごと K1〜K8 は 2026-10-25「推す案で」（プラン [daily-dev-loop.md](../../../plans/daily-dev-loop.md) §4-0）。数と置き場は `config/devloop.toml`。
+⚠ **この章は 1 章だけで、アイデアごとに章を足さない**（アイデア 1 本の事前固定は登録簿 `config/ideas/<id>.toml` に書く）。⚠ **14 章・20 章・13-7 の判定・howto §3-1 の物差しは 1 行も変えない**。足すのは「登録簿の形」「数え方」「選ぶ段」「打ち切り」の一般形だけである。
+
+| 変更規約の問い | 答え |
+| --- | --- |
+| なぜ足すか | 人が手で回していた 1 周（howto §3 ＝ 選ぶ → 机上 → 候補）を毎晩機械で回すと、⚠ **事前固定の時刻・数え方・「最良」の選び方を人が毎回書かなくなる**。書かなければ 14-9・14-10 が守られているかを後から確かめられない ＝ 一般形を先に 1 度だけ書く |
+| 変える前の結果をどう扱うか | 既存の 1,005 行・判定・`n_trials` は 1 つも変えない。ループが足す行は今までどおり `cli.queue` → `catalog` が数える（登録簿は予定であって正本ではない） |
+
+> この図の主張: 登録簿の `status` が「回すと決めた時刻」を持ち、結果を見た後は `structure`・`prediction` を直せない（直すなら新しい id）。数えるのは検証結果一覧（既存の器）で、登録簿は予定を書く場所である。
+
+```mermaid
+flowchart LR
+  A["案<br/>段 1 が出す（良し悪しを書かない）"] -->|"項目がそろう"| R["登録<br/>registered_at ＝ 回すと決めた時刻"]
+  R -->|"段 2 が口とテストを足す"| B["作成中"]
+  B -->|"テスト ✅ → cli.queue"| D["回した<br/>n_trials は catalog が数える"]
+  B -->|"テスト ✗（2 回まで）"| F["失敗（数えない）"]
+  A -->|"識別項目が既にある"| X["既出（回さない・数えない）"]
+  A -->|"共有の経路を触る"| H["人の手（利用者のセッションで）"]
+```
+
+### 31-1. 登録簿（事前固定の置き場）
+
+| # | 規約 |
+| ---: | --- |
+| 1 | 1 アイデア ＝ 1 ファイル `config/ideas/<YYYYMMDD>-<slug>.toml`。項目: `id`・`date`・`title`・`kind`（モデル ／ データ ／ 検証方式 ／ 物差し ／ 執行 ／ ループ自身）・`origin`（`source = "reference"` ／ `"independent"`・`refs`・`r_pct`・`n_per_night`・`prompt`）・`question`（問い）・`structure`（口と水準。⚠ 数値の組み合わせは事前固定しない ＝ 14-9）・`n_trials_planned`（数える検証数 ＝ 手法 × θ）・`key_shape`（識別項目の形 ＝ 予測モデル名のパターン）・`failure_modes`・`prediction`（先に書く予想）・`effort`（小 ／ 中 ／ 大）・`measurable`（14-2 の検出限界に対して測れるか。⚠ 「測れない」が回さない唯一の理由 ＝ 14-10 規約 1）・`touches`（新しいモジュールだけ ／ 共有の経路）・`status`・`registered_at` |
+| 2 | `status` は **案 → 登録 → 作成中 → 回した** の一方向。横道は **既出**（識別項目が検証結果一覧に既にある ＝ 回さない・数えない）・**人の手**（共有の経路を触る ＝ 自動で作らず利用者のセッションで。K7）・**失敗**（段 2 のテストが 2 回通らない ＝ 回していないので数えない）。⚠ 戻さない |
+| 3 | **項目がそろって `status = 登録` になった時刻（`registered_at`）＝ 回すと決めた時刻**（14-10 規約 3）。⚠ `cli.devloop register --promote <id>` が時刻を打つ。手で書かない |
+| 4 | ⚠ **結果を見た後に `structure`・`prediction`・`n_trials_planned`・`key_shape` を直さない**。直すなら新しい id（`register.md` の差分で見える ＝ 登録時刻より新しい変更で中身が違えばテストが落ちる） |
+| 5 | 同じ id で 2 度回さない（`cli.queue` の状態が守る）。回し直しは段 2 の失敗を直した翌晩だけ（回数の上限 2） |
+| 6 | 良し悪し・意味の有無は段 1 でも登録でも付けない（利用者の指示 2026-10-24）。付ける印は **手間・測れるか・触る場所** の 3 つだけ。⚠ 回す順は手間の小さい順（14-10 規約 4） |
+| 7 | 生成物 `docs/specs/experiments/dev-loop/register.md`（登録簿を並べた表）は `cli.devloop register` が吐く。⚠ 手で書かない |
+
+### 31-2. 数え方
+
+| # | 規約 |
+| ---: | --- |
+| 1 | 数えるのは **検証結果一覧**（`catalog.is_trial`。既存の器のまま）。登録簿の `n_trials_planned` は予定で、回した後に検証結果一覧の増分と突き合わせる（違えば日誌に理由） |
+| 2 | leak 対照・基準線・既出・失敗・人の手 は数えない（回していない or 既に数えてある） |
+| 3 | 1 晩に数える検証数は **≤ 12**（K4・`max_trials_per_night`）。超える登録は翌晩へ送る（手間の小さい順） |
+| 4 | 参考の度合い r% と N は晩ごとに日誌に残す（K1 ＝ r 30・N 5。変えるのは利用者） |
+
+### 31-3. 選ぶ段（⚠ 結果を見る前に固定。K6）
+
+| # | 規約 | 理由 |
+| ---: | --- | --- |
+| 1 | 物差しは **howto §3-1 の 6 つをそのまま**（`cli.select_candidates`）。⚠ 決まり 2 の「基準線」は 2026-09-30 の当て方（`基準 ` で始まる行・乱択（基準）・全部使う（基準））のまま | 変えると「結果を見て選んだ」になる |
+| 2 | 併記（診断。順位に使わない）: DSR（`n_trials` ＝ その時点）・日次 t・最大の fold を外した平均・取引/fold・保有日率 | 良い数字は根拠「中」が上限（11 章 規約 2・3） |
+| 3 | 毎晩: 上位 3 本を日誌に。**新しく上位 3 に入った行だけ**、20 章の机上（`cli.trader_shape` ＝ 条件 2a 5 本・$600 ／ 2b 全銘柄）を次の晩の queue に足す（＋2 ／ 本 数える。⚠ ここに書いたことが事前固定） | howto §3-2 と同じ。手で写す作業だけが機械になる |
+| 4 | 週 1 回（金曜の晩）: 机上の判定が **採る**（20-3 の 2）の形だけ `candidates/dev/` に配線だけの人を作る。保留は棚に残す（候補にしない。howto §3-4 (b) は利用者の決定） | — |
+| 5 | ⚠ **本番に入れるかは利用者**（trader-loop Phase 4・検証は 3 人まで）。ループは候補の棚まで | 成績で人を採らない（CLAUDE.md） |
+| 6 | ⚠ 「上位 3 本が毎晩動く」は多重検定のいちばん甘い見方 ＝ DSR を横に出す（2）。採否の判定（13-7・20-3）は変えないので 14-11 の規約の書き換えは要らない | 比較ページ §19-3 と同じ注意 |
+
+### 31-4. 1 晩の予算と打ち切り（K4・K8）
+
+| 何 | 水準 |
+| --- | --- |
+| 時間帯 | 毎日 01:00 PDT（土日も）。全体 ≤ 3 時間（超えたら段 3 の `time_budget_s = 5400` が止める。段 4 は必ず回す） |
+| 段 1 ／ 段 2 | ≤ 40 turns・**$6** ／ ≤ 60 turns・$5（`--max-turns`・`--max-budget-usd`。1 晩 ≈ $11。✅ 2026-10-25 利用者「推しで」＝ 段 1 の実測 $5.24【dev-loop.md §1-1】を見て $2 → $6） |
+| GPU | 30 分を超えると見積もる形（tsfresh・PatchTST・TimeXer）は 1 晩 1 本 |
+| 打ち切り 3 つ（14-11 規約 5 と同型） | ① 時間（上）② 段 2 が **3 晩連続で 1 本も通らない** → 止めて報告 ③ **14 晩連続で登録 0（全部「既出」）** → 止めて報告 |
+| 止める手 | `experiments/feature-discovery/DEVLOOP_HALT`（段 0 が見る。⚠ 実売買の `HALT` とは別）／ timer を disable ／ 錠 `devloop.lock` |
+| 触ってよい場所（K7） | `config/devloop.toml` の `[allowlist]`。共有の経路（`cli/run.py`・`cli/predict.py`・`cli/build.py`・`ail/validation`・`ail/models`・`ail/features`・`ail/detectors`・`ail/selectors`・`catalog`・`names`・執行器・管理画面）を触るアイデアは **人の手** |
+| git（K5） | 毎晩 1 コミット（`main` だけ・頭に `devloop:`）。⚠ `prod` は進めない。作業ツリーが汚れていたら段 0 で止める |
+
+⚠ **やらないこと**: 結果を見て 物差し（howto §3-1）・θ・費用・fold・判定式を動かさない（変えるなら 14 章の変更規約 ＝ 人の手）／ 「意味がない」でアイデアを落とさない（回さないのは「測れない」か規約に反するときだけ）／ 研究用の `data/` を取り直さない（新しいデータは新しい置き場で・`end_date` でそろえる）／ 13500t・`prod`・執行器・管理画面 `app/` を触らない。
+
+### 31-5. 実装の場所（2026-10-25 Phase 2-1。⚠ 一時の人の手で 1 度だけ作った口）
+
+| 何 | 場所 | ⚠ |
+| --- | --- | --- |
+| 新しい口の置き場 | `ail/ideas/__init__.py`（`load_all`）＋ `ail/bootstrap.py` の末尾（`i*.py` を全部 import ＝ registry に登録するだけ） | 既存の経路は 1 ビットも変わらない（指紋 `tests/test_predict.py`・`test_trading_run.py`・`test_fwd.py`・`tests/test_ideas_loader.py`）。既存の登録名は上書きできない |
+| `ORDER` に無い層 | `cli/build.py` の `layer_order`（config の順で後ろに足す） | 登録済みの 12 層は全部 `ORDER` にある ＝ 既存の config の並びは前の式と同じ（テスト） |
+| 訓練のラベルの口 | `ail/validation/prep.py` の `train_label`（`label = "xs_excess"` だけ。無い config は `tr["y"].values` そのもの）＋ `cli/run.py` の共通学習の枝（銘柄別は拒む）＋ `ail/catalog.py` の変種 `閾値売買（断面超過ラベル）`＋ `config/names.toml` の `[label]`（`~xs-label`） | 共有の経路 ＝ ループの段 2 では「人の手」（登録簿 `20261025-xs-excess-label` のために 1 度だけ） |
+| 登録簿の CLI | `cli/devloop.py register`（`--promote`・`--set`・`--run`）／ 選ぶ段 `cli/select_candidates.py`・`cli/trader_shape.py` | 読むだけ・回さない |
+| プロンプトの正本 | `experiments/feature-discovery/devloop/prompts/{contract,ideate_ref,ideate_free,build}.md` | 段 1 ＝ `claude -p`（K3）・段 2 ＝ 試運転は人の手 |
+| 運転手（Phase 3） | `run-devloop.sh`（プロジェクト直下。PATH に `~/.local/bin` を足す）→ `cli.devloop night`（段 0 門 `gate` → 段 1 `ideate` → 段 2 `build` → 段 3 `run_stage` → 段 4 `select_stage` → 日誌 `write_journal` → `commit`）。状態は `research.sqlite` の `queue_state` の 1 行 `devloop`（`cli.devloop state`）。錠 `devloop.lock`・止める手 `DEVLOOP_HALT` | 外の世界（git・claude -p・cli.queue・pytest）は `env` で差し替える ＝ `tests/test_devloop_night.py` |
+| timer | `experiments/feature-discovery/systemd/ail-devloop.{service,timer}`（01:00 PDT・`Persistent=false`）＋ README | ⚠ 入れるのは利用者。timer の環境では `claude` は絶対パスで動く【実測 2026-10-25・$0.21】 |
+| 見る場所 | 外部のタブ「実行」の目次 3 番目「開発ループ」（`dashboard/devloopview.py`。[dashboard.md §20](../../dashboard.md)） | 読むだけ |
+
+⚠ **2026-10-25 の最初の 1 周（Phase 1〜2。手で）**: 段 1 を `claude -p`（参考あり ＝ 道具 Read ／ Grep ／ Glob だけ・参考なし ＝ 道具なし）で 1 度回し、登録簿 5 本と `register.md` を作った（登録 4・人の手 1・既出 0）。手間の小さい順に 2 本（`20261025-h5-pick-centered`・`20261025-xs-excess-label`）を作って queue `dev_20261025` で回した ＝ **採る 0 ／ 保留 1 ／ 落とす 8（n_trials 1,005 → 1,014 ＝ 登録簿の予定 ＋9 と一致）**・leak 6 本とも跳ねた・上位 3 は動かず。結果は [dev-loop.md](../dev-loop.md) §1・§2。

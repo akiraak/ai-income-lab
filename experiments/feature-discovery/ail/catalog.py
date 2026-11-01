@@ -338,6 +338,9 @@ def threshold_style(cfg: dict) -> str:
     if (c := float(cfg.get("cost_bp", 5.0))) != 5.0:
         # ⚠ 費用を上げた行（rules.md 28-3。2026-10-22）。既定 5bp（13-4）は書かない ＝ 既存の行は 1 行も割れない
         parts.append(f"費用{c:g}bp")
+    if cfg.get("label") == "xs_excess":
+        # ⚠ 訓練のラベルを断面の超過リターンにした行（開発ループの登録簿 20261025-xs-excess-label。2026-10-25）。無い config は書かない ＝ 既存の行は割れない
+        parts.append("断面超過ラベル")
     return "閾値売買" + (f"（{'・'.join(parts)}）" if parts else "")
 
 

@@ -353,7 +353,7 @@ def evaluate_trading(panel: pd.DataFrame, feats: list[str], exp: dict, run: runs
             bp_out.append(buy_pct_frame(f, te, buy, exits))   # ⚠ 写しを取るだけ（buy ／ exits は書き換えない）
 
         def _row(name: str, base: str, bp, ex, hit: float, ic: float, th: float, th_exit: float | None = None,
-                 stop: float | None = None, hold: int | None = None):
+                 stop: float | None = None, hold: int | None = None, graded: bool = False):
             """手法 × 買う線 θ（× 売る線 ／ × 位置を知る出口）の 1 行ぶん。⚠ **`th_exit`・`stop`・`hold` が None なら
             2026-09-27 より前の経路と同一**（`simulate` に任意引数を渡さない）。売る線を持つ行は名前を `〔売り線N〕` で分け
             （rules.md 18-2）、位置を知る出口の行は `〔買値から−N%〕`・`基準 …〔N日で降りる〕` で分ける（stoploss-as-model.md §0-4）。"""
@@ -388,14 +388,21 @@ def evaluate_trading(panel: pd.DataFrame, feats: list[str], exp: dict, run: runs
                 kws = kw if stop_all is None else {**kw, "stop_exit_pct": stop_all[idx]}
                 if hold_all is not None:
                     kws = {**kws, "hold_days": hold_all[idx]}
-                r = sim.simulate(bp[idx], y_pnl[idx], th, cost_bp,
-                                 exit_pct=None if ex is None else ex[idx], **kws)
-                rg = sim.shifted_gate(r["pos"], y_pnl[idx], cost_bp, rng)   # 14-6 の b
+                if graded:
+                    # ⚠ 持つ量を買い% に応じて変える行（登録簿 20261101-graded-weight-sizing）。乱択ゲート ／ 逆売買は診断（0/1 に落として回す）
+                    r = sim.simulate_graded(bp[idx], y_pnl[idx], th, cost_bp)
+                    rg = sim.shifted_gate((r["pos"] > 0).astype(int), y_pnl[idx], cost_bp, rng)
+                    rv = sim.simulate_graded(ex[idx] if ex is not None else 100.0 - bp[idx], y_pnl[idx], th, cost_bp)
+                else:
+                    r = sim.simulate(bp[idx], y_pnl[idx], th, cost_bp,
+                                     exit_pct=None if ex is None else ex[idx], **kws)
+                    rg = sim.shifted_gate(r["pos"], y_pnl[idx], cost_bp, rng)   # 14-6 の b
                 # ⚠ **逆売買**（rules.md 14-3 の (3)。診断列・採否に使わない・試行に数えない）:
                 # ⚠ **入口% と出口% を入れ替えて同じ状態機械を回すだけ**（`simulate` 本体は触らない）。
                 # θ ≥ 50 では元の売買の補集合になる（reverse-trading.md §1）
-                rv = sim.simulate(ex[idx] if ex is not None else 100.0 - bp[idx], y_pnl[idx], th, cost_bp,
-                                  exit_pct=bp[idx], **kws)
+                if not graded:
+                    rv = sim.simulate(ex[idx] if ex is not None else 100.0 - bp[idx], y_pnl[idx], th, cost_bp,
+                                      exit_pct=bp[idx], **kws)
                 key, stamp = str(s), ts_te.iloc[idx].values
                 nets[key] = pd.Series(r["net_bp"], index=stamp)
                 grosses[key] = pd.Series(r["gross_bp"], index=stamp)
@@ -405,7 +412,7 @@ def evaluate_trading(panel: pd.DataFrame, feats: list[str], exp: dict, run: runs
                 trades += r["trades"]
                 rand_trades += rg["trades"]
                 rev_trades += rv["trades"]
-                pos_days += int(r["pos"].sum())
+                pos_days += float(r["pos"].sum()) if graded else int(r["pos"].sum())
                 days += len(idx)
                 hd = r["hold_days"]
                 sym_out.append({"手法": name, "閾値": th, "fold": f, "銘柄": key,
@@ -461,6 +468,10 @@ def evaluate_trading(panel: pd.DataFrame, feats: list[str], exp: dict, run: runs
             if pairs and not (mname.startswith("基準 ") or mname == "乱択（基準）"):
                 for th_in, th_out in pairs:
                     _row(exit_line_name(mname, th_out), mname, bp, ex, hit, ic, th_in, th_out)
+            # ⚠ **持つ量を段階にした行**（登録簿 20261101-graded-weight-sizing。`[trading] graded = true` のときだけ・基準線は通さない）
+            if t.get("graded") and not (mname.startswith("基準 ") or mname == "乱択（基準）"):
+                for th in thresholds:
+                    _row(f"{mname}〔量を段階に〕", mname, bp, ex, hit, ic, th, graded=True)
             # ⚠ **位置を知る出口の行**（stoploss-as-model.md §0-4）。⚠ **`methods` に書いた検知器の行の後ろに足すだけ**
             if mname in pexits["methods"]:
                 for th in thresholds:

@@ -13,9 +13,12 @@ prediction = "閾値売買との対の差は小さな負（費用ぶん）、|t|
 effort = "小"
 measurable = "測れる: 持つ量が平均で半分以下になれば、B&H との差は数百 bp/fold の大きさで出る。閾値売買との対の差も、同じ買い% を使うので揺れが小さく比べやすい。"
 touches = "共有の経路: ail/validation の simulate（sizing の任意引数を足す。既定 None ＝ 1 ビットも変わらない）"
-status = "人の手"
+status = "回した"
 frame = "外"
 p_hold = 0.15
 p_positive = 0.3
 learn_if_null = "対の差が 0 の周りなら、買い% の大きさに閾値を超えるかどうか以上の情報は無い（較正した確率の強弱は売買に効かない）と分かる。次は順位（断面で何番目か）で持つ量を配る形に替える。"
-notes = "段 1 の出力の key_shape の原文: own.ridge.shared~sizing-graded@θ"
+registered_at = "2026-11-01 16:10 PST"
+notes = "段 1 の出力の key_shape の原文: own.ridge.shared~sizing-graded@θ ／ 作り（2026-11-01 回す前）: 費用の「動かした量 × 5bp」は閾値売買と同じ単価（往復 5bp ＝ 片道 2.5bp × 動かした量）と読む。simulate_graded（ail/validation/simulate.py・呼ばなければ不変）＋ [trading] graded = true で手法 × θ に〔量を段階に〕の行を足す。config dev_graded（trade_own_ridge_a の写し ＝ 素の行は既存と同じ識別項目・対の相手は同じ実行の素の行）"
+runs = ["2026-11-01T16-10-41_dev_graded"]
+built_by = "人の手（利用者のセッション）"

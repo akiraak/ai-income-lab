@@ -1,0 +1,7 @@
+# ⚠ 開発ループ（2026-11-01 利用者「推す案で進めて」＝ 契約 2 の枠の外 2 本・手で）。回すと決めたのは結果を見る前。手で回すので 1 晩の上限に数えない（31-2 の 3a）。
+experiments = ["dev_graded", "dev_crash_exit"]
+
+leak = true
+ledger = true
+max_failures = 2
+time_budget_s = 3600

@@ -133,6 +133,44 @@ def simulate(buy_pct, y, threshold: float, cost_bp: float = 5.0, exit_pct=None,
             "hold_days": hold_days, "entry_idx": entry_idx, "forced_close": forced}
 
 
+def simulate_graded(buy_pct, y, threshold: float, cost_bp: float = 5.0) -> dict:
+    """買い% に応じて持つ量を変える器（開発ループの登録簿 `20261101-graded-weight-sizing`。2026-11-01）。
+
+    持つ割合 w[t] ＝ clip((買い%[t] − θ) ／ (100 − θ) × 2, 0, 1)（θ 以下は 0）。足 t の w が y[t] を取る（`simulate` と同じ時間の向き）。
+    費用は動かした量 × 片道 `cost_bp / 2`（`simulate` の 1 回の売買と同じ単価）・fold の末尾で残りを清算。
+    戻り値の鍵は `simulate` と同じ（pos は 0〜1 の割合・trades は 0 → 正 に入った回数・hold_days ／ entry_idx は w > 0 の続いた区間）。
+    ⚠ 出口% は読まない（w は買い% だけで決まる）。⚠ 省けば（呼ばなければ）既存の経路は 1 ビットも変わらない。
+    """
+    if threshold < 50.0 or threshold >= 100.0:
+        raise ValueError(f"θ = {threshold} は受けない（50 以上 100 未満）")
+    b = np.asarray(buy_pct, dtype=float)
+    yy = np.asarray(y, dtype=float)
+    if b.shape != yy.shape:
+        raise ValueError(f"買い% と y の長さが違う（{b.shape} と {yy.shape}）")
+    n = len(b)
+    half = cost_bp / 2.0
+    w = np.clip((b - threshold) / (100.0 - threshold) * 2.0, 0.0, 1.0)
+    prev = np.concatenate([[0.0], w[:-1]]) if n else w
+    moved = np.abs(w - prev)
+    net = w * yy * 1e4 - half * moved
+    cost_total = float(half * moved.sum())
+    if n and w[-1] > 0:
+        net[-1] -= half * w[-1]                      # 末尾の清算（13-4 の 4 と同じ）
+        cost_total += half * w[-1]
+    on = w > 0
+    starts = [t for t in range(n) if on[t] and (t == 0 or not on[t - 1])]
+    hold_days, entry_idx = [], []
+    for s0 in starts:
+        e0 = s0
+        while e0 < n and on[e0]:
+            e0 += 1
+        hold_days.append(e0 - s0)
+        entry_idx.append(s0)
+    return {"net_bp": net, "gross_bp": w * yy * 1e4, "pos": w, "trades": len(starts),
+            "hold_ratio": float(w.mean()) if n else 0.0, "skip_days": int((~on).sum()), "cost_bp_total": cost_total,
+            "hold_days": hold_days, "entry_idx": entry_idx, "forced_close": bool(n and on[-1])}
+
+
 def shifted_gate(pos, y, threshold_free_cost: float, rng) -> dict:
     """⚠ **同じ保有日率の乱択ゲート**（rules.md 14-6 の b）。⚠ **基準線なので試行に数えない。**
 

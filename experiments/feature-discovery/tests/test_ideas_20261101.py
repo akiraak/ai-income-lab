@@ -57,3 +57,41 @@ def test_vol_scaled_label():
     key = dict(鍵="全部使う（基準）", モデル="Ridge", 粒度="日足", 地平="1 本（1 日）", 特徴量の層="own",
                層="adjusted", 期間="2018-01-31", 銘柄="63", 検証方式=style, 形式="共通", 較正="std", 閾値="50")
     assert names.trial_name(key) == "own.all.ridge.shared~vol-label@50"
+
+
+# ---------- 枠の外 2 本（2026-11-01 契約 2 の段 1）: 急落を当てる出口 ／ 持つ量を段階に
+
+from ail.ideas import i20261101_crash_exit as crash          # noqa: E402
+from ail.validation import simulate as sim                   # noqa: E402
+
+
+def test_crash_label_uses_only_the_next_five_rows_inside_training():
+    ts = pd.date_range("2020-01-01", periods=12, freq="B", tz="UTC")
+    y = np.full(12, 0.001)
+    y[6] = -0.2                                               # 7 本目の y が大きく下げる
+    tr = pd.DataFrame({"symbol": "A", "ts": ts, "y": y}).iloc[::-1]   # 並びは逆でも行で返す
+    lab, use, doc = crash.crash_label(tr)
+    got = pd.Series(lab, index=tr.index).sort_index()
+    ok = pd.Series(use, index=tr.index).sort_index()
+    assert list(got[:7]) == [0, 0, 1, 1, 1, 1, 1]             # 行 t は y_t〜y_{t+4} を見る（行 2〜6 が 6 を含む）
+    assert not ok.iloc[-4:].any() and ok.iloc[:8].all()       # 先の 4 本が無い尻は使わない
+
+
+def test_crash_detector_is_registered_and_named():
+    assert crash.NAME in registry.available("detector")
+    assert names.method_slug(crash.NAME) == "x5-exit-crash5"
+
+
+def test_graded_sizing_weights_costs_and_name():
+    b = np.array([40.0, 60.0, 80.0, 100.0, 50.0])
+    y = np.array([0.01, 0.01, 0.01, 0.01, 0.01])
+    r = sim.simulate_graded(b, y, 50.0, cost_bp=5.0)
+    w = np.array([0.0, 0.4, 1.0, 1.0, 0.0])
+    assert np.allclose(r["pos"], w)
+    moved = np.abs(np.diff(np.concatenate([[0.0], w])))
+    assert np.allclose(r["net_bp"], w * 100 - 2.5 * moved) and r["trades"] == 1 and r["hold_days"] == [3]
+    assert names.method_slug("全部使う（基準）〔量を段階に〕") == "all-graded"
+    # 全部 100 なら持ちっぱなし ＝ 閾値売買で持ちっぱなしと同じ純利（費用は入りと末尾の清算）
+    full = sim.simulate_graded(np.full(5, 100.0), y, 50.0)
+    thr = sim.simulate(np.full(5, 100.0), y, 50.0)
+    assert np.allclose(full["net_bp"], thr["net_bp"])

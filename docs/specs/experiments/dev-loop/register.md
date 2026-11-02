@@ -1,7 +1,7 @@
 # 開発ループの登録簿（生成物）
 
 ⚠ **このファイルは生成物である。手で書き換えない。** 正本は `experiments/feature-discovery/config/ideas/*.toml`（rules.md 31-1）。
-生成 2026-11-01 15:50 PST ／ 検証結果一覧の n_trials 1108 ／ 登録簿 15 本（人の手 7・回した 7・登録 1）／ r 30%・N 5
+生成 2026-11-01 16:12 PST ／ 検証結果一覧の n_trials 1114 ／ 登録簿 15 本（人の手 5・回した 9・登録 1）／ r 30%・N 5
 
 ⚠ 良し悪し・意味の有無の印は無い（利用者の指示 2026-10-24）。印は 手間・測れるか・触る場所 の 3 つ。「既出の疑い」は `key_shape` が検証結果一覧の予測モデル名に当たった数（印は人 ／ ループが付ける）。
 
@@ -13,10 +13,10 @@
 | `20261025-roles-entry-stop` | 役割つきの組の損切り係を「建値から −10%」の位置を知る口に替える | 執行 | — | — | 参考あり（避ける） | 回した | 2026-10-25 12:31 PDT | 12 | `own.roles-b10-e5-entrystop10.ridge.shared ／ own.roles-b20-e5-entrystop10.ridge.shared ／ own.roles-b40-e10-entrystop10.ridge.shared ／ own.roles-b5-e20-entrystop10.ridge.shared` | 0 | 中 | 測れる: 同じ表・同じ組・同じ θ の対照が両側に既にある（R1〜R4 ＝ X1 あり・R6〜R9 ＝ なし・R1b〜R4b ＝ 買いも止める）ので、fold 対の差と保有 1 日の割合（診断）が機械で出る。R1〜R4 との差は ＋200〜＋460bp/fold 級（25-6 で見えた大きさ）なら見える。R6〜R9 との差が数十 bp なら検出限界の下 ＝ そのときは形 B の発火回数（fitted_doc に残す）で「沈黙した」と分かる形にしておく。 | 共有の経路: cli/run.py の `mix_specs`・`_roles_fold`（項目 1 つを simulate へ渡すだけ。無い config は 1 ビットも変わらない ＝ tests/test_roles_mix.py に「省くと R6〜R9 と同じ」の 1 本）＋ ail/validation/simulate.py の `simulate_topk`（`stop_loss_pct` が未対応なら `simulate` と同じ式を足す・既定 None）＋ config/names.toml [mix] 4 行 ＋ config/experiment 4 本（`trader_roles_t21〜t24`。表は `trade_own_fwdmulti_a` を `features_from`）＋ queue 1 本。執行器（`experiments/live-trading/`）には建値を渡す口が無いので触らない ＝ 机上だけ |
 | `20261025-xs-excess-label` | ラベルを「その日の全銘柄の平均を上回るか」（断面の超過リターン）に替えて学ぶ | モデル | — | — | 参考なし | 回した | 2026-10-25 12:31 PDT | 3 | `own.all.ridge.shared~xs-label` | 1 行（例 `own.all.ridge.shared~xs-label`） | 小 | 測れる: 同じ表・同じ切れ目でラベルだけが違う対の差を取れる。上乗せの向きと保有日率の変化は数百 bp/fold の級で出る。順位の情報は等加重の器では測れないので、この検証で測るのは「ラベルを替えても等加重の器で上乗せが出るか」だけに限る。 | 共有の経路: cli/run.py（ラベルの作り方の分岐 1 か所）・ail/catalog.py（変種の名前）。無い config で既定経路の指紋が変わらないことを見る ＝ 人の手 |
 | `20261101-c3-as-stop-role` | 遅い出口 C3 を損切り係にした役割つきの組 | 執行 | 内 | 0.35 | 参考あり（当てる） | 登録 | 2026-11-01 15:49 PST | 8 | `own.mix-roles-h1-gate10-h2-gate5-c3-sma200-tr5-600.ridge.shared` | 0 | 小 | 測れる: R6〜R9 と同じ切れ目・同じ買い係なので対の差は損切り係の違いだけ。差が出る fold は限られるが、下げの区間の圧縮は downtrend-detection で数千 bp 級だったので、5 本の形でも数百 bp/fold の差になりうる | 新しいモジュールだけ |
-| `20261101-crash-label-exit` | 方向ではなく『先 5 日の急落』を当て、出口だけに使う | モデル | 外 | 0.20 | 参考なし | 人の手 | — | 3 | `own.crash5-exit.ridge.shared~crash-label` | 0 | 中 | 測れる: 急落を避けた・避け損ねたの差は 1 回で数百 bp/fold になる。急落を含む fold と含まない fold で符号がそろうかも見える。 | 共有の経路: ail/validation のラベルの口（prep.train_label に label 種別を 1 つ足す。無い config は 1 ビットも変わらない形）＋ 新しい検知器は ail/ideas/ だけ |
+| `20261101-crash-label-exit` | 方向ではなく『先 5 日の急落』を当て、出口だけに使う | モデル | 外 | 0.20 | 参考なし | 回した | 2026-11-01 16:10 PST | 3 | `own.crash5-exit.ridge.shared~crash-label` | 0 | 中 | 測れる: 急落を避けた・避け損ねたの差は 1 回で数百 bp/fold になる。急落を含む fold と含まない fold で符号がそろうかも見える。 | 共有の経路: ail/validation のラベルの口（prep.train_label に label 種別を 1 つ足す。無い config は 1 ビットも変わらない形）＋ 新しい検知器は ail/ideas/ だけ |
 | `20261101-deadzone-label` | 小さな値動きの日を訓練のラベルから外す | モデル | — | — | 参考なし | 人の手 | — | 6 | `own.own~deadzone-<a／b>.ridge.shared ／ 55 ／ 60）` | 0 | 小 | 測れる: 対の相手が同じ表・同じ切れ目なので fold 対の差で数百 bp/fold の差なら見える（それ未満は測れない） | 共有の経路: ail/validation（訓練のラベルを作る prep）・ail/catalog.py（検証方式の変種の識別） |
 | `20261101-gap-intraday-layer` | 夜間（前日終値→始値）と日中（始値→終値）に分けたリターンの層 | データ | — | — | 参考なし | 回した | 2026-11-01 15:12 PST | 3 | `own+gap.own.ridge.shared ／ 55 ／ 60）` | 0 | 小 | 測れる: 同じ切れ目の own だけの行と fold 対で比べられる（数百 bp/fold 級の差に限る） | 共有の経路: ail/features（新しい層）・cli/build.py（層の順） |
-| `20261101-graded-weight-sizing` | 買う／売るの 2 択をやめ、買い% に応じて持つ量を変える | 執行 | 外 | 0.15 | 参考なし | 人の手 | — | 3 | `own.ridge.shared~sizing-graded` | 0 | 小 | 測れる: 持つ量が平均で半分以下になれば、B&H との差は数百 bp/fold の大きさで出る。閾値売買との対の差も、同じ買い% を使うので揺れが小さく比べやすい。 | 共有の経路: ail/validation の simulate（sizing の任意引数を足す。既定 None ＝ 1 ビットも変わらない） |
+| `20261101-graded-weight-sizing` | 買う／売るの 2 択をやめ、買い% に応じて持つ量を変える | 執行 | 外 | 0.15 | 参考なし | 回した | 2026-11-01 16:10 PST | 3 | `own.ridge.shared~sizing-graded` | 0 | 小 | 測れる: 持つ量が平均で半分以下になれば、B&H との差は数百 bp/fold の大きさで出る。閾値売買との対の差も、同じ買い% を使うので揺れが小さく比べやすい。 | 共有の経路: ail/validation の simulate（sizing の任意引数を足す。既定 None ＝ 1 ビットも変わらない） |
 | `20261101-roles-nostop-midcap-c20` | 損切りなしの役割つきの組（R6〜R9）を中位 48 本の表に、費用 20bp で当てる | 検証方式 | — | — | 参考あり（当てる） | 回した | 2026-11-01 15:07 PST | 8 | `own.roles-b10-e5-nostop.ridge.shared~midcap48~cost20 ／ own.roles-b10-e5-nostop-trall.ridge.shared~midcap48~cost20 ／ b40-e10` | 0 | 中 | 測れる: us63 で保留になった上乗せ（数百 bp/fold 級）と同じ物差しで、向きと fold の符号がそろうかを見る。費用の差は式 純利(c) ＝ 粗利 −（粗利 − 純利₅）× c ／ 5 で検算できる。数十 bp/fold の違いは測れない | 新しいモジュールだけ（config/experiment と config/queue を足すだけ。口 ~cost20・combine = roles・fwd_columns・midcap48 の表は既存） |
 | `20261101-subperiod-sign-count` | 評価期間を四半期に細かく切って上乗せの符号の揃いを数える物差し | 検証方式 | — | — | 参考なし | 人の手 | — | 3 | `own.own.ridge.shared~subq ／ 55 ／ 60）` | 0 | 中 | 測れる: 新しい学習はせず既存の買い% から区間ごとの損益を出すだけ（leak 対照で配線を確かめられる）。ただし区間 1 つあたりの上乗せは検出限界より小さく、物差しとして効くのは区間をまたいだ符号の数のほう | 共有の経路: ail/validation（損益の集計）・ail/catalog.py（検証方式の変種の識別） |
 | `20261101-ten-fold-long-table` | 長い表を 10 個の評価期間に切り、符号のそろい方の物差しを細かくする | 検証方式 | 内 | 0.35 | 参考なし | 人の手 | — | 3 | `own.ridge.shared~fold10` | 0 | 小 | 測れる: 上乗せの大きさは測れない（検出限界のまま）。それでも、符号がそろうかは 10 個の評価期間で 5 つより細かく見える（10 個とも正は偶然なら 1/1024）。 | 共有の経路: ail/validation の評価期間の切り方・ail/catalog.py の threshold_style（変種の名前を 1 つ足す。無い config は 1 ビットも変わらない形） |
@@ -25,7 +25,9 @@
 
 ## 予想の当たり方（31-6 の 3。回した案のうち確率つきの予想があるもの）
 
-- まだ無い（契約 2 の案を回すと出る）
+- 2 本・当たり 50%（確率 ≥ 0.5 と「保留以上が出た」が一致）・Brier 0.331（0 が最良・いつも 0.5 と言うと 0.25）
+  - `20261101-crash-label-exit` 確率 0.20 → 保留以上あり
+  - `20261101-graded-weight-sizing` 確率 0.15 → 保留以上なし
 
 ## `20261025-h5-pick-centered` 期間を選ぶゲート H5 を土台差で選ばせる（H5 × 中心化）
 
@@ -88,7 +90,8 @@
 - 失敗の型: 訓練期間の急落の日が少なすぎて（正例が数 %）較正が潰れ、出口% が fold ごとにほぼ定数になる（門の幅 20 点に届かない） ／ 急落の確率がボラの高い局面で上がるだけで、戻りの初日も売ってしまう（休むのが遅れて、戻りを取り逃がす） ／ σ を訓練全体で取るので、評価期間の荒れ方とずれて、ある fold では 1 日も出口を言わない
 - 予想（先に書いた）: 上乗せは平均で小さな負（−100〜0bp/fold 程度）。fold の符号は割れて、2020 年の急落を含む fold だけ正になる。leak（y_fwd_5）は大きく跳ねる。
 - 決着なしのとき分かること: 差が出なければ、急落の確率は日足の own 列からは較正できる幅で出ない（＝ 下げの手がかりは方向の手がかりと同じくらい薄い）と分かる。次は日中の足か気配の差など、別のデータの層で同じラベルを試す。
-- 注記: 段 1 の出力の key_shape の原文: own.crash5-exit.ridge.shared~crash-label@θ
+- 注記: 段 1 の出力の key_shape の原文: own.crash5-exit.ridge.shared~crash-label@θ ／ 作り（2026-11-01 回す前）: ラベルの口は prep.train_label ではなく検知器の中に置いた（ail/ideas/i20261101_crash_exit.py・登録名 X5 出口だけ 先5日の急落を当てる（own・学習）＝ 中身は structure どおり・共有の経路を触らない）。先の 4 本が訓練分割に無い ／ 暦で 10 日を超える行は訓練から落とす・パージ horizon_min 14400（10 日）。config dev_crash_exit（own_2018 の表を借りる・単体 θ 3 ＝ 3 検証）
+- 実行: `2026-11-01T16-11-14_dev_crash_exit`
 
 ## `20261101-deadzone-label` 小さな値動きの日を訓練のラベルから外す
 
@@ -114,7 +117,8 @@
 - 失敗の型: 買い% の幅が狭い（門前の 4〜6 点）ので、w がほぼ 0 か小さな一定値になり、現金を持つだけの形になる ／ 毎日合わせ直すので回転が増え、費用が上乗せを食う（費用だけで負になる） ／ w が小さい日が多いぶん、持ち続けると比べて上げ相場で置いていかれ、B&H に対しては一様に負に出る
 - 予想（先に書いた）: 閾値売買との対の差は小さな負（費用ぶん）、|t| < 1。B&H に対しては 5 fold とも負に寄る。leak は持つ量が極端に寄るので跳ねる。
 - 決着なしのとき分かること: 対の差が 0 の周りなら、買い% の大きさに閾値を超えるかどうか以上の情報は無い（較正した確率の強弱は売買に効かない）と分かる。次は順位（断面で何番目か）で持つ量を配る形に替える。
-- 注記: 段 1 の出力の key_shape の原文: own.ridge.shared~sizing-graded@θ
+- 注記: 段 1 の出力の key_shape の原文: own.ridge.shared~sizing-graded@θ ／ 作り（2026-11-01 回す前）: 費用の「動かした量 × 5bp」は閾値売買と同じ単価（往復 5bp ＝ 片道 2.5bp × 動かした量）と読む。simulate_graded（ail/validation/simulate.py・呼ばなければ不変）＋ [trading] graded = true で手法 × θ に〔量を段階に〕の行を足す。config dev_graded（trade_own_ridge_a の写し ＝ 素の行は既存と同じ識別項目・対の相手は同じ実行の素の行）
+- 実行: `2026-11-01T16-10-41_dev_graded`
 
 ## `20261101-roles-nostop-midcap-c20` 損切りなしの役割つきの組（R6〜R9）を中位 48 本の表に、費用 20bp で当てる
 

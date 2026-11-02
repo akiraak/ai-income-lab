@@ -270,8 +270,8 @@ def test_real_mapping_rows_exist_in_the_db():
     """宣言した素の形と、機械で作った 5 本 ／ 全銘柄の名前が DB に 1 行ずつある。モデルの base は θ 50 の行がある。"""
     paths = _real_paths()
     rows = compareview.ledger(paths)
-    if rows is None:
-        pytest.skip("研究の DB（ledger_rows）が無い機械")
+    if not rows:  # 無い ／ 表はあるが 0 行（Sx360 は runs/ の器だけ ＝ 検証結果一覧を吐き直していない）
+        pytest.skip("研究の DB（ledger_rows）が無い ／ 空の機械")
     words = compareview.load_words(paths)
     for t in words["trader"]:
         for f in t["forms"]:

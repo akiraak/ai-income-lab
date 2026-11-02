@@ -1,0 +1,7 @@
+# ⚠ 開発ループ（2026-11-01 利用者「次の候補の2本も進めて」・手で）。§7 の次の手 2 本。回すと決めたのは結果を見る前。手で回すので 1 晩の上限に数えない（31-2 の 3a）。
+experiments = ["dev_graded_rank", "dev_crash_exit_c"]
+
+leak = true
+ledger = true
+max_failures = 2
+time_budget_s = 3600

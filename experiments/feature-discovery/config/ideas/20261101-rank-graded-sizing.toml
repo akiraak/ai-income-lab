@@ -1,0 +1,22 @@
+# ⚠ 開発ループの登録簿（rules.md 31-1）。cli.devloop が書く。status が 登録 より先なら structure ／ prediction ／ n_trials_planned ／ key_shape を直さない（直すなら新しい id）
+id = "20261101-rank-graded-sizing"
+date = "2026-11-01"
+title = "同じ日の銘柄の中の順位で持つ量を配る"
+kind = "執行"
+origin = { r_pct = 30, n_per_night = 5, prompt = "人の手（利用者のセッション・dev-loop.md §7 の次の手）", contract = 2, model = "claude", cost_usd = 0.0, turns = 0, source = "reference", refs = ["docs/specs/experiments/dev-loop.md §7"] }
+question = "買い% の大きさではなく、同じ日の全銘柄の中での買い% の順位で持つ量を決めると、素の閾値売買と比べて上乗せと fold の割れ方は変わるか（§7 で買い% の大きさは量の材料にならないと分かった次の手）。"
+structure = "器 simulate_graded に行ごとの持つ量の口 weight を足す（省けば今の段階の量と同じ）。持つ量 w ＝ 買い% > θ の行だけ、その日の断面の順位の割合 q（最下位 0・最上位 1・同点は平均順位）・θ 以下は 0。費用は動かした量 × 片道 2.5bp（閾値売買と同じ単価）。[trading] graded_rank = true で手法 × θ に〔量を順位で〕の行を足す。表 own_2018・Ridge・全部使う・θ 50 ／ 55 ／ 60。対の相手は同じ実行の素の行。"
+n_trials_planned = 3
+key_shape = ["own.all-rankgraded.ridge.shared"]
+failure_modes = ["順位は毎日全銘柄に 0〜1 を配るので平均の持つ量が 0.5 前後になり、上げ相場で半分現金の分だけ素の売買に負ける（順位の情報と混ざる）", "順位が日ごとに大きく入れ替わり、動かした量の費用が上乗せを食う"]
+prediction = "素の閾値売買との対の差は負（平均で半分ほどしか持たないぶん）・5 fold のうち 4 つ以上で負。B&H に対しても負。leak は順位が未来に沿うので大きく跳ねる。"
+effort = "小"
+measurable = "測れる: 同じ実行の素の行との fold 対の差（数百 bp/fold 級）と、保有の平均・動かした量の診断"
+touches = "共有の経路: ail/validation の simulate_graded（任意引数 weight）・cli/run.py（行を足す口）"
+status = "回した"
+frame = "外"
+p_hold = 0.1
+p_positive = 0.25
+learn_if_null = "対の差が負で、その大きさが「持つ量の平均の差 × B&H」で説明できるなら、順位にも持つ量を決める情報は無いと分かる。説明しきれない正の残りがあれば、順位の上位を厚く持つ形（上位 K）と比べる案に進む。"
+registered_at = "2026-11-01 16:31 PST"
+runs = ["2026-11-01T16-33-27_dev_graded_rank"]

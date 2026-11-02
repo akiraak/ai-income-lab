@@ -133,13 +133,14 @@ def simulate(buy_pct, y, threshold: float, cost_bp: float = 5.0, exit_pct=None,
             "hold_days": hold_days, "entry_idx": entry_idx, "forced_close": forced}
 
 
-def simulate_graded(buy_pct, y, threshold: float, cost_bp: float = 5.0) -> dict:
+def simulate_graded(buy_pct, y, threshold: float, cost_bp: float = 5.0, weight=None) -> dict:
     """買い% に応じて持つ量を変える器（開発ループの登録簿 `20261101-graded-weight-sizing`。2026-11-01）。
 
     持つ割合 w[t] ＝ clip((買い%[t] − θ) ／ (100 − θ) × 2, 0, 1)（θ 以下は 0）。足 t の w が y[t] を取る（`simulate` と同じ時間の向き）。
     費用は動かした量 × 片道 `cost_bp / 2`（`simulate` の 1 回の売買と同じ単価）・fold の末尾で残りを清算。
     戻り値の鍵は `simulate` と同じ（pos は 0〜1 の割合・trades は 0 → 正 に入った回数・hold_days ／ entry_idx は w > 0 の続いた区間）。
     ⚠ 出口% は読まない（w は買い% だけで決まる）。⚠ 省けば（呼ばなければ）既存の経路は 1 ビットも変わらない。
+    `weight`（登録簿 `20261101-rank-graded-sizing`）: 行ごとの持つ量（0〜1）。渡すと w ＝ 買い% > θ の行だけ weight・θ 以下は 0（大きさの式は使わない）。
     """
     if threshold < 50.0 or threshold >= 100.0:
         raise ValueError(f"θ = {threshold} は受けない（50 以上 100 未満）")
@@ -149,7 +150,13 @@ def simulate_graded(buy_pct, y, threshold: float, cost_bp: float = 5.0) -> dict:
         raise ValueError(f"買い% と y の長さが違う（{b.shape} と {yy.shape}）")
     n = len(b)
     half = cost_bp / 2.0
-    w = np.clip((b - threshold) / (100.0 - threshold) * 2.0, 0.0, 1.0)
+    if weight is None:
+        w = np.clip((b - threshold) / (100.0 - threshold) * 2.0, 0.0, 1.0)
+    else:
+        wt = np.asarray(weight, dtype=float)
+        if wt.shape != b.shape:
+            raise ValueError(f"買い% と weight の長さが違う（{b.shape} と {wt.shape}）")
+        w = np.where(b > threshold, np.clip(np.nan_to_num(wt), 0.0, 1.0), 0.0)
     prev = np.concatenate([[0.0], w[:-1]]) if n else w
     moved = np.abs(w - prev)
     net = w * yy * 1e4 - half * moved

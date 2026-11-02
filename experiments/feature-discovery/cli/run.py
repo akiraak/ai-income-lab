@@ -353,7 +353,7 @@ def evaluate_trading(panel: pd.DataFrame, feats: list[str], exp: dict, run: runs
             bp_out.append(buy_pct_frame(f, te, buy, exits))   # ⚠ 写しを取るだけ（buy ／ exits は書き換えない）
 
         def _row(name: str, base: str, bp, ex, hit: float, ic: float, th: float, th_exit: float | None = None,
-                 stop: float | None = None, hold: int | None = None, graded: bool = False):
+                 stop: float | None = None, hold: int | None = None, graded: bool = False, weight=None):
             """手法 × 買う線 θ（× 売る線 ／ × 位置を知る出口）の 1 行ぶん。⚠ **`th_exit`・`stop`・`hold` が None なら
             2026-09-27 より前の経路と同一**（`simulate` に任意引数を渡さない）。売る線を持つ行は名前を `〔売り線N〕` で分け
             （rules.md 18-2）、位置を知る出口の行は `〔買値から−N%〕`・`基準 …〔N日で降りる〕` で分ける（stoploss-as-model.md §0-4）。"""
@@ -390,7 +390,7 @@ def evaluate_trading(panel: pd.DataFrame, feats: list[str], exp: dict, run: runs
                     kws = {**kws, "hold_days": hold_all[idx]}
                 if graded:
                     # ⚠ 持つ量を買い% に応じて変える行（登録簿 20261101-graded-weight-sizing）。乱択ゲート ／ 逆売買は診断（0/1 に落として回す）
-                    r = sim.simulate_graded(bp[idx], y_pnl[idx], th, cost_bp)
+                    r = sim.simulate_graded(bp[idx], y_pnl[idx], th, cost_bp, weight=None if weight is None else weight[idx])
                     rg = sim.shifted_gate((r["pos"] > 0).astype(int), y_pnl[idx], cost_bp, rng)
                     rv = sim.simulate_graded(ex[idx] if ex is not None else 100.0 - bp[idx], y_pnl[idx], th, cost_bp)
                 else:
@@ -472,6 +472,11 @@ def evaluate_trading(panel: pd.DataFrame, feats: list[str], exp: dict, run: runs
             if t.get("graded") and not (mname.startswith("基準 ") or mname == "乱択（基準）"):
                 for th in thresholds:
                     _row(f"{mname}〔量を段階に〕", mname, bp, ex, hit, ic, th, graded=True)
+            # ⚠ **持つ量を断面の順位で配る行**（登録簿 20261101-rank-graded-sizing。`[trading] graded_rank = true` のときだけ）
+            if t.get("graded_rank") and not (mname.startswith("基準 ") or mname == "乱択（基準）"):
+                q = rank_weight(bp, ts_te)
+                for th in thresholds:
+                    _row(f"{mname}〔量を順位で〕", mname, bp, ex, hit, ic, th, graded=True, weight=q)
             # ⚠ **位置を知る出口の行**（stoploss-as-model.md §0-4）。⚠ **`methods` に書いた検知器の行の後ろに足すだけ**
             if mname in pexits["methods"]:
                 for th in thresholds:
@@ -551,6 +556,16 @@ def position_exits(t: dict) -> dict:
         if m.startswith("基準 ") or m == "乱択（基準）":
             raise SystemExit(f"⚠ position_exits.methods に基準線 {m!r} は置けない（買い% が 0 か 100 なので出口の置き方が効かない）")
     return {"methods": methods, "stop_loss_pct": stops, "max_hold_days": holds}
+
+
+def rank_weight(bp, ts) -> np.ndarray:
+    """同じ日の断面の順位の割合 q（最下位 0・最上位 1・同点は平均順位・その日 1 銘柄なら 1）。欠けた買い% は NaN（登録簿 20261101-rank-graded-sizing）。"""
+    s = pd.Series(np.asarray(bp, dtype=float))
+    key = pd.Series(pd.to_datetime(ts).values)
+    r = s.groupby(key).rank(method="average")
+    n = s.notna().groupby(key).transform("sum")
+    q = ((r - 1.0) / (n - 1.0)).where(n > 1, 1.0).where(s.notna())
+    return q.to_numpy(dtype=float)
 
 
 def stop_loss_name(method: str, x: float) -> str:

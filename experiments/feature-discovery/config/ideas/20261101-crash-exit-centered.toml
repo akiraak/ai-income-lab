@@ -1,0 +1,22 @@
+# ⚠ 開発ループの登録簿（rules.md 31-1）。cli.devloop が書く。status が 登録 より先なら structure ／ prediction ／ n_trials_planned ／ key_shape を直さない（直すなら新しい id）
+id = "20261101-crash-exit-centered"
+date = "2026-11-01"
+title = "急落の確率から土台を引いて売りの合図を鳴らす"
+kind = "モデル"
+origin = { r_pct = 30, n_per_night = 5, prompt = "人の手（利用者のセッション・dev-loop.md §7 の次の手）", contract = 2, model = "claude", cost_usd = 0.0, turns = 0, source = "reference", refs = ["docs/specs/experiments/dev-loop.md §7"] }
+question = "§7 の急落の出口はほとんど鳴らなかった（確率が売る線を超えない）。急落の確率から訓練期間の急落の割合（土台）を logit で引いた出口% にすると、出口が鳴る日が増えたうえで B&H との上乗せはどうなるか。"
+structure = "新しい検知器 X6 出口だけ 先5日の急落を当てる（own・学習・土台差）を ail/ideas に置く。中身は X5 と同じラベル・列・学習器・較正で、出口% ＝ 100 × σ(logit(p) − logit(π))（π ＝ 訓練の使える行の急落の割合・fwd.center_by_base と同じ式）。買いは常に 100。表 own_2018・θ 50 ／ 55 ／ 60・パージ 10 日。"
+n_trials_planned = 3
+key_shape = ["own.x6-exit-crash5-centered.ridge.shared"]
+failure_modes = ["土台を引くと出口が半分ほどの日に鳴り、売って翌日買い戻す往復が増えて費用が上乗せを食う（25-2 の X1 と同じ形）", "急落の確率の並びに情報が薄く、鳴る日がでたらめと同じになる"]
+prediction = "保有日率は 0.999 から 0.5〜0.8 へ下がる。上乗せは B&H に対して負（往復の費用と上げ相場で降りるぶん）・2020 年を含む fold だけ正の向き。X5 より悪い。leak は y を知るので跳ねる。"
+effort = "小"
+measurable = "測れる: B&H との上乗せと fold の符号、保有日率と往復の数の診断"
+touches = "新しいモジュールだけ"
+status = "回した"
+frame = "外"
+p_hold = 0.15
+p_positive = 0.3
+learn_if_null = "鳴る日が増えても上乗せが B&H を下回るなら、日足の own 列から作った急落の確率は「いつ降りるか」に使える並びを持たないと分かり、次は別のデータ（日中の足・気配の差）で同じラベルを試す。"
+registered_at = "2026-11-01 16:31 PST"
+runs = ["2026-11-01T16-33-59_dev_crash_exit_c"]

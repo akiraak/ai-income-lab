@@ -49,8 +49,10 @@ def crash_label(tr: pd.DataFrame) -> tuple[np.ndarray, np.ndarray, dict]:
     return lab, use, doc
 
 
-@register("detector", NAME)
-def x5_crash_exit(tr, te, feats, ctx):
+NAME_CENTERED = "X6 出口だけ 先5日の急落を当てる（own・学習・土台差）"   # 登録簿 20261101-crash-exit-centered（2026-11-01）
+
+
+def _crash_exit(tr, te, feats, ctx, center: bool):
     lab, use, ldoc = crash_label(tr)
     cols = [c for c in feats if c.startswith("own_") or c.startswith("LEAK_")]
     tr_ok = tr.loc[use]
@@ -63,4 +65,20 @@ def x5_crash_exit(tr, te, feats, ctx):
     pred = model(Xtr, ytr, Xte, ctx)
     exit_pct = np.asarray(cal.buy_pct(pred), dtype=float)
     doc = {"columns": cols, "入口": "常に 100（出口だけ）", "出口": {**ldoc, **cal.doc}, "訓練の行": int(use.sum())}
+    if center:
+        # 土台（訓練の使える行の急落の割合 π）を logit で引く ＝ 100 × σ(logit(p) − logit(π))（fwd.center_by_base と同じ式）
+        from ail.detectors.fwd import center_by_base
+        base = float(lab[use].mean())
+        exit_pct = center_by_base(exit_pct, base)
+        doc = {**doc, "中心化": True, "土台": round(base, 4)}
     return np.full(len(te), 100.0), exit_pct, doc
+
+
+@register("detector", NAME)
+def x5_crash_exit(tr, te, feats, ctx):
+    return _crash_exit(tr, te, feats, ctx, center=False)
+
+
+@register("detector", NAME_CENTERED)
+def x6_crash_exit_centered(tr, te, feats, ctx):
+    return _crash_exit(tr, te, feats, ctx, center=True)

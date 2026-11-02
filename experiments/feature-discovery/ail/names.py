@@ -34,7 +34,8 @@ _TOPK_BASE = re.compile(r"^([^〔]+)〔(.+)・上位(\d+)・([^・〕]+)〕$")  
 _TOPK = re.compile(r"〔上位(\d+)・([^〕]+)〕$")                           # <選び方・作り方>〔上位3・端数〕
 _EXIT_LINE = re.compile(r"〔売り線(\d+)〕$")                              # <選び方・作り方>〔売り線50〕（rules.md 18-2）
 _STOP_LOSS = re.compile(r"〔買値から−(\d+)%〕$")                          # <選び方・作り方>〔買値から−5%〕（stoploss-as-model.md §0-4。形 B）
-_GRADED = re.compile(r"〔量を段階に〕$")                                   # <選び方・作り方>〔量を段階に〕（登録簿 20261101-graded-weight-sizing）
+_GRADED = re.compile(r"〔量を段階に〕$")
+_RANK_GRADED = re.compile(r"〔量を順位で〕$")                               # 登録簿 20261101-rank-graded-sizing                                   # <選び方・作り方>〔量を段階に〕（登録簿 20261101-graded-weight-sizing）
 _HOLD_DAYS = re.compile(r"〔(\d+)日で降りる〕$")                           # 基準 <選び方・作り方>〔5日で降りる〕（同。固定日数の出口）
 _TRADER = re.compile(r"〔トレーダー・([^〕]+)〕$")                         # <選び方・作り方>〔トレーダー・5本・$300〕（rules.md 20-4）
 _FITNESS = re.compile(r"〔適合度・([^〕]+)〕$")                            # F4-1〔適合度・断面の平均〕（rules.md 23-2）
@@ -102,6 +103,8 @@ def method_slug(key: str) -> str:
     if m := _STOP_LOSS.search(key):
         # 買値からの下落で降りる行（形 B。stoploss-as-model.md §0-4）。水準は綴りに `-stop5`
         return _check(f"{method_slug(key[:m.start()])}-stop{m.group(1)}", "数字の選び方・作り方", key)
+    if m := _RANK_GRADED.search(key):
+        return _check(f"{method_slug(key[:m.start()])}-rankgraded", "数字の選び方・作り方", key)
     if m := _GRADED.search(key):
         # 買い% に応じて持つ量を変える行（登録簿 20261101-graded-weight-sizing）。綴りに `-graded`
         return _check(f"{method_slug(key[:m.start()])}-graded", "数字の選び方・作り方", key)

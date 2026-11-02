@@ -95,3 +95,24 @@ def test_graded_sizing_weights_costs_and_name():
     full = sim.simulate_graded(np.full(5, 100.0), y, 50.0)
     thr = sim.simulate(np.full(5, 100.0), y, 50.0)
     assert np.allclose(full["net_bp"], thr["net_bp"])
+
+
+# ---------- 次の 2 本（2026-11-01）: 順位で量を配る ／ 急落の出口を土台差に
+
+from cli.run import rank_weight          # noqa: E402
+
+
+def test_rank_weight_and_weighted_graded():
+    ts = pd.to_datetime(["2020-01-02"] * 3 + ["2020-01-03"] * 2 + ["2020-01-06"])
+    q = rank_weight([60.0, 52.0, 55.0, 51.0, 51.0, 70.0], ts)
+    assert np.allclose(q, [1.0, 0.0, 0.5, 0.5, 0.5, 1.0])
+    b = np.array([45.0, 60.0, 60.0]); y = np.full(3, 0.01)
+    r = sim.simulate_graded(b, y, 50.0, weight=np.array([1.0, 0.3, 0.8]))
+    assert np.allclose(r["pos"], [0.0, 0.3, 0.8])                        # θ 以下は 0・上は weight
+    assert np.allclose(sim.simulate_graded(b, y, 50.0)["pos"], sim.simulate_graded(b, y, 50.0, weight=None)["pos"])
+    assert names.method_slug("全部使う（基準）〔量を順位で〕") == "all-rankgraded"
+
+
+def test_crash_centered_detector_registered():
+    assert crash.NAME_CENTERED in registry.available("detector")
+    assert names.method_slug(crash.NAME_CENTERED) == "x6-exit-crash5-centered"

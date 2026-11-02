@@ -458,7 +458,7 @@ nohup python3 dashboard/vibetab.py &                   # 3 タブとも同じ 1 
 
 ⚠ **2026-09-18 に `/live` 1 枚から 3 画面に作り直した**（`/` 概要・`/overall` 全体の詳細・`/traders/<name>`。`/live` は `/` へ転送）。データは `app/live.py` の `board()`（トレーダー別の推移・行動のマス目・差 1・起動しなかった日）、図は `app/charts.py`（§15-5）。`/api/live` は今までどおり `index()`。
 
-⚠ **`/live` は「トレーダー 3 人の実売買」（[プラン](../plans/live-trading-three-models.md)・[記録](experiments/live-trading.md)）の監視で、
+⚠ **`/live` は「トレーダー 3 人の実売買」（[プラン](../plans/archive/live-trading-three-models.md)・[記録](experiments/live-trading.md)）の監視で、
 `/judge`（API が使えるか）・`/experiments`（分析手法の検証）とは別物。** 材料も別で、`experiments/live-trading/` を読む。
 
 > この図の主張: ⚠ **執行器が書いたものを写すだけ。画面は数え直さない・書かない・発注しない。** 停止だけは既存の停止ボタン（`HALT`）で、執行器がそれを見る。
@@ -889,7 +889,7 @@ flowchart LR
 
 ### 15-4. 実売買の画面のクラスと差 1 の色分け（2026-09-18 に 3 画面へ作り直した）
 
-⚠ **差 1 の閾値の正本は [プラン §2-4](../plans/live-trading-three-models.md) の表（[live-trading.md §0-2](experiments/live-trading.md) の「判定の閾値」が参照するもの）。本節は「どのクラスに写すか」だけを書く。**
+⚠ **差 1 の閾値の正本は [プラン §2-4](../plans/archive/live-trading-three-models.md) の表（[live-trading.md §0-2](experiments/live-trading.md) の「判定の閾値」が参照するもの）。本節は「どのクラスに写すか」だけを書く。**
 
 | 部品 | クラス | 規則 |
 | --- | --- | --- |

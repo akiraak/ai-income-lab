@@ -1,4 +1,4 @@
-"""実売買の「今日の買い%」（[プラン §2-6](../../../docs/plans/live-trading-three-models.md)・Phase 1）。
+"""実売買の「今日の買い%」（[プラン §2-6](../../../docs/plans/archive/live-trading-three-models.md)・Phase 1）。
 
     AIL_DATA_DIR=data-live python3 -m cli.predict --experiment trade_own_ridge_a --asof 2026-09-21 \
         --out ../live-trading/out/2026-09-21/predict.jsonl

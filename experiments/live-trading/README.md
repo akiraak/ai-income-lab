@@ -1,6 +1,6 @@
 # live-trading — トレーダー 3 人の実売買の執行器
 
-プラン [docs/plans/live-trading-three-models.md](../../docs/plans/live-trading-three-models.md)・記録と決めごと [docs/specs/experiments/live-trading.md](../../docs/specs/experiments/live-trading.md)。
+プラン [docs/plans/archive/live-trading-three-models.md](../../docs/plans/archive/live-trading-three-models.md)・記録と決めごと [docs/specs/experiments/live-trading.md](../../docs/specs/experiments/live-trading.md)。
 ⚠ **2026-08-27 の方針の 2 つ目の例外**（CLAUDE.md）。⚠ **本番の鍵を入れて起動するのは利用者**。
 
 ```bash

@@ -1,7 +1,7 @@
 # トレーダーの詳細を全期間にする — 長い履歴と長い図の見せ方
 
 作成日: 2026-09-20。利用者の指示（2026-09-20）: **「管理画面のトレーダーの詳細に履歴は全て出すようにしてください。長すぎると見づらいので手法を考えます」**。
-親: [実売買のプラン](../live-trading-three-models.md) の Phase 4（管理画面 `/live`）。関連: [dashboard.md §13・§15](../../specs/dashboard.md)（画面の仕様とデザイン規約）・[live-trading.md §0-7](../../specs/experiments/live-trading.md)（記録の置き場）。
+親: [実売買のプラン](live-trading-three-models.md) の Phase 4（管理画面 `/live`）。関連: [dashboard.md §13・§15](../../specs/dashboard.md)（画面の仕様とデザイン規約）・[live-trading.md §0-7](../../specs/experiments/live-trading.md)（記録の置き場）。
 
 ✅ **2026-09-20 に Phase 0〜4・6 を実装して閉じた**（利用者の指示「進めて」）。⚠ **Phase 5（絞り込み）は見送り**（任意。要るようになったら新しいタスクにする）。
 決まったこと 3 つ: **履歴は月ごとに折りたたむ** ／ **全体の詳細は変えない** ／ **トレーダーの詳細は図と数字も全期間にし、1 日 18px を割ったらマス目は横スクロール**（§1）。

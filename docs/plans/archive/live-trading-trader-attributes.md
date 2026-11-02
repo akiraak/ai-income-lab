@@ -1,7 +1,7 @@
 # B6: 実際に動かすトレーダー 3 人の属性を決めて書く
 
 作成日: 2026-09-19。派生元: [TODO](../../../TODO.md) の「B6: 実際に動かす 3 人の属性（モデル・θ・予算・銘柄集合）」（利用者の指示 2026-09-19「B6 3 人の属性を進めます」「候補プランでよい」）。
-親: [実売買のプラン](../live-trading-three-models.md) §2-2・§2-3。書き込む先: [live-trading.md §0-1](../../specs/experiments/live-trading.md)。
+親: [実売買のプラン](live-trading-three-models.md) §2-2・§2-3。書き込む先: [live-trading.md §0-1](../../specs/experiments/live-trading.md)。
 
 ## 0. 目的・背景
 

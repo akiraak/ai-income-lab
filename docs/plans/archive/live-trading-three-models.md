@@ -3,7 +3,7 @@
 作成日: 2026-09-17。利用者の指示: **実際に売買を行う仕組みを実装します。予想モデルを 3 つほど用意してそれぞれに予算を割り振り実際の取引をしてデータを検証できる形で残します。**
 同日の追加指示: **手法で分けた単位を擬人化して「トレーダー（Trader）」と呼ぶ。トレーダーは複数の予測モデルを使えるようにする。**
 
-派生元: 「tastytrade で、実際の API 取引のサンプルプログラムを動かす」（2026-09-05〜09-16。[DONE.md](../../DONE.md) へ移した。プランは [archive/tastytrade-api-sample.md](archive/tastytrade-api-sample.md)、記録は [tastytrade-api-sample.md](../specs/experiments/tastytrade-api-sample.md)）。
+派生元: 「tastytrade で、実際の API 取引のサンプルプログラムを動かす」（2026-09-05〜09-16。[DONE.md](../../../DONE.md) へ移した。プランは [archive/tastytrade-api-sample.md](tastytrade-api-sample.md)、記録は [tastytrade-api-sample.md](../../specs/experiments/tastytrade-api-sample.md)）。
 残っていた Phase 6「本番で 1 株」は本プランの Phase 5 の最初の段（最小額で 1 発注）に取り込む。
 
 記録先（作るもの）: `docs/specs/experiments/live-trading.md`（決めごと・日次の要約・判定）。
@@ -46,7 +46,7 @@ flowchart LR
 
 ## 1. 目的 — 何を知りたいか
 
-バックテスト（[feature-discovery](../specs/experiments/feature-discovery/rules.md) 13 章の閾値売買）は「足 t の終値で執行し、翌日の終値までのリターンを得る。コストは片道 2.5bp」という理想化の上に立つ。
+バックテスト（[feature-discovery](../../specs/experiments/feature-discovery/rules.md) 13 章の閾値売買）は「足 t の終値で執行し、翌日の終値までのリターンを得る。コストは片道 2.5bp」という理想化の上に立つ。
 実際の口座で同じ合図を毎日執行すると、理想化と現実の差が数字で出る。**その差を、トレーダー 3 人 × 日次で、後から検証できる形に残す**のが目的である。
 
 | 問い | バックテストの前提 | 実売買で測れるもの | 記録 |
@@ -73,16 +73,16 @@ flowchart LR
 
 | 項目 | 事実 | 出典 |
 | --- | --- | --- |
-| 口座 | 本口座は開設済み・**現金 $1,000 着金済み**【実測 2026-09-16】。買付余力 1000.0。⚠ `cash-available-to-withdraw` 0.0（引き出し保留） | [記録 §0-5](../specs/experiments/tastytrade-api-sample.md) |
+| 口座 | 本口座は開設済み・**現金 $1,000 着金済み**【実測 2026-09-16】。買付余力 1000.0。⚠ `cash-available-to-withdraw` 0.0（引き出し保留） | [記録 §0-5](../../specs/experiments/tastytrade-api-sample.md) |
 | 口座の種類 | `equities-margin-calculation-type: Cash Secured Margin`・`is-pattern-day-trader: false`。⚠ **現物の現金口座扱い**なので、⚠ **売った代金は受渡し（T+1）まで再投資できない可能性がある**（Phase 0 で確かめる） | 記録 §0・§0-5 |
 | 発注の往復 | sandbox で指値・取消・成行・反対売買が通る。⚠ **市場時間でも `Session offline` で拒否されることがある**（25 分後に通った） | 記録 §0-4 |
 | 認証 | access token 900 秒で失効。refresh token は数日またいで使える。⚠ **失敗ログインの連打で IP が約 8 時間ブロック** | 記録 §0-4・README |
 | 気配 | 本番の資格情報で REST 気配と DXLink が取れる。遅延はサーバの時計で −0.12 秒 | 記録 §0-4 |
 | 相場データ | sandbox は配信しない（全経路 502）。⚠ **リハーサルでは「合図は本番の気配、注文は sandbox」に分ける**（`sample.py` と同じ） | 記録 §0 |
-| 監視 | 管理画面（g3plus）が cert に繋いで認証・口座・注文を監視している。停止ボタンで `HALT` ＋ 全取消 | [dashboard.md §2・§4](../specs/dashboard.md) |
+| 監視 | 管理画面（g3plus）が cert に繋いで認証・口座・注文を監視している。停止ボタンで `HALT` ＋ 全取消 | [dashboard.md §2・§4](../../specs/dashboard.md) |
 | 価格の水準 | SPY 1 株 ≈ $766【実測 2026-09-08】。⚠ **$1,000 では SPY 1 株で資金の 77% を使う** | 記録 §0-4 |
-| 手法の成績 | 台帳に「採る」は 0 件・保留 78 件。⚠ **どのモデルも B&H を安定して超えていない**（[ledger.md §0](../specs/experiments/feature-discovery/ledger.md)） | 台帳 |
-| 検出限界 | 符号 5/5 で拾えるのは fold あたり +1,700bp 級。日次 σ は 49〜77bp【実測】 | [validation-power.md §3-2](../specs/experiments/feature-discovery/validation-power.md) |
+| 手法の成績 | 台帳に「採る」は 0 件・保留 78 件。⚠ **どのモデルも B&H を安定して超えていない**（[ledger.md §0](../../specs/experiments/feature-discovery/ledger.md)） | 台帳 |
+| 検出限界 | 符号 5/5 で拾えるのは fold あたり +1,700bp 級。日次 σ は 49〜77bp【実測】 | [validation-power.md §3-2](../../specs/experiments/feature-discovery/validation-power.md) |
 
 ## 2. 対応方針
 
@@ -121,7 +121,7 @@ flowchart LR
 
 ### 2-2. 初期の 3 人 — 候補と推奨
 
-✅ **2026-09-19: 利用者が候補のまま確定した**（モデル・θ・予算・合成・種。銘柄集合と `sizing` は `dryrun2` 待ち。[B6 のプラン](archive/live-trading-trader-attributes.md)・[live-trading.md §0-1](../specs/experiments/live-trading.md)）。
+✅ **2026-09-19: 利用者が候補のまま確定した**（モデル・θ・予算・合成・種。銘柄集合と `sizing` は `dryrun2` 待ち。[B6 のプラン](live-trading-trader-attributes.md)・[live-trading.md §0-1](../../specs/experiments/live-trading.md)）。
 
 ⚠ **選ぶ基準は「儲かりそう」ではなく「族が違う 3 人で、同じ表・同じ期間・同じ形式 (A) で回っていること」**。族が違えば、執行の差がモデルの性質（回転の多さ・保有の長さ）でどう変わるかを見られる。
 ⚠ **結果を見る前に決め、`live-trading.md` §0 に書いてから動かす**（rules.md 14-9 と同じ規律）。⚠ **最初は 1 人 1 モデル・合成「そのまま」**で始める（既存の閾値売買と一致させて配線を確かめてから、複数モデルのトレーダーを足す）。
@@ -129,7 +129,7 @@ flowchart LR
 | トレーダー | 予測モデル（推奨） | 族 | 台帳の判定 | 選ぶ理由 | ⚠ 注意 |
 | --- | --- | --- | --- | --- | --- |
 | T1 | `trade_own_ridge_a` θ=50 | 線形（Ridge・own 35 列） | 保留（閉じる。+12.79bp/fold） | 最も単純。回転が多い側の対照 | 上乗せは雑音の大きさ |
-| T2 | `trade_ownex_lgbm_a` θ=55 | 木（LightGBM・own cs rel ex） | 保留（+48.72bp/fold。⚠ 3 実行の幅 123bp） | 外部データ（為替・金利）を使う唯一の保留行。fold を丸ごと休む癖がある | ⚠ **幅 123bp は種ではなく入力の差**（`ex_` / `im_` の修正前後。同じ種・同じ入力の 2 実行は小数 4 桁まで一致【実測 2026-09-19】。[B6 のプラン §5](archive/live-trading-trader-attributes.md)）。⚠ **種は 0 に固定して記録に残す** |
+| T2 | `trade_ownex_lgbm_a` θ=55 | 木（LightGBM・own cs rel ex） | 保留（+48.72bp/fold。⚠ 3 実行の幅 123bp） | 外部データ（為替・金利）を使う唯一の保留行。fold を丸ごと休む癖がある | ⚠ **幅 123bp は種ではなく入力の差**（`ex_` / `im_` の修正前後。同じ種・同じ入力の 2 実行は小数 4 桁まで一致【実測 2026-09-19】。[B6 のプラン §5](live-trading-trader-attributes.md)）。⚠ **種は 0 に固定して記録に残す** |
 | T3 | `trade_ownseq_ridge_a` T3 QUANT θ=50 | 時系列分類器（60 日窓の道筋） | 保留（閉じる。fold 2 の 1 本頼み） | 入力の形が違う（手作りの列ではなく価格の道筋） | 保有 7 日中央値・強制清算 13.5% |
 | 対照 | B&H（買い% 常に 100） | 基準線 | — | ⚠ **紙上だけで回す**（実物の予算は使わない。B&H の執行差は fold に 2 回しか出ない） | — |
 
@@ -155,7 +155,7 @@ flowchart LR
 | (b) 銘柄を事前固定で絞る | 各トレーダー同じ N 本（例 10 本）に絞る。⚠ **選び方は結果と無関係に**（us63 から seed 0 の乱択、または株価の低い順） | 端株が通らないとき | (a) が落ちたら |
 | (c) 入金を増やす | 利用者の判断。$10,000 なら 1 人 $3,000・1 銘柄 $47 | 利用者 | 提案のみ（Claude は実行しない） |
 
-⚠ **2026-09-19: 予算は 2 つの規模を並べて持つ**（規模 A $1,000 ＝ 下の表のまま ／ 規模 B $10,000 ＝ $3,000 × 3 ＋ 予備 $1,000。⚠ **規模 B（$10,000）は実際の取引で使えない可能性がある**。比較の表と正は [live-trading.md §0-1・§0-2](../specs/experiments/live-trading.md)）。
+⚠ **2026-09-19: 予算は 2 つの規模を並べて持つ**（規模 A $1,000 ＝ 下の表のまま ／ 規模 B $10,000 ＝ $3,000 × 3 ＋ 予備 $1,000。⚠ **規模 B（$10,000）は実際の取引で使えない可能性がある**。比較の表と正は [live-trading.md §0-1・§0-2](../../specs/experiments/live-trading.md)）。
 
 既定の割り振り（Phase 0 で利用者が確定する）:
 
@@ -164,7 +164,7 @@ flowchart LR
 | T1 ／ T2 ／ T3 | $300 × 3 ＝ $900 | 各トレーダーの執行。⚠ **予算を超える買いは執行器が拒む**（dry-run の `buying-power-effect` と自前の台帳の両方で） |
 | 予備 | $100 | 規制費・約定の端数・受渡しの遅れ |
 
-⚠ **2026-09-19 の利用者決定で、口座への注文は合算せずトレーダーごとに別々に出す形に変えた**（成績を人ごとに正確に知るため。⚠ **内部移転も同日にやめた** ＝ 利用者決定「トレーダーの実際の実績が検証できない」。[live-trading.md §0-1](../specs/experiments/live-trading.md) の「口座への注文」）。以下の「合算」は着手時の文面。
+⚠ **2026-09-19 の利用者決定で、口座への注文は合算せずトレーダーごとに別々に出す形に変えた**（成績を人ごとに正確に知るため。⚠ **内部移転も同日にやめた** ＝ 利用者決定「トレーダーの実際の実績が検証できない」。[live-trading.md §0-1](../../specs/experiments/live-trading.md) の「口座への注文」）。以下の「合算」は着手時の文面。
 ⚠ **同じ銘柄を T1 が売り T2 が買う日が起きる。** 口座は 1 つなので、⚠ **注文は銘柄ごとに 3 人の差分を合算して出し、トレーダーごとの持ち分は執行器の台帳で分ける**（口座の建玉は合算しか見せない）。wash sale（§4）もこの合算で起きる。
 
 ### 2-4. ⚠ 判定の物差し — 上乗せの有無は判定しない
@@ -233,9 +233,9 @@ flowchart LR
 
 | 項目 | 中身 | 出典 |
 | --- | --- | --- |
-| API の自動売買 | tastytrade の API Terms は algorithmic trading systems を明示的に許容（R3）。`automated-source: true` を注文に付ける | [trading-api-availability.md](../specs/trading-api-availability.md) |
-| wash sale | 3 人が同じ銘柄を 30 日以内に売り買いすると、損失の控除が繰り延べられる。⚠ **口座は 1 つなのでブローカーは合算で報告する**。税は個別に CPA 確認 | [trading-tax.md](../specs/trading-tax.md) |
-| Pattern Day Trader | 1 日 1 回の執行なら同日の往復は起きない。⚠ **再送や取消の設計で同日往復を作らない**（⚠ **2026-09-18 追記: PDT 規則は 2026-06-04 に廃止され、現金口座は元から対象外**。効く線は現金口座の good faith violation。[live-trading.md §0-6](../specs/experiments/live-trading.md)） | 記録 §0-5（`is-pattern-day-trader: false`） |
+| API の自動売買 | tastytrade の API Terms は algorithmic trading systems を明示的に許容（R3）。`automated-source: true` を注文に付ける | [trading-api-availability.md](../../specs/trading-api-availability.md) |
+| wash sale | 3 人が同じ銘柄を 30 日以内に売り買いすると、損失の控除が繰り延べられる。⚠ **口座は 1 つなのでブローカーは合算で報告する**。税は個別に CPA 確認 | [trading-tax.md](../../specs/trading-tax.md) |
+| Pattern Day Trader | 1 日 1 回の執行なら同日の往復は起きない。⚠ **再送や取消の設計で同日往復を作らない**（⚠ **2026-09-18 追記: PDT 規則は 2026-06-04 に廃止され、現金口座は元から対象外**。効く線は現金口座の good faith violation。[live-trading.md §0-6](../../specs/experiments/live-trading.md)） | 記録 §0-5（`is-pattern-day-trader: false`） |
 | 現金口座の受渡し | 売却代金は T+1 まで再投資できない可能性（good faith violation）。⚠ **Phase 0 で `cash-available-to-trade` 系の値を確かめ、執行器は受渡し前の代金を使わない** | Phase 0 |
 | 予定納税 | 短期益に源泉徴収は無い。金額は月 $1 未満【推測】なので実務上は無視できるが、記録は残す | trading-tax.md §6 |
 | 非表示利用の申告 | API で相場データを取って自動発注に使うのは NYSE の Non-Display Use の例示に当たる。⚠ **ブローカー経由の個人契約での扱いは未確認のまま** | trading-api-availability.md 付録 A-7 |

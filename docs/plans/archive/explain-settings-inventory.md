@@ -31,7 +31,7 @@ flowchart LR
 | 設定（候補） | `config/traders/candidates/shares/`・`notional/` | 本番と違う点・「使わない」の印 |
 | 設定の読み手 | `experiments/live-trading/` の設定を読むコード | 項目の意味（`kind`・`combine`・`sizing`・`threshold` の扱い） |
 | 仕様・記録 | `docs/specs/experiments/live-trading.md` §0-1〜§0-3 | 3 人の属性・予算・時間帯・sizing の決め手 |
-| プラン | `docs/plans/live-trading-three-models.md` §2・`live-trading-trader-attributes.md` | トレーダーの定義・選んだ理由 |
+| プラン | `docs/plans/archive/live-trading-three-models.md` §2・`live-trading-trader-attributes.md` | トレーダーの定義・選んだ理由 |
 | 研究側 | `docs/specs/experiments/feature-discovery/rules.md` 10-2 ／ `config/names.toml` | 予測モデル名の読み方 |
 | vibeboard の文 | `dashboard/traders.toml`・`models.toml`・`system.toml`・`glossary.toml` | 画面に出ている説明 |
 | vibeboard の仕様 | `docs/specs/dashboard.md` §16〜§18 | タブの決まり（やさしい言葉・比べない・数字は写すだけ） |

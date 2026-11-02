@@ -730,7 +730,7 @@ note = "管理画面の概要・全体の詳細・トレーダーの詳細に出
   [[section.term]]
   name = "紙上の損益"
   short = "同じ合図を公式終値と決めたコストで回したときの損益。実物と比べるための対照で、口座のお金は動かない。"
-  doc = "docs/plans/live-trading-three-models.md"
+  doc = "docs/plans/archive/live-trading-three-models.md"
   where = "§1 4 つの差"
 
   [[section.term]]
@@ -781,7 +781,7 @@ note = "管理画面の概要・全体の詳細・トレーダーの詳細に出
   [[section.term]]
   name = "差 4（無人運転）"
   short = "拒否・再送・認証の失効が、人手なしにその日の発注できる時間帯の中で片付いたか。問題のあった日と再送の回数で見る。"
-  doc = "docs/plans/live-trading-three-models.md"
+  doc = "docs/plans/archive/live-trading-three-models.md"
   where = "§1 4 つの差"
 
   [[section.term]]

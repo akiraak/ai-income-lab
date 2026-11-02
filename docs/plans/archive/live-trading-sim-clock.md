@@ -1,7 +1,7 @@
 # 仮データと仮の時計で執行器を通しで動かす — 速さを変える・止める・管理画面で見る
 
 作成日: 2026-09-19。利用者の指示（2026-09-19）: **「仮データを用意し実際の売買のコードを動かしテストを行う。時間経過は実際の何倍かで進めたり止めたりして管理画面でも確認できる」**。
-親: [実売買のプラン](../live-trading-three-models.md)。関連: [live-trading.md](../../specs/experiments/live-trading.md)（執行器の決めごと）・[dashboard.md §6-2・§13](../../specs/dashboard.md)（デモと実売買の画面）。
+親: [実売買のプラン](live-trading-three-models.md)。関連: [live-trading.md](../../specs/experiments/live-trading.md)（執行器の決めごと）・[dashboard.md §6-2・§13](../../specs/dashboard.md)（デモと実売買の画面）。
 
 ✅ **2026-09-19 に Phase 1〜5 を実装して閉じた**（利用者の指示「仮データを使ったシミュレーションを進められる？」）。使い方・筋書きの日・回して見つかったことは [live-trading.md §0-7 (h)〜(j)](../../specs/experiments/live-trading.md)。⚠ 以下は着手前のプランの文面のまま（リンクは archive へ移す前の相対パス）。プランとの違い: `--sim-clock` はパスを受け取らない（時計と置き場は `MODE` の名前から決まる）／ 仮の時計の正本は `control.json` の 1 ファイル（速さ・停止・錨）で、モックもそれを読む ／ `crash_mid` の「二重発注しない」は執行器に無かった ＝ 見つかった穴として TODO へ ／ テスト用の差し替え `LT_MODE_DIR` を足した。
 ~~これはプランだけ（実装はしていない）。§1 の 4 つは利用者の裁定が要る。推奨を先に書いた。~~

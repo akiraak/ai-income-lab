@@ -264,5 +264,5 @@ flowchart LR
 
 - プラン: [new-model-trader.md](../plans/archive/new-model-trader.md)（決めごと K1〜K8 は §2・10/20 の後に回す案は §7）
 - 予測モデル名の規約: [rules.md 10-2](experiments/feature-discovery/rules.md)。検知器の契約: 14-1・16 章。事前固定: 14-9・14-10
-- トレーダーの定義と合成規則: [live-trading-three-models.md §2-1](../plans/live-trading-three-models.md)。3 人の設定: [live-trading.md §0-1](experiments/live-trading.md)。sim3 ／ sim4 の作り置き: §0-7 (k)
+- トレーダーの定義と合成規則: [live-trading-three-models.md §2-1](../plans/archive/live-trading-three-models.md)。3 人の設定: [live-trading.md §0-1](experiments/live-trading.md)。sim3 ／ sim4 の作り置き: §0-7 (k)
 - 説明の書き方: [dashboard.md §16-3・§17-4](dashboard.md)（トレーダー・予測モデルのタブ）

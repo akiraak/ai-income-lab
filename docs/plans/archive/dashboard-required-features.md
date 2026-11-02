@@ -59,7 +59,7 @@ CLAUDE.md の決まりなので、機能の要不要を決めるときに**前�
 
 | 事柄 | 中身 | 出典 |
 | --- | --- | --- |
-| 執行器が動く機械 | **titan**（15:45 ET に timer ／ cron で起動）。g3plus は監視だけ | [プラン Phase 0 の 6](../live-trading-three-models.md) |
+| 執行器が動く機械 | **titan**（15:45 ET に timer ／ cron で起動）。g3plus は監視だけ | [プラン Phase 0 の 6](live-trading-three-models.md) |
 | 執行の窓 | 15:45〜16:05 ET ＝ ⚠ **JST 04:45〜05:05**（EDT の間） | [live-trading.md §0-2](../../specs/experiments/live-trading.md) |
 | 執行器が見る `HALT` | titan の `experiments/tastytrade-api-sample/out/HALT`（`TT_HALT_FILE` で変更可） | `experiments/live-trading/run_day.py:126` |
 | 停止ボタンが書く `HALT` | 記録の置き場 `records_dir` の `HALT`。⚠ **置き場は起動のしかたで変わる**: 開発機で `AIL_DATA_DIR` なし → サンプルの `out/`（⚠ **執行器と同じ**）／ Docker（g3plus）→ `/app/data/records/`／ デモ → `data/demo/records/` | `dashboard/app/config.py:129・194〜197・227〜228` |
@@ -122,7 +122,7 @@ flowchart LR
 | --- | --- | --- |
 | 場面 1 実売買の日次の確認はどこから見るか | ⚠ **外から公開面で** | ⚠ **g3plus の `/live` に執行器の記録を届ける経路が要る**（いまは空。§13-3） |
 | 場面 2 公開面から停止したい場面はあるか | **ない（titan で止める）** | 公開面の停止は取消だけのままでよい。⚠ **止めるときは titan のローカル面から**（1-1 のとおり、そこだけが執行器の `HALT` を書く） |
-| 場面 6 記録と判定（`/records`・`/judge`）は検証が終わっても使うか | ⚠ **観点 A が埋まるまで使い、その後は不要**（初めの答えは「使う」。説明を聞いて 2026-09-18 に変えた） | ⚠ **期限つきで残し、A が ✅ になったら外す候補**。A を見届けて `live-trading.md` §1 に写す手順（[プラン Phase 0 の 1](../live-trading-three-models.md)）が済むまでは外さない。判定の結論は [tastytrade-api-sample.md §1](../../specs/experiments/tastytrade-api-sample.md) に残るので、画面を外しても消えない |
+| 場面 6 記録と判定（`/records`・`/judge`）は検証が終わっても使うか | ⚠ **観点 A が埋まるまで使い、その後は不要**（初めの答えは「使う」。説明を聞いて 2026-09-18 に変えた） | ⚠ **期限つきで残し、A が ✅ になったら外す候補**。A を見届けて `live-trading.md` §1 に写す手順（[プラン Phase 0 の 1](live-trading-three-models.md)）が済むまでは外さない。判定の結論は [tastytrade-api-sample.md §1](../../specs/experiments/tastytrade-api-sample.md) に残るので、画面を外しても消えない |
 | 場面 7 `/ops` の sandbox の手動の注文ボタンはこの先も使うか | **使わない** | ⚠ **外す候補**（停止の解除・本番の鍵は別で、固定） |
 | 場面 8 開発 `/dev` はこの先も使うか | **使わない** | ⚠ **外す候補** |
 | 場面 9 検証・データはどちらで見ているか | **vibeboard のタブ** | ⚠ **管理画面の `/experiments`・`/data` は外す候補**（vibeboard に任せる） |
@@ -167,7 +167,7 @@ flowchart LR
 | 行動（今日） | 合図（買い% ／ 出口%）・注文・約定・見送り | ✅ 出ている（合図の表・注文の表の「誰の分」） | `signals.jsonl`・`orders.jsonl` |
 | 行動（推移） | 日ごとの合図・売買・保有の変化 | ⚠ **無い**（日次の表は全トレーダーをまとめた 1 行） | 同上（記録はある） |
 | 実績（いま） | 建玉・原価・実現 ／ 含み損益 | ✅ 出ている（トレーダーの表。最新の 1 点） | `state/<env>/*.json`・`ledger.jsonl` |
-| 実績（推移） | 損益の曲線（⚠ **実物と紙上の 2 本**。[プラン Phase 4 の 1](../live-trading-three-models.md)） | ⚠ **無い** | 実物は `ledger.jsonl`（記録はある）。⚠ **紙上は Phase 3（紙上の対照）の後** |
+| 実績（推移） | 損益の曲線（⚠ **実物と紙上の 2 本**。[プラン Phase 4 の 1](live-trading-three-models.md)） | ⚠ **無い** | 実物は `ledger.jsonl`（記録はある）。⚠ **紙上は Phase 3（紙上の対照）の後** |
 | 執行の差（トレーダー別） | 差 1〜4 | ⚠ **全体の値だけ**（カード 5 枚・日次の表） | 差 1 は注文の `parts` で割れる。⚠ **差 3 は Phase 3 の後**（プラン §2-4 は「日次・トレーダー別」を求めている） |
 | 比較 | 上のものをトレーダー横並びで | ⚠ **無い** | 上の全部 |
 

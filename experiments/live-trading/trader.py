@@ -1,6 +1,6 @@
 """トレーダー（Trader）— 予算・銘柄集合・1 本以上の予測モデル・合成規則・閾値を持つ執行の単位。
 
-プラン docs/plans/live-trading-three-models.md §2-1。定義は `config/traders/<名前>.toml` に 1 人 1 ファイル。
+プラン docs/plans/archive/live-trading-three-models.md §2-1。定義は `config/traders/<名前>.toml` に 1 人 1 ファイル。
 
 ⚠ **合成規則は事前固定**（結果を見て変えるのは新しい試行）。⚠ **モデル 1 本のときは「そのまま」に退化し、
 既存の閾値売買（feature-discovery rules.md 13-4）と完全に一致する。**

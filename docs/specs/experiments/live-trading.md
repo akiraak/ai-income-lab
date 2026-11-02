@@ -1,6 +1,6 @@
 # 実売買 — トレーダー 3 人に予算を割り振り、tastytrade の本口座で売買して執行の差を記録する
 
-プラン: [docs/plans/live-trading-three-models.md](../../plans/live-trading-three-models.md)。コード: `experiments/live-trading/`。
+プラン: [docs/plans/archive/live-trading-three-models.md](../../plans/archive/live-trading-three-models.md)。コード: `experiments/live-trading/`。
 ⚠ **2026-08-27 の方針の 2 つ目の例外**（CLAUDE.md）。判定するのは**執行の差と無人運転**であって「儲かったか」ではない。
 
 ## 0. 決めごと（事前固定）
@@ -1480,7 +1480,7 @@ flowchart LR
 | C 机上との一致 ＝ 合わない日 0 | `c_mismatch` ／ `c_detail` → `c.days` | T1: ／ T4: ／ T6: | |
 | B 持ち続けるとの差（⚠ 見るだけ・採否に使わない） | `b_diff_usd` ／ `b_diff_bp` → `b`（最後の日の累計） | T1: ／ T4: ／ T6: | — |
 
-- ⚠ **損益で人を採らない**（B は参考に写すだけ。数週間では統計的に判定できない ＝ [プラン §2-3](../../plans/live-trading-three-models.md)）
+- ⚠ **損益で人を採らない**（B は参考に写すだけ。数週間では統計的に判定できない ＝ [プラン §2-3](../../plans/archive/live-trading-three-models.md)）
 - 書き方は 2-1 と同じ。結果を入れたら、図を「線のうちどれが越えたか」の形（2-1 の図）に描き替える。起動しなかった営業日があれば件数と日付をここに書き、20 日目の日付を直す
 - `T4` は 10/8 に現金のまま・10/9 から買い（§1 の表）＝ A・E の本数が 2 人より少ない。本数（`a.n`・`e.n`）を結果に添える
 - 2-1 との違い: 差 3 は最初から「そろえた紙上」（`diff3a_bp`）で見る ／ 人手の数え方は K4（`yardstick.py` の docstring）／ 起動なしの日は行として出る（§1 の書き方）

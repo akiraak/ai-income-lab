@@ -108,6 +108,8 @@ if [ "$PREPARE" = 1 ]; then
   STEPS="update=$RC"
   # rc ≠ 0 の理由 ＝ 取得元の例外か「どこまで入ったか」の ⚠ の最後の 1 行（起動の記録に残す）
   [ "$RC" = 0 ] || NOTE=$(grep -E 'Error|⚠' "$TMP/update.log" | tail -1)
+  # 外部系列の取得の失敗は止めずに続ける（live_update.sh・2026-11-03）＝ rc 0 でも理由を起動の記録に残す
+  [ "$RC" != 0 ] || NOTE=$(grep -E '^⚠ 取得に失敗した外部系列' "$TMP/update.log" | tail -1)
   # 紙上の対照（Phase 3）: 前の営業日までの公式終値が入ったので daily.csv を作り直す（読むだけ・何度流しても同じ）
   if "$PY_LT" "$LIVEFS" ls "${LT_OUT_DIR:-$LT/out}" 2>/dev/null | grep -q -E '^20[0-9]{2}-[0-9]{2}-[0-9]{2}$'; then
     say "紙上の対照 → daily.csv"; STAGE=paper

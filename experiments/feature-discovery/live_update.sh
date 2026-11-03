@@ -10,7 +10,7 @@
 # ⚠ **市場時間中に流すと最後の 1 本は「今日の途中の足」**になる（cli.predict が asof 以降を落とす）。
 set -euo pipefail
 cd "$(dirname "$0")"
-PY=.venv/bin/python
+PY=${AIL_LIVE_UPDATE_PY:-.venv/bin/python}   # ⚠ 差し替えはテストだけ（tests/test_live_update.py）
 LIVE=${AIL_LIVE_DATA_DIR:-$PWD/data-live}
 EXOG=1
 for a in "$@"; do
@@ -35,9 +35,22 @@ rm -rf "$LIVE/.fetch"
 AIL_DATA_DIR="$LIVE/.fetch" $PY -m cli.fetch --dataset daily | tail -4
 step "種の歴史 ＋ 種の最終日以降の足"
 $PY -m cli.live_merge --staging "$LIVE/.fetch" | tail -6
+EXOG_FAILED=""
 if [ "$EXOG" = 1 ]; then
   step "外部系列（exog_live ＝ 為替・金利・気象・地震）"
-  $PY -m cli.fetch --exog exog_live | grep -v "^$" | tail -30
+  # ⚠ 取得元ごとに 1 回ずつ取り、失敗しても止まらずに次の取得元 → 調整へ進む（2026-11-03 docs/plans/exog-failure-continue.md）。
+  #    ECB が 500 ／ 503 ／ 504 を返す日がある【実測 約 27 回中 6 回】。止まると調整を飛ばし、夜の予測が印を書けず、翌日の発注が rc 13 になる。
+  #    外部系列は ずらし ＋ 引き継ぎ（既定 1 ＋ 7 日）まで古くても使える作り ＝ 古すぎるかは最後の live_status が決める（rc 2）。
+  for SRC in $(sed -n 's/^source *= *"\([a-z0-9_]*\)".*/\1/p' config/dataset/exog_live.toml); do
+    set +e
+    $PY -m cli.fetch --exog exog_live --source "$SRC" 2>&1 | grep -v "^$" | tail -12
+    R=${PIPESTATUS[0]}
+    set -e
+    if [ "$R" != 0 ]; then
+      echo "  ⚠ 外部 $SRC の取得に失敗（rc=$R）。前に取った分のまま調整へ進む（古すぎるかは「どこまで入ったか」が見る）"
+      EXOG_FAILED="$EXOG_FAILED $SRC"
+    fi
+  done
 fi
 step "調整（分割の継ぎ目）"
 $PY -m cli.adjust --period d > "$LIVE/adjust.log" 2>&1 || { tail -20 "$LIVE/adjust.log"; exit 1; }
@@ -47,5 +60,6 @@ $PY -m cli.check --layer adjusted --period d | tail -5
 step "どこまで入ったか"
 RC=0
 $PY -m cli.live_status --dataset daily --exog exog_live || RC=$?
+[ -z "$EXOG_FAILED" ] || echo "⚠ 取得に失敗した外部系列:$EXOG_FAILED（前に取った分で続けた）"
 echo; echo "所要 $(( $(date +%s) - T0 )) 秒 ／ 置き場 $LIVE"
 exit $RC

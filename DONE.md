@@ -1,4 +1,21 @@
 # DONE
+- 2026-11-03 約定後の実際の手数料を読む（いまは dry-run の見積り ＝ `orders.jsonl` の `amounts.fee_source: "dry_run_estimate"`。`/accounts/{n}/transactions` を sandbox で確かめてから） [plan](docs/plans/archive/actual-fees.md)
+  ✅ 2026-11-03 07:40 PST Sx360: 13500t の朝の準備（11/3 06:00 PST）の段 `fees` ＝ 取引履歴 prod 14 件（足した 11）・突き合わせ **注文 92 本（実額あり 88）・売買履歴の外 0・精算 6**（`fees.csv`）【実測】＝ Phase 5 の確かめ済み。10/28 から毎朝 実額あり 76〜88 が入っていた
+  ✅ 2026-10-19 利用者「手数料を進めて」（titan）。推す案 ＝ 読むだけの後処理 `fees.py`（朝の準備の最後・執行器と売買履歴は触らない・実額の正本は `out/fees.jsonl` ／ `out/fees.csv`）
+  - [x] Phase 1: API の確認（`list_transactions` ＋ sandbox で形を見る ＋ 本番の読むだけの照会で 9/23〜 の実額と見積りの差）
+    ✅ 2026-10-19 titan: sandbox は全期間で 0 件 → 本番の読むだけの照会で 63 件。注文 1 本 ＝ 取引 1 行（order-id）・1 行の手数料は見積りを $0.001 に丸めた値・規制費の精算は週 1 回の Balance Adjustment（`live-trading.md` §0-16）
+  - [x] Phase 2: `fees.py`（fetch ／ match ／ --print）＋ `run-live.sh --prepare` の段 `fees` ＋ テスト
+    ✅ 2026-10-19: テスト 5 本（符号と残す取引・取り足し・突き合わせ・取りに行く最初の日・頁めくり）。titan の記録の写しで通し（本番の読むだけの照会）＝ 本番の注文 13 本は全部当たり
+  - [x] Phase 3: 管理画面（トレーダーの詳細のタイル・注文の履歴の列・月の小計）
+    ✅ 2026-10-19: `live.fees_rows` ／ `fees_view`・概要の凡例・テスト 2 本（あるとき ／ 無いとき）
+  - [x] Phase 4: 記録（`live-trading.md` §0-15 ✅ ／ §0-16・`dashboard.md`・用語・CLAUDE.md）→ push
+  - [x] Phase 5: 「デプロイ」（⚠ 利用者・Sx360）→ 翌朝の `--prepare` で `fees.csv` ができる
+    ✅ 2026-10-20 21:45 PDT（00:45 ET）: `prod` bbf8beb → 639460a（Sx360 の `run-deploy.sh`・関門 ✅ ＝ 4 段 ＋ 指紋 22 本）・13500t `done 639460a`（管理画面も起こし直した）。⚠ 役割と最短保有の口（`41c5be7`）も一緒に出た ＝ K6。⏳ 10/21（水）06:00 PDT（09:00 ET）の `--prepare` で `fees.jsonl` ／ `fees.csv` ができるかを見る
+    ⚠ 2026-10-22 Sx360: 10/21・10/22 の朝の準備は段 `fees` rc=0 だが **取引履歴を cert から取って 0 件**（「実額あり 0」）。原因 ＝ `fees.py` が env の既定を `.env` の `TT_ENV` から読み、13500t の `.env` は `TT_ENV=cert`（`sample.py` の既定を sandbox にするための値）→ 既定を prod に直した（`TT_ENV` は読まない・`--env cert` を明示したときだけ cert）・テスト 1 本。⏳ もう 1 度「デプロイ」（利用者）→ 次の朝の `--prepare` で本番の取引履歴が入る
+    ✅ 2026-10-22 09:30 PDT（12:30 ET）: `prod` 639460a → 3a90ae2（Sx360 の `run-deploy.sh`・関門 ✅ ＝ 4 段 ＋ 指紋 22 本）・13500t `done 3a90ae2`（管理画面も起こし直した）。⏳ 10/23（金）06:00 PDT（09:00 ET）の `--prepare` で「取引履歴 prod: … 件」・実額ありが 0 より多いことを見る
+  派生元: [plan](docs/plans/archive/live-trading-executor-fixes.md)（利用者の指示 2026-09-19「手数料など金額の内訳も保存するように」）
+  ✅ 2026-09-25 推す案で決めた（利用者「全部おススメで直して」。[live-trading.md §0-15](docs/specs/experiments/live-trading.md)・[plan](docs/plans/archive/live-trading-open-decisions.md)）: **10/20 の判定の後**に入れる（20 営業日のあいだは執行器を変えない。整数株の成行の手数料は 1 注文 $0.001 級【実測 §0-3】で判定に効かない）
+  依存: 「Phase 6: 20 営業日の記録と判定（`live-trading.md`。続ける・止める・予算を変えるは利用者。モデルや合成規則の入れ替えは新しい検証として n_trials に足す）」
 - 2026-11-01 新しいトレーダーを作成する（Phase 0〜4・6・6b） [plan](docs/plans/trader-model-roles.md)
   2026-11-01 の TODO の整理で移した。Phase 5（誰を入れ替えるか → デプロイ → ▶ 開始）は TODO の「ハル（T4）だけ残し…入れ替える」に引き継いだ（2026-11-01 利用者「T18 と T19 で」）。K10（`T11` を作るか）は TODO に別のタスクで残した
   利用者の指示（2026-10-18）: **「TODOに追加。新しいトレーダーを作成する」**

@@ -185,7 +185,7 @@ class Client:
     def get_trading_status(self, account_number: str) -> dict:
         return self.get(f"/accounts/{account_number}/trading-status")["data"]
 
-    # ---------- 取引履歴（読むだけ。約定後の手数料の実額 ＝ docs/plans/actual-fees.md。2026-10-19） ----------
+    # ---------- 取引履歴（読むだけ。約定後の手数料の実額 ＝ docs/plans/archive/actual-fees.md。2026-10-19） ----------
     def list_transactions(self, account_number: str, *, start_date: str | None = None, end_date: str | None = None,
                           per_page: int = 250, sort: str = "Asc", max_pages: int = 100) -> list[dict]:
         """`GET /accounts/{n}/transactions` を頁が尽きるまでめくる（`pagination.total-pages`）。⚠ 読むだけ・許可は要らない。

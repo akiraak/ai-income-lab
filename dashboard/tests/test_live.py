@@ -608,7 +608,7 @@ def test_launch_table_shows_each_day_and_marks_a_missing_or_failed_run(settings)
         assert "毎日の起動" in page and "朝: urllib.error.HTTPError: HTTP Error 500" in page and "記録なし" in page
 
 
-# --- 手数料の実額（執行器の fees.py が書く out/fees.csv を写すだけ。プラン docs/plans/actual-fees.md） ---
+# --- 手数料の実額（執行器の fees.py が書く out/fees.csv を写すだけ。プラン docs/plans/archive/actual-fees.md） ---
 
 FEES_CSV = (
     "kind,date,env,trader,symbol,side,shares,order_id,final_status,fee_est_usd,fee_actual_usd,diff_usd,n_tx,estimated,tx_qty,tx_price,clearing_usd,regulatory_usd,other_usd,note\n"

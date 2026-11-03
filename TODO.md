@@ -38,6 +38,14 @@
       ✅ 2026-11-02 Sx360: g3plus-ops `3cd191e`（`run.sh predict` ＝ コンテナで `./run-live.sh --predict-only`・`check.sh` の本文に `predict=<日付>:rc`・手順書）→ 利用者が scp ＋ crontab の 1 行 `30 17 * * 1-5 … run.sh predict` を流した（分類器が Claude の実行を止めた）。13500t の crontab 5 行・2 本の sha は Sx360 と一致
     - [ ] Phase 5: 切り替えの日を見届ける（11/2 の夜に最初の予測 → 11/3 の 15:50 ET。夜の足と朝の足の突き合わせ）
       期日: 2026-11-03 06:00
+      ✅ 2026-11-03 07:40 PST Sx360（読むだけ）: 11/2 17:30 PST の夜の予測 rc=0（8 本・失敗 0・489 行・201 秒【実測】）／ 今日の回が印を見つける（`nightly.py find --date 2026-11-03 --traders @roster` rc=0・signal_date 2026-11-02）／ 夜の足と朝の足は 63 銘柄とも始値〜終値が一致・予測の `proxy_close` とも 63 本一致・違うのは出来高だけ（16 銘柄・最大 +0.37%・47 銘柄は差 0【実測】）
+      ⚠ 11/3 06:00 PST の朝の準備は rc=1（外部系列の ECB が HTTP 500。日足は取れた・今日の回は印を読むだけ ＝ 発注には響かない）→ 下の子「外部系列（ECB）の取得が失敗しても…」
+      ⏳ 残り: 11/3 12:50 PST（15:50 ET）の回が rc=0 で通るか（`T18`・`T19` の初日と一緒に見る）
+    - [ ] 外部系列（ECB）の取得が失敗しても日足の調整まで進め、夜の予測を止めない
+      見つけたこと（2026-11-03 Sx360）: `live_update.sh` は `set -e` なので外部系列の取得が 1 つ失敗すると調整の段（`adjusted`）を飛ばす → 夜の予測は rc 10（印を書かない）→ 朝の回し直しも ECB が落ちていれば同じ → 15:50 ET は rc 13 ＝ 全員が発注しない【推測】。外部系列は ずらし 1 ＋ 引き継ぎ 7 日まで古くても使える作り（`live_status` もその範囲は「揃っている」）＝ 止まるのは `live_update.sh` の作りだけ
+      【実測】朝の準備 約 27 回のうち 6 回が 09:00 ET の ECB で失敗（500 ／ 503 ／ 504）・11/3 10:40 ET も 504。今までは 15:50 ET の回が日足を取り直していたので表に出なかった
+      ⏳ 利用者: 直すか決める。案 ＝ 外部系列の失敗は ⚠ を出して調整へ進む・古すぎるかは今までどおり `live_status` が決める・テスト 1 本。直すのは titan・本番の経路 ＝「デプロイ」が要る（今夜 17:30 PST に間に合わせるなら 13:15〜17:00 PST のデプロイ）
+      ⚠ 11/4（水）はハルの 20 営業日目 ＝ 11/3 の夜と 11/4 の朝の両方で ECB が落ちるとその日は売買しない
     関連: 「本番の 3 人のうちハル（T4）だけ残し、アキ（T1）とソラ（T6）を `T18`（アオ）・`T19`（シン）に入れ替える」
   - [ ] Phase 5: 分析を回す（投入した人を Phase 2 の物差しで見る。20 営業日の判定には いまの 3 人のぶんだけを使う）
     20 営業日の判定（11/4（水））の雛形 ＝ [live-trading.md §2-2](docs/specs/experiments/live-trading.md)（2026-10-20。線と `yardstick.csv` の列を結果を見る前に書いた。写すのは 11/5（木）の朝の準備の後・Sx360）
@@ -46,23 +54,6 @@
   - [ ] K10: 候補の人 `T11`（1 本のモデルで買いと保有日数を出す ＝ H5）を作るか決める（⚠ 利用者。推す ＝ (a) 作らない ／ (b) 配線の確認のために作る〔執行器に売る予定の日の経路を足す〕）
     いまは (a) のまま進めている（Phase 3・4 は `T11` の経路を足さずに済ませた。(b) に変わっても後から足せる）。経緯は [trader-model-roles.md §7](docs/plans/trader-model-roles.md)・[DONE.md](DONE.md) の「新しいトレーダーを作成する」
 
-- [ ] 約定後の実際の手数料を読む（いまは dry-run の見積り ＝ `orders.jsonl` の `amounts.fee_source: "dry_run_estimate"`。`/accounts/{n}/transactions` を sandbox で確かめてから） [plan](docs/plans/actual-fees.md)
-  ⏳ 残るのは Phase 5 の確かめだけ: Sx360 で 13500t の `out/fees.csv` に「実額あり」が 0 より多く入っているか（10/23 の朝の準備から）を見て、入っていれば閉じる（titan からは 13500t の記録が読めない）
-  ✅ 2026-10-19 利用者「手数料を進めて」（titan）。推す案 ＝ 読むだけの後処理 `fees.py`（朝の準備の最後・執行器と売買履歴は触らない・実額の正本は `out/fees.jsonl` ／ `out/fees.csv`）
-  - [x] Phase 1: API の確認（`list_transactions` ＋ sandbox で形を見る ＋ 本番の読むだけの照会で 9/23〜 の実額と見積りの差）
-    ✅ 2026-10-19 titan: sandbox は全期間で 0 件 → 本番の読むだけの照会で 63 件。注文 1 本 ＝ 取引 1 行（order-id）・1 行の手数料は見積りを $0.001 に丸めた値・規制費の精算は週 1 回の Balance Adjustment（`live-trading.md` §0-16）
-  - [x] Phase 2: `fees.py`（fetch ／ match ／ --print）＋ `run-live.sh --prepare` の段 `fees` ＋ テスト
-    ✅ 2026-10-19: テスト 5 本（符号と残す取引・取り足し・突き合わせ・取りに行く最初の日・頁めくり）。titan の記録の写しで通し（本番の読むだけの照会）＝ 本番の注文 13 本は全部当たり
-  - [x] Phase 3: 管理画面（トレーダーの詳細のタイル・注文の履歴の列・月の小計）
-    ✅ 2026-10-19: `live.fees_rows` ／ `fees_view`・概要の凡例・テスト 2 本（あるとき ／ 無いとき）
-  - [x] Phase 4: 記録（`live-trading.md` §0-15 ✅ ／ §0-16・`dashboard.md`・用語・CLAUDE.md）→ push
-  - [ ] Phase 5: 「デプロイ」（⚠ 利用者・Sx360）→ 翌朝の `--prepare` で `fees.csv` ができる
-    ✅ 2026-10-20 21:45 PDT（00:45 ET）: `prod` bbf8beb → 639460a（Sx360 の `run-deploy.sh`・関門 ✅ ＝ 4 段 ＋ 指紋 22 本）・13500t `done 639460a`（管理画面も起こし直した）。⚠ 役割と最短保有の口（`41c5be7`）も一緒に出た ＝ K6。⏳ 10/21（水）06:00 PDT（09:00 ET）の `--prepare` で `fees.jsonl` ／ `fees.csv` ができるかを見る
-    ⚠ 2026-10-22 Sx360: 10/21・10/22 の朝の準備は段 `fees` rc=0 だが **取引履歴を cert から取って 0 件**（「実額あり 0」）。原因 ＝ `fees.py` が env の既定を `.env` の `TT_ENV` から読み、13500t の `.env` は `TT_ENV=cert`（`sample.py` の既定を sandbox にするための値）→ 既定を prod に直した（`TT_ENV` は読まない・`--env cert` を明示したときだけ cert）・テスト 1 本。⏳ もう 1 度「デプロイ」（利用者）→ 次の朝の `--prepare` で本番の取引履歴が入る
-    ✅ 2026-10-22 09:30 PDT（12:30 ET）: `prod` 639460a → 3a90ae2（Sx360 の `run-deploy.sh`・関門 ✅ ＝ 4 段 ＋ 指紋 22 本）・13500t `done 3a90ae2`（管理画面も起こし直した）。⏳ 10/23（金）06:00 PDT（09:00 ET）の `--prepare` で「取引履歴 prod: … 件」・実額ありが 0 より多いことを見る
-  派生元: [plan](docs/plans/archive/live-trading-executor-fixes.md)（利用者の指示 2026-09-19「手数料など金額の内訳も保存するように」）
-  ✅ 2026-09-25 推す案で決めた（利用者「全部おススメで直して」。[live-trading.md §0-15](docs/specs/experiments/live-trading.md)・[plan](docs/plans/archive/live-trading-open-decisions.md)）: **10/20 の判定の後**に入れる（20 営業日のあいだは執行器を変えない。整数株の成行の手数料は 1 注文 $0.001 級【実測 §0-3】で判定に効かない）
-  依存: 「Phase 6: 20 営業日の記録と判定（`live-trading.md`。続ける・止める・予算を変えるは利用者。モデルや合成規則の入れ替えは新しい検証として n_trials に足す）」
 - [ ] 年が変わったら実売買の外部系列に次の年を足す（`experiments/feature-discovery/config/dataset/exog_live.toml` の treasury の `years` に `2027`。⚠ `exog_daily.toml` は書き換えない ＝ 研究の入力の指紋が動く。noaa ／ usgs の `end = "2026-12-31"` も先の日付へ）
   期日: 2027-01-04
   ⚠ 足さないと 2027 年の金利が取れず、`ex_max_stale_days = 7` を過ぎた日から金利の列が欠損になる【推測】（`exog_live.toml` の頭の注意）。足した後は執行器・予測のテスト → 「デプロイ」（本番に効く）。NYSE の暦は 2028 年まで載っている（`nyse_calendar.py`。2028 年の秋に 2029 年を足す）

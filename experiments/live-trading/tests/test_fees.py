@@ -1,4 +1,4 @@
-"""約定後の実際の手数料（`fees.py`・`ttclient.list_transactions`。プラン docs/plans/actual-fees.md）。ネットワークを使わない。
+"""約定後の実際の手数料（`fees.py`・`ttclient.list_transactions`。プラン docs/plans/archive/actual-fees.md）。ネットワークを使わない。
 
 ⚠ **ここで落としたいのは 5 つ。**
   1. 符号（`*-effect` Debit ＝ 払う ＝ 正・Credit ＝ 負・None ＝ 0）と、残す取引（Trade ＋ 手数料の精算。入金は残さない）

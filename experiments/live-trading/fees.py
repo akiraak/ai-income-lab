@@ -1,4 +1,4 @@
-"""約定後の実際の手数料（口座の取引履歴）を読んで、注文の見積りと突き合わせる。プラン docs/plans/actual-fees.md（2026-10-19）。
+"""約定後の実際の手数料（口座の取引履歴）を読んで、注文の見積りと突き合わせる。プラン docs/plans/archive/actual-fees.md（2026-10-19）。
 
     python3 fees.py fetch [--since YYYY-MM-DD] [--env prod] [--match]   # 取引履歴を取り足す → out/fees.jsonl（読むだけの照会。発注しない）
     python3 fees.py match                                                # out/<日付>/orders.jsonl × out/fees.jsonl → out/fees.csv

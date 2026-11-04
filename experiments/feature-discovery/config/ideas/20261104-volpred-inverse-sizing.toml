@@ -1,0 +1,22 @@
+# ⚠ 開発ループの登録簿（rules.md 31-1）。cli.devloop が書く。status が 登録 より先なら structure ／ prediction ／ n_trials_planned ／ key_shape を直さない（直すなら新しい id）
+id = "20261104-volpred-inverse-sizing"
+date = "2026-11-04"
+title = "先 5 日の値動きの大きさを別のモデルで当て、その逆数で持つ量を決める"
+kind = "執行"
+origin = { r_pct = 30, n_per_night = 5, prompt = "ideate_ref", contract = 2, model = "claude", cost_usd = 1.576, turns = 5, source = "reference", refs = ["dev-loop.md §7（量を段階に・-graded）", "dev-loop.md §8（量を順位で・保有の差 × B&H の分解）", "dev-loop.md §5-1（ボラ割りラベル・own_vol_60）"] }
+question = "§7・§8 では買い% の大きさも順位も、持つ量を決める材料になりませんでした。そこで方向とは別に、ボラティリティ（値動きの大きさ）を当てる係を置きます。売買の合図は今までどおり「買い% が θ を超えたか」で決め、持つ量だけを予測したボラの逆数（上限 1）で決めます。値動きが荒くなる時期に量を減らすと、量を減らしたぶんの損を超えて B&H との差が縮まるかを確かめます。"
+structure = "新しい検知器 V1「先 5 日の実現ボラ（log）を当てる（own・学習）」を置きます。ラベル（正解として学ぶ値）は X5 と同じく検知器の中で作り、訓練分割で先の 5 本がそろわない行は落とします。パージは 5 日です。出力は買い% ではなく行ごとの予測ボラです。この予測ボラを、既存の simulate_graded(weight=…) の weight に「目標ボラ ÷ 予測ボラ（上限 1）」として渡す口 [trading] graded_vol = true を cli/run.py に足します。目標ボラは訓練分割の own_vol_60 の中央値とし、水準は 1 種類だけで振りません。合図を出すのは trade_own_ridge_a と同じ own × Ridge です。対の相手は同じ実行の素の行（量 1）とします。既存の -graded ／ -rankgraded とは、量の出どころが買い% ではなく別の係の予測ボラである点が違います。"
+n_trials_planned = 3
+key_shape = ["own.own-ridge-volgraded.ridge.shared", "55"]
+failure_modes = ["持つ量の平均が下がったぶんで B&H に負けるだけになる（§8 と同じ型）。保有の差 × B&H の分解で、量の効果と分けられない", "予測ボラが own_vol_60 とほぼ同じになり、新しい係を足しても『直近のボラで割る』だけと区別できない", "2020 年を含む fold だけが差を作り、5 fold の符号が割れる"]
+prediction = "対の差（量をボラで変えた行 − 素の行）は 3 水準とも負と予想します。ただし大きさは §8 の順位で量を配る形（−676〜−1,037bp/fold）より浅く、−150〜−400bp/fold と見ます。保有の差 × B&H で分けた残りは 0 の近くで、2020 年の fold だけ正になると予想します。保有日率に量を掛けた値は 0.72 → 0.5〜0.6 と見ます。leak は跳ねるはずです（leak の列は方向の係に入るため）。"
+effort = "中"
+measurable = "測れる: 量を減らす効果は §8 で数百 bp/fold の大きさで出ていて、検出限界より大きいからです。分解の残り（量 × B&H を引いた後の差）が数百 bp に届くかも同じ物差しで読めます。"
+touches = "共有の経路: cli/run.py（weight の出どころを足す口。無い config は 1 ビットも変わらない形）。検知器 V1 は ail/ideas の新しいモジュールです"
+status = "人の手"
+frame = "外"
+p_hold = 0.08
+p_positive = 0.15
+learn_if_null = "分解の残りも 0 の周りなら、日足の own 列から予測したボラでも量を決める情報は出ないと分かります。量の軸（大きさ・順位・ボラ）は 3 つとも閉じ、次は売買しない日を選ぶ問いか、日中の足のような別のデータに移ります。残りが正で、全体の差だけが負なら、次は量を減らさない形（現金の部分を同じ銘柄の B&H で埋める）を新しい処置として登録します。"
+reference_mode = "避ける"
+notes = "段 1 の出力の key_shape の原文: own.own-ridge-volgraded.ridge.shared@θ（θ 50 ／ 55 ／ 60。行の綴りは -volgraded）"

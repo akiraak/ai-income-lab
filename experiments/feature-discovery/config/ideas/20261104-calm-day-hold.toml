@@ -1,0 +1,22 @@
+# ⚠ 開発ループの登録簿（rules.md 31-1）。cli.devloop が書く。status が 登録 より先なら structure ／ prediction ／ n_trials_planned ／ key_shape を直さない（直すなら新しい id）
+id = "20261104-calm-day-hold"
+date = "2026-11-04"
+title = "翌日の断面の値動きの大きさを当てて、荒れる日だけ現金で休む"
+kind = "モデル"
+origin = { r_pct = 30, n_per_night = 5, prompt = "ideate_free", contract = 2, model = "claude", cost_usd = 0.576, turns = 1, source = "independent", refs = [] }
+question = "当てるものを方向から翌日の値動きの大きさに変える。63 本の |y| の中央値が訓練の上位 30% に入る日を前の晩に当て、その日だけ全銘柄を現金にして、ほかの日は持ち続ける形が持ち続けると違うかを確かめる。"
+structure = "新しい検知器（ail/ideas/ に置く）。ラベル ＝ 翌日の断面の |y| の中央値が訓練分割の 70 分位を超えるか（日ごとに 1 値・全銘柄に配る）。入力 ＝ own_ の断面の中央値と ex_（1 日遅れ）。学習器 ＝ ロジスティック回帰 1 本。買い% ＝ 100 − 較正した荒れる確率。器は今の閾値売買のまま（θ 50 ／ 55 ／ 60）。対照 ＝ 同じ休む日率の乱択で休む基準線（数えない）。分位 70 は事前固定で、結果を見て振らない"
+n_trials_planned = 3
+key_shape = ["own.calm-day-logit.logit.shared"]
+failure_modes = ["荒れる日の確率がほぼ定数で、買い% の幅が門（20 点）に届かず、毎日全部持つか毎日休むかのどちらかになる", "荒れる日は上げも下げも大きいので、休むと大きな上げの日も逃し、上乗せが休んだ日の数に比例して負になる", "ex_ の 1 日遅れでは間に合わず、前日の荒れの続き（ボラの持続）だけを写す"]
+prediction = "上乗せは 0 の周りから負。fold の割れ方は 2020 年の急落を含む fold だけ正で、ほかは負。乱択で休む形との差は |t| < 2。leak（翌日の |y| を 1 列混ぜる）は大きく跳ねる"
+effort = "小"
+measurable = "測れる: 休む日が 1 fold に数十日あれば、その日の断面の平均リターンの合計は数百 bp/fold の差になりうる。乱択で休む形との対で比べられる"
+touches = "新しいモジュールだけ"
+status = "登録"
+frame = "外"
+p_hold = 0.3
+p_positive = 0.35
+learn_if_null = "差なしなら、日足の own_ ／ ex_ の断面の要約には『翌日が荒れるか』の情報が持ち続けるを動かすほどには無い、と分かる。次は休む判断をやめ、同じ確率で持つ量を減らす形（量の段階）に移すか、入力を日中の足など別のデータに替える"
+registered_at = "2026-11-04 01:02 PST"
+notes = "段 1 の出力の key_shape の原文: own.calm-day-logit.logit.shared@θ"

@@ -1,0 +1,23 @@
+# ⚠ 開発ループの登録簿（rules.md 31-1）。cli.devloop が書く。status が 登録 より先なら structure ／ prediction ／ n_trials_planned ／ key_shape を直さない（直すなら新しい id）
+id = "20261104-regime-cluster-ridge"
+date = "2026-11-04"
+title = "ラベルを使わずに相場の局面を分け、局面ごとに別の Ridge を学ぶ"
+kind = "モデル"
+origin = { r_pct = 30, n_per_night = 5, prompt = "ideate_ref", contract = 2, model = "claude", cost_usd = 1.576, turns = 5, source = "reference", refs = ["transform-into-detectors.md §2（線形の変換 × 線形の学習器は買い% を変えない）", "dev-loop.md §7・§8（買い% は閾値を超えたかしか使えない）", "hyperparam-inner-selection.md（尻の改善が評価期間に届かない）"] }
+question = "own × Ridge の買い% は 50 のすぐ上に潰れていて、閾値を超えたかどうかしか使えません（§7・§8）。全期間を 1 本の線形モデルで学ぶと、局面ごとに向きが逆の関係が打ち消し合っているのかもしれません。ラベルを使わずに日ごとの局面を k-means で分け、局面ごとに Ridge を学ぶと、買い% の幅が広がり、素の own × Ridge との差が出るかを確かめます。"
+structure = "新しい検知器 R1「局面別 Ridge（k-means・K 個）」を ail/ideas に置きます。表の全列を読む検知器です。局面は日ごとの断面の要約 4 列で決めます: 全銘柄の own_ret_1 の平均、断面のばらつき、own_vol_20 の平均、終値が 200 日移動平均より上にある銘柄の割合です。訓練分割だけで標準化と k-means を当て、評価の行は近い重心に振り分けます。局面ごとに own 35 列 × Ridge を学び、較正は全体で 1 回にします。K の種類は {2, 4} に事前固定し、乱数の種は 0 だけです。訓練内に行が 250 日に満たない局面は、全体の Ridge で埋めます。対の相手は trade_own_ridge_a（own × Ridge・同じ切れ目）です。transform-into-detectors で「線形の変換 × 線形の学習器は空間が同じで何も変わらない」と分かったので、その型を避け、局面で行を分ける非線形の分割にしています。"
+n_trials_planned = 6
+key_shape = ["own.r1-regime-k2.ridge.shared", "own.r1-regime-k4.ridge.shared", "55", "60）"]
+failure_modes = ["局面の割り当てが fold ごとにほぼ 1 つに偏り（評価期間が 1 つの局面に入る）、素の Ridge と同じ買い% になる", "局面ごとの訓練の行が減ったぶん係数がぶれ、買い% の幅は広がるが評価期間に届かない（tuned の『尻の改善が届かない』と同じ型）", "2020 年の局面が 1 つの塊になり、その fold だけが差を作る"]
+prediction = "買い% の幅は素の行より広がる（門の幅が 20 点に近づく）と予想します。対の差は 6 対とも |t| < 2 で、K = 4 のほうが fold ごとのばらつきが大きいと見ます。向きは K = 2 でわずかに正、K = 4 で負と予想します。leak は跳ねるはずです。"
+effort = "中"
+measurable = "測れる: 局面ごとに向きが逆の関係が本当にあれば、買い% の幅と保有日率が大きく動き、数百 bp/fold の差になるからです。幅が動かなければ、その時点で「打ち消し合いは無い」と読めます。"
+touches = "新しいモジュールだけ（ail/ideas/i<日付>_regime_ridge.py。検知器の登録だけで、共有の経路は触りません）"
+status = "登録"
+frame = "外"
+p_hold = 0.22
+p_positive = 0.4
+learn_if_null = "買い% の幅が広がったのに差が出なければ、局面ごとの関係も評価期間に届かないと分かります。この場合、局面の情報は own 列の範囲では方向に効かないので、次は局面を外生の列（金利・為替）で決める形に移ります。幅も広がらなければ、局面で分けても線形の関係は同じだと分かり、局面の軸は閉じます。"
+registered_at = "2026-11-04 01:01 PST"
+reference_mode = "避ける"
+notes = "段 1 の出力の key_shape の原文: own.r1-regime-k2.ridge.shared@θ ／ own.r1-regime-k4.ridge.shared@θ（θ 50 ／ 55 ／ 60）"

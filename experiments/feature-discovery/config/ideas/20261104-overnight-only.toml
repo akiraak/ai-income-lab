@@ -1,0 +1,21 @@
+# ⚠ 開発ループの登録簿（rules.md 31-1）。cli.devloop が書く。status が 登録 より先なら structure ／ prediction ／ n_trials_planned ／ key_shape を直さない（直すなら新しい id）
+id = "20261104-overnight-only"
+date = "2026-11-04"
+title = "夜の間だけ持つ ― 当てるものを終値から翌日始値までのリターンに替える"
+kind = "検証方式"
+origin = { r_pct = 30, n_per_night = 5, prompt = "ideate_free", contract = 2, model = "claude", cost_usd = 0.576, turns = 1, source = "independent", refs = [] }
+question = "1 日のリターンを夜（終値→翌日始値）と昼（始値→終値）に分け、夜のリターンの符号だけを当てて、終値で買い翌日の始値で売る器にしたとき、同じ器で毎晩全部持つ形と違うかを確かめる。"
+structure = "新しいラベル y_night ＝ log(始値 t+1 ／ 終値 t)（調整済み日足から作る・next_open の口が継いだ始値を使う）と、新しい器 execution = \"overnight\"（毎日 終値で建てて翌日始値で清算・費用は 1 往復 5bp）。比べる相手 ＝ 同じ器で毎晩全部持つ基準線（数えない）。モデル ＝ own_ 35 列 × Ridge。θ 50 ／ 55 ／ 60。⚠ 新しい器 ／ ラベルの口は『無い config は 1 ビットも変わらない』形で足す"
+n_trials_planned = 3
+key_shape = ["own.night-label.ridge.shared~exec-night"]
+failure_modes = ["毎日往復するので費用 5bp × 約 250 回が上乗せをすべて食う（費用を引く前と後の両方を残す）", "夜のリターンは決算 ／ 指標の発表が作るので、own_ の列では方向が見えず、買い% の幅が狭い", "相手の『毎晩全部持つ』自体が昼を捨てるので大きく負になり、対の差だけが正に見える（判定は同じ器の基準線を相手にする）"]
+prediction = "同じ器の基準線に対する上乗せは費用込みで負、費用抜きで 0 の周り。fold の符号はそろわない。leak（y_night を 1 列混ぜる）は大きく跳ねる"
+effort = "中"
+measurable = "測れる: 夜と昼のリターンの差は年で数百〜千 bp 級の大きさがあり、器の違いそのものは fold 単位で見える。モデルの上乗せは同じ器の基準線との対で測る"
+touches = "共有の経路: ail/validation（器 execution）と prep のラベル（label = \"night\"）・ail/catalog.py（検証方式の変種）・ail/names.py（~exec-night）"
+status = "人の手"
+frame = "外"
+p_hold = 0.15
+p_positive = 0.3
+learn_if_null = "差なしなら、日足の own_ には夜の方向の情報が無いと分かり、夜と昼に分けても翌日の方向の情報は増えないと言える。次は夜のリターンを決算 ern_ や暦 cal_（発表の夜）に限った行で当てる、または夜 ／ 昼を当てるのをやめて大きさのほうへ移る"
+notes = "段 1 の出力の key_shape の原文: own.night-label.ridge.shared~exec-night@θ"

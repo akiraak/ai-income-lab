@@ -90,7 +90,9 @@
     - [x] Phase 2: 送る部品と配線（`cli/devloop_mail.py`・`night()` の最後・`mail-test`・`run-devloop.sh` の送り手・テスト）
       ✅ 2026-11-03 Sx360: テスト 16 本 ＋ 既存 25 本 ✅
     - [ ] Phase 3: 利用者が設定ファイルを置く → `mail-test` → 1 晩見届ける
-      ⏳ 利用者: アプリ パスワードを作り、titan に `~/.config/ai-income-lab/devloop-mail.env`（600）を置く（手順 `experiments/feature-discovery/systemd/README.md` の「報告メール」）。置くまでは毎晩 not-sent の 1 行だけ（ループは回る）
+      ✅ 2026-11-03 titan: 利用者が設定ファイルを置き、`mail-test` ＝ sent（権限が 600 でなかったので Claude が chmod 600 に直した・中身は読んでいない）
+      ⏳ 利用者: 試しの 1 通が届いたかを確かめる ／ 11/4 01:00 PST の回の後に `[ail devloop] 2026-11-04 …` が届くかを見る（届かなければ `devloop/logs/2026-11-04.log` の「報告メール:」の行）
+      期日: 2026-11-04 07:00
     - [ ] Phase 4: 片付け（dev-loop.md §3・README・CLAUDE.md → DONE・プランを archive へ）
   - [ ] 実験の行ごとの買い% ／ 出口% を記録に残す：段 2 並べ替え検定の列 2 本（判定に使わない・物差し `20261025-permutation-yardstick` の材料） [plan](docs/plans/save-buy-pct.md)
     利用者（2026-11-01）:「これからでも埋めた方がいいと思うが、なぜ記録を取らない？」→ 2 段の案に「進めて」

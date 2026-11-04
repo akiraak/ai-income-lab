@@ -147,9 +147,34 @@ flowchart LR
 
 ### Phase 3: 動かす（⚠ 秘密を置くのは利用者）
 
-- [ ] 3-1 利用者: アプリ パスワードを作り、titan に `~/.config/ai-income-lab/devloop-mail.env`（600）を置く
-- [ ] 3-2 `cli.devloop mail-test` で 1 通届く
-- [ ] 3-3 次の 1 晩のメールを見届ける（件名・朝にやること・sha）
+- [x] 3-1 利用者: アプリ パスワードを作り、titan に `~/.config/ai-income-lab/devloop-mail.env`（600）を置く（2026-11-03）
+- [x] 3-2 `cli.devloop mail-test` で 1 通届く（2026-11-03 sent・利用者「試しのメール届いた」）
+- [x] 3-3 次の 1 晩のメールを見届ける（11/4 01:02 PST の晩が届いた ＝ 利用者「マークダウン形式がそのまま表示されていて見ずらい」→ Phase 5）
+
+### Phase 5: HTML の本文（2026-11-04 利用者「htmlのデザイン例を何個か作って見せて」→「どんなアイデアが出たのかが重要なのでD」→ D ＋ 頭の 1 行 ＋ 結果の札 →「このままで組み込みに進めて」）
+
+1 通の中の並び（テキストの本文は今までどおり一緒に送る ＝ multipart/alternative）:
+
+```mermaid
+flowchart TB
+  H["頭: 状態の帯（✅ 緑 ／ ⚠ 赤）・段 0〜4 の 1 行・朝にやること"] --> I["この晩のアイデアの札（保留以上の予想が高い順・全部）"]
+  I --> R["回した結果の札（判定・予想・実際・当たり方）＋ 当たり方の累計"]
+  R --> F["足もと: 上位 3・段 1 の費用・commit と日誌へのリンク"]
+```
+
+| 項目 | 中身 |
+| --- | --- |
+| アイデアの札 | 状態・枠・種類・手間・数える・共有の経路を触るか ／ 題 ／ 問い（`question` の先頭の文から 160 字）／ 保留以上の予想の棒 ／ 予想・差が出なかったら（`prediction` ／ `learn_if_null` の先頭の文から 120 字）。⚠ 原文を切るだけ・言い換えない |
+| 結果の札 | 段 3 で回した案（`run.picked`）ごと。判定の数・上乗せ bp/fold と fold の符号（予測モデル名ごと ＝ 同じ実行で回し直した素の行と分ける）・当たり方（`p_hold` ≥ 0.5 と「保留以上が出た」が一致 ＝ `calibration` と同じ）。行は研究の DB の `ledger_rows`（`devloop.idea_results`） |
+| 件名 | `[ail devloop] 11/4（水）✅ アイデア 5（登録 3・人の手 2）・回した 0・$2.15` ／ `…⚠ 止まった: …` ／ `…⚠ 段 N が落ちた`（`n_trials 1120→None` は出さない） |
+| 設定 | `[mail] html = true`・`repo_url`（日誌とコミットへのリンク） |
+| 試し | `cli.devloop mail-test --sample [--out <道>]` ＝ 登録簿の最新の晩のアイデア ＋ 最後に回した 2 本の結果で組む |
+
+- ⚠ メール向け: CSS は style 属性だけ・横並びは table・外の字体 ／ 画像 ／ JavaScript なし・原文はエスケープ
+- ⚠ HTML が組めない晩はテキストだけで送る（ループは止めない）。Python ごと落ちた晩の送り手（`fallback`）はテキストのまま
+- [x] 5-1 `cli/devloop_mail.py`（`html_body`・`idea_card`・`result_card`・`stage_strip`・`clip`・`date_label`・送り手の `html`）・`cli/devloop.py`（`idea_results`・`mail_extras`・`report` の配線・`mail-test --sample`）・`config/devloop.toml`
+- [x] 5-2 テスト `tests/test_devloop_mail.py`（＋6 本・devloop の 3 ファイル 43 本 ✅）・`mail-test --sample` で本物の 1 通を送った（2026-11-04 titan）
+- [ ] 5-3 次の 1 晩の HTML のメールを見届ける
 
 ### Phase 4: 片付け
 

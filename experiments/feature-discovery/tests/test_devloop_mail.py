@@ -32,13 +32,15 @@ def _secrets(tmp, **over) -> str:
 class Outbox:
     def __init__(self, fail: int = 0):
         self.sent: list[tuple[str, str]] = []
+        self.html: list[str | None] = []
         self.fail = fail
 
-    def __call__(self, secrets, subj, text, timeout=30):
+    def __call__(self, secrets, subj, text, timeout=30, html=None):
         if self.fail:
             self.fail -= 1
             raise OSError("一時的な失敗")
         self.sent.append((subj, text))
+        self.html.append(html)
 
 
 def _mail_world(world, tmp_path, **mail):
@@ -102,8 +104,10 @@ def test_two_nights_with_real_git_second_night_passes_the_gate(world):
 
 
 def test_subject_for_ok_stopped_and_failed_nights():
-    ok = {"ideate": {"counts": {"登録": 3}}, "run": {"before": 1120, "after": 1132}, "select": {"new": ["a"]}, "cost": 5.24}
-    assert dm.subject(ok, "2026-11-04", "[p]") == "[p] 2026-11-04 ✅ 登録 3・n_trials 1120→1132・新顔 1・$5.24"
+    ok = {"ideate": {"counts": {"登録": 3, "人の手": 2}}, "run": {"before": 1120, "after": 1132, "picked": ["a", "b"]}, "select": {"new": ["a"]}, "cost": 5.24}
+    assert dm.subject(ok, "2026-11-04", "[p]") == "[p] 11/4（水）✅ アイデア 5（登録 3・人の手 2）・回した 2・$5.24"
+    none_run = {"ideate": {"counts": {"登録": 1}}, "run": {"before": 1120, "after": None}, "cost": 1.0}
+    assert "None" not in dm.subject(none_run, "2026-11-04", "[p]") and "回した 0" in dm.subject(none_run, "2026-11-04", "[p]")
     assert "⚠ 止まった: 段 0: 止める手" in dm.subject({"stopped": "段 0: 止める手 DEVLOOP_HALT がある"}, "d", "[p]")
     assert dm.subject({"run_error": "X"}, "d", "[p]").endswith("⚠ 段 3 が落ちた")
     assert dm.is_problem({"select_error": "x"}) and not dm.is_problem(ok)
@@ -158,7 +162,9 @@ def test_night_mails_once_after_the_journal_and_records_it_in_state(world, tmp_p
     assert len(box.sent) == 1 and parts["mail"] == "sent"
     subj, text = box.sent[0]
     journal = (root / "log" / "2026-10-26.md").read_text(encoding="utf-8")
-    assert subj.startswith("[t] 2026-10-26 ✅") and journal in text and FAKE_PW not in text
+    assert subj.startswith("[t] 10/26（月）✅") and journal in text and FAKE_PW not in text
+    html = box.html[0]
+    assert html and html.startswith("<!doctype html>") and "✅ 完走" in html and FAKE_PW not in html
     assert "sent" not in journal                                   # ⚠ 日誌は書き換えない
     assert devloop.load_state(conn)["nights"][-1]["mail"] == "sent"
 
@@ -225,3 +231,70 @@ def test_runner_fallback_mail(tmp_path, body, rc, mails):
         text = (tmp_path / "outbox" / files[0]).read_text(encoding="utf-8")
         assert "運転手が落ちた（rc=1）" in text and "crash" in text and FAKE_PW not in text
     assert not list((tmp_path / "logs").glob("*.mark"))               # 印は残さない
+
+
+# ---------------------------------------------------------------- HTML の本文（2026-11-04 利用者「D」＋ 頭の 1 行 ＋ 結果の札）
+
+
+IDEA = {"id": "20261104-x", "title": "題 <b>強調</b>", "status": "登録", "frame": "外", "kind": "モデル", "effort": "小", "n_trials_planned": 3,
+        "touches": "新しいモジュールだけ", "question": "問いの 1 文目。2 文目。", "prediction": "予想の文。", "learn_if_null": "分かること。", "p_hold": 0.3}
+
+
+def test_clip_cuts_at_sentences_and_never_rewrites():
+    assert dm.clip("一。二。三。", 4) == "一。二。"
+    assert dm.clip("あ" * 200, 10) == "あ" * 10 + "…"
+    assert dm.clip("") == "" and dm.clip("  改\n行 ") == "改 行"
+
+
+def test_html_body_escapes_and_orders_cards_by_p_hold():
+    low = {**IDEA, "id": "20261104-y", "title": "低い", "p_hold": 0.05, "status": "人の手", "touches": "共有の経路: x"}
+    parts = {"stages": "0,1,2,3,4", "gate": "", "ideate": {"ideas": [low, IDEA], "counts": {"登録": 1, "人の手": 1}},
+             "build": {"mode": "manual", "todo": ["20261104-x"]}, "cost": 2.15, "state": {"cost_usd_total": 6.13}, "commit": "コミット abc1234・push ✅"}
+    h = dm.html_body(parts, "2026-11-04", "docs/log/2026-11-04.md", repo_url="https://example.invalid/r")
+    assert "<b>強調</b>" not in h and "&lt;b&gt;強調&lt;/b&gt;" in h                      # 原文はエスケープする
+    assert h.index("題 &lt;b&gt;") < h.index("低い")                                       # 予想の高い順
+    assert "11/4（水）" in h and "作る 人の手 1" in h and "共有の経路を触る" in h and "枠の外" in h
+    assert 'href="https://example.invalid/r/commit/abc1234"' in h and 'href="https://example.invalid/r/blob/main/docs/log/2026-11-04.md"' in h
+    assert "<script" not in h and "<style" not in h                                       # メール向け ＝ 属性の style だけ
+
+
+def test_html_body_stopped_night_is_red_and_shows_the_fix():
+    h = dm.html_body({"stopped": "段 0: 作業ツリーが汚れている（未コミット: TODO.md）", "gate": "作業ツリーが汚れている", "stages": "0,1,2,3,4"},
+                     "2026-11-05", "—")
+    assert "⚠ 止まった（段 0 の門）" in h and dm.C["bad"] in h and "門 止まった" in h and "コミットする" in h
+    assert "この晩はアイデアを出していません" in h
+
+
+def test_idea_results_counts_verdicts_and_judges_the_prediction(world):
+    import json
+    root, cfg, conn = world
+    for name, v, edge in (("own.z.ridge.shared@50", "落とす", -100.0), ("own.z.ridge.shared@60", "保留", 5.0)):
+        conn.execute("INSERT INTO ledger_rows (leak, trial_name, model_name, is_trial, verdict, closed, first_run, last_run, runs, doc) "
+                     "VALUES (0, ?, ?, 1, ?, 0, 'd', 'd', '[]', ?)",
+                     (name, name.split("@")[0], v, json.dumps({"実行一覧": ["run-z"], "閾値": name[-2:], "上乗せbp": edge, "上乗せfold": "1/5"})))
+    docs = [{"id": "20261101-z", "title": "Z", "p_hold": 0.2, "runs": ["run-z"]}, {"id": "20261101-n", "title": "N", "runs": ["none"]}]
+    r = devloop.idea_results(conn, docs)
+    assert r[0]["counts"] == {"落とす": 1, "保留": 1} and r[0]["held"] and r[0]["hit"] is False      # 0.2 と言ったが保留が出た ＝ 外れ
+    assert r[1]["n"] == 0 and r[1]["hit"] is None
+    card = dm.result_card(r[0])
+    assert "外れ" in card and "θ50 −100" in card and "own.z.ridge.shared" in card and "保留 1 ・ 落とす 1" in card
+
+
+def test_html_failure_falls_back_to_text_only(world, tmp_path, monkeypatch):
+    root, cfg, conn = _mail_world(world, tmp_path)
+    fake = FakeEnv(root, conn)
+    fake.env["mail"] = box = Outbox()
+    monkeypatch.setattr(dm, "html_body", lambda *a, **k: (_ for _ in ()).throw(RuntimeError("壊れた")))
+    parts, logs = _night(world, fake, stages=(0, 4))
+    assert parts["mail"] == "sent" and box.html == [None]
+    cfg["mail"]["html"] = False
+    monkeypatch.undo()
+    _night(world, fake, stages=(0, 4))
+    assert box.html[-1] is None
+
+
+def test_outbox_writes_the_html_beside_the_text(tmp_path):
+    send = dm._outbox_send(str(tmp_path / "o"))
+    send({"AIL_MAIL_TO": "x"}, "s", "t", html="<p>h</p>")
+    send({"AIL_MAIL_TO": "x"}, "s2", "t2")
+    assert sorted(os.listdir(tmp_path / "o")) == ["001.html", "001.txt", "002.txt"]

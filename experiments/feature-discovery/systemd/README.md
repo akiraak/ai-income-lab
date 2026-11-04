@@ -38,6 +38,7 @@ chmod 600 ~/.config/ai-income-lab/devloop-mail.env
 - アプリ パスワードは Google アカウントの「セキュリティ」→ 2 段階認証プロセス → アプリ パスワード で作る（2 段階認証が前提【推測・作るときに Google のヘルプで確かめる】）
 - ファイルが無い晩は送らず、`devloop/logs/<日付>.log` に `報告メール: not-sent（設定ファイルが無い …）` の 1 行だけ
 - 件名 `[ail devloop] <日付> ✅ 登録 n・n_trials a→b・新顔 k・$x` ／ `⚠ 止まった: …` ／ `⚠ 段 N が落ちた` ／ `⚠ 運転手が落ちた（rc=N）`（Python ごと落ちた晩は `run-devloop.sh` がシステムの python3 で送る）。本文の頭に「朝にやること」、続きに日誌の全文
+- HTML の本文（アイデアの札・頭の 1 行・回した結果の札）とテキストの本文の 2 部構成。HTML の見本を送る ＝ `mail-test --sample`（ファイルに書くだけ ＝ `--out <道>`）・HTML をやめる ＝ `[mail] html = false`
 - 送れなくてもループは止めない（結果は timer.log と状態 `nights[-1].mail`）。その晩だけ送らない ＝ `night --no-mail`・止める ＝ `config/devloop.toml` の `[mail] enabled = false`
 
 - 止める: `touch experiments/feature-discovery/DEVLOOP_HALT`（段 0 が見る・次の晩から止まる）／ `systemctl --user disable --now ail-devloop.timer`。⚠ 実売買の `HALT` とは別のファイル

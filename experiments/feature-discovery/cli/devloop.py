@@ -204,6 +204,42 @@ def calibration(ideas: list[tuple[str, dict, list[str]]], outcomes: dict[str, se
     return {"n": n, "acc": acc, "brier": brier, "rows": rows}
 
 
+def idea_results(conn, docs: list[dict]) -> list[dict]:
+    """回した案ごとの結果（報告メールの「回した結果」の札。2026-11-04）。行は研究の DB の ledger_rows（leak 0・is_trial 1）のうち、
+    実行一覧が案の runs に当たるもの（calibration と同じ当て方）。当たり ＝ p_hold ≥ 0.5 と「保留以上が出た」が一致。読むだけ。"""
+    want = {r: i for i, d in enumerate(docs) for r in (d.get("runs") or [])}
+    rows: list[list] = [[] for _ in docs]
+    if want:
+        for name, verdict, doc in conn.execute("SELECT trial_name, verdict, doc FROM ledger_rows WHERE leak = 0 AND is_trial = 1"):
+            d = json.loads(doc)
+            got = {want[r] for r in (d.get("実行一覧") or []) if r in want}
+            for i in got:
+                rows[i].append((str(name), str(d.get("閾値") or "—"), d.get("上乗せbp"), str(d.get("上乗せfold") or d.get("fold") or "—"), str(verdict)))
+    out = []
+    for d, rs in zip(docs, rows):
+        rs.sort(key=lambda r: (r[0].split("@")[0], int(r[1]) if r[1].isdigit() else 999))
+        counts: dict[str, int] = {}
+        for r in rs:
+            counts[r[4]] = counts.get(r[4], 0) + 1
+        held = bool(counts.get("保留") or counts.get("採る"))
+        p = d.get("p_hold")
+        hit = None
+        if isinstance(p, (int, float)) and not isinstance(p, bool) and rs:
+            hit = (float(p) >= 0.5) == held
+        out.append({"id": d.get("id"), "title": d.get("title"), "p_hold": p, "prediction": d.get("prediction"), "n": len(rs),
+                    "counts": counts, "rows": rs, "held": held, "hit": hit})
+    return out
+
+
+def verdicts_from_conn(conn) -> dict[str, set[str]]:
+    """run_verdicts と同じ中身を、開いている接続から（報告メール用）。"""
+    out: dict[str, set[str]] = {}
+    for doc, verdict in conn.execute("SELECT doc, verdict FROM ledger_rows WHERE leak = 0 AND is_trial = 1"):
+        for r in (json.loads(doc).get("実行一覧") or []):
+            out.setdefault(str(r), set()).add(str(verdict))
+    return out
+
+
 def build_register(cfg: dict, ideas: list[tuple[str, dict, list[str]]], models: list[str] | None, n_trials: int | None,
                    outcomes: dict[str, set[str]] | None = None) -> str:
     counts: dict[str, int] = {}
@@ -346,7 +382,9 @@ def main(argv: list[str] | None = None) -> None:
     n.add_argument("--no-commit", action="store_true")
     n.add_argument("--mail", action="store_true", help="dry-run でも報告メールを送る（試験用）")
     n.add_argument("--no-mail", action="store_true", help="この晩は報告メールを送らない")
-    sub.add_parser("mail-test", help="報告メールの試しの 1 通（設定ファイルを置いた後に 1 回）")
+    mt = sub.add_parser("mail-test", help="報告メールの試しの 1 通（設定ファイルを置いた後に 1 回）")
+    mt.add_argument("--sample", action="store_true", help="HTML の見本（登録簿の最新の晩 ＋ 最後に回した 2 本）を付ける")
+    mt.add_argument("--out", help="--sample の HTML をファイルに書くだけ（送らない）")
     st = sub.add_parser("state", help="状態を見る ／ 直す")
     st.add_argument("--reset", action="store_true", help="連続失敗・連続 登録 0 の数を 0 に（打ち切りの解除）")
     st.add_argument("--seed-top", action="store_true", help="いまの上位 3 を last_top に写す（初回に机上を足さないため）")
@@ -1130,6 +1168,23 @@ def commit(cfg: dict, env: dict, date: str, summary: str, log) -> str:
     return res
 
 
+def mail_extras(cfg: dict, env: dict, parts: dict) -> tuple[list[dict], dict | None]:
+    """HTML の本文の「回した結果」の札と、予想の当たり方の累計。DB が読めなければ空。"""
+    conn = env.get("conn")
+    if conn is None:
+        return [], None
+    try:
+        ideas = load_ideas(cfg)
+    except (OSError, tomllib.TOMLDecodeError):
+        return [], None
+    by_id = {d.get("id"): d for _p, d, _b in ideas}
+    picked = [by_id[i] for i in ((parts.get("run") or {}).get("picked") or []) if i in by_id]
+    try:
+        return idea_results(conn, picked), calibration(ideas, verdicts_from_conn(conn))
+    except sqlite3.Error:
+        return [], None
+
+
 def report(cfg: dict, env: dict, date: str, parts: dict, journal_text: str, journal_path: str | None, log, *,
            mail: bool | None, dry_run: bool) -> str | None:
     """報告メール（プラン docs/plans/devloop-mail.md）。日誌とコミットの後に 1 通。⚠ 送れなくても止めない・日誌は書き換えない。
@@ -1147,8 +1202,15 @@ def report(cfg: dict, env: dict, date: str, parts: dict, journal_text: str, jour
             status = "not-sent（env に送り手が無い）"
         else:
             rel = os.path.relpath(journal_path, REPO) if journal_path else "—"
+            html = None
+            if m.get("html", True):
+                try:                                 # ⚠ HTML が組めなくてもテキストだけで送る
+                    results, calib = mail_extras(cfg, env, parts)
+                    html = dm.html_body(parts, date, rel, repo_url=str(m.get("repo_url") or ""), results=results, calib=calib)
+                except Exception as e:           # noqa: BLE001
+                    log(f"⚠ 報告メールの HTML を組めない（テキストだけで送る）: {type(e).__name__}: {e}")
             status = dm.deliver(m, dm.subject(parts, date, m["subject_prefix"]),
-                                dm.body(parts, date, journal_text, rel, int(m["max_body_chars"])), sender=env["mail"])
+                                dm.body(parts, date, journal_text, rel, int(m["max_body_chars"])), sender=env["mail"], html=html)
     except Exception as e:                   # noqa: BLE001  ⚠ ループを止めない
         status = f"error: {type(e).__name__}: {str(e)[:200]}"
     dm.mark(status)
@@ -1274,6 +1336,46 @@ def cmd_night(args) -> int:
     return 2 if parts.get("stopped") else 0
 
 
+def sample_html(cfg: dict, m: dict) -> str:
+    """`mail-test --sample`: 登録簿の最新の晩のアイデア ＋ 最後に回した 2 本の結果で HTML の本文を組む（読むだけ）。"""
+    from ail import rundb
+    from ail import runs as _runs
+    from cli import devloop_mail as dm
+    ideas = load_ideas(cfg)
+    docs = [d for _p, d, _b in ideas]
+    last = max((str(d.get("id"))[:8] for d in docs if re.match(r"^\d{8}-", str(d.get("id")))), default="")
+    night_docs = [d for d in docs if str(d.get("id")).startswith(last)]
+    ran = sorted([d for d in docs if d.get("status") == "回した" and d.get("runs")], key=lambda d: str(d.get("registered_at") or d.get("id")))[-2:]
+    date = f"{last[:4]}-{last[4:6]}-{last[6:8]}" if last else now_seattle()[:10]
+    counts: dict[str, int] = {}
+    for d in night_docs:
+        counts[d.get("status", "?")] = counts.get(d.get("status", "?"), 0) + 1
+    conn = rundb.connect(_runs.db_path(), readonly=True)
+    try:
+        results = idea_results(conn, ran)
+        calib = calibration(ideas, verdicts_from_conn(conn))
+    finally:
+        conn.close()
+    parts = {"stages": "0,1,2,3,4", "gate": "", "cost": 0.0, "seconds": 0, "state": load_state_readonly(),
+             "ideate": {"ideas": night_docs, "counts": counts},
+             "build": {"mode": "manual", "todo": [d["id"] for d in night_docs if d.get("status") == "登録"]},
+             "run": {"picked": [d["id"] for d in ran]}, "commit": "（試し）"}
+    rel = os.path.relpath(_journal_path(cfg, date), REPO)
+    return dm.html_body(parts, date, rel, repo_url=str(m.get("repo_url") or ""), results=results, calib=calib)
+
+
+def load_state_readonly() -> dict:
+    from ail import rundb
+    from ail import runs as _runs
+    conn = rundb.connect(_runs.db_path(), readonly=True)
+    try:
+        return load_state(conn)
+    except sqlite3.Error:
+        return {}
+    finally:
+        conn.close()
+
+
 def cmd_mail_test(args) -> int:
     from cli import devloop_mail as dm
     m = dm.mail_cfg(load_config())
@@ -1281,7 +1383,17 @@ def cmd_mail_test(args) -> int:
     text = ("開発ループの報告メールの試し（`cli.devloop mail-test`）。\n\n"
             "これが届けば、毎晩 01:00 PST の回の最後に同じ宛先へ 1 通届く（止まった晩も）。\n"
             f"設定ファイル: {dm.secrets_path(m)}\n")
-    status = dm.deliver(m, subj, text)
+    html = None
+    if getattr(args, "sample", False):
+        html = sample_html(load_config(), m)
+        subj = f"{m['subject_prefix']} 試しの 1 通（HTML の見本）{now_seattle()}"
+        text += "\nHTML の見本: 登録簿の最新の晩のアイデアと、最後に回した 2 本の結果で組んだ（数字は本物・晩の形は作り物）。\n"
+    if getattr(args, "out", None) and html:
+        with open(args.out, "w", encoding="utf-8") as f:
+            f.write(html)
+        print(f"HTML の見本を書いた: {args.out}", file=sys.stderr)
+        return 0
+    status = dm.deliver(m, subj, text, html=html)
     print(f"報告メール（試し）: {status}", file=sys.stderr)
     return 0 if status.startswith("sent") else 1
 

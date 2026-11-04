@@ -58,6 +58,8 @@ send = "always"                 # M2: "always" 毎晩（来ない ＝ 機械か 
 secrets = "~/.config/ai-income-lab/devloop-mail.env"   # ⚠ リポジトリの外（chmod 600・置くのは利用者）。宛先・アプリ パスワードはここだけ
 subject_prefix = "[ail devloop]"
 max_body_chars = 20000          # M3: 頭の要約 ＋ 日誌の全文（長い晩は切る）
+html = true                     # HTML の本文も付ける（2026-11-04 利用者「D」＝ アイデアの札 ＋ 頭の 1 行 ＋ 回した結果の札。テキストの本文は今までどおり一緒に送る）
+repo_url = "https://github.com/akiraak/ai-income-lab"   # 日誌とコミットへのリンク（blob/main/… ・commit/…）
 
 [paths]
 ideas = "config/ideas"                                  # 登録簿（1 アイデア 1 TOML。事前固定の正本）

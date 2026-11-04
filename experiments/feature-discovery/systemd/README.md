@@ -18,6 +18,28 @@ systemctl --user list-timers | grep ail-devloop   # 次に起きる時刻
 tail -f experiments/feature-discovery/devloop/logs/timer.log
 ```
 
+## 報告メール（毎晩の最後に 1 通・止まった晩も。プラン `docs/plans/devloop-mail.md`）
+
+⚠ 宛先とアプリ パスワードはリポジトリ・日誌・メモリに書かない。titan の次のファイルにだけ置く（置くのは利用者）:
+
+```bash
+mkdir -p ~/.config/ai-income-lab
+cat > ~/.config/ai-income-lab/devloop-mail.env <<'ENV'
+AIL_MAIL_HOST=smtp.gmail.com
+AIL_MAIL_PORT=587
+AIL_MAIL_USER=<送り主の Gmail アドレス>
+AIL_MAIL_PASSWORD=<Google のアプリ パスワード 16 文字>
+AIL_MAIL_TO=<宛先>
+ENV
+chmod 600 ~/.config/ai-income-lab/devloop-mail.env
+( cd experiments/feature-discovery && .venv/bin/python -m cli.devloop mail-test )   # 試しの 1 通（rc 0 ＝ 送れた）
+```
+
+- アプリ パスワードは Google アカウントの「セキュリティ」→ 2 段階認証プロセス → アプリ パスワード で作る（2 段階認証が前提【推測・作るときに Google のヘルプで確かめる】）
+- ファイルが無い晩は送らず、`devloop/logs/<日付>.log` に `報告メール: not-sent（設定ファイルが無い …）` の 1 行だけ
+- 件名 `[ail devloop] <日付> ✅ 登録 n・n_trials a→b・新顔 k・$x` ／ `⚠ 止まった: …` ／ `⚠ 段 N が落ちた` ／ `⚠ 運転手が落ちた（rc=N）`（Python ごと落ちた晩は `run-devloop.sh` がシステムの python3 で送る）。本文の頭に「朝にやること」、続きに日誌の全文
+- 送れなくてもループは止めない（結果は timer.log と状態 `nights[-1].mail`）。その晩だけ送らない ＝ `night --no-mail`・止める ＝ `config/devloop.toml` の `[mail] enabled = false`
+
 - 止める: `touch experiments/feature-discovery/DEVLOOP_HALT`（段 0 が見る・次の晩から止まる）／ `systemctl --user disable --now ail-devloop.timer`。⚠ 実売買の `HALT` とは別のファイル
 - 打ち切り（rules.md 31-4）: 段 2 が 3 晩続けて 1 本も通らない ／ 14 晩続けて登録 0 → 段 0 で止まる。解くのは `cli.devloop state --reset`（利用者）
 - 段 0 は作業ツリーが汚れていると止まる（利用者の未コミットと混ぜない）。朝に Claude のセッションで作業するときは、先にコミットするか、その晩は `DEVLOOP_HALT` を置く

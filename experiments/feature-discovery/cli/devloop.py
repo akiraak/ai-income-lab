@@ -344,6 +344,9 @@ def main(argv: list[str] | None = None) -> None:
     n.add_argument("--stages", default="0,1,2,3,4", help="回す段（例 0,4）")
     n.add_argument("--dry-run", action="store_true", help="外の世界を呼ばない（門の検査も claude も queue も commit も無し。段 4 と日誌だけ）")
     n.add_argument("--no-commit", action="store_true")
+    n.add_argument("--mail", action="store_true", help="dry-run でも報告メールを送る（試験用）")
+    n.add_argument("--no-mail", action="store_true", help="この晩は報告メールを送らない")
+    sub.add_parser("mail-test", help="報告メールの試しの 1 通（設定ファイルを置いた後に 1 回）")
     st = sub.add_parser("state", help="状態を見る ／ 直す")
     st.add_argument("--reset", action="store_true", help="連続失敗・連続 登録 0 の数を 0 に（打ち切りの解除）")
     st.add_argument("--seed-top", action="store_true", help="いまの上位 3 を last_top に写す（初回に机上を足さないため）")
@@ -354,6 +357,8 @@ def main(argv: list[str] | None = None) -> None:
         raise SystemExit(cmd_night(args))
     if args.cmd == "state":
         raise SystemExit(cmd_state(args))
+    if args.cmd == "mail-test":
+        raise SystemExit(cmd_mail_test(args))
 
 
 
@@ -431,7 +436,8 @@ def default_env(cfg: dict, conn=None) -> dict:
 
     return {"root": ROOT, "repo": REPO, "sh": _sh, "claude": _claude, "queue": _queue_runner, "tests": _tests,
             "conn": conn if conn is not None else rundb.connect(_runs.db_path()),
-            "now": lambda: dt.datetime.now(SEATTLE)}
+            "now": lambda: dt.datetime.now(SEATTLE),
+            "mail": None}                    # 報告メールの送り手（None ＝ devloop_mail の既定 ＝ SMTP。テストの FakeEnv はこの項目を持たない ＝ 送らない）
 
 
 # ---------------------------------------------------------------- 状態・錠
@@ -486,6 +492,18 @@ def release_lock(path: str) -> None:
 # ---------------------------------------------------------------- 段 0 門
 
 
+def own_outputs(cfg: dict, env: dict) -> list[str]:
+    """運転手が毎晩書く置き場（リポジトリからの相対・末尾の / なし）。門の「汚れた木」に数えない。"""
+    repo = env.get("repo", REPO)
+    paths = [_path(cfg, "log"), _path(cfg, "register"), env.get("drafts_dir") or DRAFTS]
+    return [os.path.relpath(os.path.abspath(p), repo).replace(os.sep, "/") for p in paths]
+
+
+def _is_own(rel: str, own: list[str]) -> bool:
+    rel = rel.strip('"').rstrip("/")
+    return any(o not in ("", ".") and not o.startswith("..") and (rel == o or rel.startswith(o + "/")) for o in own)
+
+
 def gate(cfg: dict, env: dict, state: dict) -> str | None:
     """止める理由（None ＝ 通る）。順: HALT → 打ち切り ② ③ → 作業ツリー → git pull --ff-only。"""
     stop = cfg.get("stop") or {}
@@ -503,7 +521,11 @@ def gate(cfg: dict, env: dict, state: dict) -> str | None:
             return f"git status が失敗: {err.strip()[-200:]}"
         # ⚠ 自分の錠（devloop.lock）は数えない（night が門の前に取る ＝ 数えると門は毎晩止まる。2026-11-01 に踏んだ）
         mine = os.path.basename((cfg.get("stop") or {}).get("lock_file", "devloop.lock"))
-        dirty = [l for l in out.splitlines() if l.strip() and os.path.basename(l[3:].strip()) != mine]
+        # ⚠ 自分が書く置き場（日誌・register.md・週 1 回の下書き）も数えない。コミットの後に日誌を書き直す・止まった晩も
+        #    段 4 と日誌は書く ＝ 数えると次の晩から毎晩止まる（2026-11-03 Sx360 が見つけた）。次に通った晩のコミットに入る
+        own = own_outputs(cfg, env)
+        dirty = [l for l in out.splitlines()
+                 if l.strip() and os.path.basename(l[3:].strip()) != mine and not _is_own(l[3:].strip(), own)]
         if dirty:
             return f"作業ツリーが汚れている（利用者の未コミット {len(dirty)} 件: {', '.join(l[3:] for l in dirty[:5])}）"
     if git.get("pull", True):
@@ -1108,9 +1130,36 @@ def commit(cfg: dict, env: dict, date: str, summary: str, log) -> str:
     return res
 
 
+def report(cfg: dict, env: dict, date: str, parts: dict, journal_text: str, journal_path: str | None, log, *,
+           mail: bool | None, dry_run: bool) -> str | None:
+    """報告メール（プラン docs/plans/devloop-mail.md）。日誌とコミットの後に 1 通。⚠ 送れなくても止めない・日誌は書き換えない。
+
+    mail: None ＝ dry-run でなければ送る ／ True ＝ 送る ／ False ＝ 送らない。⚠ env に "mail" が無ければ送らない（テストの FakeEnv）。
+    """
+    from cli import devloop_mail as dm
+    if not ((not dry_run) if mail is None else mail):
+        return None
+    m = dm.mail_cfg(cfg)
+    try:
+        if m.get("send") == "problems" and not dm.is_problem(parts):
+            status = "not-sent（send = problems・問題の無い晩）"
+        elif "mail" not in env:
+            status = "not-sent（env に送り手が無い）"
+        else:
+            rel = os.path.relpath(journal_path, REPO) if journal_path else "—"
+            status = dm.deliver(m, dm.subject(parts, date, m["subject_prefix"]),
+                                dm.body(parts, date, journal_text, rel, int(m["max_body_chars"])), sender=env["mail"])
+    except Exception as e:                   # noqa: BLE001  ⚠ ループを止めない
+        status = f"error: {type(e).__name__}: {str(e)[:200]}"
+    dm.mark(status)
+    parts["mail"] = status
+    log(f"報告メール: {status}")
+    return status
+
+
 def night(cfg: dict, env: dict, *, date: str | None = None, stages: tuple[int, ...] = (0, 1, 2, 3, 4), dry_run: bool = False,
-          log=print, journal: bool = True) -> dict:
-    """1 晩。段 0 で止まれば段 1〜3 は回さず段 4 だけ回して日誌を書く。どの段が落ちても日誌は書く。"""
+          log=print, journal: bool = True, mail: bool | None = None) -> dict:
+    """1 晩。段 0 で止まれば段 1〜3 は回さず段 4 だけ回して日誌を書く。どの段が落ちても日誌は書く。最後に報告メール。"""
     t0 = time.time()
     date = date or env["now"]().strftime("%Y-%m-%d")
     conn = env["conn"]
@@ -1120,10 +1169,14 @@ def night(cfg: dict, env: dict, *, date: str | None = None, stages: tuple[int, .
     if not take_lock(lock):
         parts["stopped"] = f"錠 {os.path.relpath(lock, ROOT)} が取れない（別の運転手が動いている）"
         log(f"⚠ {parts['stopped']}")
+        text, path = "", None
         if journal:
-            write_journal(cfg, date, parts, _journal_path(cfg, date))
+            path = _journal_path(cfg, date)
+            text = write_journal(cfg, date, parts, path)
+        report(cfg, env, date, parts, text, path, log, mail=mail, dry_run=dry_run)
         return parts
     deadline = t0 + float((cfg.get("schedule") or {}).get("total_hours", 3)) * 3600
+    journal_text, journal_path = "", None
     try:
         models = None
         try:
@@ -1188,18 +1241,25 @@ def night(cfg: dict, env: dict, *, date: str | None = None, stages: tuple[int, .
             except SystemExit:
                 pass
         if journal:
-            path = _journal_path(cfg, date)
-            write_journal(cfg, date, parts, path)
+            path = journal_path = _journal_path(cfg, date)
+            journal_text = write_journal(cfg, date, parts, path)
             if not dry_run and not parts.get("stopped"):
                 c = (parts.get("ideate") or {}).get("counts", {})
                 summ = (f"段 1 {sum(c.values())} 本（登録 {c.get('登録', 0)}・既出 {c.get('既出', 0)}・人の手 {c.get('人の手', 0)}）"
                         f" ／ 段 3 n_trials {(parts.get('run') or {}).get('before')} → {(parts.get('run') or {}).get('after')}"
                         f" ／ 段 4 新顔 {len((parts.get('select') or {}).get('new', []))}")
                 parts["commit"] = commit(cfg, env, date, summ, log)
-                write_journal(cfg, date, parts, path)      # commit の結果を書き足す（⚠ 日誌自身は次の晩のコミットに入る）
+                journal_text = write_journal(cfg, date, parts, path)   # commit の結果を書き足す（⚠ 日誌自身は次の晩のコミットに入る ＝ 門は数えない）
             log(f"日誌 {os.path.relpath(path, REPO)}")
     finally:
         release_lock(lock)
+    status = report(cfg, env, date, parts, journal_text, journal_path, log, mail=mail, dry_run=dry_run)
+    if status is not None and not dry_run and (state.get("nights") or []):
+        state["nights"][-1]["mail"] = status          # ⚠ 状態にだけ残す（日誌は書き換えない）
+        try:
+            save_state(conn, state)
+        except sqlite3.Error:
+            pass
     return parts
 
 
@@ -1209,8 +1269,21 @@ def cmd_night(args) -> int:
     stages = tuple(int(s) for s in str(args.stages).split(",") if s.strip())
     if args.no_commit:
         cfg = {**cfg, "git": {**(cfg.get("git") or {}), "commit": False}}
-    parts = night(cfg, env, date=args.date, stages=stages, dry_run=args.dry_run)
+    mail = True if args.mail else False if args.no_mail else None
+    parts = night(cfg, env, date=args.date, stages=stages, dry_run=args.dry_run, mail=mail)
     return 2 if parts.get("stopped") else 0
+
+
+def cmd_mail_test(args) -> int:
+    from cli import devloop_mail as dm
+    m = dm.mail_cfg(load_config())
+    subj = f"{m['subject_prefix']} 試しの 1 通 {now_seattle()}"
+    text = ("開発ループの報告メールの試し（`cli.devloop mail-test`）。\n\n"
+            "これが届けば、毎晩 01:00 PST の回の最後に同じ宛先へ 1 通届く（止まった晩も）。\n"
+            f"設定ファイル: {dm.secrets_path(m)}\n")
+    status = dm.deliver(m, subj, text)
+    print(f"報告メール（試し）: {status}", file=sys.stderr)
+    return 0 if status.startswith("sent") else 1
 
 
 def cmd_state(args) -> int:

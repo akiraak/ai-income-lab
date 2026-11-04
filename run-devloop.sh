@@ -11,14 +11,27 @@ set -uo pipefail
 export PATH="$HOME/.local/bin:$HOME/.npm-global/bin:/usr/local/bin:$PATH"
 ROOT="$(cd "$(dirname "$0")" && pwd)"
 FD="$ROOT/experiments/feature-discovery"
-PY="$FD/.venv/bin/python"
-LOGDIR="$FD/devloop/logs"
+PY="${AIL_DEVLOOP_PY:-$FD/.venv/bin/python}"     # AIL_DEVLOOP_PY はテストだけ
+LOGDIR="${AIL_DEVLOOP_LOGDIR:-$FD/devloop/logs}"
 mkdir -p "$LOGDIR"
-if [ ! -x "$PY" ]; then echo "⚠ $PY が無い（experiments/feature-discovery の .venv を先に作る）" >&2; exit 1; fi
+LOG="$LOGDIR/$(date +%F).log"
+# 報告メール（プラン docs/plans/devloop-mail.md）: night が送ろうとしたらこの印を書く。rc が 0 ／ 2 以外で印が無ければ
+# ＝ Python ごと落ちて報告まで届かなかった晩 → 標準ライブラリだけの送り手（システムの python3）で 1 通だけ送る
+export AIL_DEVLOOP_MAIL_MARK="$LOGDIR/mail-$$.mark"
+rm -f "$AIL_DEVLOOP_MAIL_MARK"
+fallback_mail() {  # $1 ＝ rc
+  if [ ! -f "$AIL_DEVLOOP_MAIL_MARK" ]; then
+    python3 -I "$FD/cli/devloop_mail.py" fallback --date "$(TZ=America/Los_Angeles date +%F)" --rc "$1" --log "$LOG" 2>&1 | tee -a "$LOG"
+  fi
+  rm -f "$AIL_DEVLOOP_MAIL_MARK"
+}
+if [ ! -x "$PY" ]; then echo "⚠ $PY が無い（experiments/feature-discovery の .venv を先に作る）" | tee -a "$LOG" >&2; fallback_mail 1; exit 1; fi
 if [ -f "$ROOT/experiments/live-trading/MODE" ] && [ "$(cat "$ROOT/experiments/live-trading/MODE" 2>/dev/null)" != "real" ]; then
   echo "ℹ 機械のモードは $(cat "$ROOT/experiments/live-trading/MODE")（開発ループには関係しない）" >&2
 fi
 cd "$FD" || exit 1
-echo "===== $(date '+%Y-%m-%d %H:%M %Z') run-devloop $*" >> "$LOGDIR/$(date +%F).log"
-"$PY" -m cli.devloop night "$@" 2>&1 | tee -a "$LOGDIR/$(date +%F).log"
-exit "${PIPESTATUS[0]}"
+echo "===== $(date '+%Y-%m-%d %H:%M %Z') run-devloop $*" >> "$LOG"
+"$PY" -m cli.devloop night "$@" 2>&1 | tee -a "$LOG"
+rc="${PIPESTATUS[0]}"
+case "$rc" in 0|2) rm -f "$AIL_DEVLOOP_MAIL_MARK" ;; *) fallback_mail "$rc" ;; esac
+exit "$rc"

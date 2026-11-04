@@ -52,6 +52,13 @@ branch = "main"
 pull = true                     # 段 0: git pull --ff-only（失敗 ＝ 止める）
 dirty_tree = "stop"             # 段 0: 作業ツリーが汚れていたら止めて報告（利用者の未コミットと混ぜない）
 
+[mail]                          # 報告メール（プラン docs/plans/devloop-mail.md・2026-11-03 利用者「推す案ですすめて」＝ M1〜M3）
+enabled = true                  # false で送らない（設定ファイルが無いときも送らない ＝ timer.log に not-sent の 1 行）
+send = "always"                 # M2: "always" 毎晩（来ない ＝ 機械か timer が止まった合図）／ "problems" 止まった・落ちた晩だけ
+secrets = "~/.config/ai-income-lab/devloop-mail.env"   # ⚠ リポジトリの外（chmod 600・置くのは利用者）。宛先・アプリ パスワードはここだけ
+subject_prefix = "[ail devloop]"
+max_body_chars = 20000          # M3: 頭の要約 ＋ 日誌の全文（長い晩は切る）
+
 [paths]
 ideas = "config/ideas"                                  # 登録簿（1 アイデア 1 TOML。事前固定の正本）
 register = "../../docs/specs/experiments/dev-loop/register.md"   # 登録簿を並べた表（cli.devloop register が吐く。⚠ 手で書かない）

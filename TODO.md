@@ -78,6 +78,20 @@
   - [~] Phase 3（Step 3）: 毎日回す仕組み（`run-devloop.sh` ＋ `cli.devloop`〔段 0 門 → 段 1〜4 → 日誌 → commit〕／ `claude -p` の呼び方と allowlist・費用の上限 ／ timer `ail-devloop.timer` 01:00 PDT〔入れるのは利用者〕／ 実行タブの「開発ループ」ページ ／ 止め方 `DEVLOOP_HALT`・打ち切り 3 つ ／ テスト ／ 試運転 3 晩 ＋ 7 晩）
     ✅ 2026-10-25 17:50 PDT titan（利用者「次へ」）: 3-1〜3-6 済み ＝ `run-devloop.sh`・`cli.devloop night`（段 0〜4・日誌・commit・状態 `queue_state` の `devloop`・錠）・`systemd/ail-devloop.{service,timer}` ＋ README・実行タブ「開発ループ」（`devloopview.py`・dashboard.md §20）・テスト 20 本。dry-run は実リポジトリと systemd-run で ✅・初回の上位 3 を `state --seed-top` で写した。⚠ timer の環境は PATH に `~/.local/bin` が無い（絶対パスなら claude -p は動く【実測 $0.21】＝ `run-devloop.sh` が足す）
     - [ ] 3-7 試運転（⚠ 利用者: `systemd/README.md` の手順で timer を入れる）→ 3 晩 ＝ 段 1 だけ自動（`[build] mode = "manual"`・段 2 は朝に手で）→ 7 晩 ＝ 全段（`mode = "claude"`）→ 記録 §3（費用【実測】・落ちた段・直したこと）
+      ✅ 2026-11-03 15:10 PST Sx360（利用者「timerに入れる」）: titan に `ail-devloop.{service,timer}` を入れ `enable --now`・`enable-linger`（Linger=yes）。timer の環境で段 0・4 の dry-run ✅（$0）。⚠ dry-run が書いた未追跡の日誌 `log/2026-11-03.md` は門を止めるので消した。初回 **11/4（水）01:00 PST**
+      ✅ 2026-11-03 Sx360 が見つけて直した: 門はコミットの後に書き直した日誌を「未コミット」と数え、2 晩目から毎晩止まる作りだった → 下の「報告メール」Phase 1
+  - [ ] 開発ループの報告メール（毎晩の最後に 1 通・止まった晩も） [plan](docs/plans/devloop-mail.md)
+    利用者の指示（2026-11-03）: **「開発ループは報告メールを送るようにする。TODOとプラン作成」**
+    ⚠ 宛先とアプリ パスワードはリポジトリ・日誌・メモリに書かない（titan の `~/.config/ai-income-lab/devloop-mail.env`・置くのは利用者）
+    - [x] Phase 0: 決めごと M1〜M3
+      ✅ 2026-11-03 利用者「推す案ですすめて」＝ M1 Gmail の SMTP ＋ アプリ パスワード ／ M2 毎晩 ／ M3 要約 ＋ 日誌の全文
+    - [x] Phase 1: 門の不具合を直す（日誌・`register.md`・下書きを数えない ＋ 本物の git で 2 晩のテスト）
+      ✅ 2026-11-03 Sx360（直す前の形は本物の git の 2 晩目で止まることを確かめた）
+    - [x] Phase 2: 送る部品と配線（`cli/devloop_mail.py`・`night()` の最後・`mail-test`・`run-devloop.sh` の送り手・テスト）
+      ✅ 2026-11-03 Sx360: テスト 16 本 ＋ 既存 25 本 ✅
+    - [ ] Phase 3: 利用者が設定ファイルを置く → `mail-test` → 1 晩見届ける
+      ⏳ 利用者: アプリ パスワードを作り、titan に `~/.config/ai-income-lab/devloop-mail.env`（600）を置く（手順 `experiments/feature-discovery/systemd/README.md` の「報告メール」）。置くまでは毎晩 not-sent の 1 行だけ（ループは回る）
+    - [ ] Phase 4: 片付け（dev-loop.md §3・README・CLAUDE.md → DONE・プランを archive へ）
   - [ ] 実験の行ごとの買い% ／ 出口% を記録に残す：段 2 並べ替え検定の列 2 本（判定に使わない・物差し `20261025-permutation-yardstick` の材料） [plan](docs/plans/save-buy-pct.md)
     利用者（2026-11-01）:「これからでも埋めた方がいいと思うが、なぜ記録を取らない？」→ 2 段の案に「進めて」
     ✅ 段 1（保存する ＝ `buy_pct.parquet`）は 2026-11-01 に済み

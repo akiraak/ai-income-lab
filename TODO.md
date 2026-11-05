@@ -66,7 +66,10 @@
       ✅ 2026-11-03 15:10 PST Sx360（利用者「timerに入れる」）: titan に `ail-devloop.{service,timer}` を入れ `enable --now`・`enable-linger`（Linger=yes）。timer の環境で段 0・4 の dry-run ✅（$0）。⚠ dry-run が書いた未追跡の日誌 `log/2026-11-03.md` は門を止めるので消した。初回 **11/4（水）01:00 PST**
       ✅ 2026-11-03 Sx360 が見つけて直した: 門はコミットの後に書き直した日誌を「未コミット」と数え、2 晩目から毎晩止まる作りだった → 下の「報告メール」Phase 1
       ✅ 2026-11-04 01:02 PST 1 晩目（timer）: 段 0〜4 を 116 秒・$2.15【実測】・段 1 5 本（登録 3・人の手 2）・段 3 は回すもの無し（段 2 が manual）・commit 86836b4 ＋ push・報告メールが届いた。日誌 [log/2026-11-04.md](docs/specs/experiments/dev-loop/log/2026-11-04.md)
-      ⏳ 段 2 の人の手（試運転の間は朝に Claude のセッションで `devloop/prompts/build.md` の手順）: 登録簿の「登録」4 本 `20261101-c3-as-stop-role`・`20261104-calm-day-hold`・`20261104-perm-split-timing`・`20261104-regime-cluster-ridge`
+      ✅ 2026-11-04 titan 段 2 の人の手 4 本（利用者「段2の人の手4本を進めて」）: 3 本を作成中に（C3 の組 R19〜R22 ＝ 損切り係 X7・荒れる日を休む V2 ＋ 学習器 ロジスティック回帰・局面別 Ridge R1 K 2 ／ 4。`ail/ideas/` ＋ `dev_*` ＋ テスト 7 本・指紋 ✅・queue `dev_20261104`）／ 並べ替えの物差しは読むだけの `cli/perm_split.py`（検証を作らない）
+      ✅ 2026-11-05 15:01〜15:04 PST titan 手で `queue dev_20261104`（利用者「TODOから次の作業を選んで」）: **採る 0 ／ 保留 2 ／ 落とす 20（n_trials 1,120 → 1,142）**。SMA200 の損切り係は往復を減らさず増やした（取引 X1 の約 2.6 倍）・荒れる日を休むのは leak でも B&H 未満・局面別 Ridge は買い% の幅が狭まった ＝ [dev-loop.md §9](docs/specs/experiments/dev-loop.md)。登録簿 3 本は「回した」
+      ⚠ 11/5 01:00 PST の晩は、この段 2 の作業が未コミットで段 0 で止まった（[log/2026-11-05.md](docs/specs/experiments/dev-loop/log/2026-11-05.md)）＝ コミットするまで毎晩止まる
+      ⏳ 利用者: 並べ替えの物差し（`cli/perm_split.py`）を検証結果一覧の列にするか
   - [~] 開発ループの報告メール（毎晩の最後に 1 通・止まった晩も） [plan](docs/plans/devloop-mail.md)
     利用者の指示（2026-11-03）: **「開発ループは報告メールを送るようにする。TODOとプラン作成」**
     ⚠ 宛先とアプリ パスワードはリポジトリ・日誌・メモリに書かない（titan の `~/.config/ai-income-lab/devloop-mail.env`・置くのは利用者）

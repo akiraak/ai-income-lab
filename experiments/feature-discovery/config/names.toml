@@ -57,6 +57,10 @@
 "X1 出口だけ 高値20日から−20%で降りる" = "x1-exit-dd20-20"
 "X5 出口だけ 先5日の急落を当てる（own・学習）" = "x5-exit-crash5"
 "X6 出口だけ 先5日の急落を当てる（own・学習・土台差）" = "x6-exit-crash5-centered"   # 登録簿 20261101-crash-exit-centered   # 開発ループの登録簿 20261101-crash-label-exit（2026-11-01・ail/ideas）
+"X7 出口だけ 終値がSMA200を割ったら降りる" = "x7-exit-sma200"   # 開発ループの登録簿 20261101-c3-as-stop-role（2026-11-04・ail/ideas）
+"V2 荒れる日を休む（翌日の断面の値動き・日ごと）" = "v2-calm-day"   # 登録簿 20261104-calm-day-hold（2026-11-04・ail/ideas）
+"R1 局面別 Ridge（k-means・2個）" = "r1-regime-k2"   # 登録簿 20261104-regime-cluster-ridge（2026-11-04・ail/ideas）
+"R1 局面別 Ridge（k-means・4個）" = "r1-regime-k4"
 "X2 出口だけ 高値20日からσの2倍で降りる" = "x2-exit-ddvol20-2"
 "X2 出口だけ 高値20日からσの4倍で降りる" = "x2-exit-ddvol20-4"
 "X2 出口だけ 高値20日からσの8倍で降りる" = "x2-exit-ddvol20-8"
@@ -126,6 +130,11 @@
 "R16 買い先20日・売り先5日（建値から−10%）" = "roles-b20-e5-entrystop10"
 "R17 買い先40日・売り先10日（建値から−10%）" = "roles-b40-e10-entrystop10"
 "R18 買い先5日・売り先20日（対照・建値から−10%）" = "roles-b5-e20-entrystop10"
+# 開発ループの登録簿 20261101-c3-as-stop-role（2026-11-04）: R6〜R9 に損切り係 X7（C3 SMA200 と同じ規則・出口だけ）を足しただけ
+"R19 買い先10日・売り先5日（損切りSMA200）" = "roles-b10-e5-c3stop"
+"R20 買い先20日・売り先5日（損切りSMA200）" = "roles-b20-e5-c3stop"
+"R21 買い先40日・売り先10日（損切りSMA200）" = "roles-b40-e10-c3stop"
+"R22 買い先5日・売り先20日（対照・損切りSMA200）" = "roles-b5-e20-c3stop"
 
 [execution]
 # 閾値売買の変種「どの値段で執行したか」（rules.md 22-3）。`閾値売買（翌日始値）` → `~exec-open`。
@@ -157,6 +166,7 @@
 "Ridge（内側選抜・1 度）" = "ridge-tuned-once"
 "LightGBM（内側選抜・1 度）" = "lgbm-tuned-once"
 "MLP（内側選抜・1 度）" = "mlp-tuned-once"
+"ロジスティック回帰" = "logit"   # 登録簿 20261104-calm-day-hold（2026-11-04・ail/ideas で登録した学習器）
 "PatchTST" = "patchtst"
 "Chronos-2" = "chronos2"          # 基盤モデルの zero-shot（学習しない。2026-09-27）
 "TimeXer" = "timexer"

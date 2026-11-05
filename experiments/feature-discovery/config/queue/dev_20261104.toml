@@ -1,0 +1,9 @@
+# ⚠ 開発ループ（2026-11-04 段 2・人の手）。登録簿 20261101-c3-as-stop-role ／ 20261104-calm-day-hold ／ 20261104-regime-cluster-ridge。回すと決めたのは結果を見る前（各登録簿の registered_at）。
+#    数: C3 の組 4 本 × 3 ＋ X7 の単体 1 ＝ 13（登録簿の見込み 8 は素の行を数えていなかった）・V2 3・R1 6 ＝ 22。表は作り直さない（features_from）。
+#    ⚠ 20261104-perm-split-timing は検証を作らない読むだけの物差し（cli.perm_split）＝ この queue には入らない。
+experiments = ["dev_roles_c3stop_b10e5", "dev_roles_c3stop_b20e5", "dev_roles_c3stop_b40e10", "dev_roles_c3stop_b5e20", "dev_calm_day", "dev_regime_ridge"]
+
+leak = true
+ledger = true
+max_failures = 1
+time_budget_s = 3600     # 見積り 約 8 分【推測。役割つきの組 1 本 約 40 秒 × 本番 4 ＋ leak 4 ＋ 単体 2 本 × 2】

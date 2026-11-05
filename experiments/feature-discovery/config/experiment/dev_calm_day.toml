@@ -1,0 +1,41 @@
+# ⚠ **開発ループの登録簿 `20261104-calm-day-hold`（参考なし・枠の外）**（rules.md 31 章・記録 dev-loop.md・事前固定は登録簿）。
+#    当てるものを翌日の断面の値動きの大きさに替え、荒れると読んだ日だけ全銘柄を休む検知器 V2（ail/ideas/i20261104_calm_day.py）× θ 3 ＝ 3 検証。
+#    表は exog_h1（63 本・own ＋ ex・2018-01-31〜）を借りる（作り直さない ＝ 13-8。own_2018 と行が同じ）。学習器はロジスティック回帰 1 本。
+#    判定の相手は B&H（13-7）。休む日率をそろえた乱択との差は checks の random_gate（数えない）で見る。分位 70 は事前固定。
+# ⚠ **回すと決めたのは結果を見る前（登録 2026-11-04 01:02 PST）**。
+name = "dev_calm_day"
+dataset = "daily"
+horizon = 1
+cost_bp = 5.0
+features_from = "exog_h1"      # ⚠ 表は作り直さず exog_h1 のものを読む（13-8）
+
+feature_layers = ["own", "ex"]
+targets = "all"
+
+horizon_min = 1440.0
+bar_minutes = 1440.0
+
+detectors = ["V2 荒れる日を休む（翌日の断面の値動き・日ごと）"]
+k = 16
+
+model = "ロジスティック回帰"
+baselines = ["常に上（ドリフト）", "直前リターンの符号"]
+
+[trading]
+style = "threshold"
+thresholds = [50, 55, 60]      # ⚠ 事前固定。結果を見て動かさない（rules.md 13-3）
+form = "shared"                # (A) 銘柄共通 1 本
+
+[validation]
+split = "walk_forward_dates"   # ⚠ fold の切れ目は日付で決める（rules.md 13-6 の 1）
+folds = 5
+purge = true
+embargo_bars = 0
+seed = 0
+
+[features]
+ex_lag_days = 1
+ex_sources = ["ecb", "treasury", "noaa", "usgs"]
+ex_zero_fill = ["usgs"]
+ex_transforms = ["d1", "z20"]
+ex_max_stale_days = 7

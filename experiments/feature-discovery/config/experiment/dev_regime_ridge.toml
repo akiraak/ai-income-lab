@@ -1,0 +1,39 @@
+# ⚠ **開発ループの登録簿 `20261104-regime-cluster-ridge`（参考あり・枠の外）**（rules.md 31 章・記録 dev-loop.md・事前固定は登録簿）。
+#    `trade_own_ridge_a`（own × Ridge・全部使う）と同じ表・同じ切れ目で、日ごとの局面を k-means で分けて局面ごとに Ridge を学ぶ
+#    検知器 R1（K ＝ 2 ／ 4・種 0。ail/ideas/i20261104_regime_ridge.py）× θ 3 ＝ 6 検証。対の相手は trade_own_ridge_a の「全部使う（基準）」。
+# ⚠ **回すと決めたのは結果を見る前（登録 2026-11-04 01:01 PST）**。
+name = "dev_regime_ridge"
+dataset = "daily"
+horizon = 1
+cost_bp = 5.0
+features_from = "own_2018"     # ⚠ 表は作り直さず own_2018 のものを読む（13-8。trade_own_ridge_a と同じ表）
+
+feature_layers = ["own"]
+targets = "all"
+
+horizon_min = 1440.0
+bar_minutes = 1440.0
+
+detectors = ["R1 局面別 Ridge（k-means・2個）", "R1 局面別 Ridge（k-means・4個）"]
+k = 16
+
+model = "Ridge"
+baselines = ["常に上（ドリフト）", "直前リターンの符号"]
+
+[trading]
+style = "threshold"
+thresholds = [50, 55, 60]      # ⚠ 事前固定。結果を見て動かさない（rules.md 13-3）
+form = "shared"                # (A) 銘柄共通 1 本
+
+[validation]
+split = "walk_forward_dates"   # ⚠ fold の切れ目は日付で決める（rules.md 13-6 の 1）
+folds = 5
+purge = true
+embargo_bars = 0
+seed = 0
+
+[features]
+ex_lag_days = 1
+ex_zero_fill = ["usgs"]
+ex_transforms = ["d1", "z20"]
+ex_max_stale_days = 7

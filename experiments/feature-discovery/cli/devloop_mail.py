@@ -113,12 +113,22 @@ def subject(parts: dict, date: str, prefix: str) -> str:
     """件名（2026-11-04 利用者「このままで組み込みに進めて」＝ HTML の見本の形）。⚠ `n_trials 1120→None` は出さない。"""
     day = date_label(date)
     if parts.get("stopped"):
-        return f"{prefix} {day}⚠ 止まった: {str(parts['stopped'])[:70]}"
+        return f"{prefix} {day}⚠ 止まった: {stop_short(str(parts['stopped']))}"
     err = _first_error(parts)
     if err:
         return f"{prefix} {day}⚠ 段 {err[0]} が落ちた"
     ran = len((parts.get("run") or {}).get("picked") or [])
     return f"{prefix} {day}✅ {_idea_counts(parts)}・回した {ran}・${float(parts.get('cost', 0.0)):.2f}"
+
+
+def stop_short(why: str) -> str:
+    """件名に入れる止まった理由の短い形（2026-11-05 利用者「3つとも直して」）。括弧の中身（ファイルの並び）は本文に回す。
+    例 ＝「段 0: 作業ツリーが汚れている（利用者の未コミット 19 件: …）」→「段 0: 作業ツリーが汚れている（未コミット 19 件）」。"""
+    head = why.split("（", 1)[0].strip()
+    if len(head) > 40:
+        head = head[:39] + "…"
+    m = re.search(r"未コミット (\d+) 件", why)
+    return head + (f"（未コミット {m.group(1)} 件）" if m else "")
 
 
 def _fix_for_stop(why: str) -> str:
@@ -432,8 +442,13 @@ def html_body(parts: dict, date: str, journal_rel: str, *, repo_url: str = "", r
         commit = _e(commit).replace(m.group(1), f'<a href="{_e(repo_url)}/commit/{m.group(1)}" style="color:{C["accent"]};font-family:{MONO}">{m.group(1)}</a>', 1)
     else:
         commit = _e(commit)
-    jl = (f'<a href="{_e(repo_url)}/blob/main/{_e(journal_rel)}" style="color:{C["accent"]}">日誌を開く（段 1 の原文つき）</a>'
-          if repo_url and journal_rel and journal_rel != "—" else f"日誌: {_e(journal_rel)}")
+    # ⚠ 日誌が GitHub にあるのはこの晩のコミットと push が通ったときだけ（止まった晩 ／ コミットか push に失敗した晩はリンクを出さない ＝ 404 になる）
+    label = "日誌を開く" + ("（段 1 の原文つき）" if bundles else "")
+    if repo_url and "push ✅" in str(parts.get("commit") or "") and journal_rel and journal_rel != "—":
+        jl = f'<a href="{_e(repo_url)}/blob/main/{_e(journal_rel)}" style="color:{C["accent"]}">{label}</a>'
+    else:
+        jl = f'日誌（titan・GitHub には未反映）: <span style="font-family:{MONO}">{_e(journal_rel)}</span>'
+
     foot.append(f"{commit} ・ {jl}")
     out.append(f'<div style="margin-top:18px;background:#ffffff;border:1px solid {C["line"]};border-radius:8px;padding:12px 18px;'
                f'font-size:12px;color:{C["sub"]};line-height:1.8">' + "<br>".join(foot) + "</div>")

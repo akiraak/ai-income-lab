@@ -265,6 +265,30 @@ def test_html_body_stopped_night_is_red_and_shows_the_fix():
     assert "この晩はアイデアを出していません" in h
 
 
+def test_stopped_subject_is_short_and_keeps_the_count():
+    # 2026-11-05 利用者「3つとも直して」: 件名にファイルの並びを入れない（本文に回す）
+    why = "段 0: 作業ツリーが汚れている（利用者の未コミット 19 件: TODO.md, experiments/feature-discovery/config/ideas/a.toml）"
+    subj = dm.subject({"stopped": why}, "2026-11-05", "[ail devloop]")
+    assert subj == "[ail devloop] 11/5（木）⚠ 止まった: 段 0: 作業ツリーが汚れている（未コミット 19 件）"
+    assert "TODO.md" not in subj
+    assert dm.stop_short("段 0: " + "長" * 80).endswith("…") and len(dm.stop_short("段 0: " + "長" * 80)) == 40
+
+
+def test_journal_link_only_when_pushed_and_label_only_with_stage1():
+    base = {"stages": "0,1,2,3,4", "gate": "", "cost": 0.0, "state": {}}
+    url = "https://example.invalid/r"
+    stopped = dm.html_body({**base, "stopped": "段 0: 作業ツリーが汚れている（未コミット 1 件: x）", "gate": "汚れている"},
+                           "2026-11-05", "docs/log/2026-11-05.md", repo_url=url)
+    assert "/blob/main/" not in stopped and "GitHub には未反映" in stopped and "原文つき" not in stopped
+    push_failed = dm.html_body({**base, "commit": "コミット abc1234・⚠ push 失敗: x"}, "2026-11-05", "docs/log/d.md", repo_url=url)
+    assert "/blob/main/" not in push_failed
+    no_stage1 = dm.html_body({**base, "commit": "コミット abc1234・push ✅"}, "2026-11-05", "docs/log/d.md", repo_url=url)
+    assert 'href="https://example.invalid/r/blob/main/docs/log/d.md"' in no_stage1 and "原文つき" not in no_stage1
+    with_stage1 = dm.html_body({**base, "commit": "コミット abc1234・push ✅", "ideate": {"bundles": {"ref": {"got": 2, "cost": 1.0}}}},
+                               "2026-11-05", "docs/log/d.md", repo_url=url)
+    assert "日誌を開く（段 1 の原文つき）" in with_stage1
+
+
 def test_idea_results_counts_verdicts_and_judges_the_prediction(world):
     import json
     root, cfg, conn = world

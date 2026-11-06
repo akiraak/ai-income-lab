@@ -20,6 +20,7 @@
 "弱い相場は休む（先10日・直近252日）" = "rest-weak10-n252"
 "弱い相場は休む（先20日・直近252日）" = "rest-weak20-n252"
 "弱い相場は休む（先40日・直近252日）" = "rest-weak40-n252"
+"集まりを乱数で割り当てた遅れの買い（8個）" = "rand-cluster8-laggard5"   # 基準線（数えない）。登録簿 20261106-cluster-laggard-revert
 # 検知器（rules.md 14-1）。入口 × 出口の対は `in-<入口>-out-<出口>` で機械的に作るので書かない
 # 買う線と売る線を別に置いた行（rules.md 18-2）は `<選び方・作り方>〔売り線50〕` → `<綴り>-out50` で機械的に作るので書かない
 "C1 短期 SMA20 フィルタ" = "c1-sma20"
@@ -61,6 +62,9 @@
 "V2 荒れる日を休む（翌日の断面の値動き・日ごと）" = "v2-calm-day"   # 登録簿 20261104-calm-day-hold（2026-11-04・ail/ideas）
 "R1 局面別 Ridge（k-means・2個）" = "r1-regime-k2"   # 登録簿 20261104-regime-cluster-ridge（2026-11-04・ail/ideas）
 "R1 局面別 Ridge（k-means・4個）" = "r1-regime-k4"
+"R2 局面別 Ridge（外生で k-means・2個）" = "r2-regime-ex-k2"   # 登録簿 20261106-regime-ex-cluster-ridge（2026-11-06・ail/ideas）
+"R2 局面別 Ridge（外生で k-means・4個）" = "r2-regime-ex-k4"
+"L1 集まりの中で遅れた銘柄を買う（相関の集まり8個・5日）" = "cluster8-laggard5"   # 登録簿 20261106-cluster-laggard-revert（2026-11-06・ail/ideas）
 "X2 出口だけ 高値20日からσの2倍で降りる" = "x2-exit-ddvol20-2"
 "X2 出口だけ 高値20日からσの4倍で降りる" = "x2-exit-ddvol20-4"
 "X2 出口だけ 高値20日からσの8倍で降りる" = "x2-exit-ddvol20-8"
@@ -178,6 +182,7 @@
 "弱い相場は休む（先10日・直近252日）" = "rest-weak10-n252"
 "弱い相場は休む（先20日・直近252日）" = "rest-weak20-n252"
 "弱い相場は休む（先40日・直近252日）" = "rest-weak40-n252"
+"集まりを乱数で割り当てた遅れの買い（8個）" = "rand-cluster8-laggard5"
 
 [augment]
 "GAN増強" = "gan"

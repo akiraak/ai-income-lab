@@ -1,0 +1,9 @@
+# ⚠ 開発ループ（2026-11-06 段 2・人の手）。登録簿 20261106-regime-ex-cluster-ridge ／ 20261106-cluster-laggard-revert。回すと決めたのは結果を見る前（各登録簿の registered_at）。
+#    数: R2 6・L1 3 ＝ 9（基準線「集まりを乱数で割り当てた遅れの買い」は数えない）。表は作り直さない（features_from）。
+#    ⚠ 20261106-planted-signal-power は検証を作らない読むだけの物差し（cli.planted_power）＝ この queue には入らない。
+experiments = ["dev_regime_ex_ridge", "dev_cluster_laggard"]
+
+leak = true
+ledger = true
+max_failures = 1
+time_budget_s = 1800     # 見積り 約 3 分【推測。R1 の実行 1 本 約 40 秒 × 本番 2 ＋ leak 2】

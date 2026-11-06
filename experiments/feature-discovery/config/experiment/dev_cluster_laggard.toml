@@ -1,0 +1,42 @@
+# ⚠ **開発ループの登録簿 `20261106-cluster-laggard-revert`（参考なし・枠の外）**（rules.md 31 章・記録 dev-loop.md・事前固定は登録簿）。
+#    dev_regime_ridge の写し（own_2018 の表・同じ切れ目）。違いは検知器だけ: 訓練分割の相関の集まり（8 個）の中で直近 5 日に遅れた銘柄を
+#    買う規則 L1（学習器なし・買い% ＝ 訓練分割の順位。ail/ideas/i20261106_cluster_laggard.py）× θ 3 ＝ 3 検証。
+#    基準線「集まりを乱数で割り当てた遅れの買い（8個）」は数えない（買い% 0 ／ 100 ＝ θ 50 の行と比べる）。
+#    ⚠ model の Ridge は識別項目の綴りのためだけ（L1 は呼ばない。登録簿の key_shape の none の綴りは無い）。表の接頭辞は own（key_shape の cs ではない ＝ 規則が読むのは own_ret_1 ／ own_ret_5 だけ）。
+#    ⚠ leak 対照は跳ねない（規則が LEAK_ 列を読まない）。
+# ⚠ **回すと決めたのは結果を見る前（登録 2026-11-06 01:02 PST）**。
+name = "dev_cluster_laggard"
+dataset = "daily"
+horizon = 1
+cost_bp = 5.0
+features_from = "own_2018"     # ⚠ 表は作り直さず own_2018 のものを読む（13-8。trade_own_ridge_a と同じ表）
+
+feature_layers = ["own"]
+targets = "all"
+
+horizon_min = 1440.0
+bar_minutes = 1440.0
+
+detectors = ["L1 集まりの中で遅れた銘柄を買う（相関の集まり8個・5日）"]
+k = 16
+
+model = "Ridge"
+baselines = ["常に上（ドリフト）", "直前リターンの符号", "集まりを乱数で割り当てた遅れの買い（8個）"]
+
+[trading]
+style = "threshold"
+thresholds = [50, 55, 60]      # ⚠ 事前固定。結果を見て動かさない（rules.md 13-3）
+form = "shared"                # (A) 銘柄共通 1 本
+
+[validation]
+split = "walk_forward_dates"   # ⚠ fold の切れ目は日付で決める（rules.md 13-6 の 1）
+folds = 5
+purge = true
+embargo_bars = 0
+seed = 0
+
+[features]
+ex_lag_days = 1
+ex_zero_fill = ["usgs"]
+ex_transforms = ["d1", "z20"]
+ex_max_stale_days = 7

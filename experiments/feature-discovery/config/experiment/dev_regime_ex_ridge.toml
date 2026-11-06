@@ -1,0 +1,42 @@
+# ⚠ **開発ループの登録簿 `20261106-regime-ex-cluster-ridge`（参考あり・枠の内）**（rules.md 31 章・記録 dev-loop.md・事前固定は登録簿）。
+#    dev_regime_ridge（R1）の写し。違いは「局面を決める列が own の断面の要約ではなく外生の ex_UST* ／ ex_EURTO*」だけ
+#    （検知器 R2・K ＝ 2 ／ 4・種 0。ail/ideas/i20261106_regime_ex_ridge.py）× θ 3 ＝ 6 検証。
+#    表は exog_h1（63 本・own ＋ ex・2018-01-31〜）を借りる（作り直さない ＝ 13-8。own_2018 と行が同じ ＝ 切れ目も同じ）。
+#    Ridge の入力は own 35 列だけ（ex は局面の割り当てだけ）。対の相手は trade_own_ridge_a の「全部使う（基準）」と dev_regime_ridge の R1。
+# ⚠ **回すと決めたのは結果を見る前（登録 2026-11-06 01:02 PST）**。
+name = "dev_regime_ex_ridge"
+dataset = "daily"
+horizon = 1
+cost_bp = 5.0
+features_from = "exog_h1"      # ⚠ 表は作り直さず exog_h1 のものを読む（13-8）
+
+feature_layers = ["own", "ex"]
+targets = "all"
+
+horizon_min = 1440.0
+bar_minutes = 1440.0
+
+detectors = ["R2 局面別 Ridge（外生で k-means・2個）", "R2 局面別 Ridge（外生で k-means・4個）"]
+k = 16
+
+model = "Ridge"
+baselines = ["常に上（ドリフト）", "直前リターンの符号"]
+
+[trading]
+style = "threshold"
+thresholds = [50, 55, 60]      # ⚠ 事前固定。結果を見て動かさない（rules.md 13-3）
+form = "shared"                # (A) 銘柄共通 1 本
+
+[validation]
+split = "walk_forward_dates"   # ⚠ fold の切れ目は日付で決める（rules.md 13-6 の 1）
+folds = 5
+purge = true
+embargo_bars = 0
+seed = 0
+
+[features]
+ex_lag_days = 1
+ex_sources = ["ecb", "treasury", "noaa", "usgs"]
+ex_zero_fill = ["usgs"]
+ex_transforms = ["d1", "z20"]
+ex_max_stale_days = 7

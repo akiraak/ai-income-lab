@@ -1,0 +1,21 @@
+# ⚠ 開発ループの登録簿（rules.md 31-1）。cli.devloop が書く。status が 登録 より先なら structure ／ prediction ／ n_trials_planned ／ key_shape を直さない（直すなら新しい id）
+id = "20261106-planted-signal-power"
+date = "2026-11-06"
+title = "既知の強さの信号を埋めた合成データで、この器の検出力の曲線を測る"
+kind = "物差し"
+origin = { r_pct = 30, n_per_night = 5, prompt = "ideate_free", contract = 2, model = "claude", cost_usd = 0.57, turns = 1, source = "independent", refs = [] }
+question = "日次 σ と銘柄間の相関を本物の表に合わせた合成リターンに、強さの分かった予測可能な成分（s bp/日）を埋めて今の器と判定式に通すと、s がいくつから「保留」「採る」が何割出るか。"
+structure = "新しい口: 合成の表の作り手（本物の日付・銘柄数・fold の切れ目をそのまま使い、リターンは本物の共分散からの多変量の乱数 ＋ 既知の列 1 本 × s）。s の種類 ＝ 0 ／ 0.1 ／ 1 ／ 5 ／ 20 bp/日 の 5 水準 × 種 20（事前固定）。own × Ridge・θ 50 の器と判定をそのまま通し、判定の内訳と上乗せの分布を s ごとに出す。出力は物差しの表で、検証結果一覧には入れない。"
+n_trials_planned = 0
+key_shape = ["合成の表なので検証結果一覧の識別項目を持たない"]
+failure_modes = ["合成のリターンが本物の太い裾・ボラの塊を写さず、検出力を甘く見積もる", "s = 0 でも「採る」が出る割合が想定より高く、判定式の偽陽性の率が先に問題になる", "埋めた列を Ridge が他の列と取り違え、器ではなく学習器の検出力を測ってしまう"]
+prediction = "s = 0 で保留が 3〜5 割・採るは数 % 以下、s ≈ 5 bp/日でようやく採るが半分を超える"
+effort = "中"
+measurable = "測れる: 強さを自分で決めるので、どの水準でも答え（埋めた信号）が分かっている"
+touches = "新しいモジュールだけ"
+status = "登録"
+frame = "内"
+p_hold = 0.0
+learn_if_null = "検証結果一覧の行を作らないので保留は出ない。曲線から「s 何 bp/日なら 5 fold で測れるか」が分かり、以後の案の measurable の印をこの数字に対して付けられる。偽陽性の率が高ければ、判定式の扱いを仕組みの改善として別に起こす。"
+registered_at = "2026-11-06 01:02 PST"
+notes = "段 1 の出力の key_shape の原文: 合成の表なので検証結果一覧の識別項目を持たない（実行名 <時刻>_power_<s>・n_trials に数えない）"

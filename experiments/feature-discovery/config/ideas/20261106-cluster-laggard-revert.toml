@@ -1,0 +1,22 @@
+# ⚠ 開発ループの登録簿（rules.md 31-1）。cli.devloop が書く。status が 登録 より先なら structure ／ prediction ／ n_trials_planned ／ key_shape を直さない（直すなら新しい id）
+id = "20261106-cluster-laggard-revert"
+date = "2026-11-06"
+title = "訓練内の相関で銘柄の集まりを見つけ、集まりの中で遅れた銘柄を買う"
+kind = "モデル"
+origin = { r_pct = 30, n_per_night = 5, prompt = "ideate_free", contract = 2, model = "claude", cost_usd = 0.57, turns = 1, source = "independent", refs = [] }
+question = "ラベルを使わずに訓練分割の日次リターンの相関から銘柄の集まりを作り、評価期間で「集まりの平均より直近に下げた銘柄」を買う規則（学習器なし）は、閾値売買の器でどんな上乗せになるか。"
+structure = "新しい口: 訓練分割だけで 63 本の日次リターンの相関行列 → 階層クラスタ（切り方の種類 ＝ 集まりの数 8 の 1 水準・事前固定）。評価期間の各日、銘柄の直近 5 日リターン − 集まりの平均 の符号を反転した z を、訓練分割の分布で順位にして買い% にする（較正は既存の口）。fold ごとに集まりを作り直す。基準線 ＝ 集まりを乱数で割り当てた同じ規則（数えない）。"
+n_trials_planned = 3
+key_shape = ["cs.<cluster8-laggard5>.none.shared", "55", "60）"]
+failure_modes = ["ETF とその構成の大きい会社が同じ集まりに入り、遅れの差が構成比の機械的な差になる", "集まりが fold ごとに大きく変わり、規則が実質的に断面の短期の逆張り（cs_ の順位）と同じになる", "乱数の集まりの基準線と差が出ず、集まりの情報ではなく 5 日逆張りそのものの効果だった"]
+prediction = "上乗せは B&H に対して負寄り（全額を張らない日が多い）・fold の符号は割れる・乱数の集まりとの差は小さい・leak は跳ねる"
+effort = "小"
+measurable = "測れる: 規則が毎日多くの銘柄の持ち替えを起こすため、効いていれば数百 bp/fold の差、効いていなければ費用で数百 bp/fold の負として出る"
+touches = "新しいモジュールだけ"
+status = "登録"
+frame = "外"
+p_hold = 0.15
+p_positive = 0.4
+learn_if_null = "乱数の集まりと差が無ければ、日足の相関から作った集まりは翌日の方向に使える構造を持たないと分かる。次は集まりを相関ではなく出来高の同時の跳ねで作る形に変える。"
+registered_at = "2026-11-06 01:02 PST"
+notes = "段 1 の出力の key_shape の原文: cs.<cluster8-laggard5>.none.shared@θ（θ ＝ 50 ／ 55 ／ 60）"

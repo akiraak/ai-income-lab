@@ -1,0 +1,21 @@
+# ⚠ 開発ループの登録簿（rules.md 31-1）。cli.devloop が書く。status が 登録 より先なら structure ／ prediction ／ n_trials_planned ／ key_shape を直さない（直すなら新しい id）
+id = "20261106-skip-high-disp-days"
+date = "2026-11-06"
+title = "翌日の断面の荒れを当て、荒れる予想の日は売買しない"
+kind = "モデル"
+origin = { r_pct = 30, n_per_night = 5, prompt = "ideate_free", contract = 2, model = "claude", cost_usd = 0.57, turns = 1, source = "independent", refs = [] }
+question = "当てるものを「翌日の方向」から「翌日の値動きの大きさ（全銘柄の |y| の中央値）」に替え、荒れると予想した日に新しい買いを止めると、同じ買い% の閾値売買の上乗せはどう変わるか。"
+structure = "新しい口: 日ごとのラベル disp_next ＝ 翌日の全銘柄の |y| の断面中央値（行ではなく日の単位）。学習器 Ridge（入力は own_ の断面平均と ex_・cal_）を訓練分割だけで学び、訓練内で決めた分位（種類 ＝ 上位 20% の 1 水準・事前固定）を超える予想の日は新規の買いを見送る（持ち株の売りは止めない）。合図の元は既存の own × Ridge の買い%。対の相手 ＝ 同じ買い% で見送りなし。"
+n_trials_planned = 3
+key_shape = ["own.<disp-skip20>.ridge.shared", "55", "60）"]
+failure_modes = ["荒れの予想が前日の荒れの写しにすぎず、見送る日が「大きく下げた翌日」に偏って戻りの初日を休む", "見送る日が fold ごとに一部の時期（2020 年春・2022 年）に固まり、1 fold が差を作る", "買い% がもともと幅を持たない時期は見送りの有無で取引が変わらず差が 0 になる"]
+prediction = "対の差の平均は小さく負寄り（戻りの日を休むぶん）・fold の符号は割れる・leak（翌日の |y| を混ぜた版）は見送りが当たって跳ねる"
+effort = "中"
+measurable = "測れる: 見送る日は全体の約 2 割で、その日のリターンの分布は日次 σ の数倍の幅を持つため、休むことの効果は数百 bp/fold 級で出うる"
+touches = "共有の経路: ail/validation の閾値売買（日単位の見送りの口。無い config は 1 ビットも変わらない形で足す）"
+status = "人の手"
+frame = "外"
+p_hold = 0.25
+p_positive = 0.35
+learn_if_null = "差が出なければ「荒れの大きさは予想できても、休む日の選び方としては翌日の方向の情報を持たない」と分かる。次は休むのではなく持つ量を荒れに反比例させる口（量の配り方）に移す。"
+notes = "段 1 の出力の key_shape の原文: own.<disp-skip20>.ridge.shared@θ（θ ＝ 50 ／ 55 ／ 60）"

@@ -1,0 +1,22 @@
+# ⚠ 開発ループの登録簿（rules.md 31-1）。cli.devloop が書く。status が 登録 より先なら structure ／ prediction ／ n_trials_planned ／ key_shape を直さない（直すなら新しい id）
+id = "20261106-stop-confirm-days"
+date = "2026-11-06"
+title = "損切り係の出口は、続けて鳴った日だけ効かせる（往復を避ける）"
+kind = "執行"
+origin = { r_pct = 30, n_per_night = 5, prompt = "ideate_ref", contract = 2, model = "claude", cost_usd = 1.596, turns = 6, source = "reference", refs = ["dev-loop.md §9（20261101-c3-as-stop-role：遅い損切りでも往復は消えない・取引 16,096 回）", "CLAUDE.md の horizon_roles2b（stop_blocks_buy で往復は消えたが成績は下がった・戻りの初日を拾っていた）", "dev-loop/register.md（既存の id の一覧）"] }
+question = "損切り係（X1 ／ X7）が出口を言う → 翌日に買い係が買い直す往復は、取引の約 6 割（X1）・保有の中央値 3 日（X7）を占めた。損切りの出口を「d 営業日続けて鳴ったときだけ売る」にすると、往復と対の差（対 損切りなし R6〜R9・対 即時の損切り R1〜R4 ／ R19〜R22）はどう変わるか。"
+structure = "合わせる口 `[[trading.mix]]` に `stop_confirm_days`（損切り係の出口% が d 営業日続けて売る線を下回った日にだけ売る。既定 1 ＝ いまの即時。無い config は 1 ビットも変わらない）を足す。`simulate` ／ `simulate_topk` には同じ名前の任意引数として足す。d は 1 種類（3 営業日）に先に決めておき、結果を見て振らない。当てる組は X7 の組 R19〜R22 の 4 組。形は素 ／ 5 本・$600 ／ 全銘柄の 3 つ。stop_blocks_buy（買いを止める）・min_hold_days（売り係を黙らせる）・建値基準の損切りとは違い、損切り係自身の鳴り方を絞るもの。"
+n_trials_planned = 12
+key_shape = ["own.r19-c3stop-confirm3.ridge.shared"]
+failure_modes = ["X: SMA200 の近くで終値が上下する銘柄では、3 日続けて割る日も多く、往復が減らない（取引の回数と保有の中央値を R19〜R22 と並べて記録する）", "X: 確認を待つ 2 日のあいだに下げが進み、損切りの意味が薄れて損切りなしの R6〜R9 とほぼ同じになる（損切りで売った回数を数える）", "X: 往復が減っても、Phase 2b のように「戻りの初日」を拾えなくなって成績が下がる"]
+prediction = "取引の回数は R19〜R22 より減り、R6〜R9（損切りなし）との間に入る。対 R19〜R22 の差は素の形で正の向き（往復の費用ぶん）、t は 1〜2 程度。対 R6〜R9 は負から 0 の周り。$600 の形は R20 ／ R21 と同じく保留が出る。leak は跳ねる。"
+effort = "中"
+measurable = "測れる: 往復の費用は R19 の取引 16,096 回（5 fold 合計）× 5bp の規模で、数百 bp/fold の差になりうる。取引の回数と保有の中央値は物差しと別に白黒がつく"
+touches = "共有の経路: ail/validation/simulate.py・cli/run.py の合わせる口（人の手）"
+status = "人の手"
+frame = "内"
+p_hold = 0.35
+p_positive = 0.6
+learn_if_null = "往復が減っても成績が R19〜R22 から動かないなら、往復の費用と、戻りの初日を拾う得が打ち消し合っていたと分かる。その場合、損切り係の鳴り方の口は閉じ、損切り係は外したまま（R6〜R9 の形）を前提にして次へ進む。往復が減らなければ、SMA200 の割り込みは 3 日の単位でも上下すると分かるので、損切り係の材料（終値 ／ 移動平均）を替える案を新しい id で出す。"
+reference_mode = "避ける"
+notes = "段 1 の出力の key_shape の原文: own.r19-c3stop-confirm3.ridge.shared@θ 〜 own.r22-c3stop-confirm3.ridge.shared@θ（各組の θ は R19〜R22 と同じ 1 水準）× 形 3（-tr5-600 ／ -trall を含む）"

@@ -1,0 +1,23 @@
+# ⚠ 開発ループの登録簿（rules.md 31-1）。cli.devloop が書く。status が 登録 より先なら structure ／ prediction ／ n_trials_planned ／ key_shape を直さない（直すなら新しい id）
+id = "20261106-regime-ex-cluster-ridge"
+date = "2026-11-06"
+title = "外生の列（金利・為替）で局面を分け、局面ごとに own の Ridge を学ぶ"
+kind = "モデル"
+origin = { r_pct = 30, n_per_night = 5, prompt = "ideate_ref", contract = 2, model = "claude", cost_usd = 1.596, turns = 6, source = "reference", refs = ["dev-loop.md §9（20261104-regime-cluster-ridge の結果と learn_if_null「続けるなら外生の列で局面を決める形」）", "dev-loop/register.md（既存の id の一覧）"] }
+question = "R1 では局面を own 列から k-means で決めた。局面を決める軸を外生の列（米国債金利・ECB 為替の差分と z スコア）に替えると、局面ごとの own 列 × Ridge の買い% の幅と、素の Ridge との対の差は変わるか。"
+structure = "検知器 `R2 局面別 Ridge（外生で k-means・K 個）` を `ail/ideas/` に足す。局面の割り当ては訓練分割の `ex_` 列だけで k-means を fit する。評価期間はその中心に当てる。局面ごとの Ridge は own 35 列だけで学ぶ。K は R1 と同じ 2 種類（2 ／ 4）を先に決めておく。R1 との違いは、局面を決める列が own ではなく ex という 1 点だけ。表は own ＋ ex の既存の層を使う（ex は局面の割り当てだけに使い、Ridge の入力には入れない）。対の相手は同じ表・同じ切れ目の `全部使う（基準）`× Ridge と R1。"
+n_trials_planned = 6
+key_shape = ["own+ex.r2-regime-ex-k2.ridge.shared", "own+ex.r2-regime-ex-k4.ridge.shared", "55", "60）"]
+failure_modes = ["X: ex の 1 日遅れの差分は日ごとの揺れが大きく、局面が毎日入れ替わる（局面の滞在日数の中央値を記録して確かめる）", "X: K 4 では局面ごとの訓練の行が少なく、係数が縮んで買い% が 50 に潰れる（R1 で幅が 5.9 → 2 点に狭まったのと同じ型）", "X: 金利の局面は fold の切れ目と重なり、fold ごとに 1 つの局面しか当たらない（評価期間の局面の割合を fold ごとに記録する）"]
+prediction = "対 素の Ridge の差は 6 対とも |t| < 2。向きは割れる。K 2 は 2022 年の利上げを含む fold だけ差が大きく出る。買い% の幅は R1 と同じく素の Ridge より狭い。leak は跳ねる。"
+effort = "小"
+measurable = "測れる: 対の差は同じ切れ目の fold 対で比べる。局面の割り当てが fold ごとに偏るか（1 局面だけになるか）も数えられるので、検出限界に届かなくても「局面が分かれていたか」は白黒がつく"
+touches = "新しいモジュールだけ"
+status = "登録"
+frame = "内"
+p_hold = 0.22
+p_positive = 0.45
+learn_if_null = "外生の局面でも差が出ず幅が狭まるなら、「局面で分けると係数が縮む」は局面の決め方によらない Ridge の性質と分かる。その場合、局面別の線形モデルの軸は閉じ、局面を使うなら局面を列として 1 本の非線形の学習器に渡す形へ移す。局面が fold ごとに 1 つに偏ったなら、この表の長さでは外生の局面は測れないと分かるので、1995 年からの表で同じ口を回す。"
+registered_at = "2026-11-06 01:01 PST"
+reference_mode = "組み合わせる"
+notes = "段 1 の出力の key_shape の原文: own+ex.r2-regime-ex-k2.ridge.shared@θ ／ own+ex.r2-regime-ex-k4.ridge.shared@θ（θ 50 ／ 55 ／ 60）"

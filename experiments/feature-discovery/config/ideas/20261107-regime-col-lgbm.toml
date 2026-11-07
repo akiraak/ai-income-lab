@@ -1,0 +1,23 @@
+# ⚠ 開発ループの登録簿（rules.md 31-1）。cli.devloop が書く。status が 登録 より先なら structure ／ prediction ／ n_trials_planned ／ key_shape を直さない（直すなら新しい id）
+id = "20261107-regime-col-lgbm"
+date = "2026-11-07"
+title = "外生の局面の番号を列にして LightGBM 1 本に渡す"
+kind = "モデル"
+origin = { r_pct = 30, n_per_night = 5, prompt = "ideate_ref", contract = 2, model = "claude", cost_usd = 1.637, turns = 6, source = "reference", refs = ["dev-loop.md §10（R2 の行・『局面を列として 1 本の非線形の学習器に渡す形』）", "dev-loop.md §9（R1 の行・買い% の幅が狭くなった）", "transform-into-detectors.md §3（LightGBM の列の抽出の乱数）"] }
+question = "R1／R2 は、局面ごとに Ridge を分けると係数が縮んで買い% が 50 に寄った。局面の番号を、局面ごとにモデルを分ける代わりに『列』として 1 本の非線形の学習器に渡したとき、局面の別が買い% の幅と上乗せに表れるか。"
+structure = "R2 と同じ k-means（外生 ex_UST* ／ ex_EURTO* の 28 列・訓練分割で fit・K は 2 ／ 4 の 2 種類）で日ごとの局面の番号を出す。それを one-hot の列 regime_k* として own 列の表に足し（置き換えない）、LightGBM（既定の水準）1 本で学ぶ。対の相手は、同じ表・同じ切れ目で局面の列を外した LightGBM。新しい口は ail/ideas/ の層 1 つで、無い config は 1 ビットも変わらない。R2 との違い: 局面でモデルを分けず、局面を説明変数にする。学習器は Ridge ではなく LightGBM。"
+n_trials_planned = 9
+key_shape = ["exog.<regime-ex-col-k2|regime-ex-col-k4>.lgbm.shared"]
+failure_modes = ["R2 で見えたとおり局面の滞在日数が 1〜2 日だと、局面の列は日ごとの揺れの印にすぎず、LightGBM が雑音として扱う（分割に使われない）", "列の抽出 0.8 の乱数が列の数で変わり、局面の列の情報と乱数の差を分けられない（transform-into-detectors.md §3 と同じ型）", "fold ごとに k-means の番号の付き方が変わり、fold をまたいで同じ局面を指さない"]
+prediction = "対の差（局面の列あり − なし）は 6 対とも |t| < 2 で、向きは割れる。買い% の幅は素の LightGBM とほぼ同じで、R2（0.8〜1.7 点）より広い。leak は跳ねる。局面の列の特徴量の重要度は下位に寄る。"
+effort = "小"
+measurable = "測れない寄り: planted_power で、行ごとの IC が約 0.11 の信号（s 20 bp/日）でも『採る』は 40%。局面の列が足す情報がそれより小さければ判定は動かない。測れるのは『特徴量の重要度に局面の列が出るか』と『買い% の幅が広がるか』という診断だけ。"
+touches = "新しいモジュールだけ（ail/ideas/ の層・R2 の k-means を再利用）"
+status = "登録"
+frame = "内"
+p_hold = 0.2
+p_positive = 0.45
+learn_if_null = "重要度に局面の列が出ず差も無ければ、日足の外生列の k-means では『局面』を作れていない（決め方の問題で、学習器の問題ではない）と分かる。次は滞在日数に下限を置く局面（隠れマルコフで遷移を抑える形）を新しい id で登録する。重要度に出るのに差が無ければ、局面は方向の情報を持たないと分かり、局面の軸を閉じる。"
+registered_at = "2026-11-07 01:01 PST"
+reference_mode = "組み合わせる"
+notes = "段 1 の出力の key_shape の原文: exog.<regime-ex-col-k2|regime-ex-col-k4>.lgbm.shared@θ（K 2 ／ K 4 ／ 局面の列なし × θ 50/55/60）"

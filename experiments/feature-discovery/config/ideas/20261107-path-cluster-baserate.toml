@@ -1,0 +1,21 @@
+# ⚠ 開発ループの登録簿（rules.md 31-1）。cli.devloop が書く。status が 登録 より先なら structure ／ prediction ／ n_trials_planned ／ key_shape を直さない（直すなら新しい id）
+id = "20261107-path-cluster-baserate"
+date = "2026-11-07"
+title = "60 日の値動きの形をラベルなしで分け、形ごとの上がる割合を出力スコアにする"
+kind = "モデル"
+origin = { r_pct = 30, n_per_night = 5, prompt = "ideate_free", contract = 2, model = "claude", cost_usd = 0.587, turns = 1, source = "independent", refs = [] }
+question = "ラベルを使わずに過去 60 日の価格の道筋を形で分け、形ごとの訓練分割での「翌日に上がった割合」をそのまま買い% にしたとき、形の分け方が翌日の方向について何かを言うか。"
+structure = "seq_ の 60 日の道筋を銘柄ごとに z スコアで正規化し、訓練分割だけで k-means を fit する（ラベルは見ない）。k は事前に 1 種類に固定する（8）。各塊の訓練分割での y > 0 の割合を買い% とし、較正はしない（割合がそのまま確率）。評価期間の行は最も近い塊に割り当てる。θ は 50 ／ 55 ／ 60。対照として塊の割り当てを乱数で入れ替えた行（基準線・数えない）を置く。leak 対照は塊の割り当てに y_fwd_1 を混ぜた行。新しいモジュール ail/ideas/<id>.py に検知器として登録する。"
+n_trials_planned = 3
+key_shape = ["seq.path-kmeans8.base-rate.shared"]
+failure_modes = ["塊ごとの割合が全体の割合の ±1 点に収まり、買い% の幅が門の 20 点に届かず閾値を越えない（売買しない ＝ 現金のまま）", "塊が時代（相場の局面）を写しているだけで、fold ごとに 1 つの塊に偏る", "k-means の乱数の種で塊が変わり、結果が種に依存する（種は 0 に固定）", "割り当ての乱数の対照と区別がつかない"]
+prediction = "買い% の幅は 5 点以下で、θ 55 ／ 60 ではほぼ 1 日も持たない。θ 50 は持ち続けるに近い動きで上乗せは 0 の周り。塊は fold ごとに偏る。leak は跳ねる。"
+effort = "小"
+measurable = "測れる: 買い% の幅と塊ごとの割合は訓練分割で直接見えるので、門前かどうかは確かに分かる。上乗せそのものは数百 bp/fold 級でないと測れない。"
+touches = "新しいモジュールだけ"
+status = "登録"
+frame = "外"
+p_hold = 0.1
+learn_if_null = "差なしなら、60 日の道筋の形そのものは翌日の方向の土台をほとんど動かさないと分かる。次は同じ塊を使い、当てるものを翌日の値動きの大きさに替えるか、塊が切り替わった日（形の遷移）を印にする。"
+registered_at = "2026-11-07 01:02 PST"
+notes = "段 1 の出力の key_shape の原文: seq.path-kmeans8.base-rate.shared@θ"

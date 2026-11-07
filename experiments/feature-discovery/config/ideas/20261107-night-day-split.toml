@@ -1,0 +1,21 @@
+# ⚠ 開発ループの登録簿（rules.md 31-1）。cli.devloop が書く。status が 登録 より先なら structure ／ prediction ／ n_trials_planned ／ key_shape を直さない（直すなら新しい id）
+id = "20261107-night-day-split"
+date = "2026-11-07"
+title = "夜の足と昼の足を別々に当て、持つ時間帯を選ぶ"
+kind = "検証方式"
+origin = { r_pct = 30, n_per_night = 5, prompt = "ideate_free", contract = 2, model = "claude", cost_usd = 0.587, turns = 1, source = "independent", refs = [] }
+question = "翌日のリターンを「引け→翌朝の始値（夜）」と「翌朝の始値→引け（昼）」に分けたとき、own 列から読める方向の情報はどちらの足にあるのか。持つ時間帯を夜だけ ／ 昼だけにした器で、上乗せの出方と fold の割れ方はどう変わるのか。"
+structure = "ラベルの口を 2 種類足す（label = night ＝ log(始値 t+1 ／ 終値 t)・label = day ＝ log(終値 t+1 ／ 始値 t+1)）。器の口も 2 種類足す（hold_leg = night ＝ 引けで買って翌朝の始値で売る ／ hold_leg = day ＝ 翌朝の始値で買って引けで売る）。ラベルと器は night × night と day × day の 2 組だけに固定する。学習器は Ridge・入力は own 35 列・θ は 50 ／ 55 ／ 60。対の相手は同じ表・同じ切れ目の素の行（y ＝ 翌日の終値どうし）。費用は 1 往復ごとに既定の 5bp。leak 対照として各ラベルの未来の列を 1 本ずつ混ぜる。"
+n_trials_planned = 6
+key_shape = ["own.own35.ridge.shared~night-leg", "own.own35.ridge.shared~day-leg"]
+failure_modes = ["毎日往復するので費用 5bp × 回数が上乗せを飲み込み、情報の有無と分けられない", "調整済み日足の始値と配当落ち・分割の日の扱いがずれ、夜の足に偽の跳ねが入る", "夜の足の B&H（毎晩持ち続ける）が物差しとして定義しにくく、対 B&H の上乗せの意味が素の行と揃わない", "leak 対照が跳ねず、ラベルと器の配線の誤りを見落とす"]
+prediction = "上乗せは night ／ day とも負から 0 の周り（費用の分）。fold の符号は揃わない。夜の足のほうが買い% の幅がやや広い。leak は 2 組とも跳ねる。"
+effort = "中"
+measurable = "測れる: 足を分けると 1 日の σ が昼夜で異なり、夜の足は σ が小さい分、数百 bp/fold の差なら 5 fold で符号が揃いうる。往復回数が多いので費用の影響は机上の式で引ける。"
+touches = "共有の経路: ail/validation（ラベルの口・器の hold_leg）・ail/catalog.py（検証方式の変種）・ail/names.py（~night-leg ／ ~day-leg）"
+status = "人の手"
+frame = "外"
+p_hold = 0.15
+p_positive = 0.35
+learn_if_null = "夜 ／ 昼のどちらでも差なしなら、own 列の翌日の方向の情報は 1 日をどう切っても見えないと分かる。次は当てるものを方向から足の大きさ（夜のギャップの絶対値）に変える。"
+notes = "段 1 の出力の key_shape の原文: own.own35.ridge.shared~night-leg@θ ／ own.own35.ridge.shared~day-leg@θ"

@@ -1,0 +1,23 @@
+# ⚠ 開発ループの登録簿（rules.md 31-1）。cli.devloop が書く。status が 登録 より先なら structure ／ prediction ／ n_trials_planned ／ key_shape を直さない（直すなら新しい id）
+id = "20261107-volspike-cluster-lag"
+date = "2026-11-07"
+title = "出来高が同じ日に跳ねる仲間で集まりを作り、仲間の跳ねの翌日に遅れた銘柄を買う"
+kind = "データ"
+origin = { r_pct = 30, n_per_night = 5, prompt = "ideate_ref", contract = 2, model = "claude", cost_usd = 1.637, turns = 6, source = "reference", refs = ["dev-loop.md §10（L1 の行・『次は集まりを出来高の同時の跳ねで作る形』）", "dev-loop.md §10（planted_power の行・検出力）", "earnings-layer.md（EDGAR の取得元・learn_if_null の次の手）"] }
+question = "日足の値動きの相関から作った集まりは、乱数の集まりと差が無かった（L1）。出来高が同じ日に跳ねる（同じ材料に反応する）銘柄どうしで集まりを作ると、仲間が出来高を伴って動いた翌日に、まだ動いていない銘柄が後を追うという情報の伝わりが見えるか。"
+structure = "ラベルを使わずに集まりを作る。訓練分割だけで、銘柄ごとに出来高の z（観測期間 60 日）> 2 の日の集合を作り、Jaccard 類似度で階層クラスタリングして集まりを 8 個にする（L1 と同じ数・結果を見て変えない）。合図は『同じ集まりの仲間の過半数がその日に出来高 z > 2 かつ上昇』で、自分は出来高が跳ねていない銘柄の買い% を、訓練分割での『この形の翌日の順位』にする（L1 と同じく学習器なし・Platt を通さない）。基準線（数えない）は、集まりを乱数で割り当てた同じ規則。L1 との違い: 集まりを作る材料が値の相関ではなく出来高の同時の跳ねで、合図に仲間の出来高の条件が付く。"
+n_trials_planned = 3
+key_shape = ["own.volspike-cluster8-lag1.ridge.shared"]
+failure_modes = ["合図の日が少なく（仲間の過半数が同時に跳ねる日は年に数日）、取引が少なすぎて fold の符号が雑音で決まる", "出来高の同時の跳ねは指数の入れ替え・満期日・FOMC など市場全体の日に集中し、集まりが『全体の日』を拾うだけで、乱数の集まりと差が出ない", "L1 と同じく LEAK_ 列を読まないので leak 対照が跳ねず、器の確かめにならない"]
+prediction = "上乗せは B&H に負けるが、L1（約 −1,000bp/fold）より小さな負。持たない日が多いため。乱数の集まりとの差は θ 50 で正寄りだが t < 2。fold の符号は割れる。leak は跳ねない（設計上）。"
+effort = "小"
+measurable = "測れない寄り: 合図の日が少ないので、上乗せが数百 bp/fold 級でないと 5 fold では決着しない。乱数の集まりとの対の差（同じ規則・同じ日）なら、集まりの作り方の差だけを切り出して測れる。診断として、合図の日の翌日の平均リターンを、乱数の集まりの合図の日と並べて出せる。"
+touches = "新しいモジュールだけ（ail/ideas/ の検知器と基準線・L1 の器を再利用）"
+status = "登録"
+frame = "外"
+p_hold = 0.12
+p_positive = 0.5
+learn_if_null = "乱数の集まりとの差が無ければ、日足の出来高の同時の跳ねも翌日の方向に使える集まりを作らないと分かる。値の相関（L1）と合わせて、日足から集まりを作る軸を閉じる。次は SEC の提出（同じ日に 8-K を出した会社）のように材料そのものを共有する印で集まりを作る形を、新しい id で登録する。"
+registered_at = "2026-11-07 01:01 PST"
+reference_mode = "当てる"
+notes = "段 1 の出力の key_shape の原文: own.volspike-cluster8-lag1.ridge.shared@θ（θ 50/55/60・学習器の綴りは L1 と同じ都合で ridge）＋ 基準線 rand-volspike-cluster8-lag1"

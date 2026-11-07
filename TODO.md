@@ -91,7 +91,7 @@
   - [~] Phase 4（Step 4）: 毎日の結果から最良のものを見つける（選ぶ段の固定を rules.md 31 章に〔結果を見る前〕→ 週 1 回の候補の棚 `candidates/dev/`〔配線だけ〕→ 投入は利用者〔trader-loop Phase 4・検証は 3 人まで〕→ 月 1 回の棚卸し〔区分 ＝ アイデア id〕）
     ✅ 2026-11-01 titan: 4-1（選ぶ段の固定を rules.md 31 章で確定）・4-2（`--weekly` と土曜の段 `weekly_stage`・下書きは `dev-loop/drafts/`）・4-4 の材料（`--inventory`）済み。残り 4-3 投入（利用者）・月 1 回の棚卸しそのもの（案 → 利用者「閉じて」）
     ✅ 2026-11-07 titan 11 月の棚卸しの案（利用者「3 を進めて」）: [ledger-hold-inventory-2026-11.md](docs/specs/experiments/ledger-hold-inventory-2026-11.md) ＝ 注記なしの保留 41 行 ／ 13 区分 → 案 **閉じる 18**（銘柄の選抜 11 ＝ 追試で再現せず・1 日遅れの引けの人の形 2・開発ループの登録簿 4 本 5）／ **残す 23**（役割つきの組 12 ＋ その 1 日遅れの版 11 ＝ 候補の人 `T7`〜`T19` の Phase 5 待ち）。下書き `assets/ledger-hold-inventory-2026-11-closed-draft.toml`（18 件・1 件 1 行・判定不変を機械で確認）
-    ⏳ 利用者: 案どおり閉じるか（「閉じて」で `[[closed]]` を貼って吐き直す）。案は外部のタブ「実行」の目次「棚卸し」でも見られる（2026-11-07）
+    ✅ 2026-11-07 14:57 PST 利用者「案どおり閉じて」: `[[closed]]` 18 件を貼って吐き直した（注記つき 149 → 167・保留 190 ／ 採る 1 ／ 落とす 975 ／ n_trials 1,166 は不変）。残る注記なし 23 行（役割つきの組）は Phase 5 の後か 12 月に再び棚卸し。画面は外部のタブ「実行」の目次「棚卸し」
   - [ ] 3 周目で残った「人の手」2 本（`20261101-deadzone-label`・`20261101-subperiod-sign-count`）を作るか決める（⚠ 利用者）
     登録簿 `config/ideas/` にある。共有の経路に触れるので段 2 では自動で作らない（K7）。記録 [dev-loop.md §5](docs/specs/experiments/dev-loop.md)
   - [ ] Phase 5: 片付け（CLAUDE.md の節・howto §3 の 1 行・TODO → DONE・プランを archive へ）

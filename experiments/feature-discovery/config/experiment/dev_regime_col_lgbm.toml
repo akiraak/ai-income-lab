@@ -1,0 +1,42 @@
+# ⚠ **開発ループの登録簿 `20261107-regime-col-lgbm`（参考あり・枠の内）**（rules.md 31 章・記録 dev-loop.md・事前固定は登録簿）。
+#    dev_regime_ex_ridge（R2）の写し。違いは「局面でモデルを分けず、局面の one-hot を own 35 列に足して LightGBM 1 本で学ぶ」だけ
+#    （検知器 R3・K ＝ 2 ／ 4 ＋ 対照「局面の列なし」・ail/ideas/i20261107_regime_col_lgbm.py）× θ 3 ＝ 9 検証。
+#    表は exog_h1（63 本・own ＋ ex・2018-01-31〜）を借りる（作り直さない ＝ 13-8）。学習器の入力は own 35 列（＋ 局面の列）だけ（ex は局面の割り当てだけ）。
+#    対の相手は同じ実行の「R3 局面の列なし」（同じ表・同じ切れ目・同じ経路）。
+# ⚠ **回すと決めたのは結果を見る前（登録 2026-11-07 01:01 PST）**。
+name = "dev_regime_col_lgbm"
+dataset = "daily"
+horizon = 1
+cost_bp = 5.0
+features_from = "exog_h1"      # ⚠ 表は作り直さず exog_h1 のものを読む（13-8）
+
+feature_layers = ["own", "ex"]
+targets = "all"
+
+horizon_min = 1440.0
+bar_minutes = 1440.0
+
+detectors = ["R3 局面の番号を列にした LightGBM（外生で k-means・2個）", "R3 局面の番号を列にした LightGBM（外生で k-means・4個）",
+             "R3 局面の列なし（own のみ・LightGBM）"]
+k = 16
+
+model = "LightGBM"
+baselines = ["常に上（ドリフト）", "直前リターンの符号"]
+[trading]
+style = "threshold"
+thresholds = [50, 55, 60]      # ⚠ 事前固定。結果を見て動かさない（rules.md 13-3）
+form = "shared"                # (A) 銘柄共通 1 本
+
+[validation]
+split = "walk_forward_dates"   # ⚠ fold の切れ目は日付で決める（rules.md 13-6 の 1）
+folds = 5
+purge = true
+embargo_bars = 0
+seed = 0
+
+[features]
+ex_lag_days = 1
+ex_sources = ["ecb", "treasury", "noaa", "usgs"]
+ex_zero_fill = ["usgs"]
+ex_transforms = ["d1", "z20"]
+ex_max_stale_days = 7

@@ -1,0 +1,42 @@
+# ⚠ **開発ループの登録簿 `20261107-volspike-cluster-lag`（参考あり・枠の外）**（rules.md 31 章・記録 dev-loop.md・事前固定は登録簿）。
+#    dev_cluster_laggard（L1）の写し（own_2018 の表・同じ切れ目）。違いは検知器だけ: 集まりを訓練分割の「出来高が同じ日に跳ねた（z > 2）」の
+#    Jaccard で 8 個に作り、仲間の過半数が出来高を伴って上がった日に跳ねていない銘柄を買う規則 L2（学習器なし・買い% ＝ 訓練分割の順位。
+#    出来高は調整済み日足の volume を継ぐ・ail/ideas/i20261107_volspike_cluster.py）× θ 3 ＝ 3 検証。
+#    基準線「出来高の集まりを乱数で割り当てた遅れの買い（8個）」は数えない（買い% 0 ／ 100 ＝ θ 50 の行と比べる）。
+#    ⚠ model の Ridge は識別項目の綴りのためだけ（L2 は呼ばない ＝ L1 と同じ）。⚠ leak 対照は跳ねない（規則が LEAK_ 列を読まない）。
+# ⚠ **回すと決めたのは結果を見る前（登録 2026-11-07 01:01 PST）**。
+name = "dev_volspike_cluster"
+dataset = "daily"
+horizon = 1
+cost_bp = 5.0
+features_from = "own_2018"     # ⚠ 表は作り直さず own_2018 のものを読む（13-8。trade_own_ridge_a と同じ表）
+
+feature_layers = ["own"]
+targets = "all"
+
+horizon_min = 1440.0
+bar_minutes = 1440.0
+
+detectors = ["L2 出来高が同じ日に跳ねる仲間の遅れを買う（集まり8個・翌日）"]
+k = 16
+
+model = "Ridge"
+baselines = ["常に上（ドリフト）", "直前リターンの符号", "出来高の集まりを乱数で割り当てた遅れの買い（8個）"]
+
+[trading]
+style = "threshold"
+thresholds = [50, 55, 60]      # ⚠ 事前固定。結果を見て動かさない（rules.md 13-3）
+form = "shared"                # (A) 銘柄共通 1 本
+
+[validation]
+split = "walk_forward_dates"   # ⚠ fold の切れ目は日付で決める（rules.md 13-6 の 1）
+folds = 5
+purge = true
+embargo_bars = 0
+seed = 0
+
+[features]
+ex_lag_days = 1
+ex_zero_fill = ["usgs"]
+ex_transforms = ["d1", "z20"]
+ex_max_stale_days = 7

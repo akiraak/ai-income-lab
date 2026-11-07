@@ -1,0 +1,10 @@
+# ⚠ 開発ループ（2026-11-07 段 2・人の手）。登録簿 20261107-regime-col-lgbm ／ 20261107-path-cluster-baserate ／ 20261107-volspike-cluster-lag。
+#    回すと決めたのは結果を見る前（各登録簿の registered_at）。数: R3 9・P1 3・L2 3 ＝ 15（基準線 2 本は数えない）。表は作り直さない（features_from）。
+#    ⚠ 20261107-date-shuffle-null は検証を作らない読むだけの物差し（cli.null_shuffle）＝ この queue には入らない。
+#    ⚠ 20261107-night-day-split は段 1 で「人の手」（共有の経路）＝ 作っていない。
+experiments = ["dev_regime_col_lgbm", "dev_path_cluster", "dev_volspike_cluster"]
+
+leak = true
+ledger = true
+max_failures = 1
+time_budget_s = 3600     # 見積り 約 6 分【推測。LightGBM 3 本 × 5 fold（重要度の fit を含む）× 本番 ＋ leak・k-means 2 本】

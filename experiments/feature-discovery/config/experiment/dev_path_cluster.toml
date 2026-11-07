@@ -1,0 +1,43 @@
+# ⚠ **開発ループの登録簿 `20261107-path-cluster-baserate`（参考なし・枠の外）**（rules.md 31 章・記録 dev-loop.md・事前固定は登録簿）。
+#    trade_ownseq_ridge_a の写し（own ＋ seq の表・同じ切れ目）。違いは検知器だけ: 60 日の道筋の形を訓練分割で k-means（8 個・ラベルを見ない）に分け、
+#    塊ごとの訓練分割の「翌日に上がった割合」を買い% にする規則 P1（較正なし・ail/ideas/i20261107_path_cluster.py）× θ 3 ＝ 3 検証。
+#    基準線「形の塊を乱数で割り当てた割合（8個）」は数えない（買い% 0 ／ 100 ＝ θ 50 の行と比べる）。
+#    ⚠ model の Ridge は識別項目の綴りのためだけ（P1 は呼ばない ＝ L1 と同じ都合。登録簿の key_shape の学習器 base-rate の綴りは無い）。
+#    表の接頭辞は own（seq 層の列も own_seq60_* ＝ key_shape の「seq.」ではなく名前は own-seq.…）。
+#    leak 対照は LEAK_ 列を塊の入力に √60 倍で足す（登録簿の「塊の割り当てに y_fwd_1 を混ぜた行」）。
+# ⚠ **回すと決めたのは結果を見る前（登録 2026-11-07 01:02 PST）**。
+name = "dev_path_cluster"
+dataset = "daily"
+horizon = 1
+cost_bp = 5.0
+features_from = "trade_ownseq_ridge_a"   # ⚠ 表は作り直さず trade_ownseq_ridge_a のものを読む（13-8）
+start_date = "2018-01-31"
+
+feature_layers = ["own", "seq"]
+targets = "all"
+
+horizon_min = 1440.0
+bar_minutes = 1440.0
+
+detectors = ["P1 60日の形の塊ごとの上がる割合（k-means・8個）"]
+k = 60
+
+model = "Ridge"
+baselines = ["常に上（ドリフト）", "直前リターンの符号", "形の塊を乱数で割り当てた割合（8個）"]
+[trading]
+style = "threshold"
+thresholds = [50, 55, 60]      # ⚠ 事前固定。結果を見て動かさない（rules.md 13-3）
+form = "shared"                # (A) 銘柄共通 1 本
+
+[validation]
+split = "walk_forward_dates"   # ⚠ fold の切れ目は日付で決める（rules.md 13-6 の 1）
+folds = 5
+purge = true
+embargo_bars = 0
+seed = 0
+
+[features]
+ex_lag_days = 1
+ex_zero_fill = ["usgs"]
+ex_transforms = ["d1", "z20"]
+ex_max_stale_days = 7

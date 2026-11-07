@@ -65,6 +65,13 @@
 "R2 局面別 Ridge（外生で k-means・2個）" = "r2-regime-ex-k2"   # 登録簿 20261106-regime-ex-cluster-ridge（2026-11-06・ail/ideas）
 "R2 局面別 Ridge（外生で k-means・4個）" = "r2-regime-ex-k4"
 "L1 集まりの中で遅れた銘柄を買う（相関の集まり8個・5日）" = "cluster8-laggard5"   # 登録簿 20261106-cluster-laggard-revert（2026-11-06・ail/ideas）
+"R3 局面の番号を列にした LightGBM（外生で k-means・2個）" = "regime-ex-col-k2"   # 登録簿 20261107-regime-col-lgbm（2026-11-07・ail/ideas）
+"R3 局面の番号を列にした LightGBM（外生で k-means・4個）" = "regime-ex-col-k4"
+"R3 局面の列なし（own のみ・LightGBM）" = "regime-ex-col-none"   # 同じ登録簿の対照（数える）
+"P1 60日の形の塊ごとの上がる割合（k-means・8個）" = "path-kmeans8"   # 登録簿 20261107-path-cluster-baserate（2026-11-07・ail/ideas）
+"L2 出来高が同じ日に跳ねる仲間の遅れを買う（集まり8個・翌日）" = "volspike-cluster8-lag1"   # 登録簿 20261107-volspike-cluster-lag（2026-11-07・ail/ideas）
+"形の塊を乱数で割り当てた割合（8個）" = "rand-path-kmeans8"   # 基準線（数えない）。登録簿 20261107-path-cluster-baserate
+"出来高の集まりを乱数で割り当てた遅れの買い（8個）" = "rand-volspike-cluster8-lag1"   # 基準線（数えない）。登録簿 20261107-volspike-cluster-lag
 "X2 出口だけ 高値20日からσの2倍で降りる" = "x2-exit-ddvol20-2"
 "X2 出口だけ 高値20日からσの4倍で降りる" = "x2-exit-ddvol20-4"
 "X2 出口だけ 高値20日からσの8倍で降りる" = "x2-exit-ddvol20-8"
@@ -183,6 +190,8 @@
 "弱い相場は休む（先20日・直近252日）" = "rest-weak20-n252"
 "弱い相場は休む（先40日・直近252日）" = "rest-weak40-n252"
 "集まりを乱数で割り当てた遅れの買い（8個）" = "rand-cluster8-laggard5"
+"形の塊を乱数で割り当てた割合（8個）" = "rand-path-kmeans8"
+"出来高の集まりを乱数で割り当てた遅れの買い（8個）" = "rand-volspike-cluster8-lag1"
 
 [augment]
 "GAN増強" = "gan"

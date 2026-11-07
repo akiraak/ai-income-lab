@@ -1,4 +1,8 @@
 # DONE
+- 2026-11-07 棚卸しの結果を画面で見られるようにする（外部のタブ「実行」に「棚卸し」のページ） [plan](docs/plans/archive/inventory-tab.md)
+  利用者（2026-11-07）:「どこかで結果を確認できる方法が欲しい。メール送信以外で何かよい案を出して」→ 案 A に「A で進めて」
+  - [x] Step 1: `dashboard/inventoryview.py`（研究の DB の注記なしの保留を区分ごとに・閉じる案の下書きと照合・並べ替えの列も）＋ `TraderPaths` の `experiment_dir` ／ `inventory_dir` ＋ vibetab の目次 4 番目と `/inventory` ＋ テスト 5 本（vibetab 関連 143 本 ✅）
+  - [x] Step 2: dashboard.md §21。titan では 3015 は動いていなかった（project-manager が開くときに新しいコードで起きる）ので、3019 で一時に起こして本物の DB で表示を確かめた（保留 190・注記なし 41・案 閉じる 18 ／ 残す 23・区分 13）
 - 2026-11-07 実験の行ごとの買い% ／ 出口% を記録に残す：段 2 並べ替え検定の列 2 本（判定に使わない・物差し `20261025-permutation-yardstick` の材料） [plan](docs/plans/archive/save-buy-pct.md)
   利用者（2026-11-01）:「これからでも埋めた方がいいと思うが、なぜ記録を取らない？」→ 2 段の案に「進めて」→ 2026-11-07「2 を進めて」
   ✅ 2026-11-07 titan: `cli/perm_test.py`（fold ごとに評価分割の日付を 5 営業日の塊で 200 回入れ替え・全銘柄に同じ入れ替え → fold の分位と Fisher の p を DB の `outputs` の `perm/n200_b5_s0/` へ）・`cli/ledger.py` の列「並べ替え分位」「並べ替えp」（読むだけ）・rules.md 15-7 の 6・テスト 4 本。38 実行を 330 秒【実測】で埋めて 75 行に値・既存の列・判定・n_trials 1,166 は 1 文字も変わらない。p < 0.05 は 75 行のうち 7 行（素の Ridge の別の実行が 5 行）＝ 採否は変えない。プラン §6・§7

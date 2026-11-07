@@ -56,6 +56,10 @@ class TraderPaths:
     ideas_dir: Path = REPO_ROOT / "experiments" / "feature-discovery" / "config" / "ideas"
     devloop_toml: Path = REPO_ROOT / "experiments" / "feature-discovery" / "config" / "devloop.toml"
     devloop_log: Path = REPO_ROOT / "docs" / "specs" / "experiments" / "dev-loop" / "log"
+    # 「棚卸し」（inventoryview.py。2026-11-07）が読むもの: 実験の config（開発ループの行の区分 ＝ 頭の「登録簿 `<id>`」）と、
+    # 棚卸しの文書と閉じる案の下書きの置き場（`ledger-hold-inventory*.md`・`assets/ledger-hold-inventory-*closed-draft.toml`。読むだけ）
+    experiment_dir: Path = REPO_ROOT / "experiments" / "feature-discovery" / "config" / "experiment"
+    inventory_dir: Path = REPO_ROOT / "docs" / "specs" / "experiments"
 
     @classmethod
     def default(cls) -> "TraderPaths":
@@ -72,6 +76,8 @@ class TraderPaths:
             ideas_dir=Path(os.environ.get("AIL_IDEAS_DIR") or fd / "ideas"),
             devloop_toml=Path(os.environ.get("AIL_DEVLOOP_TOML") or fd / "devloop.toml"),
             devloop_log=Path(os.environ.get("AIL_DEVLOOP_LOG") or REPO_ROOT / "docs" / "specs" / "experiments" / "dev-loop" / "log"),
+            experiment_dir=Path(os.environ.get("AIL_EXPERIMENT_DIR") or fd / "experiment"),
+            inventory_dir=Path(os.environ.get("AIL_INVENTORY_DIR") or REPO_ROOT / "docs" / "specs" / "experiments"),
         )
 
 

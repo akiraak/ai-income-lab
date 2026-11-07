@@ -1470,3 +1470,26 @@ flowchart LR
 | 4 | ⚠ **読むだけ・標準ライブラリだけ**。操作の経路は無い（止める手は `experiments/feature-discovery/DEVLOOP_HALT` ＝ CLI ／ 利用者）。`out/`・`state/`・`.env` を読まない |
 | 5 | 置き場は `TraderPaths` の `ideas_dir`・`devloop_toml`・`devloop_log`（環境変数 `AIL_IDEAS_DIR`・`AIL_DEVLOOP_TOML`・`AIL_DEVLOOP_LOG`）。見張りは登録簿・日誌・設定の mtime ＋ 検証結果一覧を DB に入れ直した時刻（`fingerprint`） |
 | 6 | テスト `dashboard/tests/test_devloop_tab.py`（小さな登録簿・日誌・DB で画面 ／ 空でも落ちない ／ 指紋 ／ 目次の並び） |
+
+## 21. 棚卸し（外部のタブ「実行」の 1 ページ。2026-11-07）
+
+利用者（2026-11-07）「どこかで結果を確認できる方法が欲しい。メール送信以外で何かよい案を出して」→ 案 A「A で進めて」。月 1 回の棚卸し（rules.md 31 章・[daily-dev-loop.md](../plans/daily-dev-loop.md) 4-4）の材料を、いつ開いても最新で見る。プラン [inventory-tab.md](../plans/archive/inventory-tab.md)。画面は `dashboard/inventoryview.py`（`/experiments/view?item=inventory`・接頭辞 `/inventory` でも同じ中身）。
+
+> この図の主張: ページは研究の DB と閉じる案の下書きを読むだけ。閉じるのは利用者の「閉じて」→ Claude が `config/catalog_notes.toml` に貼る（画面に操作は無い）。
+
+```mermaid
+flowchart LR
+  D["研究の DB<br/>ledger_rows（保留・閉じる注記なし）"] --> P["inventoryview.py<br/>（読むだけ）"]
+  R["閉じる案の下書き<br/>assets/ledger-hold-inventory-*closed-draft.toml"] --> P
+  C["実験の config の頭<br/>（開発ループの行の区分）"] --> P
+  P --> V["実行タブの目次 4 番目「棚卸し」"]
+```
+
+| # | 決まり |
+| ---: | --- |
+| 1 | 出すもの: 頭の数（保留・閉じる注記つき・注記なし・案「閉じる」・案「残す ／ 案なし」）と検証結果一覧を DB に入れ直した時刻 ／ 区分の表（区分・行・上乗せの幅・fold の正の数・案・最初の実行）／ 行の表（区分・検証名・手法・θ・上乗せ・fold・並べ替え分位・並べ替えp・案・最初の実行）／ 棚卸しの文書と下書きの道 |
+| 2 | 区分は研究側 `cli.select_candidates.group_of` の写し（開発ループの行 ＝ 実験 config の頭の「登録簿 `<id>`」・`dev_tr_*` ＝ 机上の持ち越し・それ以外 ＝ 末尾の `_t14` などを落とした族） |
+| 3 | 案: 下書きの `[[closed]]` の照合キー（`ail/catalog.py` の `_CLOSED_FIELDS` の写し）が注記なしの保留の行に当たれば「閉じる（種別）」・当たらなければ「残す ／ 案なし」。注記の文は札の title に素の文で出す |
+| 4 | ⚠ **判定・`n_trials` は変えない**・「閉じる」は「効かないと確かめた」ではない（頭に注意）。⚠ **読むだけ・標準ライブラリだけ・操作の経路は無い**。`out/`・`state/`・`.env` を読まない |
+| 5 | 置き場は `TraderPaths` の `research_db`・`experiment_dir`・`inventory_dir`（環境変数 `AIL_EXPERIMENT_DIR`・`AIL_INVENTORY_DIR`）。見張りは検証結果一覧を DB に入れ直した時刻 ＋ 下書きと文書の mtime（`fingerprint`） |
+| 6 | テスト `dashboard/tests/test_inventory_tab.py`（注記なしの保留だけ・区分と案 ／ 画面の数と列 ／ DB が無くても落ちない ／ 照合キーと区分の決まりが研究側の写しであること ／ 目次と指紋） |

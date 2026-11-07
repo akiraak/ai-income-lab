@@ -2,6 +2,7 @@
 
 2026-10-22（木）titan。利用者「次のおすすめの作業は？」→ 推し 1 →「1 を進めて」（[プラン](../../plans/archive/ledger-hold-inventory.md)）。
 前の処遇: 2026-09-11（16 行）・2026-09-16（62 行）＝ [validation-power.md §6-2](feature-discovery/validation-power.md)・[ledger-hold-disposition.md](../../plans/archive/ledger-hold-disposition.md)。
+➡ **次の棚卸し**: [ledger-hold-inventory-2026-11.md](ledger-hold-inventory-2026-11.md)（2026-11-07・注記なし 41 行・案 閉じる 18 ／ 残す 23）。
 ⚠ **この文書は判断の材料である。判定の列・数字・`n_trials` は 1 つも変えていない。閉じる ／ 残すを決めるのは利用者**（前の 2 回と同じ）。
 
 ✅ **2026-10-22 14:10 PDT 利用者「案どおり閉じて」**: §2 の案どおり **72 行に「閉じる」の注記を足し、12 行を残した**。`config/catalog_notes.toml` に `[[closed]]` 72 件（＝ [下書き](assets/ledger-hold-inventory-closed-draft.toml) をそのまま）→ `cli.report --catalog` で吐き直し【検算】: 保留 161 のまま ／ 採る 0・落とす 793 のまま ／ 注記つき 77 → **149** ／ 検証結果一覧の差分は 72 行の「理由」の列と §0 の 1 行だけ（判定の列は 1 行も変わらない・§2 の表の内訳は 保留 161 ／ 基準 671 ／ 落とす 793 で前後同じ・壊れた行 0）／ 閉じた行で判定が保留でないもの 0。⚠ 1 度目の吐き直しで、上位 K の注記に書いた `|t|` が表の区切りになって 37 行が壊れた（差分の検算で見つけた）＝ **注記の文に `|` を書かない**。パイプを使わない言い方に直して吐き直した。

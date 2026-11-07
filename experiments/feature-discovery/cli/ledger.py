@@ -86,8 +86,61 @@ def store(d: dict, conn: sqlite3.Connection | None = None) -> int:
     return n_trials
 
 
+PERM_Q, PERM_P = "並べ替え分位", "並べ替えp"
+
+
+def attach_perm(d: dict, reader=None) -> int:
+    """行の代表の実行に並べ替え検定の結果（`cli.perm_test` が DB に置いたもの）があれば、列 2 本の値を行に足す。埋めた行の数を返す。
+
+    ⚠ **読むだけ・計算しない・判定に使わない**（登録簿 `20261025-permutation-yardstick`・プラン save-buy-pct.md §6）。
+    ⚠ 結果の上乗せが行の上乗せと合わない（別の実行の値が行に出ている）ときは埋めない。leak の行は埋めない（買い% を残さない）。
+    """
+    if reader is None:
+        from cli import perm_test
+
+        def reader(run):
+            try:
+                return perm_test.read_cache(run)
+            except Exception:                     # noqa: BLE001 ＝ DB が無い ／ 読めない ＝ 埋めないだけ
+                return None
+    memo: dict[str, dict | None] = {}
+    n = 0
+    for r in d["rows"]:
+        r[PERM_Q], r[PERM_P] = None, None
+        run = r.get("実行")
+        if not run or r.get("判定") == "基準":
+            continue
+        if run not in memo:
+            memo[run] = reader(run)
+        doc = memo[run]
+        if not doc:
+            continue
+        try:
+            th = float(r.get("閾値"))
+        except (TypeError, ValueError):
+            continue
+        for x in doc.get("rows") or []:
+            if not x.get("reproduced") or x.get("method") != r.get("手法名") or float(x.get("theta")) != th:
+                continue
+            edge = r.get("上乗せbp")
+            if edge is not None and abs(float(edge) - float(x["edge_bp"])) > 1e-4:
+                break
+            qs = [x["q_by_fold"][k] for k in sorted(x["q_by_fold"], key=int)]
+            r[PERM_Q] = "/".join(str(int(round(100 * q))) for q in qs)
+            r[PERM_P] = float(x["fisher_p"])
+            n += 1
+            break
+    return n
+
+
+def _p(v: float | None) -> str:
+    return "—" if v is None else ("<0.001" if v < 0.001 else f"{v:.3f}")
+
+
 def build(d: dict | None = None) -> str:
     d = d or catalog.ledger()
+    if any(PERM_Q not in r for r in d["rows"]):
+        attach_perm(d)
     rows = sorted(d["rows"], key=_sort_key)
     # ⚠ **検証の行 = カタログ ID の行 ＋ モデルが処置の行**（catalog.is_trial が正本）
     methods = [r for r in rows if catalog.is_trial(r)]
@@ -250,9 +303,9 @@ def build(d: dict | None = None) -> str:
     a("")
     head = ["ID", "手法", "系統", "実装", "モデル", "層", "期間", "粒度", "地平", "特徴量の層",
             "検証方式", "形式", "較正", "閾値", "本数",
-            "的中率", "IC", "粗利bp", "純利bp", "fold", "再現", "判定", "理由", "実行"]
+            "的中率", "IC", "粗利bp", "純利bp", "fold", PERM_Q, PERM_P, "再現", "判定", "理由", "実行"]
     align = ["---", "---", "---", ":-:", ":-:", ":-:", ":-:", "---", "---", ":-:", ":-:", ":-:",
-             ":-:", "---:", "---:", "---:", "---:", "---:", "---:", "---", "---", ":-:",
+             ":-:", "---:", "---:", "---:", "---:", "---:", "---:", "---", ":-:", "---:", "---", ":-:",
              "---", "---"]
     body = []
     for r in rows:
@@ -265,6 +318,7 @@ def build(d: dict | None = None) -> str:
                      _f(r["本数"], 1), _f(r["的中率"]),
                      _bp(r["IC"], 4) if r["IC"] is not None else "—",
                      _bp(r["粗利bp"]), f"**{_bp(r['純利bp'])}**", r["fold"] or "—",
+                     r.get(PERM_Q) or "—", _p(r.get(PERM_P)),
                      r["再現"], verdict, r["理由"] or "—", f"`{r['実行']}`"])
     L += _table(head, align, body)
     a("")
@@ -275,6 +329,11 @@ def build(d: dict | None = None) -> str:
     a("⚠ **検証方式が「閾値売買」の行の fold は、対 B&H 上乗せの符号**（rules.md 13-7。"
       "純利の符号では「買って持っただけ」と区別できない）。"
       "⚠ **新旧の純利 bp は別の物差しで、直接比べない**（rules.md 13-8）。")
+    a(f"⚠ **「{PERM_Q}」「{PERM_P}」は判定に使わない物差し**（登録簿 `20261025-permutation-yardstick`・`cli.perm_test`）: "
+      "fold ごとに評価分割の日付を 5 営業日の塊で 200 回入れ替えた売買（全銘柄に同じ入れ替え ＝ 銘柄ごとの買い% の集まりと"
+      "保有日率は保つ）の上乗せの中で、元の上乗せが何パーセント点か（fold の順に `/` でつなぐ）と、fold ごとの片側の p を Fisher で"
+      "合わせた p。⚠ **もう 1 つの採る基準ではない**（判定・n_trials は変えない）。⚠ 「—」＝ 行の実行が買い% を残していない"
+      "（2026-11-01 より前）・器が再現しない手法（役割つきの組など）・基準線の行。")
     a("")
 
     # --- 3. 未実施 ---

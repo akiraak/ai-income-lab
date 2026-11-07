@@ -1,4 +1,7 @@
 # DONE
+- 2026-11-07 実験の行ごとの買い% ／ 出口% を記録に残す：段 2 並べ替え検定の列 2 本（判定に使わない・物差し `20261025-permutation-yardstick` の材料） [plan](docs/plans/archive/save-buy-pct.md)
+  利用者（2026-11-01）:「これからでも埋めた方がいいと思うが、なぜ記録を取らない？」→ 2 段の案に「進めて」→ 2026-11-07「2 を進めて」
+  ✅ 2026-11-07 titan: `cli/perm_test.py`（fold ごとに評価分割の日付を 5 営業日の塊で 200 回入れ替え・全銘柄に同じ入れ替え → fold の分位と Fisher の p を DB の `outputs` の `perm/n200_b5_s0/` へ）・`cli/ledger.py` の列「並べ替え分位」「並べ替えp」（読むだけ）・rules.md 15-7 の 6・テスト 4 本。38 実行を 330 秒【実測】で埋めて 75 行に値・既存の列・判定・n_trials 1,166 は 1 文字も変わらない。p < 0.05 は 75 行のうち 7 行（素の Ridge の別の実行が 5 行）＝ 採否は変えない。プラン §6・§7
 - 2026-11-04 開発ループの報告メール：Phase 0〜3 [plan](docs/plans/devloop-mail.md)
   2026-11-04 の TODO の整理で移した。親タスクと Phase 5（HTML の本文）・Phase 4（片付け）は TODO に残る
   - [x] Phase 0: 決めごと M1〜M3
@@ -149,7 +152,7 @@
       ✅ 2026-11-01 16:34 PST: queue `dev_20261101d` ＝ 採る 0 ／ 保留 0 ／ 落とす 6（1,114 → 1,120）。順位の量の負けは大半が持つ量の差・急落の出口は乱択と同じ ＝ 日足の own 列からは量も降りる日も情報が見えない。[dev-loop.md §8](docs/specs/experiments/dev-loop.md)
   - [x] 3 周目（手で。2026-11-01 利用者「開発ループの3周目を進めて」）
     ✅ 2026-11-01 15:21 PST: 段 1（$2.13・5 本）→ 3 本を作って queue `dev_20261101b` ＝ 採る 0 ／ 保留 0 ／ 落とす 24（1,084 → 1,108）。段 0 の門が自分の錠で毎晩止まる不具合を直した（`728b1a7`）。残る人の手 2 本（`20261101-deadzone-label`・`-subperiod-sign-count`）は利用者が作るか決める。記録 [dev-loop.md §5](docs/specs/experiments/dev-loop.md)
-  - [x] 実験の行ごとの買い% ／ 出口% を記録に残す：段 1 [plan](docs/plans/save-buy-pct.md)
+  - [x] 実験の行ごとの買い% ／ 出口% を記録に残す：段 1 [plan](docs/plans/archive/save-buy-pct.md)
     - [x] 段 1: 保存する（`buy_pct.parquet`・判定は 1 ビットも変えない）
       ✅ 2026-11-01 titan: 1 実行 約 4.2MB【実測】・leak には残さない・実データで回し直して出力が 1 バイトも同じ。⚠ 測定の 1 回が本物の DB に入った（同じ識別項目の回し直し・n_trials 不変）
 - 2026-11-01 トレーダー 3 人に予算を割り振り、tastytrade の本口座で実際に売買して記録を残す（実売買の仕組み） [plan](docs/plans/archive/live-trading-three-models.md)

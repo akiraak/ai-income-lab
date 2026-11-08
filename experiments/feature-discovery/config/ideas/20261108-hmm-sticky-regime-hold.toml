@@ -1,0 +1,23 @@
+# ⚠ 開発ループの登録簿（rules.md 31-1）。cli.devloop が書く。status が 登録 より先なら structure ／ prediction ／ n_trials_planned ／ key_shape を直さない（直すなら新しい id）
+id = "20261108-hmm-sticky-regime-hold"
+date = "2026-11-08"
+title = "滞在日数に下限を置いた隠れマルコフの局面で「持つ／休む」を決める"
+kind = "モデル"
+origin = { r_pct = 30, n_per_night = 5, prompt = "ideate_ref", contract = 2, model = "claude", cost_usd = 1.67, turns = 5, source = "reference", refs = ["dev-loop.md §11（R3・滞在 1〜2 日・learn_if_null の次の手 ＝ 隠れマルコフ）", "dev-loop.md §10（R2・局面別の線形の軸は閉じる）", "dev-loop.md §9（V2 荒れる日を休む・上がる日も逃して B&H に負ける）"] }
+question = "k-means でできた局面は 1〜2 日で入れ替わり、日ごとの揺れを分けていただけだった（R1〜R3）。遷移を抑えた隠れマルコフ（HMM）で数十日続く局面を作り、局面ごとの「持つ確率」を買い% にしたら、売買しない日の選び方は同じ保有日率の乱択ゲートと区別できるか。"
+structure = "新しい検知器 `R4 粘る局面で持つ（HMM・2 ／ 3 状態）`（ail/ideas/ の新しいモジュール）。入力は 63 本の等加重の日次リターンと、その 20 日の実現ボラの 2 列（1 日遅れ）。ガウス HMM を訓練分割で fit し、遷移行列の対角に下限を置く（期待滞在 ≥ 20 営業日に当たる下限を、種類として事前に固定）。評価分割は前向き（filtering）の状態確率だけを使う（smoothing は使わない）。買い% ＝ 100 × Σ_k P(状態 k | 過去) × 訓練分割での状態 k の翌日上昇の割合（Platt を通す）。全銘柄に同じ買い% を出す（断面の情報は使わない）。状態数 2 ／ 3 の 2 種類 × θ 3。対照は同じ保有日率の乱択ゲート（既存の checks）と、R3 の列なしの行。既存の R1〜R3（k-means）との違い ＝ 遷移を抑えた系列モデルで、局面の滞在に下限がある"
+n_trials_planned = 6
+key_shape = ["own.r4-hmm-sticky-k2.ridge.shared", "own.r4-hmm-sticky-k3.ridge.shared"]
+failure_modes = ["下限を置いても EM が 1 つの状態に潰れ、ほぼ全期間が同じ局面になる（＝ B&H と同じ形）", "局面は続くが、状態ごとの翌日上昇の割合がどれも 52〜54% に収まり、買い% の幅が θ をまたがない（P1 と同じ型）", "前向きの確率は局面の切り替わりに数日遅れ、休む日が下げの後半と戻りの初日に寄る（V2 の『上がる日も逃す』型）"]
+prediction = "局面の滞在日数の中央値は 20 日を超える（k-means の 1〜2 日とは違う）。上乗せは θ 50 で −300〜+200bp/fold、θ 55 ／ 60 は持つ日が減って負。2020 年と 2022 年を含む fold だけ正に寄り、fold の符号は割れる。同じ保有日率の乱択ゲートとの差は |t| < 2。leak 対照（LEAK 列を HMM の入力に足す）は跳ねる"
+effort = "中"
+measurable = "測れる: 全銘柄に同じ合図を出すので、効くとすれば上乗せは 1 fold に数百 bp 単位で出る（下げ相場を丸ごと休む形）。fold の符号と、同じ保有日率の乱択との対の差で見分けられる。滞在日数は判定とは別に機械で数えられる"
+touches = "新しいモジュールだけ（ail/ideas/・hmmlearn が無ければ numpy で前向き算法を書く）"
+status = "登録"
+frame = "外"
+p_hold = 0.25
+p_positive = 0.35
+learn_if_null = "滞在が 20 日を超えても乱択と区別できなければ、『日足の市場全体の値動きから、持つか休むかを決める局面は作れない』として局面の軸（R1〜R4）をまとめて閉じる。次は局面を価格以外（金利の曲線の形・信用スプレッドなど公開の系列）で作る形を新しい id で登録する。滞在が 1〜2 日のままなら、HMM の下限が効いていない配線の問題として先に直す"
+registered_at = "2026-11-08 01:01 PST"
+reference_mode = "避ける"
+notes = "段 1 の出力の key_shape の原文: own.r4-hmm-sticky-k2.ridge.shared@θ ／ own.r4-hmm-sticky-k3.ridge.shared@θ（学習器の綴りは L1・P1 と同じ都合で ridge のまま・Ridge は呼ばない）"

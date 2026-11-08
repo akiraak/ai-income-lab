@@ -1,0 +1,23 @@
+# ⚠ 開発ループの登録簿（rules.md 31-1）。cli.devloop が書く。status が 登録 より先なら structure ／ prediction ／ n_trials_planned ／ key_shape を直さない（直すなら新しい id）
+id = "20261108-edgar-8k-event-flags"
+date = "2026-11-08"
+title = "8-K の提出の印（項目つき）を、銘柄を落とさない形で足す"
+kind = "データ"
+origin = { r_pct = 30, n_per_night = 5, prompt = "ideate_ref", contract = 2, model = "claude", cost_usd = 1.67, turns = 5, source = "reference", refs = ["smallcap-stage2b.md（段 2b・同じ集合なら決算の差は数十 bp・|t| ≤ 1.64）", "earnings-layer.md（ern 層・tag の選び方・登録者の変わった XOM／BG）", "dev-loop.md §11（L2・learn_if_null の次 ＝ 材料を共有する印 8-K）", "dev-loop.md §10（planted-power・IC と検出力）"] }
+question = "決算の 3 列（ern）は、銘柄の集合をそろえると翌日の方向について何も持たなかった。決算以外の重要事実の開示（8-K の項目 5.02 役員の異動・8.01 その他・1.01 重要な契約など）の『昨日出した』『直近 20 日の件数』は、同じ集合・同じ切れ目で own だけの行と差を作るか。"
+structure = "新しい取得元 `edgar_8k`（SEC EDGAR の submissions JSON から 8-K ／ 8-K/A の提出日と items を取る。時刻 ＝ 提出日・as-of ＝ 足の日 − 1）を新しい置き場に置く。新しい層 `evt`（接頭辞 `evt_`）は ernf と同じ『欠損を印にして埋める』形にし、銘柄を落とさない。列は 5 本: evt_8k_d1（前営業日に 8-K）・evt_8k_502_d1・evt_8k_202_d1（決算の 8-K）・evt_8k_cnt20・evt_days_since_8k。対象は会社 48 本（targets = company）。対の相手は同じ表の own だけの行 ern_own48（既存）。学習器は Ridge だけ × θ 3。ern ／ ernf との違い ＝ 年次・四半期の報告ではなく、臨時の開示の印（項目別）"
+n_trials_planned = 3
+key_shape = ["own48+evt.full.ridge.shared"]
+failure_modes = ["8-K の大半は項目 2.02（決算）と 9.01（添付）で、ern と同じ情報の言い換えになる", "項目 5.02 などの印は 1 銘柄で年に数回しか立たず、Ridge の 40 列の中で係数が 0 に縮む（planted-power の s 5 bp/日 級では拾えない）", "SEC の取得で登録者の変わった会社（XOM・BG）の前の提出が落ち、2018〜2023 年の印が欠ける"]
+prediction = "evt の有無の対の差は 3 対とも |t| < 1.5、向きは割れる。上乗せは own48 と同じく負寄り。買い% の幅は own48 と 1 点以内（印が稀で係数が縮む）。leak 対照は跳ねる"
+effort = "中"
+measurable = "測れない寄り: 稀な印の効き目は行ごとの IC で 0.01 級と見込まれ、planted-power（s 20 bp/日 ＝ IC 0.11 で採る 40%）よりずっと小さい。ただし同じ集合の対の差は数十 bp で出るので、『対の差が数百 bp 出るか』の向きだけは見られる"
+touches = "新しいモジュールだけ（取得元は ail/data/sources/ に新しく・層は ail/ideas/ と layer_order の口）。⚠ SEC は User-Agent に連絡先が要り、毎秒 10 回まで ＝ 連絡先は E2 どおり取得のたびに利用者に聞く（リポジトリに書かない）"
+status = "登録"
+frame = "内"
+p_hold = 0.15
+p_positive = 0.45
+learn_if_null = "同じ集合で差が無ければ、『SEC の開示の時刻（決算・臨時とも）は、翌日の終値の方向に日足の器で使える情報を持たない』として EDGAR の層の軸を閉じる。次は印を列にせず、提出の翌日だけ売買する事象の器（印の立った行だけ評価する）を新しい id で登録する。または、同じ日に 8-K を出した会社どうしを集まりにする形（volspike の learn_if_null）の材料に回す"
+registered_at = "2026-11-08 01:01 PST"
+reference_mode = "当てる"
+notes = "段 1 の出力の key_shape の原文: own48+evt.full.ridge.shared@θ（evt は新しい綴り。names.toml の [layers] に足す）"

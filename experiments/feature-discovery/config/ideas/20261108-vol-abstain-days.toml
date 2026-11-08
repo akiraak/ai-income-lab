@@ -1,0 +1,21 @@
+# ⚠ 開発ループの登録簿（rules.md 31-1）。cli.devloop が書く。status が 登録 より先なら structure ／ prediction ／ n_trials_planned ／ key_shape を直さない（直すなら新しい id）
+id = "20261108-vol-abstain-days"
+date = "2026-11-08"
+title = "値動きの大きさを当てて、荒れる日だけ休む"
+kind = "モデル"
+origin = { r_pct = 30, n_per_night = 5, prompt = "ideate_free", contract = 2, model = "claude", cost_usd = 0.586, turns = 1, source = "independent", refs = [] }
+question = "翌日の方向ではなく翌日の |log リターン| の大きさを当て、予測した荒れ具合が上位の日だけ持ち株を現金にすると、同じ保有日率の乱択の休み方と比べて上乗せの符号が fold でそろうか。"
+structure = "新しいラベルの口 label = \"abs_ret\"（y の絶対値・訓練分割だけで学ぶ）と、器の口「休む規則」（予測した大きさの訓練分割での分位が q を超える日は持たない・それ以外は全部持つ）。q の種類は売買基準値と同じ 3 水準（θ 50 ／ 55 ／ 60 を分位 0.50 ／ 0.55 ／ 0.60 の『持つ側』に写す）で事前固定。対照 ＝ 同じ保有日率で休む日を乱択（種 5・数えない）と B&H。学習器は Ridge 1 本・入力は own_ 35 列。"
+n_trials_planned = 3
+key_shape = ["own.abs-ret-abstain.ridge.shared", "55", "60）"]
+failure_modes = ["大きさの予測が直近のボラの写しになり、休む日がボラの高い時期にまとまって戻りの初日を逃す", "休む日が fold ごとに 1 つの時期に集中し、1 fold が平均を決める", "大きさのラベルに方向の情報が無いので、上乗せが保有日率の違いだけで説明される（乱択との差 0）"]
+prediction = "大きさの予測そのものは当たる（順位相関は方向より明らかに高い）が、上乗せは対 B&H で負の向き・乱択との差は |t| < 2・fold の符号は割れる。leak 対照（翌日の |y| を混ぜる）は休む日が大きな下落日に当たって跳ねる。"
+effort = "中"
+measurable = "測れる: 休む日は保有日率で数十 % 動くので、対 B&H の差は数百 bp/fold 級になり、乱択との差も同じ桁で読める"
+touches = "共有の経路: ail/validation（新しいラベル）・器の休む規則（無い config は 1 ビットも変わらない形で足す）"
+status = "人の手"
+frame = "外"
+p_hold = 0.15
+p_positive = 0.3
+learn_if_null = "大きさが当たっても休む規則が乱択と同じなら、『荒れる日を避ける』では上乗せが作れないと分かる。次は大きさを休む判断ではなく持つ量（大きさの逆数で配る）に使う形を登録する。"
+notes = "段 1 の出力の key_shape の原文: own.abs-ret-abstain.ridge.shared@θ（θ ＝ 50 ／ 55 ／ 60）"

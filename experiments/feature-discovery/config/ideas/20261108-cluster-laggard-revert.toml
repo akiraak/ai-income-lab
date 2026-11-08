@@ -1,0 +1,21 @@
+# ⚠ 開発ループの登録簿（rules.md 31-1）。cli.devloop が書く。status が 登録 より先なら structure ／ prediction ／ n_trials_planned ／ key_shape を直さない（直すなら新しい id）
+id = "20261108-cluster-laggard-revert"
+date = "2026-11-08"
+title = "値動きの似た銘柄の集まりを先に見つけ、集まりの中の出遅れを買う"
+kind = "データ"
+origin = { r_pct = 30, n_per_night = 5, prompt = "ideate_free", contract = 2, model = "claude", cost_usd = 0.586, turns = 1, source = "independent", refs = [] }
+question = "ラベルを使わずに訓練分割のリターンの相関から銘柄の集まりを作り、問いを『翌日上がるか』から『集まりの中の順位が入れ替わるか（直近 5 日の出遅れが集まりの平均に戻るか）』に変えると、fold の符号がそろう形が出るか。"
+structure = "新しい層 grp_（訓練分割の日次リターンの相関行列を階層クラスタリングで k 個に切る・k の種類は『セクター ETF の数に合わせる』1 種で事前固定・評価分割には訓練で決めた所属を写すだけ）。列 ＝ 集まりの平均との直近 1 ／ 5 ／ 20 日の差・集まりの中の順位。ラベルの口 label = \"grp_excess\"（翌日の集まりの平均に対する超過）。学習器 Ridge・θ 3 水準。対照 ＝ 同じ列を所属を乱数で入れ替えた集まりで作った行（数えない）と leak。"
+n_trials_planned = 3
+key_shape = ["own+grp.grp-excess-label.ridge.shared"]
+failure_modes = ["集まりがセクター ETF の分け方とほぼ同じになり、既存の rel_ 層の言い換えになる", "訓練分割の相関で決めた所属が評価期間で崩れる（相関の局面が変わる）", "超過ラベルで学んでも器は絶対の値動きで約定するので、市場全体の下げに巻き込まれて対 B&H が負になる"]
+prediction = "所属を乱数にした対照との差は小さい（|t| < 2）・対 B&H は保有日率が下がるぶん負の向き・fold は 3 対 2 程度に割れる。leak は跳ねる。"
+effort = "中"
+measurable = "測れる: 出遅れを買う規則は売買の回数が多く保有日率も大きく変わるので、上乗せは数百 bp/fold 級で動き、乱数の所属との対で読める"
+touches = "共有の経路: ail/features（新しい層 grp_）・ラベルの口。層は ail/ideas/ に置けるが、ラベルは人の手"
+status = "人の手"
+frame = "外"
+p_hold = 0.2
+p_positive = 0.4
+learn_if_null = "乱数の所属と差が無ければ、相関で見つけた集まりに『戻り』の情報は無く、断面の順位はセクターの分け方で足りると分かる。次は集まりを相関ではなく出来高の動きの似かたで作る形に替える。"
+notes = "段 1 の出力の key_shape の原文: own+grp.grp-excess-label.ridge.shared@θ"

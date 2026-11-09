@@ -1,0 +1,22 @@
+# ⚠ 開発ループの登録簿（rules.md 31-1）。cli.devloop が書く。status が 登録 より先なら structure ／ prediction ／ n_trials_planned ／ key_shape を直さない（直すなら新しい id）
+id = "20261109-null-shuffle-top-rows"
+date = "2026-11-09"
+title = "上位の候補と唯一の「採る」行を、日付の塊の入れ替えで作った偽の分布に当てる"
+kind = "物差し"
+origin = { r_pct = 30, n_per_night = 5, prompt = "ideate_ref", contract = 2, model = "claude", cost_usd = 1.667, turns = 6, source = "reference", refs = ["docs/specs/experiments/dev-loop.md §11（date-shuffle-null：素の own × Ridge の分位 0.57・偽の保留 6.5%・採る 0%）・§10（planted-signal-power）", "CLAUDE.md の select_candidates の節（上位 F1-7 ／ F2-2 ／ M1）", "docs/specs/experiments/symbol-selection-by-training.md §6 ／ symbol-selection-widen.md（唯一の「採る」と追試で再現せず）", "docs/specs/experiments/feature-discovery/ledger.md §0"] }
+question = "select_candidates の上位 3（F1-7 ／ F2-2 ／ M1）と、検証結果一覧で唯一「採る」になった行（中位 48・`ret` θ50・1 本 $600）は、ラベルと時間の対応を壊した偽の実行の分布の中でどこに来るか。素の own × Ridge の分位 0.57 と見分けがつくか。"
+structure = "読むだけの物差し `cli/null_shuffle.py`（§11 で作ったもの）を、対象の実行を差し替えて流す。口の新設は無く、塊 20 営業日 × 200 回・断面を保つ・fold をまたがない、の水準は §11 と同じにして振らない。「採る」の行は銘柄の選抜が訓練分割で走るので、入れ替えた y で選抜からやり直す（選抜も偽にする）。結果は DB の outputs の diag/ に置き、検証結果一覧の判定には混ぜない（並べて見せるだけ）。元の行が偽の分布のどこに来るか（分位）と、偽の実行で出た「保留」「採る」の率を記録する。"
+n_trials_planned = 0
+key_shape = ["F2-2"]
+failure_modes = ["F2-2（RFE）や M1 は 1 回の実行が重く、200 回では夜の枠（3 時間）に収まらない（収まらないときは回数を減らさず、別の晩に分ける）", "選抜を偽の y でやり直すと候補の集合が毎回変わり、「採る」の行の偽の分布が選抜のばらつきで広がる（器の差なのか情報の差なのか分けられない）", "上位 3 は fold の符号が割れた保留の行なので、偽の分布の上寄りに来ても、多重検定を通していない良い数字にとどまる"]
+prediction = "上位 3 は偽の分布の中ほどから上寄り（分位 0.6〜0.9）に来て、0.95 を超える行は無いと見る。「採る」の行は、追試で 3 表とも再現しなかったので分位 0.8〜0.95 に来て、偽の実行の中にも「採る」が数 % 出ると見る（選抜が乱数の 5 本と差が無かったため）。"
+effort = "中"
+measurable = "測れる: 判定の式ではなく、元の行が偽の 200 回の中で何番目かを数えるので、検出限界に関係なく順位は出る。順位が 0.95 を超えるかどうかで二分できる。"
+touches = "新しいモジュールだけ（cli/null_shuffle.py の対象の指定を広げる。研究の DB の outputs に書く）"
+status = "登録"
+frame = "内"
+p_hold = 0.0
+learn_if_null = "全部が偽の分布の中ほどに来れば、上位 3 と「採る」の 1 行も、1 日ラベルの情報は無いのと同じ、と言える。その場合は select_candidates の上位を候補の人の材料にする理由が無くなる。次は、併記の 5 列に偽の分布での分位を 1 列足すことを、選ぶ段の物差しの変更として登録する（判定式は変えない）。"
+registered_at = "2026-11-09 01:01 PST"
+reference_mode = "当てる"
+notes = "段 1 の出力の key_shape の原文: 検証を作らない（n_trials に数えない）。対象は ledger_rows にある既存の行（F1-7 ／ F2-2 ／ M1 の上位 3 行と sel600_midcap_cs の ret θ50）"

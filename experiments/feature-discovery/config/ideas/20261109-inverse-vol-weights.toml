@@ -1,0 +1,21 @@
+# ⚠ 開発ループの登録簿（rules.md 31-1）。cli.devloop が書く。status が 登録 より先なら structure ／ prediction ／ n_trials_planned ／ key_shape を直さない（直すなら新しい id）
+id = "20261109-inverse-vol-weights"
+date = "2026-11-09"
+title = "同じ合図のまま、等加重をやめて値動きの小さい銘柄ほど多く持つ"
+kind = "執行"
+origin = { r_pct = 30, n_per_night = 5, prompt = "ideate_free", contract = 2, model = "claude", cost_usd = 0.601, turns = 1, source = "independent", refs = [] }
+question = "買う銘柄とタイミング（合図）を一切変えずに、配る量だけを直近の値動きの大きさの逆数に比例させたとき、等加重との対の差はどちらに出るか（いつ買うかではなく、どれだけ持つかを決める問い）。"
+structure = "閾値売買の器に任意の口 `weights = \"inverse_vol\"` を足す（既定 equal ＝ 無い config は 1 ビットも変わらない）。重み ＝ 1 ／ 直近 60 営業日の日次リターンの標準偏差（その日に買い合図の出ている銘柄の中で正規化・前日までの値だけを使う）。合図は既存の own 35 列 × Ridge をそのまま使い、θ 50 ／ 55 ／ 60 の 3 水準。対の相手は同じ実行の等加重の行（同じ切れ目・同じ合図）。観測期間 60 日は事前固定で振らない。"
+n_trials_planned = 3
+key_shape = ["own.ret.ridge.shared~ivw", "55", "60）"]
+failure_modes = ["値動きの小さい銘柄（公益・生活必需品・債券寄りの ETF）に偏り、上げ相場の fold で B&H（等加重）に大きく負ける＝合図ではなく銘柄の偏りを測ってしまう", "合図がほぼ全銘柄で同時に出る時期は、重みの差がそのまま『低ボラの持ち続け』と同じになる", "B&H 側が等加重のままなので、対 B&H の上乗せに重み付けの差と合図の差が混ざる（対の差で分ける）"]
+prediction = "対の差（逆ボラ − 等加重）は上げ相場の fold で負・2020 年と 2022 年を含む fold で正に割れ、平均は 0 の近く。対 B&H の上乗せは等加重の行より振れが小さくなる。leak 対照は重みを変えても跳ねる。"
+effort = "小"
+measurable = "測れる: 対の差は同じ合図・同じ日の比較なので日々の雑音が大きく相殺され、銘柄の偏りによる差は数百 bp/fold の大きさで出る（ただし合図の良し悪しとは分けて読む）"
+touches = "共有の経路: ail/validation の simulate（重みの任意の口）・ail/catalog.py と ail/names.py（変種の綴り ~ivw）"
+status = "人の手"
+frame = "外"
+p_hold = 0.25
+p_positive = 0.45
+learn_if_null = "差なしなら、この合図の下では量の配り方は成績を左右しない＝上乗せは『どの日に持つか』だけで決まっていると分かる。次は重みを値動きではなく買い% の大きさ（確信度）に比例させる問いに替える。"
+notes = "段 1 の出力の key_shape の原文: own.ret.ridge.shared~ivw@θ（θ ∈ 50 ／ 55 ／ 60）"

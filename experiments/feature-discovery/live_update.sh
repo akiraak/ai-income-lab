@@ -38,7 +38,7 @@ $PY -m cli.live_merge --staging "$LIVE/.fetch" | tail -6
 EXOG_FAILED=""
 if [ "$EXOG" = 1 ]; then
   step "外部系列（exog_live ＝ 為替・金利・気象・地震）"
-  # ⚠ 取得元ごとに 1 回ずつ取り、失敗しても止まらずに次の取得元 → 調整へ進む（2026-11-03 docs/plans/exog-failure-continue.md）。
+  # ⚠ 取得元ごとに 1 回ずつ取り、失敗しても止まらずに次の取得元 → 調整へ進む（2026-11-03 docs/plans/archive/exog-failure-continue.md）。
   #    ECB が 500 ／ 503 ／ 504 を返す日がある【実測 約 27 回中 6 回】。止まると調整を飛ばし、夜の予測が印を書けず、翌日の発注が rc 13 になる。
   #    外部系列は ずらし ＋ 引き継ぎ（既定 1 ＋ 7 日）まで古くても使える作り ＝ 古すぎるかは最後の live_status が決める（rc 2）。
   for SRC in $(sed -n 's/^source *= *"\([a-z0-9_]*\)".*/\1/p' config/dataset/exog_live.toml); do

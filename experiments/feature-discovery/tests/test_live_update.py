@@ -1,4 +1,4 @@
-"""`live_update.sh` の段の流れ（2026-11-03 docs/plans/exog-failure-continue.md）。
+"""`live_update.sh` の段の流れ（2026-11-03 docs/plans/archive/exog-failure-continue.md）。
 
 外部系列の取得元が 1 つ失敗しても、ほかの取得元・調整・検査・「どこまで入ったか」まで進み、
 rc は「どこまで入ったか」（live_status）が決めることを、python を偽物に差し替えて確かめる（ネットワークなし）。

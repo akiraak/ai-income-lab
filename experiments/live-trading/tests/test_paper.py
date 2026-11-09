@@ -232,8 +232,10 @@ def test_a_fix_overrides_the_bar_and_the_rewrite_is_listed_once():
     assert closes2["T"][d] == 24.87 and snap2["kept"] == snap["kept"]
 
 
-def test_the_shipped_fixes_are_the_two_rewrites_of_oct_8():
-    assert paper.load_fixes() == {("T", "2026-10-08"): 24.87, ("VZ", "2026-10-08"): 46.2775}
+def test_the_shipped_fixes_are_the_known_rewrites():
+    # 10/8 の T ・ VZ（控えを作る前）／ 11/5 の PFE（控えが書き換えの後に初めて見た日。live-trading.md §1 の 11/5）
+    assert paper.load_fixes() == {("T", "2026-10-08"): 24.87, ("VZ", "2026-10-08"): 46.2775,
+                                  ("PFE", "2026-11-05"): 29.88}
 
 
 def _bars_csv(bars_dir, sym, closes, vol=1000.0):

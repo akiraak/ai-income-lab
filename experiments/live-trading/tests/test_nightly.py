@@ -176,3 +176,62 @@ def test_signals_are_read_by_the_signal_date(live_base):
 def test_run_live_same_day_refuses_submit(live_base):
     r = _live(live_base, ["--traders", "T18", "--same-day", "--mode", "submit", "--date", "2026-11-03"])
     assert r.returncode == 64 and "plan ／ dry-run だけ" in r.stdout
+
+
+# ---------- 夜の段の終値の控え（docs/plans/closes-snapshot-night.md・2026-11-09）
+# run-live.sh の --predict-only の塊だけを切り出し、python ・ live_update.sh ・ run_predict を偽物にして流す（時刻 ・ ネットワークに頼らない）
+
+FAKE_PY = r"""#!/usr/bin/env bash
+echo "PY $*" >> "$CALLS"
+case "$*" in
+  *"paper.py --snapshot-only"*) exit "${PAPER_RC:-0}" ;;
+  *"models --all-real"*) printf 'exp_a\tm\n' ;;
+esac
+exit 0
+"""
+
+
+def _night_block(tmp_path, update_rc=0, paper_rc=0):
+    text = open(os.path.join(ROOT, "run-live.sh"), encoding="utf-8").read()
+    start = text.index('if [ "$PREDICT_ONLY" = 1 ]; then')
+    end = text.index('[ -n "$TRADERS" ] || {', start)
+    fd, lt = tmp_path / "fd", tmp_path / "lt"
+    fd.mkdir(); lt.mkdir()
+    (fd / "live_update.sh").write_text(f'#!/usr/bin/env bash\necho "UPDATE" >> "$CALLS"\nexit {update_rc}\n')
+    (fd / "live_update.sh").chmod(0o755)
+    py = tmp_path / "py"
+    py.write_text(FAKE_PY); py.chmod(0o755)
+    script = tmp_path / "night.sh"
+    script.write_text("\n".join([
+        "#!/usr/bin/env bash", "T0=$(date +%s)", 'say() { echo "SAY $*"; }',
+        'run_predict() { echo "PREDICT $2" >> "$CALLS"; return 0; }',
+        f'PREDICT_ONLY=1; SKIP_UPDATE=0; DATE=""; STEPS=""; FD="{fd}"; LT="{lt}"; PY_LT="{py}"; NIGHTLY=nightly.py; ROOT="{tmp_path}"',
+        text[start:end], ""]))
+    calls = tmp_path / "calls.txt"
+    env = {**{k: v for k, v in os.environ.items() if not k.startswith(("LT_", "AIL_"))}, "CALLS": str(calls), "PAPER_RC": str(paper_rc)}
+    p = subprocess.run(["bash", str(script)], capture_output=True, text=True, env=env, timeout=60)
+    return p, calls.read_text(encoding="utf-8").splitlines()
+
+
+def test_night_snapshots_closes_after_the_update_and_before_predicting(tmp_path):
+    p, calls = _night_block(tmp_path)
+    assert p.returncode == 0, p.stdout + p.stderr
+    i_up = calls.index("UPDATE")
+    i_paper = next(i for i, c in enumerate(calls) if "paper.py --snapshot-only" in c)
+    i_pred = next(i for i, c in enumerate(calls) if c.startswith("PREDICT "))
+    assert i_up < i_paper < i_pred
+    assert "--bars-dir" in calls[i_paper] and calls[i_paper].endswith("/adjusted/d")
+    assert "終値の控え → closes.json" in p.stdout
+
+
+def test_a_failed_snapshot_does_not_stop_the_prediction(tmp_path):
+    p, calls = _night_block(tmp_path, paper_rc=1)
+    assert p.returncode == 0, p.stdout + p.stderr
+    assert any(c.startswith("PREDICT ") for c in calls)
+    assert "終値の控えに失敗" in p.stdout
+
+
+def test_no_snapshot_when_the_update_failed(tmp_path):
+    p, calls = _night_block(tmp_path, update_rc=1)
+    assert p.returncode == 10
+    assert not any("paper.py" in c for c in calls) and not any(c.startswith("PREDICT ") for c in calls)

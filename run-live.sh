@@ -148,6 +148,11 @@ if [ "$PREDICT_ONLY" = 1 ]; then
     say "日足 ＋ 外部系列の更新（公式の終値）"; STAGE=update
     "$FD/live_update.sh"; RC=$?; STEPS="update=$RC"
     [ "$RC" = 0 ] || [ "$RC" = 2 ] || { say "⚠ 日足の更新に失敗（rc=$RC）。予測しない"; exit 10; }
+    # 終値の控え（docs/plans/closes-snapshot-night.md・2026-11-09）: 公式の終値を取った直後に closes.json へ足す
+    # ＝ 権利落ち日の朝に前日の終値だけが書き換わっても、朝の paper.py が ② で拒める。⚠ 失敗しても予測は止めない（rc は変えない）
+    say "終値の控え → closes.json"; STAGE=closes
+    (cd "$LT" && "$PY_LT" paper.py --snapshot-only --bars-dir "${AIL_LIVE_DATA_DIR:-$FD/data-live}/adjusted/d"); R=$?
+    STEPS="$STEPS,closes=$R"; [ "$R" = 0 ] || say "⚠ 終値の控えに失敗（rc=$R。予測は続ける・朝の準備がいつもどおり控える）"
   fi
   STAGE=predict
   MODELS=$("$PY_LT" "$NIGHTLY" models --all-real) || { say "⚠ トレーダーの設定が読めない"; exit 11; }

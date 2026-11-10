@@ -269,3 +269,49 @@ def test_main_keeps_daily_csv_when_the_feed_rewrites_a_past_close(tmp_path, monk
     assert _main(monkeypatch, out, bars) == first
     snap = json.loads(livefs.read_doc(os.path.join(out, "closes.json")))
     assert [(k["symbol"], k["date"], k["kept"], k["rejected"]) for k in snap["kept"]] == [("AAA", "2026-09-23", 99.0, 98.0)]
+
+
+# --- 夜にも控える（docs/plans/closes-snapshot-night.md ＝ 2026-11-09 利用者「推す案で進めて」）
+
+def test_a_close_only_rewrite_is_rejected_even_if_the_volume_ticked_a_little():
+    """夜の足と朝の足は出来高だけ最大 +0.37% 違う【実測 11/3】＝ 1% 以内は ②（11/5 の PFE の形）。"""
+    d = "2026-11-05"
+    _, snap = paper.settle_closes({"PFE": {d: _bar(29.88, o=31.09, h=31.44, l=29.85, v=53_000_000.0)}}, [d], None)
+    closes, snap2 = paper.settle_closes({"PFE": {d: _bar(29.45, o=31.09, h=31.44, l=29.85, v=53_102_065.0)}}, [d], snap, now="t")
+    assert closes["PFE"][d] == 29.88
+    assert snap2["kept"] == [{"symbol": "PFE", "date": d, "kept": 29.88, "rejected": 29.45, "at": "t"}]
+
+
+def test_a_bigger_volume_change_is_still_a_new_bar():
+    d = "2026-11-05"
+    _, snap = paper.settle_closes({"T": {d: _bar(22.0, v=1000.0)}}, [d], None)
+    closes, snap2 = paper.settle_closes({"T": {d: _bar(22.1, v=1011.0)}}, [d], snap)      # +1.1% ＝ ③
+    assert closes["T"][d] == 22.1 and snap2["kept"] == []
+    closes3, snap3 = paper.settle_closes({"T": {d: _bar(22.2, h=12.5, v=1011.0)}}, [d], snap2)   # 高値が違う ＝ ③
+    assert closes3["T"][d] == 22.2 and snap3["kept"] == []
+
+
+def test_snapshot_only_writes_closes_json_but_not_daily_csv(tmp_path, monkeypatch):
+    out, bars = _out(tmp_path), tmp_path / "bars"
+    for s, m in _closes().items():
+        _bars_csv(bars, s, m)
+    monkeypatch.setattr("sys.argv", ["paper.py", "--out-dir", out, "--bars-dir", str(bars),
+                                     "--close-fixes", str(bars / "none.toml"), "--snapshot-only"])
+    assert paper.main() == 0
+    assert livefs.read_doc(os.path.join(out, "daily.csv"), missing_ok=True) is None
+    snap = json.loads(livefs.read_doc(os.path.join(out, "closes.json")))
+    assert snap["bars"]["AAA"]["2026-09-23"]["close"] == 99.0 and snap["kept"] == []
+    # 朝の回は夜の控えを使う: 終値だけ書き換わっても控えの値
+    from datetime import datetime, timezone
+    ms = str(int(datetime.fromisoformat("2026-09-23").replace(tzinfo=timezone.utc).timestamp() * 1000))
+    lines = (bars / "AAA.csv").read_text(encoding="utf-8").splitlines()
+    lines = [f"{ms},99.0,104.0,94.0,98.0,1000.0" if l.startswith(ms + ",") else l for l in lines]
+    (bars / "AAA.csv").write_text("\n".join(lines) + "\n", encoding="utf-8")
+    _main(monkeypatch, out, bars)
+    snap2 = json.loads(livefs.read_doc(os.path.join(out, "closes.json")))
+    assert [(k["symbol"], k["date"], k["kept"], k["rejected"]) for k in snap2["kept"]] == [("AAA", "2026-09-23", 99.0, 98.0)]
+
+
+def test_snapshot_only_refuses_quotes(tmp_path, monkeypatch):
+    monkeypatch.setattr("sys.argv", ["paper.py", "--out-dir", _out(tmp_path), "--close-from", "quotes", "--snapshot-only"])
+    assert paper.main() == 2

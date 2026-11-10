@@ -32,6 +32,9 @@
   ① 控えに無い日 → 足す ／ ② 終値**だけ**が変わった → 控えの終値を使う（書き換えを拒み `kept` に残す）／ ③ ほかも変わった → 受け入れる
   （⚠ 朝の時点で前の日の足がまだ 15:50 ごろの途中の値のことがある【実測 10/12 朝の 10/9】＝ 確定すると出来高が増えるので ③ で入れ替わる）。
   控えを作る前に起きた書き換えは `close_fixes.toml`（リポジトリ）で手で直す。`--close-from quotes` では使わない。
+  ✅ 2026-11-09（docs/plans/closes-snapshot-night.md）: 朝だけ控えると、権利落ち日の朝にもう書き換わっていて ② が働かないことがある
+  【実測 11/5 の PFE】→ 夜の予測の後に `--snapshot-only`（控えだけ・daily.csv は書かない）を `run-live.sh --predict-only` が流す。
+  ② は出来高の差 `VOLUME_TOL`（1%）以内を「同じ」とみなす（夜の足と朝の足は出来高だけ最大 +0.37% 違う【実測 11/3】）。
 """
 from __future__ import annotations
 
@@ -51,7 +54,9 @@ from _livefs import livefs  # noqa: E402
 
 DEFAULT_BARS = os.path.normpath(os.path.join(HERE, "..", "feature-discovery", "data-live", "adjusted", "d"))
 CLOSE_FIXES = os.path.join(HERE, "close_fixes.toml")
-BAR_KEYS = ("open", "high", "low", "volume")     # これが同じで終値だけ違う ＝ 配当の書き換え（控えの ②）
+BAR_KEYS = ("open", "high", "low")               # これが同じで終値だけ違う ＝ 配当の書き換え（控えの ②）
+VOLUME_TOL = 0.01      # ② で出来高の差がこの割合以内なら「同じ」とみなす（夜の足と朝の足は出来高だけ最大 +0.37% 違う【実測 2026-11-03】。
+                       # 途中の足 → 確定は引けのオークションで大きく増える ＝ ③。docs/plans/closes-snapshot-night.md）
 COST_BP = 5.0          # 往復。片道 2.5bp（rules.md 13-4。バックテストと同じ）
 UNATTENDED = ("retry", "auth_5xx_retry", "auth_failed", "halted", "out_of_window", "journal_unresolved", "position_short", "ledger_error")
 
@@ -106,6 +111,16 @@ def load_fixes(path: str = CLOSE_FIXES) -> dict[tuple[str, str], float]:
         return {(str(r["symbol"]), str(r["date"])): float(r["close"]) for r in tomllib.load(f).get("fix", [])}
 
 
+def _same_but_close(new: dict, old: dict) -> bool:
+    """始値 ・ 高値 ・ 安値が同じで、出来高の差が `VOLUME_TOL` 以内（控えの ② の条件。終値は見ない）。"""
+    if not all(new.get(k) == old.get(k) for k in BAR_KEYS):
+        return False
+    nv, ov = new.get("volume"), old.get("volume")
+    if nv is None or ov is None:
+        return nv == ov
+    return abs(nv - ov) <= VOLUME_TOL * max(abs(ov), 1.0)
+
+
 def settle_closes(bars: dict[str, dict[str, dict[str, float]]], dates: list[str], snap: dict | None,
                   fixes: dict[tuple[str, str], float] | None = None, now: str = "") -> tuple[dict[str, dict[str, float]], dict]:
     """控え（モジュールの頭の ①〜③）を通した終値と、新しい控え。控えに載せるのは `dates`（記録のある日）だけ。ほかの日は日足のまま。"""
@@ -123,7 +138,7 @@ def settle_closes(bars: dict[str, dict[str, dict[str, float]]], dates: list[str]
                 pass                                                       # 日足から消えた日は控えのまま
             elif old is None:
                 mine[d] = dict(new)
-            elif new["close"] != old["close"] and all(new.get(k) == old.get(k) for k in BAR_KEYS):
+            elif new["close"] != old["close"] and _same_but_close(new, old):
                 if (s, d, new["close"]) not in seen:                       # ② 終値だけの書き換え ＝ 拒む
                     kept.append({"symbol": s, "date": d, "kept": old["close"], "rejected": new["close"], "at": now})
                     seen.add((s, d, new["close"]))
@@ -433,7 +448,12 @@ def main() -> int:
     ap.add_argument("--close-fixes", default=CLOSE_FIXES, help="手で直した終値の表（既定: 隣の close_fixes.toml）")
     ap.add_argument("--last-date", default=None, help="この日まで（既定: 終値が 1 本でもある最後の日）")
     ap.add_argument("--csv", default=None, help="既定は <out-dir>/daily.csv")
+    ap.add_argument("--snapshot-only", action="store_true",
+                    help="控え（closes.json）だけ更新して daily.csv は書かない（夜の予測の後。docs/plans/closes-snapshot-night.md）")
     args = ap.parse_args()
+    if args.snapshot_only and args.close_from != "bars":
+        print("--snapshot-only は --close-from bars のときだけ", file=sys.stderr)
+        return 2
 
     dates = record_dates(args.out_dir)
     if not dates:
@@ -454,6 +474,10 @@ def main() -> int:
             print(f"⚠ 終値だけの書き換えを拒んだ: {k['symbol']} {k['date']} {k['kept']} → {k['rejected']}（控えの値を使う）", file=sys.stderr)
         if snap2 != snap:
             livefs.write_doc(snap_path, json.dumps(snap2, ensure_ascii=False, sort_keys=True, indent=1))
+        if args.snapshot_only:
+            n = sum(len(m) for m in snap2["bars"].values()) - sum(len(m) for m in ((snap or {}).get("bars") or {}).values())
+            print(f"{snap_path}: 控えを更新した（足 +{n}・{'変更あり' if snap2 != snap else '変更なし'}）")
+            return 0
     have = sorted({d for m in closes.values() for d in m})
     last = args.last_date or next((d for d in reversed(dates) if d in have), None)
     if last is None:

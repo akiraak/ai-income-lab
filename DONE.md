@@ -1,4 +1,14 @@
 # DONE
+- 2026-11-11 選ぶ段に「切れ目ずらしで残るか」を併記する [plan](docs/plans/archive/select-cut-note.md)
+  派生元: 「評価期間の切れ目をずらして保留の行を測り直す」（下の行・記録 [fold-cut-shift.md](docs/specs/experiments/fold-cut-shift.md) §3 の 5）
+  利用者の指示（2026-11-11）: 推す案（門にはしない・新顔が出た晩だけ次の晩の机上と一緒に切れ目ずらし 2 本を回し、併記の列に「残る ／ 切れ目に依る」を出す）に「推す案で進めて」
+  決めたこと（次の新顔が出る前・[rules.md 33-6](docs/specs/experiments/feature-discovery/rules.md)）: 物差し・順位・判定は変えない ／ 回した行は全部数える（1 本の手法 ＋2・合成はメンバーのぶんも）
+  - [x] Step 1: 事前固定（rules.md 33-6）・プラン・TODO
+  - [x] Step 2: `cli/cut_shift.py` ＋ 併記の列 ＋ 運転手（`select_stage`・`plan_queue`）＋ テスト
+    ✅ 併記 ＝ `cli/select_candidates.py` の `cut_check`（識別項目が同じで検証方式だけが切れ目ずらしの 2 行から読む）・config ＝ `cli/cut_shift.py`（手で書いた `cut13_*` ／ `cut23_*` 4 本と意味が同じ）・運転手 ＝ 新顔の行にだけ `dev_cut13_*` ／ `dev_cut23_*` を次の晩の queue へ（`config/devloop.toml` の `[select] cut_new = true`）・持ち越しは config ごとに数えて 1 晩 ≤ 12 に入るぶんだけ（31-3 の 3b を実装）。`tests/test_cut_shift.py` 23 本
+    ✅ 本物の DB で: いまの上位 3 は 3 行とも「切れ目に依る」と出る
+  - [x] Step 3: 文書（rules.md 31-3 ・ 33-6・howto §3-1・dev-loop.md §12・記録 §3・CLAUDE.md）・DONE・archive
+  ⚠ 効くのは次に新顔が出た晩から（いまの上位 3 は新顔ではない ＝ 何も回らない）。共有の経路（`cli/run.py`・`ail/validation`）は触っていない ＝ 本番には関係しない
 - 2026-11-11 評価期間の切れ目をずらして保留の行を測り直す（登録簿 `20261111-fold-cut-shift`・人の手） [plan](docs/plans/archive/fold-cut-shift.md)
   利用者の指示（2026-11-11）: 「今日のアイデアメールにあった「評価期間の切れ目をずらして保留の行を測り直す」が気になる」→「推す案で進めて」→（titan）「進めて」
   決めたこと（結果を見る前・[rules.md 33 章](docs/specs/experiments/feature-discovery/rules.md)）: 当てる行 ＝ 11/11 の選ぶ段の上位 3（入れ替えない）／ 後ろへ 1/3 ・ 2/3（fold 5 つのまま）／ 新しい証拠ではなく頑健さの確かめ ＝ 残っても採る根拠にしない

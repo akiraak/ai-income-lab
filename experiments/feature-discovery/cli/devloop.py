@@ -841,8 +841,14 @@ def plan_queue(cfg: dict, ideas: list[tuple[str, dict, list[str]]], state: dict)
     """その晩に回す実験の並び（state の pending_shapes ＝ 前の晩の段 4 が足した机上 → 作成中の案を手間の小さい順）。
     1 晩に数える検証数の上限（`max_trials_per_night`）に収まるものだけ。返すのは (実験名, 選んだ id, 数える検証数)。"""
     cap = int((cfg.get("run") or {}).get("max_trials_per_night", 12))
-    exps = list(dict.fromkeys(state.get("pending_shapes") or []))
-    count = 2 * len(exps)
+    # ⚠ 机上の持ち越しは先頭に・1 晩の上限に数える・入りきらなければ翌晩（rules.md 31-3 の 3b）。先頭の 1 本は必ず回す
+    exps, count = [], 0
+    for e in dict.fromkeys(state.get("pending_shapes") or []):
+        n = pending_trials(e)
+        if exps and count + n > cap:
+            continue
+        exps.append(e)
+        count += n
     picked: list[str] = []
     for _p, d, bad in sorted([x for x in ideas if x[1].get("status") == "作成中" and x[1].get("experiments")],
                              key=lambda x: (EFFORT_ORDER.get(x[1].get("effort"), 9), x[1]["id"])):
@@ -855,6 +861,21 @@ def plan_queue(cfg: dict, ideas: list[tuple[str, dict, list[str]]], state: dict)
         count += n
         picked.append(d["id"])
     return exps, picked, count
+
+
+def pending_trials(experiment: str) -> int:
+    """机上の持ち越しの config 1 本が増やす検証の数。20 章の机上（`dev_tr_*`）は 1 本 × 条件 2 ＝ 2（31-3 の 3）・
+    切れ目ずらし（`cut_offset` のある config）は中の数える手法の数（33-6 の 4）。読めなければ 2。"""
+    path = os.path.join(ROOT, "config", "experiment", f"{experiment}.toml")
+    try:
+        with open(path, encoding="utf-8") as f:
+            text = f.read()
+        if (tomllib.loads(text).get("validation") or {}).get("cut_offset"):
+            from cli import cut_shift
+            return cut_shift.counted(text)
+    except (OSError, tomllib.TOMLDecodeError):
+        pass
+    return 2
 
 
 def write_queue(cfg: dict, name: str, exps: list[str], time_budget_s: float, note: str) -> str:
@@ -936,7 +957,7 @@ def select_stage(cfg: dict, env: dict, state: dict, date: str, log) -> dict:
     sel = cfg.get("select") or {}
     res = sc.select(env["conn"], top=int(sel.get("top", 3)), diag=True)
     names_now = [r.name for r in res["top"]]
-    out: dict = {"top": [(r.name, r.method, r.fold, r.edge, r.theta, r.marks, r.diag) for r in res["top"]], "n_trials": res.get("n_trials"),
+    out: dict = {"top": [(r.name, r.method, r.fold, r.edge, r.theta, r.marks, r.diag, r.cut) for r in res["top"]], "n_trials": res.get("n_trials"),
                  "render": sc.render(res), "new": [], "shaped": [], "first": "last_top" not in state}
     if out["first"]:
         log("  段 4: 初回なので上位を写すだけ（机上に足さない）")
@@ -964,6 +985,30 @@ def select_stage(cfg: dict, env: dict, state: dict, date: str, log) -> dict:
                     log(f"  段 4: 新顔 {n} → 机上 {cname}（次の晩の queue。＋2）")
                 except SystemExit as e:
                     log(f"  ⚠ 段 4: {n} の机上の config を書けない: {e}")
+        # ⚠ 切れ目ずらし（rules.md 33-6 の 2）: 新顔の行だけ・ずらし 2 つ・次の晩の queue に 20 章の机上と一緒に足す。
+        # ⚠ `[select] cut_new` が無ければ足さない（今までと同じ）。併記の列（out["top"] の cut）は行があれば出る
+        if sel.get("cut_new", False) and out["new"]:
+            from cli import cut_shift as cs
+            for n in out["new"]:
+                row = next(r for r in res["top"] if r.name == n)
+                have = (row.cut or {}).get("parts") or {}
+                for offset, tag in cs.OFFSETS:
+                    if offset in have:
+                        log(f"  段 4: {n} は切れ目ずらし {offset} の行が既にある")
+                        continue
+                    try:
+                        t = ts.resolve_trial(env["conn"], n)
+                        cname = cs.config_name(t["experiment"], t["theta"], tag)
+                        path = ts.source_path(cname)
+                        if not os.path.exists(path):
+                            text = cs.cut_config(ts.source_text(t["experiment"]), src=t["experiment"], method=t["method"],
+                                                 theta=t["theta"], offset=offset, name=cname)
+                            with open(path, "w", encoding="utf-8") as f:
+                                f.write(text)
+                        out["shaped"].append(cname)
+                        log(f"  段 4: 新顔 {n} → 切れ目ずらし {offset} {cname}（次の晩の queue。＋{pending_trials(cname)}）")
+                    except SystemExit as e:
+                        log(f"  ⚠ 段 4: {n} の切れ目ずらし {offset} の config を書けない: {e}")
     pend = list(state.get("pending_shapes") or [])
     state["pending_shapes"] = pend + [c for c in out["shaped"] if c not in pend]
     state["last_top"] = names_now
@@ -1103,13 +1148,15 @@ def write_journal(cfg: dict, date: str, parts: dict, path: str) -> str:
     s4 = parts.get("select")
     if s4:
         L += [f"## 段 4 選ぶ — 上位 {len(s4['top'])}（n_trials {s4.get('n_trials')}）" + ("・初回は写すだけ" if s4.get("first") else ""), ""]
-        for i, (name, method, fold, edge, theta, marks, diag) in enumerate(s4["top"], 1):
+        from cli import select_candidates as sc
+        for i, (name, method, fold, edge, theta, marks, diag, cut) in enumerate(s4["top"], 1):
             dsr = (diag or {}).get("dsr")
             L.append(f"{i}. `{name}` {method}・θ {theta}・{fold}・上乗せ {edge:+,.1f}bp/fold・DSR {'—' if dsr is None else f'{dsr:.2f}'}"
+                     + f"・切れ目ずらし: {sc.cut_text(cut)}"
                      + (f"・印: {' ／ '.join(marks)}" if marks else ""))
         L.append("")
         L.append("- 新顔: " + (", ".join(f"`{n}`" for n in s4["new"]) or "—") + " ／ 次の晩の机上: " + (", ".join(f"`{c}`" for c in s4["shaped"]) or "—"))
-        L.append("- ⚠ 並べたものであって採用ではない（候補の人・本番は利用者。成績で人を選ばない）")
+        L.append("- ⚠ 並べたものであって採用ではない（候補の人・本番は利用者。成績で人を選ばない）。切れ目ずらしは併記（順位・採否に使わない ＝ rules.md 33-6）")
         L.append("")
     elif parts.get("select_error"):
         L += ["## 段 4 選ぶ", "", f"⚠ 落ちた: {parts['select_error']}", ""]

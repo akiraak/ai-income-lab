@@ -31,6 +31,7 @@ heavy_per_night = 1             # 30 分を超えると見積もる形（tsfresh
 [select]                        # 段 4（K6。物差しは howto-model-trader.md §3-1 のまま ＝ cli.select_candidates）
 top = 3
 shape_new_only = true           # 20 章の机上（cli.trader_shape）に自動で足すのは「新しく上位 3 に入った行」だけ
+cut_new = true                  # 新しく上位 3 に入った行に、切れ目ずらし 1/3 ／ 2/3（cli.cut_shift）も足す（rules.md 33-6。2026-11-11。false ／ 無しなら足さない）
 candidate_verdicts = ["採る"]    # 週 1 回の候補の棚（candidates/dev/）に配線だけの人を作る判定。保留は棚に残す（候補にしない）
 weekly_day = "Fri"              # 候補の棚を作る曜日
 

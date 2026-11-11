@@ -4,6 +4,8 @@
 ⚠ **物差しは 1 つも変えない**（howto §3-1 の 6 つを写す）。ここで出るのは「並べたもの」であって採用ではない ＝
    候補の人にするかは利用者（§3-4）・本番に入れるかも利用者（CLAUDE.md）。成績で人を選ばない。
 ⚠ **併記（DSR・日次 t・最大の fold を外した平均・取引/fold・保有日率）は診断**で、順位には使わない（rules.md 11 章 規約 2・3 ＝ 良い数字は根拠「中」が上限）。
+⚠ **併記「切れ目ずらし」（2026-11-11・rules.md 33-6）も診断**: 識別項目が同じで検証方式だけが `閾値売買（切れ目ずらし1/3）` ／ `（2/3）` の行を
+   検証結果一覧から引き、「残る ／ 切れ目に依る」を出す（2 行そろわなければ「—」）。順位にも採否にも使わない・残っても採る根拠にしない。
 
 決まり（§3-1）と、この CLI の読み方:
 
@@ -35,7 +37,7 @@ import numpy as np
 import pandas as pd
 
 import ail.bootstrap  # noqa: F401
-from ail import names, rundb, runs
+from ail import catalog, names, rundb, runs
 from ail.validation import checks, stats
 
 STYLE = "閾値売買"                 # 決まり 1（変種は対象外）
@@ -59,6 +61,7 @@ class Row:
     doc: dict
     marks: list[str] = field(default_factory=list)
     diag: dict | None = None
+    cut: dict | None = None        # 併記「切れ目ずらし」（rules.md 33-6。順位に使わない）
 
     @property
     def method(self) -> str:
@@ -248,13 +251,57 @@ def diagnostics(r: Row, n_trials: int | None) -> dict | None:
     return None
 
 
+# ---------------------------------------------------------------- 併記「切れ目ずらし」（rules.md 33-6。順位に使わない）
+
+CUT_STYLES = {off: catalog.threshold_style({"trading": {"style": "threshold"}, "validation": {"cut_offset": off}})
+              for off in ("1/3", "2/3")}          # ⚠ 33-2 の 2 つだけ
+CUT_STAYS, CUT_DEPENDS = "残る", "切れ目に依る"
+CUT_OK_VERDICTS = ("保留", "採る")                 # 33-4 の 2 の「保留以上」
+
+
+def _key(doc: dict, style: str | None = None) -> tuple:
+    """識別項目（`catalog.KEY`）＋ 手法名。検証方式だけ `style` に差し替えて引く（手法名は切れ目ずらしでも元のまま ＝ 33-3）。"""
+    return tuple(str(style if (k == "検証方式" and style) else doc.get(k)) for k in (*catalog.KEY, "手法名"))
+
+
+def cut_index(rows: list[Row]) -> dict[tuple, Row]:
+    """切れ目ずらしの行だけを識別項目で引けるようにする。"""
+    styles = set(CUT_STYLES.values())
+    return {_key(r.doc): r for r in rows if r.doc.get("検証方式") in styles}
+
+
+def cut_check(r: Row, index: dict[tuple, Row]) -> dict:
+    """33-6 の 1: 識別項目が同じで検証方式だけが切れ目ずらしの 2 行 → 残る ／ 切れ目に依る。そろわなければ label は None。"""
+    parts = {}
+    for off, style in CUT_STYLES.items():
+        x = index.get(_key(r.doc, style))
+        if x is not None:
+            parts[off] = {"name": x.name, "edge_bp": x.edge, "verdict": x.verdict, "fold": x.fold}
+    label = None
+    if len(parts) == len(CUT_STYLES):
+        stays = all(p["edge_bp"] is not None and p["edge_bp"] > 0 and p["verdict"] in CUT_OK_VERDICTS for p in parts.values())
+        label = CUT_STAYS if stays else CUT_DEPENDS
+    return {"label": label, "parts": parts}
+
+
+def cut_text(cut: dict | None, sep: str = " ／ ") -> str:
+    if not cut or not cut.get("parts"):
+        return "—"
+    bits = [f"{off} {_f(p['edge_bp'])} {p['verdict']}" for off, p in cut["parts"].items()]
+    return f"{cut['label'] or '—（片方だけ）'}（{sep.join(bits)}）"
+
+
 # ---------------------------------------------------------------- まとめる・描く
 
 
 def select(conn: sqlite3.Connection, asof: str | None = None, top: int = 3, diag: bool = True,
            all_rows: bool = False) -> dict:
     m = meta(conn)
-    res = apply_rules(load_rows(conn), asof=asof, top=top)
+    rows = load_rows(conn)
+    res = apply_rules(rows, asof=asof, top=top)
+    index = cut_index([r for r in rows if not asof or not r.first_run or r.first_run <= asof])
+    for r in res["ranked"]:
+        r.cut = cut_check(r, index)        # ⚠ 読むだけ・順位の後に付ける（rules.md 33-6 の 1）
     if diag:
         for r in (res["ranked"] if all_rows else res["top"]):
             r.diag = diagnostics(r, m["n_trials"])
@@ -356,12 +403,12 @@ def _row_cells(i: int, r: Row) -> list[str]:
     d = r.diag or {}
     return [str(i), f"`{r.name}`", who, r.fold, _f(r.edge), r.theta, f"`{run}`", "<br>".join(r.marks) or "—",
             _f(d.get("dsr"), 2, sign=False), _f(d.get("daily_t"), 2), _f(d.get("edge_drop_max")),
-            _f(d.get("trades_per_fold"), 0, sign=False), _f(d.get("hold_rate"), 2, sign=False)]
+            _f(d.get("trades_per_fold"), 0, sign=False), _f(d.get("hold_rate"), 2, sign=False), cut_text(r.cut, "<br>")]
 
 
 def render(res: dict, all_rows: bool = False) -> str:
     head = ["順", "検証名", "手法（モデル・層・期間・銘柄）", "fold（上乗せの符号）", "上乗せ bp/fold", "θ", "実行", "印（決まり 6）",
-            "DSR", "日次 t", "最大 fold 外し", "取引/fold", "保有日率"]
+            "DSR", "日次 t", "最大 fold 外し", "取引/fold", "保有日率", "切れ目ずらし"]
     lines = [f"## 候補の上位（howto §3-1 の物差し・読むだけ）— n_trials {res.get('n_trials')}・検証結果一覧 {res.get('built_at') or '—'}"
              + (f"・`--asof {res['asof']}`（{res['asof']} までに最初の実行があった行だけ）" if res.get("asof") else ""), ""]
     ex = " ／ ".join(f"{k} {v}" for k, v in sorted(res["excluded"].items())) or "—"
@@ -370,9 +417,11 @@ def render(res: dict, all_rows: bool = False) -> str:
     lines.append("- ⚠ これは並べたものであって採用ではない。候補の人にするかは利用者（howto §3-4）・本番に入れるかも利用者。成績で人を選ばない")
     lines.append("- ⚠ 併記の 5 列は診断（順位に使わない）: DSR ＝ 日次純利系列の SR をいまの n_trials で割り引いた確率（SR > 0 の検定であって B&H を超えたかの検定ではない）／"
                  " 日次 t ＝ 対 B&H の日次差の t ／ 最大 fold 外し ＝ 上乗せが最大の fold を外した平均（1 fold が作った上乗せに気づくため）／ 取引/fold・保有日率 ＝ 実行の記録の平均")
+    lines.append("- ⚠ 併記「切れ目ずらし」も診断（順位・採否に使わない ＝ rules.md 33-6）: 同じ行を fold の切れ目を後ろへ 1/3 ／ 2/3 ずらして回した 2 行が、"
+                 "2 行とも 上乗せ > 0 かつ 保留以上 なら「残る」・1 行でも外れれば「切れ目に依る」・回していなければ「—」。⚠ 残っても採る根拠にしない")
     lines.append("")
     lines.append("| " + " | ".join(head) + " |")
-    lines.append("| ---: | --- | --- | --- | ---: | ---: | --- | --- | ---: | ---: | ---: | ---: | ---: |")
+    lines.append("| ---: | --- | --- | --- | ---: | ---: | --- | --- | ---: | ---: | ---: | ---: | ---: | --- |")
     rows = res["ranked"] if all_rows else res["top"]
     for i, r in enumerate(rows, 1):
         lines.append("| " + " | ".join(_row_cells(i, r)) + " |")
@@ -384,7 +433,7 @@ def to_json(res: dict) -> dict:
     def one(r: Row) -> dict:
         return {"name": r.name, "model": r.model, "method": r.method, "theta": r.theta, "verdict": r.verdict, "closed": r.closed,
                 "fold": r.fold, "positive": r.positive, "edge_bp": r.edge, "first_run": r.first_run, "runs": r.runs,
-                "marks": r.marks, "diag": r.diag}
+                "marks": r.marks, "diag": r.diag, "cut": r.cut}
     return {k: v for k, v in res.items() if k not in ("ranked", "top")} | {"ranked": [one(r) for r in res["ranked"]],
                                                                             "top": [one(r) for r in res["top"]]}
 

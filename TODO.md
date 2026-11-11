@@ -87,10 +87,6 @@
     - [ ] Phase 2: 穴 ① の案を選ぶ（⚠ 利用者。推す ＝ A「似た過去の案」を表示だけ ／ B `claude -p` で判定して既出に ／ C 参考なしに過去の題名を渡す ＝ 推さない）
     - [ ] Phase 3: 選んだ案を作る ＋ テスト → 1 晩回して見る
     - [ ] Phase 4: dev-loop.md §3 に 1 行 → DONE ・ archive
-  - [ ] 選ぶ段に「切れ目ずらしで残ること」を併記するか決める（⚠ 利用者）
-    派生元: 「評価期間の切れ目をずらして保留の行を測り直す」（2026-11-11 済み ＝ [DONE.md](DONE.md)・記録 [fold-cut-shift.md](docs/specs/experiments/fold-cut-shift.md) §3 の 5）
-    結果: 11/11 の選ぶ段の上位 3 は 3 行とも「切れ目に依る」＝ 登録簿の `learn_if_null` どおり利用者に出す
-    推す案: 門（物差し）にはしない。新顔が出た晩だけ、次の晩の机上と一緒に切れ目ずらし 2 本を回し、併記の列に「残る ／ 切れ目に依る」を出す（順位・採否に使わない・新顔 1 行につき n_trials ＋2）。足さないなら何もしない
   - [ ] 3 周目で残った「人の手」2 本（`20261101-deadzone-label`・`20261101-subperiod-sign-count`）を作るか決める（⚠ 利用者）
     登録簿 `config/ideas/` にある。共有の経路に触れるので段 2 では自動で作らない（K7）。記録 [dev-loop.md §5](docs/specs/experiments/dev-loop.md)
   - [ ] Phase 5: 片付け（CLAUDE.md の節・howto §3 の 1 行・TODO → DONE・プランを archive へ）

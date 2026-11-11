@@ -188,6 +188,7 @@ flowchart LR
 - ⚠ **物差しを変えたくなったら、当てる前に**ここを書き直す（変えた日・利用者の言葉）。当ててから変えると、結果を見て選んだことになる（[rules.md 14-9・14-10](experiments/feature-discovery/rules.md)）
 - 当て方: 先に検証結果一覧を吐き直す（titan `cd experiments/feature-discovery && .venv/bin/python -m cli.report --catalog`）→ `ledger.md` の表に 1〜6 を当て、候補の表（順・行・fold・上乗せ・θ・実行・印）をプランに書く
 - ✅ **2026-10-25 から機械で当てる**（[プラン daily-dev-loop.md](../plans/daily-dev-loop.md) Phase 2-2 の前倒し）: titan `cd experiments/feature-discovery && .venv/bin/python -m cli.select_candidates`（読むだけ・研究の DB の `ledger_rows` から・上位 3 と併記〔DSR をいまの n_trials で引き直し・日次 t・最大の fold を外した平均・取引/fold・保有日率 ＝ 診断。順位に使わない〕・`--all` で決まり 4 までの全部・`--json`）。⚠ 出るのは並べたものであって採用ではない（3-4 は利用者）
+- ✅ **2026-11-11 併記に「切れ目ずらし」を足した**（利用者「推す案で進めて」。[rules.md 33-6](experiments/feature-discovery/rules.md)・記録 [fold-cut-shift.md](experiments/fold-cut-shift.md)）: 上位の行を fold の切れ目を後ろへ 1/3 ／ 2/3 ずらして回した 2 行が、2 行とも 上乗せ > 0 かつ 保留以上 なら「残る」・1 行でも外れれば「切れ目に依る」・回していなければ「—」。⚠ **物差し（上の 6 つ）・順位・上位 3 は変えていない** ＝ 診断の 1 列（順位にも採否にも使わない・残っても採る根拠にしない）。回すのは開発ループが新しく上位に入った行にだけ（次の晩）。手で当てるなら先に登録簿へ（`cli.cut_shift --from <検証名>` が config を書く）
 - 実測【2026-09-30】: 1,245 行 → 決まり 1・2 で 17 行 → 3・4 で並べて上位 3 本（F1-7・F2-2 θ 50 ／ D2 θ 55。3 本とも fold は 3/5）。いまの `T1`〜`T3` のモデルは上位に入らなかった
 
 ### 3-2. トレーダーと同じ形で机上にかける（titan）

@@ -114,7 +114,8 @@ def curve(experiment: str = "trade_own_ridge_a", strengths=STRENGTHS, seeds: int
     panel, path = load_panel(experiment, ds["period"], False, exp.get("features_from"))
     feats = [c for c in panel.columns if c not in META_COLUMNS] + [PLANTED]
     syms, mu, L = real_moments(panel)
-    edges_dates = splits.date_edges(panel["ts"], int(exp.get("validation", {}).get("folds", 5)))
+    edges_dates = splits.date_edges(panel["ts"], int(exp.get("validation", {}).get("folds", 5)),
+                                    splits.cut_offset(exp.get("validation", {})))   # rules.md 33 章（無ければ None）
     out = {"experiment": experiment, "table": path, "theta": th, "strengths_bp": list(strengths), "seeds": seeds,
            "symbols": len(syms), "rows": len(panel), "daily_sigma_bp_median": float(np.median(np.sqrt((L ** 2).sum(1)))) * 1e4,
            "runs": [], "summary": []}

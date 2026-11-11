@@ -333,6 +333,9 @@ def threshold_style(cfg: dict) -> str:
     parts = []
     if n := (cfg.get("validation") or {}).get("max_train_days"):
         parts.append(f"訓練直近{int(n)}日")
+    if c := (cfg.get("validation") or {}).get("cut_offset"):
+        # ⚠ 評価期間の切れ目を後ろへずらした行（rules.md 33-3。2026-11-11）。無い config は書かない ＝ 既存の行は割れない
+        parts.append(f"切れ目ずらし{c}")
     ex = (cfg.get("trading") or {}).get("execution") or "close"
     if ex == "next_open":
         parts.append("翌日始値")

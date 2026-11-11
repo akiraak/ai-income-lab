@@ -372,7 +372,7 @@ def main() -> None:
     k = int(exp.get("k", 8))
     model = registry.resolve("model", exp.get("model", "Ridge"))
     ctx = {"seed": int(v.get("seed", 0)), "model": model, "k": k, **exp.get("model_args", {})}
-    edges = splits.date_edges(panel["ts"], int(v.get("folds", 5)))
+    edges = splits.date_edges(panel["ts"], int(v.get("folds", 5)), splits.cut_offset(v))   # rules.md 33 章（無ければ None）
 
     print(f"診断 {args.experiment}{' (leak)' if args.leak else ''} / 行 {len(panel):,} / 列 {len(feats)}")
     bank: list[dict] | None = [] if args.theta else None

@@ -1,4 +1,19 @@
 # DONE
+- 2026-11-11 評価期間の切れ目をずらして保留の行を測り直す（登録簿 `20261111-fold-cut-shift`・人の手） [plan](docs/plans/archive/fold-cut-shift.md)
+  利用者の指示（2026-11-11）: 「今日のアイデアメールにあった「評価期間の切れ目をずらして保留の行を測り直す」が気になる」→「推す案で進めて」→（titan）「進めて」
+  決めたこと（結果を見る前・[rules.md 33 章](docs/specs/experiments/feature-discovery/rules.md)）: 当てる行 ＝ 11/11 の選ぶ段の上位 3（入れ替えない）／ 後ろへ 1/3 ・ 2/3（fold 5 つのまま）／ 新しい証拠ではなく頑健さの確かめ ＝ 残っても採る根拠にしない
+  - [x] Phase 0: 事前固定（rules.md 33 章）・プラン（2026-11-11 Sx360）
+  - [x] Phase 1: 口 `[validation] cut_offset` ＋ 検証方式の変種 ＋ 名前 `~cut1of3` ／ `~cut2of3` ＋ テスト（titan）
+    ✅ `ail/validation/splits.py`（`cut_offset`・`date_edges` の任意引数）・呼び手 5 か所（`cli/run.py` の本体と `_mix_prepare`・`gate.py`・`calibdiag`・`null_shuffle`・`planted_power`）・`catalog.threshold_style`・`names.py` ＋ `names.toml` の `[cut]`。`tests/test_cut_offset.py` 27 本・研究側 pytest 850 本 ✅（指紋 `test_trading_run.py`・`test_predict.py` を含む ＝ 項目の無い config は 1 ビットも変わらない）
+  - [x] Phase 2: config 4 本 ＋ queue `fold_cut_shift`・`register --promote`・回す（titan）
+    ✅ 回す前に検証結果一覧を吐き直して差は生成日の 1 行だけ → 08:43〜08:46 PST に 8 本 3 分 34 秒【実測】
+    ⚠ 数は ＋6 ではなく ＋8（合成のメンバーとして回る持ち主の「全部使う」が新しい識別項目になる。回す前に rules.md 33-2 に追記）
+  - [x] Phase 3: 記録 [fold-cut-shift.md](docs/specs/experiments/fold-cut-shift.md)・33 章に適用例（33-5）・dev-loop.md §12
+    ✅ **採る 0 ／ 保留 2 ／ 落とす 6（n_trials 1,166 → 1,174）・当てた 3 行は 3 行とも「切れ目に依る」**（① F1-7 ＋729 → ＋359 ／ −1,293・② F2-2 ＋578 → −90 ／ −1,368・③ M1 3 本の平均 ＋123 → −886 ／ ＋27 bp/fold）。平均を作っていたのは下げの時期に降りていた fold で、切れ目が下げの底の近くに来ると符号が入れ替わる。leak は 8 行とも跳ねた
+    ⚠ 机上は fold の初日に 1 度だけ学ぶ形 ＝ 毎日学び直す本番の人には当てはまらない。元の行の判定・閉じる注記は変えていない・候補の人は作らない
+  - [x] Phase 4: CLAUDE.md・DONE・archive。⏳ 利用者の決めること（選ぶ段に併記するか）は TODO に残した
+  ⚠ 着手時に見つけた別件: `tests/test_catalog.py` の閉じる注記の数の釘付けが 149 のまま（11/7 の棚卸しで 167）で落ちていた → 167 に直した
+  ⚠ 口は共有の経路（毎日の予測も通る）＝ 本番に出るのは次の「デプロイ」のとき（急がない・項目の無い config は変わらない）
 - 2026-11-10 PFE 11/5 の控えの終値を直す（`close_fixes.toml` に 29.88 を足した）を本番に出す
   ✅ 2026-11-09 Sx360: 11/5 の `close_out_of_range` は、11/6 が権利落ち日で DXLink が前日の終値だけを 0.43 下げた（29.88 → 29.45）のを、控えが書き換えの後に初めて見たため【推測】。29.88 は 11/5 の夜の予測の `proxy_close`（8 本とも同じ）。`close_fixes.toml` に 1 件・テストの写しを直した（`./run-tests.sh --fast` ✅）
   ⚠ 効くのは「デプロイ」の後の朝の準備から（20 営業日の判定には入らない）。次の「デプロイ」に乗せればよい

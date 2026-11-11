@@ -496,7 +496,9 @@ def test_real_closed_entries_each_hit_exactly_one_held_row():
     # 保留 → 落とす に変わったので外した（daily-data-sources.md §16-1 の 3）
     # ⚠ 77 → 149（2026-10-22）: 2026-09-16 以降に増えた注記なしの保留 84 行の棚卸しで 72 件足した（利用者「案どおり閉じて」。
     # 残す 12 行 ＝ 役割つきの組は注記なし。docs/specs/experiments/ledger-hold-inventory.md §2・validation-power.md §6-2-3）
-    assert len(closed) == len(catalog.closed_notes()) == 149
+    # ⚠ 149 → 167（2026-11-07）: 月 1 回の棚卸しの 1 回目で 18 件足した（利用者「案どおり閉じて」。ledger-hold-inventory-2026-11.md）。
+    # ⚠ この釘付けは 11/7 に直し忘れていた（2026-11-11 に切れ目ずらしの着手時に見つけて直した。判定・注記は触っていない）
+    assert len(closed) == len(catalog.closed_notes()) == 167
     assert all(r["判定"] == "保留" for r in closed)
 
 

@@ -294,7 +294,9 @@ def evaluate_trading(panel: pd.DataFrame, feats: list[str], exp: dict, run: runs
     detectors = registry.resolve_all("detector", exp.get("detectors", []))
     baselines = registry.resolve_all("model", exp.get("baselines", []))
 
-    edges = splits.date_edges(panel["ts"], int(v.get("folds", 5)))
+    # ⚠ **切れ目をずらす口**（rules.md 33 章。2026-11-11）: `[validation] cut_offset` が無ければ None ＝ 切れ目は 1 ビットも変わらない
+    cut = splits.cut_offset(v)
+    edges = splits.date_edges(panel["ts"], int(v.get("folds", 5)), cut)
     out: list[dict] = []
     sym_out: list[dict] = []
     picked: list[dict] = []
@@ -320,7 +322,7 @@ def evaluate_trading(panel: pd.DataFrame, feats: list[str], exp: dict, run: runs
     mixes = mix_specs(t)
     if mixes and form == "per_symbol":
         raise SystemExit("⚠ 合わせる口（rules.md 20-6 の 4）は形式 (A) だけ（(B) は銘柄ごとに較正が違う）")
-    mix_ext = _mix_prepare(mixes, edges, leak, mix_loader or load_mix_member) if mixes else {}
+    mix_ext = _mix_prepare(mixes, edges, leak, mix_loader or load_mix_member, cut) if mixes else {}
     mix_opts: dict[str, dict] = {}   # ⚠ 役割つきの合わせる口の最短保有・毎日読む出口（rules.md 25-2。fold ごとに置き直す）
     if t.get("top_k") and "close" in panel:
         # ⚠ **特徴量には入らない**（`feats` は呼び出し側が先に決めている）。fold を切る前に作るのは、窓を過去へ伸ばすため
@@ -777,11 +779,13 @@ def load_mix_member(experiment: str, leak: bool) -> tuple[dict, pd.DataFrame, li
     return mexp, mpanel, [c for c in mpanel.columns if c not in META_COLUMNS]
 
 
-def _mix_prepare(specs: list[dict], edges: list, leak: bool, loader) -> dict[str, dict]:
+def _mix_prepare(specs: list[dict], edges: list, leak: bool, loader, cut: tuple[int, int] | None = None) -> dict[str, dict]:
     """外のメンバーを実験ごとに 1 度だけ読み、⚠ **この実行と同じ日付の切れ目**で fold を切っておく。
 
     パージ・エンバーゴはメンバー自身の config のもの（＝ そのメンバーが単体で回るときと同じ訓練・同じ検証）。
     ⚠ 切れ目が 1 つでも違えば止まる（違う fold の買い% を混ぜると、合成の行が何を測ったのか言えなくなる）。
+    ⚠ **`cut` ＝ 持ち主の `cut_offset`**（rules.md 33-1 の 5）: メンバーの表も持ち主のずらしで切る。メンバー自身の config の
+    `cut_offset` は読まない（書くとメンバー単体の既存の行が割れる）。None なら今までと同じ。
     """
     from ail.validation import splits
 
@@ -791,7 +795,7 @@ def _mix_prepare(specs: list[dict], edges: list, leak: bool, loader) -> dict[str
         if str((mexp.get("trading") or {}).get("form", "shared")) != "shared":
             raise SystemExit(f"⚠ trading.mix のメンバー {name} は形式 (A) ではない（rules.md 20-6 の 4）")
         mv = mexp.get("validation", {})
-        medges = splits.date_edges(mpanel["ts"], int(mv.get("folds", 5)))
+        medges = splits.date_edges(mpanel["ts"], int(mv.get("folds", 5)), cut)
         if len(medges) != len(edges) or any(pd.Timestamp(a) != pd.Timestamp(b) for a, b in zip(medges, edges)):
             raise SystemExit(f"⚠ trading.mix のメンバー {name} は fold の切れ目がこの実行と違う（rules.md 20-6 の 4 の 2）: "
                              f"{[str(pd.Timestamp(e).date()) for e in medges]} ≠ {[str(pd.Timestamp(e).date()) for e in edges]}")

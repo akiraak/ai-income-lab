@@ -38,12 +38,34 @@ def walk_forward(panel: pd.DataFrame, n_folds: int, horizon_min: float,
         yield f, tr, te
 
 
-def date_edges(ts, n_folds: int) -> list[pd.Timestamp]:
+# ⚠ **評価期間の切れ目をずらす口**（rules.md 33 章。2026-11-11）。水準は事前固定の 2 つだけ（33-2。足さない）
+CUT_OFFSETS = {"1/3": (1, 3), "2/3": (2, 3)}
+
+
+def cut_offset(v: dict) -> tuple[int, int] | None:
+    """config の `[validation] cut_offset`（rules.md 33-1 の 1）。⚠ **無ければ None ＝ 切れ目は 1 ビットも変わらない**。
+
+    文字で書く分数 `"1/3"` ／ `"2/3"` だけ（数・空・ほかの分数は拒む）。戻り値は (分子, 分母)。
+    """
+    s = v.get("cut_offset")
+    if s is None:
+        return None
+    if not isinstance(s, str) or s not in CUT_OFFSETS:
+        raise SystemExit(f"⚠ validation.cut_offset は {' ／ '.join(repr(k) for k in CUT_OFFSETS)} だけ"
+                         f"（文字で書く分数）: {s!r}（rules.md 33-1 の 1）")
+    return CUT_OFFSETS[s]
+
+
+def date_edges(ts, n_folds: int, offset: tuple[int, int] | None = None) -> list[pd.Timestamp]:
     """fold の切れ目を **日付で 1 回決める**（rules.md 13-6 の 1）。
 
     ⚠ **全銘柄共通の日付集合から決め、(A) 共通 1 本にも (B) 銘柄別にも同じ edge を配る。**
     行 rank で切ると 63 銘柄のパネルと 1 銘柄のパネルで境目がずれ、同じ fold と呼べなくなる。
     戻り値は昇順の切れ目で、fold g の検証は [edges[g], edges[g+1])。
+
+    ⚠ **`offset`（`cut_offset(v)` の戻り値。rules.md 33 章）**: fold g（1〜n_folds）の初日を、その群の日付の数
+    L_g × 分子 ÷ 分母（切り捨て）個ぶん後ろの日付に置き換える。表の最初の日と最後の端は動かさない
+    （＝ 最初の訓練が延び、最後の評価期間が縮む。fold の数は同じ）。⚠ **None なら今までと同じ切れ目**。
     """
     u = (pd.Series(pd.to_datetime(pd.Series(ts)).unique())
            .sort_values().reset_index(drop=True))
@@ -51,6 +73,11 @@ def date_edges(ts, n_folds: int) -> list[pd.Timestamp]:
         raise ValueError(f"日付が {len(u)} 個しかなく {n_folds} fold に切れない")
     grp = pd.qcut(u.rank(method="first"), n_folds + 1, labels=False)
     starts = [u[grp == g].iloc[0] for g in range(n_folds + 1)]
+    if offset is not None:
+        num, den = offset
+        for g in range(1, n_folds + 1):
+            days = u[grp == g].reset_index(drop=True)
+            starts[g] = days.iloc[len(days) * num // den]
     return list(starts) + [u.iloc[-1] + pd.Timedelta(1, "ns")]
 
 

@@ -122,7 +122,7 @@ def evaluate_gate(panel: pd.DataFrame, feats: list[str], exp: dict, run=None) ->
     methods = {n: fn for n, fn in (detectors or selectors).items() if is_gated(n)}
 
     per: dict[str, dict[str, list]] = {n: {"auc": [], "width": []} for n in methods}
-    edges = splits.date_edges(panel["ts"], int(v.get("folds", 5)))
+    edges = splits.date_edges(panel["ts"], int(v.get("folds", 5)), splits.cut_offset(v))   # 33 章（無ければ None ＝ 本体と同じ切れ目）
     if detectors:
         _fold_detectors(panel, feats, exp, methods, per, edges, v, ctx)
     else:

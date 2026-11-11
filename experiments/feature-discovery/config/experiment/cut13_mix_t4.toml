@@ -1,0 +1,60 @@
+# ⚠ **評価期間の切れ目をずらして保留の行を測り直す**（rules.md 33 章・登録簿 `20261111-fold-cut-shift`・プラン docs/plans/archive/fold-cut-shift.md。
+# 2026-11-11 利用者「推す案で進めて」）。当てる行 ＝ 2026-11-11 の選ぶ段の上位 3 のうち ③ `M1 3本の平均`（ハルの机上の形・素の行）。
+#
+# ⚠ **`trader_mix_t4.toml` との違いは `name`・`[validation] cut_offset = "1/3"`・`[[trading.trader]]` を外した（素の行だけ）だけ。**
+# ⚠ **メンバー（`trade_own_ridge_a`・`trade_ownseq_ridge_a`）の config には `cut_offset` を書かない** ＝ 持ち主のずらしで切る（33-1 の 5）。
+# ⚠ 出る行: `M1 3本の平均` θ 50（＋1 ＝ 当てる行）・持ち主の「全部使う（基準）」θ 50（＋1 ＝ 合成のメンバーとして回る `T2` のモデル。
+#    検証方式が変種なので新しい識別項目 ＝ 数える。33-2 の追記）・基準線。
+# ⚠ **回すと決めたのは結果を見る前**（33-2）。⚠ 結果を見てからほかの量・ほかの行に広げない。
+#
+# ⚠ **TOML の平の key はテーブル見出しより上に書く**（rules.md 10 章 規約 1）
+name = "cut13_mix_t4"
+dataset = "daily"
+horizon = 1
+cost_bp = 5.0
+features_from = "trade_ownex_ridge_a"  # ⚠ 表は trade_ownex_ridge_a が持ち主（作り直さない）
+
+feature_layers = ["own", "cs", "rel", "ex"]
+targets = "company"
+
+horizon_min = 1440.0
+bar_minutes = 1440.0
+
+selectors = ["全部使う（基準）"]   # ⚠ `T2` のモデル（合成のメンバーの 1 本）
+k = 32
+
+model = "LightGBM"
+baselines = ["常に上（ドリフト）", "直前リターンの符号"]
+
+[trading]
+style = "threshold"
+thresholds = [50]              # ⚠ `T4` の設定の 1 水準だけ（20-6）
+form = "shared"
+
+# ⚠ 合わせる口（20-6 の 4）。メンバーは `candidates/multi/T4.toml` の `[[models]]` と同じ 3 本
+[[trading.mix]]
+name = "M1 3本の平均"
+combine = "mean"
+members = [
+  { method = "全部使う（基準）" },                                          # `T2` のモデル（この実行）
+  { experiment = "trade_own_ridge_a", method = "全部使う（基準）" },        # `T1` のモデル
+  { experiment = "trade_ownseq_ridge_a", method = "T3 QUANT（60日窓）" },   # `T3` のモデル
+]
+
+# ⚠ `[[trading.trader]]` は外した ＝ 素の行だけ（rules.md 33-2）
+
+[validation]
+split = "walk_forward_dates"
+folds = 5
+purge = true
+embargo_bars = 1               # ⚠ 断面は同じ足の他銘柄を見るので、境目を 1 本空ける
+seed = 0
+cut_offset = "1/3"            # ⚠ fold 1〜5 の初日を、その群の日付の数 × 1/3（切り捨て）個ぶん後ろへ（rules.md 33-1。回す前に固定）
+
+[features]
+beta_window = 60
+ex_lag_days = 1
+ex_sources = ["ecb", "treasury", "noaa", "usgs"]
+ex_zero_fill = ["usgs"]        # ⚠ 地震は「行が無い日 = 0 件」
+ex_transforms = ["d1", "z20"]  # ⚠ 水準は非定常なので入れない
+ex_max_stale_days = 7

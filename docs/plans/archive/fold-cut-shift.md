@@ -4,7 +4,7 @@
 
 ## 1. 目的・背景
 
-開発ループの段 1（2026-11-11 01:03 PST・参考なし・$0.585【実測】）が出した案。登録簿は [`20261111-fold-cut-shift`](../../experiments/feature-discovery/config/ideas/20261111-fold-cut-shift.toml)・状態「人の手」（共有の経路を触るので運転手は自動で作らない）。
+開発ループの段 1（2026-11-11 01:03 PST・参考なし・$0.585【実測】）が出した案。登録簿は [`20261111-fold-cut-shift`](../../../experiments/feature-discovery/config/ideas/20261111-fold-cut-shift.toml)・状態「人の手」（共有の経路を触るので運転手は自動で作らない）。
 
 問い: 保留の行の「平均だけ正」は、5 つの評価期間の切れ目がたまたまどこに置かれたかで決まっているのか。
 
@@ -12,7 +12,7 @@
 
 ## 2. 対応方針
 
-決めごとの正本は [rules.md 33 章](../specs/experiments/feature-discovery/rules.md)（⚠ 結果を見る前に書いた）。登録簿が決めていなかった 3 つを、利用者「推す案で」で固定した。
+決めごとの正本は [rules.md 33 章](../../specs/experiments/feature-discovery/rules.md)（⚠ 結果を見る前に書いた）。登録簿が決めていなかった 3 つを、利用者「推す案で」で固定した。
 
 | 決めたこと | 中身 |
 | --- | --- |
@@ -55,7 +55,15 @@ flowchart LR
 ## 5. Phase
 
 - [x] Phase 0: 事前固定（rules.md 33 章）・プラン・TODO（Sx360）
-- [ ] Phase 1: 口 ＋ 変種 ＋ 名前 ＋ テスト（titan）
-- [ ] Phase 2: config 4 本 ＋ queue・`register --promote`・検証結果一覧の差 0 行を確かめてから `cli.queue --config fold_cut_shift`（titan）
-- [ ] Phase 3: 記録（`docs/specs/experiments/fold-cut-shift.md` ＝ 元の行と並べた fold の表・残る ／ 切れ目に依る・予想の当たり外れ）・rules.md 33 章に適用例・dev-loop.md に 1 行
-- [ ] Phase 4: CLAUDE.md に 1 節・DONE へ・プランを archive へ。⏳ 利用者: 選ぶ段の物差しに「切れ目ずらしで残ること」を足すか（結果が「切れ目に依る」だったとき）
+- [x] Phase 1: 口 ＋ 変種 ＋ 名前 ＋ テスト（2026-11-11 titan。`tests/test_cut_offset.py` 27 本・研究側 pytest 850 本 ✅）
+- [x] Phase 2: config 4 本 ＋ queue・`register --promote`・検証結果一覧の差 0 行を確かめてから `cli.queue --config fold_cut_shift`（titan）
+- [x] Phase 3: 記録（`docs/specs/experiments/fold-cut-shift.md` ＝ 元の行と並べた fold の表・残る ／ 切れ目に依る・予想の当たり外れ）・rules.md 33 章に適用例・dev-loop.md に 1 行
+- [x] Phase 4: CLAUDE.md に 1 節・DONE へ・プランを archive へ。⏳ 利用者: 選ぶ段の物差しに「切れ目ずらしで残ること」を足すか（結果が「切れ目に依る」だったとき）
+
+## 6. 結果（2026-11-11 08:43〜08:46 PST・titan）
+
+- 採る 0 ／ 保留 2 ／ 落とす 6（n_trials 1,166 → 1,174）。当てた 3 行は 3 行とも「切れ目に依る」。記録は [fold-cut-shift.md](../../specs/experiments/fold-cut-shift.md)
+- ⚠ 数は ＋6 ではなく ＋8（合成のメンバーとして回る持ち主の「全部使う」が、変種の検証方式で新しい識別項目になる。回す前に rules.md 33-2 に追記した）
+- ⚠ 着手時に見つけた別件: `tests/test_catalog.py` の閉じる注記の数の釘付けが 149 のまま（11/7 の棚卸しで 167）で落ちていた → 167 に直した（判定・注記は触っていない）
+- ⏳ 利用者: 選ぶ段に「切れ目ずらしで残ること」を併記するか（TODO に残した）
+

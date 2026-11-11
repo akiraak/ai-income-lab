@@ -115,7 +115,8 @@ def null_dist(experiment: str = "trade_own_ridge_a", perms: int = PERMS, block: 
     exp.setdefault("horizon_min", 1440.0 if ds["period"] == "d" else float(exp["horizon"]))
     panel, path = load_panel(experiment, ds["period"], False, exp.get("features_from"))
     feats = [c for c in panel.columns if c not in META_COLUMNS]
-    edges_dates = splits.date_edges(panel["ts"], int(exp.get("validation", {}).get("folds", 5)))
+    edges_dates = splits.date_edges(panel["ts"], int(exp.get("validation", {}).get("folds", 5)),
+                                    splits.cut_offset(exp.get("validation", {})))   # rules.md 33 章（無ければ None）
     t0 = time.perf_counter()
     orig = one(panel, feats, exp, edges_dates, None, block)
     log("元の行: " + " ／ ".join(f"θ{k} {v['mean']:+.0f}bp/fold {v['verdict']}" for k, v in orig.items()))

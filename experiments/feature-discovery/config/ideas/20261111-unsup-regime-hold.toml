@@ -1,0 +1,21 @@
+# ⚠ 開発ループの登録簿（rules.md 31-1）。cli.devloop が書く。status が 登録 より先なら structure ／ prediction ／ n_trials_planned ／ key_shape を直さない（直すなら新しい id）
+id = "20261111-unsup-regime-hold"
+date = "2026-11-11"
+title = "ラベルなしで局面を分けてから、持つ局面を訓練分割で決める"
+kind = "検証方式"
+origin = { r_pct = 30, n_per_night = 5, prompt = "ideate_free", contract = 2, model = "claude", cost_usd = 0.585, turns = 1, source = "independent", refs = [] }
+question = "銘柄ごとの方向は当てず、市場全体の局面（ボラ・銘柄間の相関・上がった銘柄の割合）をラベルなしで k 個に分ける。訓練分割で B&H が負だった局面の日だけ全銘柄を現金にすると、評価期間で上乗せの符号はそろうか。"
+structure = "新しい口: 日ごとの市場の要約 3 種類（63 本の 20 日ボラの中央値・20 日の平均相関・上がった銘柄の割合の 20 日平均）を訓練分割で標準化し、k-means で分ける（k の種類 ＝ 3 ／ 5 を事前固定・種 0）。各局面の「翌日の等加重リターンの訓練平均」が負の局面に入った日は全銘柄の買い% を 0、それ以外は 100 とする（θ を通さないので θ は 1 水準として数える）。基準線 ＝ 同じ保有日率の乱択（数えない）。leak 対照 ＝ 翌日の等加重リターンを要約に 1 列混ぜる。"
+n_trials_planned = 2
+key_shape = ["mkt.regime-kmeans<k>.none.shared"]
+failure_modes = ["局面が時期と 1 対 1 になり、訓練の古い時期の局面が評価期間に一度も現れない", "負の局面の平均が小さな標本で決まり、fold ごとに符号が反転する", "保有日率が下がったぶん上げ相場で取り損ね、同じ保有日率の乱択と区別できない", "k-means の初期値で局面の割り当てが変わる（種を固定しても fold で揺れる）"]
+prediction = "上乗せは負寄り。休む日は急落の後の戻りの初日と重なり、fold は 1〜2 本だけ正。乱択との差は |t| < 1。leak 対照は跳ねる。"
+effort = "小"
+measurable = "測れる: 全銘柄を一度に現金にするので、効くなら上乗せは数百 bp/fold の大きさで出る。乱択との差で保有日率の効果を外せる"
+touches = "新しいモジュールだけ（ail/ideas/ に局面の口。基準線は既存の乱択の形を借りる）"
+status = "登録"
+frame = "外"
+p_hold = 0.15
+learn_if_null = "差がなければ、市場全体の局面は日足の要約 3 種類からは翌日の向きと結びつかないと分かる。次は局面を「持つ ／ 休む」ではなく局面ごとに別の予測モデルを学ぶ形に変えるか、要約を外生 ex_ の金利の変化に替える。"
+registered_at = "2026-11-11 01:03 PST"
+notes = "段 1 の出力の key_shape の原文: mkt.regime-kmeans<k>.none.shared"

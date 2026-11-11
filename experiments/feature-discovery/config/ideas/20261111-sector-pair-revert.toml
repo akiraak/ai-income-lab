@@ -1,0 +1,21 @@
+# ⚠ 開発ループの登録簿（rules.md 31-1）。cli.devloop が書く。status が 登録 より先なら structure ／ prediction ／ n_trials_planned ／ key_shape を直さない（直すなら新しい id）
+id = "20261111-sector-pair-revert"
+date = "2026-11-11"
+title = "同じセクターの 2 銘柄の開きが戻るかを当てる"
+kind = "モデル"
+origin = { r_pct = 30, n_per_night = 5, prompt = "ideate_free", contract = 2, model = "claude", cost_usd = 0.585, turns = 1, source = "independent", refs = [] }
+question = "当てるものを「1 銘柄の翌日の方向」から「同じセクターの 2 銘柄の値動きの開きが先 5 日で縮むか」に変える。開いたときに出遅れた側だけを買う（買いだけの器のまま）と、上乗せの fold の符号はそろうか。"
+structure = "新しい口: 訓練分割だけで同じセクター ETF に属する会社どうしの組を作る（組の作り方の種類 ＝ 訓練分割の日次リターンの相関が最も高い相手 1 本・事前固定）。ラベル ＝ 先 5 日の開き（log 価格差）の縮み > 0。説明変数 ＝ 開きの z スコア（観測期間 20 ／ 60 の 2 種類）＋ own_ 35 列。学習器 Ridge。出遅れた側の買い% として器（閾値売買）に渡し、θ は 50 ／ 55 ／ 60。leak 対照 ＝ y_fwd_5 の開きを 1 列混ぜる。"
+n_trials_planned = 3
+key_shape = ["pair.spread-revert5.ridge.shared"]
+failure_modes = ["組が fold ごとに入れ替わり、同じ銘柄が 2 つの組に入って買いが重なる", "開きの z スコアが ETF との相対 rel_ 列と同じ情報になり、既存の rel_ の行の言い換えになる", "出遅れた側を買うだけでは、もう一方の上げを取り損ねて B&H を下回る（買いだけの器の限界）", "開きが大きい日が少なく、fold によって取引がほぼ 0 になる"]
+prediction = "上乗せは 0 の周りか小さく負。fold は 2〜3 本が正で割れる。取引の回数は own_ の行より少ない。leak 対照は大きく跳ねる。"
+effort = "中"
+measurable = "測れる: 取引が開きの大きい日に集中するので、効くなら数百 bp/fold の形か fold の符号がそろう形で出る。取引が fold あたり 10 回を割ったら測れないとして記録する"
+touches = "新しいモジュールだけ（ail/ideas/ にラベルと列を作る口。器は既存の閾値売買）"
+status = "登録"
+frame = "外"
+p_hold = 0.25
+learn_if_null = "差がなければ、63 本の日足では組の開きに 5 日先の戻りの情報が見えないと分かる。次は組の作り方を相関から「同じ日の出来高の急増」に変えるか、開きを当てる問いをやめて 2 銘柄の順位の入れ替わりそのものを当てる問いに移る。"
+registered_at = "2026-11-11 01:03 PST"
+notes = "段 1 の出力の key_shape の原文: pair.spread-revert5.ridge.shared@θ"

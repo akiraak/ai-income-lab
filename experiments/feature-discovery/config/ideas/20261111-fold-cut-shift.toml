@@ -1,0 +1,21 @@
+# ⚠ 開発ループの登録簿（rules.md 31-1）。cli.devloop が書く。status が 登録 より先なら structure ／ prediction ／ n_trials_planned ／ key_shape を直さない（直すなら新しい id）
+id = "20261111-fold-cut-shift"
+date = "2026-11-11"
+title = "評価期間の切れ目をずらして保留の行を測り直す"
+kind = "検証方式"
+origin = { r_pct = 30, n_per_night = 5, prompt = "ideate_free", contract = 2, model = "claude", cost_usd = 0.585, turns = 1, source = "independent", refs = [] }
+question = "保留の行の「平均だけ正」は、5 つの評価期間の切れ目がたまたまどこに置かれたかで決まっているのか。切れ目を事前に決めた量だけずらした版で、同じ行の fold の符号の割れ方は保たれるか。"
+structure = "新しい口: [validation] cut_offset = 「1 fold の長さに対する割合」（種類 ＝ 1/3 ／ 2/3 の 2 つを事前固定。無い config は 1 ビットも変わらない）。検証方式の変種 `閾値売買（切れ目ずらし）`・名前 `~cut<割合>`。当てる行 ＝ 回す前に検証結果一覧から選ぶ段（select_candidates の上位 3）で機械的に決め、結果を見て足さない。判定式は変えない。前の結果はそのまま残し、ずらした版は新しい行として数える。leak 対照はずらした版ごとに並べる。"
+n_trials_planned = 6
+key_shape = ["<元の予測モデル名>~cut1of3", "<元の予測モデル名>~cut2of3"]
+failure_modes = ["ずらすと最初の評価期間が短くなり、訓練の長さが元の版と揃わない", "切れ目をずらした fold が同じ急落の時期を 2 つの fold に割り、符号の数え方が変わる", "上位 3 の行が同じ実験の θ 違いに偏り、6 行が実質 2 行の情報になる", "共有の経路（ail/validation）を触るので、指紋テストを通す手間がかかる"]
+prediction = "6 行のうち保留以上は 1〜3 行。元の版で正だった fold の多くは、ずらすと隣の fold と混ざって符号が割れる。対の差（元の版 − ずらした版）は 0 の周りで、向きは行ごとにばらばら。leak 対照はどの切れ目でも跳ねる。"
+effort = "中"
+measurable = "測れる: 元の行が数百 bp/fold の平均を持つので、切れ目の置き方でその大きさが崩れるかは同じ物差しで見える"
+touches = "共有の経路: ail/validation（切れ目の口）・ail/catalog.py（検証方式の変種）・ail/names.py（名前の印）"
+status = "人の手"
+frame = "内"
+p_hold = 0.5
+p_positive = 0.4
+learn_if_null = "ずらしても保留のまま残るなら、その行の平均は切れ目の置き方に依らないと分かり、次は前向きの期間（2026-09-10 以降）で見る候補にする。ずらすと落ちるなら、保留は切れ目が作った形と分かり、選ぶ段の物差しに「切れ目ずらしで残ること」を足すかを利用者に出す。"
+notes = "段 1 の出力の key_shape の原文: <元の予測モデル名>~cut1of3@θ ／ <元の予測モデル名>~cut2of3@θ"

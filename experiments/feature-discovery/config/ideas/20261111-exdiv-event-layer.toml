@@ -1,0 +1,23 @@
+# ⚠ 開発ループの登録簿（rules.md 31-1）。cli.devloop が書く。status が 登録 より先なら structure ／ prediction ／ n_trials_planned ／ key_shape を直さない（直すなら新しい id）
+id = "20261111-exdiv-event-layer"
+date = "2026-11-11"
+title = "生の日足と調整済みの日足の比から配当落ちの日を拾い、配当の暦の層 div_ を足す"
+kind = "データ"
+origin = { r_pct = 30, n_per_night = 5, prompt = "ideate_ref", contract = 2, model = "claude", cost_usd = 1.776, turns = 9, source = "reference", refs = ["earnings-layer.md（層 ern_ の as-of・lag・欠損を印にする ernf の形）", "symbol-selection-widen.md ／ rules.md 30-9（生の日足は分割の日の終値 1 本だけ旧目盛り・fix-split-close）", "transform-into-detectors.md §2（線形の列を足しても Ridge の買い% が動かない）", "econ-calendar.md（全銘柄共通の暦は FOMC の日まで取得済み）"] }
+question = "研究用の data/ にある生（raw）と調整済み（adjusted）の日足の比が小さく段になる日を配当落ちの日として拾う。そこから作る『前の配当落ちからの日数・次の配当落ちまでの見込みの日数・前回の配当の利回り』の列を own に足すと、own だけの行と比べて翌日の方向の買い% と上乗せは変わるか。新しいデータは取らない。"
+structure = "新しい層 `div`（ail/ideas/ の層・接頭辞 div_・cli/build.py の layer_order で後ろに足す ＝ 無い config は 1 ビットも変わらない）。拾い方: 調整済みと生の終値の比 r_t ＝ adj_t ／ raw_t の日ごとの変化 \\|Δlog r\\| が 0 より大きく、分割と読む大きさ（比が整数比に近い段）より小さい日を配当落ちとし、段の大きさを前回の配当の利回りとする。⚠ 生の日足の分割の日の誤り（rules.md 30-9・fix-split-close）は、整数比に近い段を落とすことで避ける。列は 3 本: div_days_since（前の配当落ちからの営業日数）／ div_days_to_est（その日より前の配当落ちの間隔の中央値から見込んだ、次の配当落ちまでの日数・負なら 0）／ div_last_yield（前回の段の大きさ）。as-of ＝ 足の日 − 1（ern の lag と同じ形）。配当の無い銘柄・ETF は 0 と印の列 div_na（earnings の ernf と同じ『落とさない』形 ＝ 対の相手と行・銘柄・切れ目が同じ）。表は own_2018（63 本）。対の相手 ＝ 同じ実行の own だけの行。違い: 既存の層に配当の暦は無い（ern_ は決算・cal_ は全銘柄共通の暦）"
+n_trials_planned = 3
+key_shape = ["own-div.own.ridge.shared"]
+failure_modes = ["y は調整済みの日足から作るので、配当落ちの日の値下がりはもうラベルから消えていて、配当の暦が当てられるのは落ちる前の小さな寄りだけ（数 bp/回・年 4 回）＝ 検出限界の下", "生と調整済みの比の段に、配信側の小数 2 桁の丸めや遡りの書き換え（CLAUDE.md の data-live の注意）が混ざり、偽の配当落ちが毎週のように拾われる", "配当の間隔の見込みは四半期ごとにほぼ同じで、div_days_to_est が暦（月末・四半期末）の言い換えになり cal_ と同じ情報になる", "Ridge の線形の項では『落ちる日の前後だけ』の形を表せず、列が足されても買い% がほぼ動かない（transform-into-detectors.md の線形 × 線形と同じ形）"]
+prediction = "3 行とも B&H に対して負で、own だけの行との対の差は \\|t\\| < 1（数十 bp/fold 以内・向きは fold で割れる）。拾える配当落ちは会社 48 本で年 4 回前後、ETF も四半期ごと。div_ の列の係数は小さく、買い% の幅は own だけとほぼ同じ。leak は跳ねる"
+effort = "小"
+measurable = "測れる: 対の差は同じ表・同じ切れ目の fold 対で数えられ、拾った配当落ちの数・偽の段（分割と読んで落とした数）・列の係数は fold ごとに数えられる。ただし配当の前の寄りそのもの（数 bp/回）は検出限界の下なので、測れるのは数百 bp/fold の差が出るかどうかだけ"
+touches = "新しいモジュールだけ（ail/ideas/ の層。cli/build.py の layer_order は 2026-10-25 に作った既存の口を使う）"
+status = "登録"
+frame = "外"
+p_hold = 0.1
+p_positive = 0.45
+learn_if_null = "差なしなら、data/ にある生と調整済みの比からただで作れる配当の暦は、調整済みのラベルの翌日の方向を動かさないと分かる。同時に、比の段から拾ったイベントの数と偽の段の数が残るので、生の層をイベントの材料に使えるかどうかの記録になる。次に動くなら、ラベルを配当込みでない生の終値のリターンにした新しい処置（当てるものを変える）として別の id で出す"
+registered_at = "2026-11-11 01:02 PST"
+reference_mode = "避ける"
+notes = "段 1 の出力の key_shape の原文: own-div.own.ridge.shared@50|55|60（対の相手 ＝ 同じ実行の own.own.ridge.shared@θ）"

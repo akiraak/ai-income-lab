@@ -87,6 +87,15 @@
     - [ ] Phase 2: 穴 ① の案を選ぶ（⚠ 利用者。推す ＝ A「似た過去の案」を表示だけ ／ B `claude -p` で判定して既出に ／ C 参考なしに過去の題名を渡す ＝ 推さない）
     - [ ] Phase 3: 選んだ案を作る ＋ テスト → 1 晩回して見る
     - [ ] Phase 4: dev-loop.md §3 に 1 行 → DONE ・ archive
+  - [ ] 評価期間の切れ目をずらして保留の行を測り直す（登録簿 `20261111-fold-cut-shift`・人の手） [plan](docs/plans/fold-cut-shift.md)
+    利用者の指示（2026-11-11）: 「今日のアイデアメールにあった「評価期間の切れ目をずらして保留の行を測り直す」が気になる」→「推す案で進めて」
+    決めたこと（結果を見る前・[rules.md 33 章](docs/specs/experiments/feature-discovery/rules.md)）: 当てる行 ＝ 11/11 の選ぶ段の上位 3（入れ替えない）／ 後ろへ 1/3 ・ 2/3（fold 5 つのまま）／ 新しい証拠ではなく頑健さの確かめ ＝ 残っても採る根拠にしない。n_trials ＋6
+    ⚠ 実装と実行は titan の Claude（共有の経路 `ail/validation/splits.py` ＝ 毎日の予測も通る。項目の無い config は 1 ビットも変えない）
+    - [x] Phase 0: 事前固定（rules.md 33 章）・プラン（2026-11-11 Sx360）
+    - [ ] Phase 1: 口 `[validation] cut_offset` ＋ 検証方式の変種 ＋ 名前 `~cut1of3` ／ `~cut2of3` ＋ テスト（titan）
+    - [ ] Phase 2: config 4 本 ＋ queue `fold_cut_shift`・`register --promote`・回す（titan）
+    - [ ] Phase 3: 記録 `docs/specs/experiments/fold-cut-shift.md`・33 章に適用例・dev-loop.md に 1 行
+    - [ ] Phase 4: CLAUDE.md・DONE・archive。⏳ 利用者: 選ぶ段の物差しに足すか（「切れ目に依る」だったとき）
   - [ ] 3 周目で残った「人の手」2 本（`20261101-deadzone-label`・`20261101-subperiod-sign-count`）を作るか決める（⚠ 利用者）
     登録簿 `config/ideas/` にある。共有の経路に触れるので段 2 では自動で作らない（K7）。記録 [dev-loop.md §5](docs/specs/experiments/dev-loop.md)
   - [ ] Phase 5: 片付け（CLAUDE.md の節・howto §3 の 1 行・TODO → DONE・プランを archive へ）

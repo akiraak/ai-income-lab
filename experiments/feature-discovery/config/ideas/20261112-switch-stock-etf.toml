@@ -1,0 +1,20 @@
+# ⚠ 開発ループの登録簿（rules.md 31-1）。cli.devloop が書く。status が 登録 より先なら structure ／ prediction ／ n_trials_planned ／ key_shape を直さない（直すなら新しい id）
+id = "20261112-switch-stock-etf"
+date = "2026-11-12"
+title = "現金に降りず、会社とそのセクター ETF を乗り換える器"
+kind = "検証方式"
+origin = { r_pct = 30, n_per_night = 5, prompt = "ideate_free", contract = 2, model = "claude", cost_usd = 1.474, turns = 1, source = "independent", refs = [] }
+question = "決めることを「買うか現金か」から「会社と、その会社のセクター ETF のどちらを持つか」に変えると、常に投資したままの形で、対 B&H（会社を持ち続ける）の上乗せと fold の符号がどうなるか。"
+structure = "新しい器 simulate_switch（検証方式の変種「乗り換え（会社⇄セクターETF）」）。対象 ＝ 会社 48 本。ラベル ＝ 翌日の（会社 − セクター ETF）の log リターンの符号。買い% ＝ 会社が ETF を上回る確率（較正は今のまま）。買い% > θ で会社へ、< 100 − θ で ETF へ、間は今のまま持つ。評価期間の頭は会社（B&H と同じ出発）・末尾は清算。費用 ＝ 乗り換え 1 回で売りと買いの 2 本ぶん（既定 5bp × 2）。判定の式は今のまま（対 会社の B&H・上乗せ > 0 かつ 5/5）。入力 ＝ own 35 列 ＋ rel_ 13 列 × Ridge の 1 手法。基準線（数えない）＝ 同じ回数の乱択の乗り換え ／ ずっと ETF。leak 対照 ＝ 翌日の相対リターンを 1 列混ぜた同じ実行。無い config は 1 ビットも変わらない口として足す。"
+n_trials_planned = 3
+key_shape = ["own-rel.<数字の選び方>.ridge.shared~switch-etf", "55", "60）"]
+failure_modes = ["買い% が 100−θ〜θ の間に張り付いて 1 度も乗り換えず、B&H と同一（上乗せ 0）になる", "上乗せが基準線「ずっと ETF」と同じ ＝ 乗り換えの時機ではなく会社と ETF の期間リターンの差を読んでいる", "乗り換えの回数が多く、2 本ぶんの費用で沈む", "ETF の中で比重の大きい会社は相対リターンが小さく、ラベルがほぼ雑音になる"]
+prediction = "θ50 は乗り換えが多く費用のぶん負、θ60 はほとんど乗り換えず 0 の近く。fold の符号は割れる。乱択の乗り換えとの差は |t| < 2。leak 対照は跳ねる。"
+effort = "中"
+measurable = "測れる: 常に投資したままなので市場全体の向きは会社と ETF の両方に乗り、差に残るのは相対の動きだけ ＝ 保有日率の違いから来る fold ごとの数百 bp の揺れが落ち、fold の符号がそろうかどうかで読める"
+touches = "共有の経路: ail/validation（新しい器）・ail/catalog.py と ail/names.py（検証方式の変種と名前）・訓練のラベルの口"
+status = "人の手"
+frame = "外"
+p_hold = 0.35
+learn_if_null = "乗り換えの回数・「ずっと ETF」との差・乱択の乗り換えとの差を残す。乗り換えが起きないなら相対の確率に幅が無い ＝ 次は相対のラベルの地平を先 5〜20 日にする。乱択と同じなら、器は残して乗り換え先を決める材料のほうを替える。"
+notes = "段 1 の出力の key_shape の原文: own-rel.<数字の選び方>.ridge.shared~switch-etf@θ（検証方式 ＝ 乗り換え（会社⇄セクターETF）・θ 50 ／ 55 ／ 60）"

@@ -1,0 +1,22 @@
+# ⚠ 開発ループの登録簿（rules.md 31-1）。cli.devloop が書く。status が 登録 より先なら structure ／ prediction ／ n_trials_planned ／ key_shape を直さない（直すなら新しい id）
+id = "20261112-planted-signal-power"
+date = "2026-11-12"
+title = "強さの分かった偽の列を仕込み、器と判定の検出限界を実測する"
+kind = "物差し"
+origin = { r_pct = 30, n_per_night = 5, prompt = "ideate_free", contract = 2, model = "claude", cost_usd = 1.474, turns = 1, source = "independent", refs = [] }
+question = "情報量が分かっている列を足したとき、今の器と判定（上乗せ > 0 かつ 5 fold 全部で正）と門（AUC 0.52・買い% の幅 20 点）は、どの強さから「保留 ／ 採る」「通る」と読めるか。「測れるか」の印に使える数字が取れるか。"
+structure = "新しい層 syn_（1 列・ail/ideas/ の中）＝ ρ × z(翌日の y) ＋ √(1−ρ²) × 乱数（種固定）。強さは 3 種類を事前に固定（翌日リターンとの相関で 弱 0.02 ／ 中 0.05 ／ 強 0.10）。own 35 列 × Ridge に 1 列足した 3 手法を、θ は 50 の 1 水準だけで回す（問う軸が強さなので θ は振らない）。対の相手 ＝ 同じ表・同じ切れ目の own × Ridge。記録するもの ＝ 上乗せ・fold の符号・日次 t・門の AUC と幅・syn 列の係数。⚠ 仕込みの行は作りから未来を含むので、手法名に印を付け、選ぶ段と候補の棚から機械で外す。数え方は規約どおり 3 本とも n_trials に数える。"
+n_trials_planned = 3
+key_shape = ["own-syn.<syn-r02", "syn-r05", "syn-r10>.ridge.shared"]
+failure_modes = ["正則化で syn 列の係数が潰れ、強でも上乗せが出ない ＝ 器の限界か学習器の設定かを分けられない", "3 水準とも採るになり、限界が 3 水準より下にある（水準を足したくなる ＝ 結果を見て振ることになる）", "乱数の種 1 つの偶然で 弱 ／ 中 の順が入れ替わる", "仕込みの行が選ぶ段の上位に混ざる"]
+prediction = "強は leak 対照と同じ向きに跳ねて 5/5、弱は fold が割れて門も通らない、中が境目。門の AUC は強だけ 0.52 を超える。"
+effort = "小"
+measurable = "測れる: 仕込む強さを自分で決めるので、数百 bp/fold を超える水準を含めて回せる。どの水準で fold の符号がそろうかがそのまま検出限界の実測になる"
+touches = "新しいモジュールだけ"
+status = "登録"
+frame = "内"
+p_hold = 0.93
+p_positive = 0.9
+learn_if_null = "3 水準とも落とすなら、既知の情報が上乗せに変わっていない ＝ 新しい列を足す案より先に、較正と器（閾値の当たり方）を調べる。弱だけ読めないなら、その相関以下の案には「測れない」の印を付ける根拠の数字になる。"
+registered_at = "2026-11-12 01:04 PST"
+notes = "段 1 の出力の key_shape の原文: own-syn.<syn-r02 ／ syn-r05 ／ syn-r10>.ridge.shared@50"

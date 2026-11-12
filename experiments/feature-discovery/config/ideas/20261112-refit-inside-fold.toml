@@ -1,0 +1,22 @@
+# ⚠ 開発ループの登録簿（rules.md 31-1）。cli.devloop が書く。status が 登録 より先なら structure ／ prediction ／ n_trials_planned ／ key_shape を直さない（直すなら新しい id）
+id = "20261112-refit-inside-fold"
+date = "2026-11-12"
+title = "評価期間の中で四半期ごとに学び直す口（fold の初日に 1 度だけ学ぶ形をやめる）"
+kind = "検証方式"
+origin = { r_pct = 30, n_per_night = 5, prompt = "ideate_ref", contract = 2, model = "claude", cost_usd = 3.722, turns = 8, source = "reference", refs = ["fold-cut-shift.md §2（予想との突き合わせ）・§3（読み方と、やらないこと）", "dev-loop/register.md（20261111-fold-cut-shift・20261101-ten-fold-long-table と重ならないことの確認）", "feature-discovery/ledger.md §0"] }
+question = "切れ目ずらしで見えた『下げの底の近くに切れ目が来ると、同じモデルが戻りの間も降りたままになる』は、fold の初日に 1 度だけ学ぶ机上の形が作っているのか。評価期間の中で学び直すと、同じ表・同じ切れ目の上乗せと保有日率はどう変わるか。"
+structure = "口 [validation] refit_every = N（評価期間の中を N 営業日ごとに区切り、区切りの初日より前の全部〔パージ ＝ ラベルの地平ぶん・エンバーゴ 1 本〕でモデルと較正を学び直して次の区切りの買い% を出す。fold の切れ目・器・判定は不変）。水準の種類は 1 つ ＝ 四半期（63 営業日）に固定し、結果を見て振らない。当てる行も回す前に固定 ＝ 2018 年からの表の own × 全部使う × Ridge の θ 3 水準。検証方式の変種『閾値売買（期間内学び直し63日）』・名前の印 ~refit63。対の相手 ＝ 同じ表・同じ切れ目の既存の行（1 度だけ学ぶ形）。違いは既存の識別項目に対して検証方式の変種だけ。leak 対照を並べる。無い config は 1 ビットも変わらない形で足す。診断（採否に使わない）＝ 区切りごとの保有日率・下げの底から買い戻すまでの日数・区切りの境で買い% が跳んだ回数。"
+n_trials_planned = 3
+key_shape = ["own.all.ridge.shared~refit63", "55", "60）"]
+failure_modes = ["学び直すたびに較正の係数が変わり、区切りの境で買い% が段になって往復が増える（費用で負ける）", "買い% の幅が狭い門前のままで、学び直しても売買する日がほとんど変わらず対の差が 0 に張り付く", "区切りの境のパージを落として直前の行のラベルが訓練に入る（leak 対照と別に、訓練の最後の日付を機械で検査する）", "計算時間が区切りの数だけ増え、重い学習器には当てられない"]
+prediction = "対の差は 0 の周りで fold ごとに符号が割れる。下げの時期を含む fold では買い戻しが早まるぶん正、上げ続ける fold では往復が増えるぶん負。3 行とも落とすか、θ50 だけ保留。leak 対照は跳ねる。"
+effort = "中"
+measurable = "測れる: 同じ表・同じ切れ目・同じ器の fold 対の差で、降りたままの日数が数十日動けば数百 bp/fold の差になる。保有日率と買い戻しまでの日数は判定と別に数えられる。差が数十 bp なら『決着なし』と書く"
+touches = "共有の経路: ail/validation（評価期間の中を区切る口）・cli/run.py（fold_buy_pct を区切りごとに呼ぶ）・ail/catalog.py（検証方式の変種）・ail/names.py と config/names.toml（~refit63）＝ 人の手"
+status = "人の手"
+frame = "内"
+p_hold = 0.3
+p_positive = 0.45
+learn_if_null = "対の差が 0 の周りなら、『切れ目に依る』は 1 度だけ学ぶ形の性質ではなく合図そのものの性質と読める（fold-cut-shift §3 の 2 の『半分は形の性質』の見立てが下がる）。そのときは学び直しの口を選ぶ段・20 章の机上に足さず、切れ目ずらしの併記をそのまま使う。差が数百 bp 出たら、20 章の机上に学び直しを足すかを利用者に出す。"
+reference_mode = "避ける"
+notes = "段 1 の出力の key_shape の原文: own.all.ridge.shared~refit63@θ（θ ＝ 50 ／ 55 ／ 60）"

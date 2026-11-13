@@ -70,6 +70,11 @@
 "R3 局面の列なし（own のみ・LightGBM）" = "regime-ex-col-none"   # 同じ登録簿の対照（数える）
 "P1 60日の形の塊ごとの上がる割合（k-means・8個）" = "path-kmeans8"   # 登録簿 20261107-path-cluster-baserate（2026-11-07・ail/ideas）
 "L2 出来高が同じ日に跳ねる仲間の遅れを買う（集まり8個・翌日）" = "volspike-cluster8-lag1"   # 登録簿 20261107-volspike-cluster-lag（2026-11-07・ail/ideas）
+"R4 粘る局面で持つ（HMM・2状態）" = "r4-hmm-sticky-k2"   # 登録簿 20261108-hmm-sticky-regime-hold（2026-11-13・ail/ideas）
+"R4 粘る局面で持つ（HMM・3状態）" = "r4-hmm-sticky-k3"
+"M1 一段目の合図の当たりを当てる二段目（own・学習・土台差）" = "meta-t1"   # 登録簿 20261111-meta-label-filter（2026-11-13・ail/ideas）
+"PR1 同じセクターの相手との開きが縮むかを当てて出遅れを買う（先5日）" = "spread-revert5"   # 登録簿 20261111-sector-pair-revert（2026-11-13・ail/ideas）
+"TR1 自分の直近252日の予測値の中の順位（own・学習）" = "ts-rank252"   # 登録簿 20261113-score-trailing-rank（2026-11-13・ail/ideas）
 "形の塊を乱数で割り当てた割合（8個）" = "rand-path-kmeans8"   # 基準線（数えない）。登録簿 20261107-path-cluster-baserate
 "出来高の集まりを乱数で割り当てた遅れの買い（8個）" = "rand-volspike-cluster8-lag1"   # 基準線（数えない）。登録簿 20261107-volspike-cluster-lag
 "X2 出口だけ 高値20日からσの2倍で降りる" = "x2-exit-ddvol20-2"

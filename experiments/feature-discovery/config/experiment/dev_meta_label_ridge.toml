@@ -1,0 +1,41 @@
+# ⚠ **開発ループの登録簿 `20261111-meta-label-filter`（参考あり・枠の内）**（rules.md 31 章・記録 dev-loop.md・事前固定は登録簿）。
+#    trade_own_ridge_a の写し（own_2018 の表・同じ切れ目）。違いは検知器だけ: 一段目（既存の own × Ridge）の合図が当たるかを
+#    二段目（Ridge・水準は既定）で当て、二段目の確率が土台を上回る合図だけで買う M1（ail/ideas/i20261111_meta_label.py）× θ 3 ＝ 3 検証
+#    （もう 1 本の学習器の config と合わせて 6）。出口は一段目のまま。対の相手 ＝ trade_own_ridge_a の `全部使う（基準）` の行（既存）。
+#    leak 対照は LEAK_ 列を一段目と二段目の入力に足す。
+# ⚠ **回すと決めたのは結果を見る前（登録 2026-11-11 01:02 PST）**。
+name = "dev_meta_label_ridge"
+dataset = "daily"
+horizon = 1
+cost_bp = 5.0
+features_from = "own_2018"     # ⚠ 表は作り直さず own_2018 のものを読む（13-8）
+
+feature_layers = ["own"]
+targets = "all"
+
+horizon_min = 1440.0
+bar_minutes = 1440.0
+
+detectors = ["M1 一段目の合図の当たりを当てる二段目（own・学習・土台差）"]
+k = 16
+
+model = "Ridge"                # ⚠ 二段目の学習器（一段目は検知器の中で Ridge に固定）
+baselines = ["常に上（ドリフト）", "直前リターンの符号"]
+
+[trading]
+style = "threshold"
+thresholds = [50, 55, 60]      # ⚠ 事前固定。結果を見て動かさない（rules.md 13-3）
+form = "shared"                # (A) 銘柄共通 1 本
+
+[validation]
+split = "walk_forward_dates"   # ⚠ fold の切れ目は日付で決める（rules.md 13-6 の 1）
+folds = 5
+purge = true
+embargo_bars = 0
+seed = 0
+
+[features]
+ex_lag_days = 1
+ex_zero_fill = ["usgs"]
+ex_transforms = ["d1", "z20"]
+ex_max_stale_days = 7

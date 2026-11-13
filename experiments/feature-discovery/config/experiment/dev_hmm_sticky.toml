@@ -1,0 +1,42 @@
+# ⚠ **開発ループの登録簿 `20261108-hmm-sticky-regime-hold`（参考あり・枠の外）**（rules.md 31 章・記録 dev-loop.md・事前固定は登録簿）。
+#    trade_own_ridge_a の写し（own_2018 の表・同じ切れ目）。違いは検知器だけ: 等加重の日次リターンとその 20 日の標準偏差（1 日遅れ）に
+#    ガウス HMM（2 ／ 3 状態・遷移の対角 ≥ 0.95 ＝ 期待滞在 ≥ 20 営業日）を訓練分割で当て、前向きの状態確率 × 状態ごとの上がる割合を
+#    Platt に通して全銘柄に同じ買い% を出す R4（ail/ideas/i20261108_hmm_sticky.py）× 状態数 2 × θ 3 ＝ 6 検証。
+#    対照 ＝ 同じ保有日率の乱択ゲート（既存の checks・数えない）と R3 の列なしの行（既存）。
+#    ⚠ model の Ridge は識別項目の綴りのためだけ（R4 は呼ばない ＝ L1・P1 と同じ都合）。leak 対照は LEAK_ 列の日ごとの平均を観測に足す。
+# ⚠ **回すと決めたのは結果を見る前（登録 2026-11-08 01:01 PST）**。
+name = "dev_hmm_sticky"
+dataset = "daily"
+horizon = 1
+cost_bp = 5.0
+features_from = "own_2018"     # ⚠ 表は作り直さず own_2018 のものを読む（13-8）
+
+feature_layers = ["own"]
+targets = "all"
+
+horizon_min = 1440.0
+bar_minutes = 1440.0
+
+detectors = ["R4 粘る局面で持つ（HMM・2状態）", "R4 粘る局面で持つ（HMM・3状態）"]
+k = 16
+
+model = "Ridge"
+baselines = ["常に上（ドリフト）", "直前リターンの符号"]
+
+[trading]
+style = "threshold"
+thresholds = [50, 55, 60]      # ⚠ 事前固定。結果を見て動かさない（rules.md 13-3）
+form = "shared"                # (A) 銘柄共通 1 本
+
+[validation]
+split = "walk_forward_dates"   # ⚠ fold の切れ目は日付で決める（rules.md 13-6 の 1）
+folds = 5
+purge = true
+embargo_bars = 0
+seed = 0
+
+[features]
+ex_lag_days = 1
+ex_zero_fill = ["usgs"]
+ex_transforms = ["d1", "z20"]
+ex_max_stale_days = 7

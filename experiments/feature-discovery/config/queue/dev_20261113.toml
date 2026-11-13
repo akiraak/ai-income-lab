@@ -1,0 +1,11 @@
+# ⚠ 開発ループ（2026-11-13 段 2・人の手。利用者「登録 15 本を仕分けて」→「案通りで進めて」）。登録簿 20261113-score-trailing-rank。
+#    回すと決めたのは結果を見る前（登録簿の registered_at）。数: TR1 3（θ 50 ／ 55 ／ 60）。表は作り直さない（features_from）。
+#    ⚠ 20261108-signal-inject-power は検証を作らない読むだけの物差し（cli.inject_power）＝ この queue には入らない。
+#    ⚠ 20261111-exdiv-event-layer は作れなかった（調整済みの日足は分割だけの調整 ＝ 生 ／ 調整済みの比に配当の段が無い）＝ 登録簿は「失敗」。
+#    ⚠ 手で回す分は 1 晩 ≤ 12 の上限に数えない（rules.md 31-2 の 3a）。
+experiments = ["dev_score_trailing_rank"]
+
+leak = true
+ledger = true
+max_failures = 1
+time_budget_s = 1800     # 見積り 約 1 分【推測。Ridge 2 本 × 5 fold × 本番 ＋ leak】

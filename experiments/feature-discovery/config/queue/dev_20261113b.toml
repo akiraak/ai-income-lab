@@ -1,0 +1,9 @@
+# ⚠ 開発ループ（2026-11-13 段 2・人の手の 2 束目。利用者「案通りで進めて」）。登録簿 20261108-hmm-sticky-regime-hold。
+#    回すと決めたのは結果を見る前（登録簿の registered_at ＝ 2026-11-08 01:01 PST）。数: R4 2 状態 ／ 3 状態 × θ 3 ＝ 6。表は作り直さない（features_from）。
+#    ⚠ 手で回す分は 1 晩 ≤ 12 の上限に数えない（rules.md 31-2 の 3a）。
+experiments = ["dev_hmm_sticky"]
+
+leak = true
+ledger = true
+max_failures = 1
+time_budget_s = 1800     # 見積り 約 1 分【推測。EM 2 本 × 5 fold × 本番 ＋ leak】

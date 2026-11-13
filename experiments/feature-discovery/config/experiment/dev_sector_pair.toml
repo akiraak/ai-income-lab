@@ -1,0 +1,41 @@
+# ⚠ **開発ループの登録簿 `20261111-sector-pair-revert`（参考なし・枠の外）**（rules.md 31 章・記録 dev-loop.md・事前固定は登録簿）。
+#    trade_own_ridge_a の写し（own_2018 の表・同じ切れ目）。違いは検知器だけ: 同じセクター ETF の会社のうち訓練分割で相関が最も高い相手との
+#    開き（log 価格差）が先 5 日で縮むかを Ridge で当て、出遅れている行だけ縮む確率を買い% にする PR1（ail/ideas/i20261111_sector_pair.py）× θ 3 ＝ 3 検証。
+#    ⚠ 名前の頭は own.（表の層が own ＝ key_shape の「pair.」ではない。P1 の「seq.」と同じ都合）。
+#    leak 対照は LEAK_ 列 ＋ 先 5 日の開きの変化を説明変数に足す。取引が fold あたり 10 回を割ったら「測れない」と記録する（登録簿）。
+# ⚠ **回すと決めたのは結果を見る前（登録 2026-11-11 01:03 PST）**。
+name = "dev_sector_pair"
+dataset = "daily"
+horizon = 1
+cost_bp = 5.0
+features_from = "own_2018"     # ⚠ 表は作り直さず own_2018 のものを読む（13-8）
+
+feature_layers = ["own"]
+targets = "all"
+
+horizon_min = 1440.0
+bar_minutes = 1440.0
+
+detectors = ["PR1 同じセクターの相手との開きが縮むかを当てて出遅れを買う（先5日）"]
+k = 16
+
+model = "Ridge"
+baselines = ["常に上（ドリフト）", "直前リターンの符号"]
+
+[trading]
+style = "threshold"
+thresholds = [50, 55, 60]      # ⚠ 事前固定。結果を見て動かさない（rules.md 13-3）
+form = "shared"                # (A) 銘柄共通 1 本
+
+[validation]
+split = "walk_forward_dates"   # ⚠ fold の切れ目は日付で決める（rules.md 13-6 の 1）
+folds = 5
+purge = true
+embargo_bars = 0
+seed = 0
+
+[features]
+ex_lag_days = 1
+ex_zero_fill = ["usgs"]
+ex_transforms = ["d1", "z20"]
+ex_max_stale_days = 7

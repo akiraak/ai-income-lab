@@ -308,11 +308,12 @@ def test_html_failure_falls_back_to_text_only(world, tmp_path, monkeypatch):
     root, cfg, conn = _mail_world(world, tmp_path)
     fake = FakeEnv(root, conn)
     fake.env["mail"] = box = Outbox()
-    monkeypatch.setattr(dm, "html_body", lambda *a, **k: (_ for _ in ()).throw(RuntimeError("壊れた")))
-    parts, logs = _night(world, fake, stages=(0, 4))
+    # ⚠ monkeypatch.undo() で戻さない（world の差し替え〔load_config ・ ROOT〕まで外れ、2 回目の晩が本物の register.md を書き直す）
+    with monkeypatch.context() as m:
+        m.setattr(dm, "html_body", lambda *a, **k: (_ for _ in ()).throw(RuntimeError("壊れた")))
+        parts, logs = _night(world, fake, stages=(0, 4))
     assert parts["mail"] == "sent" and box.html == [None]
     cfg["mail"]["html"] = False
-    monkeypatch.undo()
     _night(world, fake, stages=(0, 4))
     assert box.html[-1] is None
 

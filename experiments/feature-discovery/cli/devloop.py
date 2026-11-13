@@ -608,15 +608,31 @@ def _slug(raw: dict, fallback: str) -> str:
     return s[:24] or fallback
 
 
+_KEY_PAREN = re.compile(r"（[^（）]*）|\([^()]*\)")       # 括弧書き（全角 ・ 半角。入れ子は内側から消す）
+_KEY_STRAY = re.compile(r"[（）(){}]")                    # 閉じていない括弧の残り
+_KEY_THETA = re.compile(r"[\d|/]+")                       # θ の水準だけの断片（55 ・ 50|55|60）
+
+
 def _key_shapes(v) -> list[str]:
-    """段 1 の `key_shape`（文字列か一覧）→ 予測モデル名のパターンの一覧（θ と括弧書きを落とす）。"""
-    parts = v if isinstance(v, list) else re.split(r"[／,、]", str(v or ""))
-    out = []
-    for p in parts:
-        p = re.sub(r"[（(].*?[）)]", "", str(p)).strip()
-        p = re.sub(r"@.*$", "", p).strip()
-        if p and " " not in p:
-            out.append(p)
+    """段 1 の `key_shape`（文字列か一覧）→ 予測モデル名のパターンの一覧（θ と括弧書きを落とす）。
+
+    ⚠ 括弧書きは **割る前に** 消す（`@θ（θ ＝ 50 ／ 55 ／ 60）` を `／` で先に割ると `55`・`60）` が
+    パターンとして残り、「全部当たれば既出」が決して成り立たない ＝ 2026-11-10 に見つけた穴 ②）。
+    ⚠ 捨てるのは θ の水準だけの断片に限る（捨てすぎると残りが全部当たって、新しい案が既出になる）。
+    """
+    out: list[str] = []
+    for raw in (v if isinstance(v, list) else [v]):
+        s = str(raw or "")
+        while True:
+            t = _KEY_PAREN.sub("", s)
+            if t == s:
+                break
+            s = t
+        s = re.sub(r"@\{[^{}]*\}", "", s)                 # @{50,55,60}
+        for p in re.split(r"[／,、]", s):
+            p = _KEY_STRAY.sub("", re.sub(r"@.*$", "", p)).strip()
+            if p and " " not in p and not _KEY_THETA.fullmatch(p) and p not in out:
+                out.append(p)
     return out
 
 

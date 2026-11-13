@@ -214,6 +214,58 @@ def test_parse_and_key_shapes():
     assert devloop.parse_ideas("not toml at all = [") == []
 
 
+@pytest.mark.parametrize("raw, want", [
+    # 穴 ②（2026-11-10）: θ の括弧書きの中の ／ で割って '55' '60）' がパターンに残っていた
+    ("own.x.ridge.shared@θ（θ ＝ 50 ／ 55 ／ 60）", ["own.x.ridge.shared"]),
+    ("own.x.ridge.shared@θ（θ ∈ 50 ／ 55 ／ 60）", ["own.x.ridge.shared"]),
+    ("own.x.ridge.shared@θ (θ = 50, 55, 60)", ["own.x.ridge.shared"]),
+    ("own.x.ridge.shared@θ（50 ／ 55 ／ 60。names.toml の [method] に 1 行足す）", ["own.x.ridge.shared"]),
+    ("own.a.ridge.shared@θ ／ own.b.ridge.shared@θ（θ 50 ／ 55 ／ 60）", ["own.a.ridge.shared", "own.b.ridge.shared"]),
+    ("own.a.ridge.shared@{50,55,60}（単体 3）／ own.b.ridge.shared@50", ["own.a.ridge.shared", "own.b.ridge.shared"]),
+    ("own.a.ridge.shared@50|55|60 ／ own.a.lgbm.shared@50|55|60（対の相手 ＝ own.t1.ridge.shared@θ）",
+     ["own.a.ridge.shared", "own.a.lgbm.shared"]),
+    ("own.a.ridge.shared~night-leg@θ ／ own.a.ridge.shared~day-leg@θ", ["own.a.ridge.shared~night-leg", "own.a.ridge.shared~day-leg"]),
+    ("own.x.ridge.shared@θ（各組（R19〜R22）の θ ／ 1 水準）", ["own.x.ridge.shared"]),                    # 入れ子
+    ("own.x.ridge.shared@θ（θ ＝ 50 ／ 55 ／ 60", ["own.x.ridge.shared"]),                              # 閉じていない括弧
+    ("own.x.ridge.shared ／ 50 ／ 55|60 ／ own.x.ridge.shared", ["own.x.ridge.shared"]),                  # 水準だけ ・ 同じ形の重ね
+    (["own.x.ridge.shared@θ（θ ＝ 50 ／ 55 ／ 60）", "own.y.lgbm.shared"], ["own.x.ridge.shared", "own.y.lgbm.shared"]),
+    ("物差しのみ（新しい識別項目なし）: 元の行 own.own35.ridge.shared@θ に null 分位を添える", []),
+    ("", []), (None, []), ([], []),
+])
+def test_key_shapes_drop_theta_notes_before_splitting(raw, want):
+    assert devloop._key_shapes(raw) == want
+
+
+def test_key_shapes_keep_fragments_that_are_not_theta_levels():
+    # ⚠ 捨てるのは θ の水準だけ。読めない断片は「当たらないパターン」として残す（捨てると残りが全部当たって新しい案が既出になる）
+    ks = devloop._key_shapes("own.<a ／ b>.ridge.shared@50 ／ own.all.ridge.shared@50")
+    assert ks == ["own.<a", "b>.ridge.shared", "own.all.ridge.shared"]
+    assert [devloop.duplicates([p], ["own.all.ridge.shared"])[0] for p in ks] == [0, 0, 1]
+
+
+def _raw_idea(key_shape, title="t", touches="新しいモジュールだけ"):
+    return {"slug": "x", "title": title, "kind": "モデル", "question": "問い", "structure": "口", "n_trials_planned": 3,
+            "key_shape": key_shape, "failure_modes": ["型"], "prediction": "予想", "effort": "小", "measurable": "測れる: 理由",
+            "touches": touches}
+
+
+def test_register_marks_known_shape_with_theta_note_as_duplicate(world):
+    # 穴 ② の回帰: 検証結果一覧に既にある名前 ＋ θ の括弧書き → 既出。新しい名前 ・ 片方だけ新しい案は既出にしない
+    root, cfg, conn = world
+    models = ["own.all.ridge.shared", "own.all.ridge.shared~p1995", "own.all.lgbm.shared"]
+    raws = [_raw_idea("own.all.ridge.shared@θ（θ ＝ 50 ／ 55 ／ 60）", "既にある形"),
+            _raw_idea("own.all.ridge.shared@θ ／ own.all.lgbm.shared@θ（θ 50 ／ 55 ／ 60）", "2 本とも既にある"),
+            _raw_idea("own.new-thing.ridge.shared@θ（θ ＝ 50 ／ 55 ／ 60）", "新しい形"),
+            _raw_idea("own.new-thing.ridge.shared@θ（対の相手 own.all.ridge.shared@θ）", "対の相手だけ既にある"),
+            _raw_idea("own.all.ridge.shared@θ ／ own.new-thing.ridge.shared@θ（θ 50 ／ 55 ／ 60）", "片方だけ新しい")]
+    out = devloop.register_ideas(cfg, raws, source="independent", meta={}, date="2026-11-13", models=models)
+    by = {d["title"]: d for d in out}
+    assert [by[t]["status"] for t in ("既にある形", "2 本とも既にある", "新しい形", "対の相手だけ既にある", "片方だけ新しい")] == \
+        ["既出", "既出", "登録", "登録", "登録"]
+    assert by["既にある形"]["key_shape"] == ["own.all.ridge.shared"] and "55" not in by["既にある形"]["key_shape"]
+    assert "原文: own.all.ridge.shared@θ（θ ＝ 50 ／ 55 ／ 60）" in by["既にある形"]["notes"]      # 原文は残す
+
+
 def test_ideate_registers_and_classifies(world):
     root, cfg, conn = world
     fake = FakeEnv(root, conn)

@@ -1,0 +1,23 @@
+# ⚠ 開発ループの登録簿（rules.md 31-1）。cli.devloop が書く。status が 登録 より先なら structure ／ prediction ／ n_trials_planned ／ key_shape を直さない（直すなら新しい id）
+id = "20261113-score-trailing-rank"
+date = "2026-11-13"
+title = "買い% を「その銘柄の直近の予測値の中での順位」に替える（訓練分布の分位点に張り付く型を避ける）"
+kind = "モデル"
+origin = { r_pct = 30, n_per_night = 5, prompt = "ideate_ref", contract = 2, model = "claude", cost_usd = 3.788, turns = 9, source = "reference", refs = ["docs/specs/experiments/theta-placement.md（180〜184 行: θ を分位点に置いた形で leak 対照が死ぬ）", "docs/specs/experiments/feature-discovery/rules.md 13 章（662 行）", "docs/specs/experiments/dev-loop.md §8（220 行: 量を順位で ＝ 同じ日の断面の順位）", "docs/specs/experiments/dev-loop/register.md（20261101-rank-graded-sizing・20261104-perm-split-timing の行）"] }
+question = "較正した確率の代わりに、評価の時点までの自分の予測値の並びの中の位置を買い% にすると、買い% の幅が必ず開く形でも上乗せと fold の符号は変わるか。"
+structure = "新しい検知器を 1 本（ail/ideas/）。中身は既存の own × Ridge の予測値をそのまま使い、買い% ＝ 100 × その銘柄の直近 N 営業日の予測値の中での順位の割合（N は 1 年ぶんの 1 種類だけ）。評価期間の頭の N 日ぶんは、訓練分割の尻を学習から外して出した予測値で埋める（訓練内の当てはめ値は使わない）。θ は既存の 3 水準のまま。対の相手は同じ表・同じ切れ目の own.all.ridge.shared と、同じ保有日率の乱択（基準線・数えない）。theta-placement.md で θ を訓練分布の分位点に置いた形（leak 対照が死ぬ ＝ 飽和した確率が訓練分布の上端に張り付く）との違い ＝ 基準にする分布が訓練分割ではなく評価の時点の直近の予測値であること。"
+n_trials_planned = 3
+key_shape = ["own.ts-rank252.ridge.shared", "55"]
+failure_modes = ["評価期間の頭で、訓練の尻の予測値と評価期間の予測値の水準がずれ、最初の数十日が全部買い ／ 全部売りに張り付く", "保有日率がどの fold でもほぼ半分に固定され、上げの fold で B&H に露出の差だけで負ける", "予測値がゆっくり動くので順位が θ を細かくまたぎ、往復が増えて費用で消える", "leak 対照で予測値が毎日大きく動かず順位に写らない（跳ねない ＝ 配線ではなく口の作りの問題）"]
+prediction = "買い% の幅は門を通る。保有日率は 0.4〜0.6 に寄り、対 B&H の上乗せは上げの fold で負・下げを含む fold で正に割れる（落とすか保留）。同じ保有日率の乱択との差は |t| < 2。leak 対照は跳ねる。"
+effort = "小"
+measurable = "測れる: 保有日率が数十 % 動くので対 B&H の差は数百 bp/fold の大きさで出る。同じ保有日率の乱択との差で露出のぶんを外せる。買い% の幅・保有日率・往復の数は判定と別に数えられる。"
+touches = "新しいモジュールだけ（ail/ideas/ の検知器・names.toml に綴り 1 行）"
+status = "登録"
+frame = "内"
+p_hold = 0.3
+p_positive = 0.35
+learn_if_null = "幅の門を必ず通る形でも同じ保有日率の乱択と差が無ければ、これまでの「門前（買い% の幅が狭い）」は測れなかった理由ではなく、予測値の時間方向の並びに情報が無いと分かる。次は較正・θ の置き方・土台の変種をやめ、どれを持つか（断面）か別のデータの側へ移る。乱択には勝って B&H にだけ負けるなら、判定の相手を同じ保有日率の相手に替える物差しの案を先に登録する。"
+registered_at = "2026-11-13 01:02 PST"
+reference_mode = "避ける"
+notes = "段 1 の出力の key_shape の原文: own.ts-rank252.ridge.shared@θ（θ 50 ／ 55 ／ 60。names.toml の [method] に 1 行足す）"

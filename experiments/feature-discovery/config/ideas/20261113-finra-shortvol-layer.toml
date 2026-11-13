@@ -1,0 +1,23 @@
+# ⚠ 開発ループの登録簿（rules.md 31-1）。cli.devloop が書く。status が 登録 より先なら structure ／ prediction ／ n_trials_planned ／ key_shape を直さない（直すなら新しい id）
+id = "20261113-finra-shortvol-layer"
+date = "2026-11-13"
+title = "日次の空売り出来高（FINRA の公開ファイル）を出来高の中身の層 shv_ として、銘柄を落とさない形で足す"
+kind = "データ"
+origin = { r_pct = 30, n_per_night = 5, prompt = "ideate_ref", contract = 2, model = "claude", cost_usd = 3.788, turns = 9, source = "reference", refs = ["docs/specs/experiments/dev-loop/register.md（20261025-mkt-layer・20261108-edgar-8k-event-flags・20261112-wiki-pageview-layer の行）", "experiments/feature-discovery/config/names.toml（[method]）", "docs/specs/experiments/feature-discovery/ledger.md §0", "CLAUDE.md の決算の層の要約（smallcap-stage2b.md ＝ 集合が変わると対の差が読めない。記録の本体は読んでいない）"] }
+question = "出来高のうち空売りが占める割合という、日足の OHLCV には無い系列を足すと、同じ表・同じ集合・同じ切れ目の own だけの行との fold 対の差が動くか。"
+structure = "取得元を 1 本（FINRA の Daily Short Sale Volume。新しい置き場 data-shv/・研究用の data/ は触らない）と層 shv_ を 1 本（ail/ideas/ ＋ 既存の layer_order の口）。列の種類は 3 つ: 空売りの割合の水準 ／ その銘柄自身の過去に対する z スコア ／ 短い期間の変化。as-of は足の日の 1 営業日前。欠損は ernf と同じく印の列に写して値を埋める（銘柄と行を落とさない）。対の相手は同じ表・同じ期間の own だけの行。⚠ 利用規約に触れる: 取得の前に FINRA の利用条件（再配布しない・自動取得の頻度）を読んで記録に書く。⚠ 公開されている過去の長さは未確認 ＝ 取得の前に確かめ、表の開始日が 2018-01-31 より遅くなるなら相手の own だけの行も同じ期間で回して数える。既存の own-mkt ／ own+gap ／ own48+evt ／ own48-attn との違い ＝ 入力が価格・出来高の合計・提出の印・閲覧数ではなく、出来高の内訳であること。"
+n_trials_planned = 6
+key_shape = ["own-shv.all.ridge.shared", "55"]
+failure_modes = ["公開されている過去が短く、表の開始が遅れて 5 fold の訓練が痩せる（fold 1 が学べない）", "空売りの割合が出来高の列（own_ の出来高系）とほぼ同じ動きで、Ridge の買い% が 1 ビット近くしか動かない", "取引所外の報告分だけの数字なので銘柄 ／ 時期で水準がずれ、z スコアが制度の変更日で段になる", "ETF と会社で割合の水準が違い、共有の 1 本が銘柄の種類を覚えるだけになる"]
+prediction = "対の差は 6 対とも数十 bp・|t| < 2、買い% の幅は門前のまま、leak 対照は跳ねる。fold の符号は own だけの行と同じ並びになる。"
+effort = "中"
+measurable = "測れる: 同じ表・同じ集合・同じ切れ目の fold 対の差が数百 bp/fold 出るかどうかは見える。それより小さければ検出限界の下なので決着なしと書く。出来高の列との相関・欠損の割合・段の数は判定と別に数えられる。"
+touches = "新しいモジュールだけ（取得元は ail/data/sources/ に新しく 1 本・層は ail/ideas/ と既存の layer_order の口・置き場 data-shv/）"
+status = "登録"
+frame = "外"
+p_hold = 0.3
+p_positive = 0.45
+learn_if_null = "同じ集合のまま出来高の内訳を足しても対の差が 0 の周りなら、日次の公開系列を層として足す形（mkt ／ gap ／ 決算 ／ 提出の印 ／ 閲覧数 ／ 空売り）は系列の中身によらずこの器では差が見えないと分かる。次は層を足すのをやめ、その系列自身を当てる対象か、売買しない日を選ぶ条件に使う形へ変える。"
+registered_at = "2026-11-13 01:02 PST"
+reference_mode = "避ける"
+notes = "段 1 の出力の key_shape の原文: own-shv.all.ridge.shared@θ（θ 50 ／ 55 ／ 60）＋ 同じ期間の own.all.ridge.shared@θ（期間が変わるときだけ新しい識別項目）"

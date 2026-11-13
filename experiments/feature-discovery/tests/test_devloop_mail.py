@@ -258,6 +258,21 @@ def test_html_body_escapes_and_orders_cards_by_p_hold():
     assert "<script" not in h and "<style" not in h                                       # メール向け ＝ 属性の style だけ
 
 
+def test_idea_card_lists_similar_past_ideas_only_when_given():
+    sim = [{"id": "20261106-planted-signal-power", "title": "既知の強さの <i>信号</i> を埋める", "status": "回した", "score": 0.218},
+           {"id": "20261101-x", "title": "別の案", "status": "人の手", "score": 0.04}]
+    h = dm.idea_card(IDEA, sim)
+    assert "似た過去の案" in h and "0.22" in h and "0.04" in h and "（回した ・ 20261106）" in h and "（人の手 ・ 20261101）" in h
+    assert "<i>信号</i>" not in h and "&lt;i&gt;信号&lt;/i&gt;" in h                         # 原文はエスケープする
+    assert h.index("既知の強さ") < h.index("別の案")                                         # 渡した順（近い順）のまま
+    assert "似た過去の案" not in dm.idea_card(IDEA) and "似た過去の案" not in dm.idea_card(IDEA, [])
+    parts = {"stages": "0,1,2,3,4", "gate": "", "ideate": {"ideas": [IDEA], "counts": {"登録": 1}, "similar": {IDEA["id"]: sim}},
+             "cost": 2.0, "state": {}, "commit": "コミット abc1234・push ✅"}
+    assert "似た過去の案" in dm.html_body(parts, "2026-11-04", "docs/log/2026-11-04.md")
+    parts["ideate"]["similar"] = {}
+    assert "似た過去の案" not in dm.html_body(parts, "2026-11-04", "docs/log/2026-11-04.md")
+
+
 def test_html_body_stopped_night_is_red_and_shows_the_fix():
     h = dm.html_body({"stopped": "段 0: 作業ツリーが汚れている（未コミット: TODO.md）", "gate": "作業ツリーが汚れている", "stages": "0,1,2,3,4"},
                      "2026-11-05", "—")

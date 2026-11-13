@@ -21,6 +21,7 @@ import os
 import sqlite3
 import sys
 import tomllib
+import unicodedata
 from zoneinfo import ZoneInfo
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
@@ -125,6 +126,55 @@ def duplicates(key_shape, models: list[str] | None) -> tuple[int, list[str]]:
     pats = [key_shape] if isinstance(key_shape, str) else [str(x) for x in key_shape]
     hit = sorted({m for m in models for p in pats if fnmatch.fnmatchcase(m, p) or fnmatch.fnmatchcase(m, p + "~*")})
     return len(hit), hit[:3]
+
+
+# ---------------------------------------------------------------- 似た過去の案（登録簿どうしの近さ。⚠ 表示だけ）
+# 2026-11-13 利用者「Aで進めて」（docs/plans/devloop-dedupe.md の穴 ①・案 A）。段 1 は毎晩新しい名前で key_shape を書くので、
+# 同じ問いの焼き直しは上の「既出の疑い」（予測モデル名の照合）では拾えない。題名 ＋ 問いの文字 3-gram の Jaccard で
+# 「より前の日付の案」から近い順に並べて見せる。⚠ status は変えない・しきい値で切らない（別物も同じくらいの値になる）
+# ・「意味がない」の判定ではない（利用者の指示 2026-10-24）。同じ問いかを決めるのは人。
+
+SIMILAR_TOP = 3
+
+
+def _grams(doc: dict, n: int = 3) -> frozenset:
+    s = unicodedata.normalize("NFKC", f"{doc.get('title') or ''} {doc.get('question') or ''}").lower()
+    s = "".join(s.split())
+    return frozenset(s[i:i + n] for i in range(len(s) - n + 1))
+
+
+def _jaccard(a: frozenset, b: frozenset) -> float:
+    return len(a & b) / len(a | b) if a and b else 0.0
+
+
+def similar_map(docs: list[dict], top: int = SIMILAR_TOP, only: set | None = None) -> dict[str, list[dict]]:
+    """案の id → 似た過去の案（近い順に top 本。`{"id", "title", "status", "score"}`）。
+
+    相手は **より前の日付の案だけ**（自分 ・ 同じ晩の案 ・ 後の案は入れない）。近さ 0 の相手は出さない。同じ近さは id の順。
+    `only` を渡すと、その id の案だけを引く（相手は docs の全部）。
+    """
+    if top <= 0:
+        return {}
+    grams = {str(d.get("id")): _grams(d) for d in docs}
+    out: dict[str, list[dict]] = {}
+    for d in docs:
+        i = str(d.get("id"))
+        if only is not None and i not in only:
+            continue
+        scored = [(_jaccard(grams[i], grams[str(o.get("id"))]), str(o.get("id")), o) for o in docs
+                  if str(o.get("date") or "") < str(d.get("date") or "")]
+        scored = sorted((x for x in scored if x[0] > 0), key=lambda x: (-x[0], x[1]))[:top]
+        out[i] = [{"id": j, "title": str(o.get("title") or ""), "status": str(o.get("status") or "?"), "score": round(sc, 3)} for sc, j, o in scored]
+    return out
+
+
+def similar_spread(docs: list[dict]) -> tuple[float, float, int] | None:
+    """近さの目盛りの読み方: 登録簿の全対（日付の違う組）の 中央値 ・ 上位 1% の境 ・ 対の数。対が無ければ None。"""
+    grams = [(str(d.get("date") or ""), _grams(d)) for d in docs]
+    vals = sorted(_jaccard(a, b) for k, (da, a) in enumerate(grams) for db, b in grams[:k] if da != db)
+    if not vals:
+        return None
+    return vals[len(vals) // 2], vals[min(len(vals) - 1, int(len(vals) * 0.99))], len(vals)
 
 
 # ---------------------------------------------------------------- 書く（登録簿の TOML と register.md）
@@ -240,17 +290,31 @@ def verdicts_from_conn(conn) -> dict[str, set[str]]:
     return out
 
 
+def _similar_note(docs: list[dict], top: int) -> list[str]:
+    """register.md の頭に置く「似た過去の案」の読み方（切っていれば空）。"""
+    if top <= 0:
+        return []
+    sp = similar_spread(docs)
+    scale = f"目盛りの読み方: 登録簿の全対 {sp[2]} 組の中央値 {sp[0]:.2f}・上位 1% は {sp[1]:.2f} 以上。" if sp else ""
+    return [f"⚠ 「似た過去の案」（案ごとの節）は、題名 ＋ 問いの文字 3 つ組の重なり（0〜1）が大きい順に、より前の日付の案を {top} 本並べたもの。{scale}"
+            "**表示だけ** ＝ 状態は変えない・「意味がない」の判定ではない。同じ問いかを決めるのは人（段 2 を作る前に見る。別物も同じくらいの値になる）。", ""]
+
+
 def build_register(cfg: dict, ideas: list[tuple[str, dict, list[str]]], models: list[str] | None, n_trials: int | None,
                    outcomes: dict[str, set[str]] | None = None) -> str:
     counts: dict[str, int] = {}
     for _p, d, _b in ideas:
         counts[d.get("status", "?")] = counts.get(d.get("status", "?"), 0) + 1
+    docs = [d for _p, d, _b in ideas]
+    top = int((cfg.get("ideation") or {}).get("similar_top", SIMILAR_TOP))
+    sim = similar_map(docs, top)
     lines = ["# 開発ループの登録簿（生成物）", "",
              "⚠ **このファイルは生成物である。手で書き換えない。** 正本は `experiments/feature-discovery/config/ideas/*.toml`（rules.md 31-1）。",
              f"生成 {now_seattle()} ／ 検証結果一覧の n_trials {n_trials if n_trials is not None else '—'} ／ "
              f"登録簿 {len(ideas)} 本（" + "・".join(f"{k} {v}" for k, v in sorted(counts.items())) + "）／ "
              f"r {cfg['ideation']['reference_pct']}%・N {cfg['ideation']['ideas_per_night']}", "",
              "⚠ 良し悪し・意味の有無の印は無い（利用者の指示 2026-10-24）。印は 手間・測れるか・触る場所 の 3 つ。「既出の疑い」は `key_shape` が検証結果一覧の予測モデル名に当たった数（印は人 ／ ループが付ける）。", "",
+             *_similar_note(docs, top),
              "| id | 題 | 種類 | 枠 | 保留以上の確率 | 出どころ | 状態 | 登録時刻 | 数える | 識別項目の形 | 既出の疑い | 手間 | 測れるか | 触る場所 |",
              "| --- | --- | --- | --- | ---: | --- | --- | --- | ---: | --- | --- | --- | --- | --- |"]
     for _p, d, bad in ideas:
@@ -284,6 +348,9 @@ def build_register(cfg: dict, ideas: list[tuple[str, dict, list[str]]], models: 
                   f"- 予想（先に書いた）: {d.get('prediction')}"]
         if d.get("learn_if_null"):
             lines.append(f"- 決着なしのとき分かること: {d['learn_if_null']}")
+        if sim.get(str(d.get("id"))):
+            lines.append("- 似た過去の案（近さ・表示だけ）: " + " ／ ".join(
+                f"{r['score']:.2f} `{r['id']}` {r['title']}（{r['status']}）" for r in sim[str(d.get("id"))]))
         o = d.get("origin") or {}
         if o.get("refs"):
             lines.append("- 参考にした記録: " + " ／ ".join(f"`{x}`" for x in o["refs"]))
@@ -710,6 +777,13 @@ def ideate(cfg: dict, env: dict, date: str, log, models: list[str] | None) -> di
         out["ideas"] += docs
         log(f"  段 1（{which}）: {len(raw)} ／ {n} 本・${out['bundles'][which]['cost']:.2f}・{out['bundles'][which]['turns']} turns")
     out["counts"] = {s: sum(1 for d in out["ideas"] if d["status"] == s) for s in STATUSES if any(d["status"] == s for d in out["ideas"])}
+    # 似た過去の案（⚠ 表示だけ ＝ status は変えない。落ちても段 1 は止めない）
+    try:
+        top = int(ide.get("similar_top", SIMILAR_TOP))
+        out["similar"] = similar_map([d for _p, d, _b in load_ideas(cfg)], top, only={str(d["id"]) for d in out["ideas"]}) if out["ideas"] else {}
+    except Exception as e:       # noqa: BLE001
+        out["similar"] = {}
+        log(f"  ⚠ 似た過去の案を引けなかった（表示だけ ＝ 続ける）: {type(e).__name__}: {e}")
     # ⚠ 31-6: 枠の外の本数（下限に届かなくても止めない ＝ 日誌に書く）
     need = int(ide.get("outside_frame_min", 2))
     out["outside"] = sum(1 for d in out["ideas"] if d.get("frame") == "外")
@@ -1139,6 +1213,15 @@ def write_journal(cfg: dict, date: str, parts: dict, path: str) -> str:
             ph = f"{float(d['p_hold']):.2f}" if isinstance(d.get("p_hold"), (int, float)) else "—"
             L.append(f"| `{d['id']}` | {_esc(d['title'])} | {d.get('frame') or '—'} | {ph} | {d['status']} | {d.get('effort')} | {d.get('n_trials_planned')} | {_esc(d.get('touches'))} |")
         L.append("")
+        sim = s1.get("similar") or {}
+        if any(sim.get(str(d["id"])) for d in s1.get("ideas") or []):
+            L += ["### 似た過去の案（題名 ＋ 問いの文字の近さ・上位。より前の日付の案だけ）", "",
+                  "⚠ 表示だけ（状態は変えない・「意味がない」の判定ではない）。同じ問いかを決めるのは人 ＝ 段 2 を作る前に見る。近さは 0〜1・目盛りの読み方は `register.md` の頭。", "",
+                  "| この晩の案 | 近さ | 過去の案 | 状態 | 題 |", "| --- | ---: | --- | --- | --- |"]
+            for d in s1.get("ideas") or []:
+                for r in sim.get(str(d["id"])) or []:
+                    L.append(f"| `{d['id']}` | {r['score']:.2f} | `{r['id']}` | {r['status']} | {_esc(r['title'])} |")
+            L.append("")
     elif parts.get("ideate_error"):
         L += ["## 段 1 アイデア出し", "", f"⚠ 落ちた: {parts['ideate_error']}", ""]
     s2 = parts.get("build")
@@ -1420,7 +1503,8 @@ def sample_html(cfg: dict, m: dict) -> str:
     finally:
         conn.close()
     parts = {"stages": "0,1,2,3,4", "gate": "", "cost": 0.0, "seconds": 0, "state": load_state_readonly(),
-             "ideate": {"ideas": night_docs, "counts": counts},
+             "ideate": {"ideas": night_docs, "counts": counts,
+                        "similar": similar_map(docs, int((cfg.get("ideation") or {}).get("similar_top", SIMILAR_TOP)), only={str(d.get("id")) for d in night_docs})},
              "build": {"mode": "manual", "todo": [d["id"] for d in night_docs if d.get("status") == "登録"]},
              "run": {"picked": [d["id"] for d in ran]}, "commit": "（試し）"}
     rel = os.path.relpath(_journal_path(cfg, date), REPO)

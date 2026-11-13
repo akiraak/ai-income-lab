@@ -266,6 +266,80 @@ def test_register_marks_known_shape_with_theta_note_as_duplicate(world):
     assert "原文: own.all.ridge.shared@θ（θ ＝ 50 ／ 55 ／ 60）" in by["既にある形"]["notes"]      # 原文は残す
 
 
+# --- 似た過去の案（穴 ①・案 A ＝ 表示だけ。2026-11-13 利用者「Aで進めて」）---------------------------------
+
+def _doc(id_, date, title, question, status="回した"):
+    return {"id": id_, "date": date, "title": title, "question": question, "status": status}
+
+
+def test_similar_map_orders_by_closeness_and_only_looks_back():
+    me = _doc("20261108-me", "2026-11-08", "値動きの似た銘柄の集まりを見つけ、集まりの中の出遅れを買う", "集まりの中で遅れた銘柄は戻るか", "登録")
+    near = _doc("20261106-near", "2026-11-06", "相関で銘柄の集まりを見つけ、集まりの中で遅れた銘柄を買う", "集まりの中で遅れた銘柄は戻るか")
+    mid = _doc("20261104-mid", "2026-11-04", "出来高で銘柄の集まりを作る", "跳ねの翌日に遅れた銘柄を買うと勝つか", "人の手")
+    none = _doc("20261101-none", "2026-11-01", "ABC", "XYZ")
+    same_night = _doc("20261108-twin", "2026-11-08", me["title"], me["question"], "登録")           # 同じ晩の案は相手にしない
+    later = _doc("20261109-later", "2026-11-09", me["title"], me["question"], "登録")              # 後の案も相手にしない
+    docs = [later, none, mid, same_night, near, me]
+    got = devloop.similar_map(docs)
+    assert [r["id"] for r in got["20261108-me"]] == ["20261106-near", "20261104-mid"]               # 近い順 ・ 自分と近さ 0 は出さない
+    assert got["20261108-me"][0]["score"] > got["20261108-me"][1]["score"] > 0
+    assert got["20261108-me"][0] == {"id": "20261106-near", "title": near["title"], "status": "回した", "score": got["20261108-me"][0]["score"]}
+    assert got["20261101-none"] == [] and got["20261106-near"] == [{"id": "20261104-mid", "title": mid["title"], "status": "人の手",
+                                                                    "score": got["20261106-near"][0]["score"]}]
+    assert [r["id"] for r in got["20261109-later"]][:2] == ["20261108-me", "20261108-twin"]         # 同じ近さは id の順
+    assert got["20261109-later"][0]["score"] == 1.0
+    assert [r["id"] for r in devloop.similar_map(docs, top=1)["20261108-me"]] == ["20261106-near"]
+    assert set(devloop.similar_map(docs, only={"20261108-me"})) == {"20261108-me"}
+    assert devloop.similar_map(docs, top=0) == {}
+    # 全角 ／ 半角 ・ 空白 ・ 大文字小文字の違いは同じ文字として数える
+    a, b = _doc("b", "2026-11-02", "ＬｉｇｈｔＧＢＭ の 局面", "q"), _doc("a", "2026-11-01", "lightgbmの局面", "q")
+    assert devloop.similar_map([a, b])["b"][0]["score"] == 1.0
+    sp = devloop.similar_spread(docs)
+    assert sp is not None and 0.0 <= sp[0] <= sp[1] <= 1.0 and sp[2] == 14                         # 6 本 ＝ 15 対 − 同じ晩の 1 対
+    assert devloop.similar_spread([me, same_night]) is None
+
+
+def test_ideate_shows_similar_past_ideas_and_never_changes_status(world):
+    root, cfg, conn = world
+    past = {"id": "20261020-old-detector", "date": "2026-10-20", "title": "新しい検知器の前の版", "kind": "モデル", "origin": {"source": "independent"},
+            "question": "問い", "structure": "s", "n_trials_planned": 3, "key_shape": ["own.h8-gate.ridge.shared"], "failure_modes": ["f"],
+            "prediction": "p", "effort": "小", "measurable": "測れる: r", "touches": "新しいモジュールだけ", "status": "回した",
+            "registered_at": "2026-10-20 00:00 PDT"}
+    devloop.write_idea(str(root / "ideas" / "20261020-old-detector.toml"), past)
+    before = (root / "ideas" / "20261020-old-detector.toml").read_bytes()
+    fake = FakeEnv(root, conn)
+    out = devloop.ideate(cfg, fake.env, "2026-10-26", lambda s: None, ["own.all.ridge.shared"])
+    by = {d["title"]: d for d in out["ideas"]}
+    sim = out["similar"]
+    assert set(sim) == {d["id"] for d in out["ideas"]}                                           # この晩の案だけを引く
+    assert [r["id"] for r in sim[by["新しい検知器"]["id"]]] == ["20261020-old-detector"]          # 同じ晩の 2 束目は相手にしない
+    assert sim[by["新しい検知器"]["id"]][0]["status"] == "回した"
+    assert out["counts"] == {"案": 2, "登録": 2, "既出": 2, "人の手": 2}                          # ⚠ 状態は今までと同じ（表示だけ）
+    assert by["新しい検知器"]["status"] == "登録" and "similar" not in by["新しい検知器"]
+    d = tomllib.loads((root / "ideas" / f"{by['新しい検知器']['id']}.toml").read_text(encoding="utf-8"))
+    assert "similar" not in d and "似た" not in d.get("notes", "")                               # 登録簿には書かない
+    assert (root / "ideas" / "20261020-old-detector.toml").read_bytes() == before
+    text = devloop.write_journal(cfg, "2026-10-26", {"stages": "0,1", "ideate": out}, str(root / "log" / "j.md"))
+    row = f"| `{by['新しい検知器']['id']}` | {sim[by['新しい検知器']['id']][0]['score']:.2f} | `20261020-old-detector` | 回した | 新しい検知器の前の版 |"
+    assert "### 似た過去の案" in text and row in text and "表示だけ" in text
+    reg = devloop.build_register(cfg, devloop.load_ideas(cfg), [], 1)
+    assert "- 似た過去の案（近さ・表示だけ）: " in reg and "`20261020-old-detector` 新しい検知器の前の版（回した）" in reg
+    assert "目盛りの読み方" in reg and "状態は変えない" in reg
+    cfg["ideation"]["similar_top"] = 0                                                           # 0 ＝ 出さない
+    assert "似た過去の案" not in devloop.build_register(cfg, devloop.load_ideas(cfg), [], 1)
+    out0 = devloop.ideate(cfg, FakeEnv(root, conn).env, "2026-10-27", lambda s: None, [])
+    assert out0["similar"] == {}
+    assert "似た過去の案" not in devloop.write_journal(cfg, "2026-10-27", {"stages": "0,1", "ideate": out0}, str(root / "log" / "j2.md"))
+
+
+def test_ideate_survives_a_broken_similarity(world, monkeypatch):
+    root, cfg, conn = world
+    monkeypatch.setattr(devloop, "similar_map", lambda *a, **k: (_ for _ in ()).throw(RuntimeError("壊れた")))
+    logs: list[str] = []
+    out = devloop.ideate(cfg, FakeEnv(root, conn).env, "2026-10-26", logs.append, [])
+    assert out["similar"] == {} and len(out["ideas"]) == 8 and any("似た過去の案を引けなかった" in m for m in logs)
+
+
 def test_ideate_registers_and_classifies(world):
     root, cfg, conn = world
     fake = FakeEnv(root, conn)

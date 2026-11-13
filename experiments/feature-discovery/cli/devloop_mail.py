@@ -301,7 +301,7 @@ def _card(inner: str, border: str = "") -> str:
             f'padding:14px 18px;margin-bottom:10px">{inner}</div>')
 
 
-def idea_card(d: dict) -> str:
+def idea_card(d: dict, similar: list[dict] | None = None) -> str:
     bg, fg = STATUS_STYLE.get(str(d.get("status")), ("#eef0f3", C["sub"]))
     frame = d.get("frame")
     tags = [_pill(str(d.get("status") or "?"), bg, fg, bold=True)]
@@ -318,6 +318,10 @@ def idea_card(d: dict) -> str:
         rows.append(f'<b style="color:#344054">予想</b>　{_inline(clip(d["prediction"]))}')
     if d.get("learn_if_null"):
         rows.append(f'<b style="color:#344054">差が出なかったら</b>　{_inline(clip(d["learn_if_null"]))}')
+    if similar:      # 登録簿の中の近い案（⚠ 表示だけ ＝ 状態は変えない。同じ問いかを決めるのは人）
+        rows.append(f'<b style="color:#344054">似た過去の案</b>　<span style="color:{C["dim"]}">題名 ＋ 問いの文字の近さ（0〜1）</span><br>' + "<br>".join(
+            f'<span style="font-family:{MONO}">{float(r.get("score", 0.0)):.2f}</span>　{_inline(clip(r.get("title"), 44))}'
+            f'<span style="color:{C["dim"]}">（{_e(r.get("status"))} ・ {_e(str(r.get("id"))[:8])}）</span>' for r in similar))
     foot = (f'<div style="margin-top:8px;font-size:12px;color:{C["sub"]};border-top:1px dashed #e4e7ec;padding-top:6px">'
             + "<br>".join(rows) + "</div>") if rows else ""
     return _card(
@@ -409,7 +413,8 @@ def html_body(parts: dict, date: str, journal_rel: str, *, repo_url: str = "", r
     label = f'<div style="font-size:12px;color:{C["dim"]};margin:18px 4px 6px;letter-spacing:.06em">'
     if ideas:
         out.append(label + f"この晩のアイデア {len(ideas)} 本（保留以上の予想が高い順）</div>")
-        out += [idea_card(d) for d in ideas]
+        sim = (parts.get("ideate") or {}).get("similar") or {}
+        out += [idea_card(d, sim.get(str(d.get("id")))) for d in ideas]
     elif parts.get("stopped") or parts.get("ideate_error"):
         out.append(f'<div style="font-size:12px;color:{C["dim"]};margin:14px 4px 0">この晩はアイデアを出していません</div>')
     if results:

@@ -23,3 +23,4 @@ registered_at = "2026-11-14 01:02 PST"
 reference_mode = "避ける"
 notes = "段 1 の出力の key_shape の原文: なし（数えない診断 ＝ 検証結果一覧に行を作らない。出力は診断の outputs だけ） ／ 段 2: ステージ 2 の枠では作れない（共有コードそのものは触らない）: (1) structure は既存の診断 cli/inject_power.py に信号の種類 persist（inject の列を 2 状態マルコフ連鎖の ±1 に替える種類の引数・列の単位 2 × 期待滞在 L 20 ／ 60・k = 0 の行・持つ日の割合と取引回数の出力）を足す形だが、cli/ は allowlist の write に無い ＝ 書くと全部捨てられる。(2) 数える検証 0 本の診断で実験 config が無く cli.queue に載らない ＝ experiments が空の出力はランナーが捨てる。サンドボックスのプロンプトも experiments を求めるので同じところで止まる見込み ＝ sandbox_skip を付けて、11/6 の cli.planted_power ・ 11/13 の cli.inject_power と同じく手動で作って --save で流すのがよい。何も書いていない。"
 build_attempts = 1
+sandbox_skip = "数える検証 0 本の診断で実験 config が無い ＝ サンドボックスの形（experiments を queue に並べる）では作れない。手動で cli/inject_power.py に足す（2026-11-14・ステージ 2 の所見）"

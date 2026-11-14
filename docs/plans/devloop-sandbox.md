@@ -170,6 +170,6 @@ flowchart TB
 ### Phase 4: ランナーに組み込んだ（2026-11-13 22:05〜22:25 PST・titan）
 
 - ステージ 5（`devloop.sandbox_stage`）・設定 `[sandbox]`・プロンプト `devloop/prompts/build_sandbox.md`・`cli.devloop sandbox [--id]`・ログ ／ メール ／ `register.md` ／ 実行タブ・テスト 12 本。記録は [dev-loop.md §14-2・§14-3](../specs/experiments/dev-loop.md)
-- 出口の確認: 本物の `claude -p` で `20261101-ten-fold-long-table` を 1 本通した ＝ 464 秒・定価換算 $5.88・保留 1 ／ 落とす 2（サンドボックスの検証数 9）
+- 出口の確認: 本物の `claude -p` で `20261101-ten-fold-long-table` を 1 本通した ＝ 464 秒・定価換算 $5.88・保留 1 ／ 落とす 2（サンドボックスの検証数 9）。✅ 2026-11-14 利用者「取り込まない」
 - 直したこと: 最後の leak の行が一覧に入らないまま要約していた → queue の後に 1 度再生成・`leak_ok` ／ `leak_missing`
 - ✅ `[sandbox] enabled = true`（Phase 5 ＝ 11/14 の晩から 3 晩）

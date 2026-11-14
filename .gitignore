@@ -33,3 +33,6 @@ experiments/live-trading/sim-predict/
 *.sqlite-wal
 *.sqlite-shm
 dashboard/demo/live/demo.sqlite
+
+# 開発ループのロック（夜のランナーと cli.devloop sandbox が動いている間だけある。コミットしない）
+experiments/feature-discovery/devloop.lock

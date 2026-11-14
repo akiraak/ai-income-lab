@@ -11,6 +11,7 @@
 
 from __future__ import annotations
 
+import numpy as np
 import pandas as pd
 
 from ail import registry
@@ -66,6 +67,41 @@ def train_label(exp: dict, tr: pd.DataFrame):
         raise SystemExit(f"⚠ label = {kind!r} は受けない（{XS_LABEL!r} ／ {VOL_LABEL!r} だけ。rules.md 31 章の登録簿）")
     y = tr["y"].astype(float)
     return (y - y.groupby(tr["ts"]).transform("mean")).to_numpy(dtype=float)
+
+
+# 登録簿 20261101-deadzone-label（2026-11-13 サンドボックスの 1 本目・rules.md 31-7）: 訓練の行のうち、翌日の動きが小さい行を外す
+DEADZONE = {"a": 0.25, "b": 0.5}   # |y| < 倍率 × own_vol_60 の行を訓練から外す（事前固定 ＝ レジストリの structure）
+
+
+def deadzone_model(exp: dict, model, tr: pd.DataFrame):
+    """`label_deadzone = "a" | "b"` のとき、学習に渡す行から「小さな値動きの行」を外すモデルを返す。
+
+    ⚠ **`label_deadzone` の無い config は `model` そのもの**（同じオブジェクト ＝ 1 ビットも変わらない）。
+    外すのは **学習の行だけ**: 較正の holdout の尻（予測する側）・評価の行は外さない。行の対応は `Xtr` の RangeIndex（0..n-1 ＝ `tr` の並び）で引く
+    ＝ 較正が `tail_holdout` で頭を切っても同じ行が外れる。σ が欠けた ／ 0 以下の行は外さない。
+    """
+    kind = exp.get("label_deadzone")
+    if not kind:
+        return model
+    if kind not in DEADZONE:
+        raise SystemExit(f"⚠ label_deadzone = {kind!r} は受けない（{' ／ '.join(DEADZONE)} だけ。登録簿 20261101-deadzone-label）")
+    if VOL_COLUMN not in tr:
+        raise SystemExit(f"⚠ label_deadzone には表に {VOL_COLUMN} が要る（own 層）")
+    sig = tr[VOL_COLUMN].astype(float).to_numpy()
+    y = tr["y"].astype(float).to_numpy()
+    with np.errstate(invalid="ignore"):
+        small = (sig > 0) & (np.abs(y) < DEADZONE[kind] * sig)
+    keep = ~small
+
+    def wrapped(Xa, ya, Xb, ctx):
+        idx = np.asarray(Xa.index)
+        if len(idx) and (idx.min() < 0 or idx.max() >= len(keep)):
+            raise SystemExit("⚠ label_deadzone: 学習の行が訓練分割の並びと対応しない（index が 0..n-1 でない）")
+        k = keep[idx]
+        return model(Xa[k], np.asarray(ya)[k], Xb, ctx)
+
+    wrapped.deadzone_dropped = float(small.mean())      # 外した行の割合（記録用）
+    return wrapped
 
 
 def label(exp: dict, method: str) -> str:

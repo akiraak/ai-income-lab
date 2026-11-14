@@ -230,6 +230,10 @@ def fold_buy_pct(tr: pd.DataFrame, te: pd.DataFrame, feats: list[str], exp: dict
         Xtr = pd.DataFrame(sc.transform(tr[feats]), columns=feats)
         Xte = pd.DataFrame(sc.transform(te[feats]), columns=feats)
         ytr = prep.train_label(exp, tr)       # ⚠ `label` の無い config は tr["y"].values そのまま（登録簿 20261025-xs-excess-label。rules.md 31 章）
+        # ⚠ `label_deadzone` の無い config は model そのもの（同じオブジェクト。登録簿 20261101-deadzone-label ＝ サンドボックス）
+        model = prep.deadzone_model(exp, model, tr)
+        if getattr(model, "deadzone_dropped", None) is not None:
+            fitted_doc["_deadzone"] = {"外した割合": model.deadzone_dropped}
         # ⚠ **標本から学ぶ変換の 1 段**（3 章 B）。⚠ **config に `transform` が無ければ素通り**
         Xtr, Xte, tdoc = prep.apply(exp, Xtr, Xte, ctx, ytr, ts_tr=tr["ts"].to_numpy())   # 日付は 23 章の適合度だけが読む
         if tdoc is not None:

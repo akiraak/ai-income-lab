@@ -1,0 +1,8 @@
+# ⚠ 開発ループのサンドボックス 1 本目（2026-11-13・手で）。登録簿 20261101-deadzone-label（rules.md 31-7）。回すと決めたのは結果を見る前。
+# ⚠ サンドボックスの中だけで回す（main の DB には入らない）。数える検証 ＝ 2 config × θ 3 ＝ 6（サンドボックスの検証数）。
+experiments = ["dev_deadzone_a_own", "dev_deadzone_b_own"]
+
+leak = true
+ledger = true
+max_failures = 1
+time_budget_s = 3600

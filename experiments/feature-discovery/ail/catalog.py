@@ -349,6 +349,8 @@ def threshold_style(cfg: dict) -> str:
         parts.append("断面超過ラベル")
     elif cfg.get("label") == "vol_scaled":
         parts.append("ボラ割りラベル")   # 開発ループの登録簿 20261101-vol-scaled-label（2026-11-01）
+    if dz := cfg.get("label_deadzone"):
+        parts.append(f"小動き除外{dz}")   # 登録簿 20261101-deadzone-label（サンドボックス。無い config は書かない ＝ 既存の行は割れない）
     return "閾値売買" + (f"（{'・'.join(parts)}）" if parts else "")
 
 

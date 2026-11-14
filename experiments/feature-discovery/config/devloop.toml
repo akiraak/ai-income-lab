@@ -29,6 +29,18 @@ ledger = true                   # 終わったら検証結果一覧を吐き直�
 max_trials_per_night = 12       # 1 晩に数える検証数の上限（K4）
 heavy_per_night = 1             # 30 分を超えると見積もる形（tsfresh・PatchTST・TimeXer など GPU の重いもの）は 1 晩 1 本
 
+[sandbox]                       # ステージ 5 サンドボックス（rules.md 31-7・プラン docs/plans/devloop-sandbox.md・2026-11-13 利用者「A（推す）」「Bも推す案で」）
+enabled = false                 # ⚠ true にすると、ステータス「共有コード変更」の案を 1 晩 per_night 本、サンドボックス（`cli/sandbox.py`）で作って回す。false ／ 無しなら 1 晩の動きは今までと同じ
+per_night = 1                   # S5: 1 晩 1 本（増やすかは試運転 3 晩の後に利用者が決める）
+max_turns = 80                  # S5: claude -p の上限
+max_budget_usd = 20.0           # S5: 1 本あたりの費用の上限（定価換算。段 1 $10 ＋ 段 2 $15 とは別枠）
+time_budget_s = 3600            # S5: 作る ＋ テスト ＋ 回す で 60 分まで
+retries_per_idea = 2            # 通らなかった案は翌晩もう 1 度（合計 2 回で「失敗」）
+keep_days = 14                  # S8: ワーキングツリーとサンドボックスの DB ・日足のコピーは 14 日で消す（ブランチと結果の表は残す）
+push = true                     # S4: ブランチ `sandbox/<id>` を origin に push する（⚠ `main` ・ `prod` には push しない）
+tools = ["Read", "Grep", "Glob", "Write", "Edit"]   # Bash は渡さない（テストと queue はランナーがサンドボックスの中で流す）
+# ⚠ 書いてはいけないパス（S6）は `cli/sandbox.py` の `FORBID`（執行器・管理画面・docs・TODO ／ CLAUDE ／ DONE・ランナー自身）。既存のテストの書き換え・削除も NG
+
 [select]                        # 段 4（K6。物差しは howto-model-trader.md §3-1 のまま ＝ cli.select_candidates）
 top = 3
 shape_new_only = true           # 20 章の机上（cli.trader_shape）に自動で足すのは「新しく上位 3 に入った行」だけ

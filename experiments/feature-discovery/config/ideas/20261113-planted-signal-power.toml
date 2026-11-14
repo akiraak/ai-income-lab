@@ -18,3 +18,4 @@ frame = "内"
 p_hold = 0.7
 learn_if_null = "強い段でも採るが出ないなら、情報が無いのではなく道（較正・買い% の幅・器）が合図を消していると分かり、次は道のどの段で消えるかを段ごとに測る。弱い段は拾えないと確かめられたら、以後の案の「測れるか」の印をこの表の段で付け直す。"
 notes = "段 1 の出力の key_shape の原文: 数える行なし（leak 対照の変種: own.all.ridge.shared ／ own.all.lgbm.shared に印 ~plant<段> を付け、検証結果一覧には出さない）"
+sandbox_skip = "同じ問いを cli/inject_power.py で 2026-11-13 に回した（済み）"

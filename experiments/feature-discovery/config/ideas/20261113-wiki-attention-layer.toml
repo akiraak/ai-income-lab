@@ -19,3 +19,4 @@ p_hold = 0.4
 p_positive = 0.45
 learn_if_null = "差なしなら、日次の閲覧数を翌日の方向に結ぶ形には情報が見えないと分かる。次は同じ系列を当てるものの違う問い（急増の後の値幅・決算の前後の日だけ）に当てる形を新しい id で登録し、取得元は使い回す。"
 notes = "段 1 の出力の key_shape の原文: own-wiki.all.ridge.shared@θ（3 本）と 対の相手 own.all.ridge.shared@θ（3 本・集合 ＝ 会社 48 本。既にあれば機械が既出と数える）"
+sandbox_skip = "同じ問いを層 attn（dev_attn_own48）で 2026-11-13 に回した（済み）"

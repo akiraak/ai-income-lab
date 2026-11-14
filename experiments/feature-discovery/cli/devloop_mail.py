@@ -25,7 +25,7 @@ ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 CONFIG = os.path.join(ROOT, "config", "devloop.toml")
 KEYS = ("AIL_MAIL_HOST", "AIL_MAIL_PORT", "AIL_MAIL_USER", "AIL_MAIL_PASSWORD", "AIL_MAIL_TO")
 DEFAULT_SECRETS = "~/.config/ai-income-lab/devloop-mail.env"
-STAGE_ERRORS = (("ideate_error", 1), ("build_error", 2), ("run_error", 3), ("select_error", 4), ("weekly_error", 4))
+STAGE_ERRORS = (("ideate_error", 1), ("build_error", 2), ("run_error", 3), ("select_error", 4), ("weekly_error", 4), ("sandbox_error", 5))
 
 
 # ---------------------------------------------------------------- 設定・秘密
@@ -118,7 +118,31 @@ def subject(parts: dict, date: str, prefix: str) -> str:
     if err:
         return f"{prefix} {day}⚠ 段 {err[0]} が落ちた"
     ran = len((parts.get("run") or {}).get("picked") or [])
-    return f"{prefix} {day}✅ {_idea_counts(parts)}・回した {ran}・${float(parts.get('cost', 0.0)):.2f}"
+    return f"{prefix} {day}✅ {_idea_counts(parts)}・回した {ran}{sandbox_short(parts)}・${float(parts.get('cost', 0.0)):.2f}"
+
+
+def sandbox_short(parts: dict) -> str:
+    """件名に足すサンドボックスの 1 語（rules.md 31-7 の 7 ＝ 「採る」「保留」が出た晩だけ人に知らせる）。動いていない晩は空。"""
+    sb = parts.get("sandbox") or {}
+    if not sb.get("enabled") or not (sb.get("done") or sb.get("failed")):
+        return ""
+    return f"・サンドボックス {len(sb.get('done') or [])}" + ("（⚠ 保留以上あり）" if sb.get("held") else "")
+
+
+def sandbox_block(parts: dict) -> str:
+    """HTML の本文の「サンドボックス」の 1 枚（動いていない晩は空）。"""
+    sb = parts.get("sandbox") or {}
+    if not sb.get("enabled") or not (sb.get("done") or sb.get("failed")):
+        return ""
+    rows = []
+    for r in sb.get("done") or []:
+        flag = ' <b style="color:#b54708">⚠ 保留以上あり ＝ 見てください</b>' if r.get("held") else (' <b style="color:#b42318">⚠ 無効</b>' if r.get("invalid") else "")
+        rows.append(f'<div style="font-size:13px;margin:2px 0"><code>{_e(r.get("id"))}</code>　検証 {_e(r.get("n_trials"))} ・ {_e(r.get("verdicts"))}{flag}'
+                    f'<br><span style="font-size:11px;color:{C["dim"]}">ブランチ {_e(r.get("branch"))} @ {_e(r.get("commit"))}（main には入っていない）</span></div>')
+    for f in sb.get("failed") or []:
+        rows.append(f'<div style="font-size:13px;margin:2px 0"><code>{_e(f.get("id"))}</code>　⚠ 通らなかった: {_e(str(f.get("reason"))[:160])}（{_e(f.get("status"))}）</div>')
+    return (f'<div style="font-size:12px;color:{C["dim"]};margin:18px 4px 6px;letter-spacing:.06em">サンドボックス（共有コード変更の案を main の外で作って回した）</div>'
+            f'<div style="background:#ffffff;border:1px solid {C["line"]};border-radius:8px;padding:10px 14px">' + "".join(rows) + "</div>")
 
 
 def stop_short(why: str) -> str:
@@ -426,6 +450,8 @@ def html_body(parts: dict, date: str, journal_rel: str, *, repo_url: str = "", r
         nt = f" ・ n_trials {run['before']:,} → {run['after']:,}" if isinstance(run.get("before"), int) and isinstance(run.get("after"), int) else ""
         out.append(label + f"回した結果 {len(results)} 本 ・ " + " ／ ".join(f"{k} {tot.get(k, 0)}" for k in ("採る", "保留", "落とす")) + f"{_e(nt)}</div>")
         out += [result_card(r) for r in results]
+    if sandbox_block(parts):
+        out.append(sandbox_block(parts))
     if calib and calib.get("n"):
         out.append(f'<div style="font-size:12px;color:{C["dim"]};margin:4px 4px 0">予想の当たり方（累計）: {calib["n"]} 本 ・ '
                    f'当たり {calib["acc"]:.0%} ・ Brier {calib["brier"]:.3f}</div>')

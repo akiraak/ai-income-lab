@@ -477,7 +477,7 @@ def main(argv: list[str] | None = None) -> None:
     r.add_argument("--strict", action="store_true", help="項目の足りない登録簿があれば rc=1")
     n = sub.add_parser("night", help="1 晩（段 0 門 → 段 1〜4 → 日誌 → commit）")
     n.add_argument("--date", default=None, help="YYYY-MM-DD（既定 ＝ 今日・シアトル時間）")
-    n.add_argument("--stages", default="0,1,2,3,4", help="回す段（例 0,4）")
+    n.add_argument("--stages", default="0,1,2,3,4,5", help="回すステージ（例 0,4。5 ＝ サンドボックス・`[sandbox] enabled` のときだけ動く）")
     n.add_argument("--dry-run", action="store_true", help="外の世界を呼ばない（門の検査も claude も queue も commit も無し。段 4 と日誌だけ）")
     n.add_argument("--no-commit", action="store_true")
     n.add_argument("--mail", action="store_true", help="dry-run でも報告メールを送る（試験用）")
@@ -485,6 +485,10 @@ def main(argv: list[str] | None = None) -> None:
     mt = sub.add_parser("mail-test", help="報告メールの試しの 1 通（設定ファイルを置いた後に 1 回）")
     mt.add_argument("--sample", action="store_true", help="HTML の見本（登録簿の最新の晩 ＋ 最後に回した 2 本）を付ける")
     mt.add_argument("--out", help="--sample の HTML をファイルに書くだけ（送らない）")
+    sx = sub.add_parser("sandbox", help="ステージ 5（サンドボックス）だけを手で 1 回流す（`[sandbox] enabled` を見ない・日誌 ／ commit ／ メールなし）")
+    sx.add_argument("--id", default=None, help="この案だけ（既定 ＝ 対象の先頭 ＝ 手間の小さい順 → id 順）")
+    sx.add_argument("--date", default=None)
+    sx.add_argument("--no-push", action="store_true", help="ブランチ sandbox/<id> を origin に push しない")
     st = sub.add_parser("state", help="状態を見る ／ 直す")
     st.add_argument("--reset", action="store_true", help="連続失敗・連続 登録 0 の数を 0 に（打ち切りの解除）")
     st.add_argument("--seed-top", action="store_true", help="いまの上位 3 を last_top に写す（初回に机上を足さないため）")
@@ -495,6 +499,8 @@ def main(argv: list[str] | None = None) -> None:
         raise SystemExit(cmd_night(args))
     if args.cmd == "state":
         raise SystemExit(cmd_state(args))
+    if args.cmd == "sandbox":
+        raise SystemExit(cmd_sandbox(args))
     if args.cmd == "mail-test":
         raise SystemExit(cmd_mail_test(args))
 
@@ -1163,6 +1169,139 @@ def select_stage(cfg: dict, env: dict, state: dict, date: str, log) -> dict:
     return out
 
 
+# ---------------------------------------------------------------- ステージ 5 サンドボックス（rules.md 31-7・プラン docs/plans/devloop-sandbox.md）
+
+SANDBOX_REGRESSION = ("tests/test_predict.py", "tests/test_trading_run.py", "tests/test_names.py", "tests/test_catalog.py")
+
+
+def sandbox_candidates(cfg: dict, ideas: list[tuple[str, dict, list[str]]]) -> list[tuple[str, dict]]:
+    """サンドボックスで作る対象 ＝ ステータス「共有コード変更」・`sandbox_skip` が無い・試した回数が上限未満。順は手間の小さい順 → id 順
+    （31-7 の 1。⚠ 成績の見込みで選ばない）。"""
+    retries = int((cfg.get("sandbox") or {}).get("retries_per_idea", 2))
+    todo = [(p, d) for p, d, bad in ideas
+            if d.get("status") == SHARED and not bad and not d.get("sandbox_skip") and int(d.get("sandbox_attempts", 0)) < retries]
+    return sorted(todo, key=lambda x: (EFFORT_ORDER.get(x[1].get("effort"), 9), x[1]["id"]))
+
+
+def sandbox_queue_toml(id_: str, exps: list[str], time_budget_s: float, date: str) -> str:
+    return (f"# ⚠ 開発ループのサンドボックス（晩 {date}・レジストリ {id_}・rules.md 31-7）。サンドボックスの中だけで回す（main の DB には入らない）。\n"
+            f"experiments = [{', '.join(json.dumps(e, ensure_ascii=False) for e in exps)}]\n\n"
+            f"leak = true\nledger = true\nmax_failures = 1\ntime_budget_s = {int(time_budget_s)}\n")
+
+
+def sandbox_stage(cfg: dict, env: dict, state: dict, date: str, log, deadline: float | None = None, only: str | None = None) -> dict:
+    """ステージ 5: 「共有コード変更」の案を 1 晩 `per_night` 本、サンドボックス（`cli/sandbox.py`）の中で作り・テストし・回し・記録する。
+
+    ⚠ **`[sandbox] enabled` が無い ／ false なら何もしない**（1 晩の動きは今までと同じ）。
+    ⚠ main のワーキングツリーに書くのは、案の結果の表（`dev-loop/sandbox/<id>.md`）とレジストリの 1 ファイルだけ。コードは `sandbox/<id>` のブランチ。
+    通らなかった案（チェック ／ テスト ／ 1 本も回らない）はサンドボックスごと捨てて理由をレジストリに残す（回していないので数えない）。
+    """
+    from cli import sandbox as sbx
+    sb = cfg.get("sandbox") or {}
+    out: dict = {"enabled": bool(sb.get("enabled")), "todo": [], "done": [], "failed": [], "cost": 0.0, "models": [], "removed": [], "held": []}
+    if not out["enabled"]:
+        return out
+    repo, base = env["repo"], env.get("sandbox_base")
+    run = env.get("sandbox_run") or (lambda id_, args, timeout: sbx.run(id_, args, repo=repo, base=base, timeout=timeout))
+    ideas_dir = _path(cfg, "ideas")
+    quiet = lambda s: None                                           # noqa: E731
+    # 保存期間を過ぎたワーキングツリーを消す（ブランチと結果の表は残す ＝ 31-7 の 11）
+    keep_days = float(sb.get("keep_days", 14))
+    for old in sbx.list_ids(base):
+        try:
+            age = (time.time() - os.path.getmtime(sbx._meta_path(old, base))) / 86400
+        except OSError:
+            continue
+        if age > keep_days:
+            sbx.remove(old, repo=repo, base=base, delete_branch=False, log=quiet)
+            out["removed"].append(old)
+    todo = sandbox_candidates(cfg, load_ideas(cfg))
+    if only:                                                         # 手で 1 本だけ流す（`cli.devloop sandbox --id`）。対象の条件は同じ
+        todo = [x for x in todo if x[1]["id"] == only]
+    out["todo"] = [d["id"] for _p, d in todo]
+    with open(os.path.join(ROOT, cfg["ideation"].get("prompts", "devloop/prompts"), "build_sandbox.md"), encoding="utf-8") as f:
+        base_prompt = f.read()
+    budget, limit = float(sb.get("max_budget_usd", 20.0)), float(sb.get("time_budget_s", 3600))
+    fd = sbx.FD + "/"
+    for p, d in todo[: int(sb.get("per_night", 1))]:
+        id_, t0, reason, rec = d["id"], time.time(), None, None
+        left = lambda: max(60.0, min(limit - (time.time() - t0), (deadline - time.time()) if deadline else limit))   # noqa: E731
+        try:
+            if sbx.exists(id_, base):                                # 前の晩に通らなかった作りかけ ＝ 捨てて作り直す
+                sbx.remove(id_, repo=repo, base=base, delete_branch=True, log=quiet)
+            sbx.create(id_, repo=repo, base=base, period_files=bool(env.get("sandbox_period_files", True)), log=quiet)
+            prompt = base_prompt + "\n\n## レジストリ（この 1 本）\n\n```toml\n" + dump_idea(d) + "```\n"
+            res = env["claude"](prompt, tools=tuple(sb.get("tools") or ("Read", "Grep", "Glob", "Write", "Edit")),
+                                max_turns=int(sb.get("max_turns", 80)), budget=budget, cwd=sbx.tree(id_, base), timeout=left())
+            out["cost"] += res["cost"]
+            if res.get("model") and res["model"] not in out["models"]:
+                out["models"].append(res["model"])
+            chk = sbx.check(id_, base)
+            built = parse_built(res["result"])
+            if not chk["changed"] and not built and (res.get("errors") or res.get("rc")):
+                # ⚠ `claude -p` が動かなかった（利用枠 ／ 起動の失敗 ＝ 1 ファイルも書かず出力も無い）。案のせいではない ＝ 試した回数に数えない
+                sbx.remove(id_, repo=repo, base=base, delete_branch=True, log=quiet)
+                why = "claude -p が動かなかった: " + ("; ".join(res.get("errors") or [])[:200] or f"rc={res.get('rc')}")
+                out["failed"].append({"id": id_, "reason": why, "status": d.get("status")})
+                log(f"  ⚠ サンドボックス {id_}: {why}（試した回数に数えない）")
+                continue
+            exps = [str(x) for x in (built.get("experiments") or [])]
+            tests = sorted(f[len(fd):] for f in chk["changed"] if f.startswith(fd + "tests/test_ideas_"))
+            if not chk["ok"]:
+                reason = "書いてはいけない場所を変えた: " + ", ".join((chk["forbidden"] + chk["outside"] + chk["tests_touched"])[:5])
+            elif not exps:
+                reason = "出力に experiments が無い" + ("（" + "; ".join(res["errors"])[:160] + "）" if res.get("errors") else "") \
+                         + ("（" + str(built.get("reason"))[:160] + "）" if built.get("reason") else "")
+            elif not tests:
+                reason = "tests/test_ideas_<id>.py が無い（「オプションの無い config は 1 ビットも変わらない」の 1 本が要る）"
+            else:
+                rc, o, e = run(id_, ["-m", "pytest", "-q", *tests, *SANDBOX_REGRESSION], left())
+                if rc != 0:
+                    tail = (o + e).strip().splitlines()
+                    reason = "テストが落ちた: " + (tail[-1][:200] if tail else f"rc={rc}")
+                else:
+                    sbx.copy_tables(id_, sbx.tables_for(id_, exps, base), repo=repo, base=base, log=quiet)
+                    qname = "dev_sbx_" + id_.replace("-", "_")
+                    with open(os.path.join(sbx.fd_dir(id_, base), "config", "queue", qname + ".toml"), "w", encoding="utf-8") as f:
+                        f.write(sandbox_queue_toml(id_, exps, left(), date))
+                    rc, o, e = run(id_, ["-m", "cli.queue", "--config", qname], left())
+                    r = sbx.report(id_, base)
+                    if not r.get("n_trials"):
+                        tail = (o + e).strip().splitlines()
+                        reason = "1 本も回らなかった: " + (tail[-1][:200] if tail else f"rc={rc}")
+                    else:
+                        note = (f"夜のランナー（晩 {date}）が作って回した。`claude -p` ${res['cost']:.2f}・{res['turns']} turns"
+                                + (f"・モデル {res['model']}" if res.get("model") else "") + f"・実験 {', '.join(exps)}・案のテスト {', '.join(tests)}"
+                                + (f"\n\n⚠ queue は rc={rc} で終わった（回った分だけ数えた）" if rc else ""))
+                        rec = sbx.record(id_, repo=repo, base=base, ideas_dir=ideas_dir, note=note, push=bool(sb.get("push", True)), log=quiet)
+        except Exception as e:                   # noqa: BLE001  ⚠ ループを止めない（理由を残して次の晩へ）
+            reason = f"{type(e).__name__}: {str(e)[:200]}"
+        if rec is not None:
+            out["done"].append({"id": id_, "n_trials": rec["n_trials"], "verdicts": rec["verdicts"], "held": rec["held"], "invalid": rec["invalid"],
+                                "branch": rec["branch"], "commit": rec["commit"], "seconds": round(time.time() - t0)})
+            if rec["held"]:
+                out["held"].append(id_)
+            log(f"  サンドボックス {id_}: 検証 {rec['n_trials']}・{rec['verdicts']}" + ("・⚠ 保留以上あり ＝ 人が見る" if rec["held"] else ""))
+            continue
+        with open(p, "rb") as f:                 # 通らなかった: 試した回数と理由だけ残す（先に書いた項目は直さない）
+            d = tomllib.load(f)
+        d["status"] = OLD_STATUS.get(d.get("status"), d.get("status"))
+        d["sandbox_attempts"] = int(d.get("sandbox_attempts", 0)) + 1
+        if d["sandbox_attempts"] >= int(sb.get("retries_per_idea", 2)):
+            d["status"] = "失敗"
+            d.setdefault("registered_at", now_seattle())
+        d["notes"] = (d.get("notes", "") + f" ／ サンドボックス {d['sandbox_attempts']} 回目（{date}）: {reason}").strip(" ／")
+        write_idea(p, d)
+        try:
+            if sbx.exists(id_, base):
+                sbx.remove(id_, repo=repo, base=base, delete_branch=True, log=quiet)
+        except Exception:                        # noqa: BLE001
+            pass
+        out["failed"].append({"id": id_, "reason": reason, "status": d["status"]})
+        log(f"  ⚠ サンドボックス {id_}: {reason}（{d['status']}）")
+    return out
+
+
 # ---------------------------------------------------------------- 週 1 回の候補の棚（rules.md 31-3 の 4・プラン 4-2・2026-11-01）
 
 WEEKLY_WEEKDAY = 5          # 土曜 01:00 の回 ＝ 金曜の晩（31-3 の 4）
@@ -1330,6 +1469,21 @@ def write_journal(cfg: dict, date: str, parts: dict, path: str) -> str:
         L.append("")
     elif parts.get("weekly_error"):
         L += ["## 週 1 回の候補の棚", "", f"⚠ 落ちた: {parts['weekly_error']}", ""]
+    s5 = parts.get("sandbox")
+    if s5 and s5.get("enabled"):
+        L += [f"## ステージ 5 サンドボックス（rules.md 31-7）— 対象 {len(s5['todo'])} 本・回した {len(s5['done'])}・通らなかった {len(s5['failed'])}・${s5['cost']:.2f}"
+              + (f"・モデル {' ／ '.join(s5['models'])}" if s5.get("models") else ""), ""]
+        for r in s5["done"]:
+            L.append(f"- `{r['id']}`: サンドボックスの検証 {r['n_trials']}・{r['verdicts']}" + ("・⚠ **保留以上あり ＝ 人が見る**" if r["held"] else "")
+                     + ("・⚠ 無効（既存の行が変わった）" if r["invalid"] else "") + f"・{r['seconds']} 秒・ブランチ `{r['branch']}` @ `{r['commit']}`・[結果の表](../sandbox/{r['id']}.md)")
+        for f in s5["failed"]:
+            L.append(f"- ⚠ `{f['id']}`: {f['reason']}（{f['status']}）")
+        if s5.get("removed"):
+            L.append("- 保存期間を過ぎたワーキングツリーを消した: " + ", ".join(f"`{i}`" for i in s5["removed"]))
+        L.append("- ⚠ コードは `main` に入っていない・`ledger.md` と選ぶステージには入らない・取り込みは利用者の「取り込んで」")
+        L.append("")
+    elif parts.get("sandbox_error"):
+        L += ["## ステージ 5 サンドボックス", "", f"⚠ 落ちた: {parts['sandbox_error']}", ""]
     st = parts.get("state") or {}
     L += ["## 状態", "", f"- 連続で段 2 が 0 本: {st.get('consecutive_build_failures', 0)} ／ 連続で登録 0: {st.get('consecutive_no_new', 0)} ／ "
           f"費用の累計 ${st.get('cost_usd_total', 0.0):.2f} ／ 机上の持ち越し: {', '.join(st.get('pending_shapes') or []) or '—'}", ""]
@@ -1425,7 +1579,7 @@ def report(cfg: dict, env: dict, date: str, parts: dict, journal_text: str, jour
     return status
 
 
-def night(cfg: dict, env: dict, *, date: str | None = None, stages: tuple[int, ...] = (0, 1, 2, 3, 4), dry_run: bool = False,
+def night(cfg: dict, env: dict, *, date: str | None = None, stages: tuple[int, ...] = (0, 1, 2, 3, 4, 5), dry_run: bool = False,
           log=print, journal: bool = True, mail: bool | None = None) -> dict:
     """1 晩。段 0 で止まれば段 1〜3 は回さず段 4 だけ回して日誌を書く。どの段が落ちても日誌は書く。最後に報告メール。"""
     t0 = time.time()
@@ -1495,6 +1649,14 @@ def night(cfg: dict, env: dict, *, date: str | None = None, stages: tuple[int, .
                 except Exception as e:       # noqa: BLE001
                     parts["weekly_error"] = f"{type(e).__name__}: {e}"
                     log(f"⚠ 週 1 回の段が落ちた: {parts['weekly_error']}")
+        if 5 in stages and not parts.get("stopped") and not dry_run and (cfg.get("sandbox") or {}).get("enabled"):
+            try:                                 # ⚠ `[sandbox] enabled` の無い config では呼ばない ＝ 1 晩の動きは今までと同じ
+                s5 = sandbox_stage(cfg, env, state, date, log, deadline=deadline)
+                parts["sandbox"] = s5
+                parts["cost"] += s5["cost"]
+            except Exception as e:               # noqa: BLE001
+                parts["sandbox_error"] = f"{type(e).__name__}: {e}"
+                log(f"⚠ サンドボックスのステージが落ちた: {parts['sandbox_error']}")
         state["cost_usd_total"] = round(float(state.get("cost_usd_total", 0.0)) + parts["cost"], 3)
         state["last_night"] = date
         state["nights"] = (state.get("nights") or [])[-29:] + [{"date": date, "cost": round(parts["cost"], 3), "stopped": parts.get("stopped") or "",
@@ -1515,7 +1677,8 @@ def night(cfg: dict, env: dict, *, date: str | None = None, stages: tuple[int, .
                 c = (parts.get("ideate") or {}).get("counts", {})
                 summ = (f"段 1 {sum(c.values())} 本（登録 {c.get('登録', 0)}・既出 {c.get('既出', 0)}・{SHARED} {c.get(SHARED, 0)}）"
                         f" ／ 段 3 n_trials {(parts.get('run') or {}).get('before')} → {(parts.get('run') or {}).get('after')}"
-                        f" ／ 段 4 新顔 {len((parts.get('select') or {}).get('new', []))}")
+                        f" ／ 段 4 新顔 {len((parts.get('select') or {}).get('new', []))}"
+                        + (f" ／ サンドボックス {len(parts['sandbox']['done'])} 本" if (parts.get("sandbox") or {}).get("enabled") else ""))
                 parts["commit"] = commit(cfg, env, date, summ, log)
                 journal_text = write_journal(cfg, date, parts, path)   # commit の結果を書き足す（⚠ 日誌自身は次の晩のコミットに入る ＝ 門は数えない）
             log(f"日誌 {os.path.relpath(path, REPO)}")
@@ -1529,6 +1692,27 @@ def night(cfg: dict, env: dict, *, date: str | None = None, stages: tuple[int, .
         except sqlite3.Error:
             pass
     return parts
+
+
+def cmd_sandbox(args) -> int:
+    """ステージ 5 だけを手で 1 回（rules.md 31-7）。⚠ 書くのは 案の結果の表 ＋ レジストリ ＋ ブランチ `sandbox/<id>` だけ。コミットは呼んだ人。"""
+    cfg = load_config()
+    sb = {**(cfg.get("sandbox") or {}), "enabled": True}
+    if args.no_push:
+        sb["push"] = False
+    cfg = {**cfg, "sandbox": sb}
+    env = default_env(cfg)
+    date = args.date or env["now"]().strftime("%Y-%m-%d")
+    lock = os.path.join(ROOT, (cfg.get("stop") or {}).get("lock_file", "devloop.lock"))
+    if not take_lock(lock):
+        print(f"⚠ ロック {os.path.relpath(lock, ROOT)} が取れない（夜のランナーが動いている）", file=sys.stderr)
+        return 2
+    try:
+        out = sandbox_stage(cfg, env, {}, date, lambda s: print(s, file=sys.stderr), only=args.id)
+    finally:
+        release_lock(lock)
+    print(json.dumps(out, ensure_ascii=False, indent=1))
+    return 0 if out["done"] else 1
 
 
 def cmd_night(args) -> int:

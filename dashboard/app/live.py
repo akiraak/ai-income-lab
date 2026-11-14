@@ -350,7 +350,7 @@ def daily_rows(live_dir: Path) -> list[dict]:
 
 
 def _yardstick():
-    """執行器の `yardstick.py`（物差し A〜E。標準ライブラリだけ）を道で読む ＝ まとめ方の正本は執行器の側（画面は数え直さない）。"""
+    """執行器の `yardstick.py`（指標 A〜E。標準ライブラリだけ）を道で読む ＝ まとめ方の正本は執行器の側（画面は数え直さない）。"""
     import importlib.util
     import sys
     mod = sys.modules.get("lt_yardstick")
@@ -380,7 +380,7 @@ STATUS_LABEL_YS = {"active": "稼働", "paused": "一時停止", "liquidating": 
 
 
 def yardstick_rows(live_dir: Path) -> list[dict]:
-    """物差し A〜E（執行器の `yardstick.py` が朝の準備で書く `out/yardstick.csv`。プラン daily-record-auto.md）。⚠ **読むだけ**。無ければ空。"""
+    """指標 A〜E（執行器の `yardstick.py` が朝の準備で書く `out/yardstick.csv`。プラン daily-record-auto.md）。⚠ **読むだけ**。無ければ空。"""
     text = livefs.read_doc(live_dir / "out" / "yardstick.csv", missing_ok=True)
     if not text:
         return []
@@ -721,7 +721,7 @@ def board(live_dir: Path, days: int | None = DAYS, today=None, now_et_=None, sup
                                         for s, v in ((t["last"] or {}).get("holdings") or {}).items()) or "なし"
         t["pnl_now_usd"] = next((v for v in reversed(t["pnl_usd"]) if v is not None), None)
         t["pnl_now_pct"] = next((v for v in reversed(t["pnl_pct"]) if v is not None), None)
-        t["ys"] = _ys_view(ys, name) if ys else None            # 物差し A〜E（yardstick.csv がある人だけ。無ければ出さない）
+        t["ys"] = _ys_view(ys, name) if ys else None            # 指標 A〜E（yardstick.csv がある人だけ。無ければ出さない）
         t["fees"] = (fv["people"].get(name) if fv else None)     # 手数料の実額（fees.csv にその人の注文がある人だけ）
     active = [t for t in tr if t["pnl_now_usd"] is not None]
     budget = sum(t["budget_usd"] for t in active)

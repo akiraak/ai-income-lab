@@ -28,13 +28,13 @@ note = "このプロジェクトの決めごと。文書を読む前に知って
 
   [[section.term]]
   name = "【推測】"
-  short = "根拠のない見込み。断定しないための印で、試算はここに入る。"
+  short = "根拠のない見込み。断定しないためのラベルで、試算はここに入る。"
   doc = "docs/specs/overview.md"
   where = "§5 記号の早見表"
 
   [[section.term]]
   name = "正本"
-  short = "その定義を持つ側の文書やコード。解説や画面は写しで、食い違ったら正本が勝つ。"
+  short = "その定義を持つ側の文書やコード。解説や画面はコピーで、食い違ったら正本が勝つ。"
   doc = "docs/specs/experiments/feature-discovery/units.md"
   where = "§0 この頁の位置づけ"
 
@@ -81,13 +81,13 @@ note = "検証結果一覧（ledger.md）の行を読むための単位。図解
 
   [[section.term]]
   name = "実行（run）"
-  short = "`cli.run` を 1 回回したもの。1 実行 1 記録（`runs/research.sqlite`。上書きしない）で、設定・入力の指紋・種・結果・ログを残す。"
+  short = "`cli.run` を 1 回回したもの。1 実行 1 記録（`runs/research.sqlite`。上書きしない）で、設定・入力のハッシュ・シード・結果・ログを残す。"
   doc = "docs/specs/experiments/feature-discovery/units.md"
   where = "§2 実行"
 
   [[section.term]]
   name = "実行のキュー"
-  short = "実験を並べて回し続ける器。⚠ 本番 1 本に leak 対照を自動で並べ、済んだ実行は 2 度回さない。"
+  short = "実験を並べて回し続ける仕組み。⚠ 本番 1 本に leak 対照を自動で並べ、済んだ実行は 2 度回さない。"
   doc = "docs/specs/experiments/evolutionary-search.md"
   where = "§4 器（継続実行）"
 
@@ -111,7 +111,7 @@ note = "検証結果一覧（ledger.md）の行を読むための単位。図解
 
   [[section.term]]
   name = "予測モデル名"
-  short = "識別項目の別名 <入力データ>.<数字の選び方・作り方>.<学習器>.<学習範囲>[~…][@θ]。綴りは config/names.toml（ail/names.py）。"
+  short = "識別項目の別名 <入力データ>.<数字の選び方・作り方>.<学習器>.<学習範囲>[~…][@θ]。表記は config/names.toml（ail/names.py）。"
   doc = "docs/specs/experiments/feature-discovery/rules.md"
   where = "10-2 予測モデル名（部品と列の対応）"
   see = { label = "名前と識別名", tab = "system", item = "names" }
@@ -154,7 +154,7 @@ note = "検証結果一覧（ledger.md）の行を読むための単位。図解
 
   [[section.term]]
   name = "門前"
-  short = "前置きの門を通らず、検証を回していない手法の判定。隠さず検証結果一覧に残すが、検証数には数えない。"
+  short = "前置きのゲートを通らず、検証を回していない手法の判定。隠さず検証結果一覧に残すが、検証数には数えない。"
   doc = "docs/specs/experiments/feature-discovery/rules.md"
   where = "§14-5 前置きの門"
 
@@ -225,7 +225,7 @@ note = "良い数字が偶然かどうかを見る道具。DSR の図解は dsr.
 
   [[section.term]]
   name = "検出限界"
-  short = "いまの物差しで拾える上乗せの下限。これより 1 桁小さい効果を狙う手法は、回す前に「測れない」と判断してよい。"
+  short = "いまの指標で拾える上乗せの下限。これより 1 桁小さい効果を狙う手法は、回す前に「測れない」と判断してよい。"
   doc = "docs/specs/experiments/feature-discovery/validation-power.md"
   where = "§3-2 検出限界"
 
@@ -340,7 +340,7 @@ note = "2026-09-10 からの検証方式。予測の後ろだけが旧方式と�
 
   [[section.term]]
   name = "毎日往復（旧方式）"
-  short = "予測の符号どおりに毎日建て直す旧い検証方式。⚠ 別の物差しなので、新方式の数字と直接比べない。"
+  short = "予測の符号どおりに毎日建て直す旧い検証方式。⚠ 別の指標なので、新方式の数字と直接比べない。"
   doc = "docs/specs/experiments/feature-discovery/rules.md"
   where = "§13-8 旧指標との対応"
 
@@ -512,7 +512,7 @@ note = "検証結果一覧に並ぶ選別手法とモデルの名前。カタロ
 
   [[section.term]]
   name = "適合度（fitness）"
-  short = "探索が候補を比べる物差し。⚠ いまは訓練内 holdout の順位相関で、替えれば検証が増える。"
+  short = "探索が候補を比べる指標。⚠ いまは訓練内 holdout の順位相関で、替えれば検証が増える。"
   doc = "docs/specs/experiments/evolutionary-search.md"
   where = "§2 探索は何を見つけたか"
 
@@ -565,19 +565,19 @@ note = "tastytrade の API サンプルと、会場を選んだときの語。"
 
   [[section.term]]
   name = "HALT（停止ボタン）"
-  short = "記録ディレクトリに置く停止の印。働いている注文を全部取り消し、以後の発注系の手順を拒否させる。"
+  short = "記録ディレクトリに置く停止のフラグ。働いている注文を全部取り消し、以後の発注系の手順を拒否させる。"
   doc = "docs/specs/dashboard.md"
   where = "§2 停止ボタンの中身"
 
   [[section.term]]
   name = "トレーダーの状態"
-  short = "執行器がいまその人をどう動かしているか。停止（持ち株 0）／ 稼働 ／ 一時停止（持ち株はそのまま）／ 手じまい中（売り切ると停止）。⚠ 全体の停止（HALT）とは別。"
+  short = "執行エンジンがいまその人をどう動かしているか。停止（持ち株 0）／ 稼働 ／ 一時停止（持ち株はそのまま）／ 手じまい中（売り切ると停止）。⚠ 全体の停止（HALT）とは別。"
   doc = "docs/specs/dashboard.md"
   where = "§13-9 トレーダーの状態と指示"
 
   [[section.term]]
   name = "状態を変える指示"
-  short = "人がボタンで出す変更（開始 ／ 一時停止 ／ 手じまい）。画面は書くだけで、執行器の次の回を通ると消えて状態に変わる。通る前なら取り消せる。"
+  short = "人がボタンで出す変更（開始 ／ 一時停止 ／ 手じまい）。画面は書くだけで、執行エンジンの次の回を通ると消えて状態に変わる。通る前なら取り消せる。"
   doc = "docs/specs/dashboard.md"
   where = "§13-10 名簿"
 
@@ -660,7 +660,7 @@ note = "管理画面の概要・全体の詳細・トレーダーの詳細に出
 
   [[section.term]]
   name = "試験用トレーダー（TEST）"
-  short = "固定の合図で配線を確かめるためのトレーダー。記録に印が付き、判定には混ぜない。本物の人が居れば一覧に出ない。"
+  short = "固定の合図で配線を確かめるためのトレーダー。記録にフラグが付き、判定には混ぜない。本物の人が居れば一覧に出ない。"
   doc = "docs/specs/experiments/live-trading.md"
   where = "§0-1 トレーダーの定義（3 人の表の test_a）"
   see = { label = "トレーダーのしくみ — 変えるときは新しい人", tab = "system", item = "trader" }
@@ -768,7 +768,7 @@ note = "管理画面の概要・全体の詳細・トレーダーの詳細に出
 
   [[section.term]]
   name = "差 2（実コスト）"
-  short = "手数料と規制費。売買履歴と差 2 は dry-run の見積りの写し。実額は朝の準備が口座の取引履歴から読み、画面はあれば横に出す。"
+  short = "手数料と規制費。売買履歴と差 2 は dry-run の見積りのコピー。実額は朝の準備が口座の取引履歴から読み、画面はあれば横に出す。"
   doc = "docs/specs/dashboard.md"
   where = "§13-1・§13-2"
 
@@ -813,31 +813,31 @@ note = "管理画面の概要・全体の詳細・トレーダーの詳細に出
 
   [[section.term]]
   name = "発注できる時間帯"
-  short = "執行器が発注してよい時間帯（12:45〜13:05 PT ＝ 15:45〜16:05 ET の 1 日 1 回）。その外・休場日・半日立会の日は発注せず、理由を事象に残す。"
+  short = "執行エンジンが発注してよい時間帯（12:45〜13:05 PT ＝ 15:45〜16:05 ET の 1 日 1 回）。その外・休場日・半日立会の日は発注せず、理由を事象に残す。"
   doc = "docs/specs/experiments/live-trading.md"
   where = "§0-2 発注できる時間帯"
 
   [[section.term]]
-  name = "物差し A〜E"
-  short = "人を見る 5 つの物差し（A 差 1 ／ B 持ち続けるとの差 ／ C 規則との一致 ／ D 無人運転 ／ E 差 3）。朝の準備で作る。損益で人を採らない。"
+  name = "指標 A〜E"
+  short = "人を見る 5 つの指標（A 差 1 ／ B 持ち続けるとの差 ／ C 規則との一致 ／ D 無人運転 ／ E 差 3）。朝の準備で作る。損益で人を採らない。"
   doc = "docs/specs/dashboard.md"
-  where = "§13-13 物差し A〜E と異常の一覧"
+  where = "§13-13 指標 A〜E と異常の一覧"
 
   [[section.term]]
   name = "異常の一覧"
-  short = "物差しの表で問題の札が付いた日（起動なし・規則と違う判断・口座 − 売買履歴 ≠ 0 など）。異常の無い日は出さない。読み方は人が仕様書に書く。"
+  short = "指標の表で問題のラベルが付いた日（起動なし・規則と違う判断・口座 − 売買履歴 ≠ 0 など）。異常の無い日は出さない。読み方は人が仕様書に書く。"
   doc = "docs/specs/dashboard.md"
-  where = "§13-13 物差し A〜E と異常の一覧"
+  where = "§13-13 指標 A〜E と異常の一覧"
 
   [[section.term]]
   name = "起動しなかった日"
-  short = "NYSE の営業日なのに執行器の記録が無い日。cron が動かなかった疑いで、無人運転の判定に効く。今日は 13:15 PT（16:15 ET）を過ぎたら数える（見張り）。"
+  short = "NYSE の営業日なのに執行エンジンの記録が無い日。cron が動かなかった疑いで、無人運転の判定に効く。今日は 13:15 PT（16:15 ET）を過ぎたら数える（監視）。"
   doc = "docs/specs/dashboard.md"
   where = "§13・§13-8・§15-8 営業日の暦"
 
   [[section.term]]
   name = "今日の起動が無い"
-  short = "営業日で 13:15 PT（16:15 ET）を過ぎても今日の執行器の記録が無い ＝ timer ／ cron が起きなかった疑い。表示だけ。"
+  short = "営業日で 13:15 PT（16:15 ET）を過ぎても今日の執行エンジンの記録が無い ＝ timer ／ cron が起きなかった疑い。表示だけ。"
   doc = "docs/specs/dashboard.md"
   where = "§13-8 見張り"
 
@@ -856,25 +856,25 @@ note = "管理画面の概要・全体の詳細・トレーダーの詳細に出
 
   [[section.term]]
   name = "仮データ"
-  short = "本物の数字がまだ無い項目に入れた作り物の値。紫の破線の印と点線で示し、API には出さない。"
+  short = "本物の数字がまだ無い項目に入れた作り物の値。紫の破線のマークと点線で示し、API には出さない。"
   doc = "docs/specs/dashboard.md"
   where = "§15-8 仮データの印"
 
   [[section.term]]
   name = "シミュレーションモード"
-  short = "機械のモードは実売買かシミュレーションのどちらか 1 つ（排他）。シミュレーションの間は実売買の執行器が起動せず、画面は仮データの記録だけを出す。切り替えは CLI。"
+  short = "マシンのモードは実売買かシミュレーションのどちらか 1 つ（排他）。シミュレーションの間は実売買の執行エンジンが起動せず、画面は仮データの記録だけを出す。切り替えは CLI。"
   doc = "docs/specs/experiments/live-trading.md"
   where = "§0-7 (a) 実売買とシミュレーションは排他"
 
   [[section.term]]
   name = "本番の機械ではない"
-  short = "印（NOT_PRODUCTION）のある機械では、執行器と CLI が本番の発注だけを許可より前で拒む。plan・dry-run・cert は通る。置く・外すは利用者。"
+  short = "フラグ（NOT_PRODUCTION）のあるマシンでは、執行エンジンと CLI が本番の発注だけを許可より前で拒む。plan・dry-run・cert は通る。置く・外すは利用者。"
   doc = "docs/specs/experiments/live-trading.md"
   where = "§0-14 本番を titan → 13500t へ切り替える"
 
   [[section.term]]
   name = "仮の時計"
-  short = "シミュレーションの「いま」。実時間の何倍かで進み、止められる。執行器の発注できる時間帯・再送・取消の待ちをこの上で数える。モック以外の接続先では使えない。"
+  short = "シミュレーションの「いま」。実時間の何倍かで進み、止められる。執行エンジンの発注できる時間帯・再送・取消の待ちをこの上で数える。モック以外の接続先では使えない。"
   doc = "docs/specs/experiments/live-trading.md"
   where = "§0-7 (e) 発注できる時間帯と速さ"
 
@@ -892,7 +892,7 @@ note = "管理画面の概要・全体の詳細・トレーダーの詳細に出
 
   [[section.term]]
   name = "売買履歴（トレーダーの持ち分。旧: 台帳）"
-  short = "執行器が付けている「誰が何株・いくらで持っているか」の記録。口座の建玉と食い違うと、少ない銘柄だけその日は売買しない。"
+  short = "執行エンジンが付けている「誰が何株・いくらで持っているか」の記録。口座の建玉と食い違うと、少ない銘柄だけその日は売買しない。"
   doc = "docs/specs/experiments/live-trading.md"
   where = "§0-8 口座の建玉と売買履歴の帳尻を合わせる"
 

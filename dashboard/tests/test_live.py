@@ -520,7 +520,7 @@ def test_watch_is_suppressed_by_the_mark_halt_and_demo(settings, monkeypatch):
     with TestClient(create_app(settings, start_monitors=False), client=("127.0.0.1", 50000)) as c:
         w = c.get("/api/live").json()["watch"]
         assert not w["checked"] and not w["missing"] and w["why"] == "halt"
-        assert "今日の起動が無い" not in c.get("/").text and "今日は見張らない（halt）" in c.get("/").text
+        assert "今日の起動が無い" not in c.get("/").text and "今日は監視しない（halt）" in c.get("/").text
     settings.halt_file.unlink()
     # シミュレーション: 仮の時計の今日・いまで判定する（本物の時計は読まない）
     from datetime import date
@@ -548,10 +548,10 @@ def test_aligned_diff3_is_used_when_paper_py_writes_it(settings):
 
 
 def test_yardstick_section_appears_only_when_yardstick_csv_exists(settings):
-    """物差し A〜E（dashboard.md §13-13）: 執行器の yardstick.py が書いた yardstick.csv があればトレーダーの詳細に出す。無ければ節ごと出さない。"""
+    """指標 A〜E（dashboard.md §13-13）: 執行器の yardstick.py が書いた yardstick.csv があればトレーダーの詳細に出す。無ければ節ごと出さない。"""
     build_live_dir(settings.live_dir)
     with TestClient(create_app(settings, start_monitors=False), client=("127.0.0.1", 50000)) as c:
-        assert "物差し A〜E" not in c.get("/traders/test_a").text
+        assert "指標 A〜E" not in c.get("/traders/test_a").text
         assert "がまだ無い" in c.get("/overall").text
     ys = lv._yardstick()
     rows = ys.build_rows(str(settings.live_dir / "out"))
@@ -563,7 +563,7 @@ def test_yardstick_section_appears_only_when_yardstick_csv_exists(settings):
     assert t["ys"] == {**ys.summarize(ys.read_csv(str(settings.live_dir / "out" / "yardstick.csv")), "test_a"), "rows": t["ys"]["rows"]}
     with TestClient(create_app(settings, start_monitors=False), client=("127.0.0.1", 50000)) as c:
         page = c.get("/traders/test_a").text
-        assert "物差し A〜E" in page and "損益で人を採らない" in page and "持ち続けるとの差" in page
+        assert "指標 A〜E" in page and "損益で人を採らない" in page and "持ち続けるとの差" in page
 
 
 def test_yardstick_anomalies_list_problem_rows_but_not_test_traders(settings):
@@ -644,4 +644,4 @@ def test_without_fees_csv_nothing_changes(settings):
     assert row["fee"] == {"est": None, "actual": None, "estimated": None, "note": ""} or row["fee"] is None
     with TestClient(create_app(settings, start_monitors=False), client=("127.0.0.1", 50000)) as c:
         page = c.get("/traders/test_a").text
-        assert "dry-run の写し" in page and "実額 $" not in page       # 用語の説明文には「実額」の字がある ＝ タイルの字で見る
+        assert "dry-run のコピー" in page and "実額 $" not in page       # 用語の説明文には「実額」の字がある ＝ タイルの字で見る

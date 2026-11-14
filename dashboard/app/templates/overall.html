@@ -15,7 +15,7 @@
 {% for d in b.bd|reverse %}
 {% set dd = by_date.get(d) %}
 {% if dd is none %}
-<tr class="row-missing"><td><b>{{ d }}</b></td><td colspan="12">⚠ 起動なし — 営業日なのに執行器の記録が無い（timer ／ cron が動かなかった？）</td></tr>
+<tr class="row-missing"><td><b>{{ d }}</b></td><td colspan="12">⚠ 起動なし — 営業日なのに執行エンジンの記録が無い（timer ／ cron が動かなかった？）</td></tr>
 {% else %}
 {% set m = dd.diff1_median_bp %}
 <tr>
@@ -38,8 +38,8 @@
 </table></div></div>
 {% else %}<p class="muted small">日次の記録が無い（<code>{{ b.live_dir }}</code>）。</p>{% endif %}
 
-<div class="sec"><h2>異常の一覧{{ info("異常の一覧") }}{{ simmark(machine) }}</h2><span class="muted small">物差し A〜E の表で問題の札が付いた日 · {{ b.period.label }} · 新しい順 · 朝の準備で作り直す（今日の分は上の日次）</span></div>
-{% if not b.yardstick_ready %}<p class="muted small">物差しの表（<code>out/yardstick.csv</code>）がまだ無い（朝の準備 <code>run-live.sh --prepare</code> が作る）。</p>
+<div class="sec"><h2>異常の一覧{{ info("異常の一覧") }}{{ simmark(machine) }}</h2><span class="muted small">指標 A〜E の表で問題のラベルが付いた日 · {{ b.period.label }} · 新しい順 · 朝の準備で作り直す（今日の分は上の日次）</span></div>
+{% if not b.yardstick_ready %}<p class="muted small">指標の表（<code>out/yardstick.csv</code>）がまだ無い（朝の準備 <code>run-live.sh --prepare</code> が作る）。</p>
 {% elif not b.anomalies %}<p class="muted small">異常なし。</p>
 {% else %}
 <div class="panel"><div class="scroll-x"><table class="small orders">

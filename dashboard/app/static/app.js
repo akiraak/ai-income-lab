@@ -35,7 +35,7 @@ document.addEventListener("DOMContentLoaded", function () { alignGrids(null, nul
 })();
 
 // シミュレーションモードの概要・詳細（§15-11）: <main data-poll-self="ミリ秒"> は、いまの URL を取り直して main の中身だけ差し替える
-// ＝ 仮の時計で流れている途中を、開いたまま眺められる。⚠ 表示だけ。帯は main の外なので差し替わらない（消えない）。
+// ＝ 仮の時計で流れている途中を、開いたまま眺められる。⚠ 表示だけ。バナーは main の外なので差し替わらない（消えない）。
 (function () {
   var main = document.querySelector("main[data-poll-self]");
   if (!main) { return; }

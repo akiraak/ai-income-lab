@@ -24,7 +24,7 @@
 [common]
 detail_label = "詳しく（用語あり）"
 other_pages = "ほかのページ"
-# `models = true`・`ledger = true` の段の札（2026-09-26 に models.toml から移した。段はこのファイルのページにしか無い）
+# `models = true`・`ledger = true` の段のラベル（2026-09-26 に models.toml から移した。段はこのファイルのページにしか無い）
 no_live_models = "いま実際の売買の設定に出てくるモデルはありません。"
 ledger_rows = "試した形（行）"
 ledger_adopt = "採る"
@@ -139,12 +139,12 @@ points = [
   "株の値段は、1 日 1 本の記録（始まり・高値・安値・終わりの値段と、売買された量）。証券会社の口座から読み取るだけで、注文の仕組みには触れない。",
   "株の外の数字も集める。為替・アメリカの金利・天気・地震など。どれも発表された日づけつきで持つ。",
   "株が分割されると、値段が急に半分や 4 分の 1 になったように見える。本当の暴落と取りちがえないよう、分割のぶんを直してから使う。",
-  "集めたままのデータは書き換えない。直したものは別の置き場に作る。",
+  "集めたままのデータは書き換えない。直したものは別の場所に作る。",
 ]
 detail = [
-  "足は tastytrade（読み取りだけ）。外部系列は config/dataset/exog_daily.toml など（為替・イールド・NOAA の気象・USGS の地震）。置き場は data/raw/ → data/adjusted/ → data/features/ の 3 層で、raw は書き換えない（rules.md 1 章）。",
+  "足は tastytrade（読み取りだけ）。外部系列は config/dataset/exog_daily.toml など（為替・イールド・NOAA の気象・USGS の地震）。保存先は data/raw/ → data/adjusted/ → data/features/ の 3 層で、raw は書き換えない（rules.md 1 章）。",
   "調整は株式分割だけ（配当は未調整 ＝ 価格リターン）。継ぎ目は cli.adjust --period d --report で見てから書く。本物の暴落を消さないための判別は rules.md 2-4。",
-  "⚠ 実売買の日足は別の置き場 data-live/（live_update.sh）。配信側が過去の足をさかのぼって変えるので（63 銘柄中 41 銘柄に 2% 超の食い違い【実測 2026-09-19】）、研究用の data/ は凍らせ、data-live/ は研究用の写しを種にして後ろだけ継ぎ足す。",
+  "⚠ 実売買の日足は別のディレクトリ data-live/（live_update.sh）。配信側が過去の足をさかのぼって変えるので（63 銘柄中 41 銘柄に 2% 超の食い違い【実測 2026-09-19】）、研究用の data/ は凍らせ、data-live/ は研究用のコピーをシードにして後ろだけ継ぎ足す。",
 ]
 detail_links = [{ label = "データのタブ", tab = "data", item = "overview" }, { label = "live-trading.md §0-9 (b)", doc = "docs/specs/experiments/live-trading.md" }]
 
@@ -168,7 +168,7 @@ rows = [
   ["市場とのくらべ", "市場全体や業種が動いたぶんを引いた、その株だけの動き", "同上"],
   ["株の外の数字", "為替・金利・天気・地震（1 日以上前に発表されたものだけ）", "同上"],
   ["過去 60 日の線", "今日の終わりの値段を 0 として、過去 60 日の値段がそこからどれだけ上か下かを並べた 1 本の線（毎日の上がり下がりをつみ上げたもの）", "過去 60 日の線の形を読む型"],
-  ["長めの調子", "20 日・60 日・200 日で見た、平均からの離れ・傾きなど", "上がり調子かどうかを見る門"],
+  ["長めの調子", "20 日・60 日・200 日で見た、平均からの離れ・傾きなど", "上がり調子かどうかを見るゲート"],
 ]
 
 [[page.section]]
@@ -230,9 +230,9 @@ text = [
 ]
 note = "過去のデータで試すと、どのモデルも出力スコアがまん中の近くのせまい幅に集まった。つまり「強く上がりそう」と言える日がほとんど無い。これが、売買基準値を上げるとほとんど買わなくなる理由。"
 detail = [
-  "Platt 較正（ail/models/calibrate.py）: 買い% ＝ 100·σ(a·pred + b)。a・b は訓練分割の尻の holdout で fit する（rules.md 13-2）。出口% は 100 − 買い%（入口と出口を別に持つ検知器だけ別の窓で fit ＝ 16 章）。",
-  "先を当てにいく型【実測】: 先 10 営業日を学ぶ H1（forward10-target.md。3 表 × 2 学習器 × θ 3 ＝ 18 検証で採る 0 ／ 保留 2）・先 20 ／ 60 ／ 200 営業日の門 D1〜D4（downtrend-detection.md。21 検証で採る 0）。売買が毎日でない理由は 13-4 の状態機械（保有中は出口% > θ の日だけ売る）。",
-  "門の診断【実測】: 時系列分類器 3 本の holdout AUC は 0.501〜0.508・買い% の幅は 0.5〜2.1 ポイント（tsc-threshold.md §3）。(A) 形式の Platt 係数は a ≈ 0 だった（threshold-trading.md）。⚠ 2026-09-12 より前は較正の数値解が止まっていた（較正「旧」。検証結果一覧では列で区別する）。",
+  "Platt 較正（ail/models/calibrate.py）: 買い% ＝ 100·σ(a·pred + b)。a・b は訓練分割の末尾の holdout で fit する（rules.md 13-2）。出口% は 100 − 買い%（入口と出口を別に持つ検知器だけ別の窓で fit ＝ 16 章）。",
+  "先を当てにいく型【実測】: 先 10 営業日を学ぶ H1（forward10-target.md。3 表 × 2 学習器 × θ 3 ＝ 18 検証で採る 0 ／ 保留 2）・先 20 ／ 60 ／ 200 営業日のゲート D1〜D4（downtrend-detection.md。21 検証で採る 0）。売買が毎日でない理由は 13-4 のステートマシン（保有中は出口% > θ の日だけ売る）。",
+  "ゲートの診断【実測】: 時系列分類器 3 本の holdout AUC は 0.501〜0.508・買い% の幅は 0.5〜2.1 ポイント（tsc-threshold.md §3）。(A) 形式の Platt 係数は a ≈ 0 だった（threshold-trading.md）。⚠ 2026-09-12 より前は較正の数値解が止まっていた（較正「旧」。検証結果一覧では列で区別する）。",
 ]
 detail_links = [{ label = "tsc-threshold.md", doc = "docs/specs/experiments/tsc-threshold.md" }, { label = "threshold-trading.md", doc = "docs/specs/experiments/threshold-trading.md" }, { label = "forward10-target.md", doc = "docs/specs/experiments/forward10-target.md" }, { label = "downtrend-detection.md", doc = "docs/specs/experiments/downtrend-detection.md" }]
 
@@ -251,7 +251,7 @@ points = [
   "1 回の答え合わせは 1 年半ほど。値下がりの大きかった時期も、上がり続けた時期もふくまれる。",
 ]
 detail = [
-  "ウォークフォワード（増えていく窓）。split = walk_forward_dates・folds = 5・purge = true（config の [validation]）。切れ目は全銘柄共通の日付集合を 6 等分して決める（ail/validation/splits.py の date_edges。最初の 1 塊は訓練だけ）。own_2018 の表では fold 1 ＝ 2019-07-09〜2020-12-08（360 日）・fold 2 ＝ 2020-12-09〜2022-05-16（361 日）…【実測。threshold-trading.md】。",
+  "ウォークフォワード（増えていく窓）。split = walk_forward_dates・folds = 5・purge = true（config の [validation]）。分割点は全銘柄共通の日付集合を 6 等分して決める（ail/validation/splits.py の date_edges。最初の 1 塊は訓練だけ）。own_2018 の表では fold 1 ＝ 2019-07-09〜2020-12-08（360 日）・fold 2 ＝ 2020-12-09〜2022-05-16（361 日）…【実測。threshold-trading.md】。",
   "パージ ＝ ラベルが評価期間に食い込む訓練行を落とす。断面を使うときはエンバーゴ（境目をさらに空ける）。時系列を無作為に切らない（rules.md 9 章）。",
 ]
 
@@ -277,7 +277,7 @@ points = [
   "成績は、見ている株を同じ重さでまとめた 1 本の成績で測る。株 1 本ごとの勝ち負けでは判断しない（勝った株だけを見てしまうため）。",
 ]
 detail = [
-  "rules.md 13 章。0 か 1 の状態機械・買い専用。足 t の特徴量 → 足 t の終値で執行 → y_t を得る。コストは cost_bp = 5.0（往復【推測】）の半分 2.5bp を建てた日と手仕舞った日にだけ引く。fold の末尾で強制清算。θ ∈ {50, 55, 60} を事前固定（13-3）。形式 (A) 銘柄共通 ／ (B) 銘柄別（13-6）。",
+  "rules.md 13 章。0 か 1 のステートマシン・買い専用。足 t の特徴量 → 足 t の終値で執行 → y_t を得る。コストは cost_bp = 5.0（往復【推測】）の半分 2.5bp を建てた日と手仕舞った日にだけ引く。fold の末尾で強制清算。θ ∈ {50, 55, 60} を事前固定（13-3）。形式 (A) 銘柄共通 ／ (B) 銘柄別（13-6）。",
   "採否はポートフォリオ日次純利（等加重）の対 B&H 上乗せで測る。銘柄別 bp は成果物で、採否には使わない（13-7）。",
 ]
 
@@ -291,7 +291,7 @@ detail = [
 ]
 
 [page.section.table]
-head = ["印", "意味"]
+head = ["ラベル", "意味"]
 rows = [
   ["採る", "5 回の答え合わせの全部で、ただ持ち続けるを上回った"],
   ["保留", "平均では上回ったが、回によって勝ち負けが割れた"],
@@ -313,15 +313,15 @@ text = ["サイコロを何百回もふれば、たまたま良い目が続く�
 ledger = true
 detail = [
   "検証結果一覧 ＝ docs/specs/experiments/feature-discovery/ledger.md（生成物。cli.report --catalog。手で書き換えない）。多重検定に使う n_trials は検証結果一覧の行数で、デフレーテッド SR（DSR）に渡す。⚠ 検証を増やしても採否は厳しくならない（判定式に DSR は入らない ＝ rules.md 14-10）。",
-  "条件付き GAN のシナリオ予測は別の物差し（CRPS）なので検証結果一覧の n_trials は動かさず、試した構成は記録の §0-3 に数える（cgan-scenario.md）。",
+  "条件付き GAN のシナリオ予測は別の指標（CRPS）なので検証結果一覧の n_trials は動かさず、試した構成は記録の §0-3 に数える（cgan-scenario.md）。",
 ]
 detail_links = [{ label = "ledger.md（検証結果一覧）", doc = "docs/specs/experiments/feature-discovery/ledger.md" }, { label = "実行のタブ", tab = "experiments", item = "overview" }]
 
 [[page.section]]
 title = "確かめる — これまでの経緯"
 text = ["2026 年 9 月に試したものを、日づけの順に並べた。どれも「採る」は無かった。"]
-links = [{ label = "モデルの型ごとの解説と印", tab = "models", item = "all" }]
-detail = ["数字はすべて記録からの写し【実測】。上乗せ ＝ 対 B&H の純利の差（bp/fold）。"]
+links = [{ label = "モデルの型ごとの解説とラベル", tab = "models", item = "all" }]
+detail = ["数字はすべて記録からのコピー【実測】。上乗せ ＝ 対 B&H の純利の差（bp/fold）。"]
 detail_links = [
   { label = "gpu-models.md", doc = "docs/specs/experiments/gpu-models.md" },
   { label = "threshold-trading.md", doc = "docs/specs/experiments/threshold-trading.md" },
@@ -342,8 +342,8 @@ head = ["日づけ", "試したもの", "結果"]
 rows = [
   ["9/9", "計算の速い部品を使った型（枝分かれ・まぜ合わせ・にせデータの足し込み）を、毎日売り買いする形で", "採るは無し。にせデータの足し込みは落とす"],
   ["9/10", "ものさしを「売買基準値つきの売り買い」に替えて、足し合わせと枝分かれの型を試し直した", "24 通りのうち 23 通りは落とす・1 通りは保留"],
-  ["9/12", "上がり調子かどうかを見る門（20 日・60 日・200 日）", "21 通りのうち 18 通りは落とす・3 通りは保留（計算を直したあとは 17 通りと 4 通り）。昔からある決まりの門は下げを避けられたが、戻りを取りそこねた"],
-  ["9/12", "買うときと売るときで、見る長さを変える門", "36 通りのうち 34 通りは落とす・2 通りは保留。この方向は続けない"],
+  ["9/12", "上がり調子かどうかを見るゲート（20 日・60 日・200 日）", "21 通りのうち 18 通りは落とす・3 通りは保留（計算を直したあとは 17 通りと 4 通り）。昔からある決まりのゲートは下げを避けられたが、戻りを取りそこねた"],
+  ["9/12", "買うときと売るときで、見る長さを変えるゲート", "36 通りのうち 34 通りは落とす・2 通りは保留。この方向は続けない"],
   ["9/13", "数字を何段もまぜ合わせる型", "12 通りとも落とす"],
   ["9/13〜14", "にせの過去データを足して学ばせるやり方（6 種）", "36 通りとも落とす（見ている数字を替えた形でも同じ）"],
   ["9/15", "見ている数字をしぼる選び方 7 通り", "42 通りとも落とす"],
@@ -351,13 +351,13 @@ rows = [
   ["9/15", "60 日の線を切れはしに分けて読む型", "3 通りとも落とす。何も学ばなかった"],
   ["9/16", "式を競わせて進化させる型", "9 通りとも落とす。学ぶ期間でだけ当たる式を見つけてきた"],
   ["9/19", "出力スコアの高い順に、持つ株の数をしぼる決まり", "採るは無し。モデルを使わず値動きの荒い順に選ぶほうが良かった ＝ 順位に中身は無かった"],
-  ["9/19", "これから 5 日の筋書きをたくさん作る型", "決めておいた 5 つの条件を 1 つも満たさず、落とす"],
+  ["9/19", "これから 5 日のシナリオをたくさん作る型", "決めておいた 5 つの条件を 1 つも満たさず、落とす"],
 ]
 
 [page.section.detail_table]
 head = ["記録", "内訳と数字"]
 rows = [
-  ["gpu-models.md（2026-09-09）", "毎日往復の物差し。勾配ブースティング・深層 ＝ 保留（1 期間依存）／ 断面 × 非線形 ＝ 落とす〜保留 ／ GAN 増強 ＝ 落とす ／ 系列モデル ＝ 見送り"],
+  ["gpu-models.md（2026-09-09）", "毎日往復の指標。勾配ブースティング・深層 ＝ 保留（1 期間依存）／ 断面 × 非線形 ＝ 落とす〜保留 ／ GAN 増強 ＝ 落とす ／ 系列モデル ＝ 見送り"],
   ["threshold-trading.md（09-10）", "追試 24 検証: 落とす 23 ／ 保留 1（own × Ridge × (A) × θ=50。上乗せ ＋12.8bp・t 0.13・符号 1/5。⚠ 較正「旧」の行。いまのコードでは落とす）"],
   ["downtrend-detection.md（09-12）", "21 検証: 落とす 18 ／ 保留 3 ／ 採る 0。保留はどれも t < 2・符号が割れる。較正 std の回し直し（20-40-14）は 落とす 17 ／ 保留 4（D1 θ50 が保留へ）"],
   ["entry-timing.md §9（09-12）", "36 検証: 保留 2 ／ 落とす 34。最良 ＋29.56bp/fold・符号 1/5・t 0.87・DSR 0.267。上位 3 行は対照側（逆向き）"],
@@ -390,13 +390,13 @@ points = [
 ]
 links = [{ label = "名前と識別名", tab = "system", item = "names" }]
 detail = [
-  "登録は @register(種類, 名前)（ail/registry.py）。新しいファイルを作ったら ail/bootstrap.py に 1 行足す。可能性が低くても机上の検証は積極的に回す（rules.md 14-10）。緩めないもの ＝ 回すと決めるのは結果を見る前 ／ 回したものは全部 n_trials に数える ／ leak 対照 ／ 1 実行 1 記録（上書きしない。置き場は runs/research.sqlite）。",
+  "登録は @register(種類, 名前)（ail/registry.py）。新しいファイルを作ったら ail/bootstrap.py に 1 行足す。可能性が低くても机上の検証は積極的に回す（rules.md 14-10）。緩めないもの ＝ 回すと決めるのは結果を見る前 ／ 回したものは全部 n_trials に数える ／ leak 対照 ／ 1 実行 1 記録（上書きしない。保存先は runs/research.sqlite）。",
 ]
 
 # ================================================================ パート: トレーダーのしくみ（2026-09-26。共通のしくみと設定項目の意味だけ。1 人ずつは「トレーダー」タブ）
 # ⚠ 本文に各トレーダーの値（予算・売買基準値・本数・株の名前）・呼び名・識別名・ほかの人とくらべる文を書かない（tests/test_system_tab.py の
 #    test_trader_page_is_about_settings_not_people）。値と経緯は「詳しく」にだけ、【実測】と出典つきで。
-# ⚠ 4 つの集合の名前（材料に入れるもの ／ 学ぶ株 ／ 出力スコアを出す株 ／ 売買する株）は dashboard.md §18-2 と同じ綴り（テストが見る）。
+# ⚠ 4 つの集合の名前（材料に入れるもの ／ 学ぶ株 ／ 出力スコアを出す株 ／ 売買する株）は dashboard.md §18-2 と同じ表記（テストが見る）。
 
 [[page]]
 id = "trader"
@@ -408,7 +408,7 @@ lead = "トレーダーは、売り買いを決める 1 つの単位を人に見
 [[page.section]]
 title = "トレーダー ＝ モデル ＋ 売買基準値 ＋ 予算 ＋ 売買する株 ＋ 買い方"
 text = [
-  "トレーダーが持つものは 5 つ。使うモデル（1 本以上）・売買基準値・予算・売買する株・買い方。この 5 つがその人の「決まり」のすべてで、毎日の売り買いはこの決まりどおりに機械が行う。",
+  "トレーダーが持つものは 5 つ。使うモデル（1 本以上）・売買基準値・予算・売買する株・買い方。この 5 つがその人の「決まり」のすべてで、毎日の売り買いはこの決まりどおりにプログラムが行う。",
   "どれも始める前に決めて、設定のファイルに書く。動かしながら変えることはしない（変えるときは「新しい人」＝ このページの下の段）。",
   "トレーダーは増えたり減ったりする。人ごとの値と決まりは「トレーダー」タブに 1 ページずつある。",
 ]
@@ -421,7 +421,7 @@ points = [
 ]
 links = [{ label = "トレーダーのタブ（人ごとの値と決まり）", tab = "traders" }, { label = "実際の売買（毎日の流れ）", tab = "system", item = "live" }]
 detail = [
-  "設定は experiments/live-trading/config/traders/<識別名>.toml が 1 人 1 ファイル。読み手は experiments/live-trading/trader.py の parse_trader → Trader（frozen dataclass）: name・budget_usd・symbols（または universe ／ universe_group）・models（[[models]] の kind / name / method）・combine・threshold・sizing・test・note。上の項目以外は extra に持つだけで執行器は読まない。",
+  "設定は experiments/live-trading/config/traders/<識別名>.toml が 1 人 1 ファイル。読み手は experiments/live-trading/trader.py の parse_trader → Trader（frozen dataclass）: name・budget_usd・symbols（または universe ／ universe_group）・models（[[models]] の kind / name / method）・combine・threshold・sizing・test・note。上の項目以外は extra に持つだけで執行エンジンは読まない。",
   "モデルの kind ＝ experiment（実験名 ＋ 数字の選び方・作り方の登録名で predict.jsonl を読む。本番の 3 人はこれ）／ file（CSV の合図。試験用）／ fixed（固定の合図。試験用）。file・fixed を持つ人は test = true が要り、記録に test: true が付いて判定に混ぜない（規則は下の段「設定項目の一覧」。3 人と test_a の経緯は live-trading.md §0-1）。",
 ]
 detail_links = [{ label = "live-trading.md §0-1（3 人の表と決めた経緯）", doc = "docs/specs/experiments/live-trading.md" }]
@@ -435,7 +435,7 @@ text = [
 after = ["内側ほど小さい。いちばん外だけ株以外も入る。トレーダーの設定で決まるのは、いちばん内側の 1 つ。"]
 links = [{ label = "予測モデルのしくみ（前の 3 つの集合）", tab = "system", item = "model" }]
 detail = [
-  "売買する株 ＝ 設定の symbols（銘柄の配列）。または universe（feature-discovery の config/universe/<名前>.toml）＋ universe_group で引く（symbols が無いときだけ。trader.py の load_universe）。出力スコアを出す株 ＝ 実験 config の targets（all ／ company など）。学ぶ株の範囲 ＝ 予測モデル名の学習範囲（shared ＝ まとめて 1 つ ／ each ＝ 株ごと。rules.md 10-2）。執行器は設定の株のぶんだけ predict.jsonl の行を引く（signals.model_outputs。無い株は合図なし）。",
+  "売買する株 ＝ 設定の symbols（銘柄の配列）。または universe（feature-discovery の config/universe/<名前>.toml）＋ universe_group で引く（symbols が無いときだけ。trader.py の load_universe）。出力スコアを出す株 ＝ 実験 config の targets（all ／ company など）。学ぶ株の範囲 ＝ 予測モデル名の学習範囲（shared ＝ まとめて 1 つ ／ each ＝ 株ごと。rules.md 10-2）。執行エンジンは設定の株のぶんだけ predict.jsonl の行を引く（signals.model_outputs。無い株は合図なし）。",
   "いまの 3 人【2026-09-21 確定】: 材料 ＝ 学ぶ ＝ 出力 ＝ us63 の 63 本（T1・T3）／ 材料 63 本 ＋ 外部系列 ex_・学ぶ ＝ 出力 ＝ 会社株 48 本（T2。ETF 15 本は材料だけ）／ 売買 ＝ 3 人とも symbols の 5 本（T・PFE・NKE・VZ・BAC）。",
 ]
 detail_links = [{ label = "dashboard.md §18-2（4 つの集合の決まり）", doc = "docs/specs/dashboard.md" }, { label = "live-trading.md §0-1（売買する株）", doc = "docs/specs/experiments/live-trading.md" }]
@@ -487,7 +487,7 @@ text = [
 links = [{ label = "実際の売買（1 日の流れ・出力スコアから注文へ）", tab = "system", item = "live" }]
 detail = [
   "threshold ≥ 50（rules.md 13-3 の 2。trader.py の validate が拒む）。合図の読み ＝ plan.decide: 持ち株 0 ＆ buy > θ → 買い ／ 持ち株あり ＆ exit > θ → 売り ／ それ以外 hold・skip（exit ＝ 100 − buy）。",
-  "combine ＝ asis（models が 1 本のときだけ）／ mean（buy・exit の平均）／ majority（奇数本。θ を超えた本数が過半なら 100・でなければ 0 に潰す）／ unanimous（min(buy)・max(exit) ＝ 全部が超えたときだけ買い・1 本でも超えたら売り）。trader.combine。事前固定（CLAUDE.md の 2 つ目の例外）。1 日の回数はトレーダーの判断だが、いまの執行器は取引時間帯の 1 日 1 回のまま（live-trading.md §0-9「広げない」）。",
+  "combine ＝ asis（models が 1 本のときだけ）／ mean（buy・exit の平均）／ majority（奇数本。θ を超えた本数が過半なら 100・でなければ 0 に潰す）／ unanimous（min(buy)・max(exit) ＝ 全部が超えたときだけ買い・1 本でも超えたら売り）。trader.combine。事前固定（CLAUDE.md の 2 つ目の例外）。1 日の回数はトレーダーの判断だが、いまの執行エンジンは取引時間帯の 1 日 1 回のまま（live-trading.md §0-9「広げない」）。",
   "役割（2026-10-18。プラン trader-model-roles.md Phase 3）: [[models]] role ＝ both ／ buy ／ exit ／ stop ／ watch。買い% ＝ 買いの側（both ＋ buy）を combine_buy で・出口% ＝ 売りの側（both ＋ exit）を combine_exit で合わせ（無ければ combine）、損切り係（stop）の出口% は最大を「毎日読む出口%」として別に持つ（signals.collect）。plan.decide は 持ち株あり ＆ 建ててから min_hold_days 営業日未満 なら出口% を読まず、損切り係の出口% > θ なら売る（rules.md 25-2 の 3 と同じ向き）。stop_blocks_buy ＝ true なら損切り係が言っている日は買わない（25-4。既定 false ＝ K9 (a)）。見るだけ（watch）は events の watch 1 行（would ＝ buy ／ sell ／ hold ／ skip）。⚠ 役割の無い人は 1 ビットも変わらない。本番の人は使っていない（候補 T7〜T10 ＝ 11/4 の後。live-trading.md §0-1「役割と最短保有」）。",
 ]
 
@@ -497,10 +497,10 @@ text = [
   "モデルに「係」を付けられる。買う係の出力スコアで買うかどうかを決め、売る係の出力スコアで売るかどうかを決める。損切り係は毎日見て、「売り」と言えばその日に売る。見るだけの係は記録に残るだけで、売り買いには効かない。係を書かないモデルは、買いにも売りにも入る（いままでどおり）。",
   "買う係と売る係で、見る先の長さを変えられる。たとえば「これから 1 か月のあいだに上がりそうか」で買い、「これから 1 週間が弱そうか」で売る、という組み合わせ。買ってから決めた営業日のあいだは売る係の出力スコアを読まない「最短保有」も書ける（買う係が見た先の長さぶんは持つ、という考え方）。損切り係だけは、最短保有のあいだも毎日読む。",
   "損切り係が「売り」と言った次の日に、買う係が「買い」と言ってまた買う（往復する）ことがある。これを止める決まり（損切り係が言っている日は買わない）も書けるが、過去のデータで試すと往復を止めた形のほうが成績が下がったので、ふつうは止めない。",
-  "この形で書いた人の決まりは、トレーダーのタブの「使うモデル」（係の札）と「正式な名前」（最短保有の営業日数）に出る。",
+  "この形で書いた人の決まりは、トレーダーのタブの「使うモデル」（係のラベル）と「正式な名前」（最短保有の営業日数）に出る。",
 ]
 detail = [
-  "設定: [[models]] role（both ／ buy ／ exit ／ stop ／ watch）・combine_buy ／ combine_exit・min_hold_days・stop_blocks_buy（2026-10-18 Phase 3。live-trading.md §0-1「役割と最短保有」・下の設定項目の一覧）。候補の人 T7〜T10（config/traders/candidates/horizon/）＝ 買い係 先 10 ／ 20 ／ 40 ／ 5 日・売り係 先 5 ／ 5 ／ 10 ／ 20 日・損切り係 X1 高値 20 日から −10%・最短保有 ＝ 買い係の期間（プラン trader-model-roles.md §2。2026-10-19 Phase 4）。同じ組で損切り係を持たない T12〜T15 と、さらに買い係・売り係を土台を引いたゲート（rules.md 25-7 ＝ いつもどおりなら 50）にした T16〜T19（2026-10-19 Phase 6。プラン §10）。",
+  "設定: [[models]] role（both ／ buy ／ exit ／ stop ／ watch）・combine_buy ／ combine_exit・min_hold_days・stop_blocks_buy（2026-10-18 Phase 3。live-trading.md §0-1「役割と最短保有」・下の設定項目の一覧）。候補の人 T7〜T10（config/traders/candidates/horizon/）＝ 買い係 先 10 ／ 20 ／ 40 ／ 5 日・売り係 先 5 ／ 5 ／ 10 ／ 20 日・損切り係 X1 高値 20 日から −10%・最短保有 ＝ 買い係の期間（プラン trader-model-roles.md §2。2026-10-19 Phase 4）。同じ組で損切り係を持たない T12〜T15 と、さらに買い係・売り係をベースレートを引いたゲート（rules.md 25-7 ＝ いつもどおりなら 50）にした T16〜T19（2026-10-19 Phase 6。プラン §10）。",
   "机上（horizon-roles-trader.md）: 役割つきの 4 組 R1〜R4 は採る 0（保留 2 ＝ R1・R3 の $600 の形）。損切り係の翌日買い戻しが取引の約 6 割 → 止める形 stop_blocks_buy（rules.md 25-4）は 12 対のうち 11 対が負（利用者決定 K9 (a) ＝ 既定は往復あり）。",
 ]
 
@@ -531,7 +531,7 @@ text = [
   "トレーダーのページに出る予算は、小さい方の規模のもの。",
 ]
 detail = [
-  "規模 A $1,000 ＝ $300 × 3 ＋ 予備 $100（口座の残高【実測 2026-09-16】。執行器の上限の既定 --max-total-budget 1000 --max-day-usd 1000）／ 規模 B $10,000 ＝ $3,000 × 3 ＋ 予備 $1,000（⚠ 実際の取引では使えない可能性がある。口座に $10,000 は入っていない。追加入金は利用者の判断で Claude は実行しない。執行器では --max-total-budget 10000 --max-day-usd 10000 を明示したときだけ。使いどころは紙上の対照と机上の検証だけ）。2026-09-19 利用者決定「$1000 と $10000 の両方を比較できるようにして。$10000 は実際の取引で使えない可能性があるのでそれを明記する」。",
+  "規模 A $1,000 ＝ $300 × 3 ＋ 予備 $100（口座の残高【実測 2026-09-16】。執行エンジンの上限の既定 --max-total-budget 1000 --max-day-usd 1000）／ 規模 B $10,000 ＝ $3,000 × 3 ＋ 予備 $1,000（⚠ 実際の取引では使えない可能性がある。口座に $10,000 は入っていない。追加入金は利用者の判断で Claude は実行しない。執行エンジンでは --max-total-budget 10000 --max-day-usd 10000 を明示したときだけ。使いどころは紙上の対照と机上の検証だけ）。2026-09-19 利用者決定「$1000 と $10000 の両方を比較できるようにして。$10000 は実際の取引で使えない可能性があるのでそれを明記する」。",
   "規模を変える ＝ 各人の budget_usd を変える ＝ 新しい人（下の段）。⚠ どちらの規模でも 63 本の等加重を整数株では再現できない（1 銘柄 A $4.76 ／ B $47.62【実測 2026-09-19】）。",
 ]
 detail_links = [{ label = "live-trading.md §0-1（予算の規模）", doc = "docs/specs/experiments/live-trading.md" }]
@@ -543,10 +543,10 @@ after = ["「見送る」は失敗ではなく、決まりどおりに買わな�
 links = [{ label = "実際の売買（守っていること）", tab = "system", item = "live" }]
 detail = [
   "上限（live-trading.md §0-2）: 全トレーダーの予算の合計 ＝ run_day.py --max-total-budget（既定 1000。超えると起動しない）／ 1 日の買いの合計 ＝ --max-day-usd（既定 1000。全トレーダー・全起動の合計。起動時にその日の orders.jsonl から使った額を数え直し plan.DayCap を全員で分け合う。超えた買いは over_day_cap）。規模 B は 10000 を明示したときだけ。1 人の空きは上の段（too_small）。",
-  "含み損 ＝ ledger.jsonl の drawdown_pct_of_budget が予算の 20% 以上で events.jsonl に drawdown_warning（rc は変えない。run_day.DRAWDOWN_WARN_PCT）。⚠ 執行器は警告だけ・止めるのは人（2026-09-19 利用者決定。自動で投げ売りしない・自動で発注も止めない）。管理画面は「問題」に数える。",
-  "停止 ＝ HALT（管理画面の停止ボタンと同じファイル。執行器が毎回見る。取消の許可 allow_prod_cancel で働いている注文を全部取り消す）。取引時間帯 15:45〜16:05 ET・NYSE の営業日・半日立会の日は発注しない（run_day.window_refusal・nyse_calendar.py）。本番の発注の許可（TT_ALLOW_PROD_ORDERS=1 ＋ --i-know-this-is-real-money）を出して起こすのは利用者だけ。",
+  "含み損 ＝ ledger.jsonl の drawdown_pct_of_budget が予算の 20% 以上で events.jsonl に drawdown_warning（rc は変えない。run_day.DRAWDOWN_WARN_PCT）。⚠ 執行エンジンは警告だけ・止めるのは人（2026-09-19 利用者決定。自動で投げ売りしない・自動で発注も止めない）。管理画面は「問題」に数える。",
+  "停止 ＝ HALT（管理画面の停止ボタンと同じファイル。執行エンジンが毎回見る。取消の許可 allow_prod_cancel で働いている注文を全部取り消す）。取引時間帯 15:45〜16:05 ET・NYSE の営業日・半日立会の日は発注しない（run_day.window_refusal・nyse_calendar.py）。本番の発注の許可（TT_ALLOW_PROD_ORDERS=1 ＋ --i-know-this-is-real-money）を出して起こすのは利用者だけ。",
 ]
-detail_links = [{ label = "live-trading.md §0-2", doc = "docs/specs/experiments/live-trading.md" }, { label = "dashboard.md §13-8（見張り）", doc = "docs/specs/dashboard.md" }]
+detail_links = [{ label = "live-trading.md §0-2", doc = "docs/specs/experiments/live-trading.md" }, { label = "dashboard.md §13-8（監視）", doc = "docs/specs/dashboard.md" }]
 
 [page.section.table]
 head = ["守り", "だれが ／ 何が決める", "何が起きるか"]
@@ -567,7 +567,7 @@ text = [
 points = [
   "識別名 — 設定のファイルの名前。記録・売買履歴・画面の住所はすべてこれ。一度付けたら変えない。",
   "呼び名 — 画面に出す名前。意味の無い名前にする（性質に由来する名前だと、少し違うタイプの人を足すときに困る）。一度付けたら変えない・使い回さない。呼び名の無い人は識別名のまま出る。",
-  "試験用の人 — 配線を確かめるための人で、本物の人が居るときは一覧に出ない。記録には試験用の印が付き、判定に混ぜない。",
+  "試験用の人 — 配線を確かめるための人で、本物の人が居るときは一覧に出ない。記録には試験用のラベルが付き、判定に混ぜない。",
 ]
 links = [{ label = "名前と識別名（モデルの名前の側）", tab = "system", item = "names" }, { label = "トレーダーのタブ", tab = "traders" }]
 detail = [
@@ -579,7 +579,7 @@ detail = [
 title = "設定項目の一覧"
 text = ["設定のファイルにある項目を、やさしい言葉で並べた。値はここには書かない（人ごとの値は「トレーダー」タブが設定から写す）。"]
 detail = [
-  "読み手は trader.py の parse_trader → Trader.validate。検査 ＝ 予算は正 ／ 銘柄は 1 本以上・重複なし ／ モデルは 1 本以上 ／ combine は 4 つのどれか（asis は 1 本のとき・majority は奇数本）／ threshold ≥ 50 ／ sizing は shares か notional ／ fixed は buy と exit が要る ／ fixed・file は test = true が要る。上の項目以外（extra）はそのまま持つが執行器は読まない。",
+  "読み手は trader.py の parse_trader → Trader.validate。検査 ＝ 予算は正 ／ 銘柄は 1 本以上・重複なし ／ モデルは 1 本以上 ／ combine は 4 つのどれか（asis は 1 本のとき・majority は奇数本）／ threshold ≥ 50 ／ sizing は shares か notional ／ fixed は buy と exit が要る ／ fixed・file は test = true が要る。上の項目以外（extra）はそのまま持つが執行エンジンは読まない。",
   "役割のある人（role ／ combine_buy ／ combine_exit ／ min_hold_days ／ stop_blocks_buy のどれかを書いた人 ＝ Trader.has_roles）は combine の本数の検査を側ごとに見る: 買いの側（both ＋ buy）1 本以上 ／ 売りの側（both ＋ exit ＋ stop）1 本以上 ／ 側ごとに asis は 1 本・majority は奇数本 ／ min_hold_days は 1 以上の整数 ／ stop_blocks_buy は stop が 1 本以上あるときだけ（2026-10-18。live-trading.md §0-1「役割と最短保有」）。",
 ]
 detail_links = [{ label = "live-trading.md §0-1（3 人の表と決めた経緯）", doc = "docs/specs/experiments/live-trading.md" }]
@@ -595,7 +595,7 @@ rows = [
   ["使うモデル", "どのモデルの出力スコアを使うか（1 本以上）", "使うモデル・正式な名前"],
   ["合わせ方", "モデルが 2 本以上のときの合わせ方", "この人の決まり"],
   ["売買基準値", "買う・売るの境目", "この人の決まり（ものさし）"],
-  ["メモ", "人が読むための一言（機械は読まない）", "出ない"],
+  ["メモ", "人が読むための一言（プログラムは読まない）", "出ない"],
   ["モデルの役割", "そのモデルを買う判断に使うか・売る判断に使うか・損切りだけか・見るだけか（書かなければ両方）", "使うモデル（役割を使う人だけ）"],
   ["買う側・売る側の合わせ方", "役割で分けたとき、買う側と売る側でそれぞれどう合わせるか（書かなければ「合わせ方」と同じ。損切りは 1 本でも言えば売る）", "この人の決まり（役割を使う人だけ）"],
   ["最短保有", "買ってから何営業日は売る判断を読まないか（損切りだけは毎日読む）", "この人の決まり（役割を使う人だけ）"],
@@ -614,7 +614,7 @@ rows = [
   ["threshold", "実数（既定 50）", "50 以上", "plan.decide（buy > θ ／ exit > θ）"],
   ["note", "文字列", "—", "読まない（人のメモ）"],
   ["[[models]] kind ／ name ／ method", "experiment ／ file ／ fixed ／ 実験名 ／ 登録名", "1 本以上。experiment は name ＋ method で predict.jsonl を引く", "signals.py"],
-  ["[[models]] path ／ buy ／ exit", "file の CSV の道 ／ fixed の固定の値", "fixed は buy と exit の両方", "signals.py"],
+  ["[[models]] path ／ buy ／ exit", "file の CSV のパス ／ fixed の固定の値", "fixed は buy と exit の両方", "signals.py"],
   ["[[models]] role", "both ／ buy ／ exit ／ stop ／ watch（既定 both）", "買いの側（both ＋ buy）1 本以上・売りの側（both ＋ exit ＋ stop）1 本以上。watch だけの人は拒む", "signals.collect（側ごとに合わせる）・plan.decide（stop は毎日・exit は最短保有の後）"],
   ["combine_buy ／ combine_exit", "asis ／ mean ／ majority ／ unanimous（無ければ combine）", "側ごとに asis は 1 本・majority は奇数本", "signals.collect"],
   ["min_hold_days", "整数（営業日。既定 なし）", "1 以上。建ててからこの日数未満は exit を読まない（NYSE の暦で売買履歴の opened から数える。建てた日が 0）", "plan.decide・plan.held_trading_days"],
@@ -648,7 +648,7 @@ after = [
   "出力スコアが 1 本でも出せなかった日は、注文の仕組みを起こさない（古い出力スコアや欠けた出力スコアで売り買いしない）。",
 ]
 detail = [
-  "⚠ 2026-11-02 から予測は前の晩（live-trading.md §0-17）: 夜 17:30 PST ＝ run-live.sh --predict-only（日足 ＋ 外部系列 → 直下の本物の人全員の予測 → 済みの印 predict.done.jsonl）／ 15:50 ET ＝ 前の営業日の印を確かめて run_day.py --signal-date に渡すだけ（無ければ発注しない）。以下は 2026-11-01 までの形: run-live.sh の 1 本。朝 ＝ --prepare（日足 ＋ 外部系列の更新 約 2 分 → 紙上の対照 out/daily.csv。発注しない）。15:50 ET ＝ --wait で起こす → 日足の更新（足だけ 52 秒）→ cli.predict × 3（並列 36 秒）→ out/<日付>/predict-<時刻>.jsonl（回ごとに別の道。2026-09-21 から中身は live.sqlite）→ 売買履歴の控え state-backup/（submit の回だけ）→ run_day.py【所要時間は実測・titan】。",
+  "⚠ 2026-11-02 から予測は前の晩（live-trading.md §0-17）: 夜 17:30 PST ＝ run-live.sh --predict-only（日足 ＋ 外部系列 → 直下の本物の人全員の予測 → 済みのフラグ predict.done.jsonl）／ 15:50 ET ＝ 前の営業日のフラグを確かめて run_day.py --signal-date に渡すだけ（無ければ発注しない）。以下は 2026-11-01 までの形: run-live.sh の 1 本。朝 ＝ --prepare（日足 ＋ 外部系列の更新 約 2 分 → 紙上の対照 out/daily.csv。発注しない）。15:50 ET ＝ --wait で起こす → 日足の更新（足だけ 52 秒）→ cli.predict × 3（並列 36 秒）→ out/<日付>/predict-<時刻>.jsonl（回ごとに別のパス。2026-09-21 から中身は live.sqlite）→ 売買履歴のバックアップ state-backup/（submit の回だけ）→ run_day.py【所要時間は実測・titan】。",
   "cli.predict は表 ＝ cli.build.assemble・買い% ＝ cli.run.fold_buy_pct の切り出しで、モデル・較正のコードは足していない。訓練 ＝ ラベルが asof より前に確定している行 ／ 予測する行 ＝ asof の行。asof より後の足は読んだ直後に捨てる。runs/ を作らない（検証ではない）。",
   "取引時間帯は 15:45〜16:05 ET（NYSE の営業日。休場日は暦で見る。半日立会の日は発注しない）。合図は 15:50 の気配、注文は成行。未約定は発注から 600 秒で取消。Session offline と 5xx は 60 秒おき 3 回まで再送（external-identifier で重複を探してから）。",
 ]
@@ -662,7 +662,7 @@ steps = [
   { t = "終わる直前: 今日の値段", s = "その時までの値段を取りこむ" },
   { t = "学び直して今日の出力スコア", s = "モデルごとに、株 1 本ずつ", kind = "out" },
   { t = "トレーダーが決める", s = "出力スコアと売買基準値をくらべる・予算を見る" },
-  { t = "控えを書いてから注文", s = "全部の注文を順に出す" },
+  { t = "ジャーナルを書いてから注文", s = "全部の注文を順に出す" },
   { t = "買えたかを確かめる", s = "1 本ずつ確かめて売買履歴に書く" },
   { t = "買えなかった注文は取り消す", s = "しばらく待っても買えないとき" },
   { t = "あとで見くらべる", s = "計画の値段・買えた値段・終わりの値段", kind = "note" },
@@ -680,20 +680,20 @@ links = [{ label = "モデルの一覧（1 本ずつの組み立て）", tab = "
 detail = [
   "学習 ＝ cli.predict が毎営業日の夜（2026-11-02 から。それまでは 15:50 ET 過ぎ）に fit し直す（保存した重みは無い・runs/ も作らない）。訓練 ＝ 2018-01-31 から、ラベル（1 日先の対数リターン）の終わりの足が asof より前の行 ＝ asof の 2 営業日前まで（asof 2026-09-22 なら train_end 2026-09-18・136,529 行〔T1・T3〕／ 101,589 行〔T2〕【実測】）。予測する行 ＝ asof の行（63 ／ 48 ／ 63 銘柄）。3 本並列で 43〜48 秒【実測 titan ／ 13500t】。",
   "入力の 1 行 ＝ (symbol, ts) の 1 営業日。元は data-live/adjusted/d/<銘柄>.csv（time_ms・open・high・low・close・volume。分割だけ調整）＋ T2 は外部系列（ECB 為替・米国債・NOAA・USGS を 1 日ずらし）。末尾の行は公式の終値（2026-11-02 から夜の予測。それまでは 15:50 ET の途中の足 ＝ 終値の代役・predict.jsonl の proxy_close）。列は T1 own_ 35 ／ T2 124（own 35 ＋ cs 26 ＋ rel 13 ＋ ex 50）／ T3 は表 95 列（own 35 ＋ own_seq60_r0..r59）のうち 60 日の道筋だけ → QUANT 653 列。float64・StandardScaler は訓練で fit・欠損（inf → NaN）の行は落とす。",
-  "出力 ＝ out/<日付>/predict-<時刻>.jsonl（2026-09-21 から中身は live.sqlite）の 1 行 1 銘柄。買い% は Platt 較正を通した 0〜100（小数 6 桁）・出口% ＝ 100 − 買い%。予測の記録 predict.meta.jsonl に訓練の範囲・列数・較正の版と係数・入力の指紋・所要時間が 1 モデル 1 行。項目は下の表。",
-  "執行器（run_day.py）: signals.py が今日の日付の行だけ読み（古い予測では売買しない・method が設定と違えば止まる）、トレーダーごとに合成 asis → plan.decide ＝ 持ち株 0 ＆ 買い% > θ で買い ／ 持ち株あり ＆ 出口% > θ で売り ／ それ以外は hold ・ skip の事象 → plan.size_intents ＝ 1 銘柄の枠 min(予算 ÷ 銘柄数, 空き) を気配の中値で割って整数株に切り捨て（1 株に満たなければ too_small）→ 1 注文 1 トレーダーの成行を 15:45〜16:05 ET に出す（売りが先）。正本は live-trading.md §0-9 (f)。",
+  "出力 ＝ out/<日付>/predict-<時刻>.jsonl（2026-09-21 から中身は live.sqlite）の 1 行 1 銘柄。買い% は Platt 較正を通した 0〜100（小数 6 桁）・出口% ＝ 100 − 買い%。予測の記録 predict.meta.jsonl に訓練の範囲・列数・較正の版と係数・入力のフィンガープリント・所要時間が 1 モデル 1 行。項目は下の表。",
+  "執行エンジン（run_day.py）: signals.py が今日の日付の行だけ読み（古い予測では売買しない・method が設定と違えば止まる）、トレーダーごとに合成 asis → plan.decide ＝ 持ち株 0 ＆ 買い% > θ で買い ／ 持ち株あり ＆ 出口% > θ で売り ／ それ以外は hold ・ skip の事象 → plan.size_intents ＝ 1 銘柄の枠 min(予算 ÷ 銘柄数, 空き) を気配の中値で割って整数株に切り捨て（1 株に満たなければ too_small）→ 1 注文 1 トレーダーの成行を 15:45〜16:05 ET に出す（売りが先）。正本は live-trading.md §0-9 (f)。",
 ]
 detail_links = [{ label = "live-trading.md §0-9 (f)（入力と出力の形式の正本）", doc = "docs/specs/experiments/live-trading.md" }]
 
 [page.section.detail_table]
 head = ["項目（predict.jsonl の 1 行）", "型", "意味"]
 rows = [
-  ["date", "YYYY-MM-DD", "asof（予測した日 ＝ 今日）。執行器は今日と違う行を読まない"],
-  ["model ／ method", "文字列", "実験名（trade_own_ridge_a など）／ 数字の選び方・作り方の登録名（全部使う（基準）／ T3 QUANT（60日窓））。設定の [[models]] の name ／ method と突き合わせる"],
+  ["date", "YYYY-MM-DD", "asof（予測した日 ＝ 今日）。執行エンジンは今日と違う行を読まない"],
+  ["model ／ method", "文字列", "実験名（trade_own_ridge_a など）／ 数字の選び方・作り方の登録名（全部使う（基準）／ T3 QUANT（60日窓））。設定の [[models]] の name ／ method と照合する"],
   ["symbol", "文字列", "銘柄"],
   ["buy ／ exit", "0〜100 の実数（小数 6 桁）", "買い% ／ 出口% ＝ 100 − 買い%。合成 asis ならそのまま合図"],
   ["proxy_close ／ proxy", "実数 ／ 真偽", "その日の終値の代役に使った値 ／ --proxy で上書き・追加した足か"],
-  ["input_fingerprint ／ commit", "16 進 16 桁 ／ 7 桁", "訓練と予測の入力の指紋（⚠ CPU で変わる ＝ §0-12）／ コードの commit"],
+  ["input_fingerprint ／ commit", "16 進 16 桁 ／ 7 桁", "訓練と予測の入力のフィンガープリント（⚠ CPU で変わる ＝ §0-12）／ コードの commit"],
   ["predict.meta.jsonl", "1 モデル 1 行", "experiment・method・asof・table・layer・form・seed・calibration（較正の版）・features（列数）・input_fingerprint・commit・data_dir・train_rows・train_start・train_end・test_rows・dropped_symbols_nan_features・horizon・proxy_symbols・fitted（較正の係数など）・seconds（table ／ fit_predict）・log"],
 ]
 
@@ -724,7 +724,7 @@ title = "守っていること"
 text = ["モデルの出力スコアを注文にするところでは、もうけより「計画どおりに、安全に動くか」を大事にしている。"]
 points = [
   "だれがどの株をいくつ持っているかは、トレーダーごとの売買履歴に付ける。口座には全員ぶんがまとめて入っているので、売買履歴の合計と口座を毎回くらべる。合わないときは、推し量って割り振らず、人が合わせる。",
-  "注文を出す前に必ず控えを書く。途中で止まっても、次に起きたときに控えから調べて売買履歴に戻せる。",
+  "注文を出す前に必ずジャーナル（これから出す注文の記録）を書く。途中で止まっても、次に起きたときにジャーナルから調べて売買履歴に戻せる。",
   "注文はトレーダーごとに別々に出す（まとめない・内々で打ち消さない）。予算を超える買いは、注文の仕組みが断る。売ったお金は、次の日まで次の買いに使わない。",
   "本当に注文する許可を出して起こすのは人だけ。停止ボタン 1 つで新しい注文を止め、出ている注文を全部取り消せる。決まった時間の外や休みの日は注文しない。大きな含み損は警告だけで、止めるのは人。",
   "仮のデータと仮の時計で、同じ仕組みを通しで動かせる（シミュレーション）。本物とは同時に動かさず、記録も画面も分ける。",
@@ -732,11 +732,11 @@ points = [
 ]
 links = [{ label = "トレーダーのタブ（人ごとの決まり）", tab = "traders" }]
 detail = [
-  "帳尻の 3 段（live-trading.md §0-8）: 発注の前に控え state/<env>/journal.jsonl を書き、起動時に未完を照会してその人の売買履歴に戻す ／ 口座 − 売買履歴の合計を突き合わせる（口座が少ない銘柄はその日売買しない）／ 人が reconcile.py で合わせる。売買履歴の保存は 1 注文ごと。2026-09-21 から記録（out/<日付>/*.jsonl）と売買履歴（state/<env>/<名前>.json）の中身は live.sqlite（道はそのまま。live-trading.md §0-11）。",
-  "発注は 2 段（利用者決定 D6）: ① 全部の注文を順に 控え → dry-run → 発注 ／ ② 1 本ずつ約定を確かめて売買履歴へ。口座への注文はトレーダーごとに別々（合算しない・按分しない・内部移転しない ＝ 2026-09-19 利用者決定）。同日に A の売りと B の買いが重なっても両方を口座に出し、売りが先。",
+  "帳尻の 3 段（live-trading.md §0-8）: 発注の前にジャーナル state/<env>/journal.jsonl を書き、起動時に未完を照会してその人の売買履歴に戻す ／ 口座 − 売買履歴の合計を照合する（口座が少ない銘柄はその日売買しない）／ 人が reconcile.py で合わせる。売買履歴の保存は 1 注文ごと。2026-09-21 から記録（out/<日付>/*.jsonl）と売買履歴（state/<env>/<名前>.json）の中身は live.sqlite（パスはそのまま。live-trading.md §0-11）。",
+  "発注は 2 段（利用者決定 D6）: ① 全部の注文を順に ジャーナル → dry-run → 発注 ／ ② 1 本ずつ約定を確かめて売買履歴へ。口座への注文はトレーダーごとに別々（合算しない・按分しない・内部移転しない ＝ 2026-09-19 利用者決定）。同日に A の売りと B の買いが重なっても両方を口座に出し、売りが先。",
   "許可の 3 段（ttclient.Client）: dry-run ＝ TT_ALLOW_PROD_DRY_RUN=1 ／ 取消 ＝ allow_prod_cancel（管理画面の停止ボタン用）／ 発注 ＝ TT_ALLOW_PROD_ORDERS=1 ＋ --i-know-this-is-real-money。取消の許可では発注できない。停止 ＝ HALT（ファイル）。予算の上限は規模 A $1,000（既定）。規模 B $10,000 は --max-total-budget 10000 --max-day-usd 10000 を明示したときだけ（⚠ 実際の取引では使えない可能性がある）。含み損 20% は drawdown_warning（警告だけ）。取引時間帯は 15:45〜16:05 ET（半日立会の日は発注しない）。",
-  "シミュレーション ＝ 機械のモード MODE（無ければ real）・run.lock・記録は sim/<名前>/（木の sim.sqlite）に分け全行 sim: true・トレーダー名は sim_ 始まり。sim のとき本物の run_day は許可があっても起動を拒否する（rc=5）。回す機械は資格情報を置かない Sx360（live-trading.md §0-7）。",
-  "判定の閾値（20 営業日。プラン §2-4）: 執行価格の差 中央値 ≤ 5bp ／ 紙上 − 実物 ≤ 5bp/日 ／ 人手 0 回 ／ 執行できた日 95% 以上。損益で手法を採らない（数週間では実力とたまたまを見分けられない）。管理画面（dashboard/・3012）が執行器の記録を写して差 1〜4 と損益を出す（dashboard.md §13）。",
+  "シミュレーション ＝ マシンのモード MODE（無ければ real）・run.lock・記録は sim/<名前>/（ツリーの sim.sqlite）に分け全行 sim: true・トレーダー名は sim_ 始まり。sim のとき本物の run_day は許可があっても起動を拒否する（rc=5）。回すマシンは資格情報を置かない Sx360（live-trading.md §0-7）。",
+  "判定の閾値（20 営業日。プラン §2-4）: 執行価格の差 中央値 ≤ 5bp ／ 紙上 − 実物 ≤ 5bp/日 ／ 人手 0 回 ／ 執行できた日 95% 以上。損益で手法を採らない（数週間では実力とたまたまを見分けられない）。管理画面（dashboard/・3012）が執行エンジンの記録を写して差 1〜4 と損益を出す（dashboard.md §13）。",
 ]
 detail_links = [{ label = "live-trading.md", doc = "docs/specs/experiments/live-trading.md" }, { label = "dashboard.md §13", doc = "docs/specs/dashboard.md" }, { label = "新しいモデル・新しい人を足す手順（howto-model-trader.md）", doc = "docs/specs/howto-model-trader.md" }]
 
@@ -747,14 +747,14 @@ id = "names"
 label = "名前と識別名"
 sub = "技術的な定義"
 title = "名前と識別名 — モデルは内部でどう呼ばれているか"
-lead = "モデル 1 本を指すのは、2 つの名前の組。「どの試しの設定か」と「その中で、数字をどう選ぶか・どう作るか」。記録や設定のファイルには、この 2 つがそのままの綴りで出てくる。"
+lead = "モデル 1 本を指すのは、2 つの名前の組。「どの試しの設定か」と「その中で、数字をどう選ぶか・どう作るか」。記録や設定のファイルには、この 2 つがそのままの表記で出てくる。"
 
 [[page.section]]
 title = "モデル 1 本 ＝ 設定の名前 × 数字の選び方・作り方の名前"
-text = ["1 つの試しの設定の中に、数字の選び方・作り方が何通りも入っていることがある（全部の数字をそのまま使う ／ 決まったやり方で数字をしぼる ／ 観測期間 60 日の値動きの線から数字を作る、など）。だから設定の名前だけでは、モデル 1 本は決まらない。実際の売買の設定・今日の出力スコアのファイル・画面の解説は、どれもこの 2 つの名前の組で同じモデルを指している。綴りが 1 文字でもちがうと別のものとして扱われ、注文の仕組みは止まる。"]
+text = ["1 つの試しの設定の中に、数字の選び方・作り方が何通りも入っていることがある（全部の数字をそのまま使う ／ 決まったやり方で数字をしぼる ／ 観測期間 60 日の値動きの線から数字を作る、など）。だから設定の名前だけでは、モデル 1 本は決まらない。実際の売買の設定・今日の出力スコアのファイル・画面の解説は、どれもこの 2 つの名前の組で同じモデルを指している。表記が 1 文字でもちがうと別のものとして扱われ、注文の仕組みは止まる。"]
 detail = [
   "実売買の設定の [[models]]: kind = \"experiment\" ／ name ＝ 実験名（例 trade_ownseq_ridge_a）／ method ＝ 手法名（例 T3 QUANT（60日窓）＝ その実験の結果表の「手法」の列 ＝ 選別か検知器の登録名。学習器の名前ではない）。",
-  "predict.jsonl の行は model（実験名）・method・symbol・buy・exit。signals.py は (実験名, 銘柄) で引き、行の method が設定と違えば SignalError で止まる。シミュレーションの作り置きのファイル名は 実験名@<手法名の sha1 の頭 8 桁>。",
+  "predict.jsonl の行は model（実験名）・method・symbol・buy・exit。signals.py は (実験名, 銘柄) で引き、行の method が設定と違えば SignalError で止まる。シミュレーションのキャッシュのファイル名は 実験名@<手法名の sha1 の頭 8 桁>。",
   "画面: traderview.find_model は name と method の両方が一致する models.toml の [[model]] だけを当てる。id（例 seq-quant）は #models/<id> の URL 用で、内部の識別名ではない。",
 ]
 
@@ -770,7 +770,7 @@ steps = [
 
 [[page.section]]
 title = "部品の名前と、検証結果一覧の識別項目"
-text = ["学び方・線の読み方・数字の選び方などの部品は、名前を付けて名前の一覧（登録簿）に入れてある。試しの設定は、この名前で部品を指す。"]
+text = ["学び方・線の読み方・数字の選び方などの部品は、名前を付けて名前の一覧（レジストリ）に入れてある。試しの設定は、この名前で部品を指す。"]
 points = [
   "部品の名前は、試した結果の検証結果一覧で「同じ形か、ちがう形か」を見分ける識別項目になっている。だから、計算が変わる変更をしたら必ず名前を変える。",
   "試しの設定の名前（ファイル名）は識別項目ではない。検証結果一覧は、設定の中身（モデル・見ている数字・期間・線の引き方など）から識別項目を作る。",

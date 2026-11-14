@@ -36,7 +36,7 @@ STATUSES = ("案", "登録", "作成中", "回した", "既出", SHARED, "失敗
 FORWARD = {"案": {"登録", "既出", SHARED}, "登録": {"作成中", SHARED, "失敗", "既出"}, "作成中": {"回した", "失敗", SHARED}}
 EFFORTS = ("小", "中", "大")
 FRAMES = ("内", "外")      # 問いの枠（2026-11-01 利用者「未知なものへのトライが増えたらいいな」→「推す案で」＝ rules.md 31-6）
-CONTRACT_VERSION = 3       # 段 1 の契約の版。2 から frame ／ p_hold ／ learn_if_null・3 から needed_effect が要る（それより前の登録簿は求めない）
+CONTRACT_VERSION = 4       # 段 1 の契約の版。2 から frame ／ p_hold ／ learn_if_null・3 から needed_effect が要る（それより前の登録簿は求めない）。4 は本文だけ（§2 の検出力の実測に「続く信号」。項目は 3 と同じ）
 SEATTLE = ZoneInfo("America/Los_Angeles")
 REQUIRED = ("id", "date", "title", "kind", "origin", "question", "structure", "n_trials_planned", "key_shape",
             "failure_modes", "prediction", "effort", "measurable", "touches", "status")
@@ -139,7 +139,7 @@ def duplicates(key_shape, models: list[str] | None) -> tuple[int, list[str]]:
 
 
 # ---------------------------------------------------------------- 似た過去の案（登録簿どうしの近さ。⚠ 表示だけ）
-# 2026-11-13 利用者「Aで進めて」（docs/plans/devloop-dedupe.md の穴 ①・案 A）。段 1 は毎晩新しい名前で key_shape を書くので、
+# 2026-11-13 利用者「Aで進めて」（docs/plans/archive/devloop-dedupe.md の穴 ①・案 A）。段 1 は毎晩新しい名前で key_shape を書くので、
 # 同じ問いの焼き直しは上の「既出の疑い」（予測モデル名の照合）では拾えない。題名 ＋ 問いの文字 3-gram の Jaccard で
 # 「より前の日付の案」から近い順に並べて見せる。⚠ status は変えない・しきい値で切らない（別物も同じくらいの値になる）
 # ・「意味がない」の判定ではない（利用者の指示 2026-10-24）。同じ問いかを決めるのは人。

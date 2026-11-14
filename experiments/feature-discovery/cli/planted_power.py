@@ -76,8 +76,25 @@ def verdict(edges: list[float]) -> str:
     return "落とす"
 
 
-def one(panel: pd.DataFrame, feats: list[str], exp: dict, edges_dates, th: float) -> dict:
-    """1 つの合成の表を器に通す → fold ごとの上乗せ・判定・既知の列との相関。"""
+def hold_stats(te: pd.DataFrame, bp: np.ndarray, y: np.ndarray, th: float, cost_bp: float) -> tuple[float, int]:
+    """(持つ日の割合 ＝ 評価の行のうち持っていた行の割合, 取引回数 ＝ 建てた回数の全銘柄の合計)。`fold_net` と同じ呼び方・NaN の銘柄は飛ばす。"""
+    from ail.validation import simulate as sim
+
+    held = rows = trades = 0
+    for _s, idx in te.groupby("symbol").indices.items():
+        if np.isnan(bp[idx]).any():
+            continue
+        r = sim.simulate(bp[idx], y[idx], th, cost_bp)
+        held += int(np.sum(r["pos"]))
+        rows += len(idx)
+        trades += int(r["trades"])
+    return (held / rows if rows else float("nan")), trades
+
+
+def one(panel: pd.DataFrame, feats: list[str], exp: dict, edges_dates, th: float, detail: bool = False) -> dict:
+    """1 つの合成の表を器に通す → fold ごとの上乗せ・判定・既知の列との相関。
+    ⚠ `detail=True`（2026-11-14・`cli.inject_power` の persist）のときだけ、持つ日の割合・取引回数（回/fold）・
+    評価の行のうち既知の列が正の割合を足す。既定では戻り値は今までと同じ項目。"""
     from cli import run as run_mod
     from cli.perm_split import fold_net
 
@@ -86,7 +103,7 @@ def one(panel: pd.DataFrame, feats: list[str], exp: dict, edges_dates, th: float
     model = registry.resolve("model", exp.get("model", "Ridge"))
     ctx = {"seed": int(v.get("seed", 0)), "model": model, "k": int(exp.get("k", 8)), **exp.get("model_args", {})}
     sel = {SELECTOR: registry.resolve("selector", SELECTOR)}
-    edges, corr = [], []
+    edges, corr, extra = [], [], []
     for f, tr, te in splits.folds_by_dates(panel, edges_dates, float(exp["horizon_min"]), int(v.get("embargo_bars", 0)),
                                            float(exp.get("bar_minutes", 0.0))):
         te = te.reset_index(drop=True)
@@ -101,7 +118,14 @@ def one(panel: pd.DataFrame, feats: list[str], exp: dict, edges_dates, th: float
         edges.append(float("nan") if net is None or bh is None else net - bh)
         c = np.corrcoef(bp, te[PLANTED].to_numpy())[0, 1] if np.std(bp) > 0 else 0.0
         corr.append(float(c))
-    return {"edges": edges, "verdict": verdict(edges), "corr_buy_planted": float(np.mean(corr))}
+        if detail:
+            h, n = hold_stats(te, bp, y, th, cost_bp)
+            extra.append((h, n, float(np.mean(te[PLANTED].to_numpy() > 0))))
+    out = {"edges": edges, "verdict": verdict(edges), "corr_buy_planted": float(np.mean(corr))}
+    if detail:
+        out.update(hold_ratio=float(np.mean([e[0] for e in extra])), trades_per_fold=float(np.mean([e[1] for e in extra])),
+                   planted_pos_share=float(np.mean([e[2] for e in extra])))
+    return out
 
 
 def curve(experiment: str = "trade_own_ridge_a", strengths=STRENGTHS, seeds: int = SEEDS, th: float = 50.0,

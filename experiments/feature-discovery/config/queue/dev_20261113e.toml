@@ -1,0 +1,10 @@
+# ⚠ 開発ループ（2026-11-13 段 2・人の手の 5 束目。利用者「推す案で進めて」→「取得してよい」）。登録簿 20261108-edgar-8k-event-flags。
+#    回すと決めたのは結果を見る前（登録簿の registered_at ＝ 2026-11-08 01:01 PST）。数: own ＋ evt × Ridge × θ 3 ＝ 3。
+#    表はこの実行が作る（own ＋ evt・会社 48 本）。8-K の系列は 2026-11-13 に取得した（data/raw/edgar_8k/series/・連絡先は利用者・記録に書かない）。
+#    ⚠ 手で回す分は 1 晩 ≤ 12 の上限に数えない（rules.md 31-2 の 3a）。
+experiments = ["dev_evt_own48"]
+
+leak = true
+ledger = true
+max_failures = 1
+time_budget_s = 1800     # 見積り 約 2 分【推測。表を作る ＋ Ridge × 5 fold × 本番 ＋ leak】

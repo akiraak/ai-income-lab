@@ -1,0 +1,34 @@
+# ⚠ **開発ループの登録簿 `20261112-wiki-pageview-layer`（参考あり・枠の外）**（rules.md 31 章・記録 dev-loop.md・事前固定は登録簿）。
+#    ern_own48_ernf の写し（会社 48 本・2018-01-31〜・同じ切れ目）。違いは層だけ: 決算の層 ernf の代わりに、Wikipedia の記事の
+#    閲覧数の層 attn（対数の z スコア〔過去 60 日に対して〕・5 日と 20 日の平均の比・印）× Ridge × θ 3 ＝ 3 検証。
+#    対の相手 ＝ ern_own48 の行（既存・同じ表の own だけ・同じ集合・同じ切れ目。attn は銘柄も行も落とさない）。
+#    ⚠ 取得が先: `cli.fetch --exog attention_daily`（連絡先は利用者が自分で環境変数に置く）。系列が無いと全部の会社が印 1 になる ＝ 回さない。
+# ⚠ **回すと決めたのは結果を見る前（登録 2026-11-12 01:02 PST）**。
+name = "dev_attn_own48"
+dataset = "daily"
+horizon = 1
+cost_bp = 5.0
+start_date = "2018-01-31"
+feature_layers = ["own", "attn"]   # ⚠ 閲覧数の層（ail/ideas/i20261112_attn_layer.py。2 列 ＋ 印 1 列）
+targets = "company"            # ⚠ ETF には記事を当てない
+horizon_min = 1440.0
+bar_minutes = 1440.0
+selectors = ["全部使う（基準）", "乱択（基準）"]
+k = 16
+model = "Ridge"
+baselines = ["常に上（ドリフト）", "直前リターンの符号"]
+
+[trading]
+style = "threshold"
+thresholds = [50, 55, 60]      # ⚠ 事前固定。結果を見て動かさない（rules.md 13-3）
+form = "shared"
+
+[validation]
+split = "walk_forward_dates"
+folds = 5
+purge = true
+embargo_bars = 0
+seed = 0
+
+[features]
+attn_lag_days = 1

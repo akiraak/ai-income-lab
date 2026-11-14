@@ -1,0 +1,15 @@
+# Wikipedia（英語版）の記事の日次の閲覧数（登録簿 20261112-wiki-pageview-layer・2026-11-13）。
+# ⚠ 取得は利用者が自分で: 環境変数 AIL_WIKIMEDIA_CONTACT に連絡先を置いて `.venv/bin/python -m cli.fetch --exog attention_daily`
+#    （連絡先は取得のたびに利用者から。リポジトリ・記録に書かない。1 本ずつ順に ・ 0.5 秒あける ・ 失敗しても叩き直さない）
+# ⚠ 置き場は data/raw/wikimedia/series/（新しい置き場。研究用の日足には触らない）。記事名の対応表は config/dataset/wiki_articles.toml
+# ⚠ データは CC0 1.0（Wikimedia の Analytics API の access policy・2026-11-13 に読んだ）
+name = "attention_daily"
+period = "d"
+
+[[series]]
+source = "wikimedia"
+role = "本命"
+ids = ["PV"]
+start = "2017-10-01"      # 表の頭 2018-01-31 の前に、z スコアの 60 日ぶんを取る
+end = "2026-09-09"        # 研究用の日足の終わり
+note = "暦日の閲覧数（agent = user）。その日の 00:00 UTC。層は翌日以降にしか貼らない（attn_lag_days ≥ 1）"

@@ -59,6 +59,30 @@ def execution_of(t: dict) -> str:
     return e
 
 
+DECIDE_EVERY_EXCLUDES = ("top_k", "trader", "mix", "position_exits", "threshold_pairs", "graded", "graded_rank")
+
+
+def decide_every_of(t: dict) -> int | None:
+    """`[trading] decide_every = N`（レジストリ 20261109-decide-every-5d。2026-11-14）。⚠ **無ければ（1 でも）None ＝ 経路は 1 行も変わらない**。
+
+    N ≥ 2 のとき、銘柄ごとに評価分割の頭から N 本ごとの足だけを判断日にする（`simulate(decide_every=N)`）。
+    ⚠ 素の閾値売買の行だけ: 上位 K ／ トレーダーの形 ／ 合成 ／ 位置を知る出口 ／ 売る線 ／ 持つ量の行は別のシミュレーターや
+    別の出口を通るので、同じ config には書けない（判断日を間引いていない行が同じ検証方式の名前で並ぶのを防ぐ）。
+    """
+    n = t.get("decide_every")
+    if n is None:
+        return None
+    if isinstance(n, bool) or not isinstance(n, int) or n < 1:
+        raise SystemExit(f"⚠ trading.decide_every は 1 以上の整数: {n!r}（レジストリ 20261109-decide-every-5d）")
+    if n == 1:
+        return None                                  # 毎日判断 ＝ 既定と同じ（`simulate` に何も渡さない）
+    for key in DECIDE_EVERY_EXCLUDES:
+        if t.get(key):
+            raise SystemExit(f"⚠ trading.decide_every は素の閾値売買の行だけ（`{key}` と同じ config には書けない。"
+                             "レジストリ 20261109-decide-every-5d）")
+    return int(n)
+
+
 def next_open_returns(panel: pd.DataFrame, directory: str, column: str = "open") -> tuple[pd.Series, int]:
     """(y_exec, 継げなかった行の数)。y_exec[t] ＝ log(始値 t+2 ／ 始値 t+1)（rules.md 22-1）。
 
@@ -281,6 +305,9 @@ def evaluate_trading(panel: pd.DataFrame, feats: list[str], exp: dict, run: runs
     next_open = execution_of(t) in ("next_open", "next_close")
     if next_open and EXEC_COLUMN not in panel:
         raise SystemExit(f"⚠ execution = \"{execution_of(t)}\" には表に {EXEC_COLUMN} が要る（`next_open_returns` で継ぐ。rules.md 22-1）")
+    # ⚠ **判断の間隔**（レジストリ 20261109-decide-every-5d。2026-11-14）: `[trading] decide_every = N`（N ≥ 2）のときだけ、
+    # 状態機械が N 本ごとの足でだけ買い% ／ 出口% を読む。⚠ **無い config は None ＝ `simulate` に何も渡さない ＝ 1 ビットも変わらない**
+    decide = decide_every_of(t)
     form = str(t.get("form", "shared"))
     v = exp.get("validation", {})
     k = int(exp.get("k", 8))
@@ -347,6 +374,14 @@ def evaluate_trading(panel: pd.DataFrame, feats: list[str], exp: dict, run: runs
         holds_by = fwd.drain_holds(ctx)
         for lab, hd in holds_by.items():
             mix_opts[lab] = {"hold_days": hd}
+        if decide is not None:
+            if holds_by:
+                raise SystemExit("⚠ trading.decide_every は保有日数を出す検知器（rules.md 25-5）とは一緒に使えない"
+                                 f"（{sorted(holds_by)}。レジストリ 20261109-decide-every-5d）")
+            # ⚠ 判断日の曜日は評価分割の頭で決まる（曜日の効果と混ざりうる ＝ 記録に残すだけ。レジストリの failure_modes）
+            head = ts_te.min()
+            run.log(f"  ⚠ fold {f}: 判断は {decide} 本ごと（評価分割の頭 {head.date()}・{'月火水木金土日'[head.dayofweek]}曜。"
+                    "間の足は前の判断を持ち越す）")
         if mixes:
             # ⚠ **既存の手法の買い% を作り終えた後に足すだけ**（後ろの行の作り方は既存の手法と同じ）
             _mix_fold(mixes, mix_ext, te, buy, exits, n_cols, fitted_doc, f, run.log, opts=mix_opts, holds=holds_by)
@@ -364,6 +399,8 @@ def evaluate_trading(panel: pd.DataFrame, feats: list[str], exp: dict, run: runs
                 kw["stop_loss_pct"] = stop
             if hold is not None:
                 kw["max_hold_days"] = hold
+            if decide is not None:
+                kw["decide_every"] = decide        # ⚠ 判断日を間引く（無い config は渡さない ＝ 既存の経路と同一。逆売買の診断にも同じ間隔）
             # ⚠ 役割つきの合わせる口（rules.md 25-2 の 3・4）。無い手法は空 ＝ 既存の経路と同一
             mo = mix_opts.get(base) or {}
             if mo.get("min_hold_days") is not None:

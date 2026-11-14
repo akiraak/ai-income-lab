@@ -1,0 +1,7 @@
+# ⚠ 開発ループのサンドボックス（晩 2026-11-14・レジストリ 20261109-decide-every-5d・rules.md 31-7）。サンドボックスの中だけで回す（main の DB には入らない）。
+experiments = ["dev_decide5_own", "dev_decide5_h2"]
+
+leak = true
+ledger = true
+max_failures = 1
+time_budget_s = 3081

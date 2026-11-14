@@ -22,7 +22,8 @@ import pandas as pd
 def simulate(buy_pct, y, threshold: float, cost_bp: float = 5.0, exit_pct=None,
              exit_threshold: float | None = None, stop_loss_pct: float | None = None,
              max_hold_days: int | None = None, min_hold_days: int | None = None,
-             stop_exit_pct=None, stop_blocks_buy: bool = False, hold_days=None) -> dict:
+             stop_exit_pct=None, stop_blocks_buy: bool = False, hold_days=None,
+             decide_every: int | None = None) -> dict:
     """1 銘柄 × 1 fold を状態機械で回す。
 
     buy_pct: 入口%（0〜100 の系列・時刻順。⚠ **未保有の日に読む**）。y: その日のリターン（対数）。
@@ -48,7 +49,20 @@ def simulate(buy_pct, y, threshold: float, cost_bp: float = 5.0, exit_pct=None,
     ⚠ **2026-10-18 に行ごとの保有日数の口を足した**（rules.md 25-5 の 3。⚠ **省けば 1 ビットも変わらない**）:
     `hold_days=h` ＝ 足 t で建てたら `h[t]` 本持ち、`t − opened ≥ h[opened]` で降りる（`max_hold_days` の行ごと版。
     1 以上の整数。`min_hold_days` ／ `max_hold_days` とは同時に渡せない）。
+    ⚠ **2026-11-14 に判断の間隔のオプションを足した**（レジストリ 20261109-decide-every-5d。⚠ **省けば 1 ビットも変わらない**）:
+    `decide_every=N` ＝ この系列の頭から N 本ごとの足（t ＝ 0, N, 2N, …）だけを判断日にする。判断日でない足は入口% も出口% も
+    読まず、前の判断日の持ち方を保つ（費用もかからない）。末尾の強制清算は同じ。N ＝ 1 は毎日判断 ＝ 省いたときと同じ結果。
+    ⚠ 位置や日数で降りるオプション（`stop_loss_pct` ／ `max_hold_days` ／ `min_hold_days` ／ `stop_exit_pct` ／ `hold_days`）とは同時に渡せない。
     """
+    dec = None
+    if decide_every is not None:
+        if isinstance(decide_every, bool) or int(decide_every) != decide_every or int(decide_every) < 1:
+            raise ValueError(f"decide_every = {decide_every!r} は受けない（1 以上の整数）")
+        if (stop_loss_pct is not None or max_hold_days is not None or min_hold_days is not None
+                or stop_exit_pct is not None or hold_days is not None):
+            raise ValueError("decide_every は stop_loss_pct ／ max_hold_days ／ min_hold_days ／ stop_exit_pct ／ hold_days と"
+                             "同時に渡せない（判断日でない足は何も読まない ＝ レジストリ 20261109-decide-every-5d）")
+        dec = int(decide_every)
     hd = None
     if hold_days is not None:
         if min_hold_days is not None or max_hold_days is not None:
@@ -100,7 +114,9 @@ def simulate(buy_pct, y, threshold: float, cost_bp: float = 5.0, exit_pct=None,
     cum = 0.0                                       # ⚠ 建ててからの累積対数リターン（位置を知る出口にだけ使う。既定の経路では読まない）
     for t in range(n):
         traded = False
-        if p == 0 and b[t] > threshold and not (stop_blocks_buy and se[t] > et):   # 建てる（⚠ 未保有のときだけ入口% を読む。損切り係が言っている日は建てない ＝ 25-4）
+        if dec is not None and t % dec != 0:
+            pass                                    # ⚠ 判断日でない足: 何も読まず、前の判断日の持ち方を保つ（`decide_every`。省けばこの枝は通らない）
+        elif p == 0 and b[t] > threshold and not (stop_blocks_buy and se[t] > et):   # 建てる（⚠ 未保有のときだけ入口% を読む。損切り係が言っている日は建てない ＝ 25-4）
             p, traded, trades = 1, True, trades + 1
             opened = t
             cum = 0.0

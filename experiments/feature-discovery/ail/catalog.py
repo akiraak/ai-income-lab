@@ -349,6 +349,10 @@ def threshold_style(cfg: dict) -> str:
         parts.append("断面超過ラベル")
     elif cfg.get("label") == "vol_scaled":
         parts.append("ボラ割りラベル")   # 開発ループの登録簿 20261101-vol-scaled-label（2026-11-01）
+    de = (cfg.get("trading") or {}).get("decide_every")
+    if isinstance(de, int) and not isinstance(de, bool) and de > 1:
+        # ⚠ 判断を N 本に 1 回だけにした行（レジストリ 20261109-decide-every-5d。2026-11-14）。無い config ・ 1 は書かない ＝ 既存の行は割れない
+        parts.append(f"{de}日ごと")
     return "閾値売買" + (f"（{'・'.join(parts)}）" if parts else "")
 
 

@@ -1,0 +1,49 @@
+# ⚠ 開発ループ ステージ 5（サンドボックス）。レジストリ `20261109-decide-every-5d`（rules.md 31-7）。回すと決めたのは結果を見る前。
+# ⚠ **`trade_own_fwdmulti_a.toml` との違いは、検知器を H2（先 5 日）1 本に絞ったことと `[trading] decide_every = 5` だけ**（売買の判断を、銘柄ごとに評価分割の頭から 5 本に 1 回だけにする。間の足は前の判断を持ち越す）。
+#    表は `trade_own_fwdmulti_a` を借りる（作り直さない ＝ 13-8）。ラベルは y_fwd_5（H2 先5日ゲートの中身そのまま）・own 35 列 × Ridge・パージ ／ θ ／ fold ／ 種 ／ 費用は同じ ＝ 買い% は対の相手と同じ。
+#    対の相手 ＝ `trade_own_fwdmulti_a` の H2 の行（毎日読む）。識別項目 `閾値売買（5日ごと）`（`~decide5`）。H2 × θ 3 ＝ 3 検証（「基準 」の行は数えない）。
+#
+# ⚠ **TOML の平の key はテーブル見出しより上に書く**（rules.md 10 章 規約 1）
+name = "dev_decide5_h2"
+dataset = "daily"
+horizon = 1                    # ⚠ 損益のラベルは 1 日のまま
+cost_bp = 5.0
+features_from = "trade_own_fwdmulti_a"   # ⚠ 表は作り直さない（13-8）
+start_date = "2018-01-31"
+
+feature_layers = ["own", "trend"]   # ⚠ 元の表と同じ（trend は元の表の損切り係のため。H2 は見ない）
+label_scales = [5, 10, 20, 40]      # ⚠ 元の表と同じ
+targets = "all"
+
+horizon_min = 86400.0          # ⚠ 元の表と同じパージ（60 日 × 1440 分）
+bar_minutes = 1440.0
+
+detectors = [
+  "H2 先5日ゲート（全列・学習）",   # 先 5 営業日のラベルで学ぶ（25 章）。対の相手と同じ登録名 ＝ 同じ買い%
+]
+
+model = "Ridge"
+baselines = ["常に上（ドリフト）", "直前リターンの符号"]
+
+[model_args]
+fwd_columns = "own"            # ⚠ own 35 列だけを見る（25-1 の 2。元の実験と同じ）
+
+[trading]
+style = "threshold"
+thresholds = [50, 55, 60]      # ⚠ 事前固定。結果を見て動かさない（rules.md 13-3）
+form = "shared"                # (A) 銘柄共通 1 本
+decide_every = 5               # ⚠ 判断は 5 本に 1 回だけ（水準はこの 1 つ。無い config は 1 ビットも変わらない）
+
+[validation]
+split = "walk_forward_dates"   # ⚠ fold の切れ目は日付で決める（rules.md 13-6 の 1）
+folds = 5
+purge = true
+embargo_bars = 0
+seed = 0
+
+[features]
+trend_windows = [20]
+ex_lag_days = 1
+ex_zero_fill = ["usgs"]
+ex_transforms = ["d1", "z20"]
+ex_max_stale_days = 7

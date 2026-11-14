@@ -6,7 +6,7 @@
 
     .venv/bin/python -m cli.devloop register                     # 登録簿を検査し register.md を吐く
     .venv/bin/python -m cli.devloop register --promote <id> …    # 案 → 登録（registered_at ＝ 回すと決めた時刻を打つ。31-1 の 3）
-    .venv/bin/python -m cli.devloop register --set <id>=<状態>    # 既出 ／ 人の手 ／ 失敗 など横道へ（31-1 の 2。戻さない）
+    .venv/bin/python -m cli.devloop register --set <id>=<状態>    # 既出 ／ 共有コード変更 ／ 失敗 など横道へ（31-1 の 2。戻さない）
     .venv/bin/python -m cli.devloop register --run <id>=<実行名>  # 回した実行を結ぶ（作成中 ／ 回した のとき）
 """
 
@@ -27,8 +27,12 @@ from zoneinfo import ZoneInfo
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 CONFIG = os.path.join(ROOT, "config", "devloop.toml")
 KINDS = ("モデル", "データ", "検証方式", "物差し", "執行", "ループ自身")
-STATUSES = ("案", "登録", "作成中", "回した", "既出", "人の手", "失敗")
-FORWARD = {"案": {"登録", "既出", "人の手"}, "登録": {"作成中", "人の手", "失敗", "既出"}, "作成中": {"回した", "失敗", "人の手"}}
+# ⚠ 「共有コード変更」＝ 共有コード（全部の実験と本番の毎日の予測が通るコード）を書き換えないと作れない案。夜のステージ 2 は作らない（K7）。
+#    2026-11-13 利用者「人の手という言葉の意味が不明すぎる」→ 旧: 「人の手」から改名した。古い値は読むときに `OLD_STATUS` で新しい名前に直す
+SHARED = "共有コード変更"
+OLD_STATUS = {"人の手": SHARED}
+STATUSES = ("案", "登録", "作成中", "回した", "既出", SHARED, "失敗")
+FORWARD = {"案": {"登録", "既出", SHARED}, "登録": {"作成中", SHARED, "失敗", "既出"}, "作成中": {"回した", "失敗", SHARED}}
 EFFORTS = ("小", "中", "大")
 FRAMES = ("内", "外")      # 問いの枠（2026-11-01 利用者「未知なものへのトライが増えたらいいな」→「推す案で」＝ rules.md 31-6）
 CONTRACT_VERSION = 3       # 段 1 の契約の版。2 から frame ／ p_hold ／ learn_if_null・3 から needed_effect が要る（それより前の登録簿は求めない）
@@ -101,6 +105,7 @@ def load_ideas(cfg: dict) -> list[tuple[str, dict, list[str]]]:
     for p in sorted(glob.glob(os.path.join(_path(cfg, "ideas"), "*.toml"))):
         with open(p, "rb") as f:
             doc = tomllib.load(f)
+        doc["status"] = OLD_STATUS.get(doc.get("status"), doc.get("status"))      # 旧: 「人の手」
         out.append((p, doc, validate(doc, p)))
     return out
 
@@ -380,11 +385,11 @@ def cmd_register(args) -> int:
         if i not in by_id:
             raise SystemExit(f"⚠ 登録簿に {i!r} が無い")
         p, d, bad = by_id[i]
-        if d.get("status") not in ("案", "人の手"):
-            raise SystemExit(f"⚠ {i}: 登録できるのは 案 ／ 人の手 だけ（いま {d.get('status')}。31-1 の 2）")
-        if d.get("status") == "人の手":
-            # ⚠ 人の手 ＝ 自動では作らず利用者のセッションで作る（K7）。そのセッションで作ると決めたら、ここで登録する（2026-11-01 の 3 周目）
-            d["built_by"] = "人の手（利用者のセッション）"
+        if d.get("status") not in ("案", SHARED):
+            raise SystemExit(f"⚠ {i}: 登録できるのは 案 ／ {SHARED} だけ（いま {d.get('status')}。31-1 の 2）")
+        if d.get("status") == SHARED:
+            # ⚠ 共有コード変更 ＝ 自動では作らず利用者のセッションで作る（K7）。そのセッションで作ると決めたら、ここで登録する（2026-11-01 の 3 周目）
+            d["built_by"] = "手動（利用者のセッション）"
         if bad:
             raise SystemExit(f"⚠ {i}: 項目がそろっていない ＝ 登録できない（31-1 の 3）: " + "・".join(bad))
         d["status"], d["registered_at"] = "登録", now_seattle()
@@ -393,6 +398,7 @@ def cmd_register(args) -> int:
         print(f"  登録 {i} @ {d['registered_at']}", file=sys.stderr)
     for spec in args.set or []:
         i, _, st = spec.partition("=")
+        st = OLD_STATUS.get(st, st)
         if i not in by_id:
             raise SystemExit(f"⚠ 登録簿に {i!r} が無い")
         p, d, _bad = by_id[i]
@@ -443,7 +449,7 @@ def main(argv: list[str] | None = None) -> None:
     sub = ap.add_subparsers(dest="cmd", required=True)
     r = sub.add_parser("register", help="登録簿を検査し register.md を吐く")
     r.add_argument("--promote", action="append", metavar="ID", help="案 → 登録（registered_at を打つ）")
-    r.add_argument("--set", action="append", metavar="ID=状態", help="横道へ（既出 ／ 人の手 ／ 失敗 …）")
+    r.add_argument("--set", action="append", metavar="ID=状態", help="横道へ（既出 ／ 共有コード変更 ／ 失敗 …）")
     r.add_argument("--run", action="append", metavar="ID=実行名", help="回した実行を登録簿に結ぶ（作成中 ／ 回した のとき）")
     r.add_argument("--out", default=None)
     r.add_argument("--db", default=None)
@@ -727,7 +733,7 @@ def _key_shapes(v) -> list[str]:
 
 
 def register_ideas(cfg: dict, raw_ideas: list[dict], *, source: str, meta: dict, date: str, models: list[str] | None) -> list[dict]:
-    """段 1 の案を登録簿に写し、重複の検査と K7 の線で status を決める（31-1 の 2）: 既出 ／ 人の手 ／ 登録（項目が足りなければ 案 のまま）。"""
+    """段 1 の案を登録簿に写し、重複の検査と K7 の線で status を決める（31-1 の 2）: 既出 ／ 共有コード変更 ／ 登録（項目が足りなければ 案 のまま）。"""
     ideas_dir = _path(cfg, "ideas")
     os.makedirs(ideas_dir, exist_ok=True)
     out = []
@@ -764,7 +770,7 @@ def register_ideas(cfg: dict, raw_ideas: list[dict], *, source: str, meta: dict,
                 doc["status"] = "既出"
                 doc["notes"] += f" ／ 既出: 識別項目が検証結果一覧に既にある（{'・'.join(f'{p} {h} 行' for p, h in zip(ks, hits))}）"
             elif doc["touches"].startswith("共有の経路"):
-                doc["status"] = "人の手"           # K7
+                doc["status"] = SHARED             # K7
             else:
                 doc["status"], doc["registered_at"] = "登録", now_seattle()
         write_idea(os.path.join(ideas_dir, f"{id_}.toml"), doc)
@@ -818,7 +824,7 @@ def ideate(cfg: dict, env: dict, date: str, log, models: list[str] | None) -> di
     return out
 
 
-# ---------------------------------------------------------------- 段 2 作る（K3: 試運転は人の手。mode = "claude" のとき）
+# ---------------------------------------------------------------- 段 2 作る（K3: 試運転は手動。mode = "claude" のとき）
 
 
 def _norm(path: str) -> str:
@@ -892,7 +898,7 @@ def build(cfg: dict, env: dict, state: dict, date: str, log) -> dict:
                   key=lambda x: (EFFORT_ORDER.get(x[1].get("effort"), 9), x[1]["id"]))
     out: dict = {"mode": b.get("mode", "manual"), "todo": [d["id"] for _p, d in todo], "built": [], "failed": [], "cost": 0.0, "models": []}
     if out["mode"] != "claude":
-        log(f"  段 2 は人の手（mode = {out['mode']}）。登録 {len(todo)} 本はそのまま")
+        log(f"  段 2 は手動（mode = {out['mode']}）。登録 {len(todo)} 本はそのまま")
         return out
     with open(os.path.join(ROOT, cfg["ideation"].get("prompts", "devloop/prompts"), "build.md"), encoding="utf-8") as f:
         base_prompt = f.read()
@@ -918,11 +924,11 @@ def build(cfg: dict, env: dict, state: dict, date: str, log) -> dict:
             reason = "allowlist の外に書いた: " + ", ".join(outside[:5])
         else:
             built = parse_built(res["result"])
-            if built.get("status") == "人の手":
-                d["status"] = "人の手"
+            if OLD_STATUS.get(built.get("status"), built.get("status")) == SHARED:
+                d["status"] = SHARED
                 d["notes"] = (d.get("notes", "") + " ／ 段 2: " + str(built.get("reason") or "共有の経路")).strip(" ／")
                 write_idea(p, d)
-                log(f"  {d['id']}: 人の手（{built.get('reason') or '共有の経路'}）")
+                log(f"  {d['id']}: {SHARED}（{built.get('reason') or '共有の経路'}）")
                 continue
             exps = [str(x) for x in (built.get("experiments") or [])]
             tests = sorted(f for f in new if f.startswith("experiments/feature-discovery/tests/test_ideas_"))
@@ -1173,7 +1179,7 @@ def draft_toml(name: str, *, experiment: str, method: str, theta: str, trial: st
 
 
 def weekly_stage(cfg: dict, env: dict, date: str, log, drafts_dir: str | None = None) -> dict:
-    """週 1 回: `select_candidates.weekly` の行を並べ、1 本の手法の行だけ下書きを書く（合成の行は人の手）。読むのは DB と config だけ。"""
+    """週 1 回: `select_candidates.weekly` の行を並べ、1 本の手法の行だけ下書きを書く（合成の行は手動）。読むのは DB と config だけ。"""
     from cli import select_candidates as sc
 
     drafts_dir = drafts_dir or DRAFTS
@@ -1260,7 +1266,7 @@ def write_journal(cfg: dict, date: str, parts: dict, path: str) -> str:
     if s2:
         L += [f"## 段 2 作る — mode {s2['mode']}・登録 {len(s2['todo'])} 本", ""]
         if s2["mode"] != "claude":
-            L.append("- 人の手（朝に Claude のセッションで `devloop/prompts/build.md` の手順で）: " + (", ".join(f"`{i}`" for i in s2["todo"]) or "—"))
+            L.append("- 手動（朝に Claude のセッションで `devloop/prompts/build.md` の手順で）: " + (", ".join(f"`{i}`" for i in s2["todo"]) or "—"))
         else:
             L.append(f"- 作成中 {len(s2['built'])}（{', '.join(s2['built']) or '—'}）／ 失敗 {len(s2['failed'])}・${s2['cost']:.2f}"
                      + (f"・モデル {' ／ '.join(s2['models'])}" if s2.get("models") else ""))
@@ -1298,7 +1304,7 @@ def write_journal(cfg: dict, date: str, parts: dict, path: str) -> str:
         for name, method, fold, edge, theta in wk["rows"]:
             L.append(f"- `{name}` {method}・θ {theta}・{fold}・上乗せ {edge:+,.1f}bp/fold")
         L.append("- 下書き（`docs/specs/experiments/dev-loop/drafts/`）: " + (", ".join(f"`{d}`" for d in wk["drafts"]) or "—")
-                 + " ／ 人の手: " + (", ".join(f"`{n}`（{why}）" for n, why in wk["manual"]) or "—"))
+                 + " ／ 手動: " + (", ".join(f"`{n}`（{why}）" for n, why in wk["manual"]) or "—"))
         L.append("- ⚠ 候補にするか・呼び名・本番に入れるかは利用者（成績で人を選ばない）")
         L.append("")
     elif parts.get("weekly_error"):
@@ -1486,7 +1492,7 @@ def night(cfg: dict, env: dict, *, date: str | None = None, stages: tuple[int, .
             journal_text = write_journal(cfg, date, parts, path)
             if not dry_run and not parts.get("stopped"):
                 c = (parts.get("ideate") or {}).get("counts", {})
-                summ = (f"段 1 {sum(c.values())} 本（登録 {c.get('登録', 0)}・既出 {c.get('既出', 0)}・人の手 {c.get('人の手', 0)}）"
+                summ = (f"段 1 {sum(c.values())} 本（登録 {c.get('登録', 0)}・既出 {c.get('既出', 0)}・{SHARED} {c.get(SHARED, 0)}）"
                         f" ／ 段 3 n_trials {(parts.get('run') or {}).get('before')} → {(parts.get('run') or {}).get('after')}"
                         f" ／ 段 4 新顔 {len((parts.get('select') or {}).get('new', []))}")
                 parts["commit"] = commit(cfg, env, date, summ, log)

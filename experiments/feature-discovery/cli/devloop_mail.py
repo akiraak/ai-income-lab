@@ -201,7 +201,7 @@ FONT = "'Hiragino Sans','Noto Sans JP','Yu Gothic UI',Meiryo,sans-serif"
 MONO = "Menlo,Consolas,monospace"
 C = {"ok": "#1f7a4d", "warn": "#dc6803", "bad": "#b42318", "off": "#98a2b3", "ink": "#1d2633", "sub": "#475467", "dim": "#667085",
      "line": "#dfe3e8", "accent": "#3a4fb8"}
-STATUS_STYLE = {"登録": ("#e3f4ea", "#1f7a4d"), "人の手": ("#fef0c7", "#93370d"), "既出": ("#eef0f3", "#475467"),
+STATUS_STYLE = {"登録": ("#e3f4ea", "#1f7a4d"), "共有コード変更": ("#fef0c7", "#93370d"), "人の手": ("#fef0c7", "#93370d"), "既出": ("#eef0f3", "#475467"),
                 "案": ("#eef0f3", "#475467"), "作成中": ("#e0eaff", "#2d4ab0"), "回した": ("#e0eaff", "#2d4ab0")}
 
 
@@ -255,7 +255,7 @@ def stage_strip(parts: dict) -> list[tuple[str, str, str]]:
     if parts.get("build_error"):
         out.append((C["bad"], "✕", "作る 落ちた"))
     elif s2 and s2.get("mode") != "claude" and s2.get("todo"):
-        out.append((C["warn"], "●", f"作る 人の手 {len(s2['todo'])}"))
+        out.append((C["warn"], "●", f"作る 手動 {len(s2['todo'])}"))
     elif s2 and (s2.get("built") or s2.get("failed")):
         f = len(s2.get("failed") or [])
         out.append((C["warn"] if f else C["ok"], "●", f"作る {len(s2.get('built') or [])} 本" + (f"・失敗 {f}" if f else "")))

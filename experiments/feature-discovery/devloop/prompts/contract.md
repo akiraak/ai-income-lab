@@ -41,7 +41,7 @@
 3. **leak 対照**を必ず並べる。
 4. **1 実行 1 記録**（上書きしない）。
 5. **成績で人を本番に入れない・止めない・替えない**。
-6. **共有の経路**（毎日の本番の予測が通る道 ＝ `cli/run.py`・`cli/predict.py`・`cli/build.py`・`ail/validation`・`ail/models`・`ail/features`・`ail/detectors`・`ail/selectors`・`ail/catalog.py`・`ail/names.py`・執行器・管理画面）を触る案は「人の手」の印（自動では作らない）。新しい口は「無い config は 1 ビットも変わらない」形で足す。
+6. **共有の経路**（毎日の本番の予測が通る道 ＝ `cli/run.py`・`cli/predict.py`・`cli/build.py`・`ail/validation`・`ail/models`・`ail/features`・`ail/detectors`・`ail/selectors`・`ail/catalog.py`・`ail/names.py`・執行器・管理画面）を触る案は「共有コード変更」のステータス（夜のステージ 2 では作らない）。新しい口は「無い config は 1 ビットも変わらない」形で足す。
 7. 回さない理由は「**測れない**」か「規約に反する」だけ（「可能性が低い」は理由にならない）。
 8. 研究用の日足は取り直さない（新しいデータは新しい置き場で）。
 

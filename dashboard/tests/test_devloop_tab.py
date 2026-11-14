@@ -49,7 +49,7 @@ prediction = "予想"
 effort = "中"
 measurable = "測れる: 理由"
 touches = "共有の経路: ail/validation"
-status = "人の手"
+status = "共有コード変更"
 '''
 SETTINGS = '''
 [ideation]
@@ -104,7 +104,7 @@ def paths(tmp_path: Path, _trader_paths: traderview.TraderPaths) -> traderview.T
 
 def test_page_shows_registry_results_settings_and_latest_journal(paths):
     body = devloopview.page_body(paths)
-    assert "登録簿 2 本（人の手 1・回した 1）" in body and "r 30%" in body and "N 5" in body and "manual" in body
+    assert "登録簿 2 本（共有コード変更 1・回した 1）" in body and "r 30%" in body and "N 5" in body and "manual" in body
     assert "20261025-h5-pick-centered" in body and "参考あり（組み合わせる）" in body and "共有の経路: ail/detectors" in body
     assert "θ50" in body and "−88.3" in body and "1/5 −＋−−−" in body and "落とす" in body and "3,886.9" not in body    # leak と基準線は出ない
     assert "日誌 2 晩" in body and "2026-10-26.md" in body and "長い原文" not in body and "段 1 の原文は日誌のファイルで" in body

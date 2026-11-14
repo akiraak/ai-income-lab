@@ -14,8 +14,8 @@ contract = 3                    # 段 1 の契約の版（2 ＝ 枠の内 ／ �
 outside_frame_min = 2           # 1 晩に枠の外の案を何本以上（参考なしの束に求める。届かなくても止めない ＝ 日誌に書く）
 similar_top = 3                 # 「似た過去の案」を何本出すか（題名 ＋ 問いの文字の近さ・より前の日付の案だけ。⚠ 表示だけ ＝ 状態は変えない。0 ＝ 出さない。2026-11-13 利用者「Aで進めて」）
 
-[build]                         # 段 2（K3: 試運転は人の手。7 晩通ったら claude -p）
-mode = "claude"                 # "manual" ＝ 段 2 は人の手（朝に Claude のセッションで）／ "claude" ＝ claude -p。✅ 2026-11-13 利用者「2. 進める」＝ 全段の試運転（7 晩）へ。人の手の形は 11/4〜11/13 に 8 晩通った ＝ dev-loop.md §3-3
+[build]                         # 段 2（K3: 試運転は手動。7 晩通ったら claude -p）
+mode = "claude"                 # "manual" ＝ 段 2 は手動（朝に Claude のセッションで）／ "claude" ＝ claude -p。✅ 2026-11-13 利用者「2. 進める」＝ 全段の試運転（7 晩）へ。手動の形は 11/4〜11/13 に 8 晩通った ＝ dev-loop.md §3-3
 tools = ["Read", "Grep", "Glob", "Write", "Edit"]   # 段 2 を claude -p で呼ぶときの道具（Bash は渡さない ＝ テストは運転手が流す）
 max_turns = 60
 max_budget_usd = 15.0           # 段 2 の費用の上限（K4。1 晩の合計 ≈ $25 ＝ 段 1 $10 ＋ 段 2 $15・定価換算。2026-11-13 に段 1 を $6 → $10・✅ 同日 利用者「段 2 の費用の上限を15に上げる」＝ $5 → $15: 3 turns の小さな書き込みだけで $0.82【実測】＝ dev-loop.md §3-3）
@@ -77,7 +77,7 @@ tests_prefix = "tests/test_ideas_"                      # 「無い config は 1
 [allowlist]
 write = ["config/ideas/", "config/experiment/dev_", "config/queue/dev_", "ail/ideas/", "tests/test_ideas_",
          "../../docs/specs/experiments/dev-loop/", "config/names.toml", "config/catalog_notes.toml"]
-# ⚠ 共有の経路（13500t の毎日の予測が通る道 ＝ 指紋 tests/test_trading_run.py・test_predict.py）。触るアイデアは status = 人の手
+# ⚠ 共有の経路（13500t の毎日の予測が通る道 ＝ 指紋 tests/test_trading_run.py・test_predict.py）。触るアイデアは status = 共有コード変更（旧: 人の手）
 forbid = ["cli/run.py", "cli/predict.py", "cli/build.py", "ail/validation/", "ail/models/", "ail/features/", "ail/detectors/",
           "ail/selectors/", "ail/catalog.py", "ail/names.py", "../live-trading/", "../../dashboard/",
           "../../docs/specs/experiments/feature-discovery/rules.md", "../../docs/specs/experiments/feature-discovery/ledger.md",

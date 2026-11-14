@@ -22,7 +22,7 @@ from traderview import TraderPaths, esc
 ITEM = "devloop"
 SIDEBAR_LABEL = "開発ループ"
 SIDEBAR_SUB = "登録簿 × 結果 × 日誌（読むだけ）"
-STATUS_CLASS = {"登録": "hold", "作成中": "hold", "回した": "adopt", "既出": "drop", "失敗": "drop", "人の手": "manual", "案": ""}
+STATUS_CLASS = {"登録": "hold", "作成中": "hold", "回した": "adopt", "既出": "drop", "失敗": "drop", "共有コード変更": "manual", "人の手": "manual", "案": ""}
 CSS = compareview.CSS + """
  .chip.manual { background: color-mix(in srgb, #6f42c1 18%, transparent); border-color: #6f42c1; }
  pre.journal { font-size: 12px; white-space: pre-wrap; max-height: 36em; overflow: auto; padding: 8px; border: 1px solid color-mix(in srgb, currentColor 25%, transparent); }

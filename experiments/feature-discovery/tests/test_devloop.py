@@ -73,9 +73,9 @@ def test_register_promote_and_transitions(loop, monkeypatch):
     assert d["status"] == "登録" and d["registered_at"].endswith(("PDT", "PST"))
     with pytest.raises(SystemExit):           # 登録 は 2 度できない
         devloop.cmd_register(a)
-    a.promote, a.set = None, ["20261025-y=人の手"]
+    a.promote, a.set = None, ["20261025-y=共有コード変更"]
     devloop.cmd_register(a)
-    assert tomllib.loads((ideas / "20261025-y.toml").read_text(encoding="utf-8"))["status"] == "人の手"
+    assert tomllib.loads((ideas / "20261025-y.toml").read_text(encoding="utf-8"))["status"] == "共有コード変更"
     a.set = ["20261025-y=案"]                  # 戻さない
     with pytest.raises(SystemExit):
         devloop.cmd_register(a)
@@ -113,3 +113,14 @@ def test_real_config_and_prompts_exist():
         assert "3b. 未知への挑戦" in text and "p_hold" in text and "learn_if_null" in text      # 31-6（2026-11-01）
         assert "needed_effect" in text and "検出力の実測" in text                                # 31-6 の 5（2026-11-13）
     assert cfg["ideation"]["contract"] == 3 == devloop.CONTRACT_VERSION and cfg["ideation"]["outside_frame_min"] == 2
+
+
+def test_old_status_name_is_read_as_the_new_one(tmp_path):
+    """旧: 「人の手」（2026-11-13 に「共有コード変更」へ改名）。古い値の TOML ・ `--set` ・ステージ 2 の出力は、新しい名前として読む。"""
+    ideas = tmp_path / "ideas"
+    ideas.mkdir()
+    _write(ideas, {**IDEA, "id": "20261025-old", "touches": "共有の経路: cli/run.py", "status": "人の手"})
+    cfg = {"paths": {"ideas": str(ideas)}}
+    (_p, doc, bad), = devloop.load_ideas(cfg)
+    assert doc["status"] == devloop.SHARED == "共有コード変更" and not bad
+    assert "人の手" not in devloop.STATUSES and devloop.SHARED in devloop.FORWARD["登録"]

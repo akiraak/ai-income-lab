@@ -13,7 +13,7 @@ prediction = "同じ器の基準線に対する上乗せは費用込みで負、
 effort = "中"
 measurable = "測れる: 夜と昼のリターンの差は年で数百〜千 bp 級の大きさがあり、器の違いそのものは fold 単位で見える。モデルの上乗せは同じ器の基準線との対で測る"
 touches = "共有の経路: ail/validation（器 execution）と prep のラベル（label = \"night\"）・ail/catalog.py（検証方式の変種）・ail/names.py（~exec-night）"
-status = "人の手"
+status = "共有コード変更"
 frame = "外"
 p_hold = 0.15
 p_positive = 0.3

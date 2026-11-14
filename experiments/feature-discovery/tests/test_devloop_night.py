@@ -1,7 +1,7 @@
 """開発ループの運転手 `cli.devloop night`（rules.md 31 章・プラン Phase 3）。外の世界（git・claude -p・cli.queue・pytest）は env で差し替える。
 
 ⚠ 段 0 門: HALT ／ 錠 ／ 汚れた木 ／ pull の失敗 ／ 打ち切り ② ③ で止まり、それでも段 4 と日誌は書く。
-⚠ 段 1: 出力を登録簿に写し、既出（識別項目が既にある）／ 人の手（共有の経路）／ 登録（registered_at）に分ける。項目不足は 案 のまま。
+⚠ 段 1: 出力を登録簿に写し、既出（識別項目が既にある）／ 共有コード変更（共有の経路）／ 登録（registered_at）に分ける。項目不足は 案 のまま。
 ⚠ 段 3: 1 晩の上限（数える検証数）に収まる分だけ queue に並べ、回し切れた案だけ 回した に。段 4: 初回は写すだけ・新顔だけ机上の config。
 """
 
@@ -275,7 +275,7 @@ def _doc(id_, date, title, question, status="回した"):
 def test_similar_map_orders_by_closeness_and_only_looks_back():
     me = _doc("20261108-me", "2026-11-08", "値動きの似た銘柄の集まりを見つけ、集まりの中の出遅れを買う", "集まりの中で遅れた銘柄は戻るか", "登録")
     near = _doc("20261106-near", "2026-11-06", "相関で銘柄の集まりを見つけ、集まりの中で遅れた銘柄を買う", "集まりの中で遅れた銘柄は戻るか")
-    mid = _doc("20261104-mid", "2026-11-04", "出来高で銘柄の集まりを作る", "跳ねの翌日に遅れた銘柄を買うと勝つか", "人の手")
+    mid = _doc("20261104-mid", "2026-11-04", "出来高で銘柄の集まりを作る", "跳ねの翌日に遅れた銘柄を買うと勝つか", "共有コード変更")
     none = _doc("20261101-none", "2026-11-01", "ABC", "XYZ")
     same_night = _doc("20261108-twin", "2026-11-08", me["title"], me["question"], "登録")           # 同じ晩の案は相手にしない
     later = _doc("20261109-later", "2026-11-09", me["title"], me["question"], "登録")              # 後の案も相手にしない
@@ -284,7 +284,7 @@ def test_similar_map_orders_by_closeness_and_only_looks_back():
     assert [r["id"] for r in got["20261108-me"]] == ["20261106-near", "20261104-mid"]               # 近い順 ・ 自分と近さ 0 は出さない
     assert got["20261108-me"][0]["score"] > got["20261108-me"][1]["score"] > 0
     assert got["20261108-me"][0] == {"id": "20261106-near", "title": near["title"], "status": "回した", "score": got["20261108-me"][0]["score"]}
-    assert got["20261101-none"] == [] and got["20261106-near"] == [{"id": "20261104-mid", "title": mid["title"], "status": "人の手",
+    assert got["20261101-none"] == [] and got["20261106-near"] == [{"id": "20261104-mid", "title": mid["title"], "status": "共有コード変更",
                                                                     "score": got["20261106-near"][0]["score"]}]
     assert [r["id"] for r in got["20261109-later"]][:2] == ["20261108-me", "20261108-twin"]         # 同じ近さは id の順
     assert got["20261109-later"][0]["score"] == 1.0
@@ -314,7 +314,7 @@ def test_ideate_shows_similar_past_ideas_and_never_changes_status(world):
     assert set(sim) == {d["id"] for d in out["ideas"]}                                           # この晩の案だけを引く
     assert [r["id"] for r in sim[by["新しい検知器"]["id"]]] == ["20261020-old-detector"]          # 同じ晩の 2 束目は相手にしない
     assert sim[by["新しい検知器"]["id"]][0]["status"] == "回した"
-    assert out["counts"] == {"案": 2, "登録": 2, "既出": 2, "人の手": 2}                          # ⚠ 状態は今までと同じ（表示だけ）
+    assert out["counts"] == {"案": 2, "登録": 2, "既出": 2, "共有コード変更": 2}                          # ⚠ 状態は今までと同じ（表示だけ）
     assert by["新しい検知器"]["status"] == "登録" and "similar" not in by["新しい検知器"]
     d = tomllib.loads((root / "ideas" / f"{by['新しい検知器']['id']}.toml").read_text(encoding="utf-8"))
     assert "similar" not in d and "似た" not in d.get("notes", "")                               # 登録簿には書かない
@@ -350,9 +350,9 @@ def test_ideate_registers_and_classifies(world):
     tools = [c[1] for c in fake.calls if c[0] == "claude"]
     assert tools == [("Read", "Grep", "Glob"), ()] and [c[2] for c in fake.calls if c[0] == "claude"] == [4.2, 1.8]
     by = {d["title"]: d for d in out["ideas"]}
-    assert by["市場の層"]["status"] == "人の手" and by["新しい検知器"]["status"] == "登録" and by["新しい検知器"]["registered_at"]
+    assert by["市場の層"]["status"] == "共有コード変更" and by["新しい検知器"]["status"] == "登録" and by["新しい検知器"]["registered_at"]
     assert by["既にある形"]["status"] == "既出" and by["項目が足りない"]["status"] == "案"
-    assert out["counts"] == {"案": 2, "登録": 2, "既出": 2, "人の手": 2}        # 2 束 × 4 本
+    assert out["counts"] == {"案": 2, "登録": 2, "既出": 2, "共有コード変更": 2}        # 2 束 × 4 本
     files = sorted(p.name for p in (root / "ideas").glob("*.toml"))
     assert "20261026-mkt-layer.toml" in files and "20261026-mkt-layer-2.toml" in files     # 2 束目は id を重ねない
     d = tomllib.loads((root / "ideas" / "20261026-new-detector.toml").read_text(encoding="utf-8"))
@@ -402,7 +402,7 @@ def test_ideate_retries_once_on_error(world):
     assert sum(1 for c in fake.calls if c[0] == "claude") == 4 and out["ideas"] == [] and out["bundles"]["ref"]["tries"] == 2
 
 
-# --- 段 2（人の手）・段 3・段 4 ------------------------------------------------------------------------
+# --- 段 2（手動）・段 3・段 4 ------------------------------------------------------------------------
 
 def _idea(root, id_, status, n, effort="小", exps=None):
     d = {"id": id_, "date": "2026-10-26", "title": id_, "kind": "モデル", "origin": {"source": "independent"}, "question": "q",

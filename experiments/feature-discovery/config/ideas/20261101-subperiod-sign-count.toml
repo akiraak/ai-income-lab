@@ -13,5 +13,5 @@ prediction = "正の区間の割合は 5 割前後に散り、元の fold で正
 effort = "中"
 measurable = "測れる: 新しい学習はせず既存の買い% から区間ごとの損益を出すだけ（leak 対照で配線を確かめられる）。ただし区間 1 つあたりの上乗せは検出限界より小さく、物差しとして効くのは区間をまたいだ符号の数のほう"
 touches = "共有の経路: ail/validation（損益の集計）・ail/catalog.py（検証方式の変種の識別）"
-status = "人の手"
+status = "共有コード変更"
 notes = "段 1 の出力の key_shape の原文: own.own.ridge.shared~subq@θ（θ ＝ 50 ／ 55 ／ 60）"

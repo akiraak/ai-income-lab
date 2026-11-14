@@ -1,4 +1,6 @@
 # DONE
+- 2026-11-13 3 周目で残った「人の手」2 本（`20261101-deadzone-label`・`20261101-subperiod-sign-count`）を作るか決める [plan](docs/plans/devloop-sandbox.md)
+  ✅ 2026-11-13 利用者「Cも推す案で」＝ 手では作らず、サンドボックスに回す（ほかの共有コード変更の案も同じ）。同日 ステータス「人の手」は「共有コード変更」に改名した（利用者「人の手という言葉の意味が不明すぎる」）
 - 2026-11-13 開発ループ Phase 3-7 試運転：人の手の形の 8 晩（11/4〜11/13）と朝の段 2 の手の作業 [plan](docs/plans/daily-dev-loop.md)
   2026-11-13 の TODO の整理で移した。親「「採る」モデルやトレーダーを開発する手法を作る」と 3-7 の続き（全段の 7 晩 ＝ `[build] mode = "claude"`・11/14 の晩から）・利用者の判断待ちは TODO に残る
   晩ごとの記録 ＝ 日誌 `docs/specs/experiments/dev-loop/log/`・朝の作業の記録 ＝ [dev-loop.md](docs/specs/experiments/dev-loop.md) §9〜§13・費用と上限 ＝ 同 §3-2 ／ §3-3

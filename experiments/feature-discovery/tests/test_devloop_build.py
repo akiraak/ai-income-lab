@@ -52,7 +52,7 @@ def repo(tmp_path, monkeypatch):
     _git(tmp_path, "add", "-A")
     _git(tmp_path, "commit", "-q", "-m", "init")
     # その晩の段 1 が書いた、まだコミットされていない登録簿（段 2 の前からある未追跡のファイル）
-    _idea(root, "20261026-tonight", status="人の手")
+    _idea(root, "20261026-tonight", status="共有コード変更")
     cfg = {"ideation": {"prompts": "prompts", "reference_pct": 30, "ideas_per_night": 5},
            "build": {"mode": "claude", "max_turns": 10, "max_budget_usd": 5.0, "retries_per_idea": 2},
            "paths": {"ideas": str(root / "config" / "ideas"), "register": str(root / "register.md"), "log": str(root / "log")},
@@ -129,7 +129,7 @@ def test_failed_idea_leaves_nothing_behind(repo, writes, result, errors, tests_r
     assert (root / "cli" / "run.py").read_text(encoding="utf-8") == "# 共有の経路\n"
     d = _doc(root)
     assert d["status"] == "登録" and d["build_attempts"] == 1 and why in d["notes"]        # 1 回目は登録のまま（翌晩もう 1 度）
-    assert _doc(root, "20261026-tonight")["status"] == "人の手"
+    assert _doc(root, "20261026-tonight")["status"] == "共有コード変更"
 
 
 def test_second_failure_marks_the_idea_failed_and_budget_error_is_in_the_reason(repo):

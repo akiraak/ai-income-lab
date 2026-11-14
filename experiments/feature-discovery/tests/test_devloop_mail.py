@@ -104,8 +104,8 @@ def test_two_nights_with_real_git_second_night_passes_the_gate(world):
 
 
 def test_subject_for_ok_stopped_and_failed_nights():
-    ok = {"ideate": {"counts": {"登録": 3, "人の手": 2}}, "run": {"before": 1120, "after": 1132, "picked": ["a", "b"]}, "select": {"new": ["a"]}, "cost": 5.24}
-    assert dm.subject(ok, "2026-11-04", "[p]") == "[p] 11/4（水）✅ アイデア 5（登録 3・人の手 2）・回した 2・$5.24"
+    ok = {"ideate": {"counts": {"登録": 3, "共有コード変更": 2}}, "run": {"before": 1120, "after": 1132, "picked": ["a", "b"]}, "select": {"new": ["a"]}, "cost": 5.24}
+    assert dm.subject(ok, "2026-11-04", "[p]") == "[p] 11/4（水）✅ アイデア 5（登録 3・共有コード変更 2）・回した 2・$5.24"
     none_run = {"ideate": {"counts": {"登録": 1}}, "run": {"before": 1120, "after": None}, "cost": 1.0}
     assert "None" not in dm.subject(none_run, "2026-11-04", "[p]") and "回した 0" in dm.subject(none_run, "2026-11-04", "[p]")
     assert "⚠ 止まった: 段 0: 止める手" in dm.subject({"stopped": "段 0: 止める手 DEVLOOP_HALT がある"}, "d", "[p]")
@@ -247,22 +247,22 @@ def test_clip_cuts_at_sentences_and_never_rewrites():
 
 
 def test_html_body_escapes_and_orders_cards_by_p_hold():
-    low = {**IDEA, "id": "20261104-y", "title": "低い", "p_hold": 0.05, "status": "人の手", "touches": "共有の経路: x"}
-    parts = {"stages": "0,1,2,3,4", "gate": "", "ideate": {"ideas": [low, IDEA], "counts": {"登録": 1, "人の手": 1}},
+    low = {**IDEA, "id": "20261104-y", "title": "低い", "p_hold": 0.05, "status": "共有コード変更", "touches": "共有の経路: x"}
+    parts = {"stages": "0,1,2,3,4", "gate": "", "ideate": {"ideas": [low, IDEA], "counts": {"登録": 1, "共有コード変更": 1}},
              "build": {"mode": "manual", "todo": ["20261104-x"]}, "cost": 2.15, "state": {"cost_usd_total": 6.13}, "commit": "コミット abc1234・push ✅"}
     h = dm.html_body(parts, "2026-11-04", "docs/log/2026-11-04.md", repo_url="https://example.invalid/r")
     assert "<b>強調</b>" not in h and "&lt;b&gt;強調&lt;/b&gt;" in h                      # 原文はエスケープする
     assert h.index("題 &lt;b&gt;") < h.index("低い")                                       # 予想の高い順
-    assert "11/4（水）" in h and "作る 人の手 1" in h and "共有の経路を触る" in h and "枠の外" in h
+    assert "11/4（水）" in h and "作る 手動 1" in h and "共有の経路を触る" in h and "枠の外" in h
     assert 'href="https://example.invalid/r/commit/abc1234"' in h and 'href="https://example.invalid/r/blob/main/docs/log/2026-11-04.md"' in h
     assert "<script" not in h and "<style" not in h                                       # メール向け ＝ 属性の style だけ
 
 
 def test_idea_card_lists_similar_past_ideas_only_when_given():
     sim = [{"id": "20261106-planted-signal-power", "title": "既知の強さの <i>信号</i> を埋める", "status": "回した", "score": 0.218},
-           {"id": "20261101-x", "title": "別の案", "status": "人の手", "score": 0.04}]
+           {"id": "20261101-x", "title": "別の案", "status": "共有コード変更", "score": 0.04}]
     h = dm.idea_card(IDEA, sim)
-    assert "似た過去の案" in h and "0.22" in h and "0.04" in h and "（回した ・ 20261106）" in h and "（人の手 ・ 20261101）" in h
+    assert "似た過去の案" in h and "0.22" in h and "0.04" in h and "（回した ・ 20261106）" in h and "（共有コード変更 ・ 20261101）" in h
     assert "<i>信号</i>" not in h and "&lt;i&gt;信号&lt;/i&gt;" in h                         # 原文はエスケープする
     assert h.index("既知の強さ") < h.index("別の案")                                         # 渡した順（近い順）のまま
     assert "似た過去の案" not in dm.idea_card(IDEA) and "似た過去の案" not in dm.idea_card(IDEA, [])

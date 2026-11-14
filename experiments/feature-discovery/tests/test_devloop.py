@@ -111,4 +111,5 @@ def test_real_config_and_prompts_exist():
         text = open(os.path.join(p, f), encoding="utf-8").read()
         assert "良し悪し" in text and "[[idea]]" in text
         assert "3b. 未知への挑戦" in text and "p_hold" in text and "learn_if_null" in text      # 31-6（2026-11-01）
-    assert cfg["ideation"]["contract"] == 2 and cfg["ideation"]["outside_frame_min"] == 2
+        assert "needed_effect" in text and "検出力の実測" in text                                # 31-6 の 5（2026-11-13）
+    assert cfg["ideation"]["contract"] == 3 == devloop.CONTRACT_VERSION and cfg["ideation"]["outside_frame_min"] == 2

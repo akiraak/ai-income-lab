@@ -1,0 +1,14 @@
+# 臨時の開示（SEC EDGAR の 8-K）の提出日と項目（登録簿 20261108-edgar-8k-event-flags・2026-11-13）。
+# ⚠ 取得: AIL_EDGAR_CONTACT="<名前> <メール>" .venv/bin/python -m cli.fetch --exog events8k_daily
+#    （連絡先は E2 ＝ 取得のたびに利用者から。リポジトリ・記録に書かない。SEC は毎秒 10 回まで ＝ 0.25 秒あける・失敗しても叩き直さない）
+# ⚠ 置き場は data/raw/edgar_8k/series/（新しい置き場。研究用の日足・edgar の系列には触らない）
+name = "events8k_daily"
+period = "d"
+
+[[series]]
+source = "edgar_8k"
+role = "本命"
+ids = ["K8", "K8I502", "K8I202"]
+universes = ["us63"]
+start = "2018-01-01"
+note = "提出日（filingDate）の 00:00 UTC。層は翌日以降にしか貼らない（evt_lag_days ≥ 1）"

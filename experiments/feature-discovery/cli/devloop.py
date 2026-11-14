@@ -31,7 +31,7 @@ STATUSES = ("案", "登録", "作成中", "回した", "既出", "人の手", "�
 FORWARD = {"案": {"登録", "既出", "人の手"}, "登録": {"作成中", "人の手", "失敗", "既出"}, "作成中": {"回した", "失敗", "人の手"}}
 EFFORTS = ("小", "中", "大")
 FRAMES = ("内", "外")      # 問いの枠（2026-11-01 利用者「未知なものへのトライが増えたらいいな」→「推す案で」＝ rules.md 31-6）
-CONTRACT_VERSION = 2       # 段 1 の契約の版。2 から frame ／ p_hold ／ learn_if_null が要る（それより前の登録簿は求めない）
+CONTRACT_VERSION = 3       # 段 1 の契約の版。2 から frame ／ p_hold ／ learn_if_null・3 から needed_effect が要る（それより前の登録簿は求めない）
 SEATTLE = ZoneInfo("America/Los_Angeles")
 REQUIRED = ("id", "date", "title", "kind", "origin", "question", "structure", "n_trials_planned", "key_shape",
             "failure_modes", "prediction", "effort", "measurable", "touches", "status")
@@ -79,6 +79,10 @@ def validate(doc: dict, path: str) -> list[str]:
             bad.append("p_hold は 0〜1 の数（保留以上の行が 1 つでも出る確率）")
         if not str(doc.get("learn_if_null") or "").strip():
             bad.append("learn_if_null（決着なし ／ 差なしのとき何が分かり、次に何を変えるか）が無い")
+    if int((o if isinstance(o, dict) else {}).get("contract", 1)) >= 3:
+        # ⚠ 31-6 の 5（2026-11-13）: 保留以上が出るために要る効果の大きさを、回す前に書く（検出力の実測に対して）
+        if not str(doc.get("needed_effect") or "").strip():
+            bad.append("needed_effect（保留以上が出るために要る効果の大きさと、検出力の実測に対して届くか）が無い")
     if not str(doc.get("measurable", "")).startswith(("測れる", "測れない")):
         bad.append("measurable は「測れる: …」か「測れない: …」")
     if not str(doc.get("touches", "")).startswith(("新しいモジュールだけ", "共有の経路")):
@@ -198,7 +202,7 @@ def _toml_value(v) -> str:
 
 def dump_idea(doc: dict) -> str:
     """登録簿の 1 ファイル（機械で書く。並びは 31-1 の項目順）。"""
-    order = list(REQUIRED) + ["frame", "p_hold", "p_positive", "learn_if_null", "registered_at", "reference_mode", "notes", "runs"]
+    order = list(REQUIRED) + ["frame", "p_hold", "p_positive", "learn_if_null", "needed_effect", "registered_at", "reference_mode", "notes", "runs"]
     keys = [k for k in order if k in doc] + [k for k in doc if k not in order]
     lines = ["# ⚠ 開発ループの登録簿（rules.md 31-1）。cli.devloop が書く。status が 登録 より先なら structure ／ prediction ／ n_trials_planned ／ key_shape を直さない（直すなら新しい id）"]
     for k in keys:
@@ -348,6 +352,8 @@ def build_register(cfg: dict, ideas: list[tuple[str, dict, list[str]]], models: 
                   f"- 予想（先に書いた）: {d.get('prediction')}"]
         if d.get("learn_if_null"):
             lines.append(f"- 決着なしのとき分かること: {d['learn_if_null']}")
+        if d.get("needed_effect"):
+            lines.append(f"- 保留以上に要る効果の大きさ（先に書いた）: {d['needed_effect']}")
         if sim.get(str(d.get("id"))):
             lines.append("- 似た過去の案（近さ・表示だけ）: " + " ／ ".join(
                 f"{r['score']:.2f} `{r['id']}` {r['title']}（{r['status']}）" for r in sim[str(d.get("id"))]))
@@ -725,7 +731,7 @@ def register_ideas(cfg: dict, raw_ideas: list[dict], *, source: str, meta: dict,
                "measurable": str(raw.get("measurable") or ""), "touches": str(raw.get("touches") or ""), "status": "案"}
         if raw.get("reference_mode"):
             doc["reference_mode"] = str(raw["reference_mode"])
-        for k in ("frame", "learn_if_null"):
+        for k in ("frame", "learn_if_null", "needed_effect"):
             if raw.get(k) not in (None, ""):
                 doc[k] = str(raw[k])
         for k in ("p_hold", "p_positive"):

@@ -577,6 +577,30 @@ def test_contract2_requires_frame_probability_and_learning_and_counts_outside(wo
     assert out["outside_short"] == "枠の外 2 本 ＜ 下限 3 本" and any("枠の外" in m for m in logs)
 
 
+def test_contract3_requires_needed_effect_and_older_ideas_stay_valid(world):
+    # 31-6 の 5（2026-11-13）: 契約 3 の案は「保留以上に要る効果の大きさ」を回す前に書く。契約 2 までの登録簿には求めない
+    root, cfg, conn = world
+    cfg["ideation"]["contract"] = 3
+    with_effect = IDEA_V2.replace('learn_if_null = ', 'needed_effect = "行ごとの信号で 20 bp/日 級（検出力の実測では届かない見込み）"\nlearn_if_null = ', 1)
+    assert with_effect.count("needed_effect") == 1
+    out = devloop.ideate(cfg, FakeEnv(root, conn, claude_result=with_effect).env, "2026-11-14", lambda s: None, [])
+    st = [d["status"] for d in out["ideas"] if d.get("needed_effect")]
+    assert st and set(st) == {"登録"}                                          # 書いた案は通る
+    out2 = devloop.ideate(cfg, FakeEnv(root, conn, claude_result=IDEA_V2).env, "2026-11-15", lambda s: None, [])
+    missing = [d for d in out2["ideas"] if d["title"] == "値動きの大きさを当てる"]
+    assert missing and all(d["status"] == "案" and "needed_effect" in d["notes"] for d in missing)   # 書いていない案は 案 のまま
+    saved = tomllib.loads(open(root / "ideas" / f"{[d for d in out['ideas'] if d.get('needed_effect')][0]['id']}.toml", "rb").read().decode())
+    assert saved["needed_effect"].startswith("行ごとの信号") and saved["origin"]["contract"] == 3
+    reg = devloop.build_register(cfg, devloop.load_ideas(cfg), [], 1)
+    assert "保留以上に要る効果の大きさ（先に書いた）: 行ごとの信号で 20 bp/日 級" in reg
+    old = {"id": "x", "date": "2026-11-02", "title": "t", "kind": "モデル", "origin": {"source": "independent", "contract": 2}, "question": "q",
+           "structure": "s", "n_trials_planned": 3, "key_shape": ["a.b.c.shared"], "failure_modes": ["f"], "prediction": "p", "effort": "小",
+           "measurable": "測れる: r", "touches": "新しいモジュールだけ", "status": "案", "frame": "内", "p_hold": 0.2, "learn_if_null": "分かること"}
+    assert devloop.validate(old, "x.toml") == []                               # 契約 2 は needed_effect が無くても通る
+    old["origin"]["contract"] = 3
+    assert any("needed_effect" in b for b in devloop.validate(old, "x.toml"))
+
+
 def test_calibration_counts_hits_and_warns_when_too_safe():
     ideas = [("p", {"id": f"i{k}", "status": "回した", "p_hold": 0.1, "runs": [f"r{k}"]}, []) for k in range(5)]
     outcomes = {f"r{k}": {"落とす"} for k in range(5)}

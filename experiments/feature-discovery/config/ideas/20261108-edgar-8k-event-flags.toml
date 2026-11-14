@@ -20,4 +20,4 @@ p_positive = 0.45
 learn_if_null = "同じ集合で差が無ければ、『SEC の開示の時刻（決算・臨時とも）は、翌日の終値の方向に日足の器で使える情報を持たない』として EDGAR の層の軸を閉じる。次は印を列にせず、提出の翌日だけ売買する事象の器（印の立った行だけ評価する）を新しい id で登録する。または、同じ日に 8-K を出した会社どうしを集まりにする形（volspike の learn_if_null）の材料に回す"
 registered_at = "2026-11-08 01:01 PST"
 reference_mode = "当てる"
-notes = "段 1 の出力の key_shape の原文: own48+evt.full.ridge.shared@θ（evt は新しい綴り。names.toml の [layers] に足す）"
+notes = "段 1 の出力の key_shape の原文: own48+evt.full.ridge.shared@θ（evt は新しい綴り。names.toml の [layers] に足す） ／ 作り（2026-11-13 段 2・人の手・取得の手前まで ＝ ⚠ まだ回せない）: 取得元 ail/data/sources/edgar_8k.py（submissions の JSON だけ・系列 K8 ／ K8I502 ／ K8I202 ＝ 提出日ごとの件数・置き場 data/raw/edgar_8k/series/・dataset events8k_daily）・層 evt（ail/ideas/i20261108_evt_layer.py・5 列 ＋ 印 evt_na_8k・足の日 − 1 日までの提出だけ・日数の上限と埋め値 400）・config dev_evt_own48（ern_own48_ernf の写し・対の相手 ern_own48）・テストは tests/test_ideas_20261108.py（ネットワークに出ない）。⚠ status は 登録 のまま ・ experiments は書かない（作成中にすると夜の段 3 が 8-K の系列なしで回してしまう）。残り ＝ 利用者から連絡先（E2）→ `AIL_EDGAR_CONTACT=… cli.fetch --exog events8k_daily` → 作成中 → queue"

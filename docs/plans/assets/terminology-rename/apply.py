@@ -11,10 +11,16 @@ if "--spec" in sys.argv:
     spec, extra, fence = getattr(m, "SPECIFIC", []), getattr(m, "EXTRA", []), getattr(m, "FENCE", False)
 text = open(f, encoding="utf-8").read()
 trlib.PROTECT = getattr(m, "PROTECT", []) if "--spec" in sys.argv else []
+if "--spec" in sys.argv and hasattr(m, "PRE"): text = m.PRE(text)
 drop = getattr(m, "DROP", []) if "--spec" in sys.argv else []
 rules = spec + [(p, r) for p, r in COMMON if not any(d in p for d in drop)]
 new, counts, shown = trlib.apply(text, rules, extra, fence, show={p for p, _ in rules})
 if "--write" in sys.argv: open(f, "w", encoding="utf-8").write(new)
 print(f"# {f}: {sum(n for _, n in counts)} か所")
-if "--quiet" not in sys.argv:
+RISKY = ("門(", "帯", "束", "尻", "種", "機械", "道", "木", "印", "器", "口", "段", "控え", "写し", "置き場", "土台", "切れ目", "札", "日誌", "指紋")
+if "--risky" in sys.argv:
+    import collections
+    c = collections.Counter(x.split(" ", 1)[1].strip()[:64] for x in shown if any(k in x.split(" ", 1)[0] for k in RISKY))
+    for x, n in sorted(c.items(), key=lambda kv: kv[0][kv[0].find("【"):]): print(f"{n:3d} {x}")
+elif "--quiet" not in sys.argv:
     for s in shown: print(s)

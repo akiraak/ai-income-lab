@@ -35,7 +35,7 @@ cp .env.example .env          # AIL_AUTH_MODE=local（WSL2 → Windows のブラ
 - `/judge` 判定: 6 観点 × 会場を記録から自動生成（モックは除外）
 - `/ops` 操作（ローカル）: 停止 / 解除と操作の履歴だけ
 
-⚠ 2026-09-18 に消した画面: 検証（`/experiments`）・データ（`/data`）＝ vibeboard のタブで見る ／ 手動の注文（dry-run・発注・取消・後片付け）＝ 管理画面に発注の経路は無い（発注は執行器 `experiments/live-trading/run_day.py` と CLI）／ 開発（`/dev`）＝ `selftest.sh` はターミナルで回す。部品（`app/experiments.py`・`app/inventory.py`・`app/devtools.py` の `MockServer`・`run_step`）は vibeboard とデモが使うので残っている
+⚠ 2026-09-18 に消した画面: 検証（`/experiments`）・データ（`/data`）＝ vibeboard のタブで見る ／ 手動の注文（dry-run・発注・取消・後片付け）＝ 管理画面に発注の経路は無い（発注は執行エンジン `experiments/live-trading/run_day.py` と CLI）／ 開発（`/dev`）＝ `selftest.sh` はターミナルで回す。部品（`app/experiments.py`・`app/inventory.py`・`app/devtools.py` の `MockServer`・`run_step`）は vibeboard とデモが使うので残っている
 
 ## テスト
 

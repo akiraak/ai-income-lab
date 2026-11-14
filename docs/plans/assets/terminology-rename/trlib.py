@@ -1,15 +1,30 @@
 """用語の置き換えの道具（使い捨て）。保護する範囲を除いて、文脈の表示と置き換えをする。"""
 import re, sys
 
+OLDNOTE = re.compile(r"旧: [^）」、。\n]*")      # 「（旧: 砂場）」の併記は替えない
 QUOTE = re.compile(r"利用者[^「」\n]{0,40}「[^」\n]*」(?:\s*[→／・]\s*「[^」\n]*」)*")
 TICK = re.compile(r"`[^`\n]+`")
 LINK = re.compile(r"\]\([^)\n]*\)")
 PROTECT = []
 FENCE = re.compile(r"^[ \t]*```.*?^[ \t]*```", re.S | re.M)
 
+def fence_spans(text, replace_langs=("mermaid", "bash", "sh")):
+    """コードブロックの範囲。replace_langs の言語のブロックは保護しない（図のラベルとコマンドのコメントは替える）。"""
+    spans, pos, start, lang = [], 0, None, None
+    for line in text.splitlines(keepends=True):
+        st = line.lstrip()
+        if st.startswith("```"):
+            if start is None: start, lang = pos, st[3:].strip().split(" ")[0].lower()
+            else:
+                if lang not in replace_langs: spans.append((start, pos + len(line)))
+                start = None
+        pos += len(line)
+    return spans
+
 def protected(text, extra=(), fence=False):
     spans = [m.span() for rx in PROTECT for m in re.finditer(rx, text, re.M)]
-    for rx in ((FENCE,) if fence else ()) + (TICK, LINK, QUOTE):
+    if fence: spans += fence_spans(text)
+    for rx in (TICK, LINK, QUOTE, OLDNOTE):
         spans += [m.span() for m in rx.finditer(text)]
     for a, b in extra:
         i = text.find(a)

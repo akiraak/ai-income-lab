@@ -4,7 +4,7 @@
 記録は [feature-discovery.md](../../docs/specs/experiments/feature-discovery.md)、プランは [analysis-structure.md](../../docs/plans/archive/analysis-structure.md)。
 
 ⚠ **「何を試して、どうだったか」は [ledger.md](../../docs/specs/experiments/feature-discovery/ledger.md)**（台帳）。
-⚠ **台帳は生成物である**（`cli/report.py --catalog`）。⚠ **手法を 1 つ足して回したら、台帳を吐き直す。**
+⚠ **台帳は生成物である**（`cli/report.py --catalog`）。⚠ **手法を 1 つ足して回したら、台帳を再生成する。**
 
 ⚠ **資金は動かさない**（2026-08-27 の方針）。データ取得は既にある tastytrade の口座の**読み取りだけ**で、発注系には触れない。
 
@@ -72,11 +72,11 @@ python3 -m venv .venv && ./.venv/bin/pip install -r requirements.txt
 | `ail/models/` | 基準線・線形・木 | 同上 |
 | `ail/validation/` | 分割・指標・統計 | 同上 |
 | `cli/` | 入口（薄く保つ） | 触らない |
-| `ail/catalog.py` ／ `cli/ledger.py` | ⚠ **台帳**（カタログ・registry・`runs/` の突き合わせ） | 触らない |
+| `ail/catalog.py` ／ `cli/ledger.py` | ⚠ **台帳**（カタログ・registry・`runs/` の照合） | 触らない |
 | `config/legacy.toml` | 旧配線の結果表の**読み場所**（⚠ **数字は書かない**） | 触らない |
 | `config/catalog_notes.toml` | ⚠ **未実施の手法の「次の一手」**（人が書く唯一の列） | ⚠ **実装したら行を消す** |
 | `data/` | ⚠ **git 管理外**。`raw/` は書き換えない | — |
-| `runs/` | ⚠ **git 管理外**。実行の記録の DB `research.sqlite`（1 実行 1 記録・上書きしない。2026-09-21 までは 1 実行 1 ディレクトリ）と作業の置き場 `work/`。道具は `python3 -m cli.db`（stats ／ import ／ verify ／ remove-dirs ／ sweep ／ export ／ backup） | — |
+| `runs/` | ⚠ **git 管理外**。実行の記録の DB `research.sqlite`（1 実行 1 記録・上書きしない。2026-09-21 までは 1 実行 1 ディレクトリ）と作業の保存先 `work/`。道具は `python3 -m cli.db`（stats ／ import ／ verify ／ remove-dirs ／ sweep ／ export ／ backup） | — |
 
 ## 手法を 1 つ足す
 
@@ -104,7 +104,7 @@ def d5(tr, te, feats, ctx):
 ```
 
 `config/experiment/*.toml` の `detectors = [...]` に名前を足す。⚠ **シミュレータ・閾値・基準線・判定は共有する**
-（物差しを揃えないと、それまでの試行と並べられない）。
+（指標を揃えないと、それまでの試行と並べられない）。
 
 ## いまある実験
 
@@ -114,7 +114,7 @@ def d5(tr, te, feats, ctx):
 | `cross_section_h1` | 134（own 35 ／ cs 26 ／ rel 13 ／ ll 60） | 96,769 | ⚠ **全銘柄を使って 1 銘柄を当てる形。** ⚠ **対象は会社株 48 本**（ETF 15 本は説明変数側）／ 行が減るのは⚠ **全 63 が揃うのが 2018-06 以降**だから |
 | `own_2018` ／ `real_2018` ／ `placebo_2018` | 35 ／ 63 ／ 57 | 135,962 | ⚠ **本命（為替・金利）が偽薬（気象・地震）を超えるか**（§9。⚠ **超えなかった**） |
 | `own_impact_2018` ／ `impact_ex_2018` ／ `impact_2018` ／ `impact_placebo_2018` ／ `impact_both_2018` | 35 ／ 59 ／ 47 ／ 47 ／ 59 | — | ⚠ **災害を銘柄へ割り当てると効くか。** ⚠ **偽薬は「割り当ての入れ替え」。** ⚠ **割り当ては偽薬と区別できず、割り当てなしは保留**（記録 §13）。⚠ **割り当てなしは日付を過去へずらした偽薬（`--shift-days`）と比べる**（記録 §15） |
-| ⚠ **`trend_scales_1995`** | 53（own 35 ／ **trend 18**） | 410,404 | ⚠ **下降トレンドの検知**（rules.md 15 章）。⚠ **予測の対象が「明日の符号」ではなく「先 W 営業日の符号」**。1995-08〜2025-11・⚠ **両端が削れる**（頭は 200 本の助走・尻は `y_fwd_200`）。記録は [downtrend-detection.md](../../docs/specs/experiments/downtrend-detection.md) |
+| ⚠ **`trend_scales_1995`** | 53（own 35 ／ **trend 18**） | 410,404 | ⚠ **下降トレンドの検知**（rules.md 15 章）。⚠ **予測の対象が「明日の符号」ではなく「先 W 営業日の符号」**。1995-08〜2025-11・⚠ **両端が削れる**（頭は 200 本の助走・末尾は `y_fwd_200`）。記録は [downtrend-detection.md](../../docs/specs/experiments/downtrend-detection.md) |
 
 ⚠ **`ll_leaders = "all"` にすると `ll_` が 60 → 248 列になる**（`config/experiment/cross_section_h1.toml`）。
 ⚠ **列を増やすほど多重検定になる**ので、FDR とデフレーテッド SR を対で通すこと（rules.md 11 章）。

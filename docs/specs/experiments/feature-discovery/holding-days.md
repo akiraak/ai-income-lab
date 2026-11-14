@@ -26,7 +26,7 @@ flowchart LR
 | 段 | 何をした | 再実行 |
 | :-: | --- | :-: |
 | Phase 1 | 既存 151 実行の `per_symbol.csv` ＋ `result.csv` から **銘柄 × fold の平均保有日数**（保有日率 × 検証日数 ÷ 取引回数）を集計 | 不要 |
-| Phase 2 | `simulate()` に **1 取引ごとの保有日数**（`hold_days`・`entry_idx`・`forced_close`）を吐かせ、`holds.csv`（1 取引 1 行）・`per_symbol.csv` の末尾 3 列・`checks.json` の `by_threshold[θ].holding`・画面の列に載せた | ⚠ **既存の数字は 1 ビットも変えない**（指紋テスト `tests/test_trading_run.py` と、下の §3 の実物での検算） |
+| Phase 2 | `simulate()` に **1 取引ごとの保有日数**（`hold_days`・`entry_idx`・`forced_close`）を吐かせ、`holds.csv`（1 取引 1 行）・`per_symbol.csv` の末尾 3 列・`checks.json` の `by_threshold[θ].holding`・画面の列に載せた | ⚠ **既存の数字は 1 ビットも変えない**（回帰テスト `tests/test_trading_run.py` と、下の §3 の実物での検算） |
 | Phase 3 | 代表 1 構成（`trade_ownseq_ridge_a` ＋ leak）を回し直し、正確な分布を出した | 2 本（同じ識別項目。検証結果一覧の行は増えない） |
 
 ## 2. Phase 1 — 既存 151 実行の近似【実測 2026-09-17】
@@ -97,13 +97,13 @@ flowchart LR
 
 ### 3-1. ⚠ 検算 — 既存の数字は 1 ビットも変わっていない
 
-| 突き合わせ | 結果 |
+| 照合 | 結果 |
 | --- | --- |
 | `summary.csv` 15 行（本数・的中率・IC・粗利・純利・取引回数・保有日率・乱択ゲート） | **最大差 0.0**（本物・leak とも） |
 | `per_symbol.csv` 4,725 行の既存 5 列 | **最大差 0.0**。既存列の並びは同じで、末尾に 4 列（保有日数中央値・最短・最長・逆売買純利bp）が足された |
 | `result.csv` | 既存列は同じ並び。末尾に `逆売買純利bp`・`逆売買取引回数` |
 | `checks.json` の `best` / `edge_vs_bh` | 差 0.0。DSR だけ 0.1237 → 0.1178（n_trials が 604 → 610 に増えたぶん。式は同じ） |
-| 入力（行・列・銘柄・開始日・表） | 一致。`env.json` の commit は `696cf7b` ＋ 作業ツリーの変更 |
+| 入力（行・列・銘柄・開始日・表） | 一致。`env.json` の commit は `696cf7b` ＋ ワーキングツリーの変更 |
 
 ### 3-2. 1 取引ごとの保有日数（`holds.csv`・90,295 行・強制清算を含む）
 
@@ -169,6 +169,6 @@ flowchart LR
 ## 6. 費用と付随して変わったもの
 
 - 計算: Phase 1 1 秒 ／ Phase 3 の回し直し 19 分 ＋ 18 分（本物 ＋ leak）【実測】。人手は 1 日
-- 画面: vibeboard の実行タブと dashboard の詳細ページに「保有日数 中央値（p25–p75）」の列（`holding` の写し。旧実行は「—」）
+- 画面: vibeboard の実行タブと dashboard の詳細ページに「保有日数 中央値（p25–p75）」の列（`holding` のコピー。旧実行は「—」）
 - 検証結果一覧: 触っていない（同じ識別項目の再実行。行も n_trials も増えない）
 - 出来高の対（[volume-trend-input.md](../volume-trend-input.md)）でも同じ列が自動で残った: θ=50 で中央値 3 日（1–6）・保有 1 日 33%

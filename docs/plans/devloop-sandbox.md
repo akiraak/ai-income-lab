@@ -18,7 +18,7 @@
 
 ### 2-1. 何を何から隔離するか
 
-この図の主張: サンドボックスは「コード・記録・データ」の 3 つを本線と分け、本線へ戻る道は利用者の「取り込んで」だけ。
+この図の主張: サンドボックスは「コード・記録・データ」の 3 つを本線と分け、本線へ戻るパスは利用者の「取り込んで」だけ。
 
 ```mermaid
 flowchart LR
@@ -42,7 +42,7 @@ flowchart LR
 | 分けるもの | 本線 | サンドボックス | しくみ |
 | --- | --- | --- | --- |
 | コード | `~/ai-income-lab`（`main`） | `~/.cache/ai-income-lab-sandbox/<id>/`（ブランチ `sandbox/<id>`） | `git worktree add`。`main` には入らない ＝ `prod` にも乗らない |
-| 検証の記録 | `runs/research.sqlite` | ワーキングツリーの中の `runs/research.sqlite`（**本線の DB のコピーを種にする** ＝ 837MB【実測】） | DB のパスはコードの場所からの相対（`ail/runs.py`）＝ 何もしなくても分かれる。種が要る理由は §6 の Phase 1 |
+| 検証の記録 | `runs/research.sqlite` | ワーキングツリーの中の `runs/research.sqlite`（**本線の DB のコピーをシードにする** ＝ 837MB【実測】） | DB のパスはコードの場所からの相対（`ail/runs.py`）＝ 何もしなくても分かれる。シードが要る理由は §6 の Phase 1 |
 | 日足（raw ／ adjusted ／ derived ／ manifests ＝ 256MB【実測】） | `data/` | ワーキングツリーの中の `data/` にコピー | コピー（ハードリンクは使わない ＝ 上書きが本物に届く） |
 | テーブル（`data/features/` ＝ 6.7GB・97 個【実測】） | 〃 | 要るテーブルだけコピー ＋ 新しく作るぶん ＋ 検証結果一覧が期間を読む古いテーブル（26 ファイル・1.4GB【実測】） | 実験の config の `features_from` ／ 実験名から引く |
 | Python の環境 | `.venv` | 同じ `.venv` を使う（cwd がワーキングツリー ＝ `python -m` はワーキングツリーの `ail` ／ `cli` を読む） | 依存を足す案は対象外（「人の手」のまま） |
@@ -75,7 +75,7 @@ flowchart TB
 | S3 | **取り込み** | 自動ではマージしない。利用者の「`<id>` を取り込んで」→ Claude のセッションで diff をレビュー → `main` にマージ → テスト → 本線で回す（ここで普通に数える） | ✅ 同上 |
 | S4 | ブランチを origin に push するか | push する（`sandbox/*`。GitHub で diff が見られる・Sx360 からも見える）。⚠ K5 の常設の許可（ループの commit ＋ push は `main` だけ）を `sandbox/*` まで広げることになる | ✅ 2026-11-13 利用者「Bも推す案で」 |
 | S5 | 1 晩の本数と上限 | 1 本・`claude -p` は $20（定価換算）・80 turns・build ＋ queue は 60 分。順番は手間の小さい順 → id 順（31-1 の 6 と同じ） | ✅ 2026-11-13 利用者「Bも推す案で」 |
-| S6 | サンドボックスで書いてよい範囲 | 共有の経路を含む `experiments/feature-discovery/` の中（`cli/`・`ail/`・`config/`・`tests/` の新しいファイル）。**禁止**: 執行器（`experiments/live-trading/`）・`experiments/tastytrade-api-sample/`・`dashboard/`・`docs/`（案のメモ 1 枚を除く）・`TODO.md` ／ `CLAUDE.md` ／ `DONE.md`・`config/devloop.toml`・`cli/devloop*.py` ／ `cli/sandbox.py`（ランナー自身）・**既存のテストの書き換えと削除**（守りのテストを弱められないように） | ✅ 2026-11-13 利用者「Bも推す案で」 |
+| S6 | サンドボックスで書いてよい範囲 | 共有の経路を含む `experiments/feature-discovery/` の中（`cli/`・`ail/`・`config/`・`tests/` の新しいファイル）。**禁止**: 執行エンジン（`experiments/live-trading/`）・`experiments/tastytrade-api-sample/`・`dashboard/`・`docs/`（案のメモ 1 枚を除く）・`TODO.md` ／ `CLAUDE.md` ／ `DONE.md`・`config/devloop.toml`・`cli/devloop*.py` ／ `cli/sandbox.py`（ランナー自身）・**既存のテストの書き換えと削除**（守りのテストを弱められないように） | ✅ 2026-11-13 利用者「Bも推す案で」 |
 | S7 | 対象から外す案 | 閉じた案・済んだ案 5 本（並べ替えの列・`perm_split`・合図の植え込み 11/13・Wikipedia 11/13・FINRA）に `skip` を付ける。残り 16 本と、これから増える「共有コード変更」が対象 | ✅ 2026-11-13 利用者「Bも推す案で」 |
 | S8 | 保存期間 | ワーキングツリーとサンドボックスの DB・データは 14 日で消す。ブランチと結果の要約（レジストリ）は残す | ✅ 2026-11-13 利用者「Bも推す案で」 |
 | S9 | OS レベルの隔離 | Phase 1〜5 は論理的な隔離で始め、試運転の後に bubblewrap を入れる（インストールは利用者 ＝ `sudo apt install bubblewrap`） | ✅ 2026-11-13 利用者「Bも推す案で」 |
@@ -91,9 +91,9 @@ flowchart TB
 
 | 守り | 中身 |
 | --- | --- |
-| 回帰テスト | 既定の経路のフィンガープリント（`tests/test_trading_run.py`・`tests/test_predict.py`）＋ `test_names.py`・`test_catalog.py`。「オプションの無い config は 1 ビットも変わらない」を機械で見る |
+| 回帰テスト | 既定の経路のフィンガープリント（`tests/test_trading_run.py`・`tests/test_predict.py`）＋ `test_names.py`・`test_catalog.py`。「オプションの無い config は 1 ビットも変わらない」を自動で見る |
 | 既存のテストを守る | `main` との diff で、既存の `tests/` のファイルが変更・削除されていたら NG（追加だけ可） |
-| leak 対照 | 切らない（`leak = true`）。跳ねない実行は配線の誤りを疑う印としてログに出す |
+| leak 対照 | 切らない（`leak = true`）。跳ねない実行は配線の誤りを疑うフラグとしてログに出す |
 | 判定は参考 | S2・S11。結果は自動で記録するが、採用には取り込み（人のレビュー）→ 本線で回し直しが要る。「採る」「保留」が出た晩だけ人に知らせる |
 | 事前固定 | レジストリの `structure`・`prediction`・`n_trials_planned` は今までどおり、回す前のまま（直さない） |
 
@@ -110,7 +110,7 @@ flowchart TB
 | `docs/specs/experiments/dev-loop.md`・`CLAUDE.md`・`systemd/README.md` | 記録と手順 |
 
 - ⚠ **既存の検証・本番には効かない**: 新しいファイルと、ランナーの後ろに足すステージだけ。`[sandbox] enabled = false`（既定）なら 1 晩の動きは今までと同じ
-- 13500t・`prod`・執行器・管理画面（3012）は触らない
+- 13500t・`prod`・執行エンジン・管理画面（3012）は触らない
 - ディスク: 1 本あたり 約 2.5GB【実測】（日足 256MB ＋ DB 837MB ＋ 期間を読むテーブル 1.4GB ＋ 実験のテーブル）＋ 新しいテーブル。14 日ぶんで約 35GB。空きは 807GB【実測】
 
 ## 4. テスト方針
@@ -125,7 +125,7 @@ flowchart TB
 | Phase | 中身 | 出口 |
 | --- | --- | --- |
 | 0 | 決めること S1〜S12 | ✅ 2026-11-13 利用者の決定（S1〜S3「A（推す）」・S4〜S9「Bも推す案で」・S10〜S12「推す案で」） |
-| 1 | サンドボックスの土台 `cli/sandbox.py` ＋ テスト ＋ 実物での一致の確認 | 既存の実験がサンドボックスで本線と同じ数字になる |
+| 1 | サンドボックスの基盤 `cli/sandbox.py` ＋ テスト ＋ 実物での一致の確認 | 既存の実験がサンドボックスで本線と同じ数字になる |
 | 2 | 規約を先に書く（rules.md 31-7・14 章に 1 行 ＝ 数え方と判定の扱いを、最初の案を回す前に固定） | 利用者の了承 |
 | 3 | 手で 1 本（`20261101-deadzone-label` ＝ 手間 小・数える 6）をサンドボックスで作って回す → 記録 | dev-loop.md に結果・サンドボックスの検証数 6 |
 | 4 | ランナーに組み込む（`sandbox_stage`・プロンプト・ログ・メール・実行タブ・保存期間の掃除・結果の自動の記録 ＝ S11） | テスト ✅・dry-run ✅ |
@@ -140,7 +140,7 @@ flowchart TB
 
 ## 6. 記録
 
-### Phase 1: サンドボックスの土台（2026-11-13 19:50〜20:05 PST・titan）
+### Phase 1: サンドボックスの基盤（2026-11-13 19:50〜20:05 PST・titan）
 
 - 作ったもの: `experiments/feature-discovery/cli/sandbox.py`（`create` ／ `tables` ／ `exec` ／ `check` ／ `report` ／ `remove` ／ `list`）・`tests/test_sandbox.py` 9 本（本物の git の一時リポジトリ）
 - **実物での確認**（既存の実験 `trade_own_fwdmulti_a` ＝ queue `horizon_roles1` をサンドボックスで回した）
@@ -155,9 +155,9 @@ flowchart TB
   | 要約 | 増えた検証 0 ／ 変わった行 0 ／ 消えた行 0（既存の識別項目の回し直しなので増えないのが正しい）|
 
 - **見つけて直したこと 2 つ**（どちらも「空のサンドボックスでは検証結果一覧を再生成できない」）
-  1. 空の DB では `config/catalog_notes.toml` の閉じる注記（167 件）が 1 行にも当たらず、再生成が止まる → **作るときに本線の DB をコピーして種にする**（SQLite のバックアップ API）。副産物: 既出の検査・DSR の `n_trials` が本線と同じ条件になる・「既存の行が 1 行も変わらない」を要約で見られる（`changed` ／ `gone`）
+  1. 空の DB では `config/catalog_notes.toml` の閉じる注記（167 件）が 1 行にも当たらず、再生成が止まる → **作るときに本線の DB をコピーしてシードにする**（SQLite のバックアップ API）。副産物: 既出の検査・DSR の `n_trials` が本線と同じ条件になる・「既存の行が 1 行も変わらない」を要約で見られる（`changed` ／ `gone`）
   2. DB をコピーしても止まった: 検証結果一覧は、期間を記録していない古い実行の「期間」を**テーブルの実物**から読む（`ail/catalog.py` の `_period_of` の 3 段目）→ そのファイル（サンドボックスの DB から列挙）もコピーする
-- ⚠ サンドボックスの中の `checks.json` の DSR は、サンドボックスの DB の `n_trials` で引かれる（種があるので本線に近い値になるが、同じではない）＝ 要約には DSR を出さない
+- ⚠ サンドボックスの中の `checks.json` の DSR は、サンドボックスの DB の `n_trials` で引かれる（シードがあるので本線に近い値になるが、同じではない）＝ 要約には DSR を出さない
 - ⚠ `cli.sandbox exec` の `--timeout` は id の前に書く（id の後ろは全部サンドボックスの python へ渡る）
 
 ### Phase 2・3: 規約と、手で 1 本（2026-11-13 21:55〜22:05 PST・titan）

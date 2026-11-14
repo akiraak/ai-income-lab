@@ -144,7 +144,7 @@ note = "検証結果一覧（ledger.md）の行を読むための単位。図解
   name = "判定（採る / 保留 / 落とす）"
   short = "検証結果一覧の 3 値。基準線への上乗せが正で fold の符号が全部正なら採る、平均だけ正なら保留、上乗せが 0 以下なら落とす。"
   doc = "docs/specs/experiments/feature-discovery/rules.md"
-  where = "§13-7 採否の物差し"
+  where = "§13-7 採否の指標"
 
   [[section.term]]
   name = "基準線"
@@ -156,7 +156,7 @@ note = "検証結果一覧（ledger.md）の行を読むための単位。図解
   name = "門前"
   short = "前置きのゲートを通らず、検証を回していない手法の判定。隠さず検証結果一覧に残すが、検証数には数えない。"
   doc = "docs/specs/experiments/feature-discovery/rules.md"
-  where = "§14-5 前置きの門"
+  where = "§14-5 前置きのゲート"
 
   [[section.term]]
   name = "閉じる"
@@ -197,7 +197,7 @@ note = "良い数字が偶然かどうかを見る道具。DSR の図解は dsr.
   name = "上乗せ"
   short = "fold ごとの（手法の純利 − 基準線の純利）。⚠ 採否の符号と t はこれで見る。"
   doc = "docs/specs/experiments/feature-discovery/rules.md"
-  where = "§13-7 採否の物差し"
+  where = "§13-7 採否の指標"
 
   [[section.term]]
   name = "fold の符号"
@@ -209,7 +209,7 @@ note = "良い数字が偶然かどうかを見る道具。DSR の図解は dsr.
   name = "t 値"
   short = "平均を標準誤差で割った目安。⚠ fold は数本しかないので検定ではなく目安として読む。"
   doc = "docs/specs/experiments/feature-discovery/rules.md"
-  where = "§13-7 採否の物差し"
+  where = "§13-7 採否の指標"
 
   [[section.term]]
   name = "実効系列数"
@@ -263,7 +263,7 @@ note = "良い数字が偶然かどうかを見る道具。DSR の図解は dsr.
   name = "前置きの門"
   short = "訓練の内側だけを見て、確率の質が足りない手法の検証を回さない足切り。水準は事前固定で、採否には使わない。"
   doc = "docs/specs/experiments/feature-discovery/rules.md"
-  where = "§14-5 前置きの門"
+  where = "§14-5 前置きのゲート"
 
   [[section.term]]
   name = "診断列"
@@ -303,7 +303,7 @@ note = "2026-09-10 からの検証方式。予測の後ろだけが旧方式と�
   see = { label = "予測モデルのしくみ — 売り買いのまねごと", tab = "system", item = "model" }
 
   [[section.term]]
-  name = "状態機械"
+  name = "ステートマシン（旧: 状態機械）"
   short = "ポジションは 0 か 1 の 2 状態だけ。買い増しも空売りもせず、fold の末尾で強制清算する。"
   doc = "docs/specs/experiments/feature-discovery/rules.md"
   where = "§13-4 売買シミュレータ"
@@ -330,7 +330,7 @@ note = "2026-09-10 からの検証方式。予測の後ろだけが旧方式と�
   name = "銘柄別 bp"
   short = "銘柄ごとの累計純利。成果物として全部残すが、⚠ 採否には使わない（銘柄は独立ではない）。"
   doc = "docs/specs/experiments/feature-discovery/rules.md"
-  where = "§13-7 採否の物差し"
+  where = "§13-7 採否の指標"
 
   [[section.term]]
   name = "保有日率 / 取引回数"
@@ -365,7 +365,7 @@ note = "特徴量の表（パネル）がどう作られているか。層の接
   name = "粒度"
   short = "足の長さ（日足・1 分足）。1 分足は提供元の上限で数週間しか遡れない。"
   doc = "docs/specs/experiments/feature-discovery/rules.md"
-  where = "§1 データの層と置き場"
+  where = "§1 データの層と保存先"
 
   [[section.term]]
   name = "地平（horizon）"
@@ -558,7 +558,7 @@ note = "tastytrade の API サンプルと、会場を選んだときの語。"
   where = "§0-2 着金前でも買付余力は使える"
 
   [[section.term]]
-  name = "3 段の許可"
+  name = "3 段階の許可"
   short = "本番で dry-run・取消・発注を許す環境変数の 3 段。⚠ 取消の許可では発注できない。"
   doc = "docs/specs/dashboard.md"
   where = "§2 本番の許可"
@@ -839,7 +839,7 @@ note = "管理画面の概要・全体の詳細・トレーダーの詳細に出
   name = "今日の起動が無い"
   short = "営業日で 13:15 PT（16:15 ET）を過ぎても今日の執行エンジンの記録が無い ＝ timer ／ cron が起きなかった疑い。表示だけ。"
   doc = "docs/specs/dashboard.md"
-  where = "§13-8 見張り"
+  where = "§13-8 監視"
 
   [[section.term]]
   name = "含み損の停止条件"
@@ -858,7 +858,7 @@ note = "管理画面の概要・全体の詳細・トレーダーの詳細に出
   name = "仮データ"
   short = "本物の数字がまだ無い項目に入れた作り物の値。紫の破線のマークと点線で示し、API には出さない。"
   doc = "docs/specs/dashboard.md"
-  where = "§15-8 仮データの印"
+  where = "§15-8 仮データのラベル"
 
   [[section.term]]
   name = "シミュレーションモード"
@@ -888,19 +888,19 @@ note = "管理画面の概要・全体の詳細・トレーダーの詳細に出
   name = "口座の建玉"
   short = "口座が実際に持っている株（銘柄ごとの株数）。口座は 1 つなので合計しか見えず、誰のぶんかは分からない。現金は入らない。"
   doc = "docs/specs/experiments/live-trading.md"
-  where = "§0-8 口座の建玉と売買履歴の帳尻を合わせる"
+  where = "§0-8 口座の建玉と売買履歴を照合する"
 
   [[section.term]]
   name = "売買履歴（トレーダーの持ち分。旧: 台帳）"
   short = "執行エンジンが付けている「誰が何株・いくらで持っているか」の記録。口座の建玉と食い違うと、少ない銘柄だけその日は売買しない。"
   doc = "docs/specs/experiments/live-trading.md"
-  where = "§0-8 口座の建玉と売買履歴の帳尻を合わせる"
+  where = "§0-8 口座の建玉と売買履歴を照合する"
 
   [[section.term]]
-  name = "控え"
+  name = "ジャーナル（旧: 控え）"
   short = "発注の直前に書く注文の覚え書き。発注の後に落ちても、次の起動で照会して約定をその人の売買履歴に戻せる。"
   doc = "docs/specs/experiments/live-trading.md"
-  where = "§0-8 口座の建玉と売買履歴の帳尻を合わせる"
+  where = "§0-8 口座の建玉と売買履歴を照合する"
 
 [[section]]
 id = "screen"

@@ -227,3 +227,43 @@ flowchart TD
 - **「偽の」**: `CLAUDE.md` の 4 か所は統計の話（偽の分布・偽の実行）と「誤った」の意味で、モックではないので替えていない
 - **「写す」「手で」**（動詞・普通の日本語）: 替えていない
 - **`CLAUDE.md` のルールの段落**（「既存の文書は一括では書き換えない」）: Phase 5 で直す
+
+### 8-4. Phase 2（2026-11-14 17:30 PST・titan）
+
+- 対象と件数【実測】: 約 2,650 か所 ／ 26 ファイル
+
+  | ファイル | 件数 | 個別の規則 |
+  | --- | ---: | --- |
+  | `docs/specs/experiments/live-trading.md` | 600 | `spec_live.py`（「控え」を行ごとに ジャーナル ／ 終値のスナップショット ／ バックアップ に分けた） |
+  | `docs/specs/experiments/feature-discovery/rules.md` | 567 | `spec_rules.py` |
+  | `docs/specs/dashboard.md` | 365 | `spec_dashboard.py`（「帯」は全ページに出るものだけバナーに。左の帯・閾値の帯・ものさしの帯は図の部品なので替えていない） |
+  | `docs/specs/experiments/dev-loop.md` | 361 | `spec_devloop.py` |
+  | `docs/plans/daily-dev-loop.md` ／ `trader-model-roles.md` | 270 ／ 103 | `spec_plan.py` |
+  | `docs/specs/howto-model-trader.md` ／ `validation-power.md` | 115 ／ 73 | `spec_howto.py` ／ `spec_vpower.py` |
+  | 進行中のプランの残り 4 本 | 91 | `spec_closes.py`・`spec_nightly.py`・`spec_tloop.py`・`spec_generic.py` |
+  | README 7 本・`feature-discovery/` の小さい文書 5 本 | 89 | `spec_generic.py`・`spec_ltreadme.py` |
+  | `dashboard/glossary.toml` の `where` 12 行・語の名前 3 つ | 15 | `fix_where.py`（仕様書と同じ規則を `where` に当て、見出しにあるかを前後で見る ＝ 新しく外れた `where` 0） |
+
+- 確かめたこと: 替えた md 25 本とも、行数が同じ ・ ASCII（コマンド・パス・識別子・数字）が 1 文字も変わっていない（`check.py`）。コードブロックは mermaid と bash だけ替え、ほかの言語のブロック（出力の引用・TOML の例）は保護した
+- 用語集の語の改名: 「状態機械」→「ステートマシン（旧: 状態機械）」／「控え」→「ジャーナル（旧: 控え）」／「3 段の許可」→「3 段階の許可」（`ops.html` の `info()` も）
+- テスト: `./run-tests.sh --fast`（結果は TODO の Phase 2 の行）
+- 足した道具: `check.py`（HEAD と比べて行数 ・ ASCII ・ 替わった見出し）／ `fix_where.py` ／ `trlib.py` に「（旧: …）の併記を保護」「コードブロックの言語で保護を分ける」
+
+### 8-5. Phase 2 で替えなかったもの
+
+- **調査の仕様書 7 本**（`online-tradable-assets.md`・`market-data-availability.md`・`trading-api-availability.md`・`trading-fee-comparison.md`・`trading-tax.md`・`service-trust-assessment.md`・`overview.md`）と `income-taxonomy/`・`experiments/i7-dataset/` の 2 本: このプロジェクトの独自の言葉がほとんど無く、当たるのは「入札」「落札」「印税」「1 口」「同種」「車種」などの普通の言葉だった ＝ 触らない（ほかの文書からのアンカー 23 か所もここを指している）
+- **`ledger.md`・`register.md`**: 生成物 ＝ Phase 3 で生成のコードの文言を替えてから再生成
+- **閉じた実験の記録 69 本・`dev-loop/log/` などの生成物**: T1・T5 のとおり
+- **`dev-loop.md` のステータスの「人の手」**（22 か所）: 同じ文書の §14 に「この節より前の「人の手」は改名の前の記録」と書いてあるので、ステータスの意味の箇所は残した。「手で作った」の意味の見出し（「作った口（人の手）」など）だけ「手動」にした
+- **用語集の語「門前」「前置きの門」**: 外部のタブ「実行」の見出し（`vibetab.py`）と検証結果一覧の表示が同じ文字を使う ＝ Phase 3 でコードと一緒に
+
+### 8-6. Phase 2 で踏んだこと（Phase 3 でも効く）
+
+| 踏んだこと | 対処 |
+| --- | --- |
+| 置き換えの文字列に後方参照を書くとき、`r"\\1"` と書くと「\1」という文字がそのまま入る（数字が消える） | `r"\g<1>"` と書く。`check.py` の「ASCII が変わった行」で気づける ＝ 当てた後に必ず流す |
+| 「収束」「入り口」「小口」「印字」「時刻帯」「1 本道」「置き場所」に当たる | 共通の規則に除外を足した |
+| 「器」が「コンテナ」「構成」の意味の箇所（`live-trading.md` §0-13） | 手で直した。Phase 3 でも「器 → シミュレーター」は 1 か所ずつ見る |
+| 「控えた」（動詞） | 共通の規則から外した |
+| 見出しを替えると `glossary.toml` の `where` が古くなる | `fix_where.py` |
+| 開発ループのステージ 1（参考あり）は仕様書を読む ＝ 仕様書の言葉が替わると夜の案の言葉も少し変わりうる | 避けられない（プロンプトと契約は Phase 4 まで触っていない） |

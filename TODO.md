@@ -113,7 +113,9 @@
   - [x] Phase 1: 毎日読むもの（`CLAUDE.md`・`TODO.md`・`README.md`・外部のタブの TOML 5 本・管理画面のテンプレート）
     ✅ 2026-11-14 16:10 PST titan: 約 900 か所を置き換えた【実測】（`CLAUDE.md` 約 370 ／ `TODO.md` 76 ／ TOML 5 本 413 ／ テンプレートと `app.js` 36）・`./run-tests.sh --fast` ✅・画面の文字を見ているテスト 3 か所を一緒に直した・用語集の語「物差し A〜E」→「指標 A〜E」。踏んだことと残したもの（「本番の機械ではない」・用語集の語の名前・検証結果一覧の表示「門前」）はプラン §8。道具は `docs/plans/assets/terminology-rename/`
     ⚠ 管理画面のテンプレートと `glossary.toml` を替えた ＝ 本番の画面に出るのは Phase 5 の「デプロイ」の後（それまで `prod` は進めない）
-  - [ ] Phase 2: 生きている文書（`rules.md`・`dashboard.md`・`live-trading.md`・`dev-loop.md`・手順書・進行中のプラン・各 README）
+  - [x] Phase 2: 生きている文書（`rules.md`・`dashboard.md`・`live-trading.md`・`dev-loop.md`・手順書・進行中のプラン・各 README）
+    ✅ 2026-11-14 17:30 PST titan（利用者「コミットして続きをして」）: 約 2,650 か所 ／ 26 ファイルを置き換えた【実測】（`live-trading.md` 600 ・ `rules.md` 567 ・ `dashboard.md` 365 ・ `dev-loop.md` 361 ほか）・替えた md 25 本とも行数と ASCII（コマンド・パス・数字）が不変・`glossary.toml` の `where` 12 行を見出しに合わせた（新しく外れた `where` 0）・用語集の語 3 つを改名（ステートマシン ／ ジャーナル ／ 3 段階の許可）・`./run-tests.sh --fast` ✅。記録はプラン §8-4〜§8-6
+    ⚠ 替えなかったもの: 調査の仕様書 7 本（当たるのが「入札」「印税」「1 口」などの普通の言葉だった）・`ledger.md` ／ `register.md`（生成物 ＝ Phase 3 の後に再生成）・`dev-loop.md` のステータスの「人の手」22 か所（改名の前の記録）・用語集の語「門前」「前置きの門」（Phase 3 でコードと一緒に）
   - [ ] Phase 3: コード（Python のコメント・docstring・メッセージ・シェル・テスト）→ `ledger.md` ／ `register.md` の再生成（判定と `n_trials` が同じことを照合）
   - [ ] Phase 4: 開発ループの文言（プロンプト 5 本・ログの見出し・メール・`devloopview.py` は新旧の両方を読む・契約の版 5）
     期日: 2026-11-21

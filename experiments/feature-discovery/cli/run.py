@@ -1406,6 +1406,9 @@ def _checks_line_trading(doc: dict) -> str:
             seg += f" 上乗せ {ed.get('mean_bp', 0.0):+.2f}bp"
             if ed.get("t") is not None:
                 seg += f" t={ed['t']:.2f}"
+        if st := e.get("sign_test"):
+            # ⚠ 評価期間 10 個の行だけに付く診断（レジストリ 20261101-ten-fold-long-table）。採否には使わない
+            seg += f" 符号 {st['positive']}/{st['folds']}（二項 p {st['p_upper']:.4f}・診断）"
         seg += f" 取引 {b.get('取引回数', 0.0):.0f} 回/fold"
         if d := e.get("dsr"):
             seg += f" DSR {d['DSR']:.3f}"

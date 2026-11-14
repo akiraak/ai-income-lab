@@ -12,6 +12,7 @@
 
 from __future__ import annotations
 
+import math
 import re
 
 import numpy as np
@@ -33,6 +34,23 @@ def _sign_row(values) -> dict:
     return {"pattern": "".join("＋" if x > 0 else "−" if x < 0 else "0" for x in v),
             "positive": int(sum(1 for x in v if x > 0)), "folds": len(v),
             "values": [round(float(x), 4) for x in v]}
+
+
+def sign_test(positive: int, n: int) -> dict:
+    """正の評価期間の数の二項検定（p = 0.5）。⚠ **診断であって採否には使わない**
+    （開発ループのレジストリ 20261101-ten-fold-long-table。2026-11-13）。
+
+    `p_upper` ＝ P(X ≥ positive)（片側。10 個とも正なら 1/1024・5 つとも正なら 1/32）／
+    `p_two_sided` ＝ min(1, 2 × min(上側, 下側))。上乗せがちょうど 0 の評価期間は「正でない」に数える（`_sign_row` と同じ）。
+    """
+    k, n = int(positive), int(n)
+    if n <= 0 or not 0 <= k <= n:
+        raise ValueError(f"二項検定に掛けられない: 正 {positive} ／ 評価期間 {n}")
+    upper = sum(math.comb(n, i) for i in range(k, n + 1)) / 2 ** n
+    lower = sum(math.comb(n, i) for i in range(0, k + 1)) / 2 ** n
+    return {"positive": k, "folds": n, "p_upper": round(upper, 6),
+            "p_two_sided": round(min(1.0, 2 * min(upper, lower)), 6),
+            "注記": "⚠ 診断。採否には使わない（判定は 上乗せ > 0 かつ 全部の評価期間で正 のまま）"}
 
 
 def _t(values) -> float | None:
@@ -445,6 +463,8 @@ def compute_trading(result: pd.DataFrame, summary: pd.DataFrame, per_symbol: pd.
                  "calibration": calibrate.VERSION,
                  "cost_bp": float(config.get("cost_bp", 5.0)),
                  "thresholds": [float(x) for x in t.get("thresholds", [])]}
+    from ail import catalog                         # ⚠ ここで読む（`n_trials_now` と同じ。頭で読むと循環する）
+    fold_variant = catalog.fold_variant(config)     # 評価期間 10 個の変種のときだけ 10。それ以外は None ＝ 下の診断を書かない
     by: dict[str, dict] = {}
     for th in doc["thresholds"]:
         s_th = summary[summary["閾値"] == th]
@@ -467,6 +487,10 @@ def compute_trading(result: pd.DataFrame, summary: pd.DataFrame, per_symbol: pd.
             entry["edge_vs_bh"] = {**_sign_row(e), "mean_bp": round(float(e.mean()), 4),
                                    "t": (round(t_, 4) if (t_ := _t(e)) is not None else None)}
             entry["bh_純利bp"] = round(float(net[DRIFT].mean()), 4)
+            if fold_variant is not None:
+                # ⚠ 評価期間 10 個の行だけ（レジストリ 20261101-ten-fold-long-table）。診断 ＝ 採否には使わない。
+                # ⚠ 無い config・folds = 5 では項目ごと書かない ＝ checks.json は 1 ビットも変わらない
+                entry["sign_test"] = sign_test(entry["edge_vs_bh"]["positive"], entry["edge_vs_bh"]["folds"])
         if (eb := _edge_bins(daily.get((name, th)), daily.get((DRIFT, th)))) is not None:
             entry["edge_bins"] = eb
         ex = extra or {}

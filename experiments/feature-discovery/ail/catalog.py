@@ -327,10 +327,29 @@ def is_threshold(style: str | None) -> bool:
     return str(style or "").startswith("閾値売買")
 
 
+# ⚠ **評価期間の数を替えた閾値売買の変種**（開発ループのレジストリ 20261101-ten-fold-long-table。2026-11-13）。
+# 水準は事前固定の 10 だけ。既定の 5 と、ここに無い数は検証方式に書かない ＝ 既存の行は 1 行も割れない
+# （足すなら新しい id で先に登録する）
+FOLD_VARIANTS = (10,)
+
+
+def fold_variant(cfg: dict) -> int | None:
+    """config の `[validation] folds` が事前固定の変種（`FOLD_VARIANTS`）ならその数。⚠ **それ以外（無い・5・ほかの数）は None**。"""
+    f = (cfg.get("validation") or {}).get("folds")
+    if isinstance(f, float) and f.is_integer():
+        f = int(f)                      # ⚠ 実行は `int(v.get("folds", 5))` で読む ＝ 10.0 も 10 個に切れる
+    if isinstance(f, bool) or not isinstance(f, int):
+        return None
+    return f if f in FOLD_VARIANTS else None
+
+
 def threshold_style(cfg: dict) -> str:
     """閾値売買の検証方式の名前。⚠ **訓練の窓（21 章）・翌日始値の執行（22 章）・費用 5bp 以外（28 章）が無い config は
     「閾値売買」のまま**（既存の行は 1 行も割れない）。変種は括弧の中に `・` でつなぐ。"""
     parts = []
+    if (nf := fold_variant(cfg)) is not None:
+        # ⚠ 評価期間を 10 個に切った行（レジストリ 20261101-ten-fold-long-table）。無い config・folds = 5 は書かない ＝ 既存の行は割れない
+        parts.append(f"評価期間{nf}")
     if n := (cfg.get("validation") or {}).get("max_train_days"):
         parts.append(f"訓練直近{int(n)}日")
     if c := (cfg.get("validation") or {}).get("cut_offset"):

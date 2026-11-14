@@ -1,0 +1,7 @@
+# ⚠ 開発ループのサンドボックス（晩 2026-11-13・レジストリ 20261101-ten-fold-long-table・rules.md 31-7）。サンドボックスの中だけで回す（main の DB には入らない）。
+experiments = ["dev_fold10_trade_own_1995_ridge_a"]
+
+leak = true
+ledger = true
+max_failures = 1
+time_budget_s = 3192

@@ -28,6 +28,8 @@ leak = true                     # ⚠ 切らない（配線の穴に気づく唯
 ledger = true                   # 終わったら検証結果一覧を吐き直す
 max_trials_per_night = 12       # 1 晩に数える検証数の上限（K4）
 heavy_per_night = 1             # 30 分を超えると見積もる形（tsfresh・PatchTST・TimeXer など GPU の重いもの）は 1 晩 1 本
+perm_fill = true                # 段 3 の後、新しい実行の並べ替え検定の列を埋めて検証結果一覧を再生成する（`cli.perm_test --missing` と同じ。判定・n_trials は変えない・落ちても止めない。2026-11-13 利用者「Cも推す案で」）
+perm_jobs = 8
 
 [sandbox]                       # ステージ 5 サンドボックス（rules.md 31-7・プラン docs/plans/devloop-sandbox.md・2026-11-13 利用者「A（推す）」「Bも推す案で」）
 enabled = false                 # ⚠ true にすると、ステータス「共有コード変更」の案を 1 晩 per_night 本、サンドボックス（`cli/sandbox.py`）で作って回す。false ／ 無しなら 1 晩の動きは今までと同じ

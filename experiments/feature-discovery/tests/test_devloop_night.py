@@ -648,3 +648,31 @@ def test_calibration_counts_hits_and_warns_when_too_safe():
     cal = devloop.calibration(ideas, outcomes)
     assert cal["acc"] == 0.8
     assert devloop.calibration([("p", {"id": "x", "status": "回した", "runs": ["r0"]}, [])], outcomes)["n"] == 0   # 確率の無い案は数えない
+
+
+def test_perm_columns_are_filled_after_stage3_and_failures_do_not_stop_the_night(world):
+    """段 3 の後、新しい実行の並べ替え検定の列を埋める（2026-11-13 利用者「Cも推す案で」）。口の無い config ／ 回した実行が無い晩は呼ばない。"""
+    root, cfg, conn = world
+    (root / "config" / "experiment" / "dev_a.toml").write_text('name = "dev_a"\n', encoding="utf-8")
+    _idea(root, "20261026-a", "作成中", 3, "小", ["dev_a"])
+    fake = FakeEnv(root, conn)
+    calls = []
+    fake.env["perm"] = lambda jobs, log: calls.append(jobs) or {"todo": 2, "done": 2}
+    parts = devloop.night(cfg, fake.env, date="2026-10-26", stages=(3,), log=lambda s: None)
+    assert calls == [] and "perm" not in parts["run"]                                   # perm_fill の無い config は呼ばない
+    _idea(root, "20261026-b", "作成中", 3, "小", ["dev_b"])
+    (root / "config" / "experiment" / "dev_b.toml").write_text('name = "dev_b"\n', encoding="utf-8")
+    cfg2 = {**cfg, "run": {**(cfg.get("run") or {}), "perm_fill": True, "perm_jobs": 4}}
+    parts = devloop.night(cfg2, fake.env, date="2026-10-27", stages=(3,), log=lambda s: None)
+    assert calls == [4] and parts["run"]["perm"] == {"todo": 2, "done": 2}
+    assert "並べ替え検定の列: 2 ／ 2 本" in (root / "log" / "2026-10-27.md").read_text(encoding="utf-8")
+    # 落ちても（SystemExit でも）晩は止まらない
+    _idea(root, "20261026-c", "作成中", 3, "小", ["dev_c"])
+    (root / "config" / "experiment" / "dev_c.toml").write_text('name = "dev_c"\n', encoding="utf-8")
+
+    def boom(jobs, log):
+        raise SystemExit("[[closed]] が 0 行に一致した")
+    fake.env["perm"] = boom
+    parts = devloop.night(cfg2, fake.env, date="2026-10-28", stages=(3,), log=lambda s: None)
+    assert "SystemExit" in parts["run"]["perm_error"] and parts["run"]["done"] == ["dev_c"] and "run_error" not in parts
+    assert parts["run"]["after"] is not None                                               # 後ろの処理まで進む

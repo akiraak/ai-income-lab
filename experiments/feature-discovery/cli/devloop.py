@@ -8,6 +8,7 @@
     .venv/bin/python -m cli.devloop register --promote <id> …    # 案 → 登録（registered_at ＝ 回すと決めた時刻を打つ。31-1 の 3）
     .venv/bin/python -m cli.devloop register --set <id>=<状態>    # 既出 ／ 共有コード変更 ／ 失敗 など横道へ（31-1 の 2。戻さない）
     .venv/bin/python -m cli.devloop register --run <id>=<実行名>  # 回した実行を結ぶ（作成中 ／ 回した のとき）
+    .venv/bin/python -m cli.devloop sandbox [--id <id>] [--no-push]  # ステージ 5（サンドボックス ＝ rules.md 31-7）だけを手で 1 回。対象 ＝ ステータス「共有コード変更」の先頭
 """
 
 from __future__ import annotations
@@ -583,6 +584,22 @@ def _claude(prompt: str, *, tools: tuple[str, ...], max_turns: int, budget: floa
             "turns": int(d.get("num_turns") or 0), "errors": errors, "rc": rc, "model": model_names(d.get("modelUsage"))}
 
 
+def perm_fill(jobs: int, log) -> dict:
+    """`buy_pct.parquet` のある実行のうち、並べ替え検定がまだのものを計算し（`cli.perm_test --missing` と同じ）、1 本でも入れたら
+    検証結果一覧を再生成する。⚠ 判定・`n_trials`・既存の列は変えない（列「並べ替え分位」「並べ替えp」の材料だけ）。"""
+    from cli import perm_split as _ps
+    from cli import perm_test as _pt
+    from cli import queue as _queue
+    done_before = _pt.cached_runs()
+    todo = [r for r in _ps.runs_with_buy_pct() if r not in done_before]
+    if not todo:
+        return {"todo": 0, "done": 0}
+    done = _pt.compute(todo, jobs=jobs, log=lambda *a: None)
+    if done:
+        _queue._write_ledger()
+    return {"todo": len(todo), "done": int(done)}
+
+
 def default_env(cfg: dict, conn=None) -> dict:
     from ail import runs as _runs
     from cli import queue as _queue
@@ -595,7 +612,7 @@ def default_env(cfg: dict, conn=None) -> dict:
         rc, out, err = _sh([py if os.path.exists(py) else sys.executable, "-m", "pytest", "-q", *targets], cwd=ROOT, timeout=1800)
         return rc, (out + err)[-3000:]
 
-    return {"root": ROOT, "repo": REPO, "sh": _sh, "claude": _claude, "queue": _queue_runner, "tests": _tests,
+    return {"root": ROOT, "repo": REPO, "sh": _sh, "claude": _claude, "queue": _queue_runner, "tests": _tests, "perm": perm_fill,
             "conn": conn if conn is not None else rundb.connect(_runs.db_path()),
             "now": lambda: dt.datetime.now(SEATTLE),
             "mail": None}                    # 報告メールの送り手（None ＝ devloop_mail の既定 ＝ SMTP。テストの FakeEnv はこの項目を持たない ＝ 送らない）
@@ -1090,6 +1107,16 @@ def run_stage(cfg: dict, env: dict, state: dict, date: str, log, deadline: float
             d["notes"] = (d.get("notes", "") + f" ／ 段 3 {date}: 回し切れていない（{', '.join(e for e in d['experiments'] if e not in runs_by_exp)}）").strip(" ／")
         write_idea(p, d)
     state["pending_shapes"] = [e for e in (state.get("pending_shapes") or []) if e not in runs_by_exp]
+    # 新しい実行の並べ替え検定の列を埋める（2026-11-13 利用者「Cも推す案で」）。⚠ 判定・n_trials は変えない（列 2 本の材料だけ）・落ちても止めない
+    if (cfg.get("run") or {}).get("perm_fill") and out["done"] and env.get("perm"):
+        try:
+            out["perm"] = env["perm"](int((cfg.get("run") or {}).get("perm_jobs", 8)), log)
+            log(f"  段 3: 並べ替えの列 {out['perm'].get('done', 0)} ／ {out['perm'].get('todo', 0)} 本を埋めた")
+        except BaseException as e:               # noqa: BLE001  ⚠ SystemExit（検証結果一覧の再生成が止まる形）も拾う
+            if isinstance(e, KeyboardInterrupt):
+                raise
+            out["perm_error"] = f"{type(e).__name__}: {str(e)[:200]}"
+            log(f"  ⚠ 段 3: 並べ替えの列を埋められない: {out['perm_error']}")
     out["after"] = n_trials_of(env["conn"])
     return out
 
@@ -1440,6 +1467,10 @@ def write_journal(cfg: dict, date: str, parts: dict, path: str) -> str:
         L += [f"## 段 3 回す — queue {s3['queue'] or '—'}・数える {s3['planned']}・n_trials {s3.get('before')} → {s3.get('after')}", ""]
         L.append("- 実験: " + (", ".join(f"`{e}`" for e in s3["experiments"]) or "—"))
         L.append("- 済み: " + (", ".join(s3["done"]) or "—") + " ／ 失敗: " + (", ".join(s3["failed"]) or "—"))
+        if s3.get("perm"):
+            L.append(f"- 並べ替え検定の列: {s3['perm'].get('done', 0)} ／ {s3['perm'].get('todo', 0)} 本を埋めて検証結果一覧を再生成（判定と n_trials は変えない）")
+        elif s3.get("perm_error"):
+            L.append(f"- ⚠ 並べ替え検定の列を埋められなかった: {s3['perm_error']}（手で `cli.perm_test --missing --jobs 8` → 再生成）")
         L.append("")
     elif parts.get("run_error"):
         L += ["## 段 3 回す", "", f"⚠ 落ちた: {parts['run_error']}", ""]

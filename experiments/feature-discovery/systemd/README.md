@@ -45,5 +45,5 @@ chmod 600 ~/.config/ai-income-lab/devloop-mail.env
 - 打ち切り（rules.md 31-4）: 段 2 が 3 晩続けて 1 本も通らない ／ 14 晩続けて登録 0 → 段 0 で止まる。解くのは `cli.devloop state --reset`（利用者）
 - 段 0 は作業ツリーが汚れていると止まる（利用者の未コミットと混ぜない）。朝に Claude のセッションで作業するときは、先にコミットするか、その晩は `DEVLOOP_HALT` を置く
 - 試運転（プラン 3-7）: 3 晩 ＝ 段 1 だけ自動（`[build] mode = "manual"`。段 2 は朝に手で `devloop/prompts/build.md` の手順）→ 7 晩 ＝ 全段（`mode = "claude"`）
-- 費用: 段 1 ≤ $6・段 2 ≤ $5（K4。`config/devloop.toml`）。⚠ `--max-budget-usd` に当たると結果は 1 文字も返らない（費用だけ払う）
+- 費用: 段 1 ≤ $10（2026-11-13 に $6 から）・段 2 ≤ $5（K4。`config/devloop.toml`）。金額は定価換算（`total_cost_usd`）＝ 定額のプランのログインでは請求ではなく利用枠。⚠ `--max-budget-usd` に当たると結果は 1 文字も返らない（費用だけ払う）
 - ⚠ titan は WSL2: Windows を再起動したら `systemctl --user list-timers` が返るかを確かめる（`Persistent=false` ＝ 寝ていた晩は回らない）

@@ -515,6 +515,23 @@ def claude_bin() -> str:
     return "claude"
 
 
+def model_names(usage) -> str:
+    """`claude -p` の応答の `modelUsage` から、使ったモデルの名前（定価換算の費用の大きい順・「＋」でつなぐ）。無ければ空。
+
+    ⚠ 運転手は `--model` を渡さない ＝ その機械の会話用の設定（`~/.claude/settings.json`）のモデルで動く。
+    設定やモデルの版が替わると費用（定価換算）が動くので、晩ごとに名前を日誌に残す（2026-11-13 利用者「モデル名を日誌に残して」）。
+    """
+    if not isinstance(usage, dict):
+        return ""
+    def cost(v) -> float:
+        try:
+            return float((v or {}).get("costUSD") or 0.0) if isinstance(v, dict) else 0.0
+        except (TypeError, ValueError):
+            return 0.0
+    names = sorted((str(k) for k in usage if str(k).strip()), key=lambda k: (-cost(usage[k]), k))
+    return " ＋ ".join(names)
+
+
 def _claude(prompt: str, *, tools: tuple[str, ...], max_turns: int, budget: float, cwd: str, timeout: float = 3600) -> dict:
     """`claude -p`（headless）を 1 度呼ぶ。⚠ `--max-budget-usd` に当たると結果は 1 文字も返らない（費用だけ払う ＝ dev-loop.md §1-1）。"""
     cmd = ["env", "-u", "CLAUDECODE", claude_bin(), "-p", prompt, "--output-format", "json",
@@ -530,7 +547,7 @@ def _claude(prompt: str, *, tools: tuple[str, ...], max_turns: int, budget: floa
     if rc and not errors:
         errors.append((err or out).strip()[-300:] or f"rc={rc}")
     return {"result": d.get("result") or "", "cost": float(d.get("total_cost_usd") or 0.0),
-            "turns": int(d.get("num_turns") or 0), "errors": errors, "rc": rc}
+            "turns": int(d.get("num_turns") or 0), "errors": errors, "rc": rc, "model": model_names(d.get("modelUsage"))}
 
 
 def default_env(cfg: dict, conn=None) -> dict:
@@ -776,12 +793,14 @@ def ideate(cfg: dict, env: dict, date: str, log, models: list[str] | None) -> di
             log(f"  ⚠ 段 1（{which}）{tries} 回目: {'; '.join(res['errors']) or '結果が空'}")
         raw = parse_ideas(res["result"]) if res else []
         meta = {"r_pct": ide["reference_pct"], "n_per_night": ide["ideas_per_night"], "prompt": f"ideate_{which}",
-                "contract": int(ide.get("contract", 1)), "model": "claude", "cost_usd": round(res["cost"], 3) if res else 0.0, "turns": res["turns"] if res else 0}
+                "contract": int(ide.get("contract", 1)), "model": (res or {}).get("model") or "claude", "cost_usd": round(res["cost"], 3) if res else 0.0, "turns": res["turns"] if res else 0}
         docs = register_ideas(cfg, raw, source=("reference" if which == "ref" else "independent"), meta=meta, date=date, models=models)
         out["bundles"][which] = {"n": n, "got": len(raw), "cost": round(res["cost"], 3) if res else 0.0, "turns": res["turns"] if res else 0,
-                                 "errors": res["errors"] if res else ["呼ばなかった"], "tries": tries, "raw": res["result"] if res else ""}
+                                 "errors": res["errors"] if res else ["呼ばなかった"], "tries": tries, "raw": res["result"] if res else "",
+                                 "model": (res or {}).get("model") or ""}
         out["ideas"] += docs
-        log(f"  段 1（{which}）: {len(raw)} ／ {n} 本・${out['bundles'][which]['cost']:.2f}・{out['bundles'][which]['turns']} turns")
+        log(f"  段 1（{which}）: {len(raw)} ／ {n} 本・${out['bundles'][which]['cost']:.2f}・{out['bundles'][which]['turns']} turns"
+            + (f"・{out['bundles'][which]['model']}" if out["bundles"][which]["model"] else ""))
     out["counts"] = {s: sum(1 for d in out["ideas"] if d["status"] == s) for s in STATUSES if any(d["status"] == s for d in out["ideas"])}
     # 似た過去の案（⚠ 表示だけ ＝ status は変えない。落ちても段 1 は止めない）
     try:
@@ -871,7 +890,7 @@ def build(cfg: dict, env: dict, state: dict, date: str, log) -> dict:
     ideas = load_ideas(cfg)
     todo = sorted([(p, d) for p, d, bad in ideas if d.get("status") == "登録" and not bad],
                   key=lambda x: (EFFORT_ORDER.get(x[1].get("effort"), 9), x[1]["id"]))
-    out: dict = {"mode": b.get("mode", "manual"), "todo": [d["id"] for _p, d in todo], "built": [], "failed": [], "cost": 0.0}
+    out: dict = {"mode": b.get("mode", "manual"), "todo": [d["id"] for _p, d in todo], "built": [], "failed": [], "cost": 0.0, "models": []}
     if out["mode"] != "claude":
         log(f"  段 2 は人の手（mode = {out['mode']}）。登録 {len(todo)} 本はそのまま")
         return out
@@ -888,6 +907,8 @@ def build(cfg: dict, env: dict, state: dict, date: str, log) -> dict:
         res = env["claude"](prompt, tools=tuple(b.get("tools") or ("Read", "Grep", "Glob", "Write", "Edit")),
                             max_turns=int(b.get("max_turns", 60)), budget=remaining, cwd=env["repo"])
         out["cost"] += res["cost"]
+        if res.get("model") and res["model"] not in out["models"]:
+            out["models"].append(res["model"])
         new = sorted(changed_files(env) - before)
         outside = [f for f in new if not allowed_path(cfg, _rel_root(f))]
         d["build_attempts"] = int(d.get("build_attempts", 0)) + 1
@@ -1200,7 +1221,7 @@ def write_journal(cfg: dict, date: str, parts: dict, path: str) -> str:
     ide = cfg["ideation"]
     L = [f"# 開発ループの日誌 — {date}", "",
          f"⚠ 機械で書く（`cli.devloop night`。rules.md 31 章）。手で書き換えない。生成 {now_seattle()} ／ r {ide['reference_pct']}%・N {ide['ideas_per_night']} ／ "
-         f"段 {parts.get('stages')} ／ 所要 {parts.get('seconds', 0):.0f} 秒 ／ 費用 ${parts.get('cost', 0.0):.2f}", ""]
+         f"段 {parts.get('stages')} ／ 所要 {parts.get('seconds', 0):.0f} 秒 ／ 費用 ${parts.get('cost', 0.0):.2f}（定価換算 ＝ `claude -p` の `total_cost_usd`）", ""]
     if parts.get("stopped"):
         L += [f"## ⚠ 止まった: {parts['stopped']}", ""]
     g = parts.get("gate")
@@ -1211,7 +1232,8 @@ def write_journal(cfg: dict, date: str, parts: dict, path: str) -> str:
         c = s1.get("counts") or {}
         L += [f"## 段 1 アイデア出し — 参考あり {s1['n_ref']} ／ 参考なし {s1['n_free']} → " + "・".join(f"{k} {v}" for k, v in c.items()) + f"（${s1['cost']:.2f}）", ""]
         for which, b in (s1.get("bundles") or {}).items():
-            L.append(f"- {which}: {b['got']} ／ {b['n']} 本・${b['cost']:.2f}・{b['turns']} turns・{b['tries']} 回" + (f"・⚠ {'; '.join(b['errors'])}" if b["errors"] else ""))
+            L.append(f"- {which}: {b['got']} ／ {b['n']} 本・${b['cost']:.2f}・{b['turns']} turns・{b['tries']} 回"
+                     + (f"・モデル {b['model']}" if b.get("model") else "") + (f"・⚠ {'; '.join(b['errors'])}" if b["errors"] else ""))
         if s1.get("outside_short"):
             L.append(f"- ⚠ {s1['outside_short']}（31-6 の 1。止めない）")
         L += ["", "| id | 題 | 枠 | 保留以上の確率 | 状態 | 手間 | 数える | 触る場所 |", "| --- | --- | --- | ---: | --- | --- | ---: | --- |"]
@@ -1236,7 +1258,8 @@ def write_journal(cfg: dict, date: str, parts: dict, path: str) -> str:
         if s2["mode"] != "claude":
             L.append("- 人の手（朝に Claude のセッションで `devloop/prompts/build.md` の手順で）: " + (", ".join(f"`{i}`" for i in s2["todo"]) or "—"))
         else:
-            L.append(f"- 作成中 {len(s2['built'])}（{', '.join(s2['built']) or '—'}）／ 失敗 {len(s2['failed'])}・${s2['cost']:.2f}")
+            L.append(f"- 作成中 {len(s2['built'])}（{', '.join(s2['built']) or '—'}）／ 失敗 {len(s2['failed'])}・${s2['cost']:.2f}"
+                     + (f"・モデル {' ／ '.join(s2['models'])}" if s2.get("models") else ""))
             for f in s2["failed"]:
                 L.append(f"  - `{f['id']}`: {f['reason']}（{f['status']}）")
         L.append("")

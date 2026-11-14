@@ -359,6 +359,42 @@ def test_ideate_registers_and_classifies(world):
     assert d["origin"]["source"] == "reference" and d["origin"]["prompt"] == "ideate_ref" and d["key_shape"] == ["own.h9-gate.ridge.shared"]
 
 
+def test_model_names_orders_by_cost_and_tolerates_junk():
+    """`claude -p` の `modelUsage` → 使ったモデルの名前（費用の大きい順）。無い ／ 壊れた応答は空 ＝ 日誌に何も足さない。"""
+    assert devloop.model_names({"claude-haiku-5-5": {"costUSD": 0.01}, "claude-fable-5-2": {"costUSD": 3.7}}) == "claude-fable-5-2 ＋ claude-haiku-5-5"
+    assert devloop.model_names({"b": {}, "a": None}) == "a ＋ b"                        # 費用が読めなければ名前の順
+    assert devloop.model_names(None) == "" and devloop.model_names([]) == "" and devloop.model_names({}) == ""
+
+
+def test_ideate_records_the_model_in_bundle_registry_and_journal(world, tmp_path):
+    """⚠ 運転手は `--model` を渡さない ＝ 機械の会話用の設定で動く。晩ごとにモデル名を 束 ・ 登録簿の origin ・ 日誌 に残す
+    （2026-11-13: 11/12 の晩から費用が約 2.2 倍になったが、どのモデルで動いたかが残っていなかった）。"""
+    root, cfg, conn = world
+    fake = FakeEnv(root, conn)
+    inner = fake.env["claude"]
+    fake.env["claude"] = lambda *a, **k: {**inner(*a, **k), "model": "claude-fable-5-2"}
+    logs = []
+    out = devloop.ideate(cfg, fake.env, "2026-10-26", logs.append, [])
+    assert out["bundles"]["ref"]["model"] == out["bundles"]["free"]["model"] == "claude-fable-5-2"
+    assert any("claude-fable-5-2" in line for line in logs)
+    d = tomllib.loads((root / "ideas" / "20261026-new-detector.toml").read_text(encoding="utf-8"))
+    assert d["origin"]["model"] == "claude-fable-5-2"
+    text = devloop.write_journal(cfg, "2026-10-26", {"stages": "1", "seconds": 1, "cost": out["cost"], "ideate": out}, str(tmp_path / "j.md"))
+    assert text.count("・モデル claude-fable-5-2") == 2 and "定価換算" in text.splitlines()[2]
+
+
+def test_ideate_without_a_model_name_keeps_the_old_shape(world, tmp_path):
+    """モデル名の無い応答（偽物 ・ 古い CLI ・ 上限に当たった回）でも落ちない: origin は今までどおり "claude" ・ 日誌の行に何も足さない。"""
+    root, cfg, conn = world
+    fake = FakeEnv(root, conn)
+    out = devloop.ideate(cfg, fake.env, "2026-10-26", lambda s: None, [])
+    assert out["bundles"]["ref"]["model"] == ""
+    d = tomllib.loads((root / "ideas" / "20261026-new-detector.toml").read_text(encoding="utf-8"))
+    assert d["origin"]["model"] == "claude"
+    text = devloop.write_journal(cfg, "2026-10-26", {"stages": "1", "seconds": 1, "cost": out["cost"], "ideate": out}, str(tmp_path / "j.md"))
+    assert "・モデル" not in text
+
+
 def test_ideate_retries_once_on_error(world):
     root, cfg, conn = world
     fake = FakeEnv(root, conn, claude_result="", claude_errors=["Reached maximum budget ($4.2)"])

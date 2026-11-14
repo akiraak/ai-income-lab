@@ -8,6 +8,7 @@
     python3 -m cli.sandbox exec <id> -- -m cli.queue --config <名前>   # サンドボックスの中で python を起動する
     python3 -m cli.sandbox check <id>                        # main との diff を調べる（禁止パス・既存テストの改変）
     python3 -m cli.sandbox report <id>                       # サンドボックスの DB から結果の要約（JSON）
+    python3 -m cli.sandbox record <id> [--note … | --note-file …] [--push]   # 結果を記録する（ブランチにコミット・結果の表・レジストリを「回した」に ＝ rules.md 31-7 の 5）
     python3 -m cli.sandbox list ／ remove <id> [--delete-branch]
 
 なぜ分かれるか（どれも「コードの場所からの相対パス」で決まる ＝ 環境変数は要らない）:
@@ -453,6 +454,88 @@ def report(id_: str, base: str | None = None) -> dict:
 # ---------------------------------------------------------------- CLI
 
 
+# ---------------------------------------------------------------- 記録（rules.md 31-7 の 5 ＝ 結果は人の確認なしで自動で記録する）
+
+RESULT_DIR = "docs/specs/experiments/dev-loop/sandbox"      # 案ごとの結果の表（リポジトリの中・main にコミットする）
+
+
+def result_md(doc: dict, rep: dict, m: dict, commit_sha: str, recorded: str, note: str = "") -> str:
+    """案ごとの結果の表（Markdown）。数字は `report` のまま（手で書かない）。"""
+    invalid = bool(rep.get("changed") or rep.get("gone"))
+    counts = "・".join(f"{k} {v}" for k, v in sorted((rep.get("verdicts") or {}).items())) or "—"
+    L = [f"# サンドボックスの結果: `{doc.get('id')}` {doc.get('title')}", "",
+         "⚠ **このファイルは生成物である**（`cli.sandbox record`。rules.md 31-7）。コードは `main` に入っていない ＝ ブランチ "
+         f"`{m.get('branch')}`（コミット `{commit_sha or '—'}`・元 `{str(m.get('base_commit') or '')[:7]}`）。"
+         "`ledger.md` と選ぶステージには入らない。採用には 取り込み（人のレビュー）→ `main` で回し直す が要る。", "",
+         "| 項目 | 値 |", "| --- | --- |",
+         f"| 着手（回すと決めた時刻） | {m.get('created') or '—'} |", f"| 記録 | {recorded} |",
+         f"| サンドボックスの検証数 | {rep.get('n_trials', 0)}（予定 {doc.get('n_trials_planned')}） |",
+         f"| 判定の内訳 | {counts} |",
+         f"| leak 対照の新しい行 | {rep.get('new_leak_rows', 0)} |",
+         f"| 既存の行への影響 | 変わった {len(rep.get('changed') or [])} ／ 消えた {len(rep.get('gone') or [])}"
+         + ("　⚠ **無効**（共有コードが既存の結果を変えた ＝ 判定を出さない。31-7 の 8）" if invalid else "（0 ＝ 既存の結果は変わっていない）") + " |", "",
+         f"- 問い: {doc.get('question')}", f"- 構造（先に書いた）: {doc.get('structure')}", f"- 予想（先に書いた）: {doc.get('prediction')}", ""]
+    if rep.get("rows"):
+        L += ["| 検証名 | 検証方式 | 手法 | θ | 上乗せ bp/fold | fold の符号 | 判定 |", "| --- | --- | --- | ---: | ---: | --- | --- |"]
+        for r in rep["rows"]:
+            ex = r.get("excess_bp")
+            L.append(f"| `{r.get('trial')}` | {r.get('style')} | {r.get('method')} | {r.get('theta')} | "
+                     f"{ex:+.1f} | {r.get('folds')} | {'無効' if invalid else r.get('verdict')} |" if isinstance(ex, (int, float)) else
+                     f"| `{r.get('trial')}` | {r.get('style')} | {r.get('method')} | {r.get('theta')} | — | {r.get('folds')} | {'無効' if invalid else r.get('verdict')} |")
+        L.append("")
+    if invalid:
+        L += ["変わった ／ 消えた既存の行（先頭 10）:", ""] + [f"- `{x.get('key') if isinstance(x, dict) else x}`" for x in (list(rep.get("changed") or []) + list(rep.get("gone") or []))[:10]] + [""]
+    if note.strip():
+        L += ["## メモ", "", note.strip(), ""]
+    return "\n".join(L)
+
+
+def record(id_: str, *, repo: str = REPO, base: str | None = None, ideas_dir: str | None = None, note: str = "", push: bool = False, log=print) -> dict:
+    """サンドボックスの結果を記録する: ① コードをブランチ `sandbox/<id>` にコミット（`push` なら origin へ）② 結果の表を
+    `docs/specs/experiments/dev-loop/sandbox/<id>.md` に書く ③ レジストリを「回した」・`ran_in = "sandbox"`・`[sandbox]` に。
+
+    ⚠ `main` のコード・`main` の DB・`ledger.md` には触らない（書くのは ② の表と ③ のレジストリの 1 ファイルだけ。コミットは呼んだ側）。
+    ⚠ 既存の行が変わった ／ 消えた案は「無効」（判定を出さない・回したぶんは数える ＝ rules.md 31-7 の 4・8）。
+    """
+    from cli import devloop
+    rep, m = report(id_, base), meta(id_, base)
+    if rep.get("error"):
+        raise SandboxError(rep["error"])
+    ideas_dir = ideas_dir or os.path.join(repo, FD, "config", "ideas")
+    path = os.path.join(ideas_dir, f"{id_}.toml")
+    if not os.path.exists(path):
+        raise SandboxError(f"レジストリに {id_} が無い: {path}")
+    with open(path, "rb") as f:
+        doc = tomllib.load(f)
+    doc["status"] = devloop.OLD_STATUS.get(doc.get("status"), doc.get("status"))
+    if doc["status"] not in (devloop.SHARED, "回した") or (doc["status"] == "回した" and doc.get("ran_in") != "sandbox"):
+        raise SandboxError(f"{id_}: 記録できるのはステータス「{devloop.SHARED}」の案だけ（いま {doc['status']}）")
+    sha = commit(id_, f"sandbox: {id_}（開発ループのサンドボックス。main には入れない）", base)
+    sha = sha or _git(tree(id_, base), "rev-parse", "--short", "HEAD").strip()
+    if push:
+        _git(tree(id_, base), "push", "-q", "-u", "origin", m.get("branch") or BRANCH_PREFIX + id_)
+    recorded = _now()
+    invalid = bool(rep.get("changed") or rep.get("gone"))
+    verdicts = {} if invalid else dict(rep.get("verdicts") or {})
+    held = bool(verdicts.get("採る") or verdicts.get("保留"))
+    out_dir = os.path.join(repo, RESULT_DIR)
+    os.makedirs(out_dir, exist_ok=True)
+    md = os.path.join(out_dir, f"{id_}.md")
+    with open(md, "w", encoding="utf-8") as f:
+        f.write(result_md(doc, rep, m, sha, recorded, note))
+    doc["status"], doc["ran_in"] = "回した", "sandbox"
+    doc.setdefault("registered_at", m.get("created") or recorded)      # 回すと決めた時刻 ＝ サンドボックスに着手した時刻（31-7 の 3）
+    doc["sandbox"] = {"branch": m.get("branch") or BRANCH_PREFIX + id_, "commit": sha, "pushed": bool(push), "started_at": m.get("created") or "",
+                      "recorded_at": recorded, "n_trials": int(rep.get("n_trials", 0)),
+                      "verdicts": "・".join(f"{k} {v}" for k, v in sorted(verdicts.items())) or ("無効" if invalid else "—"),
+                      "held": held, "invalid": invalid, "leak_rows": int(rep.get("new_leak_rows", 0)),
+                      "result": f"{RESULT_DIR}/{id_}.md"}
+    devloop.write_idea(path, doc)
+    log(f"記録した: {id_} ＝ サンドボックスの検証数 {doc['sandbox']['n_trials']}・{doc['sandbox']['verdicts']}"
+        + ("・⚠ 保留以上あり ＝ 人が見る" if held else "") + f"・ブランチ {doc['sandbox']['branch']} @ {sha}" + ("（push 済み）" if push else "") + f"・{md}")
+    return {"id": id_, "md": md, "idea": path, **doc["sandbox"]}
+
+
 def _parser() -> argparse.ArgumentParser:
     ap = argparse.ArgumentParser(description="開発ループのサンドボックス（docs/plans/devloop-sandbox.md）")
     ap.add_argument("--base", help="サンドボックスの親ディレクトリ（既定 ~/.cache/ai-income-lab-sandbox ／ AIL_SANDBOX_DIR）")
@@ -463,6 +546,7 @@ def _parser() -> argparse.ArgumentParser:
     k = sub.add_parser("check"); k.add_argument("id")
     r = sub.add_parser("report"); r.add_argument("id")
     d = sub.add_parser("remove"); d.add_argument("id"); d.add_argument("--delete-branch", action="store_true")
+    w = sub.add_parser("record"); w.add_argument("id"); w.add_argument("--note", default=""); w.add_argument("--note-file"); w.add_argument("--push", action="store_true")
     sub.add_parser("list")
     return ap
 
@@ -486,6 +570,12 @@ def main(argv: list[str] | None = None) -> int:
             return 0 if res["ok"] else 1
         elif a.cmd == "report":
             print(json.dumps(report(a.id, a.base), ensure_ascii=False, indent=1))
+        elif a.cmd == "record":
+            note = a.note
+            if a.note_file:
+                with open(a.note_file, encoding="utf-8") as f:
+                    note = f.read()
+            record(a.id, base=a.base, note=note, push=a.push)
         elif a.cmd == "remove":
             remove(a.id, base=a.base, delete_branch=a.delete_branch)
         elif a.cmd == "list":

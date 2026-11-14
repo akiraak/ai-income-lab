@@ -132,3 +132,12 @@ def test_experiments_sidebar_lists_devloop_after_compare(tmp_path, paths):
     items = vibetab.exp_sidebar(tmp_path)["items"]
     ids = [i["id"] for i in items]
     assert ids[:3] == ["overview", "compare", "devloop"] and items[2]["label"] == "開発ループ"
+
+
+def test_sandbox_idea_shows_registry_result_not_db_rows():
+    """サンドボックスで回した案（rules.md 31-7）は、研究の DB に行が無い ＝ レジストリの [sandbox] を写す。"""
+    import devloopview
+    cell = devloopview._result_cells({"ran_in": "sandbox", "sandbox": {"n_trials": 6, "verdicts": "落とす 6", "branch": "sandbox/x", "commit": "abc1234"}}, {})
+    assert "サンドボックス" in cell and "検証 6・落とす 6" in cell and "sandbox/x @ abc1234" in cell and "保留以上あり" not in cell
+    held = devloopview._result_cells({"ran_in": "sandbox", "sandbox": {"n_trials": 3, "verdicts": "保留 1・落とす 2", "held": True}}, {})
+    assert "保留以上あり" in held

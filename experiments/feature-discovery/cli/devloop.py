@@ -207,7 +207,7 @@ def _toml_value(v) -> str:
 
 def dump_idea(doc: dict) -> str:
     """登録簿の 1 ファイル（機械で書く。並びは 31-1 の項目順）。"""
-    order = list(REQUIRED) + ["frame", "p_hold", "p_positive", "learn_if_null", "needed_effect", "registered_at", "reference_mode", "notes", "runs"]
+    order = list(REQUIRED) + ["frame", "p_hold", "p_positive", "learn_if_null", "needed_effect", "registered_at", "reference_mode", "notes", "runs", "ran_in", "sandbox"]
     keys = [k for k in order if k in doc] + [k for k in doc if k not in order]
     lines = ["# ⚠ 開発ループの登録簿（rules.md 31-1）。cli.devloop が書く。status が 登録 より先なら structure ／ prediction ／ n_trials_planned ／ key_shape を直さない（直すなら新しい id）"]
     for k in keys:
@@ -246,11 +246,26 @@ def run_verdicts(db: str | None) -> dict[str, set[str]] | None:
         return None
 
 
+def sandbox_trials(docs: list[dict]) -> tuple[int, int]:
+    """(サンドボックスの検証数, 案の本数)。rules.md 31-7 の 4 ＝ サンドボックスで回したものも全部数え、`n_trials` の横に併記する。
+    ⚠ main に取り込んで回し直した案（`sandbox.merged = true`）は main の行が正本 ＝ 合計から外す。"""
+    rows = [d.get("sandbox") or {} for d in docs if d.get("ran_in") == "sandbox"]
+    rows = [sb for sb in rows if not sb.get("merged")]
+    return sum(int(sb.get("n_trials") or 0) for sb in rows), len(rows)
+
+
 def calibration(ideas: list[tuple[str, dict, list[str]]], outcomes: dict[str, set[str]] | None) -> dict:
     """回した案のうち p_hold のあるもの: 当たり（p ≥ 0.5 と「保留以上が出た」が一致）の割合と Brier（31-6 の 3）。"""
     rows = []
     for _p, d, _b in ideas:
-        if d.get("status") != "回した" or not isinstance(d.get("p_hold"), (int, float)) or not outcomes:
+        if d.get("status") != "回した" or not isinstance(d.get("p_hold"), (int, float)) or (not outcomes and d.get("ran_in") != "sandbox"):
+            continue
+        if d.get("ran_in") == "sandbox":
+            # ⚠ サンドボックスで回した案（rules.md 31-7）: 結果は main の DB に無い ＝ レジストリの [sandbox] から読む。無効の案は当たり方に入れない
+            sb = d.get("sandbox") or {}
+            if sb.get("invalid") or not sb.get("n_trials"):
+                continue
+            rows.append((d["id"], float(d["p_hold"]), bool(sb.get("held"))))
             continue
         vs = set().union(*(outcomes.get(r, set()) for r in d.get("runs") or [])) if d.get("runs") else set()
         if not vs:
@@ -319,7 +334,8 @@ def build_register(cfg: dict, ideas: list[tuple[str, dict, list[str]]], models: 
     sim = similar_map(docs, top)
     lines = ["# 開発ループの登録簿（生成物）", "",
              "⚠ **このファイルは生成物である。手で書き換えない。** 正本は `experiments/feature-discovery/config/ideas/*.toml`（rules.md 31-1）。",
-             f"生成 {now_seattle()} ／ 検証結果一覧の n_trials {n_trials if n_trials is not None else '—'} ／ "
+             f"生成 {now_seattle()} ／ 検証結果一覧の n_trials {n_trials if n_trials is not None else '—'}"
+             + (f"（＋ サンドボックスの検証数 {sandbox_trials(docs)[0]} ＝ {sandbox_trials(docs)[1]} 本。rules.md 31-7）" if sandbox_trials(docs)[1] else "") + " ／ "
              f"登録簿 {len(ideas)} 本（" + "・".join(f"{k} {v}" for k, v in sorted(counts.items())) + "）／ "
              f"r {cfg['ideation']['reference_pct']}%・N {cfg['ideation']['ideas_per_night']}", "",
              "⚠ 良し悪し・意味の有無の印は無い（利用者の指示 2026-10-24）。印は 手間・測れるか・触る場所 の 3 つ。「既出の疑い」は `key_shape` が検証結果一覧の予測モデル名に当たった数（印は人 ／ ループが付ける）。", "",
@@ -335,7 +351,7 @@ def build_register(cfg: dict, ideas: list[tuple[str, dict, list[str]]], models: 
         dup = "DB なし" if n < 0 else ("0" if n == 0 else f"{n} 行（例 " + " ／ ".join(f"`{x}`" for x in ex) + "）")
         ks = d.get("key_shape", "")
         ks = " ／ ".join(ks) if isinstance(ks, list) else str(ks)
-        status = d.get("status", "?") + (" ⚠ " + "・".join(bad) if bad else "")
+        status = d.get("status", "?") + ("（サンドボックス）" if d.get("ran_in") == "sandbox" else "") + (" ⚠ " + "・".join(bad) if bad else "")
         ph = f"{float(d['p_hold']):.2f}" if isinstance(d.get("p_hold"), (int, float)) else "—"
         lines.append(f"| `{d.get('id')}` | {_esc(d.get('title'))} | {_esc(d.get('kind'))} | {_esc(d.get('frame') or '—')} | {ph} | {src} | {_esc(status)} | {_esc(d.get('registered_at') or '—')} | "
                      f"{d.get('n_trials_planned')} | `{_esc(ks)}` | {dup} | {_esc(d.get('effort'))} | {_esc(d.get('measurable'))} | {_esc(d.get('touches'))} |")
@@ -359,6 +375,11 @@ def build_register(cfg: dict, ideas: list[tuple[str, dict, list[str]]], models: 
             lines.append(f"- 決着なしのとき分かること: {d['learn_if_null']}")
         if d.get("needed_effect"):
             lines.append(f"- 保留以上に要る効果の大きさ（先に書いた）: {d['needed_effect']}")
+        if d.get("ran_in") == "sandbox":
+            sb = d.get("sandbox") or {}
+            lines.append(f"- サンドボックスの結果（rules.md 31-7。`main` には入っていない）: 検証 {sb.get('n_trials', 0)}・{sb.get('verdicts', '—')}"
+                         + ("・⚠ 保留以上あり ＝ 人が見る" if sb.get("held") else "") + ("・⚠ 無効" if sb.get("invalid") else "")
+                         + f"・ブランチ `{sb.get('branch')}` @ `{sb.get('commit')}`・[結果の表](sandbox/{d.get('id')}.md)")
         if sim.get(str(d.get("id"))):
             lines.append("- 似た過去の案（近さ・表示だけ）: " + " ／ ".join(
                 f"{r['score']:.2f} `{r['id']}` {r['title']}（{r['status']}）" for r in sim[str(d.get("id"))]))

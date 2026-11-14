@@ -124,3 +124,25 @@ def test_old_status_name_is_read_as_the_new_one(tmp_path):
     (_p, doc, bad), = devloop.load_ideas(cfg)
     assert doc["status"] == devloop.SHARED == "共有コード変更" and not bad
     assert "人の手" not in devloop.STATUSES and devloop.SHARED in devloop.FORWARD["登録"]
+
+
+def test_sandbox_ideas_are_counted_beside_n_trials_and_scored_from_the_registry(loop):
+    """rules.md 31-7: サンドボックスで回した案は main の DB に行が無い ＝ 数と当たり方はレジストリの [sandbox] から。"""
+    ideas, _out = loop
+    cfg = devloop.load_config()
+    sb = {"branch": "sandbox/20261025-s", "commit": "abc1234", "n_trials": 6, "verdicts": "落とす 6", "held": False, "invalid": False}
+    done = {**IDEA, "id": "20261025-s", "touches": "共有の経路: cli/run.py", "status": "回した", "ran_in": "sandbox", "registered_at": "2026-11-13 21:56 PST",
+            "p_hold": 0.2, "sandbox": sb}
+    bad = {**done, "id": "20261025-t", "sandbox": {**sb, "n_trials": 3, "verdicts": "無効", "invalid": True}}
+    merged = {**done, "id": "20261025-u", "sandbox": {**sb, "n_trials": 4, "merged": True}}
+    docs = [done, bad, merged, {**IDEA, "id": "20261025-v"}]
+    assert devloop.sandbox_trials(docs) == (9, 2)                       # 無効も数える・取り込んだ案は main の行が正本 ＝ 外す
+    for d in docs:
+        _write(ideas, d)
+    loaded = devloop.load_ideas(cfg)
+    assert all(not b for _p, _d, b in loaded)
+    cal = devloop.calibration(loaded, None)                              # main の DB が無くても当たり方に入る・無効は入れない
+    assert [(i, h) for i, _p, h in cal["rows"]] == [("20261025-s", False), ("20261025-u", False)]
+    text = devloop.build_register(cfg, loaded, [], 1198, None)
+    assert "n_trials 1198（＋ サンドボックスの検証数 9 ＝ 2 本。rules.md 31-7）" in text and "回した（サンドボックス）" in text
+    assert "ブランチ `sandbox/20261025-s` @ `abc1234`・[結果の表](sandbox/20261025-s.md)" in text and "・⚠ 無効" in text

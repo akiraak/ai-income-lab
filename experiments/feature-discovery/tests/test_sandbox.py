@@ -235,3 +235,66 @@ def test_remove_keeps_the_branch_unless_asked(world):
     assert "sandbox/20261113-x" in _git(repo, "branch", "--list", "sandbox/*") and "sandbox" not in _git(repo, "worktree", "list")
     sandbox.remove(id_, repo=str(repo), base=base, delete_branch=True, log=lambda s: None)
     assert _git(repo, "branch", "--list", "sandbox/*").strip() == ""
+
+
+# ---------------------------------------------------------------- 記録（rules.md 31-7 の 5）
+
+IDEA_DOC = {"id": "20261113-x", "date": "2026-11-13", "title": "試しの案", "kind": "モデル", "origin": {"source": "independent"}, "question": "問い",
+            "structure": "構造", "n_trials_planned": 2, "key_shape": ["own.new.ridge.shared~dz"], "failure_modes": ["f"], "prediction": "差は出ない",
+            "effort": "小", "measurable": "測れる: r", "touches": "共有の経路: cli/run.py", "status": "共有コード変更", "p_hold": 0.2}
+
+
+def _recordable(world, rows, status="共有コード変更"):
+    """サンドボックスでコードを書き、回した後の一覧（rows）を置き、レジストリに案を置く。"""
+    from cli import devloop
+    repo, base, id_ = _create(world)
+    fd = __import__("pathlib").Path(sandbox.fd_dir(id_, base))
+    _write(fd / "cli" / "run.py", "VALUE = 'sandbox'\n")
+    _ledger_db(fd / "runs" / "research.sqlite", list(BASE_ROWS) + rows)
+    ideas = repo / FD / "config" / "ideas"
+    ideas.mkdir(parents=True, exist_ok=True)
+    devloop.write_idea(str(ideas / f"{id_}.toml"), {**IDEA_DOC, "status": status})
+    return repo, base, id_, ideas
+
+
+def test_record_writes_result_table_and_registry_without_touching_main_code(world):
+    import tomllib
+    repo, base, id_, ideas = _recordable(world, [(0, "own.new.ridge.shared~dz@50", 1, "落とす", -5.0), (0, "own.new.ridge.shared~dz@55", 1, "落とす", -12.5),
+                                                  (1, "own.new.ridge.shared~dz@50", 1, "落とす", 800.0)])
+    main_db = _tree_hash(repo / FD / "runs")
+    got = sandbox.record(id_, repo=str(repo), base=base, note="外した割合 24%", log=lambda s: None)
+    assert got["n_trials"] == 2 and got["verdicts"] == "落とす 2" and got["held"] is False and got["invalid"] is False and got["pushed"] is False
+    d = tomllib.loads((ideas / f"{id_}.toml").read_text(encoding="utf-8"))
+    assert d["status"] == "回した" and d["ran_in"] == "sandbox" and d["sandbox"]["branch"] == f"sandbox/{id_}" and d["registered_at"]
+    assert d["structure"] == "構造" and d["n_trials_planned"] == 2                              # 先に書いたものは直さない
+    md = (repo / "docs" / "specs" / "experiments" / "dev-loop" / "sandbox" / f"{id_}.md").read_text(encoding="utf-8")
+    assert "`own.new.ridge.shared~dz@55`" in md and "-12.5" in md and "落とす 2" in md and "外した割合 24%" in md and "予定 2" in md
+    # コードはブランチにだけ入る・main のコードと DB は変わらない
+    assert _git(repo, "show", f"sandbox/{id_}:{FD}/cli/run.py") == "VALUE = 'sandbox'\n"
+    assert (repo / FD / "cli" / "run.py").read_text() == "VALUE = 'main'\n" and _tree_hash(repo / FD / "runs") == main_db
+    changed = {line[3:] for line in _git(repo, "status", "--porcelain", "--untracked-files=all").splitlines()}
+    assert changed == {f"{FD}/config/ideas/{id_}.toml", f"docs/specs/experiments/dev-loop/sandbox/{id_}.md"}
+    # 2 度目（同じ案の記録の取り直し）は通る・ほかのステータスの案は拒む
+    sandbox.record(id_, repo=str(repo), base=base, log=lambda s: None)
+
+
+def test_record_flags_hold_and_marks_changed_rows_invalid(world):
+    import tomllib
+    repo, base, id_, ideas = _recordable(world, [(0, "own.new.ridge.shared~dz@50", 1, "保留", 30.0)])
+    got = sandbox.record(id_, repo=str(repo), base=base, log=lambda s: None)
+    assert got["held"] is True and got["verdicts"] == "保留 1"
+    # 既存の行が変わった ＝ 無効（判定を出さない・回したぶんは数える）
+    fd = __import__("pathlib").Path(sandbox.fd_dir(id_, base))
+    _ledger_db(fd / "runs" / "research.sqlite", [(0, "own.a.ridge.shared@50", 1, "採る", 999.0), (0, "own.b.ridge.shared@50", 1, "落とす", -1.0),
+                                                  (0, "own.new.ridge.shared~dz@50", 1, "採る", 500.0)])
+    got = sandbox.record(id_, repo=str(repo), base=base, log=lambda s: None)
+    assert got["invalid"] is True and got["held"] is False and got["verdicts"] == "無効" and got["n_trials"] == 1
+    md = (repo / "docs" / "specs" / "experiments" / "dev-loop" / "sandbox" / f"{id_}.md").read_text(encoding="utf-8")
+    assert "**無効**" in md and "| 無効 |" in md and "`0|own.a.ridge.shared@50`" in md
+    assert tomllib.loads((ideas / f"{id_}.toml").read_text(encoding="utf-8"))["sandbox"]["invalid"] is True
+
+
+def test_record_refuses_ideas_that_are_not_shared_code_changes(world):
+    repo, base, id_, _ideas = _recordable(world, [], status="登録")
+    with pytest.raises(sandbox.SandboxError):
+        sandbox.record(id_, repo=str(repo), base=base, log=lambda s: None)

@@ -80,6 +80,12 @@ def _chip(status: str) -> str:
 
 
 def _result_cells(idea: dict, by_run: dict[str, list[compareview.Row]]) -> str:
+    if idea.get("ran_in") == "sandbox":
+        # サンドボックスで回した案（rules.md 31-7）: 行は研究の DB に無い ＝ レジストリの [sandbox] を写す（コードは main に入っていない）
+        sb = idea.get("sandbox") or {}
+        return (f"<span class='sub'>サンドボックス</span> 検証 {esc(sb.get('n_trials', 0))}・{esc(sb.get('verdicts', '—'))}"
+                + ("　<span class='chip hold'>保留以上あり</span>" if sb.get("held") else "") + ("　<span class='chip drop'>無効</span>" if sb.get("invalid") else "")
+                + f"<br><span class='sub'>ブランチ {esc(sb.get('branch', '—'))} @ {esc(sb.get('commit', '—'))}</span>")
     runs = [str(r) for r in (idea.get("runs") or [])]
     if not runs:
         return "—"

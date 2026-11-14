@@ -13,5 +13,8 @@ prediction = "買い% の幅は口の無い形より広がる向き。上乗せ�
 effort = "小"
 measurable = "測れる: 対の相手が同じ表・同じ切れ目なので fold 対の差で数百 bp/fold の差なら見える（それ未満は測れない）"
 touches = "共有の経路: ail/validation（訓練のラベルを作る prep）・ail/catalog.py（検証方式の変種の識別）"
-status = "共有コード変更"
+status = "回した"
+registered_at = "2026-11-13 21:56 PST"
 notes = "段 1 の出力の key_shape の原文: own.own~deadzone-<a|b>.ridge.shared@θ（θ ＝ 50 ／ 55 ／ 60）"
+ran_in = "sandbox"
+sandbox = { branch = "sandbox/20261101-deadzone-label", commit = "36600bf", pushed = true, started_at = "2026-11-13 21:56 PST", recorded_at = "2026-11-13 22:05 PST", n_trials = 6, verdicts = "落とす 6", held = false, invalid = false, leak_rows = 12, result = "docs/specs/experiments/dev-loop/sandbox/20261101-deadzone-label.md" }

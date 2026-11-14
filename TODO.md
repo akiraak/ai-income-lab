@@ -86,8 +86,10 @@
       ✅ 2026-11-13 20:05 PST titan: `cli/sandbox.py`（create ／ tables ／ exec ／ check ／ report ／ remove）・テスト 9 本。実物で `trade_own_fwdmulti_a` をサンドボックスで回し、結果のファイルが本線とハッシュで一致・本線の DB と `ledger.md` は不変【実測】。作成 2.6 秒・2.5GB。⚠ 空のサンドボックスでは検証結果一覧を再生成できない ＝ 本線の DB と、期間を読む古いテーブル 26 ファイルをコピーして種にする（プラン §6）
     - [x] Phase 2: 規約を先に書く（rules.md 31-7・14 章に 1 行 ＝ 数え方と判定の扱い。最初の案を回す前に）
       ✅ 2026-11-13 21:55 PST titan: rules.md 31-7（12 項目 ＝ 対象・場所・事前固定・数え方・自動の記録・しないこと・知らせる条件・守り〔既存の行が変わった案は「無効」〕・書いてよい範囲・上限・保存・緩めないもの）と 14-10 の 7。サンドボックスで回した検証はこの時点で 0 本
-    - [ ] Phase 3: 手で 1 本（`20261101-deadzone-label`）をサンドボックスで作って回す → 記録
-    - [ ] Phase 4: ランナーに組み込む（`sandbox_stage`・プロンプト・ログ・メール・実行タブ・保存期間の掃除・結果の自動の記録 ＝ S11）
+    - [x] Phase 3: 手で 1 本（`20261101-deadzone-label`）をサンドボックスで作って回す → 記録
+      ✅ 2026-11-13 22:05 PST titan: **採る 0 ／ 保留 0 ／ 落とす 6**（サンドボックスの検証数 0 → 6・`main` の `n_trials` 1,198 は不変）。対の相手との差は \|Δ\| ≤ 55 bp/fold・外した訓練の行 24% ／ 45%・買い% の幅は変わらず・leak は跳ねた・既存の行は変わった 0 ／ 消えた 0。コードはブランチ `sandbox/20261101-deadzone-label`（`36600bf`・push 済み）。記録 [dev-loop.md §14-1](docs/specs/experiments/dev-loop.md)
+      ✅ 同時に S11 の中身を作った: `cli.sandbox record`（結果の表 `dev-loop/sandbox/<id>.md` ＋ レジストリ「回した」・`ran_in = "sandbox"`）・`register.md` と実行タブに「サンドボックスの検証数」と結果
+    - [ ] Phase 4: ランナーに組み込む（`sandbox_stage` ＝ 対象を選ぶ〔済んだ 5 本に `skip`〕→ `create` → `claude -p`〔プロンプト `build_sandbox.md`〕→ `check` → テスト → queue → `record --push`・ログ・メールのフラグ〔「採る」「保留」〕・保存期間の掃除・`[sandbox] enabled`）
     - [ ] Phase 5: 試運転 3 晩（`[sandbox] enabled = true`・1 晩 1 本）
     - [ ] Phase 6: OS レベルの隔離（bubblewrap。インストールは利用者）
     - [ ] Phase 7: 片付け（CLAUDE.md・README・DONE・プランを archive へ）

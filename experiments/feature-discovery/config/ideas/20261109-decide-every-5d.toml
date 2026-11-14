@@ -13,10 +13,13 @@ prediction = "1 日ラベルの行は、毎日判断する素の行との対の�
 effort = "小"
 measurable = "測れる: 対の差は同じ表・同じ切れ目・同じ買い% で取る。違うのは判断の間隔だけなので、売買の回数と費用の差（数百 bp/fold 級）が出れば fold 対で見える。上乗せの絶対値は検出限界に届かない見込みだが、それも記録する。"
 touches = "共有の経路: cli/run.py の閾値売買の器（simulate ／ simulate_topk）、ail/catalog.py の threshold_style、ail/names.py ／ config/names.toml（人の手）"
-status = "共有コード変更"
+status = "回した"
 frame = "外"
 p_hold = 0.2
 p_positive = 0.45
 learn_if_null = "差なしで終われば、毎日読むことで増える往復の費用と、戻りの初日を拾う利得は、この表では釣り合っている、と分かる。そうなら判断の間隔はトレーダーの設計の自由度として扱い、成績の軸から外す。次は間隔ではなく、判断日の選び方を変える（月末だけ ／ 決算の提出の後だけ）形を新しい id で登録する。"
+registered_at = "2026-11-14 01:07 PST"
 reference_mode = "避ける"
 notes = "段 1 の出力の key_shape の原文: own.all.ridge.shared~decide5@θ（50 ／ 55 ／ 60）と own.h2-gate5.ridge.shared~decide5@θ（50 ／ 55 ／ 60）"
+ran_in = "sandbox"
+sandbox = { branch = "sandbox/20261109-decide-every-5d", commit = "ca35a21", pushed = true, started_at = "2026-11-14 01:07 PST", recorded_at = "2026-11-14 01:17 PST", n_trials = 6, verdicts = "保留 1・落とす 5", held = true, invalid = false, leak_rows = 21, leak_ok = 6, result = "docs/specs/experiments/dev-loop/sandbox/20261109-decide-every-5d.md" }

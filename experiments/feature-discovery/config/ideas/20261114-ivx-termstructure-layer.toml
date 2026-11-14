@@ -1,0 +1,23 @@
+# ⚠ 開発ループの登録簿（rules.md 31-1）。cli.devloop が書く。status が 登録 より先なら structure ／ prediction ／ n_trials_planned ／ key_shape を直さない（直すなら新しい id）
+id = "20261114-ivx-termstructure-layer"
+date = "2026-11-14"
+title = "オプションから逆算した値動きの見込み（VIX の期間構造）の層 ivx_ を足し、先 20 日ゲートで読む"
+kind = "データ"
+origin = { r_pct = 30, n_per_night = 5, prompt = "ideate_ref", contract = 3, model = "claude-fable-5-2", cost_usd = 3.883, turns = 7, source = "reference", refs = ["config/ideas/20261025-mkt-layer.toml（題と状態）", "config/ideas/20261108-hmm-sticky-regime-hold.toml（question ／ structure）", "config/names.toml（先 20 日ゲート・層の綴りの節）", "ledger.md §0"] }
+question = "日足から作った市場の状態の層（mkt_）と局面（R1〜R4）は、どれも過去の値動きだけを材料にしていた。オプションの価格に含まれる「この先の値動きの見込み」と、その短期 ／ 長期の比（数日〜数週間続く系列）を材料に足すと、先 20 日ゲートの持つ日の選び方は own だけの行と比べて変わるか。"
+structure = "新しい取得元 cboe_vix（VIX ／ VIX9D ／ VIX3M の日次の終値。新しいディレクトリに置き、研究用の日足は取り直さない）と、層 ivx_（ail/ideas/ の新しいモジュール・layer_order で後ろに足す）。列の種類は 4 つ: 水準の z スコア ／ 短期 ÷ 中期 − 1 ／ 中期 ÷ 長期 − 1 ／ 5 日の変化（どれも 1 日遅れ・全銘柄に同じ値）。読み手は 2 つ: H3 先20日ゲート（全列・学習）× own 35 列 ＋ ivx ／ 1 日ラベルの own 35 列 ＋ ivx × Ridge。θ 50 ／ 55 ／ 60。対の相手 ＝ 同じ切れ目の own だけの行（既存の H3 × own の行と素の own の行）。対照（数えない）＝ 同じ保有日率の乱択ゲート。leak 対照を並べる。既存との違い ＝ 入力データに ivx が入ること（own-ivx）。⚠ 取得の前に利用条件（CBOE の履歴 CSV ／ FRED の VIXCLS。自動取得・保存・研究での利用の可否）を確かめ、触れるなら取得しない。取得の実行は利用者。"
+n_trials_planned = 6
+key_shape = ["own-ivx.all.ridge.shared"]
+failure_modes = ["全銘柄に同じ値の列なので、買い% が fold ごとにほぼ定数になり幅のゲートに届かない", "VIX9D ／ VIX3M の系列の始まりが表より遅い ／ 欠ける日があり、行が落ちて対の相手と集合がずれる", "休んだ日が下げの後の戻りに重なり、同じ保有日率の乱択ゲートと区別がつかない", "利用条件が自動取得を禁じていて取得できない"]
+prediction = "H3 の行は持つ日の割合が own だけの行から動く（下げの時期を含む fold で差が出て、ほかの fold は差がほぼ 0）。対の差は 1〜2 個の fold が作り、|t| < 2。1 日ラベルの行は own だけの行とほぼ同じ。leak は跳ねる。"
+effort = "中"
+measurable = "測れる: 持つ日を変える形なので、効けば差は数百 bp/fold の大きさで出る（ただし続く信号の検出力は未実測 ＝ persist-signal-power の表と並べて読む）"
+touches = "共有の経路: 取得元の登録（ail/data/sources ・ cli.fetch の exog）。層は ail/ideas/ の新しいモジュール"
+status = "共有コード変更"
+frame = "外"
+p_hold = 0.35
+p_positive = 0.45
+learn_if_null = "対の差が 0 の周りなら、過去の値動き由来の列に続いて、オプション由来の先読みの列を足しても持つ日の選び方が変わらないと分かり、材料（列）を足す方向をやめて、判断の間隔や器の側の案に回す。差が 1 つの fold だけで出たら、切れ目ずらし（33 章）の併記でその fold への依存を読む。"
+needed_effect = "bp/fold。保留には、対の相手（own だけの H3 の行 ／ 素の own の行）が B&H に負けているぶんを埋める上乗せが要る ＝ 素の own の行で 270〜940 bp/fold、H3 の行は回す前に検証結果一覧から読んでレジストリに書く。続く信号の検出力は未実測なので、届く見込みかは今は言えない（1 つの下げを半分避けるだけで数百 bp/fold になる大きさではある）。"
+reference_mode = "組み合わせる"
+notes = "段 1 の出力の key_shape の原文: own-ivx.<H3 先20日ゲートの綴り>.ridge.shared@θ ／ own-ivx.all.ridge.shared@θ（入力データの綴り ivx を names.toml に足す）"

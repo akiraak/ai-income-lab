@@ -17,4 +17,4 @@ status = "回した"
 registered_at = "2026-11-13 21:56 PST"
 notes = "段 1 の出力の key_shape の原文: own.own~deadzone-<a|b>.ridge.shared@θ（θ ＝ 50 ／ 55 ／ 60）"
 ran_in = "sandbox"
-sandbox = { branch = "sandbox/20261101-deadzone-label", commit = "36600bf", pushed = true, started_at = "2026-11-13 21:56 PST", recorded_at = "2026-11-13 22:05 PST", n_trials = 6, verdicts = "落とす 6", held = false, invalid = false, leak_rows = 12, result = "docs/specs/experiments/dev-loop/sandbox/20261101-deadzone-label.md" }
+sandbox = { branch = "sandbox/20261101-deadzone-label", commit = "36600bf", pushed = true, started_at = "2026-11-13 21:56 PST", recorded_at = "2026-11-13 22:23 PST", n_trials = 6, verdicts = "落とす 6", held = false, invalid = false, leak_rows = 24, leak_ok = 6, result = "docs/specs/experiments/dev-loop/sandbox/20261101-deadzone-label.md" }

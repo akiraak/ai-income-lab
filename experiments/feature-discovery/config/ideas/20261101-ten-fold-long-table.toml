@@ -13,9 +13,12 @@ prediction = "正の評価期間は 10 個のうち 4〜6 個。3 行とも落�
 effort = "小"
 measurable = "測れる: 上乗せの大きさは測れない（検出限界のまま）。それでも、符号がそろうかは 10 個の評価期間で 5 つより細かく見える（10 個とも正は偶然なら 1/1024）。"
 touches = "共有の経路: ail/validation の評価期間の切り方・ail/catalog.py の threshold_style（変種の名前を 1 つ足す。無い config は 1 ビットも変わらない形）"
-status = "共有コード変更"
+status = "回した"
 frame = "内"
 p_hold = 0.35
 p_positive = 0.5
 learn_if_null = "10 個でも符号が半々なら、5 つの評価期間で『全部正』になった行は偶然と区別できない。そう分かったら、次は採否に二項検定の水準を並べて書く物差しの案を、新しい規約として先に登録する。"
+registered_at = "2026-11-13 22:13 PST"
 notes = "段 1 の出力の key_shape の原文: own.ridge.shared~fold10@θ（長い表は dataset の印 ~daily1995）"
+ran_in = "sandbox"
+sandbox = { branch = "sandbox/20261101-ten-fold-long-table", commit = "daddbb7", pushed = true, started_at = "2026-11-13 22:13 PST", recorded_at = "2026-11-13 22:23 PST", n_trials = 3, verdicts = "保留 1・落とす 2", held = true, invalid = false, leak_rows = 12, leak_ok = 3, result = "docs/specs/experiments/dev-loop/sandbox/20261101-ten-fold-long-table.md" }

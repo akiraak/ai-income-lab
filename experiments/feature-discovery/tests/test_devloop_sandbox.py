@@ -148,7 +148,8 @@ def test_passing_idea_is_recorded_and_only_two_files_reach_main(world):
     # claude はサンドボックスのワーキングツリーで呼ぶ・テスト → queue の順・queue の config はランナーが書く
     assert calls[0][:3] == ("claude", sandbox.tree("20261113-a", base), 20.0)
     kinds = [c[2][:2] for c in calls if c[0] == "run"]
-    assert kinds == [("-m", "pytest"), ("-m", "cli.queue")]
+    assert kinds == [("-m", "pytest"), ("-m", "cli.queue"), ("-m", "cli.report")]         # 最後に一覧を再生成（最後の leak の行を入れる）
+    assert r["leak_ok"] == 1 and r["leak_missing"] == ["own.new.ridge.shared~dz@55"]         # leak の行が無い検証はフラグ
     t = [c[2] for c in calls if c[0] == "run"][0]
     assert "tests/test_ideas_x.py" in t and {"tests/test_predict.py", "tests/test_trading_run.py"} <= set(t)
     q = _git(repo, "show", f"sandbox/20261113-a:{FD}/config/queue/dev_sbx_20261113_a.toml")

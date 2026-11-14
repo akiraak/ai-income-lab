@@ -32,7 +32,7 @@ perm_fill = true                # 段 3 の後、新しい実行の並べ替え�
 perm_jobs = 8
 
 [sandbox]                       # ステージ 5 サンドボックス（rules.md 31-7・プラン docs/plans/devloop-sandbox.md・2026-11-13 利用者「A（推す）」「Bも推す案で」）
-enabled = false                 # ⚠ true にすると、ステータス「共有コード変更」の案を 1 晩 per_night 本、サンドボックス（`cli/sandbox.py`）で作って回す。false ／ 無しなら 1 晩の動きは今までと同じ
+enabled = true                  # ✅ 2026-11-13 22:25 PST 試運転へ（プラン Phase 5 ＝ 11/14 の晩から 3 晩）: ステータス「共有コード変更」の案を 1 晩 per_night 本、サンドボックス（`cli/sandbox.py`）で作って回す。⚠ 止めるときはここを false に（1 晩の動きは 11/13 までと同じに戻る）
 per_night = 1                   # S5: 1 晩 1 本（増やすかは試運転 3 晩の後に利用者が決める）
 max_turns = 80                  # S5: claude -p の上限
 max_budget_usd = 20.0           # S5: 1 本あたりの費用の上限（定価換算。段 1 $10 ＋ 段 2 $15 とは別枠）

@@ -214,7 +214,7 @@ def test_report_counts_only_new_trial_rows_and_flags_changed_or_gone(world):
     repo, base, id_ = _create(world)
     db = __import__("pathlib").Path(sandbox.db_path(id_, base))
     assert sandbox.report(id_, base) | {"db": ""} == {"id": id_, "db": "", "n_trials": 0, "verdicts": {}, "rows": [], "new_leak_rows": 0,
-                                                       "changed": [], "gone": [], "base_n_trials": 2}
+                                                       "changed": [], "gone": [], "base_n_trials": 2, "leak_ok": 0, "leak_missing": []}
     # サンドボックスで回した後の一覧: 新しい検証 2 行 ＋ 新しい基準線 ＋ 新しい leak・既存の 1 行は判定が変わり・1 行は消えた
     _ledger_db(db, [(0, "own.a.ridge.shared@50", 1, "保留", 30.0),                # 変わった
                     (0, "基準 常に上@50", 0, "基準", 0.0), (1, "own.a.ridge.shared@50", 1, "落とす", 900.0),
@@ -224,6 +224,8 @@ def test_report_counts_only_new_trial_rows_and_flags_changed_or_gone(world):
     assert r["n_trials"] == 2 and r["verdicts"] == {"落とす": 1, "保留": 1} and r["new_leak_rows"] == 1
     assert [x["trial"] for x in r["rows"]] == ["own.new.ridge.shared~dz@50", "own.new.ridge.shared~dz@55"] and r["rows"][1]["excess_bp"] == 12.0
     assert [c["key"] for c in r["changed"]] == ["0|own.a.ridge.shared@50"] and r["gone"] == ["0|own.b.ridge.shared@50"]
+    # leak 対照: @50 は同じ検証名の leak の行が跳ねている・@55 は leak の行が無い ＝ フラグ
+    assert r["leak_ok"] == 1 and r["leak_missing"] == ["own.new.ridge.shared~dz@55"]
     # 本線の DB は読むだけ
     assert sandbox.ledger_keys(str(repo / FD / "runs" / "research.sqlite"))["0|own.a.ridge.shared@50"]["verdict"] == "落とす"
 

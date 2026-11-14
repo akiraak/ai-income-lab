@@ -90,8 +90,14 @@
     - [x] Phase 3: 手で 1 本（`20261101-deadzone-label`）をサンドボックスで作って回す → 記録
       ✅ 2026-11-13 22:05 PST titan: **採る 0 ／ 保留 0 ／ 落とす 6**（サンドボックスの検証数 0 → 6・`main` の `n_trials` 1,198 は不変）。対の相手との差は \|Δ\| ≤ 55 bp/fold・外した訓練の行 24% ／ 45%・買い% の幅は変わらず・leak は跳ねた・既存の行は変わった 0 ／ 消えた 0。コードはブランチ `sandbox/20261101-deadzone-label`（`36600bf`・push 済み）。記録 [dev-loop.md §14-1](docs/specs/experiments/dev-loop.md)
       ✅ 同時に S11 の中身を作った: `cli.sandbox record`（結果の表 `dev-loop/sandbox/<id>.md` ＋ レジストリ「回した」・`ran_in = "sandbox"`）・`register.md` と実行タブに「サンドボックスの検証数」と結果
-    - [ ] Phase 4: ランナーに組み込む（`sandbox_stage` ＝ 対象を選ぶ〔済んだ 5 本に `skip`〕→ `create` → `claude -p`〔プロンプト `build_sandbox.md`〕→ `check` → テスト → queue → `record --push`・ログ・メールのフラグ〔「採る」「保留」〕・保存期間の掃除・`[sandbox] enabled`）
-    - [ ] Phase 5: 試運転 3 晩（`[sandbox] enabled = true`・1 晩 1 本）
+    - [x] Phase 4: ランナーに組み込む（`sandbox_stage` ＝ 対象を選ぶ〔済んだ 5 本に `skip`〕→ `create` → `claude -p`〔プロンプト `build_sandbox.md`〕→ `check` → テスト → queue → `record --push`・ログ・メールのフラグ〔「採る」「保留」〕・保存期間の掃除・`[sandbox] enabled`）
+      ✅ 2026-11-13 22:12 PST titan: 作った（ステージ 5・設定 `[sandbox]`・プロンプト・`cli.devloop sandbox [--id]`・テスト 12 本）。記録 [dev-loop.md §14-2](docs/specs/experiments/dev-loop.md)
+      ✅ 22:20 PST 本物の `claude -p` で 1 本通した（`20261101-ten-fold-long-table` ＝ 464 秒・定価換算 $5.88・**保留 1 ／ 落とす 2**・サンドボックスの検証数 9・leak 3 行とも跳ねた）。最後の leak の行が一覧に入らない穴を直した ＝ [§14-3](docs/specs/experiments/dev-loop.md)
+      ⏳ 利用者: `20261101-ten-fold-long-table` を取り込むか（θ50 が保留 ＝ ＋231 bp/fold・7/10・t 0.31。5 つの評価期間の同じ形は −4.4・3/5 ＝ 平均が 0 の近くの形。推す ＝ 取り込まない）
+    - [~] Phase 5: 試運転 3 晩（`[sandbox] enabled = true`・1 晩 1 本）
+      ✅ 2026-11-13 22:25 PST `enabled = true`。11/14（土）・11/15（日）・11/16（月）の 01:00 PST の晩。次の対象 `20261109-decide-every-5d`（残り 14 本）。止めるときは `config/devloop.toml` の `[sandbox] enabled = false`
+      ⏳ 朝にログの「ステージ 5 サンドボックス」と結果の表を見る → 費用・時間・落ちた理由を記録 → 本数を増やすか（利用者）
+      期日: 2026-11-14 01:00
     - [ ] Phase 6: OS レベルの隔離（bubblewrap。インストールは利用者）
     - [ ] Phase 7: 片付け（CLAUDE.md・README・DONE・プランを archive へ）
   - [ ] 共有コードにプラグインの差し込み口（ラベル用・シミュレーター用）を作り、共有コードに触らずに作れる案を増やす（S12。プランを書いてから・サンドボックスの Phase 5 の後）

@@ -448,6 +448,17 @@ def report(id_: str, base: str | None = None) -> dict:
                                    "after": [e["verdict"], e["excess_bp"], e["folds"], e["n"]]})
     out["gone"] = sorted(k for k in before if k not in after)
     out["base_n_trials"] = sum(1 for v in before.values() if v.get("trial"))
+    # leak 対照（rules.md 31-7 の 8 ③）: 新しい検証の行ごとに、同じ検証名の leak の行があり、上乗せが正で元の行より大きければ「跳ねた」。
+    # ⚠ 跳ねない ／ 無い行は配線の誤りを疑うフラグ（判定は変えない）。`cli.queue` は leak の実行の後に一覧を再生成しないので、
+    #    呼ぶ側が先に `cli.report --catalog` で再生成しておく（しないと最後の leak の行が無いままになる）
+    out["leak_ok"], out["leak_missing"] = 0, []
+    for r in out["rows"]:
+        lk = after.get("1|" + r["trial"])
+        a, b = (lk or {}).get("excess_bp"), r.get("excess_bp")
+        if lk is not None and isinstance(a, (int, float)) and a > 0 and (not isinstance(b, (int, float)) or a > b):
+            out["leak_ok"] += 1
+        else:
+            out["leak_missing"].append(r["trial"])
     return out
 
 
@@ -471,7 +482,9 @@ def result_md(doc: dict, rep: dict, m: dict, commit_sha: str, recorded: str, not
          f"| 着手（回すと決めた時刻） | {m.get('created') or '—'} |", f"| 記録 | {recorded} |",
          f"| サンドボックスの検証数 | {rep.get('n_trials', 0)}（予定 {doc.get('n_trials_planned')}） |",
          f"| 判定の内訳 | {counts} |",
-         f"| leak 対照の新しい行 | {rep.get('new_leak_rows', 0)} |",
+         f"| leak 対照 | 新しい検証 {rep.get('n_trials', 0)} 行のうち、同じ検証名の leak の行が跳ねたもの {rep.get('leak_ok', 0)}"
+         + ("　⚠ **跳ねていない ／ 無い行がある ＝ 配線の誤りを疑う**: " + "・".join(f"`{x}`" for x in (rep.get("leak_missing") or [])[:6]) if rep.get("leak_missing") else "（全部跳ねた）")
+         + f"（新しい leak の行 {rep.get('new_leak_rows', 0)}） |",
          f"| 既存の行への影響 | 変わった {len(rep.get('changed') or [])} ／ 消えた {len(rep.get('gone') or [])}"
          + ("　⚠ **無効**（共有コードが既存の結果を変えた ＝ 判定を出さない。31-7 の 8）" if invalid else "（0 ＝ 既存の結果は変わっていない）") + " |", "",
          f"- 問い: {doc.get('question')}", f"- 構造（先に書いた）: {doc.get('structure')}", f"- 予想（先に書いた）: {doc.get('prediction')}", ""]
@@ -528,12 +541,12 @@ def record(id_: str, *, repo: str = REPO, base: str | None = None, ideas_dir: st
     doc["sandbox"] = {"branch": m.get("branch") or BRANCH_PREFIX + id_, "commit": sha, "pushed": bool(push), "started_at": m.get("created") or "",
                       "recorded_at": recorded, "n_trials": int(rep.get("n_trials", 0)),
                       "verdicts": "・".join(f"{k} {v}" for k, v in sorted(verdicts.items())) or ("無効" if invalid else "—"),
-                      "held": held, "invalid": invalid, "leak_rows": int(rep.get("new_leak_rows", 0)),
+                      "held": held, "invalid": invalid, "leak_rows": int(rep.get("new_leak_rows", 0)), "leak_ok": int(rep.get("leak_ok", 0)),
                       "result": f"{RESULT_DIR}/{id_}.md"}
     devloop.write_idea(path, doc)
     log(f"記録した: {id_} ＝ サンドボックスの検証数 {doc['sandbox']['n_trials']}・{doc['sandbox']['verdicts']}"
         + ("・⚠ 保留以上あり ＝ 人が見る" if held else "") + f"・ブランチ {doc['sandbox']['branch']} @ {sha}" + ("（push 済み）" if push else "") + f"・{md}")
-    return {"id": id_, "md": md, "idea": path, **doc["sandbox"]}
+    return {"id": id_, "md": md, "idea": path, "leak_missing": list(rep.get("leak_missing") or []), **doc["sandbox"]}
 
 
 def _parser() -> argparse.ArgumentParser:

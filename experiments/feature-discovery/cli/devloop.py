@@ -1292,6 +1292,8 @@ def sandbox_stage(cfg: dict, env: dict, state: dict, date: str, log, deadline: f
                     with open(os.path.join(sbx.fd_dir(id_, base), "config", "queue", qname + ".toml"), "w", encoding="utf-8") as f:
                         f.write(sandbox_queue_toml(id_, exps, left(), date))
                     rc, o, e = run(id_, ["-m", "cli.queue", "--config", qname], left())
+                    # ⚠ queue は leak の実行の後に一覧を再生成しない ＝ 最後の leak の行が無いまま ＝ ここで 1 度再生成する（サンドボックスの中だけ）
+                    run(id_, ["-m", "cli.report", "--catalog"], left())
                     r = sbx.report(id_, base)
                     if not r.get("n_trials"):
                         tail = (o + e).strip().splitlines()
@@ -1305,6 +1307,7 @@ def sandbox_stage(cfg: dict, env: dict, state: dict, date: str, log, deadline: f
             reason = f"{type(e).__name__}: {str(e)[:200]}"
         if rec is not None:
             out["done"].append({"id": id_, "n_trials": rec["n_trials"], "verdicts": rec["verdicts"], "held": rec["held"], "invalid": rec["invalid"],
+                                "leak_ok": rec.get("leak_ok", 0), "leak_missing": rec.get("leak_missing") or [],
                                 "branch": rec["branch"], "commit": rec["commit"], "seconds": round(time.time() - t0)})
             if rec["held"]:
                 out["held"].append(id_)
@@ -1506,7 +1509,8 @@ def write_journal(cfg: dict, date: str, parts: dict, path: str) -> str:
               + (f"・モデル {' ／ '.join(s5['models'])}" if s5.get("models") else ""), ""]
         for r in s5["done"]:
             L.append(f"- `{r['id']}`: サンドボックスの検証 {r['n_trials']}・{r['verdicts']}" + ("・⚠ **保留以上あり ＝ 人が見る**" if r["held"] else "")
-                     + ("・⚠ 無効（既存の行が変わった）" if r["invalid"] else "") + f"・{r['seconds']} 秒・ブランチ `{r['branch']}` @ `{r['commit']}`・[結果の表](../sandbox/{r['id']}.md)")
+                     + ("・⚠ 無効（既存の行が変わった）" if r["invalid"] else "")
+                     + (f"・⚠ leak が跳ねていない行 {len(r['leak_missing'])}（配線の誤りを疑う）" if r.get("leak_missing") else "") + f"・{r['seconds']} 秒・ブランチ `{r['branch']}` @ `{r['commit']}`・[結果の表](../sandbox/{r['id']}.md)")
         for f in s5["failed"]:
             L.append(f"- ⚠ `{f['id']}`: {f['reason']}（{f['status']}）")
         if s5.get("removed"):

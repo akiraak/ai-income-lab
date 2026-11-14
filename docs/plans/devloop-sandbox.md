@@ -166,3 +166,10 @@ flowchart TB
 - Phase 3: `20261101-deadzone-label` をサンドボックスで作って回した ＝ **落とす 6**（サンドボックスの検証数 6）。記録は [dev-loop.md §14-1](../specs/experiments/dev-loop.md) と [結果の表](../specs/experiments/dev-loop/sandbox/20261101-deadzone-label.md)
 - S11（結果の自動の記録）の中身を先に作った: `cli.sandbox record`（ブランチにコミット ／ push → 結果の表 → レジストリ）。Phase 4 のランナーはこれを呼ぶだけ
 - 分かったこと: ① `tables_for` は `features_from` の表が「期間を読むテーブル」として既にコピーされていれば何もコピーしない（今回 0 本で足りた）② 作成からの通しで 3 分弱（テスト 83 秒が大半）＝ 1 晩 60 分の上限（S5）には十分収まる ③ 手で作ったコードでも import の漏れが出た ＝ 「案のテストを回帰テストと一緒に流してから回す」の順番は外せない
+
+### Phase 4: ランナーに組み込んだ（2026-11-13 22:05〜22:25 PST・titan）
+
+- ステージ 5（`devloop.sandbox_stage`）・設定 `[sandbox]`・プロンプト `devloop/prompts/build_sandbox.md`・`cli.devloop sandbox [--id]`・ログ ／ メール ／ `register.md` ／ 実行タブ・テスト 12 本。記録は [dev-loop.md §14-2・§14-3](../specs/experiments/dev-loop.md)
+- 出口の確認: 本物の `claude -p` で `20261101-ten-fold-long-table` を 1 本通した ＝ 464 秒・定価換算 $5.88・保留 1 ／ 落とす 2（サンドボックスの検証数 9）
+- 直したこと: 最後の leak の行が一覧に入らないまま要約していた → queue の後に 1 度再生成・`leak_ok` ／ `leak_missing`
+- ✅ `[sandbox] enabled = true`（Phase 5 ＝ 11/14 の晩から 3 晩）

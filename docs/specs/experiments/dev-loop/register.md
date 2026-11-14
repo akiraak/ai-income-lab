@@ -1,7 +1,7 @@
 # 開発ループの登録簿（生成物）
 
 ⚠ **このファイルは生成物である。手で書き換えない。** 正本は `experiments/feature-discovery/config/ideas/*.toml`（rules.md 31-1）。
-生成 2026-11-14 13:30 PST ／ 検証結果一覧の n_trials 1198（＋ サンドボックスの検証数 15 ＝ 3 本。rules.md 31-7） ／ 登録簿 62 本（共有コード変更 23・回した 33・失敗 1・既出 5）／ r 30%・N 5
+生成 2026-11-14 14:22 PST ／ 検証結果一覧の n_trials 1198（＋ サンドボックスの検証数 15 ＝ 3 本。rules.md 31-7） ／ 登録簿 62 本（共有コード変更 23・回した 33・失敗 1・既出 5）／ r 30%・N 5
 
 ⚠ 良し悪し・意味の有無の印は無い（利用者の指示 2026-10-24）。印は 手間・測れるか・触る場所 の 3 つ。「既出の疑い」は `key_shape` が検証結果一覧の予測モデル名に当たった数（印は人 ／ ループが付ける）。
 
@@ -497,7 +497,7 @@
 - サンドボックスの結果（rules.md 31-7。`main` には入っていない）: 検証 6・保留 1・落とす 5・⚠ 保留以上あり ＝ 人が見る・ブランチ `sandbox/20261109-decide-every-5d` @ `ca35a21`・[結果の表](sandbox/20261109-decide-every-5d.md)
 - 似た過去の案（近さ・表示だけ）: 0.08 `20261101-graded-weight-sizing` 買う／売るの 2 択をやめ、買い% に応じて持つ量を変える（回した） ／ 0.07 `20261101-crash-label-exit` 方向ではなく『先 5 日の急落』を当て、出口だけに使う（回した） ／ 0.05 `20261101-deadzone-label` 小さな値動きの日を訓練のラベルから外す（回した）
 - 参考にした記録: `docs/specs/experiments/horizon-roles-trader.md §3・§5（往復が取引の約 6 割・stop_blocks_buy で往復を消すと下がった）` ／ `docs/specs/experiments/dev-loop.md §9（遅い損切りでも往復は消えない）・§11` ／ `experiments/feature-discovery/config/names.toml（変種の綴り）`
-- 注記: 段 1 の出力の key_shape の原文: own.all.ridge.shared~decide5@θ（50 ／ 55 ／ 60）と own.h2-gate5.ridge.shared~decide5@θ（50 ／ 55 ／ 60）
+- 注記: 段 1 の出力の key_shape の原文: own.all.ridge.shared~decide5@θ（50 ／ 55 ／ 60）と own.h2-gate5.ridge.shared~decide5@θ（50 ／ 55 ／ 60） ／ 2026-11-14 利用者「取り込まない」＝ main に取り込まない（保留の 1 行は毎日判断する既存の行と同じ形。ブランチと結果の表は残す）
 
 ## `20261109-inverse-vol-weights` 同じ合図のまま、等加重をやめて値動きの小さい銘柄ほど多く持つ
 

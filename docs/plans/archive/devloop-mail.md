@@ -8,7 +8,7 @@
 どれも **見に行かないと分からない**。特に次の 3 つは朝に知りたい:
 
 - その晩が **止まった**（段 0 の門・打ち切り ② ③・段が落ちた・費用の上限に当たった）
-- 試運転の 3 晩（プラン [daily-dev-loop.md](daily-dev-loop.md) 3-7）は **朝に段 2 を手で作る** ＝ 何本・どの id を作るか
+- 試運転の 3 晩（プラン [daily-dev-loop.md](../daily-dev-loop.md) 3-7）は **朝に段 2 を手で作る** ＝ 何本・どの id を作るか
 - 段 4 の上位 3 に **新顔** が入った（次の晩に机上へ回る）
 
 そこで、毎晩の最後に 1 通、結果をメールで送る。
@@ -174,8 +174,8 @@ flowchart TB
 - ⚠ HTML が組めない晩はテキストだけで送る（ループは止めない）。Python ごと落ちた晩の送り手（`fallback`）はテキストのまま
 - [x] 5-1 `cli/devloop_mail.py`（`html_body`・`idea_card`・`result_card`・`stage_strip`・`clip`・`date_label`・送り手の `html`）・`cli/devloop.py`（`idea_results`・`mail_extras`・`report` の配線・`mail-test --sample`）・`config/devloop.toml`
 - [x] 5-2 テスト `tests/test_devloop_mail.py`（＋6 本・devloop の 3 ファイル 43 本 ✅）・`mail-test --sample` で本物の 1 通を送った（2026-11-04 titan）
-- [ ] 5-3 次の 1 晩の HTML のメールを見届ける
+- [x] 5-3 次の 1 晩の HTML のメールを見届ける（2026-11-13 利用者「1. 見た」。11/6〜11/13 の 7 晩が `sent`）
 
 ### Phase 4: 片付け
 
-- [ ] 4-1 `dev-loop.md` §3・`systemd/README.md`・CLAUDE.md の開発ループの行に 1 行 → TODO から DONE へ・このプランを archive へ
+- [x] 4-1 `dev-loop.md` §3・`systemd/README.md`・CLAUDE.md の開発ループの行に 1 行 → TODO から DONE へ・このプランを archive へ（2026-11-13 titan）

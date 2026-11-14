@@ -15,10 +15,10 @@ outside_frame_min = 2           # 1 晩に枠の外の案を何本以上（参�
 similar_top = 3                 # 「似た過去の案」を何本出すか（題名 ＋ 問いの文字の近さ・より前の日付の案だけ。⚠ 表示だけ ＝ 状態は変えない。0 ＝ 出さない。2026-11-13 利用者「Aで進めて」）
 
 [build]                         # 段 2（K3: 試運転は人の手。7 晩通ったら claude -p）
-mode = "manual"                 # "manual" ＝ 段 2 は人の手（朝に Claude のセッションで）／ "claude" ＝ claude -p
+mode = "claude"                 # "manual" ＝ 段 2 は人の手（朝に Claude のセッションで）／ "claude" ＝ claude -p。✅ 2026-11-13 利用者「2. 進める」＝ 全段の試運転（7 晩）へ。人の手の形は 11/4〜11/13 に 8 晩通った ＝ dev-loop.md §3-3
 tools = ["Read", "Grep", "Glob", "Write", "Edit"]   # 段 2 を claude -p で呼ぶときの道具（Bash は渡さない ＝ テストは運転手が流す）
 max_turns = 60
-max_budget_usd = 5.0            # 段 2 の費用の上限（K4。1 晩の合計 ≈ $15 ＝ 段 1 $10 ＋ 段 2 $5。2026-11-13 に段 1 を $6 → $10）
+max_budget_usd = 15.0           # 段 2 の費用の上限（K4。1 晩の合計 ≈ $25 ＝ 段 1 $10 ＋ 段 2 $15・定価換算。2026-11-13 に段 1 を $6 → $10・✅ 同日 利用者「段 2 の費用の上限を15に上げる」＝ $5 → $15: 3 turns の小さな書き込みだけで $0.82【実測】＝ dev-loop.md §3-3）
 retries_per_idea = 2            # 同じ id を直して回し直すのは翌晩まで（合計 2 回）
 
 [run]                           # 段 3（cli.queue。既存の器）
@@ -54,7 +54,7 @@ branch = "main"
 pull = true                     # 段 0: git pull --ff-only（失敗 ＝ 止める）
 dirty_tree = "stop"             # 段 0: 作業ツリーが汚れていたら止めて報告（利用者の未コミットと混ぜない）
 
-[mail]                          # 報告メール（プラン docs/plans/devloop-mail.md・2026-11-03 利用者「推す案ですすめて」＝ M1〜M3）
+[mail]                          # 報告メール（プラン docs/plans/archive/devloop-mail.md・2026-11-03 利用者「推す案ですすめて」＝ M1〜M3）
 enabled = true                  # false で送らない（設定ファイルが無いときも送らない ＝ timer.log に not-sent の 1 行）
 send = "always"                 # M2: "always" 毎晩（来ない ＝ 機械か timer が止まった合図）／ "problems" 止まった・落ちた晩だけ
 secrets = "~/.config/ai-income-lab/devloop-mail.env"   # ⚠ リポジトリの外（chmod 600・置くのは利用者）。宛先・アプリ パスワードはここだけ

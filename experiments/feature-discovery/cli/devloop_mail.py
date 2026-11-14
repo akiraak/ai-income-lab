@@ -1,4 +1,4 @@
-"""開発ループの報告メール（プラン docs/plans/devloop-mail.md・2026-11-03 利用者「推す案ですすめて」＝ M1 Gmail の SMTP ／ M2 毎晩 ／ M3 要約 ＋ 日誌の全文）。
+"""開発ループの報告メール（プラン docs/plans/archive/devloop-mail.md・2026-11-03 利用者「推す案ですすめて」＝ M1 Gmail の SMTP ／ M2 毎晩 ／ M3 要約 ＋ 日誌の全文）。
 
 ⚠ **標準ライブラリだけ**（`ail` を import しない）＝ Python の .venv ごと落ちた晩に `run-devloop.sh` がシステムの python3 で呼ぶ送り手にもなる。
 ⚠ **秘密（宛先・アプリ パスワード）はリポジトリの外**: titan の `~/.config/ai-income-lab/devloop-mail.env`（chmod 600・置くのは利用者）。

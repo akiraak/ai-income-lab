@@ -861,8 +861,8 @@ def _rel_root(repo_rel: str) -> str:
     return _norm(os.path.relpath(os.path.join(REPO, repo_rel), ROOT))
 
 
-def discard(env: dict, repo_rel: list[str], log) -> None:
-    """allowlist の外に書かれたものを捨てる（追跡済み ＝ checkout・未追跡 ＝ 削除）。"""
+def discard(env: dict, repo_rel: list[str], log, why: str = "allowlist の外に書いたので捨てた") -> None:
+    """通らなかった案が書いたものを捨てる（追跡済み ＝ checkout・未追跡 ＝ 削除）。⚠ その案の変更は全部（混ぜない）。"""
     for f in repo_rel:
         rc, out, _ = env["sh"](["git", "ls-files", "--error-unmatch", f], cwd=env["repo"])
         if rc == 0:
@@ -872,7 +872,7 @@ def discard(env: dict, repo_rel: list[str], log) -> None:
                 os.remove(os.path.join(env["repo"], f))
             except OSError:
                 pass
-        log(f"  ⚠ allowlist の外に書いたので捨てた: {f}")
+        log(f"  ⚠ {why}: {f}")
 
 
 def parse_built(text: str) -> dict:
@@ -926,15 +926,19 @@ def build(cfg: dict, env: dict, state: dict, date: str, log) -> dict:
                 continue
             exps = [str(x) for x in (built.get("experiments") or [])]
             tests = sorted(f for f in new if f.startswith("experiments/feature-discovery/tests/test_ideas_"))
+            # ⚠ 通らなかった案が書いたものは必ず捨てる: 残すと作りかけの `ail/ideas/i*.py` を `ail.bootstrap` が読み（段 3 と全部の CLI が落ちうる）、
+            #    晩のコミット（`git add -A`）が作りかけを main に入れる。費用の上限に当たった回（結果が空 ＝ 途中まで書いて止まる）もここに来る
             if not exps:
-                reason = "出力に experiments が無い"
+                reason = "出力に experiments が無い" + ("（" + "; ".join(res["errors"])[:160] + "）" if res.get("errors") else "")
+                discard(env, new, log, why="通らなかった案が書いたので捨てた")
             elif not tests:
                 reason = "tests/test_ideas_<id>.py が無い（「無い config は 1 ビットも変わらない」の 1 本が要る）"
+                discard(env, new, log, why="通らなかった案が書いたので捨てた")
             else:
                 rc, tail = env["tests"]([_rel_root(t) for t in tests] + ["tests/test_predict.py", "tests/test_trading_run.py", "tests/test_names.py", "tests/test_catalog.py"])
                 if rc != 0:
                     reason = "テストが落ちた: " + tail.strip().splitlines()[-1][:200] if tail.strip() else "テストが落ちた"
-                    discard(env, new, log)
+                    discard(env, new, log, why="テストが落ちたので捨てた")
                 else:
                     d["experiments"], d["status"] = exps, "作成中"
                     write_idea(p, d)
@@ -1330,7 +1334,7 @@ def commit(cfg: dict, env: dict, date: str, summary: str, log) -> str:
     rc, out, _ = env["sh"](["git", "diff", "--cached", "--quiet"], cwd=env["repo"])
     if rc == 0:
         return "未コミット（変更なし）"
-    msg = f"devloop: {date} {summary}\n\nCo-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
+    msg = f"devloop: {date} {summary}\n\nCo-Authored-By: Claude Fable 5.2 <noreply@anthropic.com>"
     rc, out, err = env["sh"](["git", "commit", "-q", "-m", msg], cwd=env["repo"])
     if rc:
         return f"コミット失敗: {(err or out).strip()[-200:]}"
@@ -1362,7 +1366,7 @@ def mail_extras(cfg: dict, env: dict, parts: dict) -> tuple[list[dict], dict | N
 
 def report(cfg: dict, env: dict, date: str, parts: dict, journal_text: str, journal_path: str | None, log, *,
            mail: bool | None, dry_run: bool) -> str | None:
-    """報告メール（プラン docs/plans/devloop-mail.md）。日誌とコミットの後に 1 通。⚠ 送れなくても止めない・日誌は書き換えない。
+    """報告メール（プラン docs/plans/archive/devloop-mail.md）。日誌とコミットの後に 1 通。⚠ 送れなくても止めない・日誌は書き換えない。
 
     mail: None ＝ dry-run でなければ送る ／ True ＝ 送る ／ False ＝ 送らない。⚠ env に "mail" が無ければ送らない（テストの FakeEnv）。
     """

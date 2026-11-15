@@ -1,16 +1,16 @@
 """実売買の画面（`/live`）。トレーダー別の予算・モデル・建玉・損益・今日の合図と注文・差 1〜4 の直近 20 日。
 
-⚠ **読むだけ。発注は画面から出さない**（公開面でも見える）。停止は既存の停止ボタン（`HALT` を執行器も見る）。
-正本は執行器（`experiments/live-trading/`）が書いたもので、この画面は数え直さない・書かない
+⚠ **読むだけ。発注は画面から出さない**（公開面でも見える）。停止は既存の停止ボタン（`HALT` を執行エンジンも見る）。
+正本は執行エンジン（`experiments/live-trading/`）が書いたもので、この画面は数え直さない・書かない
 （[dashboard.md §13](../../docs/specs/dashboard.md)）:
 
   - トレーダーの定義        → `config/traders/*.toml`
-  - 台帳（持ち分・実現損益） → `state/<env>/<名前>.json`
+  - 売買履歴（持ち分・実現損益） → `state/<env>/<名前>.json`
   - 日次の記録              → `out/<日付>/{signals,quotes,orders,transfers,ledger,events,positions,balances}.jsonl`
-  ⚠ 2026-09-21 から、台帳と日次の記録は道はそのままで中身は DB（`livefs`。プラン db-model-facts.md §11）
+  ⚠ 2026-09-21 から、売買履歴と日次の記録はパスはそのままで中身は DB（`livefs`。プラン db-model-facts.md §11）
 
-⚠ **標準ライブラリだけ**。⚠ **どのファイルが無くても落とさない**（g3plus には執行器の記録を置かないので空でも 200）。
-⚠ 記録は執行器が `Masker` を通して書いているが、画面の応答はさらに `Redactor` を通す。
+⚠ **標準ライブラリだけ**。⚠ **どのファイルが無くても落とさない**（g3plus には執行エンジンの記録を置かないので空でも 200）。
+⚠ 記録は執行エンジンが `Masker` を通して書いているが、画面の応答はさらに `Redactor` を通す。
 """
 
 from __future__ import annotations
@@ -140,7 +140,7 @@ def traders(live_dir: Path) -> list[dict]:
 
 
 def states(live_dir: Path) -> dict[str, dict[str, dict]]:
-    """env → トレーダー名 → 台帳。"""
+    """env → トレーダー名 → 売買履歴。"""
     out: dict[str, dict[str, dict]] = {}
     root = live_dir / "state"
     for env in livefs.listdir(root, missing_ok=True):
@@ -183,7 +183,7 @@ _DAY_CACHE: dict[tuple[str, str], tuple[tuple, dict]] = {}
 
 
 def _day_stamp(d: Path) -> tuple:
-    """その日の記録の指紋（道・行数。⚠ 行は足すだけ ＝ 行数が同じなら中身も同じ）。過ぎた日は変わらないので、同じなら読み直さない。"""
+    """その日の記録のフィンガープリント（パス・行数。⚠ 行は足すだけ ＝ 行数が同じなら中身も同じ）。過ぎた日は変わらないので、同じなら読み直さない。"""
     return livefs.stamp(d)
 
 
@@ -224,11 +224,11 @@ def _read_day(live_dir: Path, date: str) -> dict:
     all_diff1 = [x for o in orders for x in o["diff1_bp"]]
     starts = [e for e in events if e.get("kind") == "start"]
     problems = [e for e in events if e.get("kind") in ("halted", "out_of_window", "auth_failed", "signal_error", "quote_failed", "over_budget", "over_day_cap", "auth_5xx_retry",
-                                                        # 2026-09-19: 起動を拒否した日（機械がシミュレーションモード ／ 二重起動）と、台帳に入れられなかった約定
+                                                        # 2026-09-19: 起動を拒否した日（マシンがシミュレーションモード ／ 二重起動）と、売買履歴に入れられなかった約定
                                                         "refused_mode_sim", "refused_lock_busy", "ledger_error",
-                                                        # 含み損が予算の 20% 以上（⚠ 執行器は警告だけ。止めるのは人 ＝ 停止ボタン）
+                                                        # 含み損が予算の 20% 以上（⚠ 執行エンジンは警告だけ。止めるのは人 ＝ 停止ボタン）
                                                         "drawdown_warning",
-                                                        # 口座の建玉と台帳の帳尻（live-trading.md §0-8）: 前の実行の約定を控えから戻した ／ 照会できない ／ 口座が台帳より少ない
+                                                        # 口座の建玉と売買履歴の帳尻（live-trading.md §0-8）: 前の実行の約定を控えから戻した ／ 照会できない ／ 口座が売買履歴より少ない
                                                         "journal_recovered", "journal_unresolved", "position_short")]
     retries = sum(1 for o in orders for t in o.get("transitions") or [] if "retry" in str(t.get("status", "")))
     # 差 4（無人運転）: 拒否・再送・HALT・発注できる時間帯の外。差 3 は Phase 3（紙上の対照）の後で埋まる
@@ -272,7 +272,7 @@ def history(b: dict, who: str | None = None) -> list[dict]:
     """注文の履歴を月ごとにまとめる（新しい順。`who` が空なら全トレーダー）。
 
     ⚠ 月の小計は**表示のための足し算だけ**（件数・代金・差 1 の中央値・エラーと取消の数）。
-    ⚠ **損益は出さない**（正本は台帳 `ledger.jsonl`。注文から損益を数え直さない ＝ dashboard.md §13）。
+    ⚠ **損益は出さない**（正本は売買履歴 `ledger.jsonl`。注文から損益を数え直さない ＝ dashboard.md §13）。
     """
     months: dict[str, dict] = {}
 
@@ -330,7 +330,7 @@ DAILY_INT = ("n_symbols", "n_signals", "paper_held", "paper_trades", "orders", "
 
 
 def daily_rows(live_dir: Path) -> list[dict]:
-    """紙上の対照（実売買の Phase 3。執行器の `paper.py` が書く `out/daily.csv`）。⚠ **読むだけ**（ここで計算しない）。無ければ空。"""
+    """紙上の対照（実売買の Phase 3。執行エンジンの `paper.py` が書く `out/daily.csv`）。⚠ **読むだけ**（ここで計算しない）。無ければ空。"""
     text = livefs.read_doc(live_dir / "out" / "daily.csv", missing_ok=True)
     if text is None:
         return []
@@ -350,7 +350,7 @@ def daily_rows(live_dir: Path) -> list[dict]:
 
 
 def _yardstick():
-    """執行器の `yardstick.py`（指標 A〜E。標準ライブラリだけ）を道で読む ＝ まとめ方の正本は執行器の側（画面は数え直さない）。"""
+    """執行エンジンの `yardstick.py`（指標 A〜E。標準ライブラリだけ）をパスで読む ＝ まとめ方の正本は執行エンジンの側（画面は数え直さない）。"""
     import importlib.util
     import sys
     mod = sys.modules.get("lt_yardstick")
@@ -363,7 +363,7 @@ def _yardstick():
     return mod
 
 
-# 物差しの「問題」の札（yardstick.py の problems の綴り → 画面の言葉）。⚠ 無い綴りはそのまま出す
+# 指標の「問題」の札（yardstick.py の problems の表記 → 画面の言葉）。⚠ 無い表記はそのまま出す
 PROBLEM_LABEL = {
     "no_run": "起動なし", "no_end": "終わりの記録なし", "bad": "error ／ unknown の注文", "c_mismatch": "規則と違う判断",
     "diff1_over": "差 1 が 5bp 超", "gap": "口座 − 売買履歴 ≠ 0", "halted": "停止（HALT）", "out_of_window": "取引時間帯の外",
@@ -380,7 +380,7 @@ STATUS_LABEL_YS = {"active": "稼働", "paused": "一時停止", "liquidating": 
 
 
 def yardstick_rows(live_dir: Path) -> list[dict]:
-    """指標 A〜E（執行器の `yardstick.py` が朝の準備で書く `out/yardstick.csv`。プラン daily-record-auto.md）。⚠ **読むだけ**。無ければ空。"""
+    """指標 A〜E（執行エンジンの `yardstick.py` が朝の準備で書く `out/yardstick.csv`。プラン daily-record-auto.md）。⚠ **読むだけ**。無ければ空。"""
     text = livefs.read_doc(live_dir / "out" / "yardstick.csv", missing_ok=True)
     if not text:
         return []
@@ -388,7 +388,7 @@ def yardstick_rows(live_dir: Path) -> list[dict]:
 
 
 def _fees_mod():
-    """執行器の `fees.py`（手数料の実額。標準ライブラリだけ）を道で読む ＝ まとめ方の正本は執行器の側（画面は数え直さない）。"""
+    """執行エンジンの `fees.py`（手数料の実額。標準ライブラリだけ）をパスで読む ＝ まとめ方の正本は執行エンジンの側（画面は数え直さない）。"""
     import importlib.util
     import sys
     mod = sys.modules.get("lt_fees")
@@ -402,7 +402,7 @@ def _fees_mod():
 
 
 def fees_rows(live_dir: Path) -> list[dict]:
-    """手数料の実額（執行器の `fees.py` が朝の準備で書く `out/fees.csv`。プラン actual-fees.md）。⚠ **読むだけ**。無ければ空。"""
+    """手数料の実額（執行エンジンの `fees.py` が朝の準備で書く `out/fees.csv`。プラン actual-fees.md）。⚠ **読むだけ**。無ければ空。"""
     text = livefs.read_doc(live_dir / "out" / "fees.csv", missing_ok=True)
     if not text:
         return []
@@ -487,7 +487,7 @@ def index(live_dir: Path, days: int = DAYS) -> dict:
     ds = dates(live_dir)
     recent = [day(live_dir, d) for d in ds[:days]]
     today = recent[0] if recent else None
-    # トレーダー別の直近の台帳（ledger.jsonl の最新行）
+    # トレーダー別の直近の売買履歴（ledger.jsonl の最新行）
     latest_ledger: dict[str, dict] = {}
     for dd in recent:
         for row in dd["ledger"]:
@@ -538,13 +538,13 @@ CALENDAR_WARN_DAYS = 90   # 暦の終わりまでこの日数を切ったら、�
 
 
 def _calendar():
-    """NYSE の暦（サンプルの `market_calendar`。執行器と同じもの）。⚠ `import_sample` の後に呼ぶ。"""
+    """NYSE の暦（サンプルの `market_calendar`。執行エンジンと同じもの）。⚠ `import_sample` の後に呼ぶ。"""
     import market_calendar
 
     return market_calendar.nyse()
 
 
-WATCH_AFTER_ET = "16:15"   # 見張り: 窓の終わり 16:05 ET ＋ 猶予 10 分。これを過ぎて今日の記録が無ければ「今日の起動が無い」
+WATCH_AFTER_ET = "16:15"   # 監視: 窓の終わり 16:05 ET ＋ 猶予 10 分。これを過ぎて今日の記録が無ければ「今日の起動が無い」
 
 
 def now_et():
@@ -567,10 +567,10 @@ def et_to_seattle(hhmm: str, day=None) -> str:
 
 
 def watch(live_dir: Path, *, today=None, now_et_=None, suppress: str | None = None) -> dict:
-    """見張り「今日の起動が無い」（3 台の役割分け Phase 5。dashboard.md §13-8）。⚠ 記録と暦と時刻だけで決める（timer ／ cron の状態は読まない）。
+    """監視「今日の起動が無い」（3 台の役割分け Phase 5。dashboard.md §13-8）。⚠ 記録と暦と時刻だけで決める（timer ／ cron の状態は読まない）。
 
     checked ＝ 判定したか（suppress があれば判定しない: not_production ／ halt ／ demo）。missing ＝ 営業日・WATCH_AFTER_ET を過ぎた・`out/<今日>/` に記録が無い。
-    ⚠ 表示だけ。機械の外へ知らせるかは利用者の裁定（TODO「失敗したときに気づける形にする」）。
+    ⚠ 表示だけ。マシンの外へ知らせるかは利用者の裁定（TODO「失敗したときに気づける形にする」）。
     """
     from datetime import time as _time
     now = now_et_ or (None if today else now_et())
@@ -625,7 +625,7 @@ def board(live_dir: Path, days: int | None = DAYS, today=None, now_et_=None, sup
     tr = traders(live_dir)
     ds = dates(live_dir)[:days][::-1]          # 古い順の直近 days 日（days=None なら全部）
     dd = {d: day(live_dir, d) for d in ds}
-    # 見張り: 今日が「営業日・窓の後・記録なし」なら、営業日の列を今日まで延ばす ＝ 起動しなかった日・マス目・日次の表に今日が出る
+    # 監視: 今日が「営業日・窓の後・記録なし」なら、営業日の列を今日まで延ばす ＝ 起動しなかった日・マス目・日次の表に今日が出る
     w = watch(live_dir, today=today, now_et_=now_et_, suppress=suppress)
     last = w["date"] if (w["missing"] and ds and w["date"] > ds[-1]) else (ds[-1] if ds else None)
     bd = business_days(ds[0], last) if ds else []
@@ -634,7 +634,7 @@ def board(live_dir: Path, days: int | None = DAYS, today=None, now_et_=None, sup
     missing = [d for d in bd if d not in dd]
     daily = daily_rows(live_dir)
     ys = yardstick_rows(live_dir)
-    fv = fees_view(fees_rows(live_dir))      # 手数料の実額（fees.csv がある機械だけ。無ければ None ＝ 今までどおり）
+    fv = fees_view(fees_rows(live_dir))      # 手数料の実額（fees.csv があるマシンだけ。無ければ None ＝ 今までどおり）
     for i, t in enumerate(tr):
         name = t["name"]
         t["cls"] = f"s{i % N_SERIES + 1}"
@@ -646,7 +646,7 @@ def board(live_dir: Path, days: int | None = DAYS, today=None, now_et_=None, sup
         mine = {r["date"]: r for r in daily if r["trader"] == name}
         t["paper_real"] = bool(mine)
         if mine:
-            # ✅ 本物: 執行器の paper.py が書いた daily.csv（同じ合図を公式終値・片道 2.5bp で回した累計。予算に対する %）
+            # ✅ 本物: 執行エンジンの paper.py が書いた daily.csv（同じ合図を公式終値・片道 2.5bp で回した累計。予算に対する %）
             t["paper_pct"] = [round(mine[d]["paper_cum_bp"] / 100, 4) if d in mine and mine[d]["paper_cum_bp"] is not None else None for d in bd]
             t["bh_pct"] = [round(mine[d]["bh_cum_bp"] / 100, 4) if d in mine and mine[d]["bh_cum_bp"] is not None else None for d in bd]
             t["daily"] = [mine[d] for d in sorted(mine, reverse=True)][:days]
@@ -761,7 +761,7 @@ def board(live_dir: Path, days: int | None = DAYS, today=None, now_et_=None, sup
         # ⚠ 仮データの印（画面はこれを見てバッジを出す）。暦は、見ている範囲が NYSE の暦の外に出たときだけ仮（平日＝営業日）
         # ⚠ 紙上の損益・差 3 は、daily.csv（実売買の Phase 3）がある人は本物・無い人は仮データ（`t.paper_real` で人ごとに分かれる）
         "placeholder": {"paper": not any(t.get("paper_real") for t in tr), "diff3_bp_per_day": PAPER_PLACEHOLDER_BP_PER_DAY, "calendar": not cal_info["covered"]},
-        # ⚠ そろえた紙上の列（diff3a）が 1 行でもあればそちら（人をまたいで同じ物差しにする）。無い daily.csv（古い paper.py）は今までどおり
+        # ⚠ そろえた紙上の列（diff3a）が 1 行でもあればそちら（人をまたいで同じ指標にする）。無い daily.csv（古い paper.py）は今までどおり
         "diff3_median_bp": (_median([r["diff3a_bp"] for r in daily if r["diff3a_bp"] is not None and not r["test"]])
                             if any(r["diff3a_bp"] is not None for r in daily) else
                             _median([r["diff3_bp"] for r in daily if r["diff3_bp"] is not None and not r["test"]])),

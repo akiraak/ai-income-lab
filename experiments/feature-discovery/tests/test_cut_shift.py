@@ -1,7 +1,7 @@
-"""選ぶ段の併記「切れ目ずらしで残るか」（rules.md 33-6。2026-11-11）。
+"""選ぶステージの併記「切れ目ずらしで残るか」（rules.md 33-6。2026-11-11）。
 
-⚠ 物差し・順位・上位は併記の有無で変わらない ／ 併記は識別項目が同じで検証方式だけが切れ目ずらしの 2 行から読む ／
-`cli.cut_shift` の config は手で書いた `cut13_*` ／ `cut23_*`（33-2）と同じ作り ／ 運転手は新顔の行にだけ 2 本足す（`cut_new`）。
+⚠ 指標・順位・上位は併記の有無で変わらない ／ 併記は識別項目が同じで検証方式だけが切れ目ずらしの 2 行から読む ／
+`cli.cut_shift` の config は手で書いた `cut13_*` ／ `cut23_*`（33-2）と同じ作り ／ ランナーは新顔の行にだけ 2 本足す（`cut_new`）。
 """
 
 from __future__ import annotations
@@ -77,13 +77,13 @@ def test_asof_also_hides_later_cut_rows(conn):
     assert row.cut["parts"] == {}
 
 
-# --- config を機械で書く -------------------------------------------------------------------------------
+# --- config を自動で書く -------------------------------------------------------------------------------
 
 @pytest.mark.parametrize("src,method,hand", [("sel_small4_1995", "F1-7 IC の安定性", "sel_small4_1995"),
                                              ("sel_small4_1995", "F2-2 RFE", "sel_small4_1995"),
                                              ("trader_mix_t4", "M1 3本の平均", "mix_t4")])
 def test_machine_config_matches_the_hand_written_ones(src, method, hand):
-    """33-6 の 3 ＝ 33-2 の写し: 手で書いた `cut13_*` ／ `cut23_*` と、`name` と絞った手法以外は同じ。"""
+    """33-6 の 3 ＝ 33-2 のコピー: 手で書いた `cut13_*` ／ `cut23_*` と、`name` と絞った手法以外は同じ。"""
     for offset, tag in cs.OFFSETS:
         name = cs.config_name(src, "50", tag)
         text = cs.cut_config(ts.source_text(src), src=src, method=method, theta="50", offset=offset, name=name)
@@ -187,7 +187,7 @@ def test_config_without_validation_table_gets_one():
     assert d["validation"] == {"cut_offset": "2/3"} and d["features"] == {"x": 1}
 
 
-# --- 運転手（段 4 ・段 3 の持ち越し） --------------------------------------------------------------------
+# --- ランナー（段 4 ・段 3 の持ち越し） --------------------------------------------------------------------
 
 SRC = '''name = "exp_x"
 dataset = "daily"
@@ -238,7 +238,7 @@ def test_new_entry_gets_two_cut_configs_next_to_the_trader_shape(world, monkeypa
     # 次の晩は新顔ではない ＝ 足さない。持ち越しは残る
     out2 = devloop.select_stage(cfg, FakeEnv(root, conn).env, st, "2026-10-28", lambda s: None)
     assert out2["new"] == [] and out2["shaped"] == [] and st["pending_shapes"] == want
-    # 日誌の 1 行に併記が出る
+    # ログの 1 行に併記が出る
     text = devloop.write_journal(cfg, "2026-10-27", {"select": out}, str(root / "log" / "2026-10-27.md"))
     assert "切れ目ずらし: —" in text and "`dev_cut13_exp-x_50`" in text
 

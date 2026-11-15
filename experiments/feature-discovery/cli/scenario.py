@@ -5,8 +5,8 @@
     python3 -m cli.scenario predict --run runs/<実行> --latest    # 保存した重みから最新日の予測（JSON）
     python3 -m cli.scenario predict --run runs/<実行> --asof 2025-03-14
 
-⚠ **`cli.run` とは別の物差し（分布 → CRPS）。** 実行は `<時刻>_scn_<名前>` として記録（runs/research.sqlite）に残すが、`summary.csv` を書かないので
-台帳・検証タブには出ない（記録 §0 決定 6）。成績は `scores.csv`、起点ごとの生の行は `origins.csv`、判定は `verdict.json`。
+⚠ **`cli.run` とは別の指標（分布 → CRPS）。** 実行は `<時刻>_scn_<名前>` として記録（runs/research.sqlite）に残すが、`summary.csv` を書かないので
+検証結果一覧・検証タブには出ない（記録 §0 決定 6）。成績は `scores.csv`、起点ごとの生の行は `origins.csv`、判定は `verdict.json`。
 ⚠ **評価の実行は毎回学習し直す**（前の実行の `fitted/` を読まない）。`fitted/` を読むのは `predict` だけ。
 """
 
@@ -125,7 +125,7 @@ def run(args) -> None:
 
 def predict(args) -> None:
     name = runs.resolve(args.run)                  # 実行の名前（記録は runs/research.sqlite）
-    with runs.materialized(name) as d:             # ⚠ 重みを読むための写し（出たら消す）
+    with runs.materialized(name) as d:             # ⚠ 重みを読むためのコピー（出たら消す）
         _predict(args, name, d)
 
 

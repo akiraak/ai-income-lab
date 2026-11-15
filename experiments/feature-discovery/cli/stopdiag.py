@@ -1,4 +1,4 @@
-"""損切りの検証の診断（[記録](../../../docs/specs/experiments/stoploss-as-model.md) §0-5 の物差し）。⚠ **読むだけ・何も書かない。**
+"""損切りの検証の診断（[記録](../../../docs/specs/experiments/stoploss-as-model.md) §0-5 の指標）。⚠ **読むだけ・何も書かない。**
 
     python3 -m cli.stopdiag --run 2026-09-27T15-53-55_trade_own_stop_ridge_a [--control "L0 入口のみ（損切りなし）"] [--theta 50]
 

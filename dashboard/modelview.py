@@ -7,7 +7,7 @@
 2026-09-20 に手厚くした（利用者の裁定）: 図（入れるもの → 計算 → 出力スコア）／ このモデルの組み立て（軸の表）／ 小さな例で段を追う ／
 出力スコアの出かたと読み方 ／ 試した経緯の表 ／ 大見出しごとの「詳しく（用語あり）」の囲み（⚠ **畳まない**）。⚠ **欄の無いモデルは、その部分を出さないだけ**。
 2026-09-26 に足した（設定の説明 Step 5。利用者決定「4 つの集合は重要」）: 組み立ての直下に **3 つの集合の表**（`sets` ＝ 材料に入れるもの ／ 学ぶ株 ／
-出力スコアを出す株。行の名前は `[common] set_*` ＝ dashboard.md §18-2 の綴り）＋ 1 文「売買する株はトレーダーが決める」＋「トレーダーのしくみ」への
+出力スコアを出す株。行の名前は `[common] set_*` ＝ dashboard.md §18-2 の表記）＋ 1 文「売買する株はトレーダーが決める」＋「トレーダーのしくみ」への
 リンク ／ 特性の段の印の意味の直後に **試し運転の注**（`[common] trial_note` ＝「試し運転の 64 日」が何だったか。⚠ 本文に「試し運転」があるモデルにだけ）。
 
   - ⚠ **言葉の正本は `dashboard/models.toml`**（トレーダーのタブと同じ 1 本。説明をこのコードに書かない）
@@ -16,12 +16,12 @@
   - ⚠ **用語を書いてよいのは `[model.detail.*]`（「詳しく」の囲み）と正式な名前の欄だけ**。ほかの欄（`axes`・`walk`・`score`・`history` も）は
     やさしい言葉の検査を受ける（`tests/test_traders_tab.py` の `FORBIDDEN`）。⚠ 新しい欄はトレーダーのタブには出ない（人のページを長くしない）
   - ⚠ **「過去のデータで試した結果」の印と文は人が書く**（`result`）。⚠ **試した経緯の数は研究の DB から数える**（2026-09-21。
-    経緯の行の `names` ＝ 予測モデル名のパターン〔rules.md 10-2〕で `ledger_rows` を引き、θ はまとめて数える。DB が無い機械・
+    経緯の行の `names` ＝ 予測モデル名のパターン〔rules.md 10-2〕で `ledger_rows` を引き、θ はまとめて数える。DB が無いマシン・
     `names` の無い行は TOML の数）。⚠ 印・TOML の数と DB の数が食い違えばテストが落ちる（`tests/test_models_tab.py`）。
     `[common] show_result = false` で段と印を出さない。⚠ **売買結果は出さない**
   - ⚠ **「詳しく」の中の差し込み**（`{{gate|…}}`・`{{calib|…}}` ＝ `PLUG`。2026-09-21）は、実行の記録（DB の `files`）の
     `checks.json` の門と `fitted/calibration_f*.json` の較正の係数から引く（出どころの実行の識別名を title に出す）。
-    DB の無い機械では人が写した控え。⚠ 控えと DB の値が食い違えばテストが落ちる
+    DB の無いマシンでは人が写した控え。⚠ 控えと DB の値が食い違えばテストが落ちる
   - ⚠ **`out/`・`state/`・`.env` を読まない**。開くのは TOML と、研究の DB の `ledger_rows`（検証結果一覧の生成物）・
     `files` の `checks.json` と `fitted/calibration_f*.json` だけで、DB は読み取り専用（無い DB は作らない）。
     「正式な名前」の段は実験の config から写す
@@ -97,12 +97,12 @@ CSS = traderview.CSS + figures.CSS + """
 
 
 def config_dir(paths: TraderPaths) -> Path:
-    """実験の config の置き場（`experiments/feature-discovery/config/`）。銘柄の集合の 1 つ上。"""
+    """実験の config の保存先（`experiments/feature-discovery/config/`）。銘柄の集合の 1 つ上。"""
     return paths.universe_dir.parent
 
 
 def doc_url(rel: str) -> str:
-    """リポジトリ直下からの道を project-manager が読み替える hash（vibeboard の頃と同じ形）にする（vibetab.doc_url と同じ決まり）。"""
+    """リポジトリ直下からのパスを project-manager が読み替える hash（vibeboard の頃と同じ形）にする（vibetab.doc_url と同じ決まり）。"""
     def enc(p: str) -> str:
         return "/".join(quote(s, safe="") for s in p.split("/"))
 
@@ -304,7 +304,7 @@ def list_body(paths: TraderPaths) -> str:
 
 
 def _configs(paths: TraderPaths, m: dict) -> list[tuple[str, dict]]:
-    """(config/ からの道, そこから写した鍵)。⚠ 無いファイルは空の表で返す（落とさない）。"""
+    """(config/ からのパス, そこから写した鍵)。⚠ 無いファイルは空の表で返す（落とさない）。"""
     rels = list(m.get("configs") or ([f"experiment/{m['name']}.toml"] if m.get("name") else []))
     out = []
     for rel in rels:
@@ -324,7 +324,7 @@ def _more(label, inner: str) -> str:
 # 「詳しく」の中の差し込み（2026-09-21。プラン db-model-facts.md の Phase 4）:
 #   {{gate|<実行>|<数字の選び方・作り方>|<項目>|<書き方>|<控え>}}  ＝ checks.json の gate.methods[…][項目]（auc ／ width_pt ／ auc_folds ／ width_folds）
 #   {{calib|<実行>|<数字の選び方・作り方>|<項目>|<書き方>|<控え>}} ＝ fitted/calibration_f1..N.json の […][項目]（a ／ b。fold の順に並べる）
-# 書き方 ＝ 小数の桁（`+` を付けると正の数に ＋）。控え ＝ DB の無い機械で出す、人が写した文字（⚠ DB の値と同じでないとテストが落ちる）
+# 書き方 ＝ 小数の桁（`+` を付けると正の数に ＋）。控え ＝ DB の無い自動で出す、人が写した文字（⚠ DB の値と同じでないとテストが落ちる）
 PLUG = re.compile(r"\{\{(gate|calib)\|([^|{}]+)\|([^|{}]+)\|([^|{}]+)\|(\+?\d)\|([^{}]*)\}\}")
 PLUG_FIELDS = {"gate": ("auc", "width_pt", "auc_folds", "width_folds"), "calib": ("a", "b")}
 _CALIB_FILE = re.compile(r"^fitted/calibration_f(\d+)\.json$")
@@ -413,7 +413,7 @@ def _plugged(text: str, facts: RunFacts | None, used: list) -> str:
 
 def _detail(common: dict, m: dict, part: str, facts: RunFacts | None = None) -> str:
     """大見出しごとの「詳しく（用語あり）」の囲み（`[model.detail.<part>]` の `text`・`points`・`links`）。無ければ出さない。
-    文の中の差し込み（`PLUG`）は、DB がある機械では実行の記録から引いた値にする。"""
+    文の中の差し込み（`PLUG`）は、DB があるマシンでは実行の記録から引いた値にする。"""
     d = (m.get("detail") or {}).get(part) or {}
     used: list[str] = []
     paras = "".join(f"<p>{_plugged(str(t), facts, used)}</p>" for t in d.get("text") or [] if t)
@@ -520,7 +520,7 @@ def counted(ledger: Ledger | None, patterns) -> dict | None:
 
 
 def _history(common: dict, m: dict, ledger: Ledger | None = None) -> str:
-    """試した経緯の表。数は研究の DB から数える（`names` の無い行・DB の無い機械は人が写した TOML の数）。
+    """試した経緯の表。数は研究の DB から数える（`names` の無い行・DB の無いマシンは人が写した TOML の数）。
     いまの印に数えない行は薄く出し、理由を添える:
     `old = true` ＝ 計算を直す前の試し（理由は `[common] history_old`）／ `aside = "理由"` ＝ ちがう売り買いの決まりでの試しなど。"""
     rows = [r for r in m.get("history") or [] if r.get("what")]
@@ -534,7 +534,7 @@ def _history(common: dict, m: dict, ledger: Ledger | None = None) -> str:
         db = counted(ledger, r.get("names"))
         counts = [(name, int((db or r).get(v) or 0)) for v, name in names]
         split = " ／ ".join(f"{name} {n}" for name, n in counts if n)
-        # ⚠ DB がある機械で、DB から数えられなかった行（`names` が無い）にだけ「人が写した数」の印
+        # ⚠ DB がある自動で、DB から数えられなかった行（`names` が無い）にだけ「人が写した数」の印
         hand = (f"<span class='sub'>（{esc(common['history_hand'])}）</span>"
                 if ledger is not None and db is None and common.get("history_hand") else "")
         aside = _aside(common, r)
@@ -691,7 +691,7 @@ def body(paths: TraderPaths, item: str) -> str | None:
 
 
 def fingerprint(paths: TraderPaths) -> dict[str, float]:
-    """見張り用。言葉の正本と実売買の設定（だれがどのモデルを使うか）の mtime ＋ 検証結果一覧を DB に入れ直した時刻。"""
+    """監視用。言葉の正本と実売買の設定（だれがどのモデルを使うか）の mtime ＋ 検証結果一覧を DB に入れ直した時刻。"""
     out = traderview.fingerprint(paths)
     db = paths.research_db
     if db is not None and Path(db).is_file():

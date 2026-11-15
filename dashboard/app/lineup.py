@@ -1,10 +1,10 @@
 """名簿の面（`/roster`。dashboard.md §13-10）: トレーダーの **状態**（停止 ／ 稼働 ／ 一時停止 ／ 手じまい中）と、人が出す **指示**（開始 ／ 一時停止 ／ 手じまい）。
 
 プラン docs/plans/archive/trader-roster-dashboard.md → docs/plans/archive/trader-status-flow.md（2026-10-09 利用者決定「その案でよい」）。
-状態は置き場（名簿 `roster.json` ＋ `control/<人>.json`）から決める。指示は **執行器の次の回を通るまで** 状態に入れず「指示」として見せる
-（指示の時刻 ＞ 最後の発注の回の `start`。指示の記録は管理画面の操作の履歴）。⚠ 置き場の形・執行器の動きは変えていない。
+状態は保存先（名簿 `roster.json` ＋ `control/<人>.json`）から決める。指示は **執行エンジンの次の回を通るまで** 状態に入れず「指示」として見せる
+（指示の時刻 ＞ 最後の発注の回の `start`。指示の記録は管理画面の操作の履歴）。⚠ 保存先の形・執行エンジンの動きは変えていない。
 
-⚠ **読むだけ・決めるだけ**。書くのは `ops.py`（名簿 ＝ 執行器の `roster.py`・`control/` ＝ 執行器の `control.py`）。売買は執行器の次の回。
+⚠ **読むだけ・決めるだけ**。書くのは `ops.py`（名簿 ＝ 執行エンジンの `roster.py`・`control/` ＝ 執行エンジンの `control.py`）。売買は執行エンジンの次の回。
 ⚠ 押せるかどうかの判定はここ 1 か所（画面のボタンの出し分けと POST の拒否が同じ関数を見る）。
 ⚠ 標準ライブラリだけ。記録は `live.py` の読み手を使う（DB ＝ livefs）。
 """
@@ -18,11 +18,11 @@ from pathlib import Path
 from . import live as lv
 from .livestore import livefs
 
-# 執行器の回の時間帯（cron 15:40 ET 起動 → 予測 → 15:50 の合図 → 16:05 の取消）。この間は名簿を書かない（K3）。
-# ⚠ 管理画面は `run.lock` を取らない（一瞬でも取ると本物の執行器が拒否される）＝ 時刻で見る
+# 執行エンジンの回の時間帯（cron 15:40 ET 起動 → 予測 → 15:50 の合図 → 16:05 の取消）。この間は名簿を書かない（K3）。
+# ⚠ 管理画面は `run.lock` を取らない（一瞬でも取ると本物の執行エンジンが拒否される）＝ 時刻で見る
 QUIET_FROM, QUIET_TO = _time(15, 40), _time(16, 10)
 
-# 状態（執行器がいまその人をどう動かしているか）。⚠ 「停止」＝ 動かしていない・持ち株 0（名簿の外 ＋ 手じまい済み）
+# 状態（執行エンジンがいまその人をどう動かしているか）。⚠ 「停止」＝ 動かしていない・持ち株 0（名簿の外 ＋ 手じまい済み）
 STATUS = {"stopped": "停止", "active": "稼働", "paused": "一時停止", "liquidating": "手じまい中"}
 STATUS_ICON = {"stopped": "■", "active": "▶", "paused": "⏸", "liquidating": "🧹"}
 # 指示（人がボタンで出す変更）→ 次の回を通った後の状態
@@ -56,7 +56,7 @@ def last_start(live_dir: Path) -> dict | None:
 
 
 def cap_of(start: dict | None) -> float | None:
-    """前の回の予算の合計の上限（`live.env` の値を執行器が記録したもの）。⚠ 記録が無ければ None（＝ 画面では事前に確かめない。執行器が守る）。"""
+    """前の回の予算の合計の上限（`live.env` の値を執行エンジンが記録したもの）。⚠ 記録が無ければ None（＝ 画面では事前に確かめない。執行エンジンが守る）。"""
     v = (start or {}).get("max_total_budget")
     return float(v) if isinstance(v, (int, float)) else None
 
@@ -118,7 +118,7 @@ def reconcile(live_dir: Path, states: dict[str, dict[str, dict]]) -> dict:
 
 
 def file_status(name: str, members: list[str], flag: dict | None) -> str:
-    """置き場だけから決める状態（plan §2-1）。"""
+    """保存先だけから決める状態（plan §2-1）。"""
     if name not in members:
         return "stopped"
     kind = (flag or {}).get("kind")
@@ -149,7 +149,7 @@ def last_run_at(live_dir: Path) -> datetime | None:
 
 
 def next_run(now_et=None) -> str:
-    """執行器の次の回（表示用。シアトル時間を先に）。営業日の 15:40 ET より前なら今日・それ以外は次の営業日。"""
+    """執行エンジンの次の回（表示用。シアトル時間を先に）。営業日の 15:40 ET より前なら今日・それ以外は次の営業日。"""
     now = now_et or lv.now_et()
     d = now.date()
     try:
@@ -167,7 +167,7 @@ def next_run(now_et=None) -> str:
 
 def pending_of(fstatus: str, row: dict | None, run_at: datetime | None) -> dict | None:
     """まだ回を通っていない指示（plan §2-2）。`row` ＝ 操作の履歴のその人の最新の行。
-    ⚠ 置き場がもう指示の結果と違う（CLI で書き換えた等）なら指示とは見ない（置き場が正）。"""
+    ⚠ 保存先がもう指示の結果と違う（CLI で書き換えた等）なら指示とは見ない（保存先が正）。"""
     d = (row or {}).get("detail") or {}
     kind = d.get("instruction")
     at = _dt((row or {}).get("at"))
@@ -179,7 +179,7 @@ def pending_of(fstatus: str, row: dict | None, run_at: datetime | None) -> dict 
 
 
 def statuses(live_dir: Path, roster_entries: list | None, flags: dict[str, dict], machine: dict, instructions: dict[str, dict]) -> dict[str, dict]:
-    """全員（設定のある人）の {status, file_status, pending}。⚠ シミュレーションは仮の時計なので指示を待たせない（置き場がそのまま状態）。"""
+    """全員（設定のある人）の {status, file_status, pending}。⚠ シミュレーションは仮の時計なので指示を待たせない（保存先がそのまま状態）。"""
     members = [e.name for e in roster_entries] if roster_entries is not None else []
     run_at = None if machine.get("mode") == "sim" else last_run_at(live_dir)
     out = {}
@@ -191,7 +191,7 @@ def statuses(live_dir: Path, roster_entries: list | None, flags: dict[str, dict]
 
 
 def badges(live_dir: Path, roster_entries: list | None, flags: dict[str, dict], machine: dict, instructions: dict[str, dict]) -> dict[str, str]:
-    """概要の段の札（稼働で指示なしの人は札なし）。⚠ 名簿がまだ無い機械では、名簿の外を「停止」と札にしない（live.env の一覧で動いている）。"""
+    """概要の段の札（稼働で指示なしの人は札なし）。⚠ 名簿がまだ無いマシンでは、名簿の外を「停止」と札にしない（live.env の一覧で動いている）。"""
     out = {}
     for name, s in statuses(live_dir, roster_entries, flags, machine, instructions).items():
         if s["pending"]:

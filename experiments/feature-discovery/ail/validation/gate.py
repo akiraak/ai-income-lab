@@ -47,7 +47,7 @@ def _median(vals) -> float | None:
 
 
 def _fold_selectors(panel, feats, exp, methods, per, edges, v, k, ctx, model) -> None:
-    """選別 × モデルの枝（既存）。訓練の尻の `tail_holdout` から 2 指標を測る。"""
+    """選別 × モデルの枝（既存）。訓練の末尾の `tail_holdout` から 2 指標を測る。"""
     for _f, tr, _te in splits.folds_by_dates(panel, edges, float(exp["horizon_min"]),
                                              int(v.get("embargo_bars", 0)),
                                              float(exp.get("bar_minutes", 0.0)),
@@ -74,7 +74,7 @@ def _fold_selectors(panel, feats, exp, methods, per, edges, v, k, ctx, model) ->
 
 
 def _fold_detectors(panel, feats, exp, methods, per, edges, v, ctx) -> None:
-    """検知器の枝。⚠ **訓練分割をさらに 2 つに割り、頭で作った買い% を尻で測る。**
+    """検知器の枝。⚠ **訓練分割をさらに 2 つに割り、頭で作った買い% を末尾で測る。**
 
     ⚠ **検知器は買い% を直接返す**ので、門の 2 指標はその買い% からそのまま出せる
     （選別の枝のように Platt を当て直さない）。⚠ **AUC の相手は「その日 1 日が上げたか」**で、
@@ -106,8 +106,8 @@ def _fold_detectors(panel, feats, exp, methods, per, edges, v, ctx) -> None:
 def evaluate_gate(panel: pd.DataFrame, feats: list[str], exp: dict, run=None) -> dict:
     """手法ごとに門の 2 指標を測り、通過を判定する。
 
-    fold の切れ目は `evaluate_trading` と同じ日付基準（13-6 の 1）。各 fold の**訓練分割だけ**を
-    使い、選別 → tail holdout の頭で fit → 尻の予測から AUC と（Platt を当てた）買い% の
+    fold の分割点は `evaluate_trading` と同じ日付基準（13-6 の 1）。各 fold の**訓練分割だけ**を
+    使い、選別 → tail holdout の頭で fit → 末尾の予測から AUC と（Platt を当てた）買い% の
     p05-p95 幅を測る。5 fold の中央値が **AUC ≥ 0.52 かつ 幅 ≥ 20 点** なら通過。
     ⚠ **holdout が 1 fold も切れない（訓練が薄い）指標は素通し**（回せば普通に試行として
     数えるので、DSR が甘くなる向きではない）。
@@ -122,7 +122,7 @@ def evaluate_gate(panel: pd.DataFrame, feats: list[str], exp: dict, run=None) ->
     methods = {n: fn for n, fn in (detectors or selectors).items() if is_gated(n)}
 
     per: dict[str, dict[str, list]] = {n: {"auc": [], "width": []} for n in methods}
-    edges = splits.date_edges(panel["ts"], int(v.get("folds", 5)), splits.cut_offset(v))   # 33 章（無ければ None ＝ 本体と同じ切れ目）
+    edges = splits.date_edges(panel["ts"], int(v.get("folds", 5)), splits.cut_offset(v))   # 33 章（無ければ None ＝ 本体と同じ分割点）
     if detectors:
         _fold_detectors(panel, feats, exp, methods, per, edges, v, ctx)
     else:

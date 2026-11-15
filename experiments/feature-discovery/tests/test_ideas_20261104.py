@@ -1,7 +1,7 @@
-"""登録簿の 3 本（2026-11-04 の段 2・人の手）: 損切り係 X7（C3 SMA200 を出口だけに）／ 荒れる日を休む V2 ／ 局面別 Ridge R1。
+"""レジストリの 3 本（2026-11-04 の段 2・人の手）: 損切り係 X7（C3 SMA200 を出口だけに）／ 荒れる日を休む V2 ／ 局面別 Ridge R1。
 
-⚠ 見るもの: 無い config は 1 ビットも変わらない（既存の登録名・綴り・ideas の読み込み）／ 先を見ない ／ 出力の契約（行数・0〜100）／
-   訓練分割だけで決める（分位・k-means）／ 識別項目の綴り。
+⚠ 見るもの: 無い config は 1 ビットも変わらない（既存の登録名・表記・ideas の読み込み）／ 先を見ない ／ 出力の契約（行数・0〜100）／
+   訓練分割だけで決める（分位・k-means）／ 識別項目の表記。
 """
 
 from __future__ import annotations
@@ -133,7 +133,7 @@ def test_regime_small_regimes_fall_back_to_the_global_model():
     ctx = {"model": registry.resolve("model", "Ridge")}
     buy, doc = registry.resolve("detector", rg.name_of(2))(tr, te, _feats(p), ctx)
     assert sorted(doc["全体で埋めた局面"]) == ["0", "1"]
-    # 全体の 1 本だけ ＝ 局面の列を除いた素の Ridge と同じ予測（較正も同じ尻）
+    # 全体の 1 本だけ ＝ 局面の列を除いた素の Ridge と同じ予測（較正も同じ末尾）
     from sklearn.preprocessing import StandardScaler
 
     from ail.models import calibrate

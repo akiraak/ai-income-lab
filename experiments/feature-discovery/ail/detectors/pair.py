@@ -37,7 +37,7 @@ _INDEX = {w: i + 1 for i, w in enumerate(SCALES.values())}   # 20→1 / 60→2 /
 
 
 def name_of(kind: str, w_in: int, w_out: int) -> str:
-    """台帳に出る手法名。⚠ **構成を名前に入れる**（rules.md 16-6 の 1）。
+    """検証結果一覧に出る手法名。⚠ **構成を名前に入れる**（rules.md 16-6 の 1）。
 
     ⚠ **鍵に列は足さない。** 名前が `catalog.canonical` を通って鍵に落ちるので、
     ⚠ **名前に入れ忘れると行がまとまり、差が「再現の幅」に化ける**（段 1 で踏んだ形）。

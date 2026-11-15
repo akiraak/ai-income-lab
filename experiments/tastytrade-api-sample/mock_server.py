@@ -101,7 +101,7 @@ FAULT_KINDS = ("session_offline", "http_5xx", "http_429", "auth_5xx", "auth_401"
 
 
 def take_fault(kind: str) -> bool:
-    """故障を 1 回ぶん使う。⚠ 拒否の文面・コードは想像で作ったもの（tastytrade の【実測】ではない。Session offline だけ 2026-09-08 の実物の写し）。"""
+    """故障を 1 回ぶん使う。⚠ 拒否の文面・コードは想像で作ったもの（tastytrade の【実測】ではない。Session offline だけ 2026-09-08 の実物のコピー）。"""
     with LOCK:
         left = STATE["faults"].get(kind, 0)
         if left <= 0:
@@ -291,8 +291,8 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(200, {"quote": STATE["quote"], "quotes": len(STATE["quotes"])})
         if path == "/_mock/positions":
             # 実売買のシミュレーション専用: 口座の建玉を置く ／ ずらす（認証なし）。
-            #   {"positions": {"T": 4}}   置き換え（運転手が続きから起こすとき、台帳の合計を入れる）
-            #   {"adjust": {"T": -4}}     ずらす（筋書き position_loss ＝ 台帳にあるはずの株が口座から消える）
+            #   {"positions": {"T": 4}}   置き換え（ランナーが続きから起こすとき、売買履歴の合計を入れる）
+            #   {"adjust": {"T": -4}}     ずらす（シナリオ position_loss ＝ 売買履歴にあるはずの株が口座から消える）
             body = self._body()
             with LOCK:
                 if "positions" in body:
@@ -301,7 +301,7 @@ class Handler(BaseHTTPRequestHandler):
                     STATE["positions"][sym] = round(STATE["positions"].get(sym, 0) + float(delta), 6)
                 return self._send(200, {"positions": dict(STATE["positions"])})
         if path == "/_mock/fault":
-            # 実売買のシミュレーション専用: {"faults": {"session_offline": 2, "no_fill": 1}} を足す（認証なし。運転手の筋書きが叩く）
+            # 実売買のシミュレーション専用: {"faults": {"session_offline": 2, "no_fill": 1}} を足す（認証なし。ランナーのシナリオが叩く）
             body = self._body()
             bad = [k for k in (body.get("faults") or {}) if k not in FAULT_KINDS]
             if bad:
@@ -334,7 +334,7 @@ class Handler(BaseHTTPRequestHandler):
             body = self._body()
             dry_run = len(parts) == 4 and parts[3] == "dry-run"
             leg = body["legs"][0]
-            # 本番の API が持つ注文種別の写し（【記憶・未確認】。dryrun2 の記録で直す）
+            # 本番の API が持つ注文種別のコピー（【記憶・未確認】。dryrun2 の記録で直す）
             if body.get("order-type") not in ("Limit", "Market", "Stop", "Stop Limit", "Notional Market"):
                 return self._error(422, "invalid_order_type", f"order-type {body.get('order-type')!r} は無い（Limit / Market / Stop / Stop Limit / Notional Market）")
             if body.get("order-type") == "Notional Market":
@@ -353,7 +353,7 @@ class Handler(BaseHTTPRequestHandler):
             }
             fees = {"total-fees": "0.00", "total-fees-effect": "None"}
             if STATE["fill_noise"] > 0:
-                # 実売買のモック: 手数料の内訳を返す（執行器が注文ごとの内訳を記録し、トレーダーの台帳に入れる経路を通すため）。
+                # 実売買のモック: 手数料の内訳を返す（執行エンジンが注文ごとの内訳を記録し、トレーダーの売買履歴に入れる経路を通すため）。
                 # ⚠ 鍵の名前は OpenAPI の記憶【未確認】、額は想像（株の手数料 $0・売りにだけ規制費。本物は dryrun2 と本番の 1 発注で確かめる）
                 reg = 0.0 if leg["action"].startswith("Buy") else max(0.01, round(price * qty * 0.00003, 2))
                 eff = "Debit" if reg else "None"
@@ -390,9 +390,9 @@ class Handler(BaseHTTPRequestHandler):
                 if fills_immediately(body) and not (STATE["faults"].get("no_fill", 0) > 0 and body.get("order-type") in ("Market", "Notional Market")):
                     STATE["fill_wanted"].add(order["id"])
                 elif fills_immediately(body):
-                    STATE["faults"]["no_fill"] -= 1   # 成行が約定しないまま Live で残る（執行器が取消までの秒数を待って取り消す）
+                    STATE["faults"]["no_fill"] -= 1   # 成行が約定しないまま Live で残る（執行エンジンが取消までの秒数を待って取り消す）
                 STATE["events"].append({"type": "Order", "data": dict(order), "timestamp": now_ms()})
-            accepted = dict(order)   # 応答は受けた時点の写し（進める側のスレッドが同じ dict を書き換える。遅延 0 だと応答の status が揺れる）
+            accepted = dict(order)   # 応答は受けた時点のコピー（進める側のスレッドが同じ dict を書き換える。遅延 0 だと応答の status が揺れる）
             advance(order["id"])
             return self._send(
                 201,

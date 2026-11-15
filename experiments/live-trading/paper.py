@@ -3,9 +3,9 @@
     python3 paper.py                                   # out/ の全日付 → out/daily.csv（毎回ぜんぶ作り直す ＝ 何度流しても同じ）
     python3 paper.py --out-dir sim/sim1/out --close-from quotes    # シミュレーション ／ モック（公式終値が無い）: 合図時の気配の中値を終値の代役に
 
-⚠ **読むだけ**（ネットワークを使わない・発注しない・台帳を書かない）。入力は執行器の記録（`signals` ／ `orders` ／ `ledger` ／ `events`）と
-   公式終値（既定は `../feature-discovery/data-live/adjusted/d/` ＝ `live_update.sh` の置き場）。
-⚠ **紙上の状態機械はバックテストと同じ**（`ail/validation/simulate.py`・rules.md 13-4）: 未保有で 買い% > θ なら建てる ／ 保有中で 出口% > θ なら
+⚠ **読むだけ**（ネットワークを使わない・発注しない・売買履歴を書かない）。入力は執行エンジンの記録（`signals` ／ `orders` ／ `ledger` ／ `events`）と
+   公式終値（既定は `../feature-discovery/data-live/adjusted/d/` ＝ `live_update.sh` の保存先）。
+⚠ **紙上のステートマシンはバックテストと同じ**（`ail/validation/simulate.py`・rules.md 13-4）: 未保有で 買い% > θ なら建てる ／ 保有中で 出口% > θ なら
    手仕舞う ／ 足 t の終値で執行 ／ 建てた日と手仕舞った日にだけ片道 `cost_bp / 2` ／ 銘柄は等加重（予算 ÷ 銘柄数。13-7）。
    ⚠ fold 末尾の強制清算だけは無い（実売買は終わらない）。
 ⚠ **紙上は合図どおりに必ず執行できる**（予算・整数株・受渡し待ち・拒否を知らない）。実物が見送ったぶんは差 3 に出るので、`unexecuted` の列で数える。
@@ -13,7 +13,7 @@
 
 日付 d の行の意味（紙上も実物も同じ数え方にする）:
   その日の損益 ＝ 前の営業日の終値から d の終値までに、d の売買の**前**から持っていた分が稼いだもの − d の売買のコスト。
-  実物 ＝ 台帳（`ledger.jsonl` の d の最後の行）の 実現損益 ＋ Σ 株数 ×（d の終値 − 取得単価）− 手数料、の前日差。
+  実物 ＝ 売買履歴（`ledger.jsonl` の d の最後の行）の 実現損益 ＋ Σ 株数 ×（d の終値 − 取得単価）− 手数料、の前日差。
   bp はどれも**その人の予算に対して**。
 
 そろえた紙上（`aligned_*`・差 3 は `diff3a_*`。2026-10-08 利用者決定「全部はい」＝ プラン docs/plans/paper-align.md）:
@@ -73,7 +73,7 @@ REFUSED = ("out_of_window", "halted", "refused_mode_sim", "refused_lock_busy", "
 
 
 def _jsonl(path: str) -> list[dict]:
-    """執行器の記録（⚠ 2026-09-21 から DB の lines ＝ `livefs`。道はそのまま）。"""
+    """執行エンジンの記録（⚠ 2026-09-21 から DB の lines ＝ `livefs`。パスはそのまま）。"""
     return [json.loads(l) for l in livefs.read_lines(path) if l.strip()]
 
 
@@ -230,7 +230,7 @@ def build_rows(out_dir: str, closes: dict[str, dict[str, float]], close_source: 
                         y = math.log(c1 / c0) * 1e4
                         paper_bp += pos.get(s, 0) * y / n
                         bh_bp += y / n
-            # --- 紙上: d の終値での売買（状態機械はバックテストと同じ）
+            # --- 紙上: d の終値での売買（ステートマシンはバックテストと同じ）
             theta = _threshold(sig.get(t, {}), out_dir, t)
             trades = 0
             for s, r in sig.get(t, {}).items():
@@ -245,7 +245,7 @@ def build_rows(out_dir: str, closes: dict[str, dict[str, float]], close_source: 
                     bh_bp -= half                      # B&H は最初の日に全部買う（片道 1 回）
                     bh_started[t] = True
 
-            # --- 実物: 台帳を d の終値で値洗い
+            # --- 実物: 売買履歴を d の終値で値洗い
             real_usd = None
             if L:
                 real_usd = float(L.get("realized_usd") or 0.0) - float(L.get("fees_usd") or 0.0)
@@ -292,8 +292,8 @@ def build_rows(out_dir: str, closes: dict[str, dict[str, float]], close_source: 
             diff3 = None
             if real_bp is not None:
                 c["real"] += real_bp
-                # ⚠ **差 3 の累計 ＝ 紙上の累計 − 実物の累計**（いつでも成り立つ形にする）。台帳の無い日（執行器が起動しなかった日）は
-                #    実物の行が空で、その間の紙上の動きは次に台帳が出た日の差 3 にまとめて入る
+                # ⚠ **差 3 の累計 ＝ 紙上の累計 − 実物の累計**（いつでも成り立つ形にする）。売買履歴の無い日（執行エンジンが起動しなかった日）は
+                #    実物の行が空で、その間の紙上の動きは次に売買履歴が出た日の差 3 にまとめて入る
                 diff3 = (c["paper"] - c["real"]) - c["diff3"]
                 c["diff3"] = c["paper"] - c["real"]
             a = _aligned_day(al, t, d, sig.get(t, {}), closes, budget, real_bp, out_dir, half,
@@ -372,7 +372,7 @@ def _aligned_day(al: dict, t: str, d: str, sig: dict[str, dict], closes: dict, b
     d3 = None
     if real_bp is not None:
         st["rcum"] += real_bp
-        d3 = (st["cum"] - st["rcum"]) - st["d3"]                  # 差 3 と同じ形（台帳の無い日のぶんは次の日にまとめて入る）
+        d3 = (st["cum"] - st["rcum"]) - st["d3"]                  # 差 3 と同じ形（売買履歴の無い日のぶんは次の日にまとめて入る）
         st["d3"] = st["cum"] - st["rcum"]
     out = {"aligned_since": st["since"], "aligned_held": len(st["pos"]), "aligned_trades": trades,
            "aligned_bp": round(bp, 2), "aligned_cum_bp": round(st["cum"], 2),

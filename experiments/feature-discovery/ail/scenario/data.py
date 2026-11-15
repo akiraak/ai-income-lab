@@ -197,7 +197,7 @@ def quality_flags(bars: pd.DataFrame, today: str | None = None) -> dict:
 
 
 def fingerprint(period: str, symbol: str) -> dict:
-    """入力の指紋（rules.md 10 章）。⚠ **manifest（`cli.adjust` が書く）の写し**で、ここでは計算し直さない。"""
+    """入力のフィンガープリント（rules.md 10 章）。⚠ **manifest（`cli.adjust` が書く）のコピー**で、ここでは計算し直さない。"""
     path = os.path.join(store.DATA, "manifests", f"adjusted_{period}.json")
     m = json.load(open(path, encoding="utf-8"))
     return {"layer": "adjusted", "period": period, "symbol": symbol, "written_at": m.get("written_at"),

@@ -104,7 +104,7 @@ class EventLog:
     """監視で得たイベントの追記。1 日 1 ファイル（UTC）。"""
 
     def __init__(self, directory: Path, redactor: Redactor) -> None:
-        self.dir = directory                       # ⚠ 2026-09-21 から中身は DB（`livefs`。道はそのまま）
+        self.dir = directory                       # ⚠ 2026-09-21 から中身は DB（`livefs`。パスはそのまま）
         self.redactor = redactor
         self._lock = threading.Lock()
 

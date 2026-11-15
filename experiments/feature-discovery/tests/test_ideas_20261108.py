@@ -1,6 +1,6 @@
-"""登録簿 `20261108-hmm-sticky-regime-hold`（2026-11-13 の段 2・人の手）: 滞在日数に下限のある局面 R4（ガウス HMM・2 ／ 3 状態）。
+"""レジストリ `20261108-hmm-sticky-regime-hold`（2026-11-13 の段 2・人の手）: 滞在日数に下限のある局面 R4（ガウス HMM・2 ／ 3 状態）。
 
-⚠ 見るもの: 無い config は 1 ビットも変わらない（既存の登録名・綴り）／ 遷移の対角 ≥ 0.95 ／ 前向きの確率だけ（先の日を見ない）／
+⚠ 見るもの: 無い config は 1 ビットも変わらない（既存の登録名・表記）／ 遷移の対角 ≥ 0.95 ／ 前向きの確率だけ（先の日を見ない）／
    同じ日の全銘柄に同じ買い% ／ 出力の契約（行数・0〜100）／ leak 対照が観測に届く。
 """
 
@@ -49,7 +49,7 @@ def test_new_names_registered_spelled_and_existing_untouched():
         assert n in registry.available("detector")
     key = dict(鍵=hs.name_of(2), モデル="Ridge", 粒度="日足", 地平="1 本（1 日）", 特徴量の層="own", 層="adjusted", 期間="2018-01-31",
                銘柄="63", 検証方式="閾値売買", 形式="共通", 較正="std", 閾値="50")
-    assert names.trial_name(key) == "own.r4-hmm-sticky-k2.ridge.shared@50"      # 登録簿の key_shape
+    assert names.trial_name(key) == "own.r4-hmm-sticky-k2.ridge.shared@50"      # レジストリの key_shape
     key.update(鍵=hs.name_of(3), 閾値="60")
     assert names.trial_name(key) == "own.r4-hmm-sticky-k3.ridge.shared@60"
     assert hs.KS == (2, 3) and hs.DIAG_MIN == 0.95 and hs.DWELL_DAYS == 20
@@ -121,7 +121,7 @@ def test_r4_leak_reaches_the_observations():
     assert np.allclose(obs["__o_ret"].to_numpy()[1:], m.to_numpy()[:-1])                              # 2 列は 1 日遅れ
 
 
-# --- 登録簿 `20261108-edgar-8k-event-flags`: 8-K の取得元 `edgar_8k` と印の層 `evt_`（⚠ ネットワークに出ない）-----------------
+# --- レジストリ `20261108-edgar-8k-event-flags`: 8-K の取得元 `edgar_8k` と印の層 `evt_`（⚠ ネットワークに出ない）-----------------
 
 from ail.data.sources import edgar_8k  # noqa: E402
 from ail.ideas import i20261108_evt_layer as evt  # noqa: E402

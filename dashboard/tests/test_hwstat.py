@@ -195,7 +195,7 @@ def test_missing_mount_is_skipped():
     assert [d["mount"] for d in hwstat.read_disks(("/", "/mnt/c"), du)] == ["/"]
 
 
-# ---------------------------------------------------------------- 見張り
+# ---------------------------------------------------------------- 監視
 
 
 def make_sampler(proc, **kw) -> hwstat.Sampler:

@@ -1,4 +1,4 @@
-"""上乗せを「いつ持つか」と「どれを持つか」に割る並べ替えの物差し（登録簿 `20261104-perm-split-timing`）。⚠ **読むだけ。**
+"""上乗せを「いつ持つか」と「どれを持つか」に割る並べ替えの指標（レジストリ `20261104-perm-split-timing`）。⚠ **読むだけ。**
 
     python3 -m cli.perm_split --run <実行> [--method <手法>] [--theta 50] [--n 200] [--seed 0] [--json out.json] [--save]
     python3 -m cli.perm_split --all [--limit N] [--n 200]          # buy_pct.parquet のある実行を順に
@@ -12,7 +12,7 @@
 で、上乗せ ＝ fold ごとの（手法の純利 − 基準 常に上 の純利）の平均（`checks.compute_trading` の `edge_vs_bh` と同じ）。
 分位 ＝ (並べ替えの上乗せ < 元 の数 ＋ 同点 × 0.5) ÷ n。B&H は買い% に依らないので、上乗せの分位 ＝ 純利の分位。
 
-⚠ **元の純利を `result.csv` と突き合わせ、合わない手法は出さない**（役割つきの組・最短保有・保有日数の口などは
+⚠ **元の純利を `result.csv` と照合し、合わない手法は出さない**（役割つきの組・最短保有・保有日数の口などは
 `_row` が `simulate` に任意引数を渡すので、ここでは再現しない ＝ 「再現せず」と書いて飛ばす）。
 ⚠ **採否には使わない・検証結果一覧に列を足さない**（列を足すかは利用者）。`n_trials` にも数えない。
 ⚠ `--save` のときだけ DB の `outputs` の `diag/<時刻>_perm_split/` に JSON を入れる（`runs.put_output`・上書きしない）。
@@ -36,7 +36,7 @@ DRIFT = "基準 常に上（ドリフト）"
 BUY, EXIT = "買い%|", "出口%|"
 KINDS = ("perm_xs", "perm_ts")
 GROUP_BY = {"perm_xs": ("fold", "ts"), "perm_ts": ("fold", "symbol")}
-TOL_BP = 1e-6                    # result.csv との突き合わせ（to_csv は往復できる桁で書くので、ふつうは 0 で合う）
+TOL_BP = 1e-6                    # result.csv との照合（to_csv は往復できる桁で書くので、ふつうは 0 で合う）
 
 
 # ---------------------------------------------------------------- 並べ替え
@@ -47,7 +47,7 @@ def group_codes(frame: pd.DataFrame, kind: str) -> np.ndarray:
 
 
 def permute_within(values: np.ndarray, codes: np.ndarray, rng: np.random.Generator) -> np.ndarray:
-    """`values`（行 × 列。列は同じ行の組のまま動かす）を、同じ番号の行の中だけで並べ替えた写し。
+    """`values`（行 × 列。列は同じ行の組のまま動かす）を、同じ番号の行の中だけで並べ替えたコピー。
 
     NaN を含む行は動かさず、残りの行だけで並べ替える（組ごとの値の集まりは変わらない）。"""
     v = np.asarray(values, dtype=float)
@@ -68,7 +68,7 @@ def permute_within(values: np.ndarray, codes: np.ndarray, rng: np.random.Generat
 
 def fold_net(fr: pd.DataFrame, bp: np.ndarray, ex: np.ndarray | None, y: np.ndarray,
              th: float, cost_bp: float) -> float | None:
-    """1 fold ぶん（評価分割の並びのまま）の純利 bp。⚠ `cli.run.evaluate_trading._row` の素の枝の写し:
+    """1 fold ぶん（評価分割の並びのまま）の純利 bp。⚠ `cli.run.evaluate_trading._row` の素の枝のコピー:
     銘柄ごとに `simulate(bp, y, θ, cost, exit_pct=ex)` → `portfolio_daily` → 和。NaN のある銘柄は飛ばす。"""
     ts = pd.to_datetime(fr["ts"])
     nets: dict[str, pd.Series] = {}

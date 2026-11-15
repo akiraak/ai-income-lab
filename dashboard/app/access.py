@@ -55,7 +55,7 @@ def is_private(ip: str) -> bool:
 
 
 class CloudflareVerifier:
-    """<team>.cloudflareaccess.com の JWKS で RS256 を検証し、aud・iss・email を突き合わせる。"""
+    """<team>.cloudflareaccess.com の JWKS で RS256 を検証し、aud・iss・email を照合する。"""
 
     def __init__(self, team: str, aud: str, email: str, fetch_jwks=None, cache_seconds: int = 3600):
         self.team = team

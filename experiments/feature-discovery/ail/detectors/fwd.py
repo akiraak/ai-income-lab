@@ -33,7 +33,7 @@ WINDOW = 10
 EXTRA_WINDOWS = {"H2": 5, "H3": 20, "H4": 40}
 # ⚠ **列の絞り**（rules.md 25-1 の 2）: `ctx["fwd_columns"]`（config の `[model_args] fwd_columns`）が "own" なら、
 #    損切りの規則のためだけに表に入っている高値 20 日の列（`own_trend*`）を見ない ＝ 入口と同じ own 35 列。
-#    無ければ今までどおり表の全列（⚠ 項目の無い config は 1 ビットも変わらない ＝ 指紋テスト）
+#    無ければ今までどおり表の全列（⚠ 項目の無い config は 1 ビットも変わらない ＝ 回帰テスト）
 COLUMNS_OWN = "own"
 
 
@@ -41,7 +41,7 @@ def forward_gate(w: int, tr: pd.DataFrame, te: pd.DataFrame, feats, ctx: dict, c
     """先 w 営業日のゲート。⚠ **戻り値は買い%（0〜100・検証の行数ぶん）と、記録に残す辞書**（rules.md 15-1）。
 
     `center`（rules.md 25-7。2026-10-19）: 較正した確率 p から訓練の行の上がる割合 π を logit で引く ＝ 買い% ＝ 100 × σ(logit(p) − logit(π))。
-    π と同じなら 50。⚠ 既定 False ＝ 既存の H1〜H5 は 1 ビットも変わらない（指紋テスト）。
+    π と同じなら 50。⚠ 既定 False ＝ 既存の H1〜H5 は 1 ビットも変わらない（回帰テスト）。
     """
     target = f"{labels.SCALE_PREFIX}{w}"
     if target not in tr:
@@ -53,7 +53,7 @@ def forward_gate(w: int, tr: pd.DataFrame, te: pd.DataFrame, feats, ctx: dict, c
         cols = [c for c in cols if not c.startswith(f"{trend.PREFIX}trend")]   # ⚠ `LEAK_` の列はそのまま残る（13-10）
     elif which not in (None, "all"):
         raise SystemExit(f"⚠ fwd_columns = {which!r} は受けない（\"own\" か \"all\"。rules.md 25-1 の 2）")
-    # ⚠ **末尾はラベルが取れない行**（表の尻）。訓練からだけ落とす（検証の行はラベルを使わない）
+    # ⚠ **末尾はラベルが取れない行**（表の末尾）。訓練からだけ落とす（検証の行はラベルを使わない）
     ok = tr[target].notna().to_numpy()
     tr_ok = tr.loc[ok]
     model = ctx["model"]
@@ -124,7 +124,7 @@ CENTERED_NAMES = tuple(centered_name_of(t, w) for t, w in CENTERED_WINDOWS.items
 
 # ⚠ **25-5（2026-10-18）: 1 本で「買い」と「何日持つか」を出す検知器。** 4 本の先 W 日ゲートを同じ学び方で持ち、
 #    買い% ＝ 4 本の最大・保有日数 ＝ その期間（同点は短いほう）・出口% ＝ 0（売り係を持たない）。
-#    ⚠ `forward_gate` は 1 文字も変えない（H1〜H4 の行の指紋）。期間の候補は足さない（25-5 の 8）
+#    ⚠ `forward_gate` は 1 文字も変えない（H1〜H4 の行のフィンガープリント）。期間の候補は足さない（25-5 の 8）
 PICK_WINDOWS = (5, 10, 20, 40)
 PICK_NAME = "H5 先5〜40日から期間を選ぶゲート（全列・学習）"
 HOLD_KEY = "_hold_days"      # ⚠ `fold_buy_pct` が保有日数を置く ctx の項目名。呼んだ側が `drain_holds` で取り出す（25-5 の 2）

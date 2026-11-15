@@ -1,4 +1,4 @@
-"""`cli.devloop register` ＝ 開発ループの登録簿（rules.md 31-1）を検査し、`register.md` を吐く。
+"""`cli.devloop register` ＝ 開発ループのレジストリ（rules.md 31-1）を検査し、`register.md` を吐く。
 
 ⚠ 項目がそろわない TOML は 登録 にできない ／ status は一方向（戻さない）／ registered_at は --promote が打つ ／
 既出の疑いは key_shape が予測モデル名に当たった数（印は付けない）／ 生成物は手で書かない。
@@ -44,7 +44,7 @@ def test_dump_roundtrip_and_validate(loop):
     bad = devloop.validate({**IDEA, "effort": "特大", "measurable": "たぶん", "status": "登録"}, str(ideas / "20261025-x.toml"))
     assert any("effort" in b for b in bad) and any("measurable" in b for b in bad) and any("registered_at" in b for b in bad)
     assert devloop.validate(IDEA, str(ideas / "other.toml"))[0].startswith("id ")
-    assert devloop.validate({**IDEA, "n_trials_planned": 0, "key_shape": []}, str(ideas / "20261025-x.toml")) == []   # 物差しは識別項目なし
+    assert devloop.validate({**IDEA, "n_trials_planned": 0, "key_shape": []}, str(ideas / "20261025-x.toml")) == []   # 指標は識別項目なし
     assert any("key_shape" in b for b in devloop.validate({**IDEA, "key_shape": []}, str(ideas / "20261025-x.toml")))
 
 

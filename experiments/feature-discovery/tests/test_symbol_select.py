@@ -1,7 +1,7 @@
 """訓練分割の成績で銘柄を選ぶ（rules.md 29 章）。
 
 ⚠ `select` の無い条件は 1 ビットも変わらない ／ 選抜は訓練分割だけを読む（評価期間を書き換えても選びが変わらない）／
-候補は枠で買える株だけ ／ 行 ＝ 手法 ＋ 持ち続ける ＋ 乱択選抜（基準線は数えない）／ 綴り。
+候補は枠で買える株だけ ／ 行 ＝ 手法 ＋ 持ち続ける ＋ 乱択選抜（基準線は数えない）／ 表記。
 """
 from __future__ import annotations
 
@@ -62,7 +62,7 @@ def test_by_return_ranks_the_last_window_and_respects_the_cap():
 
 
 def test_by_model_net_skips_symbols_that_never_traded():
-    """θ が高くて尻で 1 回も取引しない銘柄は「成績なし」＝ 選ばない（純利 0 の同点を銘柄名の順で選ぶ退化を防ぐ。29-3）。"""
+    """θ が高くて末尾で 1 回も取引しない銘柄は「成績なし」＝ 選ばない（純利 0 の同点を銘柄名の順で選ぶ退化を防ぐ。29-3）。"""
     from ail import registry
     tr = _tr(n=1200)
     model = registry.resolve("model", "Ridge")

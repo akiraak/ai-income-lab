@@ -1,11 +1,11 @@
-"""⚠ **既定経路の指紋**（rules.md 14-4 規約 2 の検算。プラン holding-days-distribution §4）。
+"""⚠ **既定経路のフィンガープリント**（rules.md 14-4 規約 2 の検算。プラン holding-days-distribution §4）。
 
 固定した合成パネルで閾値売買を端から端まで回し、⚠ **既存の出力**（`per_symbol.csv` の既存 9 列・`summary.csv`・
-`checks.json` の `best` / `edge_vs_bh` / `dsr`）の指紋（sha256）を返す。⚠ **保有日数・逆売買の列を足しても、
-この指紋は 1 ビットも変わらないこと**を `test_trading_run.py` が縛る。
+`checks.json` の `best` / `edge_vs_bh` / `dsr`）のフィンガープリント（sha256）を返す。⚠ **保有日数・逆売買の列を足しても、
+このフィンガープリントは 1 ビットも変わらないこと**を `test_trading_run.py` が縛る。
 
-⚠ **指紋は 2026-09-17 に、列を足す前のコード（commit 696cf7b）で取った**（`tests/fixtures/trading_fingerprint.json`）。
-数値は 6 桁に丸めてから文字列にする（BLAS の差で末尾の桁が揺れても指紋が変わらないように）。
+⚠ **フィンガープリントは 2026-09-17 に、列を足す前のコード（commit 696cf7b）で取った**（`tests/fixtures/trading_fingerprint.json`）。
+数値は 6 桁に丸めてから文字列にする（BLAS の差で末尾の桁が揺れてもフィンガープリントが変わらないように）。
 """
 
 from __future__ import annotations
@@ -24,7 +24,7 @@ CHECK_KEYS = ("best", "edge_vs_bh", "bh_純利bp", "dsr", "random_gate", "edge_b
 
 
 def panel(n_days=800, n_sym=3, seed=0, leak=False):
-    """`test_trading_run._panel` と同じ形。⚠ **ここで別に持つのは、テスト側を直しても指紋が動かないため。**"""
+    """`test_trading_run._panel` と同じ形。⚠ **ここで別に持つのは、テスト側を直してもフィンガープリントが動かないため。**"""
     rng = np.random.default_rng(seed)
     ts = pd.date_range("2019-01-02", periods=n_days, freq="D", tz="UTC")
     rows = []

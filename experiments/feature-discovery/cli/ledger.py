@@ -1,7 +1,7 @@
 """検証結果一覧の markdown を組み立てる。⚠ **中身は `ail/catalog.py` が作る。ここは並べるだけ。**
 
 呼び出しは `python3 -m cli.report --catalog`。同じ行と判定を DB の `ledger_rows` にも入れる（`store`。
-⚠ `ledger.md` と同じ生成物 ＝ 吐き直すたびにまるごと入れ直す。読み手は vibeboard の予測モデルのタブ）。
+⚠ `ledger.md` と同じ生成物 ＝ 再生成するたびにまるごと入れ直す。読み手は vibeboard の予測モデルのタブ）。
 """
 
 from __future__ import annotations
@@ -60,7 +60,7 @@ def _plain(v):
 
 
 def ledger_items(d: dict) -> list[dict]:
-    """`ledger_rows` の行（本体 ＋ leak 対照）。⚠ 名前は識別項目から作る（`ail/names.py`。綴りの無いものは止まる）。"""
+    """`ledger_rows` の行（本体 ＋ leak 対照）。⚠ 名前は識別項目から作る（`ail/names.py`。表記の無いものは止まる）。"""
     items = []
     for leak, rows in ((0, d["rows"]), (1, d["leak"])):
         for r in rows:
@@ -92,7 +92,7 @@ PERM_Q, PERM_P = "並べ替え分位", "並べ替えp"
 def attach_perm(d: dict, reader=None) -> int:
     """行の代表の実行に並べ替え検定の結果（`cli.perm_test` が DB に置いたもの）があれば、列 2 本の値を行に足す。埋めた行の数を返す。
 
-    ⚠ **読むだけ・計算しない・判定に使わない**（登録簿 `20261025-permutation-yardstick`・プラン save-buy-pct.md §6）。
+    ⚠ **読むだけ・計算しない・判定に使わない**（レジストリ `20261025-permutation-yardstick`・プラン save-buy-pct.md §6）。
     ⚠ 結果の上乗せが行の上乗せと合わない（別の実行の値が行に出ている）ときは埋めない。leak の行は埋めない（買い% を残さない）。
     """
     if reader is None:

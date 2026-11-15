@@ -1,8 +1,8 @@
 """「開発ループ」の画面（外部のタブ「実行」の 1 ページ ＝ `/experiments/view?item=devloop`。接頭辞 `/devloop` でも同じ中身）。
 仕様は docs/specs/dashboard.md §20。rules.md 31 章・プラン docs/plans/daily-dev-loop.md（2026-10-25）。
 
-  - ⚠ **読むだけ・標準ライブラリだけ**。開くのは 登録簿（`experiments/feature-discovery/config/ideas/*.toml`）・数と置き場（`config/devloop.toml`）・
-    日誌（`docs/specs/experiments/dev-loop/log/*.md`）・研究の DB の `ledger_rows`（読み取り専用。登録簿の実行 → 検証結果一覧の行）。
+  - ⚠ **読むだけ・標準ライブラリだけ**。開くのは レジストリ（`experiments/feature-discovery/config/ideas/*.toml`）・数と保存先（`config/devloop.toml`）・
+    ログ（`docs/specs/experiments/dev-loop/log/*.md`）・研究の DB の `ledger_rows`（読み取り専用。レジストリの実行 → 検証結果一覧の行）。
     `out/`・`state/`・`.env` を読まない。操作の経路は無い（止める手は `DEVLOOP_HALT` ＝ CLI ／ 利用者）
   - ⚠ **良し悪し・意味の有無の印を付けない**（利用者の指示 2026-10-24）。印は 手間・測れるか・触る場所。判定は検証結果一覧のまま写す
   - ⚠ **並べたものであって採用ではない**（候補の人・本番は利用者。成績で人を選ばない）。「予測モデル」「トレーダー」のタブにはリンクしない
@@ -145,7 +145,7 @@ def page_body(paths: TraderPaths) -> str:
             text = latest.read_text(encoding="utf-8")
         except OSError:
             text = "（読めない）"
-        # ⚠ 原文（段 1 の出力）は長いので、日誌の頭から「段 1 の原文」の前までを出す
+        # ⚠ 原文（段 1 の出力）は長いので、ログの頭から「段 1 の原文」の前までを出す
         cut = text.find("## 段 1 の原文")
         shown = text if cut < 0 else text[:cut] + "\n（段 1 の原文は日誌のファイルで）"
         out.append(f"<p class='note'>最新 <code>{esc(latest.name)}</code>" + (f"・ほか " + "、".join(f"<code>{esc(p.name)}</code>" for p in js[1:8]) if len(js) > 1 else "") + "</p>")
@@ -165,7 +165,7 @@ def sidebar(paths: TraderPaths) -> dict:
 
 
 def fingerprint(paths: TraderPaths) -> dict[str, float]:
-    """見張り用: 登録簿・日誌・設定の mtime ＋ 検証結果一覧を DB に入れ直した時刻（compareview の指紋）。"""
+    """監視用: レジストリ・ログ・設定の mtime ＋ 検証結果一覧を DB に入れ直した時刻（compareview のフィンガープリント）。"""
     out = compareview.fingerprint(paths)
     ideas = list(Path(paths.ideas_dir).glob("*.toml")) if Path(paths.ideas_dir).is_dir() else []
     for p in [Path(paths.devloop_toml), *ideas, *journals(paths)]:

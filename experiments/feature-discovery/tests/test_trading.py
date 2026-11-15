@@ -1,7 +1,7 @@
 """閾値つき売買（rules.md 13 章）の検査。⚠ **プラン trading-validation §4 のテスト方針そのもの。**
 
-シミュレータ（状態機械）・較正（訓練の内側だけ）・日付基準の fold・
-台帳の後方互換（⚠ **既存 67 試行が 1 行も変わらない**）・leak の配線検査を通す。
+シミュレータ（ステートマシン）・較正（訓練の内側だけ）・日付基準の fold・
+検証結果一覧の後方互換（⚠ **既存 67 試行が 1 行も変わらない**）・leak の配線検査を通す。
 """
 
 from __future__ import annotations
@@ -16,7 +16,7 @@ from ail.validation import checks, splits
 from ail.validation.simulate import portfolio_daily, simulate
 
 
-# --- シミュレータ（状態機械） -------------------------------------------
+# --- シミュレータ（ステートマシン） -------------------------------------------
 
 def test_no_trade_below_threshold():
     """閾値未満は取引しない（コスト 0・ポジション 0）。"""
@@ -77,7 +77,7 @@ def test_theta_below_50_is_rejected():
 
 
 def test_trades_decrease_monotonically_with_theta():
-    """閾値を上げると取引回数は単調に減る（増えたら状態機械が壊れている）。"""
+    """閾値を上げると取引回数は単調に減る（増えたらステートマシンが壊れている）。"""
     rng = np.random.default_rng(1)
     b = rng.uniform(0, 100, 500)
     y = rng.normal(0, 0.01, 500)
@@ -232,7 +232,7 @@ def test_date_folds_purge_the_training_tail():
         assert gap > pd.Timedelta(minutes=1440.0)
 
 
-# --- 台帳（13-9） --------------------------------------------------------
+# --- 検証結果一覧（13-9） --------------------------------------------------------
 
 def _trading_run(form="shared", net=None):
     """閾値売買の実行 1 本ぶんの run 辞書（catalog._run_trials の入力の形）。"""
@@ -412,7 +412,7 @@ def test_compute_trading_carries_edge_bins_and_breadth():
     doc = checks.compute_trading(res, summary, sym, daily, cfg, n_trials=70)
     e = doc["by_threshold"]["50"]
     assert e["edge_bins"]["per_fold"] == 2 and e["edge_bins"]["bins"] == 2
-    assert "edge_bins" in doc                              # 最良閾値の写しにも載る
+    assert "edge_bins" in doc                              # 最良閾値のコピーにも載る
     assert "breadth" not in doc                            # ⚠ panel 無しでは省く
     rng = np.random.default_rng(1)
     ts = pd.date_range("2021-01-01", periods=40, freq="D", tz="UTC")

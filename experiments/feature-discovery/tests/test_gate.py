@@ -123,7 +123,7 @@ def test_default_does_not_stop_when_everything_is_blocked(run):
     doc = _gate_doc(blocked=("全部使う（基準）",))
     out = apply_gate(exp, doc, False, run)
     assert out is exp
-    assert doc["forced"] is True                         # 台帳が門前の行を作らない印
+    assert doc["forced"] is True                         # 検証結果一覧が門前の行を作らない印
     assert doc["mode"] == "診断"
 
 
@@ -171,7 +171,7 @@ def test_cli_flags():
         _parser().parse_args(base + ["--gate", "--ignore-gate"])
 
 
-# --- 台帳の「門前」判定（catalog） ----------------------------------------
+# --- 検証結果一覧の「門前」判定（catalog） ----------------------------------------
 
 def _gated_run(with_summary=False):
     """checks.gate を持つ実行（catalog._run_trials の入力の形）。"""
@@ -249,7 +249,7 @@ def _ingest(d):
 
 
 def test_read_run_accepts_a_fully_gated_run(tmp_path, monkeypatch):
-    """summary の無い実行でも、gate で全手法が落ちたものは台帳のために拾う（隠さない）。"""
+    """summary の無い実行でも、gate で全手法が落ちたものは検証結果一覧のために拾う（隠さない）。"""
     monkeypatch.setattr(runs, "RUNS", str(tmp_path))
     _write_gated_dir(tmp_path / "src" / "2026-09-11T00-00-00_gated")
     _ingest(tmp_path / "src" / "2026-09-11T00-00-00_gated")
@@ -289,7 +289,7 @@ def test_forced_run_makes_no_pregate_rows():
 
 
 def test_ledger_renders_pregate_rows(tmp_path, monkeypatch):
-    """台帳の markdown に門前の行と内訳が出る（§0・§2。試行にも基準線にも数えない）。"""
+    """検証結果一覧の markdown に門前の行と内訳が出る（§0・§2。試行にも基準線にも数えない）。"""
     from cli import ledger
     monkeypatch.setattr(runs, "RUNS", str(tmp_path))
     # ⚠ 実 runs/ を外すので、実 runs/ の保留行に当たる [[closed]] は空にする

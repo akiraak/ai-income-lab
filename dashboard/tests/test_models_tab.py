@@ -21,7 +21,7 @@ import traderview
 import vibetab
 import figures
 from tests.test_traders_tab import COMPARING, FORBIDDEN, REAL_MODELS, _get, _texts, _trader
-from tests.test_traders_tab import paths as _trader_paths  # noqa: F401（最小の置き場の fixture を借りる）
+from tests.test_traders_tab import paths as _trader_paths  # noqa: F401（最小の保存先の fixture を借りる）
 
 REPO_ROOT = traderview.REPO_ROOT
 
@@ -90,7 +90,7 @@ def test_deep_parts_are_well_formed():
             assert common.get("walk_caution") and all(x.get("text") for x in m["walk"]["steps"]), m["id"]
     for k in modelview.AXES:
         assert common.get("axis_" + k), k
-    # 3 つの集合の行の名前は dashboard.md §18-2 の綴り（システム説明の「4 つの集合」と同じ）・1 文とリンク・試し運転の注
+    # 3 つの集合の行の名前は dashboard.md §18-2 の表記（システム説明の「4 つの集合」と同じ）・1 文とリンク・試し運転の注
     assert [common.get("set_" + k) for k in modelview.SETS] == ["材料に入れるもの", "学ぶ株", "出力スコアを出す株"]
     assert common.get("sets_title") and "売買する株" in common["sets_trade"] and "トレーダー" in common["sets_trade"]
     assert common["sets_link"] == {"label": common["sets_link"]["label"], "tab": "system", "item": "trader"}
@@ -98,7 +98,7 @@ def test_deep_parts_are_well_formed():
 
 
 def test_trial_sentences_say_which_trial():
-    """「試し運転」の話は、どの形の試し運転かが読める（Step 5・O5）: 出力スコアの話（作り置きの予測 ＝ 本番と同じ作り方）か、
+    """「試し運転」の話は、どの形の試し運転かが読める（Step 5・O5）: 出力スコアの話（キャッシュの予測 ＝ 本番と同じ作り方）か、
     売り買いの本数の話（金額を決めて全部を買う形 ／ 決まった本数を 1 株単位で買う形）か。特性・癖は `text` ＋ `why` で 1 つと数える。
     ⚠ `[common]` の札（`basis_trial`・`basis_note`）は検査の外（説明は `trial_note`）。"""
     units: dict[str, str] = {}
@@ -125,7 +125,7 @@ def test_models_in_real_trader_configs_are_listed_as_live():
     assert all(groups[i] == live for i in data["users"]) and groups[modelview.LIST_ID] is None
 
 
-# ---------------------------------------------------------------- 最小の置き場
+# ---------------------------------------------------------------- 最小の保存先
 
 MODELS = '''
 [common]
@@ -287,7 +287,7 @@ def test_model_page_sections_and_users(paths):
     assert "特性 1<span class='tag build'>作りから</span>" in body and "特性 3<span class='tag guess'>見立て</span>" in body
     assert "<span class='tag hold'>保留</span>割れた" in body and "結果の印の意味" in body
     assert "苦手 A" in body and "実際の売買の結果ではない" in body and "消えた会社が入っていない" in body
-    # 正式な名前の段: 設定の綴り ＋ 実験の config から写した鍵（省けば experiment/<name>.toml）
+    # 正式な名前の段: 設定の表記 ＋ 実験の config から写した鍵（省けば experiment/<name>.toml）
     assert "<code>exp_a</code> <code>手法 A</code>" in body and "experiment/exp_a.toml" in body and "<code>ModelOfA</code>" in body
     assert "&lt;b&gt;形&lt;/b&gt;を読む型" in body and "<b>形</b>" not in body
 
@@ -297,7 +297,7 @@ def test_model_page_deep_parts(paths):
     body = modelview.body(paths, "a-type")
     part = {h: body.split(f"</span>{h}</h2>")[1].split("<h2>")[0] for h in (
         "どんなモデルか", "モデルの特性", "何を見て、どう答えを出すか", "出力スコアの出かたと読み方", "過去のデータで試した結果")}
-    # 1: 組み立ての表（知らない軸は出さない）→ 3 つの集合の表（§18-2 の綴りの行・知らない集合は出さない）→ 1 文 → トレーダーのしくみへ → 詳しく
+    # 1: 組み立ての表（知らない軸は出さない）→ 3 つの集合の表（§18-2 の表記の行・知らない集合は出さない）→ 1 文 → トレーダーのしくみへ → 詳しく
     about = part["どんなモデルか"]
     assert "<tr><th>入力データ</th><td>軸のデータ</td></tr><tr><th>計算の仕方</th><td>軸の計算</td></tr>" in about
     sets = ("<h3>3 つの集合</h3><table class='axes'><tr><th>材料に入れるもの</th><td>集合の材料</td></tr><tr><th>学ぶ株</th><td>集合の学ぶ株</td></tr>"
@@ -362,7 +362,7 @@ def test_desk_model_page(paths):
     assert "<a href='/#files/experiments/readme.txt' target='_top'>readme.txt</a>" in body
     assert "消えた会社が入っていない" not in body                                      # stocks = false
     assert "Formal &lt;One&gt;" in body and "feature_layers = <code>own</code>" in body and "cost_bp" not in body
-    # config/ の外は開かない（道は出すが中身は写さない）
+    # config/ の外は開かない（パスは出すが中身は写さない）
     assert "etc/passwd.toml" in body and body.count("model = ") == 1
     assert "結果はまだ" in modelview.body(paths, "no-result")                            # 知らない印は出さない
     for gone in ("bad id", "nope", "overview", "TA"):
@@ -471,7 +471,7 @@ def test_history_counts_come_from_the_db(paths, tmp_path):
     assert modelview.best_verdict(m, modelview.ledger_rows(with_db)) == "adopt" and modelview.best_verdict(m) == "hold"
     assert modelview.fingerprint(with_db)["ledger_rows"] == 20260921100000.0
     assert (db.read_bytes(), db.stat().st_mtime_ns) == before
-    # DB が無い機械・表の無い DB では TOML の数（印なし）と「人が写した」の注。無い DB は作らない
+    # DB が無いマシン・表の無い DB では TOML の数（印なし）と「人が写した」の注。無い DB は作らない
     for gone in (tmp_path / "none.sqlite", tmp_path / "empty.sqlite"):
         if gone.name == "empty.sqlite":
             sqlite3.connect(gone).close()
@@ -484,7 +484,7 @@ def test_history_counts_come_from_the_db(paths, tmp_path):
 def test_real_history_matches_the_db():
     """⚠ **本物の経緯の表の数（人が写した控え）が、研究の DB から数えた数と同じ**。`names` はどれも 1 行以上に当たり、
     `when` の日は DB の実行の日の範囲に入り、試した結果の印は DB の数でいちばん良い印と同じ。
-    ⚠ 食い違ったら、記録で確かめてから `models.toml` の数・印・文を直す（DB を正とする）。DB の無い機械では飛ばす。"""
+    ⚠ 食い違ったら、記録で確かめてから `models.toml` の数・印・文を直す（DB を正とする）。DB の無いマシンでは飛ばす。"""
     paths = dataclasses.replace(traderview.TraderPaths.default(), research_db=REAL_DB)
     ledger = modelview.ledger_rows(paths)
     if not ledger:
@@ -538,7 +538,7 @@ def test_detail_plugs_come_from_run_records(paths, tmp_path):
     assert f"Platt の a <span class='dbv' title='{title}'>＋12.35 ／ −2.50</span>・門 <span class='dbv' title='{title}'>0.512</span>" in score
     assert "<p class='sub'>点線は記録から</p>" in score and "囲みは控え" not in score
     assert db.read_bytes() == before
-    # DB が無い機械 ・ 実行が無い ・ 項目が無い ＝ 控え（印なし）
+    # DB が無いマシン ・ 実行が無い ・ 項目が無い ＝ 控え（印なし）
     for gone in (tmp_path / "none.sqlite", db):
         body = modelview.body(dataclasses.replace(paths, research_db=gone if gone.name == "none.sqlite" else None), "a-type")
         assert "Platt の a ＋1.00 ／ −2.00・門 0.500" in body and "class='dbv'" not in body
@@ -553,9 +553,9 @@ def test_detail_plugs_come_from_run_records(paths, tmp_path):
 
 def test_real_detail_plugs_match_the_db():
     """⚠ **本物の「詳しく」の差し込みはどれも形が正しく、控え（人が写した文字）が DB から引いた値と同じ**。
-    ⚠ 食い違ったら、記録で確かめてから控えを直す（DB を正とする）。`{{` の書き損じも見つける。DB の無い機械では形だけ見る。
-    ⚠ **実行が 0 の DB（`cli.db stats` などが作る中身の無い器）も「DB の無い機械」として扱う**（2026-09-26 に Sx360 の関門が
-    これで落ちた ＝ 突き合わせる相手が無いのに「DB から引けない」と判定していた）。"""
+    ⚠ 食い違ったら、記録で確かめてから控えを直す（DB を正とする）。`{{` の書き損じも見つける。DB の無いマシンでは形だけ見る。
+    ⚠ **実行が 0 の DB（`cli.db stats` などが作る中身の無い器）も「DB の無いマシン」として扱う**（2026-09-26 に Sx360 のゲートが
+    これで落ちた ＝ 照合する相手が無いのに「DB から引けない」と判定していた）。"""
     doc = _real()
     plugs, broken = [], []
     for m in doc["model"]:
@@ -588,7 +588,7 @@ def test_real_detail_plugs_match_the_db():
 
 
 def test_also_spelling_counts_as_a_user(paths):
-    """`also`（同じモデルの別の綴り。2026-10-19）で当たった人も「いま使っている」の束に入る。"""
+    """`also`（同じモデルの別の表記。2026-10-19）で当たった人も「いま使っている」の束に入る。"""
     models = paths.models.read_text(encoding="utf-8").replace('name = "exp_a"\nmethod = "手法 A"\n', 'name = "exp_a"\nmethod = "手法 A"\nalso = [{ name = "exp_a_multi", method = "手法 A" }]\n', 1)
     paths.models.write_text(models, encoding="utf-8")
     (paths.traders_dir / "TZ.toml").write_text('name = "TZ"\nbudget_usd = 300.0\nuniverse = "u4"\nthreshold = 50.0\n[[models]]\nkind = "experiment"\nname = "exp_a_multi"\nmethod = "手法 A"\n', encoding="utf-8")

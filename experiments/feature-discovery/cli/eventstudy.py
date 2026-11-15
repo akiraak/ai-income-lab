@@ -34,7 +34,7 @@ def returns_of(symbol: str) -> pd.Series:
 
 
 def event_days(calendar: pd.Series, index: pd.DatetimeIndex, offset: int) -> pd.DatetimeIndex:
-    """暦の日を取引日に写し、`offset` 取引日ずらす。⚠ **足の無い日（休場・未来）は落とす。**"""
+    """暦の日を取引日にコピー、`offset` 取引日ずらす。⚠ **足の無い日（休場・未来）は落とす。**"""
     pos = index.get_indexer(calendar, method=None)
     pos = pos[pos >= 0] + offset
     pos = pos[(pos >= 0) & (pos < len(index))]

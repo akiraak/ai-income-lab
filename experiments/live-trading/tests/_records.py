@@ -1,4 +1,4 @@
-"""テストが記録を読む・置くための道具（⚠ 記録は DB ＝ `livefs`。道はいままでと同じ）。"""
+"""テストが記録を読む・置くための道具（⚠ 記録は DB ＝ `livefs`。パスはいままでと同じ）。"""
 
 import json
 
@@ -39,7 +39,7 @@ def blob(root) -> str:
 
 
 def db_tree(path) -> list[tuple[str, int]]:
-    """`path` の下の記録の一覧（道・文字数）。本物の木が動かないことを見る（読むだけ・DB を作らない）。"""
+    """`path` の下の記録の一覧（パス・文字数）。本物の木が動かないことを見る（読むだけ・DB を作らない）。"""
     import os
     _db, head, keys = livefs._keys_under(path)
     base = os.path.abspath(os.fspath(path))

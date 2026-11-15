@@ -92,7 +92,7 @@ def test_same_seed_same_prediction_and_fit_record():
     assert np.array_equal(p1, p2), "PatchTST が同じ種で違う予測を出した"
     doc = c1[patchtst.DOC_KEY]
     assert doc["params"] == N_PARAMS and doc["epochs_run"] == 3 and doc["device"] == "cpu"
-    # ⚠ 1,100 行なら訓練の尻 10% が検証に切れる（tail_holdout）。記録に最良 epoch と「0 と予測した」MSE が残る
+    # ⚠ 1,100 行なら訓練の末尾 10% が検証に切れる（tail_holdout）。記録に最良 epoch と「0 と予測した」MSE が残る
     assert doc["検証の行"] > 0 and 1 <= doc["best_epoch"] <= 3 and doc["val_mse_zero"] > 0
     assert len(doc["val_mse_by_epoch"]) == 3
 

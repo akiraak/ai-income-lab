@@ -32,14 +32,14 @@ SCALES = {"短期": 20, "中期": 60, "長期": 200}
 
 
 def _fit_calibration(model, Xtr, ytr, ts, w: int, ctx: dict):
-    """較正は ⚠ **訓練分割の尻（W 日ぶんパージ）** で行う（rules.md 13-2 の 2）。
+    """較正は ⚠ **訓練分割の末尾（W 日ぶんパージ）** で行う（rules.md 13-2 の 2）。
 
     ⚠ **既定の行数 holdout では 200 営業日のラベルが頭と重なる。** 重なったまま較正すると
     ⚠ **買い% が実力より振れて見え、門の値も楽観側に外れる。**
     """
     split = date_holdout(ts, label_bars=w)
     if split is None:
-        # ⚠ 訓練が薄くて尻を切れない。in-sample の過信ごと `source` に残す（13-2 の 2）
+        # ⚠ 訓練が薄くて末尾を切れない。in-sample の過信ごと `source` に残す（13-2 の 2）
         pred = np.asarray(model(Xtr, ytr, Xtr, ctx), dtype=float)
         return calibrate.fit_from_predictions(pred, ytr, "train")
     head, hold = split
@@ -55,7 +55,7 @@ def scale_gate(w: int, tr: pd.DataFrame, te: pd.DataFrame, feats, ctx: dict):
     target = f"{labels.SCALE_PREFIX}{w}"
     if target not in tr:
         raise SystemExit(f"⚠ {target} が表に無い。config の `label_scales` に {w} を入れる")
-    # ⚠ **末尾はラベルが取れない行**（表の尻）。訓練からだけ落とす（検証の行はラベルを使わない）
+    # ⚠ **末尾はラベルが取れない行**（表の末尾）。訓練からだけ落とす（検証の行はラベルを使わない）
     ok = tr[target].notna().to_numpy()
     tr_ok = tr.loc[ok]
     model = ctx["model"]

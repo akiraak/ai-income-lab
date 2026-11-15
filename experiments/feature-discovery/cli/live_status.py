@@ -1,4 +1,4 @@
-"""実売買用の置き場（`AIL_DATA_DIR` ＝ `data-live/`）の「どこまで入っているか」を出す。`live_update.sh` の最後に呼ぶ。
+"""実売買用の保存先（`AIL_DATA_DIR` ＝ `data-live/`）の「どこまで入っているか」を出す。`live_update.sh` の最後に呼ぶ。
 
     AIL_DATA_DIR=data-live python3 -m cli.live_status --dataset daily --exog exog_live --experiment trade_ownex_ridge_a
 

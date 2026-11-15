@@ -1,4 +1,4 @@
-"""登録簿 `20261025-roles-entry-stop`: 役割つきの組の損切りを「建値から −x%」（simulate の形 B）にする口（2026-11-01）。
+"""レジストリ `20261025-roles-entry-stop`: 役割つきの組の損切りを「建値から −x%」（simulate の形 B）にする口（2026-11-01）。
 
 ⚠ 見るもの: 省けば 1 ビットも変わらない ／ `simulate_topk` の形 B は 1 銘柄・K 1 で `simulate` の形 B と同じ売買 ／
 `[[trading.mix]] entry_stop_pct` は roles だけ・値域の検査。

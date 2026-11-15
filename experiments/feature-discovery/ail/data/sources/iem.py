@@ -182,7 +182,7 @@ def count_into(events: dict[tuple, dict], series: list[str],
 
 
 def aggregate(events: dict[tuple, dict], series: list[str]) -> dict[str, pd.DataFrame]:
-    """畳んだ事象 → 日次の系列。⚠ **NWS の API 側もこの関数を使う**（突き合わせのため）。"""
+    """畳んだ事象 → 日次の系列。⚠ **NWS の API 側もこの関数を使う**（照合のため）。"""
     acc: dict[str, dict[int, float]] = {}
     count_into(events, series, acc)
     return {sid: _series(c) for sid, c in sorted(acc.items()) if c}

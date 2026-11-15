@@ -1,16 +1,16 @@
-"""予測モデルの名前（rules.md 10-2）。⚠ **台帳の鍵から機械で作る。人が付けるのは「型」（解説のページ）だけ。**
+"""予測モデルの名前（rules.md 10-2）。⚠ **検証結果一覧の鍵から自動で作る。人が付けるのは「型」（解説のページ）だけ。**
 
     from ail import names
-    names.model_name(row)    # 'own.all.ridge.shared'      台帳の鍵から θ を除いた 12 列 ＝ 予測モデル 1 つ
-    names.trial_name(row)    # 'own.all.ridge.shared@50'   台帳の鍵の 12 列 ＝ 台帳の 1 行 ＝ n_trials の 1
+    names.model_name(row)    # 'own.all.ridge.shared'      検証結果一覧の鍵から θ を除いた 12 列 ＝ 予測モデル 1 つ
+    names.trial_name(row)    # 'own.all.ridge.shared@50'   検証結果一覧の鍵の 12 列 ＝ 検証結果一覧の 1 行 ＝ n_trials の 1
 
 名前の形: `<入力データ>.<数字の選び方・作り方>.<学習器>.<学習範囲>[~<既定から外れた列>…][@<θ>]`
-（台帳の列では 特徴量の層 ／ 鍵〔手法〕／ モデル ／ 形式。⚠ 言葉は rules.md 10-2 の対応の一覧で読む）
+（検証結果一覧の列では 特徴量の層 ／ 鍵〔手法〕／ モデル ／ 形式。⚠ 言葉は rules.md 10-2 の対応の一覧で読む）
 
   - ⚠ **既存の名前（実験名・モデル名・選び方や作り方の登録名）は 1 つも変えない。** ここで作るのは別名
-  - ⚠ **台帳の鍵が違えば名前も必ず違う**（`tests/test_names.py` が台帳の全行で確かめる）
+  - ⚠ **検証結果一覧の鍵が違えば名前も必ず違う**（`tests/test_names.py` が検証結果一覧の全行で確かめる）
   - ⚠ **既定の値は書かない**（rules.md 10-1 の「水準」と同じ）。既定は `config/names.toml` の `[defaults]`
-  - ⚠ 綴りの一覧（`config/names.toml`）に無い選び方・作り方・学習器は止める（名前を付けてから回す）
+  - ⚠ 表記の一覧（`config/names.toml`）に無い選び方・作り方・学習器は止める（名前を付けてから回す）
   - ⚠ **名前は n_trials を動かさない**（数え方は `catalog.is_trial` のまま）
   - pandas を import しない（標準ライブラリだけ ＝ 読み手を選ばない）
 """
@@ -25,7 +25,7 @@ import tomllib
 ROOT = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
 TABLE = os.path.join(ROOT, "config", "names.toml")
 
-# 台帳の鍵（`catalog.KEY`）のうち θ を除いた 12 列 ＝ 予測モデル 1 つ
+# 検証結果一覧の鍵（`catalog.KEY`）のうち θ を除いた 12 列 ＝ 予測モデル 1 つ
 MODEL_KEY = ("鍵", "モデル", "粒度", "地平", "特徴量の層", "層", "期間", "銘柄", "集合", "検証方式", "形式", "較正")
 
 _ID = re.compile(r"^F\d-\d+[a-z]?$")                                    # catalog._ID と同じ形（全体一致）
@@ -35,7 +35,7 @@ _TOPK = re.compile(r"〔上位(\d+)・([^〕]+)〕$")                           
 _EXIT_LINE = re.compile(r"〔売り線(\d+)〕$")                              # <選び方・作り方>〔売り線50〕（rules.md 18-2）
 _STOP_LOSS = re.compile(r"〔買値から−(\d+)%〕$")                          # <選び方・作り方>〔買値から−5%〕（stoploss-as-model.md §0-4。形 B）
 _GRADED = re.compile(r"〔量を段階に〕$")
-_RANK_GRADED = re.compile(r"〔量を順位で〕$")                               # 登録簿 20261101-rank-graded-sizing                                   # <選び方・作り方>〔量を段階に〕（登録簿 20261101-graded-weight-sizing）
+_RANK_GRADED = re.compile(r"〔量を順位で〕$")                               # レジストリ 20261101-rank-graded-sizing                                   # <選び方・作り方>〔量を段階に〕（レジストリ 20261101-graded-weight-sizing）
 _HOLD_DAYS = re.compile(r"〔(\d+)日で降りる〕$")                           # 基準 <選び方・作り方>〔5日で降りる〕（同。固定日数の出口）
 _TRADER = re.compile(r"〔トレーダー・([^〕]+)〕$")                         # <選び方・作り方>〔トレーダー・5本・$300〕（rules.md 20-4）
 _FITNESS = re.compile(r"〔適合度・([^〕]+)〕$")                            # F4-1〔適合度・断面の平均〕（rules.md 23-2）
@@ -67,29 +67,29 @@ def _check(token: str, what: str, value: str) -> str:
 
 
 def method_slug(key: str) -> str:
-    """台帳の「鍵」列（数字の選び方・作り方。カタログの選び方は ID）→ 綴り。"""
+    """検証結果一覧の「鍵」列（数字の選び方・作り方。カタログの選び方は ID）→ 表記。"""
     t = table()
     if _ID.match(key):
         return key.lower()
     if m := _FITNESS.search(key):
-        # GA の適合度を替えた行（rules.md 23-2）。測り方は `[fitness]` の綴りを後ろに付ける（`-fit-xsmean`）
+        # GA の適合度を替えた行（rules.md 23-2）。測り方は `[fitness]` の表記を後ろに付ける（`-fit-xsmean`）
         fit = table().get("fitness", {})
         if m.group(1) not in fit:
             _stop("GA の適合度", key)
         return _check(f"{method_slug(key[:m.start()])}-{fit[m.group(1)]}", "数字の選び方・作り方", key)
     if m := _TRADER.search(key):
-        # トレーダーの形の行（rules.md 20-4 の 4）。条件は `[trader]` の綴りを後ろに付ける（`-tr5`）
+        # トレーダーの形の行（rules.md 20-4 の 4）。条件は `[trader]` の表記を後ろに付ける（`-tr5`）
         tr = table().get("trader", {})
         if m.group(1) not in tr:
             _stop("トレーダーの形の条件", key)
         return _check(f"{method_slug(key[:m.start()])}-{tr[m.group(1)]}", "数字の選び方・作り方", key)
     if m := _ID_DETECTOR.match(key):
-        # 変換を検知器に通した行（rules.md 24-2）。`F4-1 ＋ H1 …` → `f4-1-h1-gate10`（検知器の綴りは `[method]`）
+        # 変換を検知器に通した行（rules.md 24-2）。`F4-1 ＋ H1 …` → `f4-1-h1-gate10`（検知器の表記は `[method]`）
         return _check(f"{m.group(1).lower()}-{method_slug(m.group(2))}", "数字の選び方・作り方", key)
     if key in t["method"]:
         return t["method"][key]
     if key in t.get("mix", {}):
-        return t["mix"][key]              # 合わせる口の手法（rules.md 20-6 の 4）
+        return t["mix"][key]              # 合成オプションの手法（rules.md 20-6 の 4）
     if (m := _TOPK_BASE.match(key)) and m.group(1) in t["topk"]:
         return _check(f"{t['topk'][m.group(1)]}-{method_slug(m.group(2))}-top{m.group(3)}-{_holding(m.group(4), key)}",
                       "数字の選び方・作り方", key)
@@ -98,18 +98,18 @@ def method_slug(key: str) -> str:
     if m := _PAIR.match(key):
         return f"in-{m.group(1).lower()}-out-{m.group(2).lower()}"
     if m := _EXIT_LINE.search(key):
-        # 買う線と売る線を別に置いた行（rules.md 18-2）。買う線は θ（`@60`）、売る線は綴りに `-out50`
+        # 買う線と売る線を別に置いた行（rules.md 18-2）。買う線は θ（`@60`）、売る線は表記に `-out50`
         return _check(f"{method_slug(key[:m.start()])}-out{m.group(1)}", "数字の選び方・作り方", key)
     if m := _STOP_LOSS.search(key):
-        # 買値からの下落で降りる行（形 B。stoploss-as-model.md §0-4）。水準は綴りに `-stop5`
+        # 買値からの下落で降りる行（形 B。stoploss-as-model.md §0-4）。水準は表記に `-stop5`
         return _check(f"{method_slug(key[:m.start()])}-stop{m.group(1)}", "数字の選び方・作り方", key)
     if m := _RANK_GRADED.search(key):
         return _check(f"{method_slug(key[:m.start()])}-rankgraded", "数字の選び方・作り方", key)
     if m := _GRADED.search(key):
-        # 買い% に応じて持つ量を変える行（登録簿 20261101-graded-weight-sizing）。綴りに `-graded`
+        # 買い% に応じて持つ量を変える行（レジストリ 20261101-graded-weight-sizing）。表記に `-graded`
         return _check(f"{method_slug(key[:m.start()])}-graded", "数字の選び方・作り方", key)
     if m := _HOLD_DAYS.search(key):
-        # 固定日数で降りる基準線（同）。日数は綴りに `-hold5`
+        # 固定日数で降りる基準線（同）。日数は表記に `-hold5`
         return _check(f"{method_slug(key[:m.start()])}-hold{m.group(1)}", "数字の選び方・作り方", key)
     _stop("数字の選び方・作り方", key)
 
@@ -122,7 +122,7 @@ def _holding(word: str, key: str) -> str:
 
 
 def learner_slug(model: str) -> str:
-    """台帳の「モデル」列（学習器）→ 綴り。`LightGBM+GAN増強(batch16k)` → `lgbm-gan-16k`。"""
+    """検証結果一覧の「モデル」列（学習器）→ 表記。`LightGBM+GAN増強(batch16k)` → `lgbm-gan-16k`。"""
     t = table()
     if model in t["learner"]:
         return t["learner"][model]
@@ -140,7 +140,7 @@ def learner_slug(model: str) -> str:
 
 
 def layers_slug(layers: str) -> str:
-    """台帳の「特徴量の層」列（空白区切り）→ `-` でつないだ綴り。"""
+    """検証結果一覧の「特徴量の層」列（空白区切り）→ `-` でつないだ表記。"""
     parts = str(layers or "").split()
     for p in parts:
         _check(p, "特徴量の層", layers)
@@ -154,7 +154,7 @@ def _options(row: dict) -> list[str]:
     style = row["検証方式"]
     variants: list[str] = []
     if m := _STYLE_VARIANT.match(style):
-        # 検証方式の変種（rules.md 21-3・22-3）。⚠ 既定の「閾値売買」として扱い、変種は綴りを後ろに足す（較正の既定も同じ）
+        # 検証方式の変種（rules.md 21-3・22-3）。⚠ 既定の「閾値売買」として扱い、変種は表記を後ろに足す（較正の既定も同じ）
         style = m.group(1)
         for part in m.group(2).split("・"):
             if t := _TRAIN_DAYS.match(part):
@@ -164,7 +164,7 @@ def _options(row: dict) -> list[str]:
             elif c := _COST_BP.match(part):
                 variants.append("cost" + c.group(1).replace(".", "p"))       # 20 → cost20・7.5 → cost7p5
             elif part in table().get("label", {}):
-                variants.append(table()["label"][part])                      # 断面超過ラベル → xs-label（rules.md 31 章の登録簿。2026-10-25）
+                variants.append(table()["label"][part])                      # 断面超過ラベル → xs-label（rules.md 31 章のレジストリ。2026-10-25）
             elif part in table().get("cut", {}):
                 variants.append(table()["cut"][part])                        # 切れ目ずらし1/3 → cut1of3（rules.md 33-3。2026-11-11）
             else:
@@ -189,7 +189,7 @@ def _options(row: dict) -> list[str]:
     if row["銘柄"] != d["symbols"]:
         out.append("n-na" if row["銘柄"] == "—" else _check(f"n{row['銘柄']}", "銘柄", row["銘柄"]))
     # 集合（実行が記録している dataset。2026-10-23 に識別項目へ足した ＝ catalog._set_of）。⚠ 既定 `daily` と
-    # 記録なし「—」は書かない（既存の名前を動かさないため）。綴りは [dataset]（無いものは止まる）
+    # 記録なし「—」は書かない（既存の名前を動かさないため）。表記は [dataset]（無いものは止まる）
     ds = row.get("集合", d["dataset"])
     if ds not in (d["dataset"], "—"):
         out.append(_check(table().get("dataset", {}).get(ds) or _stop("集合", ds), "集合", ds))
@@ -200,7 +200,7 @@ def _options(row: dict) -> list[str]:
 
 
 def model_name(row: dict) -> str:
-    """予測モデル名 ＝ 台帳の鍵から θ を除いた 12 列。例 `own-seq.t3-quant60.ridge.shared`（`60` ＝ 観測期間 60 日）。"""
+    """予測モデル名 ＝ 検証結果一覧の鍵から θ を除いた 12 列。例 `own-seq.t3-quant60.ridge.shared`（`60` ＝ 観測期間 60 日）。"""
     form = table()["form"].get(row["形式"]) or _stop("学習範囲（台帳の列「形式」）", row["形式"])
     base = ".".join((layers_slug(row["特徴量の層"]), method_slug(row["鍵"]), learner_slug(row["モデル"]), form))
     return base + "".join("~" + o for o in _options(row))

@@ -9,7 +9,7 @@
     .venv/bin/python spread_probe.py --label B --csv out.csv   # 行を CSV にも書く（作業用。記録は DB）
 
 測るもの: 1 本ずつ `/market-data/by-type` の bid ／ ask ／ bid-size ／ ask-size ／ last ／ updated-at。
-気配の差 ＝ (ask − bid) ／ mid × 10^4 bp（mid ＝ (bid ＋ ask) ／ 2）。⚠ 往復の費用と同じ物差し（買いは ask・売りは bid）。
+気配の差 ＝ (ask − bid) ／ mid × 10^4 bp（mid ＝ (bid ＋ ask) ／ 2）。⚠ 往復の費用と同じ指標（買いは ask・売りは bid）。
 線（プラン §3。⚠ 回す前に固定）: 5.2bp ＝ 小型 50 θ50 の損益分岐 ／ 20bp ＝ 段 2b の費用の変種 ／ $120 ＝ 1 銘柄の枠。
 """
 

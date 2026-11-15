@@ -54,7 +54,7 @@ def build_one(df: pd.DataFrame, windows=WINDOWS) -> pd.DataFrame:
         x[f"trend{w}_slope"] = _slope(lc, w) * w                 # 窓ぜんたいで見た当てはめ幅
         x[f"trend{w}_dd"] = lc - np.log(c.rolling(w).max())      # ⚠ 窓内の最高値からの下落（≤ 0）
         x[f"trend{w}_up"] = up.rolling(w).mean()                 # 上げた日の割合
-        x[f"trend{w}_vol"] = r.rolling(w).std()                  # ⚠ ボラティリティ・ゲートの通り道
+        x[f"trend{w}_vol"] = r.rolling(w).std()                  # ⚠ ボラティリティ・ゲートの通りパス
         x[f"trend{w}_ret"] = lc.diff(w)                          # 窓の累積リターン
     return x.add_prefix(PREFIX)
 

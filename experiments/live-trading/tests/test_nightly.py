@@ -1,7 +1,7 @@
 """夜の予測（2026-11-01。プラン docs/plans/nightly-predict.md §8）。
 
 固定するもの: 前の営業日（週末・祝日・暦の外は止める）／「済み」の印を探す（無い・asof 違い・名簿の人のモデルが欠けている ＝ 使わない・最後の 1 行だけ見る）／
-直下の本物の人全員（試験用・sim の写しを除く）／ run_day.py の歯止め（submit で前の営業日でない signal-date は認証の前に rc 13・
+直下の本物の人全員（試験用・sim のコピーを除く）／ run_day.py の歯止め（submit で前の営業日でない signal-date は認証の前に rc 13・
 無ければ今までと同じ）／ 引けの 15 分後。⚠ ネットワークは使わない。MODE・run.lock・記録は tmp。
 """
 import json
@@ -115,7 +115,7 @@ def test_run_day_without_signal_date_is_unchanged(base):
     assert start and "signal_date" not in start[0]
 
 
-# ---------- run-live.sh（発注の回）: 前の営業日の印を確かめて執行器に渡す ／ 無ければ rc 13 で執行器を起こさない
+# ---------- run-live.sh（発注の回）: 前の営業日の印を確かめて執行エンジンに渡す ／ 無ければ rc 13 で執行エンジンを起こさない
 
 import subprocess  # noqa: E402
 

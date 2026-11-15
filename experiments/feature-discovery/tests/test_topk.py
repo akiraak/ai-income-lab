@@ -206,7 +206,7 @@ def test_top_k_rows_and_their_random_baselines(run):
     assert (res[res["手法"].isin(want)].groupby("手法").size() == 5).all()
     assert len(extra["topk"]) == len(want) * 5
     assert all((m, 50.0) in daily for m in want)
-    # ⚠ 台帳の数え方: 基準線は数えず、上位 K の行だけが試行
+    # ⚠ 検証結果一覧の数え方: 基準線は数えず、上位 K の行だけが試行
     from ail import catalog
     counted = [m for m in want if catalog.is_trial({"検証方式": "閾値売買", "手法名": m})]
     assert len(counted) == 6

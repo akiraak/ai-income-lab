@@ -23,7 +23,7 @@ def simulate(buy_pct, y, threshold: float, cost_bp: float = 5.0, exit_pct=None,
              exit_threshold: float | None = None, stop_loss_pct: float | None = None,
              max_hold_days: int | None = None, min_hold_days: int | None = None,
              stop_exit_pct=None, stop_blocks_buy: bool = False, hold_days=None) -> dict:
-    """1 銘柄 × 1 fold を状態機械で回す。
+    """1 銘柄 × 1 fold をステートマシンで回す。
 
     buy_pct: 入口%（0〜100 の系列・時刻順。⚠ **未保有の日に読む**）。y: その日のリターン（対数）。
     threshold: θ（%）。exit_pct: 出口%（⚠ **保有中の日に読む**。rules.md 16-1）。
@@ -134,13 +134,13 @@ def simulate(buy_pct, y, threshold: float, cost_bp: float = 5.0, exit_pct=None,
 
 
 def simulate_graded(buy_pct, y, threshold: float, cost_bp: float = 5.0, weight=None) -> dict:
-    """買い% に応じて持つ量を変える器（開発ループの登録簿 `20261101-graded-weight-sizing`。2026-11-01）。
+    """買い% に応じて持つ量を変える器（開発ループのレジストリ `20261101-graded-weight-sizing`。2026-11-01）。
 
     持つ割合 w[t] ＝ clip((買い%[t] − θ) ／ (100 − θ) × 2, 0, 1)（θ 以下は 0）。足 t の w が y[t] を取る（`simulate` と同じ時間の向き）。
     費用は動かした量 × 片道 `cost_bp / 2`（`simulate` の 1 回の売買と同じ単価）・fold の末尾で残りを清算。
     戻り値の鍵は `simulate` と同じ（pos は 0〜1 の割合・trades は 0 → 正 に入った回数・hold_days ／ entry_idx は w > 0 の続いた区間）。
     ⚠ 出口% は読まない（w は買い% だけで決まる）。⚠ 省けば（呼ばなければ）既存の経路は 1 ビットも変わらない。
-    `weight`（登録簿 `20261101-rank-graded-sizing`）: 行ごとの持つ量（0〜1）。渡すと w ＝ 買い% > θ の行だけ weight・θ 以下は 0（大きさの式は使わない）。
+    `weight`（レジストリ `20261101-rank-graded-sizing`）: 行ごとの持つ量（0〜1）。渡すと w ＝ 買い% > θ の行だけ weight・θ 以下は 0（大きさの式は使わない）。
     """
     if threshold < 50.0 or threshold >= 100.0:
         raise ValueError(f"θ = {threshold} は受けない（50 以上 100 未満）")
@@ -191,7 +191,7 @@ def shifted_gate(pos, y, threshold_free_cost: float, rng) -> dict:
     n = len(p)
     off = int(rng.integers(1, n)) if n > 2 else 0
     rolled = np.roll(p, off)
-    # ⚠ **θ=50 に 0/100 を流すと、その 0/1 がそのままポジションになる**（同じ状態機械・同じコスト）
+    # ⚠ **θ=50 に 0/100 を流すと、その 0/1 がそのままポジションになる**（同じステートマシン・同じコスト）
     return simulate(rolled * 100.0, y, 50.0, threshold_free_cost)
 
 
@@ -224,7 +224,7 @@ def simulate_topk(buy_pct, y, dates, symbols, threshold: float, k: int, cost_bp:
     `stop_blocks_buy=True` ＝ 未保有で `stop_exit_pct > θ` の行は買いの候補にしない（rules.md 25-4 の 2。省けば 1 ビットも変わらない）。
     `hold_days=h` ＝ 行ごとの保有日数（rules.md 25-5 の 3。建てた行の `h` 営業日たったら売る。`min_hold_days` とは同時に渡せない。省けば 1 ビットも変わらない）。
     `stop_loss_pct=x` ＝ `simulate` の形 B と同じ式（建ててからの累積対数リターンが log(1 − x/100) を割ったら降りる・最短保有の中でも読む。
-    2026-11-01・登録簿 20261025-roles-entry-stop）。省けば 1 ビットも変わらない。
+    2026-11-01・レジストリ 20261025-roles-entry-stop）。省けば 1 ビットも変わらない。
 
     戻り値（行は入力と同じ並び）: pos（0/1）・weight（その行に掛かる重み）・net_unit_bp（重みを掛ける前の日次純利）・
     port_net_bp ／ port_gross_bp ／ invested（日付を index にした系列。invested ＝ その日の重みの合計）・
@@ -281,7 +281,7 @@ def simulate_topk(buy_pct, y, dates, symbols, threshold: float, k: int, cost_bp:
     weight = np.zeros(n)
     net_unit = np.zeros(n)
     held: dict[str, float] = {}                   # 銘柄 → 重み
-    last_row: dict[str, int] = {}                 # 銘柄 → その fold で最後に見た行（強制清算の置き場）
+    last_row: dict[str, int] = {}                 # 銘柄 → その fold で最後に見た行（強制清算の保存先）
     trades = signals = skipped_full = skipped_price = 0
     bought_syms: set[str] = set()
 

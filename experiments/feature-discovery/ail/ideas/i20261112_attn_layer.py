@@ -1,4 +1,4 @@
-"""登録簿 `20261112-wiki-pageview-layer`（参考あり・枠の外。記録 dev-loop.md）:
+"""レジストリ `20261112-wiki-pageview-layer`（参考あり・枠の外。記録 dev-loop.md）:
 会社の Wikipedia の記事の日次の閲覧数から作る「注目」の層 `attn_`。欠損を印にして埋める ＝ 銘柄を落とさない（決算の層 `ernf` と同じ形）。
 
 列（2 本 ＋ 印 1 本）:
@@ -26,8 +26,8 @@ from ail.registry import register
 PREFIX = "attn_"
 SOURCE = "wikimedia"
 DEFAULT_LAG_DAYS = 1
-Z_WINDOW = 60          # ⚠ 事前固定（登録簿「過去 60 日に対して」）
-SHORT, LONG = 5, 20    # ⚠ 事前固定（登録簿「5 日と 20 日の平均の比」）
+Z_WINDOW = 60          # ⚠ 事前固定（レジストリ「過去 60 日に対して」）
+SHORT, LONG = 5, 20    # ⚠ 事前固定（レジストリ「5 日と 20 日の平均の比」）
 Z_CLIP = 10.0
 R_FILL = 1.0           # 比の埋め値（分からない ＝ 変化なし）
 COLUMNS = ("z60", "r5_20", "na")

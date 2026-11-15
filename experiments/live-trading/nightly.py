@@ -2,10 +2,10 @@
 
     python3 nightly.py models --traders T4,T18            # その人たちの（実験, 手法）を 1 行ずつ（タブ区切り）
     python3 nightly.py models --all-real                  # config/traders/ 直下の本物の人全員（名簿に関係なく ＝ 夜に ▶ 開始した人も翌日に動ける）
-    python3 nightly.py done --date D --file <道> --ok ok.tsv --failed failed.tsv   # out/D/predict.done.jsonl に「済み」の 1 行
+    python3 nightly.py done --date D --file <パス> --ok ok.tsv --failed failed.tsv   # out/D/predict.done.jsonl に「済み」の 1 行
     python3 nightly.py find --date D --traders @roster    # D の 15:50 に読む予測を探す（前の営業日 P の「済み」の印）→ JSON 1 行・無ければ rc 13
 
-⚠ **読むだけ ／ 足すだけ**（予測は作らない・発注しない）。記録は livefs（道の近くの DB）。
+⚠ **読むだけ ／ 足すだけ**（予測は作らない・発注しない）。記録は livefs（パスの近くの DB）。
 ⚠ 印が無い ／ 名簿の人のモデルが欠けている ／ 前の営業日でない ときは発注しない（その場で予測して埋めない ＝ 合図の時刻が混ざる）。
 """
 from __future__ import annotations
@@ -43,7 +43,7 @@ def experiment_models(names: list[str], traders_dir: str) -> list[tuple[str, str
 
 
 def real_traders(traders_dir: str) -> list[str]:
-    """直下の本物の人（試験用・sim の写しを除く）。"""
+    """直下の本物の人（試験用・sim のコピーを除く）。"""
     out = []
     for f in sorted(os.listdir(traders_dir)):
         if not f.endswith(".toml") or f.startswith(SIM_PREFIX):

@@ -267,8 +267,8 @@ def create_app(settings: Settings | None = None, start_monitors: bool = True) ->
         return lv.show_test_traders(tr, mode=machine["mode"], demo=settings.demo)
 
     def watch_args(machine: dict) -> dict:
-        # 見張り「今日の起動が無い」の材料（§13-8）: シミュレーションは仮の時計の今日・いま。本物は ET のいま。
-        # 判定しないとき（suppress）: 印のある機械（読むだけの写し）／ HALT の日（止めたのは人）／ デモ（記録は過去の日付）
+        # 監視「今日の起動が無い」の材料（§13-8）: シミュレーションは仮の時計の今日・いま。本物は ET のいま。
+        # 判定しないとき（suppress）: 印のあるマシン（読むだけのコピー）／ HALT の日（止めたのは人）／ デモ（記録は過去の日付）
         from datetime import date as _date, datetime as _dt
         sim = machine["sim"] or {}
         args: dict = {}
@@ -411,7 +411,7 @@ def create_app(settings: Settings | None = None, start_monitors: bool = True) ->
         return render(request, "roster.html", page="roster", lu=lineup_now())
 
     async def instruct(request: Request, name: str, form: dict, back: str):
-        """状態を変える指示（開始 ／ 一時停止 ／ 手じまい ／ 取り消す。plan archive/trader-status-flow.md）。⚠ 書くだけ ＝ 売買は執行器の次の回。
+        """状態を変える指示（開始 ／ 一時停止 ／ 手じまい ／ 取り消す。plan archive/trader-status-flow.md）。⚠ 書くだけ ＝ 売買は執行エンジンの次の回。
         押せるかは lineup.actions と同じ判定。確認の文（識別名を打つ）が違えば書かない（取り消すだけは確認なし）。"""
         kind = form.get("kind", "")
         if kind not in ("start", "paused", "liquidate", "cancel"):
@@ -510,7 +510,7 @@ def create_app(settings: Settings | None = None, start_monitors: bool = True) ->
         d = lv.index(live_dir_now(machine))
         if not show_test(d["traders"], machine):
             d["traders"] = [t for t in d["traders"] if not t["test"]]      # `test_traders` はそのまま（居ることは分かる）
-        d["watch"] = watch_now(machine)                                    # 見張り「今日の起動が無い」（§13-8。読むだけ・公開面にも出す）
+        d["watch"] = watch_now(machine)                                    # 監視「今日の起動が無い」（§13-8。読むだけ・公開面にも出す）
         return api(d)
 
     @app.get("/api/judge")

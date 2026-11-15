@@ -914,7 +914,7 @@ def step_prod_dry_run_types(rec: record.Recorder, cfg: dict) -> None:
             # $4.76 ＝ 規模 A $300 ÷ 63 本（T1・T3 の 1 銘柄の枠）／ $6.25 ＝ $300 ÷ 会社株 48 本（T2）
             ("notional_market_4.76usd", "Notional Market $4.76（実際の 1 銘柄の枠。最小額が $5 かを見分ける）", build(SYMBOL, None, order_type="Notional Market", value="4.76")),
             ("notional_market_6.25usd", "Notional Market $6.25（T2 ＝ 会社株 48 本の枠）", build(SYMBOL, None, order_type="Notional Market", value="6.25")),
-            # 執行器は金額指定の人の端株を小数 4 桁の数量で売る（live-trading.md §0-7 (j) の 1 の未確認）。
+            # 執行エンジンは金額指定の人の端株を小数 4 桁の数量で売る（live-trading.md §0-7 (j) の 1 の未確認）。
             # ⚠ 建玉が無いので「持ち高不足」で断られる見込み。それでよい ＝ 知りたいのは
             # 「数量の形（小数 4 桁）で断られるのか、持ち高で断られるのか」で、エラー文から読む
             ("market_sell_fractional_4dp_no_position", "成行 売り 0.0123 株（小数 4 桁。⚠ 建玉なし ＝ 断られる見込み。断られた理由を読む）", build(SYMBOL, "0.0123", action="Sell to Close", order_type="Market")),
@@ -987,7 +987,7 @@ def main() -> int:
     parser.add_argument("--i-know-this-is-real-money", action="store_true", help="本番で発注系を許す（Phase 6）")
     args = parser.parse_args()
 
-    # TT_ENV_FILE は自己検査で手元の .env を読ませないための逃げ道（selftest.sh が使う）
+    # TT_ENV_FILE は自己検査で手元の .env を読ませないための逃げパス（selftest.sh が使う）
     cfg = load_env(os.environ.get("TT_ENV_FILE") or os.path.join(HERE, ".env"))
     env = args.env or cfg.get("TT_ENV", "cert")
     allow_prod_orders = args.i_know_this_is_real_money and cfg.get("TT_ALLOW_PROD_ORDERS") == "1"
@@ -1005,8 +1005,8 @@ def main() -> int:
         return 3
 
     if env == "prod" and (set(steps) & ORDER_STEPS):
-        # ⚠ 「本番の機械ではない」印（experiments/live-trading/NOT_PRODUCTION。live-trading.md §0-14）。発注の経路は執行器とこの CLI の
-        #    2 本なので、こちらも同じ印で本番の発注系を拒む（許可の 3 段より前。壊れた印・他の機械の印でも拒む）
+        # ⚠ 「本番の機械ではない」印（experiments/live-trading/NOT_PRODUCTION。live-trading.md §0-14）。発注の経路は執行エンジンとこの CLI の
+        #    2 本なので、こちらも同じ印で本番の発注系を拒む（許可の 3 段より前。壊れた印・他のマシンの印でも拒む）
         mark = not_production_mark()
         if mark is not None:
             print(f"拒否: この機械は本番の機械ではない（{mark}）。本番の発注系の手順 {sorted(set(steps) & ORDER_STEPS)} を実行しない。"

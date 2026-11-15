@@ -1,4 +1,4 @@
-"""実売買の物差し A〜E（トレーダーのループ Phase 2 の定義）を、執行器の記録だけから 1 日 1 行 × トレーダーで `yardstick.csv` に書く。
+"""実売買の指標 A〜E（トレーダーのループ Phase 2 の定義）を、執行エンジンの記録だけから 1 日 1 行 × トレーダーで `yardstick.csv` に書く。
 
     python3 yardstick.py                    # out/ → out/yardstick.csv（毎回ぜんぶ作り直す ＝ 何度流しても同じ）
     python3 yardstick.py --print            # 書かずに、人ごとのいまの期間のまとめを出す
@@ -7,7 +7,7 @@
 ⚠ **読むだけ**（ネットワークを使わない・発注しない・売買履歴を書かない）。`paper.py` の後に流す（E は `daily.csv` を写すだけ）。
 ⚠ **損益で人を採らない**（B は見るだけ。CLAUDE.md の 2 つ目の例外）。
 
-物差し（定義の正本は docs/plans/trader-loop.md Phase 2。ここは計算の決まりだけ）:
+指標（定義の正本は docs/plans/trader-loop.md Phase 2。ここは計算の決まりだけ）:
   A 差 1 ＝ 注文ごとに 合図時の気配の中値 → 約定の平均（bp。正 ＝ 不利）。その日の値を `;` でつなぎ、中央値と最大を横に置く
   B 持ち続けるとの差 ＝ その人の損益 − 基準の損益（USD と bp of 予算。期間の初日からの累計）
       その人の損益 ＝（実現 − 手数料 ＋ 含み）の、期間の初日の前の最後の売買履歴の行からの増え（含みは売買履歴の 15:51 ET の中値）
@@ -15,7 +15,7 @@
                    手数料なしで持ち続けた場合の 中値の値動き × 株数
   C 机上との一致 ＝ 合図（買い% ／ 出口%）・θ・合図の前の持ち高（`position_before`）から規則（rules.md 13-4 と同じ）で出る判断と、
       実物の判断（注文の向き ／ hold ／ skip）が違う銘柄の数。見送り（too_small 等）は不一致に数えず `held_back` に数える。手じまいの日は見ない
-  D 無人運転 ＝ 起動したか ／ 問題なく終わったか ／ 人手（K4: 執行器の回に効いた操作だけ ＝ 同じ日の 2 回目以降の発注の回・
+  D 無人運転 ＝ 起動したか ／ 問題なく終わったか ／ 人手（K4: 執行エンジンの回に効いた操作だけ ＝ 同じ日の 2 回目以降の発注の回・
       一時停止 ／ 手じまいの指示が効いた最初の日・`HALT` が効いた最初の日・`liquidate.py`・`reconcile.py` の書き込み。取り消した指示・
       投入の手順〔名簿の開始〕は記録に効かないので数えない）／ 口座 − 売買履歴（全員ぶん。株数の差の絶対値の和）
   E 差 3（そろえた紙上）＝ `daily.csv` の `diff3a_bp` ／ `diff3a_cum_bp` を写す（計算しない）
@@ -49,7 +49,7 @@ COLUMNS = ["date", "trader", "test", "since", "day_n", "status",
            "e_diff3a_bp", "e_diff3a_cum_bp",
            "problems"]
 
-# 物差しの線（trader-loop.md Phase 2 ＝ 20 営業日の判定と同じ線）
+# 指標の線（trader-loop.md Phase 2 ＝ 20 営業日の判定と同じ線）
 A_LINE_BP = 5.0        # 差 1 の中央値
 D_LINE_RATE = 0.95     # 執行できた日
 E_LINE_BP = 5.0        # 差 3（そろえた）の |日次| 平均
@@ -62,7 +62,7 @@ ANOMALY = ("auth_failed", "signal_error", "quote_failed", "quote_client_failed",
            "drawdown_warning", "blocked_symbol", "out_of_window", "halted", "over_total_budget",
            "refused_mode_sim", "refused_lock_busy", "refused_not_production")
 FLAG_KINDS = ("paused", "liquidate_flag")
-# D の「問題なく終わった」を崩さないもの（執行の差・配線・含み損の警告は別の物差しで見る）
+# D の「問題なく終わった」を崩さないもの（執行の差・配線・含み損の警告は別の指標で見る）
 NOT_FAILURE = {"diff1_over", "c_mismatch", "drawdown_warning", "close_kept", "close_out_of_range", "prepare_failed", "prepare_missing"}
 # 毎日の起動の記録（launchlog.py の out/launches.jsonl。プラン docs/plans/archive/launch-record-auto.md）から出す問題。⚠ 朝の準備は売買の回が
 #   日足を取り直すので D を崩さない: prepare_failed ＝ その日の朝の準備の rc ≠ 0 ／ prepare_missing ＝ 記録が始まった後の日で朝の準備の行が無い
@@ -313,7 +313,7 @@ def _add_close_problems(rows: list[dict], out_dir: str, paper) -> None:
 
 
 def _reconcile_log(out_dir: str, state_dir: str | None) -> list[dict]:
-    """`reconcile.py` の書き込み（人の手）。置き場は `state/<env>/reconcile.log`（記録の隣）。"""
+    """`reconcile.py` の書き込み（人の手）。保存先は `state/<env>/reconcile.log`（記録の隣）。"""
     base = state_dir or os.path.join(os.path.dirname(os.path.abspath(out_dir)), "state")
     out: list[dict] = []
     for env in ("prod", "cert"):

@@ -1,13 +1,13 @@
-"""Wikipedia の記事ごとの日次の閲覧数（登録簿 `20261112-wiki-pageview-layer`）。Wikimedia の Analytics API（pageviews per-article）。
+"""Wikipedia の記事ごとの日次の閲覧数（レジストリ `20261112-wiki-pageview-layer`）。Wikimedia の Analytics API（pageviews per-article）。
 
 1 銘柄 1 系列 `PV_<銘柄>`（値 ＝ その暦日の閲覧数。時刻 ＝ その日の 00:00 UTC）。
   - 記事名は `config/dataset/wiki_articles.toml` の対応表（銘柄 → 題名の一覧）。⚠ 閲覧数は **題名ごと** に数えられ、記事が改名されると
     系列が題名で割れる ＝ いまの題名 ＋ 前の題名を並べ、日ごとに足す（対応表は回す前に固定する）。
-  - `en.wikipedia.org`・`all-access`・`agent = user`（機械の巡回を除いた閲覧）・`daily`。
+  - `en.wikipedia.org`・`all-access`・`agent = user`（マシンの巡回を除いた閲覧）・`daily`。
 ⚠ 利用の決まり（2026-11-13 に読んだ）: データは CC0 1.0。全リクエストに連絡先つきの User-Agent が要る（無いと予告なしに止められうる）。
    1 本ずつ順に送る（前の応答を待ってから次・0.5 秒あける）。失敗しても叩き直さない（404 ＝ その題名に閲覧数が無い、は空として続ける）。
 ⚠ 連絡先は環境変数 `AIL_WIKIMEDIA_CONTACT`（取得のたびに利用者が自分で置く。リポジトリ・記録に書かない）。
-⚠ 置き場は `data/raw/wikimedia/series/`（新しい置き場 ＝ 研究用の日足には触らない）。
+⚠ 保存先は `data/raw/wikimedia/series/`（新しい保存先 ＝ 研究用の日足には触らない）。
 """
 
 from __future__ import annotations

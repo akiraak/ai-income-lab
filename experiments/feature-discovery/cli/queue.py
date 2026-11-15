@@ -5,12 +5,12 @@
     python3 -m cli.queue --config blank_f41 --restart    # ⚠ 状態を捨てて最初から
 
 ⚠ **設計の要点は 4 つ**（プラン `plans/archive/evolutionary-search-runner.md` §4）。
-  1. ⚠ **subprocess で起動する。** 同じプロセスで回すと、1 本が落ちたときに残り全部が道連れになる
+  1. ⚠ **subprocess で起動する。** 同じプロセスで回すと、1 本が落ちたときに残り全部がパス連れになる
   2. ⚠ **本番 1 本につき `--leak` 対照を 1 本、自動で並べる**（rules.md 14-10 規約 6）。⚠ **手で足すと必ず忘れる**
   3. ⚠ **状態を DB（`runs/research.sqlite` の `queue_state`。2026-09-21 までは `runs/queue/<名前>.json`）に残す。**
      途中で殺しても続きから回り、⚠ **済んだものは 2 度回さない**
-     （同じ設定を 2 度回すと実行が 2 つでき、⚠ **台帳の鍵では 1 行のままなので気づけない**）
-  4. ⚠ **1 本終わるごとに台帳を吐き直し、`n_trials` の推移を状態に残す**（数え落としに気づくため）
+     （同じ設定を 2 度回すと実行が 2 つでき、⚠ **検証結果一覧の鍵では 1 行のままなので気づけない**）
+  4. ⚠ **1 本終わるごとに検証結果一覧を再生成し、`n_trials` の推移を状態に残す**（数え落としに気づくため）
 
 ⚠ **打ち切りは 3 つとも config に書く**（14-9・プラン §3-2）。⚠ **回し続ける仕組みは、放っておくと
 `n_trials` を無限に増やす。** 止める条件を後から緩めない。
@@ -30,7 +30,7 @@ QUEUE_CONFIG = os.path.join(ROOT, "config", "queue")
 LEDGER = os.path.abspath(os.path.join(
     ROOT, "..", "..", "docs", "specs", "experiments", "feature-discovery", "ledger.md"))
 
-# ⚠ **既定は「安全側」**: leak 対照を並べる・台帳を吐き直す・3 連続で失敗したら止める
+# ⚠ **既定は「安全側」**: leak 対照を並べる・検証結果一覧を再生成する・3 連続で失敗したら止める
 DEFAULTS = {"leak": True, "ledger": True, "max_failures": 3, "time_budget_s": 0.0}
 
 
@@ -77,7 +77,7 @@ def _item(experiment: str, leak: bool) -> dict:
 # --- 状態（再開の要） ---------------------------------------------------
 
 def state_path(name: str) -> str:
-    """状態の置き場の表示用（DB のどの行か）。"""
+    """状態の保存先の表示用（DB のどの行か）。"""
     from ail import runs
     return f"{os.path.relpath(runs.db_path(), ROOT)} の queue_state「{name}」"
 
@@ -102,7 +102,7 @@ def merge(old: dict | None, items: list[dict], cfg: dict) -> dict:
     """前の状態に新しい並びを重ねる。⚠ **済んだ項目の結果は 1 つも捨てない。**
 
     ⚠ **`running` のまま残っている項目は「途中で殺された」** ので `pending` に戻す。
-    ⚠ **その実行は `summary.csv` を書けていないので台帳に行が立たない** — 回し直しても二重にならない。
+    ⚠ **その実行は `summary.csv` を書けていないので検証結果一覧に行が立たない** — 回し直しても二重にならない。
     """
     prev = {i["id"]: i for i in (old or {}).get("items", [])}
     out = []
@@ -143,7 +143,7 @@ def parse_run_dir(stdout: str) -> str | None:
 
 
 def _write_ledger() -> int | None:
-    """台帳を吐き直して `n_trials` を返す。⚠ **数字は作らない**（`ail/catalog.py` が正本）。"""
+    """検証結果一覧を再生成して `n_trials` を返す。⚠ **数字は作らない**（`ail/catalog.py` が正本）。"""
     from cli import ledger
     from ail import catalog
     from ail.validation import checks
@@ -192,7 +192,7 @@ def run_queue(name: str, *, dry_run: bool = False, restart: bool = False,
         item["status"] = "done" if ok else "failed"
         if ok:
             failures = 0
-            # ⚠ **台帳は本番の実行の後だけ吐き直す**（leak 対照は台帳に行が立たない）
+            # ⚠ **検証結果一覧は本番の実行の後だけ再生成する**（leak 対照は検証結果一覧に行が立たない）
             if cfg.get("ledger", True) and not item["leak"]:
                 item["n_trials"] = ledger_writer()
             log(f"  ✅ {item['seconds']}s / {run_dir or '—'}"

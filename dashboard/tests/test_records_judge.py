@@ -96,7 +96,7 @@ def test_quote_delay_prefers_server_clock_and_uses_absolute_value(tmp_path, sett
     from tests.conftest import good_run, make_row, write_run
 
     def write(detail, run_id):
-        # ⚠ 記録は足すだけ（消せない）ので、回ごとに別の置き場に 1 本だけ置いて判定する
+        # ⚠ 記録は足すだけ（消せない）ので、回ごとに別の保存先に 1 本だけ置いて判定する
         where = settings.records_dir / run_id
         rows = [r for r in good_run(run_id=run_id) if not (r["step"] == 3 and r["env"] == "prod")]
         rows.append(make_row(3, "現在値", env="prod", detail={"bid": 1.0, "ask": 1.1, **detail}, run_id=run_id))

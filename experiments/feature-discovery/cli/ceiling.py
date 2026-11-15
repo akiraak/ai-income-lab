@@ -116,7 +116,7 @@ def _portfolio_bp(pos: np.ndarray, y: np.ndarray, avail: np.ndarray,
                   fold_days: list[int], cost_oneway_bp: float) -> np.ndarray:
     """建玉（日 × 銘柄の 0/1）から ⚠ **その日に存在する銘柄の等加重**の日次純利 bp を作る（13-7）。
 
-    ⚠ **fold の頭と尻で強制清算**（13-4 規約 4）。⚠ **建てた日と手仕舞った日に片道 2.5bp**（規約 3）。
+    ⚠ **fold の頭と末尾で強制清算**（13-4 規約 4）。⚠ **建てた日と手仕舞った日に片道 2.5bp**（規約 3）。
     """
     p = np.where(avail, pos, 0.0)
     edges = np.cumsum([0] + fold_days)
@@ -127,7 +127,7 @@ def _portfolio_bp(pos: np.ndarray, y: np.ndarray, avail: np.ndarray,
     trades = np.abs(p - prev)
     close = np.zeros_like(p)
     for e in edges[1:]:
-        close[e - 1] = p[e - 1]                        # ⚠ fold の尻で強制清算
+        close[e - 1] = p[e - 1]                        # ⚠ fold の末尾で強制清算
     live = np.maximum(avail.sum(axis=1), 1)
     gross = np.where(avail, p * y, 0.0).sum(axis=1)
     cost = ((trades + close) * cost_oneway_bp).sum(axis=1)
@@ -226,7 +226,7 @@ def main() -> int:
     a = ap.parse_args()
 
     a.run = runs.resolve(a.run)
-    with runs.materialized(a.run) as d:            # ⚠ 読むための写し（出たら消す）
+    with runs.materialized(a.run) as d:            # ⚠ 読むためのコピー（出たら消す）
         df = _load_daily(d)
         folds = _fold_days(d)
     bh_s = _series(df, DRIFT, a.threshold)

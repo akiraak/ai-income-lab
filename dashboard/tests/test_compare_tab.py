@@ -1,6 +1,6 @@
 """「モデルとトレーダーの比較」（外部のタブ「実行」の 1 ページ ＝ `compareview.py`・言葉と対応は `compare.toml`。dashboard.md §19）。
 
-⚠ 数字は全部 研究の DB の `ledger_rows` から。小さな DB で画面を、本物の DB（ある機械だけ）で対応の実在を見る。
+⚠ 数字は全部 研究の DB の `ledger_rows` から。小さな DB で画面を、本物の DB（あるマシンだけ）で対応の実在を見る。
 """
 
 from __future__ import annotations
@@ -18,7 +18,7 @@ import compareview
 import traderview
 import vibetab
 from tests.test_models_tab import REAL_DB
-from tests.test_traders_tab import _get, _trader, paths as _trader_paths  # noqa: F401（最小の置き場の fixture を借りる）
+from tests.test_traders_tab import _get, _trader, paths as _trader_paths  # noqa: F401（最小の保存先の fixture を借りる）
 
 COMPARE = '''
 [common]
@@ -141,7 +141,7 @@ def test_trader_rows_come_from_config_and_db(paths):
     assert ta[7] == "—"
     assert "title='⚠ 閉じる（棚卸し）'" in body            # 理由の Markdown の飾りを落として印の上に
     assert "title='行なし: own.all-trall.ridge.shared@55'" in body
-    # TB ＝ 候補・形が 2 つ ＝ 2 行（形の名前つき）。tr5-600 の綴りで 5 本の行を引く
+    # TB ＝ 候補・形が 2 つ ＝ 2 行（形の名前つき）。tr5-600 の表記で 5 本の行を引く
     rows = [r for r in re.findall(r"<tr>(.*?)</tr>", body, flags=re.S) if "href='/#traders/TB'" in r]
     assert len(rows) == 2 and "形 1" in rows[0] and "形 2" in rows[1]
     tb1 = _cells(body, "形 1")
@@ -189,7 +189,7 @@ def test_without_db_the_page_still_renders(paths, tmp_path):
     assert "DB が無い" in body and "ナマエ（TA）" in body
     cells = _cells(body, "ナマエ（TA）")
     assert cells[5] == cells[6] == cells[7] == "—"
-    # names.toml が無くても compare.toml の綴りで動く
+    # names.toml が無くても compare.toml の表記で動く
     body = compareview.page_body(dataclasses.replace(paths, names=tmp_path / "nai.toml"))
     assert "+68.8" in body
 
@@ -242,7 +242,7 @@ def test_http_routes(server):
     assert _get(f"{server}/compare")[0] == 200
 
 
-# ---------------------------------------------------------------- 本物（DB のある機械だけ）
+# ---------------------------------------------------------------- 本物（DB のあるマシンだけ）
 
 
 def _real_paths() -> traderview.TraderPaths:
@@ -267,10 +267,10 @@ def test_real_mapping_covers_every_trader_in_config():
 
 
 def test_real_mapping_rows_exist_in_the_db():
-    """宣言した素の形と、機械で作った 5 本 ／ 全銘柄の名前が DB に 1 行ずつある。モデルの base は θ 50 の行がある。"""
+    """宣言した素の形と、自動で作った 5 本 ／ 全銘柄の名前が DB に 1 行ずつある。モデルの base は θ 50 の行がある。"""
     paths = _real_paths()
     rows = compareview.ledger(paths)
-    if not rows:  # 無い ／ 表はあるが 0 行（Sx360 は runs/ の器だけ ＝ 検証結果一覧を吐き直していない）
+    if not rows:  # 無い ／ 表はあるが 0 行（Sx360 は runs/ の器だけ ＝ 検証結果一覧を再生成していない）
         pytest.skip("研究の DB（ledger_rows）が無い ／ 空の機械")
     words = compareview.load_words(paths)
     for t in words["trader"]:
@@ -283,7 +283,7 @@ def test_real_mapping_rows_exist_in_the_db():
     for m in words["model"]:
         for b in m.get("base") or []:
             assert f"{b}@50" in rows, (m["id"], b)
-    # 綴りは names.toml の [trader] と同じ（ここで手で決め直さない）
+    # 表記は names.toml の [trader] と同じ（ここで手で決め直さない）
     assert set(compareview.shapes(paths, words)) >= {"tr5", "tr5-600", "trall"}
     body = compareview.page_body(paths)
     assert ">対応なし</td>" not in body and "設定に居ない</span>" not in body

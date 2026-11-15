@@ -5,7 +5,7 @@
   2. 買う線 60・売る線 50 の意味（買い% > 60 で買い・買い% < 50 で売る・あいだは持ち続ける）
   3. `threshold_pairs` の無い config では `evaluate_trading` の行が 1 つも変わらず、ある config では既存の行がそのままで
      `〔売り線N〕` の行が後ろに足されること（上位 K と同じ形）
-  4. 組の検証（買い線が thresholds に無い ／ 売り線が 50 未満 ／ 買い線と同じ）は止まること・名前の綴り
+  4. 組の検証（買い線が thresholds に無い ／ 売り線が 50 未満 ／ 買い線と同じ）は止まること・名前の表記
 """
 
 from __future__ import annotations
@@ -97,7 +97,7 @@ def test_existing_rows_do_not_change_and_pair_rows_are_appended(run):
     assert pair60["取引回数"].sum() >= sym60["取引回数"].sum()
 
 
-# --- 4. 組の検証と綴り ------------------------------------------------------
+# --- 4. 組の検証と表記 ------------------------------------------------------
 
 @pytest.mark.parametrize("pairs,msg", [
     ([[65, 50]], "thresholds に無い"),

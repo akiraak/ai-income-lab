@@ -1,4 +1,4 @@
-"""`cli.trader_shape` ＝ 検証結果一覧の行から rules.md 20 章の config を機械で書く（howto §3-2 の手作業の写し）。
+"""`cli.trader_shape` ＝ 検証結果一覧の行から rules.md 20 章の config を自動で書く（howto §3-2 の手作業のコピー）。
 
 ⚠ 既存の `trader_*.toml`（手で写したもの）と**意味が同じ**（tomllib で読んで等しい）＝ 新しい規約ではない。
 """

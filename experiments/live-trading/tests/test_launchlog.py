@@ -14,7 +14,7 @@ def test_a_row_is_written_outside_the_date_directories_and_read_back(tmp_path):
     row = launchlog.make_row("prepare", "2026-10-12T13:00:01Z", 1, steps={"update": 1, "paper": 0},
                              note="urllib.error.HTTPError: HTTP Error 500: Internal Server Error", end="2026-10-12T13:06:39Z", host="h")
     launchlog.add(row, out)
-    assert livefs.listdir(out) == ["launches.jsonl"]           # ⚠ out/<日付>/ を作らない（見張り「今日の起動が無い」を崩さない）
+    assert livefs.listdir(out) == ["launches.jsonl"]           # ⚠ out/<日付>/ を作らない（監視「今日の起動が無い」を崩さない）
     back = launchlog.read(out)
     assert back == [row]
     assert row["date"] == "2026-10-12" and row["secs"] == 398 and row["mode"] == "prepare"

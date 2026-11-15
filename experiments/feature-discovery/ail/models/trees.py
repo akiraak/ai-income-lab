@@ -3,7 +3,7 @@
 ⚠ **ハイパーパラメータは評価期間の結果で動かさない**（[プラン §1](../../../../docs/plans/archive/gpu-models.md)。
 ⚠ **外から振った水準の数だけ n_trials が増える**。rules.md 11 章 規約 4・13-6 規約 3）。
 ⚠ **葉の数・学習率・最小標本は ctx から読む**（`lgbm_leaves`・`lgbm_lr`・`lgbm_min_child`。2026-10-09）。
-渡すのは `LightGBM（内側選抜）`（`tuned.py`。訓練分割の尻で選ぶ ＝ rules.md 14-12）だけで、
+渡すのは `LightGBM（内側選抜）`（`tuned.py`。訓練分割の末尾で選ぶ ＝ rules.md 14-12）だけで、
 ⚠ **既定の値はいままでの定数と同じ** ＝ 項目の無い config は 1 ビットも変わらない。
 """
 

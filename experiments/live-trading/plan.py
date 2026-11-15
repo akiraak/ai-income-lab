@@ -1,8 +1,8 @@
-"""合図 → 状態機械 → 目標 → 差分 → 予算の検査 → 3 人を銘柄ごとに合算 → 注文（プラン §2-1・§2-3）。
+"""合図 → ステートマシン → 目標 → 差分 → 予算の検査 → 3 人を銘柄ごとに合算 → 注文（プラン §2-1・§2-3）。
 
 ⚠ **純粋関数**（読み書きしない・API を呼ばない）。気配は引数で受ける。
 
-状態機械は feature-discovery の `simulate()`（rules.md 13-4）と同じ向き:
+ステートマシンは feature-discovery の `simulate()`（rules.md 13-4）と同じ向き:
   未保有で 買い% > θ → 建てる ／ 保有中で 出口% > θ → 手仕舞う ／ それ以外は何もしない（買い専用・買い増しなし）。
 役割のある人（2026-10-18。プラン trader-model-roles.md §4 の 3・rules.md 25-2 の 3・25-4）はこれに 3 つ足す:
   最短保有 `min_hold_days` ＝ 建ててから d 営業日未満（NYSE の暦で `opened` から数える）は出口% を読まない ／
@@ -107,7 +107,7 @@ def held_trading_days(opened: str, today: str, calendar=None) -> int:
 
 
 def decide(trader: Trader, state: TraderState, signals: list[Signal], today: str | None = None, calendar=None) -> tuple[list[dict], list[dict]]:
-    """状態機械。戻り値は (意図の素, 事象)。意図の素は {"symbol", "side", buy_pct, exit_pct}。
+    """ステートマシン。戻り値は (意図の素, 事象)。意図の素は {"symbol", "side", buy_pct, exit_pct}。
 
     `today` は最短保有（`min_hold_days`）のある人にだけ要る（無ければ ValueError ＝ 設定の誤りで「読まずに売る」をしない）。
     役割のある人の意図の素と事象には `stop_pct`・`reason`（exit ／ stop）・最短保有の数字が付く。役割の無い人は 1 ビットも変わらない。

@@ -1,4 +1,4 @@
-"""紙上の対照（paper.py）: 状態機械がバックテストと同じ・差 3 の恒等式・B&H・差 1 の向き。ネットワークもファイルの外も使わない。"""
+"""紙上の対照（paper.py）: ステートマシンがバックテストと同じ・差 3 の恒等式・B&H・差 1 の向き。ネットワークもファイルの外も使わない。"""
 import json
 import math
 import os
@@ -13,7 +13,7 @@ SIMULATE_PY = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.pa
 
 
 def _backtest_simulator():
-    """バックテストの状態機械をファイルから直に読む。⚠ `sys.path` に feature-discovery を足さない（あちらの `tests` パッケージに当たって他のテストが壊れる）。"""
+    """バックテストのステートマシンをファイルから直に読む。⚠ `sys.path` に feature-discovery を足さない（あちらの `tests` パッケージに当たって他のテストが壊れる）。"""
     import importlib.util
     spec = importlib.util.spec_from_file_location("_ail_simulate", SIMULATE_PY)
     mod = importlib.util.module_from_spec(spec)
@@ -26,7 +26,7 @@ BUY = {"AAA": [60, 40, 40, 70, 55, 30], "BBB": [40, 45, 80, 52, 20, 90]}
 
 
 def _write(path, rows):
-    # ⚠ 記録は DB（livefs。道はそのまま）
+    # ⚠ 記録は DB（livefs。パスはそのまま）
     livefs.append_many(path, [json.dumps(r) for r in rows])
 
 
@@ -76,7 +76,7 @@ def test_buy_and_hold_pays_one_way_cost_once(tmp_path):
 
 def test_diff3_cum_is_always_paper_minus_real_even_when_a_day_has_no_ledger(tmp_path):
     def ledger(i, d):
-        # AAA を 1 株 100 で持ち続ける台帳（予算 1000）
+        # AAA を 1 株 100 で持ち続ける売買履歴（予算 1000）
         return {"date": d, "trader": "P1", "budget_usd": 1000.0, "realized_usd": 0.0, "fees_usd": 0.0,
                 "holdings": {"AAA": {"shares": 1.0, "avg_price": 100.0}}}
     rows = paper.build_rows(_out(tmp_path, ledger=ledger, skip_ledger_on={"2026-09-23"}), _closes(), "bars")
@@ -140,7 +140,7 @@ def test_aligned_period_starts_at_the_first_submit_run_and_old_columns_do_not_mo
     rows = paper.build_rows(out, _closes(), "bars")
     assert rows[0]["aligned_since"] is None and rows[0]["aligned_bp"] is None and rows[0]["paper_trades"] == 1
     assert {r["aligned_since"] for r in rows[1:]} == {DATES[1]}
-    # 今までの列はそろえた紙上を足しても変わらない（同じ記録から作った行と突き合わせる）
+    # 今までの列はそろえた紙上を足しても変わらない（同じ記録から作った行と照合する）
     keys = [k for k in paper.COLUMNS if not k.startswith(("aligned_", "diff3a_"))]
     plain = paper.build_rows(_out(tmp_path / "plain"), _closes(), "bars")
     assert [[r[k] for k in keys if k not in ("trader", "real_usd", "real_bp", "real_cum_bp", "diff3_bp", "diff3_cum_bp", "budget_usd")] for r in rows] == \

@@ -1,12 +1,12 @@
-"""通し運転（64 営業日）の集計値の回帰（プラン: docs/plans/test-automation-sim.md Phase 2）。
+"""通し実行（64 営業日）の集計値の回帰（プラン: docs/plans/test-automation-sim.md Phase 2）。
 
-⚠ **いままで通し運転は「落ちないこと」しか見ていなかった** ＝ 執行器を触って振る舞いが変わっても気づけなかった。
-`sim1`（故障なし）と `sim2`（筋書きつき）を最速で通し、**出来事の種類ごとの件数・注文の数**を
-`tests/golden/<名前>.json` と突き合わせる。⚠ **値が変わったら、直す前に「なぜ変わったか」を人が確かめる**
+⚠ **いままで通し実行は「落ちないこと」しか見ていなかった** ＝ 執行エンジンを触って振る舞いが変わっても気づけなかった。
+`sim1`（故障なし）と `sim2`（シナリオつき）を最速で通し、**出来事の種類ごとの件数・注文の数**を
+`tests/golden/<名前>.json` と照合する。⚠ **値が変わったら、直す前に「なぜ変わったか」を人が確かめる**
 （⚠ 日足が調整し直されると値段が変わり、件数も動きうる）。更新は `AIL_UPDATE_GOLDEN=1` のときだけ。
 
 ⚠ **重い**（2 本で数十秒）ので既定では回さない: `AIL_GOLDEN=1`（＝ `./run-tests.sh --full`）のときだけ。
-⚠ 日足（git 管理外）が無い機械では skip。⚠ `LT_MODE_DIR` を tmp に向けるので、本物の `MODE`・`run.lock`・記録には触らない。
+⚠ 日足（git 管理外）が無いマシンでは skip。⚠ `LT_MODE_DIR` を tmp に向けるので、本物の `MODE`・`run.lock`・記録には触らない。
 """
 import json
 import os
@@ -45,7 +45,7 @@ def missing_bars(name: str) -> list[str]:
 
 @pytest.fixture(scope="module", params=["sim1", "sim2"])
 def ran(request, tmp_path_factory):
-    """`sim<N>` を最速で 1 回だけ通し、記録の置き場を返す。⚠ 本物の木には触らない（LT_MODE_DIR は tmp）。"""
+    """`sim<N>` を最速で 1 回だけ通し、記録の保存先を返す。⚠ 本物の木には触らない（LT_MODE_DIR は tmp）。"""
     name = request.param
     gone = missing_bars(name)
     if gone:
@@ -69,7 +69,7 @@ def ran(request, tmp_path_factory):
 
 
 def rows(root: str, day: str, kind: str) -> list[dict]:
-    return jsonl(os.path.join(root, "out", day, f"{kind}.jsonl"))       # ⚠ 記録は DB（livefs。道はそのまま）
+    return jsonl(os.path.join(root, "out", day, f"{kind}.jsonl"))       # ⚠ 記録は DB（livefs。パスはそのまま）
 
 
 def days_of(root: str) -> list[str]:
@@ -108,7 +108,7 @@ def summarize(root: str) -> dict:
 
 
 def account_minus_ledger(root: str) -> dict[str, float]:
-    """最後の日の「口座の建玉 − 台帳の持ち分」（銘柄ごと）。⚠ 画面と同じで、執行器が書いたものを読むだけ。"""
+    """最後の日の「口座の建玉 − 売買履歴の持ち分」（銘柄ごと）。⚠ 画面と同じで、執行エンジンが書いたものを読むだけ。"""
     day = days_of(root)[-1]
     after = next((r for r in rows(root, day, "positions") if r.get("when") == "after"), None) or {}
     acct: dict[str, float] = {}
@@ -122,7 +122,7 @@ def account_minus_ledger(root: str) -> dict[str, float]:
     return {s: round(acct.get(s, 0.0) - book.get(s, 0.0), 6) for s in set(acct) | set(book)}
 
 
-# --- 黄金の集計値 ---------------------------------------------------------
+# --- ゴールデンテスト ---------------------------------------------------------
 
 def test_summary_matches_the_golden_file(ran):
     """⚠ 落ちたら、直す前に「なぜ変わったか」を確かめる（更新は AIL_UPDATE_GOLDEN=1）。"""
@@ -160,7 +160,7 @@ def test_integer_share_traders_never_hold_fractions(ran):
 
 
 def test_account_and_ledger_agree_except_the_injected_loss(ran):
-    """口座 − 台帳 ＝ 0。⚠ `sim2` は筋書きで BAC を 100 株抜いてあるので、**BAC だけ** −100（§0-8）。"""
+    """口座 − 売買履歴 ＝ 0。⚠ `sim2` はシナリオで BAC を 100 株抜いてあるので、**BAC だけ** −100（§0-8）。"""
     name, root = ran
     diff = {s: v for s, v in account_minus_ledger(root).items() if abs(v) > QTY_TOL}
     if name == "sim1":
@@ -183,7 +183,7 @@ def test_every_row_is_marked_and_no_secret_leaks(ran):
     assert n and not bad and not leaks, (n, bad, leaks)
 
 
-# --- 筋書きが効いた証拠（⚠ 静かに効かなくなるのを捕まえる）----------------
+# --- シナリオが効いた証拠（⚠ 静かに効かなくなるのを捕まえる）----------------
 
 def test_scenarios_left_their_marks(ran):
     name, root = ran
@@ -198,7 +198,7 @@ def test_scenarios_left_their_marks(ran):
     assert ev["auth_failed"] == 1 and ev["auth_5xx_retry"] == 1 and ev["journal_recovered"] == 2, ev
     assert ev["drawdown_warning"] > 0 and ev["position_short"] > 0
     who = {r.get("trader") for d in days_of(root) for r in rows(root, d, "events") if r.get("kind") == "drawdown_warning"}
-    assert who == {"sim_b"}, who                            # 含み損 20% 超は金額指定の人だけ（⚠ 執行器は止めない）
+    assert who == {"sim_b"}, who                            # 含み損 20% 超は金額指定の人だけ（⚠ 執行エンジンは止めない）
     sym = {r.get("symbol") for d in days_of(root) for r in rows(root, d, "events") if r.get("kind") in ("position_short", "blocked_symbol")}
     assert sym == {"BAC"}, sym                              # 口座から消えた銘柄だけ止まる（ほかは動く）
     all_days = [d.isoformat() for d in simdata.sim_days(simdata.load_config(name, CONF))]

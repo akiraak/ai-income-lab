@@ -1,13 +1,13 @@
-"""登録簿 `20261025-mkt-layer`（参考なし・データ。rules.md 31 章・記録 dev-loop.md）:
+"""レジストリ `20261025-mkt-layer`（参考なし・データ。rules.md 31 章・記録 dev-loop.md）:
 63 本を束ねた **市場全体の状態の層 `mkt_`**（全銘柄に同じ値が入る列）。
 
-列（8 本・登録簿の `structure` の写し）:
+列（8 本・レジストリの `structure` のコピー）:
   幅      ＝ `mkt_breadth_ma20` ／ `mkt_breadth_ma60`（終値が 20 ／ 60 日移動平均より上にいる銘柄の割合）・`mkt_breadth_ma20_d5`（その 5 日差分）
   ばらつき ＝ `mkt_disp_ret_1`（同じ日の 1 日リターンの断面の標準偏差）
   等加重指数 ＝ `mkt_ew_ret_1` ／ `mkt_ew_ret_5` ／ `mkt_ew_ret_20`（同じ日の全銘柄の 1 日対数リターンの平均を 1 ／ 5 ／ 20 日足す）・`mkt_ew_vol_20`（その 20 日の標準偏差）
 
 ⚠ 時点: 足 i の値は **足 i の終値まで**で作る（`own_` ・`cs_` と同じ。ラベルは終値 i → i+1 ＝ 予測する日の前日の終値まで）。
-⚠ 時刻の突き合わせは完全一致だけ（前方埋めをしない ＝ `cs_` と同じ）。銘柄が `MIN_SYMBOLS` 未満の時刻は NaN。
+⚠ 時刻の照合は完全一致だけ（前方埋めをしない ＝ `cs_` と同じ）。銘柄が `MIN_SYMBOLS` 未満の時刻は NaN。
 ⚠ config の `feature_layers` に `mkt` があるときだけ組む（`build.layer_order` が `ORDER` の後ろに足す）＝ 無い config は 1 ビットも変わらない。
 """
 

@@ -1,6 +1,6 @@
-"""シミュレーションの `kind = "experiment"` のトレーダーに渡す予測の作り置き（simpredict.py。live-trading.md §0-7 (k)）。
+"""シミュレーションの `kind = "experiment"` のトレーダーに渡す予測のキャッシュ（simpredict.py。live-trading.md §0-7 (k)）。
 
-⚠ `cli.predict` は呼ばない（作り物の作り置きを置く）。MODE ／ run.lock ／ 記録 ／ 日足 ／ 作り置きは全部 tmp。
+⚠ `cli.predict` は呼ばない（作り物のキャッシュを置く）。MODE ／ run.lock ／ 記録 ／ 日足 ／ キャッシュは全部 tmp。
 """
 import json
 import os
@@ -54,7 +54,7 @@ def env(tmp_path, monkeypatch):
 
 
 def fill_cache(cache, data, skip=(), shift_close=None):
-    """出どころの日付ごとに作り置きを置く。買い% は日ごとに 80 ／ 20 を行き来する（買い → 売りが起きる）。"""
+    """出どころの日付ごとにキャッシュを置く。買い% は日ごとに 80 ／ 20 を行き来する（買い → 売りが起きる）。"""
     for k, day in enumerate(data["days"]):
         src = data["source"][day]
         if src in skip:
@@ -66,7 +66,7 @@ def fill_cache(cache, data, skip=(), shift_close=None):
             close = data["quotes"][day].get(sym, 1.0) * (1.01 if shift_close == sym else 1.0)
             lines.append(json.dumps({"date": src, "model": "exp_x", "method": "手法 X", "symbol": sym, "buy": buy, "exit": 100 - buy,
                                      "proxy_close": close}, ensure_ascii=False))
-        livefs.append_many(path, lines)                    # ⚠ 作り置きも DB（livefs）
+        livefs.append_many(path, lines)                    # ⚠ キャッシュも DB（livefs）
 
 
 def built(traders_dir):
@@ -124,7 +124,7 @@ def test_driver_runs_an_experiment_trader(env):
     traders_dir, cache, child = env
     cfg, data = built(traders_dir)
     assert cli("simctl.py", ["mode", "sim", "simx"], child).returncode == 0
-    # 作り置きが無ければ運転手は起動しない
+    # キャッシュが無ければランナーは起動しない
     r = cli("simrun.py", ["simx", "--speed", "max", "--traders-dir", traders_dir], child)
     assert r.returncode == 2 and "予測の作り置きが 7 本足りない" in r.stderr
     fill_cache(cache, data)

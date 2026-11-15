@@ -45,7 +45,7 @@ def build_sim_tree(mode_dir: Path, name: str = "sim1", *, paused: bool = False, 
     (root / "sim" / "control.json").write_text(json.dumps({"sim_epoch": 1791230000.0 + 1000, "real_epoch": time.time(), "speed": speed, "paused": paused, "step": 0, "stop": False}))
     (root / "sim" / "status.json").write_text(json.dumps({"name": name, "sim": True, "state": "窓の中", "day_index": 3, "days_total": 64, "sim_date": "2026-10-05",
                                                            "source_date": "2026-06-03", "updated_at": time.time(), "last_rc": 0}))
-    day = root / "out" / "2026-10-05"          # ⚠ 記録は DB（livefs。道はそのまま）
+    day = root / "out" / "2026-10-05"          # ⚠ 記録は DB（livefs。パスはそのまま）
     tag = {"date": "2026-10-05", "env": "cert", "run_id": "20261005T194530Z", "sim": True, "mock": True, "test": True}
     livefs.append(day / "orders.jsonl", json.dumps({**tag, "symbol": "T", "side": "buy", "sizing": "shares", "shares": 4, "value_usd": 98.2, "mode": "submit",
                                                   "parts": [{"trader": "sim_a", "shares": 4, "usd": 98.2}], "quote_at_signal": {"mid": 24.55}, "final_status": "Filled",
@@ -209,12 +209,12 @@ def test_not_production_mark_shows_a_band_on_every_page(world):
         for path in pages:
             r = c.get(path)
             assert r.status_code == 200 and 'class="simbar simbar-np"' in r.text and "本番の機械ではない" in r.text, path
-            assert "[SIM]" not in r.text and "印ではない" not in r.text, path          # 実売買モードのまま・この機械の印
+            assert "[SIM]" not in r.text and "印ではない" not in r.text, path          # 実売買モードのまま・このマシンの印
             assert_clean(r.text, path)
         for api in ("/api/state", "/api/live", "/api/records"):
             np = c.get(api).json()["not_production"]
             assert np["machine"] == socket.gethostname() and np["matches_host"] is True and np["error"] is None, api
-    # 他の機械の印・壊れた印は、それと分かる帯（執行器と同じく「ある」側に倒す）
+    # 他のマシンの印・壊れた印は、それと分かる帯（執行エンジンと同じく「ある」側に倒す）
     (mode_dir / "NOT_PRODUCTION").write_text(json.dumps({"machine": "elsewhere", "since": "x"}))
     with client_of(s) as c:
         body = c.get("/").text

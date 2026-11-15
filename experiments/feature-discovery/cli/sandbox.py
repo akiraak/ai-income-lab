@@ -45,7 +45,7 @@ FD = "experiments/feature-discovery"            # リポジトリの中の、こ
 BRANCH_PREFIX = "sandbox/"
 DATA_PARTS = ("raw", "adjusted", "derived", "manifests")     # 毎回まるごとコピーする（256MB【実測 2026-11-13】）。テーブルは要るものだけ
 ID_RE = re.compile(r"^[0-9a-z][0-9a-z-]{2,80}$")
-# サンドボックスの中の python に渡さない環境変数（本線の DB ／ データ ／ 実行の置き場を指してしまうもの）
+# サンドボックスの中の python に渡さない環境変数（本線の DB ／ データ ／ 実行の保存先を指してしまうもの）
 DROP_ENV = ("AIL_RESEARCH_DB", "AIL_DATA_DIR", "AIL_RUNS_DIR", "CLAUDECODE")
 
 # サンドボックスでも書いてはいけないパス（リポジトリ基準・fnmatch。プラン §2-3 の S6）
@@ -310,7 +310,7 @@ def copy_period_files(id_: str, *, repo: str = REPO, base: str | None = None, da
     for rel in json.loads(line[len("PERIOD_FILES="):]):
         rel = os.path.normpath(rel)
         if not rel.startswith("data" + os.sep + "features" + os.sep) or ".." in rel.split(os.sep):
-            continue                                       # data/features の下だけ（data-widen など別の置き場の実行は期間を記録している）
+            continue                                       # data/features の下だけ（data-widen など別の保存先の実行は期間を記録している）
         s_, d_ = os.path.join(src_root, rel), os.path.join(fd_dir(id_, base), rel)
         if os.path.isfile(s_) and not os.path.exists(d_):
             os.makedirs(os.path.dirname(d_), exist_ok=True)

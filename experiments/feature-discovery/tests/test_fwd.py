@@ -211,7 +211,7 @@ def test_h5_returns_buy_hold_and_zero_exit_and_leaves_h1_untouched():
     bp, ep, hd, doc = fn(tr, te, _feats(p), ctx)
     assert len(bp) == len(ep) == len(hd) == len(te)
     assert np.all(ep == 0.0) and set(np.unique(hd)) <= {5, 10, 20, 40}
-    # 4 本を別々に出して最大と突き合わせる（同じ ctx・同じ学び方）
+    # 4 本を別々に出して最大と照合する（同じ ctx・同じ学び方）
     singles = {w: np.asarray(fwd.forward_gate(w, tr, te, _feats(p), _ctx())[0], dtype=float) for w in fwd.PICK_WINDOWS}
     stack = np.vstack([singles[w] for w in fwd.PICK_WINDOWS])
     np.testing.assert_allclose(bp, stack.max(axis=0))

@@ -196,7 +196,7 @@ def test_hold_is_flagged_in_the_log_and_the_mail_subject(world, tmp_path):
     assert "保留以上あり ＝ 見てください" in devloop_mail.sandbox_block(parts)
     text = devloop.write_journal(cfg, "2026-11-14", {k: v for k, v in parts.items() if k not in ("ideate", "run")}, str(tmp_path / "j.md"))
     assert "## ステージ 5 サンドボックス" in text and "⚠ **保留以上あり ＝ 人が見る**" in text and "[結果の表](../sandbox/20261113-a.md)" in text
-    # 動いていない晩は件名も日誌も今までどおり
+    # 動いていない晩は件名もログも今までどおり
     plain = {"stages": "0,1,2,3,4,5", "cost": 1.0, "ideate": {"counts": {"登録": 3}}, "run": {"picked": []}}
     assert "サンドボックス" not in devloop_mail.subject(plain, "2026-11-14", "[p]") and devloop_mail.sandbox_block(plain) == ""
     assert "サンドボックス" not in devloop.write_journal(cfg, "2026-11-14", {k: v for k, v in plain.items() if k not in ("ideate", "run")}, str(tmp_path / "j2.md"))

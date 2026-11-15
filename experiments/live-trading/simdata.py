@@ -43,8 +43,8 @@ class SimConfig:
     spread_bp: float = 2.0
     fill_noise: float = 0.003
     seed: int = 0
-    events: list[dict] = field(default_factory=list)   # 筋書き（故障の注入）。Phase 3
-    max_total_budget_usd: float | None = None          # 予算の合計の上限（2026-10-19 sim7 ＝ 4 人 × $300 が執行器の既定 $1,000 を超える）。無ければ執行器の既定
+    events: list[dict] = field(default_factory=list)   # シナリオ（故障の注入）。Phase 3
+    max_total_budget_usd: float | None = None          # 予算の合計の上限（2026-10-19 sim7 ＝ 4 人 × $300 が執行エンジンの既定 $1,000 を超える）。無ければ執行エンジンの既定
 
 
 def load_config(name: str, config_dir: str | None = None) -> SimConfig:
@@ -61,7 +61,7 @@ def load_config(name: str, config_dir: str | None = None) -> SimConfig:
 
 
 def sim_days(cfg: SimConfig) -> list[date]:
-    """仮の期間の営業日（半日立会の日も入る ＝ 執行器が「発注しない」と記録する日。休場日は入らない）。"""
+    """仮の期間の営業日（半日立会の日も入る ＝ 執行エンジンが「発注しない」と記録する日。休場日は入らない）。"""
     return market_calendar.nyse().trading_days(cfg.start, cfg.end)
 
 
@@ -109,7 +109,7 @@ def build(cfg: SimConfig, symbols: list[str], lookbacks=(20, 10), data_dir: str 
 
 
 def write_tree(root: str, cfg: SimConfig, traders_dir: str, data_dir: str = DATA_DIR) -> dict:
-    """シミュレーションの木に、トレーダーの設定の写し・合図の CSV・日ごとの気配を書く。⚠ `sim_` で始まらないトレーダーは置けない。"""
+    """シミュレーションの木に、トレーダーの設定のコピー・合図の CSV・日ごとの気配を書く。⚠ `sim_` で始まらないトレーダーは置けない。"""
     import shutil
 
     from mode import SIM_TRADER_PREFIX

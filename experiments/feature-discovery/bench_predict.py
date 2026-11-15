@@ -1,10 +1,10 @@
 """「今日の買い%」の予測にかかる時間を測る（[プラン](../../docs/plans/archive/predict-timing-13500t.md)）。
 
-    AIL_DATA_DIR=data-live .venv/bin/python bench_predict.py --asof 2026-09-18,2026-09-22 --repeat 6 --out <置き場>/bench.jsonl
+    AIL_DATA_DIR=data-live .venv/bin/python bench_predict.py --asof 2026-09-18,2026-09-22 --repeat 6 --out <保存先>/bench.jsonl
     .venv/bin/python bench_predict.py --compare a.jsonl b.jsonl      # 2 台の結果を並べる（時間と売買の判定の一致）
 
 `run-live.sh` の予測の段と同じ形 ＝ トレーダーの設定から 実験 × 手法 を拾い、**`cli.predict` を並列に起こして全部終わるまで**を
-1 回と数える（プラン §2-1）。1 回 1 行の JSON（経過時間・各本の `seconds`・指紋・全銘柄の買い% ／ 出口%）と、先頭に機械の仕様を 1 行。
+1 回と数える（プラン §2-1）。1 回 1 行の JSON（経過時間・各本の `seconds`・フィンガープリント・全銘柄の買い% ／ 出口%）と、先頭にマシンの仕様を 1 行。
 
 ⚠ **測るだけ**: `cli.predict` の `--out` は一時ディレクトリ（本物の `live.sqlite` にも `out/` にも書かない）。資格情報は読まない。
 ⚠ `cli.predict` と `cli.build.assemble`・`cli.run.fold_buy_pct` には触らない（別のプロセスとして起こすだけ）。

@@ -1,11 +1,11 @@
-"""`raw/` `adjusted/` `derived/` の読み書きと manifest。⚠ **入力の指紋（行数・最古・最新・ハッシュ）をここで作る**。
+"""`raw/` `adjusted/` `derived/` の読み書きと manifest。⚠ **入力のフィンガープリント（行数・最古・最新・ハッシュ）をここで作る**。
 
-置き場（rules.md 1 章）:
+保存先（rules.md 1 章）:
 
     data/raw/<source>/<period>/<SYMBOL>.csv      ⚠ 取ってきたまま。書き換えない
     data/adjusted/<period>/<SYMBOL>.csv          目盛りを直したもの
     data/derived/<変換名>__<引数>/<SYMBOL>.csv   推定しない変換だけ（rules.md 3 章）
-    data/manifests/<layer>_<period>.json         層ごとの指紋
+    data/manifests/<layer>_<period>.json         層ごとのフィンガープリント
 
 ⚠ **ファイル名の `/` は `-` に置き換える**（`BRK/B` → `BRK-B.csv`）。
 ⚠ **列の意味は `ail/contracts.py` の `BAR_COLUMNS` が正本**（`time_ms` は足の開始時刻・UTC ミリ秒）。
@@ -24,9 +24,9 @@ import pandas as pd
 from ail.contracts import BAR_COLUMNS, SERIES_COLUMNS
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
-# ⚠ **`AIL_DATA_DIR` は実売買用の置き場（`data-live/`）へ差し替えるためだけにある**（`live_update.sh`・`cli.predict`）。
+# ⚠ **`AIL_DATA_DIR` は実売買用の保存先（`data-live/`）へ差し替えるためだけにある**（`live_update.sh`・`cli.predict`）。
 # ⚠ **未指定なら今までどおり `data/`**。研究用の `data/` は実売買の更新で 1 バイトも書き換えない
-# （足を伸ばすと表の「期間」＝ 台帳の鍵と、入力の指紋が動く）
+# （足を伸ばすと表の「期間」＝ 検証結果一覧の鍵と、入力のフィンガープリントが動く）
 DATA = os.path.abspath(os.environ.get("AIL_DATA_DIR") or os.path.join(ROOT, "data"))
 
 
@@ -42,14 +42,14 @@ def from_filename(name: str) -> str:
     return "BRK/B" if name == "BRK-B" else name
 
 
-# ---------------------------------------------------------------- 置き場
+# ---------------------------------------------------------------- 保存先
 
 def raw_dir(source: str, period: str) -> str:
     return os.path.join(DATA, "raw", source, period)
 
 
 def series_dir(source: str) -> str:
-    """外部系列の置き場。⚠ **足とはディレクトリを分ける**（形が違うので検査も違う）。"""
+    """外部系列の保存先。⚠ **足とはディレクトリを分ける**（形が違うので検査も違う）。"""
     return os.path.join(DATA, "raw", source, "series")
 
 
@@ -112,10 +112,10 @@ def series_fingerprint(df: pd.DataFrame) -> dict:
             "sha256": hashlib.sha256(body).hexdigest()[:16]}
 
 
-# ---------------------------------------------------------------- 指紋と manifest
+# ---------------------------------------------------------------- フィンガープリントと manifest
 
 def fingerprint(df: pd.DataFrame) -> dict:
-    """1 系列の指紋。⚠ **同じ指紋なら同じ入力**とみなす（`runs/` の再現性の根拠）。"""
+    """1 系列のフィンガープリント。⚠ **同じフィンガープリントなら同じ入力**とみなす（`runs/` の再現性の根拠）。"""
     body = df[list(BAR_COLUMNS)].to_csv(index=False).encode()
     return {
         "rows": int(len(df)),

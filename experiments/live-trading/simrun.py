@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-"""シミュレーションの運転手: 仮の時計を進め、営業日の発注できる時間帯に入ったら、その日の気配をモックに流して執行器（run_day.py）を起こす。
+"""シミュレーションのランナー: 仮の時計を進め、営業日の発注できる時間帯に入ったら、その日の気配をモックに流して執行エンジン（run_day.py）を起こす。
 
-    python simctl.py mode sim sim1          # 先に機械をシミュレーションモードへ（何も動いていないとき・人が行う）
+    python simctl.py mode sim sim1          # 先にマシンをシミュレーションモードへ（何も動いていないとき・人が行う）
     python simrun.py sim1                   # 続きから（無ければ最初から）。速さ・停止・再開は別の端末から simctl.py で
     python simrun.py sim1 --fresh --speed max --days 20
 
 ⚠ **実売買とは排他**（live-trading.md §0-7 (a)）: MODE が sim でその名前のときだけ動き、`run.lock` を終わるまで持つ。
-⚠ 接続先はこの運転手が起こすループバックのモックだけ。資格情報の `.env` は読まない（`TT_ENV_FILE` を空のファイルに向ける）。
+⚠ 接続先はこのランナーが起こすループバックのモックだけ。資格情報の `.env` は読まない（`TT_ENV_FILE` を空のファイルに向ける）。
 ⚠ 売買のコードは本物と同じ `run_day.py`。再送 60 秒 × 3・取消 600 秒は縮めず、仮の時計の上でそのまま待つ。
 ⚠ 記録は `sim/<名前>/` の下だけ（全行 sim: true ／ mock: true ／ test: true）。仮データの損益・差は判定に混ぜない。
 """
@@ -37,7 +37,7 @@ from _livefs import livefs  # noqa: E402
 ET = ZoneInfo("America/New_York")
 UA = "simrun/1.0"
 MOCK_FAULTS = ("session_offline", "http_5xx", "http_429", "auth_5xx", "auth_401", "reject_funds", "no_fill")   # モックが起こすもの
-DRIVER_EVENTS = ("skip_day", "crash_mid", "drawdown", "position_loss")                                                           # 運転手が起こすもの（halt は人が管理画面で）
+DRIVER_EVENTS = ("skip_day", "crash_mid", "drawdown", "position_loss")                                                           # ランナーが起こすもの（halt は人が管理画面で）
 CRED_KEYS = ("TT_CLIENT_SECRET", "TT_REFRESH_TOKEN", "TT_PROD_CLIENT_SECRET", "TT_PROD_REFRESH_TOKEN")
 
 
@@ -50,7 +50,7 @@ def window_times(day: date, windows: list[str]) -> list[datetime]:
 
 
 def credentials_present(path: str | None = None) -> list[str]:
-    """資格情報の `.env` に入っている鍵の名前（値は読まない）。⚠ シミュレーション専用の機械（Sx360）には置かない決まり（§0-7 (f)）。"""
+    """資格情報の `.env` に入っている鍵の名前（値は読まない）。⚠ シミュレーション専用のマシン（Sx360）には置かない決まり（§0-7 (f)）。"""
     path = path or os.path.join(SAMPLE_DIR, ".env")
     found = []
     if os.path.exists(path):
@@ -148,7 +148,7 @@ class Driver:
 
     # ---------- 1 回の発注できる時間帯
 
-    # ---------- 筋書き（故障の注入。live-trading.md §0-7 (e)）
+    # ---------- シナリオ（故障の注入。live-trading.md §0-7 (e)）
 
     def events_on(self, day_index: int) -> list[dict]:
         return [e for e in self.cfg.events if int(e.get("day", 0)) == day_index]
@@ -195,7 +195,7 @@ class Driver:
         rcs: dict[str, int] = dict(self.status.get("rcs") or {})
         self.start_mock()
         try:
-            # モックの口座は起こすたびに空 → 台帳の合計を建玉として置く（続きから起こしたとき「口座が台帳より少ない」で全部止まらないように）
+            # モックの口座は起こすたびに空 → 売買履歴の合計を建玉として置く（続きから起こしたとき「口座が売買履歴より少ない」で全部止まらないように）
             import recovery
             held: dict[str, float] = {}
             for st in recovery.load_all_states(os.path.join(self.root, "state", "cert")).values():
@@ -221,7 +221,7 @@ class Driver:
                     if faults:
                         self.post("/_mock/fault", {"faults": faults})
                     for e in todays:
-                        if e["kind"] == "position_loss":       # 台帳にあるはずの株が口座から消える（人が口座を直接触った・sandbox のリセットの代役）
+                        if e["kind"] == "position_loss":       # 売買履歴にあるはずの株が口座から消える（人が口座を直接触った・sandbox のリセットの代役）
                             self.post("/_mock/positions", {"adjust": {e["symbol"]: -abs(float(e.get("shares", 1)))}})
                     factor = self.quote_factor(i + 1)
                     quotes = {s: round(q * factor, 4) for s, q in data["quotes"][day].items()}
@@ -247,12 +247,12 @@ class Driver:
             return 0
         finally:
             self.stop_mock()
-            # ⚠ 運転手がいない間に仮の時計だけが進むと、次に起こしたとき発注できる時間帯を通り過ぎている。終わるときは必ず止める
+            # ⚠ ランナーがいない間に仮の時計だけが進むと、次に起こしたとき発注できる時間帯を通り過ぎている。終わるときは必ず止める
             simclock.pause(self.control)
 
 
 def budget_args(cfg) -> list[str]:
-    """設定の `max_total_budget_usd`（2026-10-19 sim7 ＝ 4 人 × $300 が執行器の既定の上限 $1,000 を超える）を執行器の引数にする。
+    """設定の `max_total_budget_usd`（2026-10-19 sim7 ＝ 4 人 × $300 が執行エンジンの既定の上限 $1,000 を超える）を執行エンジンの引数にする。
     無い sim は空 ＝ 1 ビットも変わらない。⚠ sim の中だけ（本番の上限は 13500t の live.env）。"""
     v = getattr(cfg, "max_total_budget_usd", None)
     if v is None:
@@ -303,7 +303,7 @@ def main() -> int:
         resumed = os.path.exists(control)
         if not resumed:
             data = simdata.write_tree(root, cfg, args.traders_dir)
-            # `kind = "experiment"` のトレーダーがいるときだけ: 予測の作り置きを仮の日付に書き換えて木に置く（§0-7 (k)）。いなければ何もしない
+            # `kind = "experiment"` のトレーダーがいるときだけ: 予測のキャッシュを仮の日付に書き換えて木に置く（§0-7 (k)）。いなければ何もしない
             import simpredict
             try:
                 placed = simpredict.install(root, cfg, args.traders_dir, data)

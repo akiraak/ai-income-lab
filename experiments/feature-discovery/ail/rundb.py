@@ -4,16 +4,16 @@
       runs         実行 1 本 1 行（名前 ＝ いままでのディレクトリ名 `<時刻>_<実験名>`）
       files        実行の中のファイル 1 つ 1 行（`summary.csv`・`fitted/calibration_f1.json` …）。中身はそのまま
       queue_state  `cli.queue` の再開の状態（1 キュー 1 行。これだけは書き換える）
-      outputs      診断・突き合わせの出力（いままでの `out/` のファイル 1 つ 1 行。道は `out/` からの相対のまま。
+      outputs      診断・照合の出力（いままでの `out/` のファイル 1 つ 1 行。パスは `out/` からの相対のまま。
                    ⚠ 実行ではない ＝ 検証結果一覧・実行タブには出ない。書き換えない・消さない。2026-09-21）
-      ledger_rows  検証結果一覧の行と判定（⚠ **記録ではなく生成物**。`ledger.md` と同じもので、吐き直すたびにまるごと
+      ledger_rows  検証結果一覧の行と判定（⚠ **記録ではなく生成物**。`ledger.md` と同じもので、再生成するたびにまるごと
                    入れ直す。標準ライブラリだけの読み手 ＝ vibeboard の予測モデルのタブが、判定を pandas なしで引くため）
 
   - ⚠ **中身は元のバイト列のまま入れる**（JSON は文字列のまま ＝ `json_extract` で引ける。ほかは zlib で縮めるだけ）。
-    ⚠ `sha256` は元のバイト列の指紋 ＝ 取り込んだファイルと 1 ビットも違わないことを確かめる鍵
+    ⚠ `sha256` は元のバイト列のフィンガープリント ＝ 取り込んだファイルと 1 ビットも違わないことを確かめる鍵
   - ⚠ **閉じた実行は書き換えない・消さない**（トリガーが止める）。足すのは許す（`cli.report --recheck` が
     `checks.json` の無い実行にだけ足す）
-  - ⚠ 実行中の実行は、書くたびにその場で入れる（`cli.run` は自分の `summary.csv` が台帳に入った状態で
+  - ⚠ 実行中の実行は、書くたびにその場で入れる（`cli.run` は自分の `summary.csv` が検証結果一覧に入った状態で
     `n_trials` を数える ＝ いままでのディレクトリと同じ見え方）
   - 標準ライブラリだけ（pandas を import しない。管理画面・vibeboard の sidecar からも同じ形で読める）
 """
@@ -186,7 +186,7 @@ def _walk(root: str) -> list[str]:
 
 
 def put_dir(conn: sqlite3.Connection, run: str, root: str, commit: bool = True) -> int:
-    """ディレクトリの中身を全部入れる（道は `root` からの相対）。入れたファイルの数。"""
+    """ディレクトリの中身を全部入れる（パスは `root` からの相対）。入れたファイルの数。"""
     n = 0
     for rel in _walk(root):
         with open(os.path.join(root, rel), "rb") as f:
@@ -210,9 +210,9 @@ def ingest_dir(conn: sqlite3.Connection, root: str, name: str | None = None) -> 
 
 
 def verify_dir(conn: sqlite3.Connection, root: str, name: str | None = None) -> list[str]:
-    """ディレクトリと DB の中身を突き合わせる。⚠ **食い違いの一覧**（空なら 1 ビットも違わない）。
+    """ディレクトリと DB の中身を照合する。⚠ **食い違いの一覧**（空なら 1 ビットも違わない）。
 
-    ⚠ DB から取り出したバイト列の指紋と、ディスクのファイルの指紋を比べる（DB に書いた指紋だけを信じない）。
+    ⚠ DB から取り出したバイト列のフィンガープリントと、ディスクのファイルのフィンガープリントを比べる（DB に書いたフィンガープリントだけを信じない）。
     """
     name = name or os.path.basename(os.path.normpath(root))
     disk = set(_walk(root))
@@ -255,7 +255,7 @@ def get_json(conn: sqlite3.Connection | None, run: str, path: str):
 
 
 def export_run(conn: sqlite3.Connection, run: str, dest: str, prefix: str = "") -> int:
-    """実行のファイルを `dest` に書き戻す（`torch.load` のようにファイルの道が要る読み手のため）。"""
+    """実行のファイルを `dest` に書き戻す（`torch.load` のようにファイルのパスが要る読み手のため）。"""
     n = 0
     for p in list_files(conn, run, prefix):
         out = os.path.join(dest, *p.split("/"))
@@ -281,10 +281,10 @@ def save_queue(conn: sqlite3.Connection, name: str, doc: dict) -> None:
     conn.commit()
 
 
-# --- 診断・突き合わせの出力（いままでの out/。書き換えない）-----------
+# --- 診断・照合の出力（いままでの out/。書き換えない）-----------
 
 def put_output(conn: sqlite3.Connection, path: str, data: bytes) -> None:
-    """診断の出力を 1 つ入れる。⚠ 同じ道がもうあれば止める（上書きしない。名前に時刻か日付を入れる）。"""
+    """診断の出力を 1 つ入れる。⚠ 同じパスがもうあれば止める（上書きしない。名前に時刻か日付を入れる）。"""
     if conn.execute("SELECT 1 FROM outputs WHERE path = ?", (path,)).fetchone():
         raise SystemExit(f"⚠ 出力 {path} はもう DB にある（上書きしない。rules.md 10 章）")
     codec, body = encode(path, data)
@@ -309,7 +309,7 @@ def list_outputs(conn: sqlite3.Connection | None, prefix: str = "") -> list[str]
 
 def ingest_outputs(conn: sqlite3.Connection, root: str) -> tuple[int, int]:
     """⚠ いままでの `out/` を取り込む（1 つのトランザクション）。(入れた数, もう同じ中身が入っていた数)。
-    ⚠ 同じ道に違う中身が入っていれば止める（何も入れない）。"""
+    ⚠ 同じパスに違う中身が入っていれば止める（何も入れない）。"""
     added = same = 0
     with conn:
         for rel in _walk(root):
@@ -329,7 +329,7 @@ def ingest_outputs(conn: sqlite3.Connection, root: str) -> tuple[int, int]:
 
 
 def verify_outputs(conn: sqlite3.Connection, root: str) -> tuple[list[str], list[str]]:
-    """`out/` のファイルと DB を突き合わせる。(一致した道, 食い違いの一覧)。⚠ DB から取り出したバイト列の指紋で比べる。"""
+    """`out/` のファイルと DB を照合する。(一致したパス, 食い違いの一覧)。⚠ DB から取り出したバイト列のフィンガープリントで比べる。"""
     ok, bad = [], []
     for rel in _walk(root):
         with open(os.path.join(root, rel), "rb") as f:
@@ -379,9 +379,9 @@ def _alive(pid: int | None) -> bool:
 
 
 def sweep(conn: sqlite3.Connection, work_root: str) -> list[str]:
-    """⚠ **途中で落ちた実行を閉じる**（プロセスが居ない・閉じていない）。作業の置き場に残ったファイルも入れる。
+    """⚠ **途中で落ちた実行を閉じる**（プロセスが居ない・閉じていない）。作業の保存先に残ったファイルも入れる。
 
-    ⚠ 閉じるだけで、中身は足さない・消さない（`summary.csv` が無ければ台帳には今までどおり行が立たない）。
+    ⚠ 閉じるだけで、中身は足さない・消さない（`summary.csv` が無ければ検証結果一覧には今までどおり行が立たない）。
     """
     import shutil
 
@@ -389,7 +389,7 @@ def sweep(conn: sqlite3.Connection, work_root: str) -> list[str]:
     closed = []
     for name, h, pid in conn.execute("SELECT name, host, pid FROM runs WHERE closed_at IS NULL").fetchall():
         if h != host or _alive(pid):
-            continue                     # ⚠ ほかの機械の実行は、その機械でしか生死を確かめられない
+            continue                     # ⚠ ほかのマシンの実行は、その自動でしか生死を確かめられない
         work = os.path.join(work_root, name)
         if os.path.isdir(work):
             put_dir(conn, name, work)

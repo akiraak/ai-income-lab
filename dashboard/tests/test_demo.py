@@ -17,7 +17,7 @@ def _environ(tmp_path: Path, **extra) -> dict:
         "AIL_ENV_FILE": str(empty),        # dashboard/.env を読ませない
         "AIL_TT_ENV_FILE": str(empty),     # サンプルの .env（本物の資格情報）を読ませない
         "AIL_DATA_DIR": str(tmp_path / "data"),
-        # ⚠ 機械のモード（MODE）も tmp に向ける: この機械がシミュレーションモードだと、デモではなく sim/<名前>/ を読んでしまう
+        # ⚠ マシンのモード（MODE）も tmp に向ける: このマシンがシミュレーションモードだと、デモではなく sim/<名前>/ を読んでしまう
         "AIL_MODE_DIR": str(tmp_path / "mode"),
         "AIL_SAMPLE_DIR": str(SAMPLE_DIR),
         "AIL_SAMPLE_PYTHON": sys.executable,
@@ -84,7 +84,7 @@ def test_no_demo_excludes_mock_records(tmp_path):
 
 
 def test_demo_reads_mock_executor_records_unless_live_dir_given(tmp_path):
-    """2026-09-18: デモでは概要・トレーダーの画面も見えるよう、執行器のモックの記録（dashboard/demo/live）を読む。"""
+    """2026-09-18: デモでは概要・トレーダーの画面も見えるよう、執行エンジンのモックの記録（dashboard/demo/live）を読む。"""
     s = load_settings(_environ(tmp_path))
     assert s.demo and s.live_dir.parts[-2:] == ("demo", "live")
     other = tmp_path / "mine"

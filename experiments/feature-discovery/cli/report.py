@@ -2,12 +2,12 @@
 
     python3 -m cli.report                      # 直近 10 実行の見出し
     python3 -m cli.report --metric 純利bp      # 手法 × 実行 の表
-    python3 -m cli.report --diff A B           # ⚠ 2 実行の差分（入力の指紋も並べる）
+    python3 -m cli.report --diff A B           # ⚠ 2 実行の差分（入力のフィンガープリントも並べる）
     python3 -m cli.report --catalog            # ⚠ 検証結果一覧（旧: 台帳）を markdown で吐く
     python3 -m cli.report --recheck            # ⚠ checks.json の無い実行に後から足す（⚠ ある実行は書き換えない）
 
 ⚠ **`--catalog` は「試した結果」の一覧である**（spec §2 の「手法の一覧」とは別物）。
-⚠ **カタログ・registry・実行の記録の 3 つを突き合わせて生成する。手で書き写す欄はひとつも無い。**
+⚠ **カタログ・registry・実行の記録の 3 つを照合して生成する。手で書き写す欄はひとつも無い。**
 """
 
 from __future__ import annotations

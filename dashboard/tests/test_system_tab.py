@@ -3,7 +3,7 @@
 見るもの: 本文はやさしい言葉（⚠ `detail*` ＝ 「詳しく（用語あり）」の囲みは検査の外。⚠ 囲みは畳まない ＝ `<details>` にしない）／ 設定の数字と `$` が本文に無い ／
 ⚠ **全体像 ＋ パートごとの詳細**（2026-09-26 の利用者の決定。ページは overview → model → trader → live → names。各モデル・各トレーダーの説明はしない ＝
 トレーダーのしくみの本文に呼び名・識別名・くらべる文が無い）／ 図は主張つき・箱 12 個以内（流れ図・期間の図・入れ子の図）／
-リンク先が在る ／ ページの描き方（段・図・表・型ごとの段・台帳の合計）は最小の置き場で ／ TOML と台帳しか開かない ／ 先頭のタブ ／ 経路 ／ 白地。
+リンク先が在る ／ ページの描き方（段・図・表・型ごとの段・検証結果一覧の合計）は最小の保存先で ／ TOML と検証結果一覧しか開かない ／ 先頭のタブ ／ 経路 ／ 白地。
 """
 
 import builtins
@@ -21,7 +21,7 @@ import systemview
 import traderview
 import vibetab
 from tests.test_traders_tab import COMPARING, FORBIDDEN, _get, _walk
-from tests.test_traders_tab import paths as _trader_paths  # noqa: F401（最小の置き場の fixture を借りる）
+from tests.test_traders_tab import paths as _trader_paths  # noqa: F401（最小の保存先の fixture を借りる）
 
 REPO_ROOT = traderview.REPO_ROOT
 REAL = Path(traderview.DASHBOARD_DIR) / "system.toml"
@@ -194,7 +194,7 @@ def test_system_detail_label():
     assert _real()["common"]["detail_label"].startswith("詳しく")     # 利用者の指示 2026-09-20
 
 
-# ---------------------------------------------------------------- 最小の置き場
+# ---------------------------------------------------------------- 最小の保存先
 
 SYSTEM = '''
 [common]
@@ -281,7 +281,7 @@ def paths(_trader_paths, tmp_path):
     system.write_text(SYSTEM, encoding="utf-8")
     ledger = tmp_path / "ledger.md"
     ledger.write_text(LEDGER, encoding="utf-8")
-    # 型ごとの図: 最小の置き場の models.toml の 1 本目（TA・TB が使う exp_a）に箱を足す
+    # 型ごとの図: 最小の保存先の models.toml の 1 本目（TA・TB が使う exp_a）に箱を足す
     text = _trader_paths.models.read_text(encoding="utf-8")
     _trader_paths.models.write_text(text.replace('how = "点の出し方 A"', 'how = "点の出し方 A"\nflow = [{ t = "入れる" }, { t = "出す" }]'), encoding="utf-8")
     return traderview.TraderPaths(words=_trader_paths.words, models=_trader_paths.models, traders_dir=_trader_paths.traders_dir,

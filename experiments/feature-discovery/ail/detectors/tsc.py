@@ -83,7 +83,7 @@ def run_transform(label: str, make, tr: pd.DataFrame, te: pd.DataFrame, feats, c
     ztr = sc.transform(ztr)
     zte = sc.transform(zte)
     ytr = tr["y"].to_numpy(dtype=float)
-    cal = calibrate.fit(model, ztr, ytr, ctx)                   # ⚠ 訓練の尻の holdout で較正（13-2 の 2）
+    cal = calibrate.fit(model, ztr, ytr, ctx)                   # ⚠ 訓練の末尾の holdout で較正（13-2 の 2）
     pred = model(ztr, ytr, zte, ctx)
     doc = {"transform": label, "input": INPUT, "window": seq.WINDOW,
            "変換の出力の列": n_out, "columns": cols + leak,

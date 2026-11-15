@@ -11,7 +11,7 @@
   experiment  feature-discovery の実験名。`out/<日付>/predict.jsonl` の行（Phase 1 の `predict.py` が書く）を読む
 ⚠ **fixed / file のトレーダーは `test = true` を必ず持ち、記録に `test: true` が付く**（判定に混ぜない）。
 
-役割（`[[models]] role`。2026-10-18 プラン docs/plans/trader-model-roles.md §4。rules.md 25 章の机上の形を執行器に写した）:
+役割（`[[models]] role`。2026-10-18 プラン docs/plans/trader-model-roles.md §4。rules.md 25 章の机上の形を執行エンジンに写した）:
   both   買いにも売りにも入る（既定。⚠ `role` を書かない設定は 1 ビットも変わらない）
   buy    買い係 ＝ 買い% だけに入る（売りには入らない）
   exit   売り係 ＝ 出口% だけに入る。⚠ `min_hold_days` の中（建ててから d 営業日未満）は読まれない
@@ -45,7 +45,7 @@ class ModelSpec:
     buy: float | None = None   # fixed
     exit: float | None = None  # fixed
     path: str | None = None    # file
-    method: str | None = None  # experiment: 実験の中の手法（例 "T3 QUANT（60日窓）"）。predict.jsonl の行の method と突き合わせる
+    method: str | None = None  # experiment: 実験の中の手法（例 "T3 QUANT（60日窓）"）。predict.jsonl の行の method と照合する
     role: str = "both"         # both ／ buy ／ exit ／ stop ／ watch（上の説明。既定 both ＝ いままでの形）
 
     @property
@@ -257,7 +257,7 @@ def load_traders(names: list[str], traders_dir: str = TRADERS_DIR) -> list[Trade
 def combine(rule: str, buys: list[float], exits: list[float], threshold: float) -> tuple[float, float]:
     """複数モデルの買い% ／ 出口% を 1 本にまとめる（プラン §2-1 の表）。役割のある人は側ごとにこれを呼ぶ（`signals.collect`）。
 
-    戻り値は (買い%, 出口%)。その後ろは `buy > θ` ／ `exit > θ` で読む（状態機械。simulate と同じ向き）。
+    戻り値は (買い%, 出口%)。その後ろは `buy > θ` ／ `exit > θ` で読む（ステートマシン。simulate と同じ向き）。
     多数決・全員一致は 0 か 100 に潰す（θ で 0/1 にした後の規則なので、% としての意味は持たない）。
     """
     if len(buys) != len(exits) or not buys:

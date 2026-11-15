@@ -1,4 +1,4 @@
-"""登録簿 `20261114-persist-signal-power`（2026-11-14・手動）: `cli.inject_power` の種類 persist ＝ 何十日も続く局面の植え込み。
+"""レジストリ `20261114-persist-signal-power`（2026-11-14・手動）: `cli.inject_power` の種類 persist ＝ 何十日も続く局面の植え込み。
 
 ⚠ 見るもの: 連鎖は ±1・種で決まる・平均滞在がおよそ L ／ 共通の局面は同じ日の全銘柄が同じ・銘柄ごとの局面は銘柄で違う ／
    本物の y を残す（k 0）・y の差 ＝ k × 状態・種が同じなら k をまたいで列は同じ ／ 水準は事前固定 ／
@@ -79,7 +79,7 @@ def test_levels_are_fixed_and_iid_is_untouched():
     assert ip.PERSIST_MULTIPLES == (0.0, 0.1, 1.0, 10.0) and ip.UNITS == ("common", "each") and ip.DWELLS == (20, 60)
     assert ip.MULTIPLES == (0.1, 1.0, 10.0) and ip.THETAS == (50.0, 55.0, 60.0) and ip.SEEDS == 5 and ip.LIMIT_BP_PER_FOLD == 300.0
     p = _panel(n_days=300)
-    x = np.random.default_rng([3, 20261108]).standard_normal(len(p))          # 2026-11-13 の作り方の写し
+    x = np.random.default_rng([3, 20261108]).standard_normal(len(p))          # 2026-11-13 の作り方のコピー
     got = ip.inject(p, 8.0, 3)
     assert np.array_equal(got[pp.PLANTED].to_numpy(), x)
     assert np.array_equal(got["y"].to_numpy(), p["y"].to_numpy() + 8.0e-4 * np.sign(x))

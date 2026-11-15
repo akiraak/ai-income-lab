@@ -1,7 +1,7 @@
-"""開発ループの報告メール と 門の「自分の置き場」（プラン docs/plans/archive/devloop-mail.md・2026-11-03）。
+"""開発ループの報告メール と 門の「自分の保存先」（プラン docs/plans/archive/devloop-mail.md・2026-11-03）。
 
-⚠ 本物のメールは飛ばさない: 送り手は差し替える（env["mail"]）か、AIL_DEVLOOP_MAIL_OUTBOX でファイルに書く。秘密は一時置き場の偽物。
-⚠ 門: コミットの後に書き直した日誌・止まった晩の日誌 ／ register.md ／ 下書きを「汚れた木」に数えない（数えると 2 晩目から毎晩止まる）。
+⚠ 本物のメールは飛ばさない: 送り手は差し替える（env["mail"]）か、AIL_DEVLOOP_MAIL_OUTBOX でファイルに書く。秘密は一時ディレクトリの偽物。
+⚠ 門: コミットの後に書き直したログ・止まった晩のログ ／ register.md ／ 下書きを「汚れたワーキングツリー」に数えない（数えると 2 晩目から毎晩止まる）。
 """
 
 from __future__ import annotations
@@ -62,7 +62,7 @@ def test_gate_ignores_own_outputs_but_not_other_files(world):
     assert devloop.gate(cfg, env, st) is None
     why = devloop.gate(cfg, FakeEnv(root, conn, dirty=own + " M TODO.md\n").env, st)
     assert why and "TODO.md" in why and "log/" not in why
-    # ⚠ 置き場の名前で始まるだけの別のファイルは数える
+    # ⚠ 保存先の名前で始まるだけの別のファイルは数える
     assert devloop.gate(cfg, FakeEnv(root, conn, dirty="?? log-notes.md\n").env, st)
 
 
@@ -76,7 +76,7 @@ def _git(cwd, *args):
 
 
 def test_two_nights_with_real_git_second_night_passes_the_gate(world):
-    """本物の git: 1 晩目はコミットの後に日誌を書き直す → 2 晩目の門は通る（直す前は「汚れている」で止まった）。"""
+    """本物の git: 1 晩目はコミットの後にログを書き直す → 2 晩目の門は通る（直す前は「汚れている」で止まった）。"""
     root, cfg, conn = world
     cfg["git"] = {**cfg["git"], "pull": False, "push": False}
     _git(root, "init", "-q", "-b", "main")
@@ -90,10 +90,10 @@ def test_two_nights_with_real_git_second_night_passes_the_gate(world):
     p1 = devloop.night(cfg, env, date="2026-10-26", stages=(0, 4), log=lambda *_: None)
     assert not p1.get("stopped") and p1["commit"].startswith("コミット")
     rc, out, _ = devloop._sh(["git", "status", "--porcelain"], cwd=str(root))
-    assert "log/2026-10-26.md" in out                        # 書き直した日誌が残っている（＝ 直す前はここで止まった）
+    assert "log/2026-10-26.md" in out                        # 書き直したログが残っている（＝ 直す前はここで止まった）
     p2 = devloop.night(cfg, env, date="2026-10-27", stages=(0, 4), log=lambda *_: None)
     assert not p2.get("stopped"), p2.get("stopped")
-    # 止まった晩（HALT）の日誌も、その次の晩の門を止めない
+    # 止まった晩（HALT）のログも、その次の晩の門を止めない
     (root / "DEVLOOP_HALT").write_text("", encoding="utf-8")
     assert devloop.night(cfg, env, date="2026-10-28", stages=(0, 4), log=lambda *_: None)["stopped"]
     os.remove(root / "DEVLOOP_HALT")
@@ -165,7 +165,7 @@ def test_night_mails_once_after_the_journal_and_records_it_in_state(world, tmp_p
     assert subj.startswith("[t] 10/26（月）✅") and journal in text and FAKE_PW not in text
     html = box.html[0]
     assert html and html.startswith("<!doctype html>") and "✅ 完走" in html and FAKE_PW not in html
-    assert "sent" not in journal                                   # ⚠ 日誌は書き換えない
+    assert "sent" not in journal                                   # ⚠ ログは書き換えない
     assert devloop.load_state(conn)["nights"][-1]["mail"] == "sent"
 
 

@@ -59,7 +59,7 @@ def test_symbol_filename_roundtrip():
 
 
 def test_fingerprint_changes_with_content():
-    """⚠ **指紋が変わらなければ「入力が同じ」と誤って言えてしまう。**"""
+    """⚠ **フィンガープリントが変わらなければ「入力が同じ」と誤って言えてしまう。**"""
     a = bars()
     b = a.copy()
     b.loc[10, "close"] *= 1.0001

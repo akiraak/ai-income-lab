@@ -46,7 +46,7 @@ def _parse_iso(s: str | None) -> datetime | None:
 
 
 def _calendar():
-    """NYSE の暦（サンプルの `market_calendar`。執行器と同じもの）。⚠ 載っていない年は平日をすべて営業日とみなす。"""
+    """NYSE の暦（サンプルの `market_calendar`。執行エンジンと同じもの）。⚠ 載っていない年は平日をすべて営業日とみなす。"""
     import market_calendar
 
     return market_calendar.nyse()

@@ -1,4 +1,4 @@
-"""fold の内側の並べ替え検定（登録簿 `20261025-permutation-yardstick`・買い% の保存の段 2）。⚠ **判定には使わない。**
+"""fold の内側の並べ替え検定（レジストリ `20261025-permutation-yardstick`・買い% の保存の段 2）。⚠ **判定には使わない。**
 
     python3 -m cli.perm_test --run <実行> [--force-print]     # 1 本を計算して DB に入れる（既にあれば読むだけ）
     python3 -m cli.perm_test --missing [--jobs 8]             # buy_pct.parquet のある実行のうち、まだのものを全部
@@ -9,12 +9,12 @@
   - 各 fold の評価分割の日付を 5 営業日の塊に切り、塊の順を入れ替える（種 0・200 回）。⚠ **全銘柄に同じ日付の入れ替えを当てる**
     ＝ 銘柄ごとの買い% の集まりと保有日率は保ち、「日付の並び」だけを壊す。買い% と出口% は同じ行の組で動かす。
     入れ替え先の日にその銘柄の行が無ければ元の値のまま（数を `fallback_rows` に残す）。
-  - 器は `cli.perm_split.fold_net`（`cli.run.evaluate_trading._row` の素の枝の写し）。元の純利を `result.csv` と突き合わせ、
+  - 器は `cli.perm_split.fold_net`（`cli.run.evaluate_trading._row` の素の枝のコピー）。元の純利を `result.csv` と照合し、
     合わない手法（役割つきの組・最短保有・保有日数の口など）は「再現せず」で飛ばす。
   - fold ごと: 上乗せ ＝ 純利 − 基準 常に上 の純利。分位 ＝（並べ替え < 元 ＋ 同点 × 0.5）÷ n。
     片側の p ＝（並べ替え ≥ 元 の数 ＋ 1）÷（n ＋ 1）。合成 ＝ Fisher（−2 Σ ln p ～ χ²(2 × fold 数)）の片側の p。
 
-⚠ **検証結果一覧の列 2 本（並べ替え分位・並べ替えp）の材料。判定・`n_trials`・既存の列は変えない**（登録簿の failure_modes 4）。
+⚠ **検証結果一覧の列 2 本（並べ替え分位・並べ替えp）の材料。判定・`n_trials`・既存の列は変えない**（レジストリの failure_modes 4）。
 ⚠ 結果は DB の `outputs` の `perm/n200_b5_s0/<実行>.json`（上書きしない ＝ 閉じた実行は変わらない）。`cli.report` は読むだけ。
 """
 
@@ -30,7 +30,7 @@ import pandas as pd
 from ail import rundb, runs
 from cli import perm_split as ps
 
-N = 200            # ⚠ 事前固定（登録簿）
+N = 200            # ⚠ 事前固定（レジストリ）
 BLOCK = 5          # ⚠ 事前固定（営業日）
 SEED = 0
 PREFIX = f"perm/n{N}_b{BLOCK}_s{SEED}/"

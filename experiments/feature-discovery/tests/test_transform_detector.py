@@ -1,8 +1,8 @@
 """変換を検知器に通す口（rules.md 24 章。[プラン](../../../docs/plans/archive/transform-into-detectors.md) §4）。
 
 ⚠ **ここで落としたいのは 6 つ。**
-  1. 指紋: `transform` の無い検知器の config（`fwd`）の出力が、口を足す前（commit 00e4958）と 1 ビットも同じ
-  2. 指紋: `transform` が無ければ `prep.augment` は**同じオブジェクト**を返し、検知器名も変わらない
+  1. フィンガープリント: `transform` の無い検知器の config（`fwd`）の出力が、口を足す前（commit 00e4958）と 1 ビットも同じ
+  2. フィンガープリント: `transform` が無ければ `prep.augment` は**同じオブジェクト**を返し、検知器名も変わらない
   3. 口が開く: 検知器が受け取る `feats`・`tr`・`te` に変換の列が**足されて**いる（元の列も残る）・手法名は「変換名 ＋ 検知器名」・係数は `_transform`
   4. 先読み（14-11 規約 3 と同型）: 評価分割を差し替えても `_transform` の式が変わらない（検知器の経路で）
   5. leak 対照: `LEAK_` の列は変換の入力に入る → 上乗せが跳ねる
@@ -67,10 +67,10 @@ def _args(p, exp, tr, te, ctx):
                 form="shared", k=8, groups=te.groupby("symbol").indices, f=1, picked=[], log=lambda *_: None)
 
 
-# --- 1・2. 指紋（transform が無ければ 1 ビットも変わらない） ------------------
+# --- 1・2. フィンガープリント（transform が無ければ 1 ビットも変わらない） ------------------
 
 def test_fwd_fingerprint_is_unchanged_without_transform(run):
-    """⚠ **この経路は 13500t の毎日の予測も通る。** 口を足す前のコード（2026-10-09・commit 00e4958）で取った指紋と比べる。"""
+    """⚠ **この経路は 13500t の毎日の予測も通る。** 口を足す前のコード（2026-10-09・commit 00e4958）で取ったフィンガープリントと比べる。"""
     want = json.load(open(os.path.join(os.path.dirname(__file__), "fixtures", "fwd_fingerprint.json"), encoding="utf-8"))
     p = tf._panel()
     exp = tf._exp()

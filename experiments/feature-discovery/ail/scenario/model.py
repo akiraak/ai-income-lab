@@ -20,7 +20,7 @@ import numpy as np
 from ail.models.deep import _seed_all, torch_device
 from ail.scenario import metrics
 
-# ⚠ **モード崩壊の見張り**（診断であって、checkpoint の選択には使わない。数値は 2026-09-18 に事前固定）
+# ⚠ **モード崩壊の監視**（診断であって、checkpoint の選択には使わない。数値は 2026-09-18 に事前固定）
 #   多様性 ＝ シナリオ間の 5 日累積リターンの σ（起点の平均）÷ 学習区間の実測の 5 日累積リターンの σ
 COLLAPSE_RATIO = 0.1         # これ未満 ＝ z を変えてもほぼ同じ未来しか出していない
 EXTREME_SIGMA = 10.0         # 日次リターンが学習区間の σ の何倍を超えたら「極端な値」と数えるか
@@ -105,7 +105,7 @@ def generate(gen, X: np.ndarray, n: int, seed: int, device=None, chunk: int = 25
 
 
 def diagnose(paths_scaled: np.ndarray, real_5d_sigma_scaled: float) -> dict:
-    """モード崩壊と極端な値の見張り（プラン §4）。入力は scaler の単位の日次リターン `[n, m, horizon]`。"""
+    """モード崩壊と極端な値の監視（プラン §4）。入力は scaler の単位の日次リターン `[n, m, horizon]`。"""
     spread = float(paths_scaled.sum(axis=2).std(axis=1).mean())
     ratio = spread / real_5d_sigma_scaled if real_5d_sigma_scaled > 0 else float("nan")
     extreme = float((np.abs(paths_scaled) > EXTREME_SIGMA).mean())
@@ -118,7 +118,7 @@ def fit(Xtr, Ytr, Xva, Yva, cfg: dict, seed: int, y_scale: float, log=print, dev
     """学習して、⚠ **検証の CRPS が最良だった時点の生成器**を返す。入力は全部 scaler を通した後の値。
 
     `y_scale` は検証の CRPS を元の単位（累積単純リターン）で測るためだけに使う。
-    返り値 `(gen, history)`。`history` は検証を測った epoch ごとの 1 行（損失・CRPS・見張り）。
+    返り値 `(gen, history)`。`history` は検証を測った epoch ごとの 1 行（損失・CRPS・監視）。
     """
     import torch
 

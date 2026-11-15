@@ -1,23 +1,23 @@
-"""偽の実行の物差しを、選ぶ段の上位の行と「採る」の行に当てる（登録簿 `20261109-null-shuffle-top-rows`）。⚠ **読むだけ。**
+"""偽の実行の指標を、選ぶステージの上位の行と「採る」の行に当てる（レジストリ `20261109-null-shuffle-top-rows`）。⚠ **読むだけ。**
 
-    python3 -m cli.null_rows --target sel1995|mix|sel600 [--perms 200] [--state <途中の置き場.json>] [--json out.json] [--save]
+    python3 -m cli.null_rows --target sel1995|mix|sel600 [--perms 200] [--state <途中の保存先.json>] [--json out.json] [--save]
 
-`cli.null_shuffle`（登録簿 `20261107-date-shuffle-null`）は素の own × Ridge だけに当てた。ここでは **対象の行を作った道そのもの**
-（`cli.run.evaluate_trading` ＝ 選別 ・ 合わせる口 ・ 訓練分割の成績で銘柄を選ぶ条件 ・ 整数株の器）を通す。
+`cli.null_shuffle`（レジストリ `20261107-date-shuffle-null`）は素の own × Ridge だけに当てた。ここでは **対象の行を作ったパスそのもの**
+（`cli.run.evaluate_trading` ＝ 選別 ・ 合成オプション ・ 訓練分割の成績で銘柄を選ぶ条件 ・ 整数株の器）を通す。
 変えるのは fold の切り口だけ: `splits.folds_by_dates` が返す訓練分割 ／ 評価分割の `y` を、`cli.null_shuffle.shuffle_y` で
 日付の塊ごとに入れ替える（⚠ 塊 20 営業日 ・ 200 回 ・ 断面を保つ ・ fold をまたがない ＝ 11/7 と同じ水準。振らない）。
 
-対象（登録簿のとおり・θ 50 の 1 水準 ＝ 選ぶ段と検証結果一覧の行）:
+対象（レジストリのとおり・θ 50 の 1 水準 ＝ 選ぶステージと検証結果一覧の行）:
   sel1995 … `sel_small4_1995` の F1-7 IC の安定性 ／ F2-2 RFE（対 B&H ＝ 基準 常に上）
   mix     … `trader_mix_t4` の M1 3本の平均（対 B&H）。⚠ 外のメンバー 2 本も同じ日付の入れ替えで学ぶ
             （fold ・ 分割ごとに最初に来た表の日付で入れ替えを 1 度作り、ほかの表にも同じ対応を当てる。持ち主だけエンバーゴで訓練が
              1 日短い fold は、対応に無い日の行を落として数を記録する）
   sel600  … `sel600_midcap_cs` の「選抜5・訓練リターン・1本$600」（対 同じ 5 本を持ち続ける）。⚠ 選抜は入れ替えた `y` でやり直す
             （`select.by_return` は訓練分割の `y` を読む ＝ 選抜も偽になる）
-対象の config は、対象の行に要らない部品（ほかの選別 ・ ほかの θ ・ ほかのトレーダーの条件）を外した写し。
+対象の config は、対象の行に要らない部品（ほかの選別 ・ ほかの θ ・ ほかのトレーダーの条件）を外したコピー。
 ⚠ 元の行（入れ替えなし）を同じ関数で回し、検証結果一覧の値と一致することを先に確かめる（外した部品が効いていないことの確認）。
 
-⚠ **検証結果一覧に行を作らない・`n_trials` に数えない・`runs/` を作らない**（記録の口は何もしない写しを渡す）。
+⚠ **検証結果一覧に行を作らない・`n_trials` に数えない・`runs/` を作らない**（記録の口は何もしないコピーを渡す）。
 ⚠ 判定の式は変えない（並べて見せるだけ）。`--save` のときだけ DB の `outputs` の `diag/<時刻>_null_rows_<対象>/` に JSON を入れる。
 """
 
@@ -54,7 +54,7 @@ def _targets() -> dict:
 
 
 def trimmed(target: str) -> dict:
-    """対象の行に要る部品だけを残した config の写し（θ 50 ・ 基準線は B&H だけ）。"""
+    """対象の行に要る部品だけを残した config のコピー（θ 50 ・ 基準線は B&H だけ）。"""
     exp = copy.deepcopy(config.resolve_experiment(_targets()[target]["experiment"]))
     ds = exp["_dataset"]
     exp.setdefault("horizon_min", 1440.0 if ds["period"] == "d" else float(exp["horizon"]))
@@ -72,7 +72,7 @@ def trimmed(target: str) -> dict:
 
 
 class _NoRun:
-    """記録の口の写し（何も書かない）。"""
+    """記録の口のコピー（何も書かない）。"""
 
     def log(self, text: str = "") -> None:
         pass
@@ -85,7 +85,7 @@ class _NoRun:
 
 
 def apply_src(df: pd.DataFrame, src: pd.Series) -> pd.DataFrame:
-    """df の `y` を「日 → 借り先の日」の対応 src で差し替えた写し（`null_shuffle.shuffle_y` と同じ差し替え方。
+    """df の `y` を「日 → 借り先の日」の対応 src で差し替えたコピー（`null_shuffle.shuffle_y` と同じ差し替え方。
     対応に無い日の行・借り先にその銘柄の行が無い行は落とす）。"""
     ts = pd.to_datetime(df["ts"])
     look = df.assign(_ts=ts).set_index(["symbol", "_ts"])["y"]

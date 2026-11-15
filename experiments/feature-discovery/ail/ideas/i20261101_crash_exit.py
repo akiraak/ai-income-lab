@@ -1,11 +1,11 @@
-"""登録簿 `20261101-crash-label-exit`（参考なし・枠の外。rules.md 31-6・記録 dev-loop.md §7）:
+"""レジストリ `20261101-crash-label-exit`（参考なし・枠の外。rules.md 31-6・記録 dev-loop.md §7）:
 当てるものを翌日の方向から **「先 5 営業日のうちに、その銘柄の訓練期間の日次 σ の 2 倍を超えて下がる日があるか」** に替え、
 その確率を **出口%** にする検知器（買いは常に 100 ＝ X1 と同じ「出口だけ」の形）。
 
 ⚠ ラベルは訓練分割の行だけで作る: 行 t の y（t → t+1）〜 t+4 の y を同じ銘柄の足の並びで取り、どれかが −2σ を割れば 1。
    σ は fold の訓練分割の、その銘柄の y の標準偏差。⚠ 先の 4 本が訓練分割に無い ／ 暦で 10 日を超えて離れる行は訓練から落とす
    （評価期間の y を使わない・休場の穴をまたがない）。パージは config の horizon_min（5 営業日を覆う）。
-⚠ 説明変数は own_ 35 列（＋ leak 対照の LEAK_ 列）・学習器は ctx の model（Ridge）・較正は訓練分割の尻（5 日ぶんパージ）＝ scale._fit_calibration。
+⚠ 説明変数は own_ 35 列（＋ leak 対照の LEAK_ 列）・学習器は ctx の model（Ridge）・較正は訓練分割の末尾（5 日ぶんパージ）＝ scale._fit_calibration。
 ⚠ 登録するだけ ＝ この検知器を名指さない config は 1 ビットも変わらない。
 """
 
@@ -21,7 +21,7 @@ from ail.registry import register
 NAME = "X5 出口だけ 先5日の急落を当てる（own・学習）"
 AHEAD = 5          # 先 5 営業日（y_t 〜 y_{t+4}）
 K_SIGMA = 2.0      # 訓練期間の日次 σ の 2 倍
-MAX_SPAN_DAYS = 10 # 先の 4 本が暦でこれより離れたら使わない（休場の穴・訓練分割の切れ目）
+MAX_SPAN_DAYS = 10 # 先の 4 本が暦でこれより離れたら使わない（休場の穴・訓練分割の分割点）
 
 
 def crash_label(tr: pd.DataFrame) -> tuple[np.ndarray, np.ndarray, dict]:
@@ -49,7 +49,7 @@ def crash_label(tr: pd.DataFrame) -> tuple[np.ndarray, np.ndarray, dict]:
     return lab, use, doc
 
 
-NAME_CENTERED = "X6 出口だけ 先5日の急落を当てる（own・学習・土台差）"   # 登録簿 20261101-crash-exit-centered（2026-11-01）
+NAME_CENTERED = "X6 出口だけ 先5日の急落を当てる（own・学習・土台差）"   # レジストリ 20261101-crash-exit-centered（2026-11-01）
 
 
 def _crash_exit(tr, te, feats, ctx, center: bool):

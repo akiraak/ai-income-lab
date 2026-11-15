@@ -1,9 +1,9 @@
-"""検証結果一覧の行（検証名）から、評価期間の切れ目をずらした config（rules.md 33 章・33-6）を機械で書く。
+"""検証結果一覧の行（検証名）から、評価期間の分割点をずらした config（rules.md 33 章・33-6）を自動で書く。
 
-⚠ **中身は 33-2 ／ 33-6 の 3 の写し ＝ 新しい規約ではない**。手で書いた `cut13_*` ／ `cut23_*`（2026-11-11）と同じ作り方:
-   元の実験の config を写し・手法を行の 1 本に絞り・θ を行の 1 水準にし・`[validation] cut_offset` を足す。
+⚠ **中身は 33-2 ／ 33-6 の 3 のコピー ＝ 新しい規約ではない**。手で書いた `cut13_*` ／ `cut23_*`（2026-11-11）と同じ作り方:
+   元の実験の config をコピー・手法を行の 1 本に絞り・θ を行の 1 水準にし・`[validation] cut_offset` を足す。
    表・モデル・k・fold の数・パージ・エンバーゴ・種・費用は触らない。
-⚠ **回すと決めるのは結果を見る前**（開発ループでは 33-6 の 2 ＝ 新顔の行だけ。手で当てるなら先に登録簿へ）。
+⚠ **回すと決めるのは結果を見る前**（開発ループでは 33-6 の 2 ＝ 新顔の行だけ。手で当てるなら先にレジストリへ）。
    この CLI は config を書くだけで、回さない・DB に書かない。
 ⚠ 書かない形（33-6 の 5）: 手法名に〔…〕の付いた行（上位 K・出口の線・トレーダーの形）・元の config が変種（訓練の窓・翌日始値など）の行。
 
@@ -30,7 +30,7 @@ PLAIN = "閾値売買"
 
 
 def style_of(offset: str) -> str:
-    """ずらしの量 → 検証方式の変種の名前（`catalog.threshold_style` と同じ綴り）。"""
+    """ずらしの量 → 検証方式の変種の名前（`catalog.threshold_style` と同じ表記）。"""
     return catalog.threshold_style({"trading": {"style": "threshold"}, "validation": {"cut_offset": offset}})
 
 
@@ -39,7 +39,7 @@ def config_name(experiment: str, theta: str, tag: str) -> str:
 
 
 def _is_counted(method: str) -> bool:
-    """閾値売買の行として数える手法か（`catalog.is_trial` の名前の条件の写し）。"""
+    """閾値売買の行として数える手法か（`catalog.is_trial` の名前の条件のコピー）。"""
     return not (method.startswith("基準 ") or method == "乱択（基準）")
 
 
@@ -98,7 +98,7 @@ def _add_cut_offset(text: str, offset: str) -> str:
 
 
 def cut_config(text: str, *, src: str, method: str, theta: str, offset: str, name: str) -> str:
-    """元の実験の TOML（文字列）→ 切れ目をずらした config（文字列）。⚠ 表・モデル・k・fold・種・費用は触らない。"""
+    """元の実験の TOML（文字列）→ 分割点をずらした config（文字列）。⚠ 表・モデル・k・fold・種・費用は触らない。"""
     if offset not in splits.CUT_OFFSETS:
         raise SystemExit(f"⚠ ずらしは {' ／ '.join(splits.CUT_OFFSETS)} だけ（rules.md 33-2）: {offset!r}")
     doc = tomllib.loads(text)

@@ -79,7 +79,7 @@ def _begin_day(span: str) -> str:
 
 
 def events(start: str, end: str, pages: int = 20, pause: float = 1.0) -> dict[tuple, dict]:
-    """⚠ **IEM と同じ形（VTEC の鍵で畳んだ事象）にして返す。** 突き合わせはこの形で行う。
+    """⚠ **IEM と同じ形（VTEC の鍵で畳んだ事象）にして返す。** 照合はこの形で行う。
 
     ⚠ **時刻は URL に載せる前に符号化する。** ⚠ **`+00:00` の `+` は素で書くと空白と読まれ、400 になる。**
 
@@ -110,7 +110,7 @@ def events(start: str, end: str, pages: int = 20, pause: float = 1.0) -> dict[tu
             day = _begin_day(span) or _utc_day(str(props.get("sent") or ""))
             if not day:
                 continue
-            # ⚠ **IEM は WFO を 3 文字で持つ**（`KOUN` → `OUN`）。⚠ **鍵を揃えないと突き合わせで全部ずれる**
+            # ⚠ **IEM は WFO を 3 文字で持つ**（`KOUN` → `OUN`）。⚠ **鍵を揃えないと照合で全部ずれる**
             key = (day[:4], wfo[-3:], phenomena, significance, str(int(eventid)))
             e = out.get(key)
             if e is None:
@@ -132,7 +132,7 @@ def events(start: str, end: str, pages: int = 20, pause: float = 1.0) -> dict[tu
 
 @register("source", "nws")
 def fetch(series: list[str], start: str = "", end: str = "", **_) -> dict[str, pd.DataFrame]:
-    """⚠ **`raw/` に置く用ではなく、突き合わせ用。** 期間は 7〜14 日しか遡れない。
+    """⚠ **`raw/` に置く用ではなく、照合用。** 期間は 7〜14 日しか遡れない。
 
     ⚠ **問い合わせの窓は 3 日だけ手前に広げる。** API の窓はメッセージの送信時刻で切られるが、
     ⚠ **先出しの警報（熱・冬季・熱帯）は NEW が効力開始の 1〜3 日前に送られる**ので、

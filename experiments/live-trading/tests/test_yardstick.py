@@ -1,4 +1,4 @@
-"""物差し A〜E（yardstick.py。プラン docs/plans/archive/daily-record-auto.md）: 手で書いた 10/8・10/9 の表を合成の記録で再現する ／
+"""指標 A〜E（yardstick.py。プラン docs/plans/archive/daily-record-auto.md）: 手で書いた 10/8・10/9 の表を合成の記録で再現する ／
 期間の開け閉め ／ C の不一致 ／ D の人手 ／ 起動しなかった日 ／ E は写すだけ。ネットワークもファイルの外も使わない。
 
 ⚠ 13500t の記録はテストに入れない（口座の数字をリポジトリに入れない）＝ 10/7〜10/9 の形を、記録（live-trading.md §1）に書いた値から作り直した。
@@ -161,7 +161,7 @@ def test_c_counts_a_decision_against_the_rule_and_not_a_held_back_one(tmp_path):
     rows = yardstick.build_rows(out)
     r = next(r for r in rows if r["date"] == d and r["trader"] == "T1")
     assert r["c_mismatch"] == 1 and "PFE: 規則 sell ／ 実物 hold" in r["c_detail"] and r["held_back"] == 1
-    assert "c_mismatch" in r["problems"].split(";") and r["d_ok"] == 1      # 配線の不一致は D を崩さない（別の物差し）
+    assert "c_mismatch" in r["problems"].split(";") and r["d_ok"] == 1      # 配線の不一致は D を崩さない（別の指標）
     assert yardstick.summarize(rows, "T1")["c"] == {"days": 1, "ok": False}
 
 

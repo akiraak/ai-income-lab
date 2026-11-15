@@ -11,7 +11,7 @@
 | `ern_eps_yoy` | as-of の時点で最新の、希薄化後 EPS の前年同期比（対称な変化率。取得時に計算） |
 | `ern_rev_yoy` | 同じく売上 |
 
-⚠ **層 `ernf`（2026-10-22・rules.md 28 章）＝ 同じ 3 列の欠損を印の列 3 本（`ern_na_ann` ／ `ern_na_eps` ／ `ern_na_rev`。1 ＝ 無い）に写し、
+⚠ **層 `ernf`（2026-10-22・rules.md 28 章）＝ 同じ 3 列の欠損を印の列 3 本（`ern_na_ann` ／ `ern_na_eps` ／ `ern_na_rev`。1 ＝ 無い）にコピー、
 値の列は埋める**（日数 ＝ `ern_max_stale_days`・前年同期比 ＝ 0）。系列の無い銘柄・欠損の期間も表に残る ＝ 対の相手（own ／ cs の行）と銘柄・行が同じになる。
 ⚠ `ern` と `ernf` を 1 つの config に両方書かない（`cli/build.py` が止める）。⚠ `ern` 層は 1 ビットも変わらない。
 """
@@ -69,7 +69,7 @@ def build_one(bars: pd.DataFrame, series: dict[str, pd.Series], lag_days: int = 
 
 
 def flag_missing(x: pd.DataFrame, max_stale_days: int = DEFAULT_MAX_STALE_DAYS) -> pd.DataFrame:
-    """`build_one` の 3 列の欠損を **印の列 3 本（1 ＝ 無い）に写し、値の列は埋める**（層 `ernf`。rules.md 28-1）。
+    """`build_one` の 3 列の欠損を **印の列 3 本（1 ＝ 無い）にコピー、値の列は埋める**（層 `ernf`。rules.md 28-1）。
 
     埋める値: `ern_days_since_ann` ＝ `max_stale_days`（「少なくともこれだけ古い」の上限）／ 前年同期比 ＝ 0（分からない ＝ 変化なし）。
     返り値は 6 列・同じ行数・欠損なし。⚠ **`ern` 層（欠損のまま ＝ dropna で落とす）は 1 ビットも変わらない。**

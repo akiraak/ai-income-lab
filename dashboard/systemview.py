@@ -44,7 +44,7 @@ def body(paths: TraderPaths, item: str) -> str | None:
 
 
 def fingerprint(paths: TraderPaths) -> dict[str, float]:
-    """見張り用。システム説明の言葉・検証結果一覧 ＋ モデルの言葉と実売買の設定（型ごとの段がそこから写す）。"""
+    """監視用。システム説明の言葉・検証結果一覧 ＋ モデルの言葉と実売買の設定（型ごとの段がそこから写す）。"""
     out = traderview.fingerprint(paths)
     for f in (paths.system, paths.ledger):
         try:

@@ -15,7 +15,7 @@ project-manager の別ポートの表示用サーバ（8205）が `/ext/<name>/.
     （用語は `dashboard/glossary.toml` が正本。⚠ **説明をこのコードに持たない**）
   - `/hardware/api/sidebar` ・ `/hardware/view?item=<now|history>` ・ `/hardware/api/watch`
     ＋ `/hardware/api/snapshot` ・ `/hardware/api/history`（画面が自前で取りに来る JSON）
-    （読み手は `hwstat.py`、画面は `hwview.py`。⚠ **値を読むのは見張り 1 本**。dashboard.md §14）
+    （読み手は `hwstat.py`、画面は `hwview.py`。⚠ **値を読むのは監視 1 本**。dashboard.md §14）
   - `/traders/api/sidebar` ・ `/traders/view?item=<T1…>` ・ `/traders/api/watch`
     （実売買に出す人の**性質**をやさしい言葉で。言葉の正本は `dashboard/traders.toml`（人の側）と `dashboard/models.toml`
     （モデルの解説）、画面は `traderview.py`。⚠ **売買結果は出さない・`out/` と `state/` を読まない**。dashboard.md §16）
@@ -66,7 +66,7 @@ PING_INTERVAL_S = 30.0
 GLOSSARY_FILE = DASHBOARD_DIR / "glossary.toml"
 GLOSSARY_ALL = "all"
 
-# 文書の hash の分け方。もとは vibeboard の既定カテゴリ（vibeboard/src/config.ts の DEFAULT_CATEGORIES）の写しで、
+# 文書の hash の分け方。もとは vibeboard の既定カテゴリ（vibeboard/src/config.ts の DEFAULT_CATEGORIES）のコピーで、
 # 出どころは 2026-10-17 の撤去で消えた。いまは project-manager が同じ形を読み替える約束なので値を変えない。
 # ⚠ ここに無い場所の文書は Files タブへ飛ばす（飛び先が変わるだけで壊れはしない）
 DOC_CATEGORIES = (("docs/plans/", "plans"), ("docs/specs/", "specs"))
@@ -191,7 +191,7 @@ def kv_table(pairs: list[tuple[str, str]]) -> str:
 SCORE_MARKS = ("純利", "fold", "上乗せ", "DSR")
 
 # 実行の種類の 4 軸。⚠ 画面向けの文言だけ（正本は rules.md §6・§7・§9 と dashboard.md §10）。
-# ⚠ 文言に数字を書かない。数字は checks.json の写し（下の節）から出す
+# ⚠ 文言に数字を書かない。数字は checks.json のコピー（下の節）から出す
 AXIS_NOTES = [
     ("種類", "特徴量に他銘柄の層（cs・rel・ll）が入るか。先読みの検査は対照実験なので別枠"),
     ("粒度", "足の長さ"),
@@ -223,7 +223,7 @@ def _passes(run: dict) -> bool:
 
 
 def holding_cell(h) -> str:
-    """保有日数の列（`checks.json` の `by_threshold[θ].holding` の写し）。⚠ **画面で数え直さない。** 無ければ「—」。"""
+    """保有日数の列（`checks.json` の `by_threshold[θ].holding` のコピー）。⚠ **画面で数え直さない。** 無ければ「—」。"""
     if not h or h.get("中央値") is None:
         return "—"
     cell = f"{h['中央値']:.0f}"
@@ -239,7 +239,7 @@ def _bp(v) -> str:
 def exp_methods(idx: dict) -> list[dict]:
     """実行の種類（種類・粒度・先・層の組）ごとの要約。
 
-    ⚠ **数字は各組で最もスコアの高い実行の checks.json の写し**（`index()` はスコアの降順なので
+    ⚠ **数字は各組で最もスコアの高い実行の checks.json のコピー**（`index()` はスコアの降順なので
     先頭が最良）。組で数えるのは実行の件数と ✅ の件数だけで、統計は計算しない。
     """
     groups: dict[tuple, dict] = {}
@@ -272,7 +272,7 @@ def _traits_html(idx: dict) -> str:
 
 
 def _methods_html(groups: list[dict]) -> str:
-    """② 実行の種類ごとの成績。数字は各組の最良実行の写し。"""
+    """② 実行の種類ごとの成績。数字は各組の最良実行のコピー。"""
     body = ["<h2>実行の種類ごとの成績</h2>"]
     if not groups:
         body.append("<p class='meta'>実行がまだ無い。</p>")
@@ -368,7 +368,7 @@ def exp_sidebar(runs_dir: Path) -> dict:
               "sub": f"実行 {idx['total']} 件・純利>0 は {idx['positive']} 件", "group": "まとめ"},
              # モデルとトレーダーの比較（2026-10-22。中身は compareview.py ＝ 研究の DB の ledger_rows を読むだけ。dashboard.md §19）
              {"id": compareview.ITEM, "label": compareview.SIDEBAR_LABEL, "sub": compareview.SIDEBAR_SUB, "group": "まとめ"},
-             # 開発ループ（2026-10-25。中身は devloopview.py ＝ 登録簿・日誌・研究の DB を読むだけ。dashboard.md §20）
+             # 開発ループ（2026-10-25。中身は devloopview.py ＝ レジストリ・ログ・研究の DB を読むだけ。dashboard.md §20）
              {"id": devloopview.ITEM, "label": devloopview.SIDEBAR_LABEL, "sub": devloopview.SIDEBAR_SUB, "group": "まとめ"},
              # 棚卸し（2026-11-07。中身は inventoryview.py ＝ 研究の DB の ledger_rows と閉じる案の下書きを読むだけ。dashboard.md §21）
              {"id": inventoryview.ITEM, "label": inventoryview.SIDEBAR_LABEL, "sub": inventoryview.SIDEBAR_SUB, "group": "まとめ"}]
@@ -400,7 +400,7 @@ def _marks_row(run: dict) -> str:
 
 
 def _gate_levels(gate: dict) -> str:
-    """門の水準（事前固定）。⚠ **checks.json の写し。** 画面で決め直さない。"""
+    """門の水準（事前固定）。⚠ **checks.json のコピー。** 画面で決め直さない。"""
     auc, width = (gate or {}).get("auc_min"), (gate or {}).get("width_min_pt")
     return f"AUC ≥ {fmt(auc, 2)}・買い% 幅 ≥ {fmt(width, 0)} 点"
 
@@ -521,7 +521,7 @@ def exp_run_html(runs_dir: Path, run_id: str) -> str | None:
     if run["panel_note"]:
         body.append(f"<p class='warn'>⚠ {esc(run['panel_note'])}</p>")
     if run.get("by_threshold"):
-        # 閾値つき売買（rules.md 13 章）。⚠ checks.json の写しを出すだけ（ここで数え直さない）
+        # 閾値つき売買（rules.md 13 章）。⚠ checks.json のコピーを出すだけ（ここで数え直さない）
         body.append("<h2>閾値ごとの成績（3 水準とも載せる）</h2>")
         rows = []
         for th, e in run["by_threshold"].items():
@@ -614,7 +614,7 @@ def _series_details(series: list[dict], with_kind: bool = True) -> str:
 
 
 def _universe_table_html(inv: dict) -> str:
-    """銘柄の集合の一覧表（集合 × 売買の対象 × 足の有無 × 使われ方 ＋ 重複を除いた合計）。⚠ 中身は `inventory.universe_table` の写し。"""
+    """銘柄の集合の一覧表（集合 × 売買の対象 × 足の有無 × 使われ方 ＋ 重複を除いた合計）。⚠ 中身は `inventory.universe_table` のコピー。"""
     ut = inv.get("universe_table") or {}
     if not ut.get("rows"):
         return ""
@@ -801,7 +801,7 @@ def data_section_html(paths: ExpPaths, section: str) -> str | None:
 
 
 def load_glossary(path: Path | None = None) -> list[dict]:
-    """用語の正本（`dashboard/glossary.toml`）を読む。⚠ **画面は写しを出すだけ。**
+    """用語の正本（`dashboard/glossary.toml`）を読む。⚠ **画面はコピーを出すだけ。**
 
     ⚠ **読めないときは空**（0 や仮の説明で埋めない）。節は TOML に書いた順で出す。
     """
@@ -910,12 +910,12 @@ def hw_html(item: str, sampler: hwstat.Sampler) -> str | None:
     return None
 
 
-# ---------------------------------------------------------------- 変更の見張り（SSE）
+# ---------------------------------------------------------------- 変更の監視（SSE）
 
 
 def exp_fingerprint(runs_dir: Path, trader_paths: traderview.TraderPaths | None = None) -> dict[str, float]:
-    """run ごとの指紋（記録は DB。中の 5 ファイルの sha256 から作る ＝ 中身が変われば動く）。
-    `trader_paths` を渡すと「モデルとトレーダーの比較」の指紋（検証結果一覧を DB に入れ直した時刻・compare.toml・設定）も 1 つの鍵にまとめて足す。"""
+    """run ごとのフィンガープリント（記録は DB。中の 5 ファイルの sha256 から作る ＝ 中身が変われば動く）。
+    `trader_paths` を渡すと「モデルとトレーダーの比較」のフィンガープリント（検証結果一覧を DB に入れ直した時刻・compare.toml・設定）も 1 つの鍵にまとめて足す。"""
     with experiments.Store(runs_dir) as store:
         out = store.digests()
     if trader_paths is not None:
@@ -958,10 +958,10 @@ def glossary_fingerprint(path: Path | None = None) -> dict[str, float]:
 
 def make_handler(runs_dir: Path, paths: ExpPaths, sampler: hwstat.Sampler | None = None,
                  trader_paths: traderview.TraderPaths | None = None):
-    # ⚠ ここでは見張りを起こさない（起こすのは main()）。止まっている Sampler は要求のたびにその場で読む
+    # ⚠ ここでは監視を起こさない（起こすのは main()）。止まっている Sampler は要求のたびにその場で読む
     sampler = sampler or hwstat.Sampler()
     trader_paths = trader_paths or traderview.TraderPaths.default()
-    if trader_paths.research_db is None:         # 予測モデルのタブも、実行タブと同じ置き場の DB を読む
+    if trader_paths.research_db is None:         # 予測モデルのタブも、実行タブと同じ保存先の DB を読む
         trader_paths = dataclasses.replace(trader_paths, research_db=Path(runs_dir) / experiments.DB_NAME)
 
     class Handler(BaseHTTPRequestHandler):

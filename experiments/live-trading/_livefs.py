@@ -1,4 +1,4 @@
-"""記録の置き場 `livefs`（experiments/tastytrade-api-sample/livefs.py）を import するための 1 か所。
+"""記録の保存先 `livefs`（experiments/tastytrade-api-sample/livefs.py）を import するための 1 か所。
 
     from _livefs import livefs
 

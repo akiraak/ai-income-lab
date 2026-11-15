@@ -1,4 +1,4 @@
-"""筋書き（故障の注入）: モックと運転手が故障を起こしたとき、執行器が決めごとどおりに振る舞い、記録に残ること。
+"""シナリオ（故障の注入）: モックとランナーが故障を起こしたとき、執行エンジンが決めごとどおりに振る舞い、記録に残ること。
 
 毎日ちょうど 1 件の注文が出る合図（持っていなければ買う・持っていれば売る）を置き、何日目に何が起きるかを固定する。最速で流す。
 ⚠ 拒否の文面・コードは想像で作ったもの。確かめるのは自分のコードの振る舞い（再送する ／ しない・取消・状態が進まない）。
@@ -131,17 +131,17 @@ def test_skipped_day_leaves_no_record(ran):
 
 
 def test_crash_after_submit_leaves_a_start_without_an_end(ran):
-    """発注の後・記録の前に落ちた日: start だけが残り、注文の記録も状態の更新も無い ＝ 口座と台帳が食い違う日として後から見つけられる。"""
+    """発注の後・記録の前に落ちた日: start だけが残り、注文の記録も状態の更新も無い ＝ 口座と売買履歴が食い違う日として後から見つけられる。"""
     kinds = [e["kind"] for e in rows(ran[0], DAYS[8], "events")]
     assert "start" in kinds and "end" not in kinds and rows(ran[0], DAYS[8], "orders") == [] and rows(ran[0], DAYS[8], "ledger") == []
     assert json.load(open(os.path.join(ran[0], "sim", "status.json")))["rcs"][f"{DAYS[8]} 15:45"] == 137
 
 
 def test_the_day_after_the_crash_recovers_the_fill_and_does_not_trade_twice(ran):
-    """段 1: 落ちた日の売りは口座では約定している。次の日の起動で控えから戻し、その人の台帳に入れる ＝ もう一度売らない。"""
+    """段 1: 落ちた日の売りは口座では約定している。次の日の起動で控えから戻し、その人の売買履歴に入れる ＝ もう一度売らない。"""
     ev = [e for e in rows(ran[0], DAYS[9], "events") if e["kind"] == "journal_recovered"]
     assert len(ev) == 1 and ev[0]["outcome"] == "recovered_filled" and ev[0]["side"] == "sell" and ev[0]["intent_date"] == DAYS[8] and ev[0]["trader"] == "sim_a"
-    assert the_order(ran[0], DAYS[9])["side"] == "buy"                          # 売れていたことが台帳に入ったので、次は買い（二重の売りではない）
+    assert the_order(ran[0], DAYS[9])["side"] == "buy"                          # 売れていたことが売買履歴に入ったので、次は買い（二重の売りではない）
     hist = doc(os.path.join(ran[0], "state", "cert", "sim_a.json"))["history"]
     recovered = [h for h in hist if h.get("note") == "recovered"]
     assert len(recovered) == 1 and recovered[0]["date"] == DAYS[8] and recovered[0]["side"] == "sell" and recovered[0]["fee"] > 0

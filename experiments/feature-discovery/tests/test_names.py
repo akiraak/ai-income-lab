@@ -1,7 +1,7 @@
-"""⚠ **予測モデル名は台帳の鍵の別名である**（rules.md 10-2）。
+"""⚠ **予測モデル名は検証結果一覧の鍵の別名である**（rules.md 10-2）。
 
-⚠ **鍵が違うのに名前が同じだと、別の試行が 1 つに見える**（台帳が鍵を足してきた理由 ＝ 数え落とし と同じ事故）。
-だから ⚠ **台帳の全行で「鍵 ↔ 名前」が 1 対 1 であることを確かめる。**
+⚠ **鍵が違うのに名前が同じだと、別の試行が 1 つに見える**（検証結果一覧が鍵を足してきた理由 ＝ 数え落とし と同じ事故）。
+だから ⚠ **検証結果一覧の全行で「鍵 ↔ 名前」が 1 対 1 であることを確かめる。**
 """
 
 from __future__ import annotations
@@ -38,7 +38,7 @@ LIVE = {"鍵": "全部使う（基準）", "モデル": "Ridge", "粒度": "日�
     ({"鍵": "F3-1b", "モデル": "LightGBM+GAN増強(batch16k)"}, "own.f3-1b.lgbm-gan-16k.shared@50"),
     ({"鍵": "入口D2(60)×出口D1(20)（学習）", "特徴量の層": "own trend"}, "own-trend.in-d2-out-d1.ridge.shared@50"),
     ({"鍵": "乱択（基準）", "モデル": "—"}, "own.random.none.shared@50"),
-    # 変換を検知器に通した行（rules.md 24-2。2026-10-09）: ID ＋ 検知器の綴り
+    # 変換を検知器に通した行（rules.md 24-2。2026-10-09）: ID ＋ 検知器の表記
     ({"鍵": "F4-1 ＋ H1 先10日ゲート（全列・学習）"}, "own.f4-1-h1-gate10.ridge.shared@50"),
     ({"鍵": "F4-1 ＋ H1 先10日ゲート（全列・学習）〔適合度・断面の平均〕"}, "own.f4-1-h1-gate10-fit-xsmean.ridge.shared@50"),
     ({"鍵": "ボラ上位〔T3 QUANT（60日窓）・上位3・整数株B⚠〕", "モデル": "—", "特徴量の層": "own seq"},
@@ -57,7 +57,7 @@ def test_names_are_built_from_the_key(change, want):
 
 
 def test_unknown_method_stops():
-    """⚠ **綴りの一覧に無い選び方・作り方は止める**（黙って別の名前に寄せると、2 つの別物が 1 つに見える）。"""
+    """⚠ **表記の一覧に無い選び方・作り方は止める**（黙って別の名前に寄せると、2 つの別物が 1 つに見える）。"""
     with pytest.raises(SystemExit, match="数字の選び方・作り方"):
         names.method_slug("X9 まだ名前の無い検知器")
     with pytest.raises(SystemExit, match="学習器"):
@@ -65,7 +65,7 @@ def test_unknown_method_stops():
 
 
 def _registered() -> dict[str, list[str]]:
-    """本物の登録簿（⚠ 新しいプロセスで読む。ほかのテストが偽の検知器を足していても混ざらない）。"""
+    """本物のレジストリ（⚠ 新しいプロセスで読む。ほかのテストが偽の検知器を足していても混ざらない）。"""
     code = ("import json, ail.bootstrap; from ail import registry; print(json.dumps("
             "{k: registry.available(k) for k in ('model', 'detector', 'selector', 'transform')}, ensure_ascii=False))")
     out = subprocess.run([sys.executable, "-c", code], cwd=names.ROOT, capture_output=True, text=True, check=True,
@@ -74,9 +74,9 @@ def _registered() -> dict[str, list[str]]:
 
 
 def test_every_registered_name_has_a_distinct_spelling():
-    """⚠ **登録してある選び方・作り方・学習器は全部、綴りが決まっていて、どの 2 つも重ならない。**
+    """⚠ **登録してある選び方・作り方・学習器は全部、表記が決まっていて、どの 2 つも重ならない。**
 
-    ⚠ 検知器を足して綴りを書き忘れると、ここで落ちる（`@register` の足し忘れと同じ形で先に止める）。
+    ⚠ 検知器を足して表記を書き忘れると、ここで落ちる（`@register` の足し忘れと同じ形で先に止める）。
     """
     reg = _registered()
     methods = {catalog.canonical(n)[1] for kind in ("selector", "transform", "detector") for n in reg[kind]}
@@ -90,7 +90,7 @@ def test_every_registered_name_has_a_distinct_spelling():
 
 
 def test_names_are_one_to_one_with_the_real_ledger():
-    """⚠ **台帳の全行（本体 ＋ leak 対照）で、鍵が違えば名前も違う・鍵が同じなら名前も同じ。**"""
+    """⚠ **検証結果一覧の全行（本体 ＋ leak 対照）で、鍵が違えば名前も違う・鍵が同じなら名前も同じ。**"""
     d = catalog.ledger()
     for rows in (d["rows"], d["leak"]):
         assert rows, "runs/ が空（台帳の行が無い）"
@@ -106,5 +106,5 @@ def test_names_are_one_to_one_with_the_real_ledger():
 
 
 def test_model_key_is_the_ledger_key_without_theta():
-    """⚠ **予測モデル ＝ 台帳の鍵から θ を除いたもの**（θ はトレーダーの側。live-trading.md §0-1）。"""
+    """⚠ **予測モデル ＝ 検証結果一覧の鍵から θ を除いたもの**（θ はトレーダーの側。live-trading.md §0-1）。"""
     assert names.MODEL_KEY + ("閾値",) == catalog.KEY

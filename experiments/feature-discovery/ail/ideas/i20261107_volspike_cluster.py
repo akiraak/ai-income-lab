@@ -1,9 +1,9 @@
-"""登録簿 `20261107-volspike-cluster-lag`（参考あり・枠の外。記録 dev-loop.md）:
+"""レジストリ `20261107-volspike-cluster-lag`（参考あり・枠の外。記録 dev-loop.md）:
 L1（`i20261106_cluster_laggard`）の集まりを **出来高が同じ日に跳ねる銘柄どうし** で作り直し、仲間が出来高を伴って上がった翌日に
 まだ跳ねていない銘柄を買う規則 L2（学習器なし）。
 
 - 出来高: 表には日々の出来高が無い（`own_vratio_*` は比）ので、表の close と同じ層の **調整済み日足の `volume`**
-  （`store.adjusted_dir("d")`。`cli.run.next_open_returns` と同じ置き場）を (銘柄, 日) で継ぐ。
+  （`store.adjusted_dir("d")`。`cli.run.next_open_returns` と同じ保存先）を (銘柄, 日) で継ぐ。
   z ＝ (出来高 − 前の 60 日の平均) ／ 前の 60 日の標準偏差（⚠ その日を含まない 60 日・足りない日は NaN ＝ 跳ねていない）。跳ね ＝ z > 2。
 - 集まり: 訓練分割の日だけで、銘柄ごとの「跳ねた日」の集合の Jaccard 類似度 → 距離 1 − J → 階層クラスタ（平均連結）を 8 個で切る
   （⚠ 事前固定 ＝ L1 と同じ数）。fold ごとに作り直す。
@@ -12,7 +12,7 @@ L1（`i20261106_cluster_laggard`）の集まりを **出来高が同じ日に跳
 - 買い% ＝ 訓練分割の s の分布での順位 × 100（同点は半分 ＝ L1 の `rank_pct`）。⚠ Platt を通さない。⚠ ctx の model は呼ばない。
 - 基準線（数えない）「出来高の集まりを乱数で割り当てた遅れの買い（8個）」: 同じ大きさの集まりに銘柄を乱数で割り当て（種 ＝ config の種）、
   同じ規則の順位 − 50 を返す。
-- ⚠ leak 対照: 規則は LEAK_ 列を読まない ＝ leak は跳ねない（器の確かめにならない ＝ 登録簿の failure_modes 3）。
+- ⚠ leak 対照: 規則は LEAK_ 列を読まない ＝ leak は跳ねない（器の確かめにならない ＝ レジストリの failure_modes 3）。
 - 記録: 集まりの大きさ・合図の日数（訓練 ／ 評価）・合図の行の翌日の平均 y（訓練）。
 ⚠ 登録するだけ ＝ この検知器 ／ 基準線を名指さない config は 1 ビットも変わらない。
 """
@@ -30,7 +30,7 @@ from ail.data import store
 from ail.ideas import i20261106_cluster_laggard as l1
 from ail.registry import register
 
-N_CLUSTERS = 8         # ⚠ 事前固定（登録簿 ＝ L1 と同じ）
+N_CLUSTERS = 8         # ⚠ 事前固定（レジストリ ＝ L1 と同じ）
 WINDOW = 60
 Z_SPIKE = 2.0
 MAJORITY = 0.5

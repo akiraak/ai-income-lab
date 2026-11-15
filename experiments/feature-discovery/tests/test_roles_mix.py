@@ -1,4 +1,4 @@
-"""役割つきの合わせる口（rules.md 25-2）と、`simulate` ／ `simulate_topk` の最短保有・毎日読む出口（25-2 の 3）。
+"""役割つきの合成オプション（rules.md 25-2）と、`simulate` ／ `simulate_topk` の最短保有・毎日読む出口（25-2 の 3）。
 
 ⚠ 落としたいのは 5 つ。
   1. `min_hold_days`・`stop_exit_pct` を省けば `simulate` ／ `simulate_topk` は 1 ビットも変わらない
@@ -23,7 +23,7 @@ from ail.validation import simulate as sim
 from cli.run import MIX_ROLES, evaluate_trading, mix_specs, trader_name
 
 BUY, EXIT, STOP = "テスト用 買い係", "テスト用 売り係", "テスト用 損切り係"
-R1 = "R1 買い先10日・売り先5日・損切り"      # ⚠ names.toml の [mix] にある綴り（roles-b10-e5）
+R1 = "R1 買い先10日・売り先5日・損切り"      # ⚠ names.toml の [mix] にある表記（roles-b10-e5）
 R1B = "R1b 買い先10日・売り先5日・損切り（買いも止める）"   # 25-4（roles-b10-e5-block）
 R5 = "R5 買い係が期間を選ぶ・損切り"                         # 25-5（roles-pick-stop）
 PICK = "テスト用 期間を選ぶ買い係"

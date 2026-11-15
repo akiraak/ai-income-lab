@@ -146,7 +146,7 @@ def test_cli_run_and_predict_end_to_end(tmp_path, monkeypatch, capsys):
     have = {p.split("/")[0] for p in runs.files(run_dir)}
     assert {"config.json", "inputs.json", "env.json", "origins.csv", "scores.csv", "history.csv", "quality.csv",
             "verdict.json", "log.txt", "fitted"} <= have
-    assert "summary.csv" not in have                                  # ⚠ 台帳・検証タブに出さない（記録 §0 決定 6）
+    assert "summary.csv" not in have                                  # ⚠ 検証結果一覧・検証タブに出さない（記録 §0 決定 6）
     verdict = runs.read_json(run_dir, "verdict.json")
     assert verdict["verdict"] in ("採る", "保留", "落とす") and set(verdict["ok"]) == set("abcde")
     scores = runs.read_csv(run_dir, "scores.csv")

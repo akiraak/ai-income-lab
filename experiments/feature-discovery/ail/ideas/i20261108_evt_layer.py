@@ -1,4 +1,4 @@
-"""登録簿 `20261108-edgar-8k-event-flags`（参考あり・枠の内。記録 dev-loop.md）:
+"""レジストリ `20261108-edgar-8k-event-flags`（参考あり・枠の内。記録 dev-loop.md）:
 決算以外も含む臨時の開示（SEC の 8-K）の印の層 `evt_`。欠損を印にして埋める ＝ 銘柄を落とさない（決算の層 `ernf` と同じ形）。
 
 列（5 本 ＋ 印 1 本）:
@@ -30,7 +30,7 @@ PREFIX = "evt_"
 SOURCE = "edgar_8k"
 DEFAULT_LAG_DAYS = 1
 MAX_DAYS = 400.0       # ⚠ 事前固定: 日数の上限と、無いときの埋め値（決算の層の `ern_max_stale_days` と同じ）
-COUNT_BARS = 20        # ⚠ 事前固定（登録簿「直近 20 日の件数」）
+COUNT_BARS = 20        # ⚠ 事前固定（レジストリ「直近 20 日の件数」）
 COLUMNS = ("8k_d1", "8k_502_d1", "8k_202_d1", "8k_cnt20", "days_since_8k", "na_8k")
 KEYS = {"K8": "8k_d1", "K8I502": "8k_502_d1", "K8I202": "8k_202_d1"}
 

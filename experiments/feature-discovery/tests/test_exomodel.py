@@ -259,7 +259,7 @@ def test_chronos_detectors_contract_with_stub(stub):
     assert len(buy) == len(te) and float(np.min(buy)) >= 0.0 and float(np.max(buy)) <= 100.0
     assert doc["n_cov"] == 3 + N_EXT and doc["推論（本番）"]["予測した行"] == len(te)
     assert doc["推論（本番）"]["step"] == 10 and doc["推論（本番）"]["leak_weight"] is None
-    # ⚠ 共変量は他銘柄 3 ＋ 外部 3 が渡っている ／ 較正の推論は訓練の尻だけ（全部の訓練行を推論していない）
+    # ⚠ 共変量は他銘柄 3 ＋ 外部 3 が渡っている ／ 較正の推論は訓練の末尾だけ（全部の訓練行を推論していない）
     assert stub.calls[-1][1] == sorted([f"sym:{i}" for i in range(3)] + [f"ext:e{i}" for i in range(N_EXT)])
     assert stub.calls[0][0] < len(tr)
     buy3, doc3 = registry.resolve("detector", exomodel.NAME_S3)(tr, te, feats, _ctx("Chronos-2"))

@@ -2,7 +2,7 @@
 
     python3 -m cli.run --experiment own_only_h1
     python3 -m cli.run --experiment own_only_h1 --leak      # ⚠ 配線の検査（跳ね上がるはず）
-    python3 -m cli.run --experiment impact_ex_2018 --shift-days 365   # ⚠ 偽薬（台帳の試行に数えない）
+    python3 -m cli.run --experiment impact_ex_2018 --shift-days 365   # ⚠ 偽薬（検証結果一覧の試行に数えない）
 
 ⚠ **設計の要点は 3 つ**（rules.md 9 章）。
   1. ⚠ **特徴量の選別は訓練分割の内側だけで行う**（Ambroise-McLachlan 2002）
@@ -123,7 +123,7 @@ def evaluate(panel: pd.DataFrame, feats: list[str], exp: dict, run: runs.Run) ->
             cols = fn(Xtr, ytr, k, ctx)                 # ⚠ 選別は訓練の内側だけ
             p = model(Xtr[cols], ytr, Xte[cols], ctx)
             tuned.drain(ctx)                            # 内側選抜の記録は毎日往復の経路では残さない（取り残しを捨てる）
-            lab = prep.label(exp, name)                 # ⚠ 変換名を手法名に混ぜる（台帳の ID）
+            lab = prep.label(exp, name)                 # ⚠ 変換名を手法名に混ぜる（検証結果一覧の ID）
             out.append({"手法": lab, "fold": f, "選んだ本数": len(cols),
                         **metrics.score(p, yte, cost_bp)})
             # ⚠ **何を選んだかを残す。** ⚠ **偽薬を選んだ割合が、そのまま偽発見率の実測になる**
@@ -139,7 +139,7 @@ def fold_buy_pct(tr: pd.DataFrame, te: pd.DataFrame, feats: list[str], exp: dict
     """訓練 1 塊 → 検証 1 塊の **買い% ／ 出口%**（手法ごと）。⚠ **`evaluate_trading` の fold の中身をそのまま切り出したもの**。
 
     ⚠ **バックテストの fold と、実売買の「今日の買い%」（`cli/predict.py`）が同じ 1 本を通る**ための口。
-    ⚠ **ここでモデル・較正・変換の式を変えない**（変えると既定経路の指紋が動く。`tests/test_trading_run.py`）。
+    ⚠ **ここでモデル・較正・変換の式を変えない**（変えると既定経路のフィンガープリントが動く。`tests/test_trading_run.py`）。
     戻り値は (buy, exits, n_cols, fitted_doc)。`picked` には選んだ列を足す（呼び出し側の一覧）。
     """
     from ail.models import calibrate, tuned
@@ -157,11 +157,11 @@ def fold_buy_pct(tr: pd.DataFrame, te: pd.DataFrame, feats: list[str], exp: dict
 
     if detectors:
         # ⚠ **検知器は買い% を直接返す**（rules.md 14-1 の出力の契約）。選別もモデルも中に隠れる。
-        # ⚠ **シミュレータから先は選別 × モデルの経路とまったく同じものを使う**（物差しを揃える）
+        # ⚠ **シミュレータから先は選別 × モデルの経路とまったく同じものを使う**（指標を揃える）
         # ⚠ **変換を検知器に通す口**（rules.md 24 章。2026-10-09）: config に `transform` があれば、訓練分割で fit した
         # 変換の列を `tr`・`te`・`feats` に**足して**渡す（置き換えない）。手法名は「変換名 ＋ 検知器名」（`prep.label`）。
         # ⚠ **`transform` の無い config は 1 ビットも変わらない**（`prep.augment` は同じオブジェクトを返す。
-        # この経路は 13500t の毎日の予測 `cli/predict.py` も通る ＝ `tests/test_transform_detector.py` の指紋）
+        # この経路は 13500t の毎日の予測 `cli/predict.py` も通る ＝ `tests/test_transform_detector.py` のフィンガープリント）
         tr, te, feats, tdoc = prep.augment(exp, tr, te, feats, ctx)
         if tdoc is not None:
             fitted_doc["_transform"] = tdoc
@@ -185,7 +185,7 @@ def fold_buy_pct(tr: pd.DataFrame, te: pd.DataFrame, feats: list[str], exp: dict
             if sel:
                 fitted_doc[lab] = {**doc, "内側選抜": tuned.fold_doc(sel)}
     elif form == "per_symbol":
-        # (B) 銘柄別: fit も較正も銘柄ごと（13-6 の 2）。fold の切れ目は上で決めた日付を共有
+        # (B) 銘柄別: fit も較正も銘柄ごと（13-6 の 2）。fold の分割点は上で決めた日付を共有
         if exp.get("label"):
             raise SystemExit("⚠ `label`（断面超過ラベル）は学習範囲 shared だけ（銘柄別では同じ日の平均が自分だけになる）")
         labels = {n: prep.label(exp, n) for n in selectors}   # ⚠ 変換名を混ぜた手法名
@@ -229,16 +229,16 @@ def fold_buy_pct(tr: pd.DataFrame, te: pd.DataFrame, feats: list[str], exp: dict
         sc = StandardScaler().fit(tr[feats])
         Xtr = pd.DataFrame(sc.transform(tr[feats]), columns=feats)
         Xte = pd.DataFrame(sc.transform(te[feats]), columns=feats)
-        ytr = prep.train_label(exp, tr)       # ⚠ `label` の無い config は tr["y"].values そのまま（登録簿 20261025-xs-excess-label。rules.md 31 章）
+        ytr = prep.train_label(exp, tr)       # ⚠ `label` の無い config は tr["y"].values そのまま（レジストリ 20261025-xs-excess-label。rules.md 31 章）
         # ⚠ **標本から学ぶ変換の 1 段**（3 章 B）。⚠ **config に `transform` が無ければ素通り**
         Xtr, Xte, tdoc = prep.apply(exp, Xtr, Xte, ctx, ytr, ts_tr=tr["ts"].to_numpy())   # 日付は 23 章の適合度だけが読む
         if tdoc is not None:
             fitted_doc["_transform"] = tdoc
         for name, fn in selectors.items():
-            lab = prep.label(exp, name)             # ⚠ 変換名を手法名に混ぜる（台帳の ID）
+            lab = prep.label(exp, name)             # ⚠ 変換名を手法名に混ぜる（検証結果一覧の ID）
             cols = fn(Xtr, ytr, k, ctx)
             # ⚠ `（内側選抜・1 度）`（rules.md 14-12-3）だけ、較正の前に 1 度選んで champion を ctx で配る（較正と本番が同じ
-            # champion を見る）。ほかのモデルは None を返し ctx は 1 バイトも変わらない（既定経路の指紋 `tests/test_trading_run.py`）
+            # champion を見る）。ほかのモデルは None を返し ctx は 1 バイトも変わらない（既定経路のフィンガープリント `tests/test_trading_run.py`）
             once = tuned.select_once(model, Xtr[cols], ytr, ctx)
             cal = calibrate.fit(model, Xtr[cols], ytr, ctx)
             pred = model(Xtr[cols], ytr, Xte[cols], ctx)
@@ -247,7 +247,7 @@ def fold_buy_pct(tr: pd.DataFrame, te: pd.DataFrame, feats: list[str], exp: dict
             n_cols[lab] = float(len(cols))
             fitted_doc[lab] = cal.doc
             # ⚠ **内側選抜のモデル（rules.md 14-12）が較正・本番の 2 回で ctx に積んだ記録を取り出して残す**
-            # （候補・尻の ρ・champion。無ければ空 ＝ 既存の記録は 1 バイトも変わらない。取り残すと fold をまたいで混ざる）
+            # （候補・末尾の ρ・champion。無ければ空 ＝ 既存の記録は 1 バイトも変わらない。取り残すと fold をまたいで混ざる）
             sel = tuned.drain(ctx)
             if sel:
                 fitted_doc[lab] = {**cal.doc, "内側選抜": tuned.fold_doc(sel, once)}
@@ -257,10 +257,10 @@ def fold_buy_pct(tr: pd.DataFrame, te: pd.DataFrame, feats: list[str], exp: dict
 
 def evaluate_trading(panel: pd.DataFrame, feats: list[str], exp: dict, run: runs.Run,
                      leak: bool = False, mix_loader=None):
-    """閾値つき売買（rules.md 13 章）: 較正 → 閾値 → 状態機械 → 銘柄別 bp ＋ ポートフォリオ。
+    """閾値つき売買（rules.md 13 章）: 較正 → 閾値 → ステートマシン → 銘柄別 bp ＋ ポートフォリオ。
 
     ⚠ **1 fold 1 fit を 3 閾値で使い回す**（13-3 の 5。閾値は予測の後ろにしか効かない）。
-    ⚠ **fold の切れ目は日付で 1 回決める**（13-6 の 1。形式 (A)(B) で同じ fold にするため）。
+    ⚠ **fold の分割点は日付で 1 回決める**（13-6 の 1。形式 (A)(B) で同じ fold にするため）。
     """
     from ail.models import calibrate
     from ail.validation import simulate as sim
@@ -275,7 +275,7 @@ def evaluate_trading(panel: pd.DataFrame, feats: list[str], exp: dict, run: runs
     # `methods`（当てる検知器）・`stop_loss_pct = [5, 10, 20]`（形 B）・`max_hold_days = [5, 10]`（固定日数の基準線）。
     # ⚠ **無い config は経路が 1 行も変わらない**（`threshold_pairs` と同じ形。行は既存の行の後に足すだけ）
     pexits = position_exits(t)
-    # ⚠ **翌日始値で執行する**（rules.md 22 章。2026-10-08）: 状態機械に渡す損益の系列だけを `y_exec` に替える。
+    # ⚠ **翌日始値で執行する**（rules.md 22 章。2026-10-08）: ステートマシンに渡す損益の系列だけを `y_exec` に替える。
     # ⚠ **`execution` の無い config は `y` のまま ＝ 経路は 1 行も変わらない**（的中率・IC は常に `y` で測る）
     # ⚠ 1 日遅れの引け（rules.md 32 章。2026-11-01）も同じ口: 系列を継ぐ値段が終値なだけ
     next_open = execution_of(t) in ("next_open", "next_close")
@@ -294,7 +294,7 @@ def evaluate_trading(panel: pd.DataFrame, feats: list[str], exp: dict, run: runs
     detectors = registry.resolve_all("detector", exp.get("detectors", []))
     baselines = registry.resolve_all("model", exp.get("baselines", []))
 
-    # ⚠ **切れ目をずらす口**（rules.md 33 章。2026-11-11）: `[validation] cut_offset` が無ければ None ＝ 切れ目は 1 ビットも変わらない
+    # ⚠ **分割点をずらす口**（rules.md 33 章。2026-11-11）: `[validation] cut_offset` が無ければ None ＝ 分割点は 1 ビットも変わらない
     cut = splits.cut_offset(v)
     edges = splits.date_edges(panel["ts"], int(v.get("folds", 5)), cut)
     out: list[dict] = []
@@ -305,7 +305,7 @@ def evaluate_trading(panel: pd.DataFrame, feats: list[str], exp: dict, run: runs
     extra: dict = {"hold": {}, "rand": {}}
     # ⚠ **1 取引 1 行の保有日数**（13-4 の 6）。⚠ **成果物であって採否には使わない**。`extra["holds"]` で持ち出す
     holds_out: list[dict] = []
-    # ⚠ **行ごとの買い% ／ 出口% の写し**（2026-11-01・プラン save-buy-pct.md）。⚠ 保存するだけで売買・判定には使わない
+    # ⚠ **行ごとの買い% ／ 出口% のコピー**（2026-11-01・プラン save-buy-pct.md）。⚠ 保存するだけで売買・判定には使わない
     bp_out: list[pd.DataFrame] = []
     topk_out: list[dict] = []
     if t.get("top_k") and form == "per_symbol":
@@ -317,13 +317,13 @@ def evaluate_trading(panel: pd.DataFrame, feats: list[str], exp: dict, run: runs
         raise SystemExit("⚠ 訓練分割の成績で銘柄を選ぶ条件（rules.md 29 章）は形式 (A) だけ")
     # ⚠ 選抜の「モデルの成績」が使う選別（手法名 → 関数）。⚠ `select` の無い config では読まれない
     sel_fns = {prep.label(exp, n): fn for n, fn in selectors.items()}
-    # ⚠ **合わせる口**（rules.md 20-6 の 4。2026-10-02）: ほかの実験の手法の買い% ／ 出口% を行ごとに平均した手法を足す。
+    # ⚠ **合成オプション**（rules.md 20-6 の 4。2026-10-02）: ほかの実験の手法の買い% ／ 出口% を行ごとに平均した手法を足す。
     # ⚠ **`[[trading.mix]]` の無い config は経路が 1 行も変わらない**（メンバーの表も読まない）
     mixes = mix_specs(t)
     if mixes and form == "per_symbol":
         raise SystemExit("⚠ 合わせる口（rules.md 20-6 の 4）は形式 (A) だけ（(B) は銘柄ごとに較正が違う）")
     mix_ext = _mix_prepare(mixes, edges, leak, mix_loader or load_mix_member, cut) if mixes else {}
-    mix_opts: dict[str, dict] = {}   # ⚠ 役割つきの合わせる口の最短保有・毎日読む出口（rules.md 25-2。fold ごとに置き直す）
+    mix_opts: dict[str, dict] = {}   # ⚠ 役割つきの合成オプションの最短保有・毎日読む出口（rules.md 25-2。fold ごとに置き直す）
     if t.get("top_k") and "close" in panel:
         # ⚠ **特徴量には入らない**（`feats` は呼び出し側が先に決めている）。fold を切る前に作るのは、窓を過去へ伸ばすため
         panel = panel.assign(**{TOPK_VOL_COLUMN: topk_vol(panel)})
@@ -352,7 +352,7 @@ def evaluate_trading(panel: pd.DataFrame, feats: list[str], exp: dict, run: runs
             _mix_fold(mixes, mix_ext, te, buy, exits, n_cols, fitted_doc, f, run.log, opts=mix_opts, holds=holds_by)
         run.fitted(f"calibration_f{f}", fitted_doc)     # ⚠ 再現用。次の実行では読み込まない（13-2 の 3）
         if not leak:                                     # ⚠ leak 対照は配線の検査 ＝ 測り直す材料は要らない（1 本 約 4MB【実測】を半分に）
-            bp_out.append(buy_pct_frame(f, te, buy, exits))   # ⚠ 写しを取るだけ（buy ／ exits は書き換えない）
+            bp_out.append(buy_pct_frame(f, te, buy, exits))   # ⚠ コピーを取るだけ（buy ／ exits は書き換えない）
 
         def _row(name: str, base: str, bp, ex, hit: float, ic: float, th: float, th_exit: float | None = None,
                  stop: float | None = None, hold: int | None = None, graded: bool = False, weight=None):
@@ -364,7 +364,7 @@ def evaluate_trading(panel: pd.DataFrame, feats: list[str], exp: dict, run: runs
                 kw["stop_loss_pct"] = stop
             if hold is not None:
                 kw["max_hold_days"] = hold
-            # ⚠ 役割つきの合わせる口（rules.md 25-2 の 3・4）。無い手法は空 ＝ 既存の経路と同一
+            # ⚠ 役割つきの合成オプション（rules.md 25-2 の 3・4）。無い手法は空 ＝ 既存の経路と同一
             mo = mix_opts.get(base) or {}
             if mo.get("min_hold_days") is not None:
                 kw["min_hold_days"] = mo["min_hold_days"]
@@ -391,7 +391,7 @@ def evaluate_trading(panel: pd.DataFrame, feats: list[str], exp: dict, run: runs
                 if hold_all is not None:
                     kws = {**kws, "hold_days": hold_all[idx]}
                 if graded:
-                    # ⚠ 持つ量を買い% に応じて変える行（登録簿 20261101-graded-weight-sizing）。乱択ゲート ／ 逆売買は診断（0/1 に落として回す）
+                    # ⚠ 持つ量を買い% に応じて変える行（レジストリ 20261101-graded-weight-sizing）。乱択ゲート ／ 逆売買は診断（0/1 に落として回す）
                     r = sim.simulate_graded(bp[idx], y_pnl[idx], th, cost_bp, weight=None if weight is None else weight[idx])
                     rg = sim.shifted_gate((r["pos"] > 0).astype(int), y_pnl[idx], cost_bp, rng)
                     rv = sim.simulate_graded(ex[idx] if ex is not None else 100.0 - bp[idx], y_pnl[idx], th, cost_bp)
@@ -400,7 +400,7 @@ def evaluate_trading(panel: pd.DataFrame, feats: list[str], exp: dict, run: runs
                                      exit_pct=None if ex is None else ex[idx], **kws)
                     rg = sim.shifted_gate(r["pos"], y_pnl[idx], cost_bp, rng)   # 14-6 の b
                 # ⚠ **逆売買**（rules.md 14-3 の (3)。診断列・採否に使わない・試行に数えない）:
-                # ⚠ **入口% と出口% を入れ替えて同じ状態機械を回すだけ**（`simulate` 本体は触らない）。
+                # ⚠ **入口% と出口% を入れ替えて同じステートマシンを回すだけ**（`simulate` 本体は触らない）。
                 # θ ≥ 50 では元の売買の補集合になる（reverse-trading.md §1）
                 if not graded:
                     rv = sim.simulate(ex[idx] if ex is not None else 100.0 - bp[idx], y_pnl[idx], th, cost_bp,
@@ -470,11 +470,11 @@ def evaluate_trading(panel: pd.DataFrame, feats: list[str], exp: dict, run: runs
             if pairs and not (mname.startswith("基準 ") or mname == "乱択（基準）"):
                 for th_in, th_out in pairs:
                     _row(exit_line_name(mname, th_out), mname, bp, ex, hit, ic, th_in, th_out)
-            # ⚠ **持つ量を段階にした行**（登録簿 20261101-graded-weight-sizing。`[trading] graded = true` のときだけ・基準線は通さない）
+            # ⚠ **持つ量を段階にした行**（レジストリ 20261101-graded-weight-sizing。`[trading] graded = true` のときだけ・基準線は通さない）
             if t.get("graded") and not (mname.startswith("基準 ") or mname == "乱択（基準）"):
                 for th in thresholds:
                     _row(f"{mname}〔量を段階に〕", mname, bp, ex, hit, ic, th, graded=True)
-            # ⚠ **持つ量を断面の順位で配る行**（登録簿 20261101-rank-graded-sizing。`[trading] graded_rank = true` のときだけ）
+            # ⚠ **持つ量を断面の順位で配る行**（レジストリ 20261101-rank-graded-sizing。`[trading] graded_rank = true` のときだけ）
             if t.get("graded_rank") and not (mname.startswith("基準 ") or mname == "乱択（基準）"):
                 q = rank_weight(bp, ts_te)
                 for th in thresholds:
@@ -561,7 +561,7 @@ def position_exits(t: dict) -> dict:
 
 
 def rank_weight(bp, ts) -> np.ndarray:
-    """同じ日の断面の順位の割合 q（最下位 0・最上位 1・同点は平均順位・その日 1 銘柄なら 1）。欠けた買い% は NaN（登録簿 20261101-rank-graded-sizing）。"""
+    """同じ日の断面の順位の割合 q（最下位 0・最上位 1・同点は平均順位・その日 1 銘柄なら 1）。欠けた買い% は NaN（レジストリ 20261101-rank-graded-sizing）。"""
     s = pd.Series(np.asarray(bp, dtype=float))
     key = pd.Series(pd.to_datetime(ts).values)
     r = s.groupby(key).rank(method="average")
@@ -609,7 +609,7 @@ def topk_name(method: str, k: int, kind: str) -> str:
 
 
 def topk_random_name(method: str, k: int, kind: str) -> str:
-    """⚠ **`基準 ` で始める** ＝ 台帳が基準線として読み、試行に数えない（13-9 の 4）。"""
+    """⚠ **`基準 ` で始める** ＝ 検証結果一覧が基準線として読み、試行に数えない（13-9 の 4）。"""
     return f"基準 乱択上位〔{method}・上位{k}・{kind}〕"
 
 
@@ -678,7 +678,7 @@ def _topk_fold(t: dict, te: pd.DataFrame, y, ts_te, buy: dict, exits: dict, n_co
                                          "買った銘柄の種類数": res["symbols_bought"]})
 
 
-MIX_ROLES = "roles"                          # 役割つきの合わせる口（rules.md 25-2）
+MIX_ROLES = "roles"                          # 役割つきの合成オプション（rules.md 25-2）
 MIX_ROLE_NAMES = ("buy", "exit", "stop")     # 買い係 ／ 売り係 ／ 損切り係
 
 
@@ -702,7 +702,7 @@ def mix_specs(t: dict) -> list[dict]:
     """`[[trading.mix]]`（rules.md 20-6 の 4）。⚠ **無ければ空 ＝ 既存の経路**。
 
     各項: `name`（手法名。必須）・`members`（2 本以上。`method` は必須・`experiment` を省くとこの実行の手法）・
-    `combine`（`mean` だけ ＝ 買い% ／ 出口% の平均 ＝ 執行器の `mean`）。
+    `combine`（`mean` だけ ＝ 買い% ／ 出口% の平均 ＝ 執行エンジンの `mean`）。
     ⚠ **メンバー・合わせ方は事前固定。結果を見て動かさない**（14-9）。
     """
     specs = []
@@ -723,7 +723,7 @@ def mix_specs(t: dict) -> list[dict]:
         spec = {"name": name, "members": members, "combine": combine, "min_hold_days": None, "stop_blocks_buy": False,
                 "hold_from_buy": False}
         if combine == MIX_ROLES:
-            # ⚠ 役割つきの合わせる口（rules.md 25-2 の 1）: 買い係 1 本以上・売り係 1 本以上・損切り係 0 本以上。外の実験は使わない（25-1 の 3）
+            # ⚠ 役割つきの合成オプション（rules.md 25-2 の 1）: 買い係 1 本以上・売り係 1 本以上・損切り係 0 本以上。外の実験は使わない（25-1 の 3）
             roles = [x["role"] for x in members]
             if any(r not in MIX_ROLE_NAMES for r in roles):
                 raise SystemExit(f"⚠ trading.mix {name!r}: combine = roles のメンバーは role が buy ／ exit ／ stop のどれか（rules.md 25-2 の 1）: {roles}")
@@ -752,7 +752,7 @@ def mix_specs(t: dict) -> list[dict]:
             if sb and "stop" not in roles:
                 raise SystemExit(f"⚠ trading.mix {name!r}: stop_blocks_buy = true には損切り係（stop）が要る（rules.md 25-4 の 1）")
             spec["stop_blocks_buy"] = sb
-            # ⚠ 2026-11-01（登録簿 20261025-roles-entry-stop）: 建値から −x% で降りる（simulate の形 B）。既定 None ＝ 1 ビットも変わらない
+            # ⚠ 2026-11-01（レジストリ 20261025-roles-entry-stop）: 建値から −x% で降りる（simulate の形 B）。既定 None ＝ 1 ビットも変わらない
             es = m.get("entry_stop_pct")
             if es is not None:
                 if isinstance(es, bool) or not isinstance(es, (int, float)) or not (0.0 < float(es) < 100.0):
@@ -768,7 +768,7 @@ def mix_specs(t: dict) -> list[dict]:
 
 
 def load_mix_member(experiment: str, leak: bool) -> tuple[dict, pd.DataFrame, list[str]]:
-    """合わせる口のメンバーを、**その実験自身の config と表**で読む（rules.md 20-6 の 4 の 2）。
+    """合成オプションのメンバーを、**その実験自身の config と表**で読む（rules.md 20-6 の 4 の 2）。
 
     ⚠ leak 対照の実行ではメンバーも leak の表を読む（配線の検査が合成の行でも跳ねるように）。
     """
@@ -780,10 +780,10 @@ def load_mix_member(experiment: str, leak: bool) -> tuple[dict, pd.DataFrame, li
 
 
 def _mix_prepare(specs: list[dict], edges: list, leak: bool, loader, cut: tuple[int, int] | None = None) -> dict[str, dict]:
-    """外のメンバーを実験ごとに 1 度だけ読み、⚠ **この実行と同じ日付の切れ目**で fold を切っておく。
+    """外のメンバーを実験ごとに 1 度だけ読み、⚠ **この実行と同じ日付の分割点**で fold を切っておく。
 
     パージ・エンバーゴはメンバー自身の config のもの（＝ そのメンバーが単体で回るときと同じ訓練・同じ検証）。
-    ⚠ 切れ目が 1 つでも違えば止まる（違う fold の買い% を混ぜると、合成の行が何を測ったのか言えなくなる）。
+    ⚠ 分割点が 1 つでも違えば止まる（違う fold の買い% を混ぜると、合成の行が何を測ったのか言えなくなる）。
     ⚠ **`cut` ＝ 持ち主の `cut_offset`**（rules.md 33-1 の 5）: メンバーの表も持ち主のずらしで切る。メンバー自身の config の
     `cut_offset` は読まない（書くとメンバー単体の既存の行が割れる）。None なら今までと同じ。
     """
@@ -834,7 +834,7 @@ def _mix_fold(specs: list[dict], ext: dict[str, dict], te: pd.DataFrame, buy: di
               n_cols: dict, fitted_doc: dict, f, log, opts: dict | None = None, holds: dict | None = None) -> None:
     """1 fold ぶんの合成の買い% ／ 出口% を `buy`・`exits` に足す（rules.md 20-6 の 4 の 3・4）。
 
-    行は (銘柄, 日) で突き合わせる。1 本でも欠ける行は NaN ＝ その銘柄は後ろの `_row` が飛ばす（既存の規則）。
+    行は (銘柄, 日) で照合する。1 本でも欠ける行は NaN ＝ その銘柄は後ろの `_row` が飛ばす（既存の規則）。
     ⚠ **役割つき（`combine = "roles"`。rules.md 25-2 の 2）**: 買い% ＝ 買い係の平均 ／ 出口% ＝ 売り係の平均 ／
     毎日読む出口% ＝ 損切り係の最大。最短保有と毎日読む出口は `opts[手法名]` に置き、`_row`・`_trader_fold` が
     `simulate` ／ `simulate_topk` に渡す。⚠ `combine = "mean"` の行は 1 ビットも変わらない。
@@ -887,7 +887,7 @@ def _mix_fold(specs: list[dict], ext: dict[str, dict], te: pd.DataFrame, buy: di
 
 def _roles_fold(s: dict, parts: list[tuple], buy: dict, exits: dict, n_cols: dict, fitted_doc: dict, f, log,
                 opts: dict, holds: dict | None = None) -> None:
-    """役割つきの合わせる口の 1 fold（rules.md 25-2 の 2）。`parts` は `_mix_fold` の `member` の戻り（買い%, 出口%, doc）。
+    """役割つきの合成オプションの 1 fold（rules.md 25-2 の 2）。`parts` は `_mix_fold` の `member` の戻り（買い%, 出口%, doc）。
 
     ⚠ `hold_from_buy`（25-5 の 4）: 買い係 1 本の保有日数（`holds[手法]`）を行ごとに渡し、出口% ＝ 0（売り係を持たない）。
     """
@@ -1051,7 +1051,7 @@ def _trader_fold(conds: list[dict], te: pd.DataFrame, y, ts_te, buy: dict, exits
             ex_all = exits.get(mname)
             ex = None if ex_all is None else ex_all[mask]
             e_full = (100.0 - bp) if ex is None else ex
-            # ⚠ 役割つきの合わせる口（rules.md 25-2 の 3・4）。無い手法は空 ＝ 既存の経路と同一
+            # ⚠ 役割つきの合成オプション（rules.md 25-2 の 3・4）。無い手法は空 ＝ 既存の経路と同一
             mo = (opts or {}).get(mname) or {}
             rk = {} if mo.get("min_hold_days") is None else {"min_hold_days": mo["min_hold_days"]}
             st = None if mo.get("stop_exit") is None else mo["stop_exit"][mask]
@@ -1183,7 +1183,7 @@ def _select_fold(c: dict, te: pd.DataFrame, y, ts_te, buy: dict, exits: dict, n_
         for mname in methods:
             bp_all = buy[mname]
             ex_all = exits.get(mname)
-            # 役割つきの合わせる口（rules.md 25-2）。無い手法は空 ＝ 20 章と同じ
+            # 役割つきの合成オプション（rules.md 25-2）。無い手法は空 ＝ 20 章と同じ
             mo = (opts or {}).get(mname) or {}
             rk: dict = {}
             if mo.get("min_hold_days") is not None:
@@ -1225,7 +1225,7 @@ def apply_gate(exp: dict, gate_doc: dict, enforce: bool, run: runs.Run) -> dict 
     """前置きの門を実験に適用する。
 
     ⚠ **既定（`enforce=False`）は診断**（rules.md 14-10 規約 2）: 門の値は記録するだけで、
-    ⚠ **門前の手法も全部回す**。そのとき `forced` を付けるので、台帳では門前の行が立たず
+    ⚠ **門前の手法も全部回す**。そのとき `forced` を付けるので、検証結果一覧では門前の行が立たず
     **普通の試行として数えられる**（`--ignore-gate` はこの既定の別名）。
 
     `enforce=True`（`--gate`）だけが従来の足切り（14-5 の経緯）: 全手法が門前なら None
@@ -1290,11 +1290,11 @@ def main() -> None:
     run = runs.Run(name, {k: v for k, v in exp.items() if not k.startswith("_")},
                    int(exp.get("validation", {}).get("seed", 0)))
     # ⚠ **層は表の隣の sidecar を正とする。** `--layer` は自己申告なので、
-    # ⚠ **食い違ったらここで言う**（黙って通すと台帳の「データの層」が嘘になる）
+    # ⚠ **食い違ったらここで言う**（黙って通すと検証結果一覧の「データの層」が嘘になる）
     if meta and meta.get("layer") and meta["layer"] != args.layer:
         run.log(f"⚠ **--layer {args.layer} だが、表は層 {meta['layer']} から作られている**"
                 f"（{os.path.basename(path)}）。⚠ **sidecar のほうを記録に残す。**")
-    # ⚠ **期間は「読んだ表」から取る**（sidecar の自己申告ではなく実物）。台帳の鍵の「期間」が
+    # ⚠ **期間は「読んだ表」から取る**（sidecar の自己申告ではなく実物）。検証結果一覧の鍵の「期間」が
     # ⚠ **これを正として読む**（rules.md 14-4。⚠ **無い実行は「—」で、後から埋めない**）
     exec_doc = {}
     _exec = execution_of(exp.get("trading") or {})
@@ -1321,7 +1321,7 @@ def main() -> None:
     full_panel = panel          # ⚠ **相関は間引く前で測る**（checks.py の注記）
     if args.sample and len(panel) > args.sample:
         if trading:
-            # ⚠ 状態機械は日次の連続した系列が前提。間引くと保有日が飛び、コストの数え方が壊れる
+            # ⚠ ステートマシンは日次の連続した系列が前提。間引くと保有日が飛び、コストの数え方が壊れる
             run.log("⚠ 閾値つき売買は間引かない（--sample は効かない。rules.md 13-4）")
         else:
             panel = panel.iloc[:: max(1, len(panel) // args.sample)]
@@ -1364,9 +1364,9 @@ def main() -> None:
         # ⚠ **日次のポートフォリオ系列を残す。** これが無かったので、検出限界の検討は同じ config を
         # ⚠ **回し直して系列を作り直すしかなかった**（validation-power.md §1）。エピソード表もここを読む
         run.daily(daily, extra)
-        # ⚠ **`summary.csv` を書いたあとに数える。** 台帳はそれを読むので、この実行の行
+        # ⚠ **`summary.csv` を書いたあとに数える。** 検証結果一覧はそれを読むので、この実行の行
         # （検証方式が処置 ＝ 選別 × 閾値の数。門前の手法は selectors から外れている）は
-        # ⚠ **もう台帳に入っている。この実行ぶんを足さない**（13-9・14-5。足すと二重になる）
+        # ⚠ **もう検証結果一覧に入っている。この実行ぶんを足さない**（13-9・14-5。足すと二重になる）
         doc = checks.compute_trading(res, g, per_sym, daily, exp,
                                      n_trials=checks.n_trials_now(),
                                      leak=args.leak, panel=full_panel, extra=extra)
@@ -1387,8 +1387,8 @@ def main() -> None:
     run.result(res, g)
 
     # ⚠ **検査はここで 1 度だけ計算して記録に残す**（管理画面は読むだけ。プラン §2）
-    # ⚠ **`summary.csv`（上の `run.result`）を書いたあとに数える。** 台帳はそれを読むので、
-    # ⚠ **この実行の行はもう台帳に入っている。この実行ぶんを足さない**（足すと二重になる）
+    # ⚠ **`summary.csv`（上の `run.result`）を書いたあとに数える。** 検証結果一覧はそれを読むので、
+    # ⚠ **この実行の行はもう検証結果一覧に入っている。この実行ぶんを足さない**（足すと二重になる）
     doc = checks.compute(res, g, exp, panel=panel, full_panel=full_panel,
                          n_trials=checks.n_trials_now(), leak=args.leak)
     run.checks(doc)

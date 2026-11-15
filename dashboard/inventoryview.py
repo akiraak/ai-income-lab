@@ -5,7 +5,7 @@
     棚卸しの文書と閉じる案の下書き（`docs/specs/experiments/ledger-hold-inventory*.md`・`assets/ledger-hold-inventory*closed-draft.toml`）。
     `out/`・`state/`・`.env` を読まない。操作の経路は無い（閉じるのは利用者の「閉じて」→ `config/catalog_notes.toml` の `[[closed]]`）
   - ⚠ **判定・`n_trials` は変えない**。「閉じる」は「効かないと確かめた」ではない（rules.md 14 章・2026-10-22 の棚卸しの規則）
-  - ⚠ 区分は研究側の `cli.select_candidates.group_of` の写し（同じ結果になることをテストで見る）
+  - ⚠ 区分は研究側の `cli.select_candidates.group_of` のコピー（同じ結果になることをテストで見る）
 """
 
 from __future__ import annotations
@@ -28,7 +28,7 @@ CSS = compareview.CSS + """
  .big { display: flex; gap: 18px; flex-wrap: wrap; margin: 6px 0 10px; }
  .big div { display: flex; flex-direction: column; } .big b { font-size: 22px; } .big span { font-size: 12px; opacity: .75; }
 """
-# ⚠ `ail/catalog.py` の `_CLOSED_FIELDS` の写し（照合キー → 検証結果一覧の列）。足されたらここも足す（テストが研究側と突き合わせる）
+# ⚠ `ail/catalog.py` の `_CLOSED_FIELDS` のコピー（照合キー → 検証結果一覧の列）。足されたらここも足す（テストが研究側と照合する）
 CLOSED_FIELDS = {"key": "鍵", "model": "モデル", "layers": "特徴量の層", "style": "検証方式", "threshold": "閾値", "layer": "層",
                  "form": "形式", "granularity": "粒度", "period": "期間", "calibration": "較正", "symbols": "銘柄", "dataset": "集合"}
 _RUN_EXP = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}_(.+)$")
@@ -45,7 +45,7 @@ def experiment_of(runs: list) -> str:
 
 
 def group_of(experiment: str, experiment_dir: Path) -> str:
-    """⚠ 研究側 `cli.select_candidates.group_of` の写し。"""
+    """⚠ 研究側 `cli.select_candidates.group_of` のコピー。"""
     if experiment.startswith("dev_tr_"):
         return "机上の持ち越し（31-3 の 3）"
     if experiment.startswith("dev_"):
@@ -188,7 +188,7 @@ def sidebar(paths: TraderPaths) -> dict:
 
 
 def fingerprint(paths: TraderPaths) -> dict[str, float]:
-    """見張り用: 検証結果一覧を DB に入れ直した時刻（compareview の指紋）＋ 下書きと文書の mtime。"""
+    """監視用: 検証結果一覧を DB に入れ直した時刻（compareview のフィンガープリント）＋ 下書きと文書の mtime。"""
     out = compareview.fingerprint(paths)
     for p in [*documents(paths), *(p for p, _ in drafts(paths))]:
         try:

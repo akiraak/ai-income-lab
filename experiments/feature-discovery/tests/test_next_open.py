@@ -1,6 +1,6 @@
 """翌日始値で執行する `[trading] execution = "next_open"`（rules.md 22 章。2026-10-08）。
 
-⚠ **無い config は 1 ビットも変わらない**（既定経路の指紋は `test_trading_run.py`）。⚠ 変わるのは損益の系列だけで、
+⚠ **無い config は 1 ビットも変わらない**（既定経路のフィンガープリントは `test_trading_run.py`）。⚠ 変わるのは損益の系列だけで、
 合図・的中率・IC は同じ。⚠ 始値は (銘柄, 日) で継ぎ、足 t より後の値段しか使わない。
 """
 
@@ -84,7 +84,7 @@ def test_other_series_changes_pnl_but_not_the_signal(run):
     a, *_ = evaluate_trading(p, _feats(p), _exp(), run)
     b, *_ = evaluate_trading(q, _feats(p), _exp("next_open"), run)
     assert np.allclose(a["的中率"], b["的中率"]) and np.allclose(a["IC"], b["IC"])   # 合図と当たり方は同じ
-    assert np.allclose(a["取引回数"], b["取引回数"])                                   # 状態機械も同じ
+    assert np.allclose(a["取引回数"], b["取引回数"])                                   # ステートマシンも同じ
     assert not np.allclose(a["純利bp"], b["純利bp"])
     # B&H も同じ系列で回る（22-1 の 3）: 粗利 ＝ fold の y_exec の合計（bp・銘柄平均）
     bh = b[(b["手法"] == "基準 常に上（ドリフト）") & (b["閾値"] == 50.0)]

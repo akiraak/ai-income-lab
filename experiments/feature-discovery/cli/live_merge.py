@@ -1,7 +1,7 @@
-"""実売買用の足の継ぎ足し: 「種（研究用 `data/` の写し）の歴史」＋「取り直した足のうち、種の最終日以降」。
+"""実売買用の足の継ぎ足し: 「種（研究用 `data/` のコピー）の歴史」＋「取り直した足のうち、種の最終日以降」。
 
     python3 -m cli.live_merge --seed        # 初回: data/ → AIL_DATA_DIR（us63 の raw・adjusted と外部系列）＋ seed.json
-    python3 -m cli.live_merge --staging <取り直した足の置き場（AIL_DATA_DIR の形）>
+    python3 -m cli.live_merge --staging <取り直した足の保存先（AIL_DATA_DIR の形）>
 
 ⚠ **なぜ丸ごと取り直したものを使わないか**【実測 2026-09-19】: DXLink の日足は、取り直すと過去が変わる。
   - 値が小数 2 桁に丸まって返る（種は 6 桁）

@@ -324,7 +324,7 @@ class Executor:
                 except (ApiError, ProductionGuard) as exc:
                     res.error = {"type": type(exc).__name__, "message": str(exc)[:300]}
             if status not in FINAL:
-                # ⚠ まだ働いている（取消が通らなかった）＝ この後に約定しうる。部分約定もここでは台帳に入れない
+                # ⚠ まだ働いている（取消が通らなかった）＝ この後に約定しうる。部分約定もここでは売買履歴に入れない
                 #    （次の起動の復元が取り消してから全部を読む ＝ 二重に入れない）
                 res.final_status = UNKNOWN
                 return res
@@ -347,13 +347,13 @@ class Executor:
             res.elapsed_ms = round((res.elapsed_ms or 0.0) + (time.perf_counter() - t0) * 1000, 1)
 
     def run_all(self, orders: list[NetOrder], quotes_raw: dict[str, dict], on_result=None) -> list[ExecResult]:
-        """`on_result(res)` は 1 注文が片付くたびに呼ぶ（台帳の保存と控えの done を注文ごとに済ませるため）。
+        """`on_result(res)` は 1 注文が片付くたびに呼ぶ（売買履歴の保存と控えの done を注文ごとに済ませるため）。
 
         ⚠ **発注するとき（submit）は 2 段**（2026-09-20。利用者決定 D6）: ① 全部の注文を順に「控え → dry-run → 発注」まで出し、
         ② その後で 1 本ずつ約定を確かめる。1 本ごとに約定を待つ直列の形だと、待ちが本数ぶん積み上がって窓に収まらない
         （120 本で約 19 分【推測。sandbox の実測 dry-run 0.9 ＋ 発注 1.9 ＋ 約定 6.8 秒から】）。
-        順（売りが先・買いが後）・控え・1 注文ごとの台帳の保存・1 本ごとの取消の期限は直列のときと同じ。
-        ①の途中で落ちても、出した注文は控えに注文番号つきで残る ＝ 次の起動が照会して台帳に戻す（§0-8 の段 1）。
+        順（売りが先・買いが後）・控え・1 注文ごとの売買履歴の保存・1 本ごとの取消の期限は直列のときと同じ。
+        ①の途中で落ちても、出した注文は控えに注文番号つきで残る ＝ 次の起動が照会して売買履歴に戻す（§0-8 の段 1）。
         `pipeline=False`（`run_day.py --serial`）で元の直列に戻せる。
         """
         results: list[ExecResult] = []
@@ -381,7 +381,7 @@ class Executor:
 
 
 def allocate_fills(res: ExecResult) -> list[dict]:
-    """1 注文の約定をトレーダーの台帳に戻す。⚠ 2026-09-19 から 1 注文 1 トレーダーなので、約定も手数料もその人に全部付く
+    """1 注文の約定をトレーダーの売買履歴に戻す。⚠ 2026-09-19 から 1 注文 1 トレーダーなので、約定も手数料もその人に全部付く
     （`parts` が複数の形も読めるまま残す ＝ 数量と手数料は parts の比で配り、端数は最後の人に寄せる）。約定価格は加重平均。
     """
     total_qty = sum(f.shares for f in res.fills)

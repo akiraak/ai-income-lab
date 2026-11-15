@@ -3,8 +3,8 @@
     python3 launchlog.py add --kind prepare --start 2026-10-19T13:00:01Z --rc 1 --stage update --steps update=1,paper=0,yardstick=0 --note "…"
     python3 launchlog.py show [--days 20]          # 直近の行（日付・種類・rc・秒・理由）
 
-⚠ 置き場は `<out>/launches.jsonl`（DB の lines。`LT_OUT_DIR` があればそこ）。⚠ **`out/<日付>/` には書かない**
-   （朝の準備で今日のディレクトリができると、管理画面の見張り「今日の起動が無い」と `yardstick.py` が読み違える）。
+⚠ 保存先は `<out>/launches.jsonl`（DB の lines。`LT_OUT_DIR` があればそこ）。⚠ **`out/<日付>/` には書かない**
+   （朝の準備で今日のディレクトリができると、管理画面の監視「今日の起動が無い」と `yardstick.py` が読み違える）。
 ⚠ 書けなくても起動の rc は変えない（`run-live.sh` が警告 1 行にする）。売買の判断には使わない ＝ 読むのは `yardstick.py` と管理画面だけ。
 """
 from __future__ import annotations

@@ -6,13 +6,13 @@
     python liquidate.py --traders T1,T3 --env prod --mode dry-run --allow-prod-dry-run
     TT_ALLOW_PROD_ORDERS=1 python liquidate.py --traders T1,T3 --env prod --mode submit --i-know-this-is-real-money --while-halted
 
-⚠ **毎日の執行器（run_day.py）とは別の 1 本**で、部品（発注・控え・売買履歴・記録・許可・印・ロック）はそのまま使う ＝ 毎日の経路は変えない。
+⚠ **毎日の執行エンジン（run_day.py）とは別の 1 本**で、部品（発注・控え・売買履歴・記録・許可・印・ロック）はそのまま使う ＝ 毎日の経路は変えない。
 ⚠ 売るのは **その人の売買履歴にある持ち株だけ**。口座にあって売買履歴に無い株は売らない（差を推測で誰かに割り振らない ＝ live-trading.md §0-8）。
-⚠ 許可は毎日の執行器と同じ 3 段（既定 dry-run ／ 本番の dry-run は --allow-prod-dry-run ／ 本番の発注は TT_ALLOW_PROD_ORDERS=1 ＋ --i-know-this-is-real-money）。
-   「本番の機械ではない」印・シミュレーションモードでは拒む。run.lock を取る（毎日の執行器と同時に動かない）。
+⚠ 許可は毎日の執行エンジンと同じ 3 段（既定 dry-run ／ 本番の dry-run は --allow-prod-dry-run ／ 本番の発注は TT_ALLOW_PROD_ORDERS=1 ＋ --i-know-this-is-real-money）。
+   「本番の機械ではない」印・シミュレーションモードでは拒む。run.lock を取る（毎日の執行エンジンと同時に動かない）。
 ⚠ HALT がある間は拒む。--while-halted を付けたときだけ通す（止めてから手じまいする、が普通の順）。
 ⚠ 動くのは市場が開いている間（NYSE の営業日の 9:30〜引け）。15:45〜16:05 の時間帯には限らない。--ignore-market-hours はテスト・モック用。
-⚠ 記録は毎日の執行器と同じ out/<日付>/（orders.jsonl の行に liquidate: true）。状態を書くのは --mode submit のときだけ。
+⚠ 記録は毎日の執行エンジンと同じ out/<日付>/（orders.jsonl の行に liquidate: true）。状態を書くのは --mode submit のときだけ。
 """
 
 from __future__ import annotations
@@ -35,7 +35,7 @@ from ttclient import ApiError  # noqa: E402
 import ledger  # noqa: E402
 import mode as modes  # noqa: E402
 import recovery  # noqa: E402
-import run_day as day  # noqa: E402  DayRecorder・make_client・now_et・is_loopback（毎日の執行器の部品をそのまま使う）
+import run_day as day  # noqa: E402  DayRecorder・make_client・now_et・is_loopback（毎日の執行エンジンの部品をそのまま使う）
 from execute import UNKNOWN, Executor, allocate_fills  # noqa: E402
 from journal import Journal  # noqa: E402
 from plan import NetOrder  # noqa: E402
@@ -48,7 +48,7 @@ DEFAULT_CANCEL_AFTER = 300.0   # 成行なのでふつうは数秒で約定す�
 
 
 def market_refusal(now_et: datetime) -> str | None:
-    """市場が閉まっていれば理由を返す（開いていれば None）。暦は毎日の執行器と同じ `market_calendar`（半日立会は 13:00 ET 引け）。"""
+    """市場が閉まっていれば理由を返す（開いていれば None）。暦は毎日の執行エンジンと同じ `market_calendar`（半日立会は 13:00 ET 引け）。"""
     cal = market_calendar.nyse()
     d = now_et.date()
     if now_et.weekday() >= 5:
@@ -109,7 +109,7 @@ def main() -> int:
     allow_prod_orders = args.i_know_this_is_real_money and cfg.get("TT_ALLOW_PROD_ORDERS") == "1"
     is_mock = bool(cfg.get("TT_REST_BASE") or cfg.get("TT_PROD_REST_BASE"))
 
-    # ---- 0. モード・置き場・印・許可・ロック（毎日の執行器と同じ順。⚠ 手じまいは本物の時計だけ ＝ 仮の時計は無い）
+    # ---- 0. モード・保存先・印・許可・ロック（毎日の執行エンジンと同じ順。⚠ 手じまいは本物の時計だけ ＝ 仮の時計は無い）
     try:
         machine = modes.read_mode()
     except modes.ModeError as exc:
@@ -176,10 +176,10 @@ def main() -> int:
         print(f"拒否: {refusal}。テストなら --ignore-market-hours", file=sys.stderr)
         return 4
     rec.write("events", meta)
-    # ⚠ --while-halted のとき、発注の部品（Executor）には「無い」道を渡す ＝ 部品の HALT の見張りをこの実行だけ外す（本物の HALT は触らない）
+    # ⚠ --while-halted のとき、発注の部品（Executor）には「無い」パスを渡す ＝ 部品の HALT の監視をこの実行だけ外す（本物の HALT は触らない）
     exec_halt_file = halt_file if not args.while_halted else halt_file + ".ignored-by-liquidate"
 
-    # ---- 1. 認証・口座・建玉・残高 → 控えの未完 → 突き合わせ（毎日の執行器と同じ順。売買の前に済ませる）
+    # ---- 1. 認証・口座・建玉・残高 → 控えの未完 → 照合（毎日の執行エンジンと同じ順。売買の前に済ませる）
     try:
         client = day.make_client(cfg, env, args.allow_prod_dry_run, allow_prod_orders, rec, args.auth_retry_wait)
     except ApiError as exc:
@@ -278,7 +278,7 @@ def main() -> int:
                   cancel_after=args.cancel_after, journal=journal, pipeline=not args.serial)
     results = ex.run_all(orders, quotes_raw, on_result=settle)
 
-    # ---- 4. 後: 残高・建玉・各人の日次の行・口座と売買履歴の突き合わせ
+    # ---- 4. 後: 残高・建玉・各人の日次の行・口座と売買履歴の照合
     diff: dict[str, dict] = {}
     if args.mode == "submit":
         for t in traders:

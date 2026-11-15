@@ -1,9 +1,9 @@
-"""記録の置き場 `livefs`（experiments/tastytrade-api-sample/livefs.py）を管理画面から使う 1 か所。
+"""記録の保存先 `livefs`（experiments/tastytrade-api-sample/livefs.py）を管理画面から使う 1 か所。
 
     from app.livestore import livefs
 
-⚠ 2026-09-21 から、執行器・API 検証・管理画面の記録は道はそのままで中身は DB（本物はリポジトリ直下の live.sqlite・
-シミュレーションは木の sim.sqlite・デモはデモの置き場の demo.sqlite）。プラン db-model-facts.md §11。
+⚠ 2026-09-21 から、執行エンジン・API 検証・管理画面の記録はパスはそのままで中身は DB（本物はリポジトリ直下の live.sqlite・
+シミュレーションは木の sim.sqlite・デモはデモの保存先の demo.sqlite）。プラン db-model-facts.md §11。
 ⚠ `HALT` はファイルのまま（停止ボタンはファイルの有無で止める）。
 """
 
@@ -18,7 +18,7 @@ import livefs  # noqa: E402,F401
 
 
 def ensure_db(dirpath: Path, kind: str = "demo") -> None:
-    """`dirpath` の記録が入る DB が無ければ、そこに作る（テスト・デモ・Docker の /data）。⚠ 本物の置き場は live.sqlite に入る。"""
+    """`dirpath` の記録が入る DB が無ければ、そこに作る（テスト・デモ・Docker の /data）。⚠ 本物の保存先は live.sqlite に入る。"""
     try:
         livefs.locate(Path(dirpath) / "_")
     except livefs.LiveFsError:
@@ -26,7 +26,7 @@ def ensure_db(dirpath: Path, kind: str = "demo") -> None:
 
 
 def load_fixture(dirpath: Path) -> int:
-    """git に入っているデモの記録（`dashboard/demo/live/` のファイル）を、その置き場の demo.sqlite に入れる（入っていればとばす）。
+    """git に入っているデモの記録（`dashboard/demo/live/` のファイル）を、その保存先の demo.sqlite に入れる（入っていればとばす）。
     ⚠ ファイルがデモの正本（テストの部品）で、demo.sqlite は起動のたびに作り直せる生成物。入れた数を返す。"""
     dirpath = Path(dirpath)
     if not (dirpath / "out").is_dir() and not (dirpath / "state").is_dir():

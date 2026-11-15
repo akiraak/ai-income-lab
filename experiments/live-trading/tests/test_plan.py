@@ -1,4 +1,4 @@
-"""状態機械・株数・予算の上限・銘柄ごとの合算（プラン §2-3・§6 の「予算」）。"""
+"""ステートマシン・株数・予算の上限・銘柄ごとの合算（プラン §2-3・§6 の「予算」）。"""
 import pytest
 
 from plan import build_plan, decide, size_intents, to_orders

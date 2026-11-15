@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
-"""実売買・API 検証・管理画面・シミュレーションの記録の置き場（SQLite）。2026-09-21（プラン db-model-facts.md §11）。
+"""実売買・API 検証・管理画面・シミュレーションの記録の保存先（SQLite）。2026-09-21（プラン db-model-facts.md §11）。
 
-⚠ **記録の道の決め方はいままでと同じ**。記録のファイルの道（`out/2026-09-22/orders.jsonl`・`state/prod/T1.json` …）を
-そのまま鍵にして、道の近くにある DB ファイルに入れる:
+⚠ **記録のパスの決め方はいままでと同じ**。記録のファイルのパス（`out/2026-09-22/orders.jsonl`・`state/prod/T1.json` …）を
+そのまま鍵にして、パスの近くにある DB ファイルに入れる:
 
-  - 道から親へたどり、最初に見つかった `live.sqlite` ／ `sim.sqlite` ／ `demo.sqlite` に入る
-    （鍵 ＝ その DB のあるディレクトリからの相対の道）。シミュレーションの木・テストの一時置き場は自分の DB を持つ
-  - 本物 ＝ リポジトリ直下の `live.sqlite`（執行器 ＋ API 検証 ＋ 管理画面で 1 つ ＝ 2026-09-21 の利用者の裁定）。
-    ⚠ **本物に入れてよいのは `REAL_PLACES` の下だけ**。ほかの道（DB を作り忘れたシミュレーションの木・デモ）は止まる
+  - パスから親へたどり、最初に見つかった `live.sqlite` ／ `sim.sqlite` ／ `demo.sqlite` に入る
+    （鍵 ＝ その DB のあるディレクトリからの相対のパス）。シミュレーションの木・テストの一時ディレクトリは自分の DB を持つ
+  - 本物 ＝ リポジトリ直下の `live.sqlite`（執行エンジン ＋ API 検証 ＋ 管理画面で 1 つ ＝ 2026-09-21 の利用者の裁定）。
+    ⚠ **本物に入れてよいのは `REAL_PLACES` の下だけ**。ほかのパス（DB を作り忘れたシミュレーションの木・デモ）は止まる
   - ⚠ どの DB にも当たらない道は止まる（`LiveFsError`）＝ テストが本物に書く事故は起きない
 
 表:
@@ -16,18 +16,18 @@
   docs_history  docs を書き換える・消す前の中身（トリガーが残す）
 
 ⚠ **入れないもの**: `HALT`・`MODE`・`run.lock`・シミュレーションの `control.json`（ファイルの有無で止める・切り替える
-仕組み）・入力データ・設定・プロセスの画面の写し。これらは今までどおりファイル。
-⚠ 標準ライブラリだけ（執行器・管理画面・vibeboard の sidecar のどこからでも同じ形で読める）。
+仕組み）・入力データ・設定・プロセスの画面のコピー。これらは今までどおりファイル。
+⚠ 標準ライブラリだけ（執行エンジン・管理画面・vibeboard の sidecar のどこからでも同じ形で読める）。
 
     python3 livefs.py stats                          # 本物の DB の中身の数
-    python3 livefs.py ls <道> ／ cat <道>             # 記録を見る（cat は元のファイルと同じ文字）
+    python3 livefs.py ls <パス> ／ cat <パス>             # 記録を見る（cat は元のファイルと同じ文字）
     python3 livefs.py dump <DB のあるディレクトリ>    # 全部の行と docs（秘密の grep 用）
-    python3 livefs.py append <道> < 行               # 標準入力の行を足す（run-live.sh の predict.jsonl）
-    python3 livefs.py import <ディレクトリ>...        # いままでのファイルを取り込む（入っているものは突き合わせてとばす）
-    python3 livefs.py verify <ディレクトリ>...        # ファイルと DB を 1 ビットずつ突き合わせる
-    python3 livefs.py remove --i-verified <ディレクトリ>...   # 突き合わせて一致したファイルだけ消す（⚠ 利用者の了承のあと）
-    python3 livefs.py backup --db <DB> --to <道>     # 控え（書いている最中でも壊れない写し）
-    python3 livefs.py export <道> --to <置き場>       # 道の下の記録を、いままでと同じファイルの形で書き出す（控え・読むための写し）
+    python3 livefs.py append <パス> < 行               # 標準入力の行を足す（run-live.sh の predict.jsonl）
+    python3 livefs.py import <ディレクトリ>...        # いままでのファイルを取り込む（入っているものは照合してとばす）
+    python3 livefs.py verify <ディレクトリ>...        # ファイルと DB を 1 ビットずつ照合する
+    python3 livefs.py remove --i-verified <ディレクトリ>...   # 照合して一致したファイルだけ消す（⚠ 利用者の了承のあと）
+    python3 livefs.py backup --db <DB> --to <パス>     # 控え（書いている最中でも壊れないコピー）
+    python3 livefs.py export <パス> --to <保存先>       # パスの下の記録を、いままでと同じファイルの形で書き出す（控え・読むためのコピー）
     python3 livefs.py init <ディレクトリ> live|sim|demo   # そのディレクトリに DB を作る（シミュレーションの木・テスト）
 """
 
@@ -46,7 +46,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 REPO_ROOT = os.path.normpath(os.path.join(HERE, "..", ".."))
 DB_NAMES = ("live.sqlite", "sim.sqlite", "demo.sqlite")
 REAL_DB = os.path.join(REPO_ROOT, "live.sqlite")
-# ⚠ 本物の DB に入れてよい置き場（リポジトリ直下からの道）。ほかは止まる
+# ⚠ 本物の DB に入れてよい保存先（リポジトリ直下からのパス）。ほかは止まる
 REAL_PLACES = ("experiments/live-trading/out", "experiments/live-trading/state", "experiments/live-trading/mode.log",
                "experiments/tastytrade-api-sample/out", "dashboard/data")
 REAL_EXCLUDED = ("dashboard/data/demo",)
@@ -54,13 +54,13 @@ REAL_EXCLUDED = ("dashboard/data/demo",)
 LINE_SUFFIXES = (".jsonl", ".log")
 # ⚠ 取り込まない（ファイルのまま）: 止める・切り替える・排他の仕組み・シミュレーションの制御と入力
 NOT_RECORDS = {"HALT", "MODE", "run.lock", "control.json", "status.json", "data.json", "env.empty"} | set(DB_NAMES)
-# ⚠ プロセスの画面の写し（systemd の `StandardOutput=append:…/out/timer-run.log`・`timer-prepare.log`）もファイルのまま
-#    （CLAUDE.md「ファイルのまま」）。取り込まない・突き合わせない・`remove` で消さない（2026-09-24。TODO「timer の記録の置き場を確かめる」）
+# ⚠ プロセスの画面のコピー（systemd の `StandardOutput=append:…/out/timer-run.log`・`timer-prepare.log`）もファイルのまま
+#    （CLAUDE.md「ファイルのまま」）。取り込まない・照合ない・`remove` で消さない（2026-09-24。TODO「timer の記録の保存先を確かめる」）
 SCREEN_COPY_PREFIX = "timer-"
 
 
 def is_record_file(name: str) -> bool:
-    """記録としてDB に入れる／突き合わせる対象か（ファイル名だけで判定）。"""
+    """記録としてDB に入れる／照合する対象か（ファイル名だけで判定）。"""
     if name in NOT_RECORDS or name.endswith(".tmp") or name.endswith((".sqlite-wal", ".sqlite-shm")):
         return False
     if name.startswith(SCREEN_COPY_PREFIX) and name.endswith(".log"):
@@ -124,7 +124,7 @@ def _under(rel: str, place: str) -> bool:
 
 
 def locate(path) -> tuple[str, str]:
-    """記録の道 → (DB ファイル, 鍵)。⚠ 当たる DB が無ければ止まる（本物に落ちない）。"""
+    """記録のパス → (DB ファイル, 鍵)。⚠ 当たる DB が無ければ止まる（本物に落ちない）。"""
     p = os.path.abspath(os.fspath(path))
     d = p
     while True:
@@ -141,7 +141,7 @@ def locate(path) -> tuple[str, str]:
         d = parent
     key = _rel(p, REPO_ROOT)
     if not key.startswith(".."):
-        _check_real(key, p)            # 本物の DB がまだ無い（最初の 1 回）＝ 決まった置き場なら作る
+        _check_real(key, p)            # 本物の DB がまだ無い（最初の 1 回）＝ 決まったパスなら作る
         return REAL_DB, key
     raise LiveFsError(f"記録の置き場の DB が無い: {p}（シミュレーション・テストは `livefs.init(<置き場>, ...)` で先に作る）")
 
@@ -168,7 +168,7 @@ def connect(db: str) -> sqlite3.Connection:
 
 
 def forget(db: str | None = None) -> None:
-    """使い回しの接続を閉じる（テストが置き場を消したとき・fork の前）。"""
+    """使い回しの接続を閉じる（テストが保存先を消したとき・fork の前）。"""
     with _LOCK:
         for k in ([db] if db else list(_CONN)):
             if (c := _CONN.pop(k, None)) is not None:
@@ -176,7 +176,7 @@ def forget(db: str | None = None) -> None:
 
 
 def init(dirpath, kind: str) -> str:
-    """`<dirpath>/<kind>.sqlite` を作る（シミュレーションの木・テストの一時置き場・デモ）。できた DB の道。"""
+    """`<dirpath>/<kind>.sqlite` を作る（シミュレーションの木・テストの一時ディレクトリ・デモ）。できた DB のパス。"""
     if f"{kind}.sqlite" not in DB_NAMES:
         raise ValueError(f"知らない DB の種類: {kind}")
     db = os.path.join(os.path.abspath(os.fspath(dirpath)), f"{kind}.sqlite")
@@ -217,8 +217,8 @@ def append_many(path, texts) -> None:
 
 
 def _locate_for_read(path, missing_ok: bool) -> tuple[str, str] | None:
-    """読むときの道 → (DB, 鍵)。⚠ **どの DB にも当たらない道は止まる**（設定の誤りで「何も持っていない」と読まない ＝
-    執行器が同じ株を買い直さない）。`missing_ok=True`（管理画面）なら None。"""
+    """読むときのパス → (DB, 鍵)。⚠ **どの DB にも当たらない道は止まる**（設定の誤りで「何も持っていない」と読まない ＝
+    執行エンジンが同じ株を買い直さない）。`missing_ok=True`（管理画面）なら None。"""
     try:
         return locate(path)
     except LiveFsError:
@@ -267,7 +267,7 @@ def remove_doc(path) -> bool:
         return connect(db).execute("DELETE FROM docs WHERE path = ?", (key,)).rowcount > 0
 
 
-# --- 道として見る -----------------------------------------------------
+# --- パスとして見る -----------------------------------------------------
 
 def read_text(path, missing_ok: bool = False) -> str | None:
     """いままでのファイルと同じ文字（行なら改行でつないで最後に改行・丸ごとならそのまま）。無ければ None。"""
@@ -310,7 +310,7 @@ def listdir(dirpath, missing_ok: bool = False) -> list[str]:
 
 
 def stamp(dirpath, missing_ok: bool = True) -> tuple:
-    """その下の行の指紋（道・行数）。⚠ 行は足すだけ（書き換え・消しは trigger が止める）なので、行数が同じなら中身も同じ。
+    """その下の行のフィンガープリント（パス・行数）。⚠ 行は足すだけ（書き換え・消しは trigger が止める）なので、行数が同じなら中身も同じ。
     管理画面が過ぎた日を覚えておくのに使う（丸ごとの docs は見ない）。"""
     hit = _locate_for_read(dirpath, missing_ok)
     if hit is None:
@@ -325,7 +325,7 @@ def stamp(dirpath, missing_ok: bool = True) -> tuple:
 
 
 def find(dirpath, pattern: str, missing_ok: bool = False) -> list[str]:
-    """`dirpath` の下で `pattern`（`*/positions.jsonl`・`*.json` など。`/` で区切った段ごとに fnmatch）に合う道。"""
+    """`dirpath` の下で `pattern`（`*/positions.jsonl`・`*.json` など。`/` で区切った段ごとに fnmatch）に合うパス。"""
     _db, head, keys = _keys_under(dirpath, missing_ok)
     want = pattern.split("/")
     base = os.path.abspath(os.fspath(dirpath))
@@ -337,7 +337,7 @@ def find(dirpath, pattern: str, missing_ok: bool = False) -> list[str]:
     return sorted(out)
 
 
-# --- いままでのファイルの取り込み・突き合わせ -------------------------
+# --- いままでのファイルの取り込み・照合 -------------------------
 
 def _files(root: str) -> list[str]:
     out = []
@@ -379,7 +379,7 @@ def import_file(fs_path: str) -> str:
 
 
 def verify_file(fs_path: str) -> str | None:
-    """食い違いの理由（一致なら None）。⚠ DB から作り直した文字の指紋とディスクの指紋を比べる。"""
+    """食い違いの理由（一致なら None）。⚠ DB から作り直した文字のフィンガープリントとディスクのフィンガープリントを比べる。"""
     with open(fs_path, "rb") as f:
         want = _sha(f.read())
     got = read_text(fs_path)

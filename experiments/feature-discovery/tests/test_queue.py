@@ -1,7 +1,7 @@
 """⚠ **器そのものを検査する。** 中身（GA）ではなく「回し続ける仕組み」の側。
 
 ⚠ **この器で壊れると痛いのは 3 つ**（プラン `plans/archive/evolutionary-search-runner.md` §4）。
-  1. ⚠ **済んだ実行を 2 度回す** — `runs/` にディレクトリが 2 つでき、⚠ **台帳の鍵では 1 行のままなので
+  1. ⚠ **済んだ実行を 2 度回す** — `runs/` にディレクトリが 2 つでき、⚠ **検証結果一覧の鍵では 1 行のままなので
      気づけない**（数え落としと同じ形で、しかも気づけない）
   2. ⚠ **leak 対照が並ばない** — 配線の穴に気づく唯一の手が消える（rules.md 14-10 規約 6）
   3. ⚠ **止まらない** — 回し続ける仕組みは、放っておくと `n_trials` を無限に増やす
@@ -120,7 +120,7 @@ def test_時間の上限で止まる(q):
 
 
 def test_台帳は本番の後だけ吐き直す(q):
-    """⚠ **leak 対照は台帳に行が立たない**ので吐き直す意味が無い（毎回回すと遅くなるだけ）。"""
+    """⚠ **leak 対照は検証結果一覧に行が立たない**ので再生成する意味が無い（毎回回すと遅くなるだけ）。"""
     seen = []
     queue.run_queue("q", runner=Runner(), ledger_writer=lambda: seen.append(1) or 42,
                     log=lambda *a: None, config_path=_cfg(q))
@@ -131,7 +131,7 @@ def test_台帳は本番の後だけ吐き直す(q):
 
 
 def test_途中で殺された項目は_pending_に戻る(q):
-    """⚠ **`running` のまま残った実行は `summary.csv` を書けていない** ので台帳に行が立たない。
+    """⚠ **`running` のまま残った実行は `summary.csv` を書けていない** ので検証結果一覧に行が立たない。
     ⚠ **回し直しても二重にならない。**"""
     old = {"items": [{"id": EXP, "experiment": EXP, "leak": False, "status": "running",
                       "attempts": 1, "run_dir": None, "n_trials": None,

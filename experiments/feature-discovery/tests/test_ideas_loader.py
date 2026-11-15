@@ -1,4 +1,4 @@
-"""開発ループの「新しい口の置き場」（rules.md 31 章・2026-10-25）: `ail/ideas/i*.py` を bootstrap が読む ／ `build.ORDER` に無い層は後ろに足す。
+"""開発ループの「新しい口の保存先」（rules.md 31 章・2026-10-25）: `ail/ideas/i*.py` を bootstrap が読む ／ `build.ORDER` に無い層は後ろに足す。
 
 ⚠ 既存の経路は 1 ビットも変わらない: 登録済みの層は全部 `ORDER` にある（並びが変わらない）・既存の登録名は残る。
 """
@@ -28,7 +28,7 @@ def test_layer_order_keeps_existing_configs_bit_identical():
     assert build.layer_order(["ex", "own", "ex"]) == ["own", "ex"]
     # 登録済みの層は全部 ORDER にある ＝ 既存の config の並びは前と同じ式（[l for l in ORDER if l in layers]）
     # ⚠ 2026-11-01: `ail/ideas/` が足した層（`mkt`）は ORDER に無い ＝ 後ろに足される側。それ以外は全部 ORDER にある
-    idea_layers = {"mkt", "gap", "evt", "attn"}      # gap ＝ 登録簿 20261101-gap-intraday-layer ／ evt ＝ 登録簿 20261108-edgar-8k-event-flags（2026-11-13）
+    idea_layers = {"mkt", "gap", "evt", "attn"}      # gap ＝ レジストリ 20261101-gap-intraday-layer ／ evt ＝ レジストリ 20261108-edgar-8k-event-flags（2026-11-13）
     assert set(registry.available("feature")) - idea_layers <= set(build.ORDER)
     for p in glob.glob(os.path.join(config.CONFIG, "experiment", "*.toml")):
         with open(p, "rb") as f:

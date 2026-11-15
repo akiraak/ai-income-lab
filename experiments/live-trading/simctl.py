@@ -2,13 +2,13 @@
 """シミュレーションの操作の口（⚠ **CLI だけ**。管理画面は表示だけ ＝ live-trading.md §0-7 (b)）。
 
     python simctl.py status                          # いまのモード・仮の時刻・速さ・何日目
-    python simctl.py mode sim sim1                   # 機械をシミュレーションモードへ（何も動いていないときだけ）
-    python simctl.py mode real                       # 実売買モードへ戻す（運転手が止まっているときだけ）
+    python simctl.py mode sim sim1                   # マシンをシミュレーションモードへ（何も動いていないときだけ）
+    python simctl.py mode real                       # 実売買モードへ戻す（ランナーが止まっているときだけ）
     python simctl.py speed 60                        # ×1 ／ ×10 ／ ×60 ／ ×300 ／ ×1440 ／ max
-    python simctl.py pause ／ resume ／ step ／ stop     # step ＝ 1 営業日進めて止まる。stop ＝ 運転手を終わらせる（その日の執行器が済んでから）
+    python simctl.py pause ／ resume ／ step ／ stop     # step ＝ 1 営業日進めて止まる。stop ＝ ランナーを終わらせる（その日の執行エンジンが済んでから）
     python simctl.py check                           # 記録の検査（全行 sim ／ mock ／ test・秘密が出ていない）
 
-`control.json` と `MODE` を書くだけで、運転手（simrun.py）がそれを読み直す。⚠ プロセスを起こさない・殺さない。
+`control.json` と `MODE` を書くだけで、ランナー（simrun.py）がそれを読み直す。⚠ プロセスを起こさない・殺さない。
 ⚠ 実売買モードでは、速さ・停止の操作を拒否する（操作する時計が無い）。
 """
 
@@ -68,7 +68,7 @@ def check(machine: modes.Mode) -> int:
     rows, bad, leaks = 0, 0, 0
     from _livefs import livefs
 
-    for path in livefs.find(os.path.join(root, "out"), "*/*.jsonl"):     # ⚠ 木の記録は木の sim.sqlite（道はそのまま）
+    for path in livefs.find(os.path.join(root, "out"), "*/*.jsonl"):     # ⚠ 木の記録は木の sim.sqlite（パスはそのまま）
         for line in livefs.read_lines(path):
             rows += 1
             row = json.loads(line)

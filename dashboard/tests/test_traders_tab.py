@@ -33,7 +33,7 @@ FORBIDDEN = [
 ]
 REAL_WORDS = Path(traderview.DASHBOARD_DIR) / "traders.toml"
 REAL_MODELS = Path(traderview.DASHBOARD_DIR) / "models.toml"
-# モデルの `[[model]]` のうち、正式な名前・鍵・道を書く欄（本文の検査の外）
+# モデルの `[[model]]` のうち、正式な名前・鍵・パスを書く欄（本文の検査の外）
 FORMAL_KEYS = ("id", "name", "method", "formal", "configs", "records", "also")
 # 用語を書いてよい欄 ＝ 画面の「詳しく（用語あり）」の囲み（`[model.detail.*]`。dashboard.md §17-2）
 DETAIL_KEYS = ("detail",)
@@ -133,7 +133,7 @@ def test_real_traders_all_have_model_words_and_nicks():
     assert "unsettled" not in words["common"], "「まだ確定していない」の帯は 2026-09-26 に消した"
 
 
-# ---------------------------------------------------------------- 最小の置き場
+# ---------------------------------------------------------------- 最小の保存先
 
 WORDS = '''
 [nicks]
@@ -469,7 +469,7 @@ def test_people_without_roles_do_not_change(roles):
 
 
 def test_find_model_also_matches_another_spelling(paths):
-    """`also` ＝ 同じモデルを別の表の実験名で使う綴り（2026-10-19）。name・method の両方が同じときだけ当たる。"""
+    """`also` ＝ 同じモデルを別の表の実験名で使う表記（2026-10-19）。name・method の両方が同じときだけ当たる。"""
     paths.models.write_text(MODELS + '\n[[model]]\nid = "c-type"\nname = "exp_c"\nmethod = "手法 C"\nlabel = "C"\nsummary = "C のひとこと"\n'
                             'also = [{ name = "exp_c_multi", method = "手法 C" }]\ntraits = []\nhow = "C"\n', encoding="utf-8")
     words = traderview.load_words(paths)
@@ -499,6 +499,6 @@ def test_real_horizon_candidates_have_roles_words_and_models():
         assert all(traderview.find_model(words, spec) is not None for spec in facts["models"]), name
         body = traderview.body(paths, name)
         assert "<span class='role'>買う係</span>" in body and f"買ってから {hold} 営業日" in body
-        assert ("（候補）" in body) == (name not in {"T18", "T19"}), name     # ⚠ 2026-11-01 T18・T19 は本番の人（直下の写し）
+        assert ("（候補）" in body) == (name not in {"T18", "T19"}), name     # ⚠ 2026-11-01 T18・T19 は本番の人（直下のコピー）
         assert ("<span class='role'>損切り係</span>" in body) == (int(name[1:]) <= 10), name
     assert [k for k, _f, _ok in traderview.trader_files(paths)][-12:] == list(holds)

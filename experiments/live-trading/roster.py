@@ -1,15 +1,15 @@
 #!/usr/bin/env python3
-"""名簿（誰を動かすか）。管理画面と CLI が書き、執行器が `--traders @roster` で毎日の回に読む（プラン docs/plans/archive/trader-roster-dashboard.md。2026-10-07 利用者決定）。
+"""名簿（誰を動かすか）。管理画面と CLI が書き、執行エンジンが `--traders @roster` で毎日の回に読む（プラン docs/plans/archive/trader-roster-dashboard.md。2026-10-07 利用者決定）。
 
     python roster.py show                           # 名簿
-    python roster.py add T4 --reason "入れ替え"     # 開始（名簿に入れる ＝ 停止 → 稼働。売買が始まるのは執行器の次の回から）
+    python roster.py add T4 --reason "入れ替え"     # 開始（名簿に入れる ＝ 停止 → 稼働。売買が始まるのは執行エンジンの次の回から）
     python roster.py remove T3                      # 名簿から抜く（＝ 停止。⚠ 非常時・テスト用。持ち株が 0 かは確かめない ＝ ふつうは管理画面の「手じまい」）
 
 ⚠ 2026-10-09 から管理画面に「外す」は無い（手じまいが済めば名簿に居たまま「停止」。plan docs/plans/archive/trader-status-flow.md）。
 
-置き場: <記録ディレクトリ>/roster.json（`HALT` の隣。⚠ `control/` の中には置かない ＝ control.py は `control/*.json` を全部読む）。
+保存先: <記録ディレクトリ>/roster.json（`HALT` の隣。⚠ `control/` の中には置かない ＝ control.py は `control/*.json` を全部読む）。
 中身: {"traders": [{"name", "since", "actor", "reason"}], "updated_at": iso}。並びは名簿に入った順（予算の合計が上限を超えたら、後から入った人から休ませる）。
-⚠ 無い ／ 壊れた名簿は「誰も居ない」と読まない（`RosterError` ＝ 執行器は起動を拒む）。⚠ 名簿に入れても、その場では何も買わない。
+⚠ 無い ／ 壊れた名簿は「誰も居ない」と読まない（`RosterError` ＝ 執行エンジンは起動を拒む）。⚠ 名簿に入れても、その場では何も買わない。
 """
 
 from __future__ import annotations
@@ -46,7 +46,7 @@ class Entry:
 
 
 def roster_path(halt_file: str) -> str:
-    """名簿の置き場 ＝ `HALT` と同じ記録ディレクトリの `roster.json`。"""
+    """名簿の保存先 ＝ `HALT` と同じ記録ディレクトリの `roster.json`。"""
     return os.path.join(os.path.dirname(halt_file), FILE_NAME)
 
 
@@ -101,7 +101,7 @@ def read(path: str) -> list[Entry] | None:
 
 
 def names(path: str) -> list[str]:
-    """執行器の入口: 名簿の識別名（入った順）。⚠ 無い ／ 壊れた名簿は RosterError。"""
+    """執行エンジンの入口: 名簿の識別名（入った順）。⚠ 無い ／ 壊れた名簿は RosterError。"""
     entries = read(path)
     if entries is None:
         raise RosterError(f"名簿が無い: {path}（管理画面の「開始」か roster.py add で作る）")

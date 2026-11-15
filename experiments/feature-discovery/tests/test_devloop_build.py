@@ -3,10 +3,10 @@
 ⚠ 2026-11-13 まで、この枝（`devloop.build` の mode = "claude"）にはテストが 1 本も無かった（試運転は mode = "manual" だけ）。
 全段の試運転に進む前に、偽の `claude`（ファイルを書く関数）と本物の `git status` ／ `git checkout` で次を固定する:
 
-  - 通った案 ＝ 書いたものが残り、登録簿は「作成中」・`experiments` が入る
+  - 通った案 ＝ 書いたものが残り、レジストリは「作成中」・`experiments` が入る
   - ⚠ **通らなかった案が書いたものは必ず消える**（費用の上限に当たった回 ＝ 結果が空 ／ `experiments` が無い ／ テストのファイルが無い ／
     テストが落ちた ／ allowlist の外）。残ると作りかけの `ail/ideas/i*.py` を `ail.bootstrap` が読み、晩のコミット（`git add -A`）が main に入れる
-  - その案より前からあった未コミットのファイル（その晩の段 1 が書いた登録簿）は消さない
+  - その案より前からあった未コミットのファイル（その晩の段 1 が書いたレジストリ）は消さない
 """
 
 from __future__ import annotations
@@ -36,7 +36,7 @@ def _idea(root, id_, status="登録"):
 
 @pytest.fixture
 def repo(tmp_path, monkeypatch):
-    """一時のリポジトリ（本物の git）。ROOT ＝ <repo>/experiments/feature-discovery（本物と同じ深さ ＝ テストのファイルの道の判定が同じ）。"""
+    """一時のリポジトリ（本物の git）。ROOT ＝ <repo>/experiments/feature-discovery（本物と同じ深さ ＝ テストのファイルのパスの判定が同じ）。"""
     root = tmp_path / FD
     for d in ("config/ideas", "config/experiment", "ail/ideas", "tests", "cli", "prompts"):
         (root / d).mkdir(parents=True)
@@ -51,7 +51,7 @@ def repo(tmp_path, monkeypatch):
     _git(tmp_path, "config", "user.name", "test")
     _git(tmp_path, "add", "-A")
     _git(tmp_path, "commit", "-q", "-m", "init")
-    # その晩の段 1 が書いた、まだコミットされていない登録簿（段 2 の前からある未追跡のファイル）
+    # その晩の段 1 が書いた、まだコミットされていないレジストリ（段 2 の前からある未追跡のファイル）
     _idea(root, "20261026-tonight", status="共有コード変更")
     cfg = {"ideation": {"prompts": "prompts", "reference_pct": 30, "ideas_per_night": 5},
            "build": {"mode": "claude", "max_turns": 10, "max_budget_usd": 5.0, "retries_per_idea": 2},
@@ -62,7 +62,7 @@ def repo(tmp_path, monkeypatch):
 
 
 def _env(repo_dir, root, writes: dict[str, str], result: str, *, errors=(), tests_rc=0, calls=None):
-    """偽の `claude` ＝ `writes`（ROOT 基準の道 → 中身）を書いて `result` を返す。git は本物。"""
+    """偽の `claude` ＝ `writes`（ROOT 基準のパス → 中身）を書いて `result` を返す。git は本物。"""
     calls = calls if calls is not None else []
 
     def claude(prompt, *, tools, max_turns, budget, cwd, timeout=None):
@@ -101,7 +101,7 @@ def test_built_idea_keeps_its_files_and_becomes_in_progress(repo):
     d = _doc(root)
     assert d["status"] == "作成中" and d["experiments"] == ["dev_x"] and d["build_attempts"] == 1
     assert all((root / rel).exists() for rel in FULL)
-    # 運転手が流すテスト ＝ 案のテスト ＋ 既定経路の指紋（共有の経路が 1 ビットも変わらないこと）
+    # ランナーが流すテスト ＝ 案のテスト ＋ 既定経路のフィンガープリント（共有の経路が 1 ビットも変わらないこと）
     t = [c for c in calls if c[0] == "tests"][0][1]
     assert t[0] == "tests/test_ideas_20261026_x.py" and {"tests/test_predict.py", "tests/test_trading_run.py"} <= set(t)
 
@@ -122,7 +122,7 @@ def test_failed_idea_leaves_nothing_behind(repo, writes, result, errors, tests_r
     logs: list[str] = []
     out = devloop.build(cfg, _env(repo_dir, root, writes, result, errors=errors, tests_rc=tests_rc), {}, "2026-10-26", logs.append)
     assert out["built"] == [] and len(out["failed"]) == 1 and why in out["failed"][0]["reason"]
-    # 残るのは: 前からあった今夜の登録簿 ＋ その案の登録簿（試した回数と理由を書き足した）だけ
+    # 残るのは: 前からあった今夜のレジストリ ＋ その案のレジストリ（試した回数と理由を書き足した）だけ
     assert _status(repo_dir) == {TONIGHT, f"{FD}/config/ideas/20261026-x.toml"}
     assert not (root / "ail" / "ideas" / "i20261026_x.py").exists() and not (root / "tests" / "test_ideas_20261026_x.py").exists()
     assert (root / "config" / "names.toml").read_text(encoding="utf-8") == '[detector]\n"old" = "old"\n'
@@ -139,5 +139,5 @@ def test_second_failure_marks_the_idea_failed_and_budget_error_is_in_the_reason(
     out = devloop.build(cfg, env, {}, "2026-10-27", lambda s: None)
     d = _doc(root)
     assert d["status"] == "失敗" and d["build_attempts"] == 2 and out["failed"][0]["status"] == "失敗"
-    assert "Reached maximum budget" in d["notes"]                                           # なぜ空だったかが登録簿に残る
+    assert "Reached maximum budget" in d["notes"]                                           # なぜ空だったかがレジストリに残る
     assert not (root / "ail" / "ideas" / "i20261026_x.py").exists()

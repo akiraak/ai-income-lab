@@ -1,8 +1,8 @@
-"""登録簿の 4 本（2026-11-07 の段 2・人の手）: 局面を列にした LightGBM R3 ／ 60 日の形の塊 P1 ／ 出来高の集まりの遅れ L2 ／
+"""レジストリの 4 本（2026-11-07 の段 2・人の手）: 局面を列にした LightGBM R3 ／ 60 日の形の塊 P1 ／ 出来高の集まりの遅れ L2 ／
 日付をずらした偽の実行（cli.null_shuffle）。
 
-⚠ 見るもの: 無い config は 1 ビットも変わらない（既存の登録名・綴り）／ 訓練分割だけで決める（k-means・集まり・順位・割合）／
-   出力の契約（行数・0〜100）／ 識別項目の綴り ／ 偽の実行の入れ替え方（断面を保つ・fold をまたがない・y の集合は同じ）。
+⚠ 見るもの: 無い config は 1 ビットも変わらない（既存の登録名・表記）／ 訓練分割だけで決める（k-means・集まり・順位・割合）／
+   出力の契約（行数・0〜100）／ 識別項目の表記 ／ 偽の実行の入れ替え方（断面を保つ・fold をまたがない・y の集合は同じ）。
 """
 
 from __future__ import annotations
@@ -150,5 +150,5 @@ def test_null_shuffle_keeps_cross_section_and_label_multiset():
     assert np.array_equal(o["own_x"].to_numpy(), df["own_x"].to_numpy())      # 特徴量は動かさない
     perm = ns.date_permutation(np.arange(45), 20, np.random.default_rng(0))
     assert sorted(perm) == list(range(45))
-    assert int((np.diff(perm) != 1).sum()) <= 2                               # 塊 3 つの中の並びは保つ（切れ目は 2 か所まで）
-    assert (ns.THETAS, ns.PERMS, ns.BLOCK) == ((50.0, 55.0, 60.0), 200, 20)  # ⚠ 事前固定（登録簿）
+    assert int((np.diff(perm) != 1).sum()) <= 2                               # 塊 3 つの中の並びは保つ（分割点は 2 か所まで）
+    assert (ns.THETAS, ns.PERMS, ns.BLOCK) == ((50.0, 55.0, 60.0), 200, 20)  # ⚠ 事前固定（レジストリ）

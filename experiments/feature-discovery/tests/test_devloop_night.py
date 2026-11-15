@@ -1,7 +1,7 @@
-"""開発ループの運転手 `cli.devloop night`（rules.md 31 章・プラン Phase 3）。外の世界（git・claude -p・cli.queue・pytest）は env で差し替える。
+"""開発ループのランナー `cli.devloop night`（rules.md 31 章・プラン Phase 3）。外の世界（git・claude -p・cli.queue・pytest）は env で差し替える。
 
-⚠ 段 0 門: HALT ／ 錠 ／ 汚れた木 ／ pull の失敗 ／ 打ち切り ② ③ で止まり、それでも段 4 と日誌は書く。
-⚠ 段 1: 出力を登録簿に写し、既出（識別項目が既にある）／ 共有コード変更（共有の経路）／ 登録（registered_at）に分ける。項目不足は 案 のまま。
+⚠ 段 0 門: HALT ／ ロック ／ 汚れたワーキングツリー ／ pull の失敗 ／ 打ち切り ② ③ で止まり、それでも段 4 とログは書く。
+⚠ 段 1: 出力をレジストリにコピー、既出（識別項目が既にある）／ 共有コード変更（共有の経路）／ 登録（registered_at）に分ける。項目不足は 案 のまま。
 ⚠ 段 3: 1 晩の上限（数える検証数）に収まる分だけ queue に並べ、回し切れた案だけ 回した に。段 4: 初回は写すだけ・新顔だけ机上の config。
 """
 
@@ -67,7 +67,7 @@ question = "問い"
 
 
 class FakeEnv:
-    """外の世界の写し。`calls` に呼ばれた順を残す。"""
+    """外の世界のコピー。`calls` に呼ばれた順を残す。"""
 
     def __init__(self, tmp, conn, *, dirty="", pull_rc=0, claude_result=IDEA_TOML, claude_errors=None, queue_ok=True):
         self.calls: list = []
@@ -169,7 +169,7 @@ def test_gate_stops_on_halt_dirty_tree_pull_and_counters(world):
     assert "止める手" in devloop.gate(cfg, fake.env, devloop.load_state(conn))
     (root / "DEVLOOP_HALT").unlink()
     assert "汚れている" in devloop.gate(cfg, FakeEnv(root, conn, dirty=" M TODO.md\n").env, devloop.load_state(conn))
-    # 自分の錠だけなら汚れていない（night が門の前に取る。2026-11-01）
+    # 自分のロックだけなら汚れていない（night が門の前に取る。2026-11-01）
     assert devloop.gate(cfg, FakeEnv(root, conn, dirty="?? experiments/feature-discovery/devloop.lock\n").env, devloop.load_state(conn)) is None
     assert "pull" in devloop.gate(cfg, FakeEnv(root, conn, pull_rc=1).env, devloop.load_state(conn))
     st = devloop.load_state(conn)
@@ -199,7 +199,7 @@ def test_lock_blocks_a_second_runner(world):
     assert "錠" in parts["stopped"]
     devloop.release_lock(str(root / "devloop.lock"))
     assert devloop.take_lock(str(root / "devloop.lock"))
-    (root / "devloop.lock").write_text("999999 x\n", encoding="utf-8")       # 死んだ pid の錠は取り直す
+    (root / "devloop.lock").write_text("999999 x\n", encoding="utf-8")       # 死んだ pid のロックは取り直す
     assert devloop.take_lock(str(root / "devloop.lock"))
 
 
@@ -317,7 +317,7 @@ def test_ideate_shows_similar_past_ideas_and_never_changes_status(world):
     assert out["counts"] == {"案": 2, "登録": 2, "既出": 2, "共有コード変更": 2}                          # ⚠ 状態は今までと同じ（表示だけ）
     assert by["新しい検知器"]["status"] == "登録" and "similar" not in by["新しい検知器"]
     d = tomllib.loads((root / "ideas" / f"{by['新しい検知器']['id']}.toml").read_text(encoding="utf-8"))
-    assert "similar" not in d and "似た" not in d.get("notes", "")                               # 登録簿には書かない
+    assert "similar" not in d and "似た" not in d.get("notes", "")                               # レジストリには書かない
     assert (root / "ideas" / "20261020-old-detector.toml").read_bytes() == before
     text = devloop.write_journal(cfg, "2026-10-26", {"stages": "0,1", "ideate": out}, str(root / "log" / "j.md"))
     row = f"| `{by['新しい検知器']['id']}` | {sim[by['新しい検知器']['id']][0]['score']:.2f} | `20261020-old-detector` | 回した | 新しい検知器の前の版 |"
@@ -360,14 +360,14 @@ def test_ideate_registers_and_classifies(world):
 
 
 def test_model_names_orders_by_cost_and_tolerates_junk():
-    """`claude -p` の `modelUsage` → 使ったモデルの名前（費用の大きい順）。無い ／ 壊れた応答は空 ＝ 日誌に何も足さない。"""
+    """`claude -p` の `modelUsage` → 使ったモデルの名前（費用の大きい順）。無い ／ 壊れた応答は空 ＝ ログに何も足さない。"""
     assert devloop.model_names({"claude-haiku-5-5": {"costUSD": 0.01}, "claude-fable-5-2": {"costUSD": 3.7}}) == "claude-fable-5-2 ＋ claude-haiku-5-5"
     assert devloop.model_names({"b": {}, "a": None}) == "a ＋ b"                        # 費用が読めなければ名前の順
     assert devloop.model_names(None) == "" and devloop.model_names([]) == "" and devloop.model_names({}) == ""
 
 
 def test_ideate_records_the_model_in_bundle_registry_and_journal(world, tmp_path):
-    """⚠ 運転手は `--model` を渡さない ＝ 機械の会話用の設定で動く。晩ごとにモデル名を 束 ・ 登録簿の origin ・ 日誌 に残す
+    """⚠ ランナーは `--model` を渡さない ＝ マシンの会話用の設定で動く。晩ごとにモデル名を 束 ・ レジストリの origin ・ ログ に残す
     （2026-11-13: 11/12 の晩から費用が約 2.2 倍になったが、どのモデルで動いたかが残っていなかった）。"""
     root, cfg, conn = world
     fake = FakeEnv(root, conn)
@@ -384,7 +384,7 @@ def test_ideate_records_the_model_in_bundle_registry_and_journal(world, tmp_path
 
 
 def test_ideate_without_a_model_name_keeps_the_old_shape(world, tmp_path):
-    """モデル名の無い応答（偽物 ・ 古い CLI ・ 上限に当たった回）でも落ちない: origin は今までどおり "claude" ・ 日誌の行に何も足さない。"""
+    """モデル名の無い応答（偽物 ・ 古い CLI ・ 上限に当たった回）でも落ちない: origin は今までどおり "claude" ・ ログの行に何も足さない。"""
     root, cfg, conn = world
     fake = FakeEnv(root, conn)
     out = devloop.ideate(cfg, fake.env, "2026-10-26", lambda s: None, [])
@@ -486,7 +486,7 @@ def test_dry_run_calls_nothing_outside(world):
     assert devloop.load_state(conn).get("last_night") is None                 # 状態も書かない
 
 
-# --- 週 1 回の候補の棚（rules.md 31-3 の 4・2026-11-01）--------------------------------------------------------
+# --- 週 1 回の候補リスト（rules.md 31-3 の 4・2026-11-01）--------------------------------------------------------
 
 def _add_row(conn, trial, model, verdict, method, runs):
     doc = {"手法名": method, "判定": verdict, "上乗せbp": 120.0, "上乗せfold": "5/5 ＋＋＋＋＋", "閾値": "50", "検証方式": "閾値売買",
@@ -614,7 +614,7 @@ def test_contract2_requires_frame_probability_and_learning_and_counts_outside(wo
 
 
 def test_contract3_requires_needed_effect_and_older_ideas_stay_valid(world):
-    # 31-6 の 5（2026-11-13）: 契約 3 の案は「保留以上に要る効果の大きさ」を回す前に書く。契約 2 までの登録簿には求めない
+    # 31-6 の 5（2026-11-13）: 契約 3 の案は「保留以上に要る効果の大きさ」を回す前に書く。契約 2 までのレジストリには求めない
     root, cfg, conn = world
     cfg["ideation"]["contract"] = 3
     with_effect = IDEA_V2.replace('learn_if_null = ', 'needed_effect = "行ごとの信号で 20 bp/日 級（検出力の実測では届かない見込み）"\nlearn_if_null = ', 1)

@@ -43,7 +43,7 @@ def _panel(n_days=900, n_sym=4, seed=0, leak=False, windows=WINDOWS):
         rows.append(d)
     out = pd.concat(rows, ignore_index=True).sort_values(["ts", "symbol"])
     # ⚠ **本物の表と同じく `dropna` を 1 か所で当てる**（`cli/build.py`）。
-    # ⚠ **頭は助走・尻はスケールのラベルで削れる** — 両端が削れるのは表の性質であって不具合ではない
+    # ⚠ **頭は助走・末尾はスケールのラベルで削れる** — 両端が削れるのは表の性質であって不具合ではない
     return out.dropna().reset_index(drop=True)
 
 
@@ -97,7 +97,7 @@ def test_classic_filter_is_the_sign_of_the_moving_average_gap():
 # --- 2. holdout のパージ ------------------------------------------------
 
 def test_date_holdout_purges_by_the_label_length():
-    """⚠ **頭の終わり ＋ W 日 ≤ 尻の始まり。** 重なると較正も門の値も楽観側に外れる。"""
+    """⚠ **頭の終わり ＋ W 日 ≤ 末尾の始まり。** 重なると較正も門の値も楽観側に外れる。"""
     ts = pd.Series(pd.date_range("2020-01-01", periods=4000, freq="D", tz="UTC"))
     head, hold = date_holdout(ts, label_bars=200)
     gap = ts[hold].min() - ts[head].max()

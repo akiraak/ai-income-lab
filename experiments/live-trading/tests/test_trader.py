@@ -125,14 +125,14 @@ def test_confirmed_traders_are_the_shares_candidates():
     assert all(list(t.symbols) == ["T", "PFE", "NKE", "VZ", "BAC"] and t.sizing == "shares" for t in got)
 
 
-# ---------- 複数モデルの候補（config/traders/candidates/multi/。2026-09-28 Phase 4。⚠ テストだけ ＝ 執行器は変えない）----------
+# ---------- 複数モデルの候補（config/traders/candidates/multi/。2026-09-28 Phase 4。⚠ テストだけ ＝ 執行エンジンは変えない）----------
 
 MULTI = os.path.join(CONF, "candidates", "multi")
 
 
 def test_multi_candidates_parse_and_are_wired_as_decided():
     """実例 A `T4` ＝ いまの 3 本を mean・θ 50 ／ 実例 B `T5` ＝ 主モデル ＋ 出口だけの損切りモデルを unanimous・θ 50（K1・K2・K6）。
-    どちらも本番の人ではない（直下に無い）。予算は 2 人で $600 ＝ 執行器の既定の上限 $1,000 の内（sim5 は 2 人だけ）。"""
+    どちらも本番の人ではない（直下に無い）。予算は 2 人で $600 ＝ 執行エンジンの既定の上限 $1,000 の内（sim5 は 2 人だけ）。"""
     from trader import load_traders
     ts = {t.name: t for t in load_traders(["T4", "T5"], MULTI)}
     assert all(not t.test and t.sizing == "shares" and t.threshold == 50.0 and t.symbols == ("T", "PFE", "NKE", "VZ", "BAC") for t in ts.values())
@@ -150,7 +150,7 @@ def test_multi_candidates_parse_and_are_wired_as_decided():
 
 
 def test_sim_copies_match_the_multi_candidates():
-    """sim5 の人（sim_T4・sim_T5）は候補の写し（test = true と名前だけ違う）。"""
+    """sim5 の人（sim_T4・sim_T5）は候補のコピー（test = true と名前だけ違う）。"""
     from trader import load_traders
     got = {t.name: t for t in load_traders(["sim_T4", "sim_T5"], CONF)}
     want = {t.name: t for t in load_traders(["T4", "T5"], MULTI)}
@@ -168,7 +168,7 @@ BEST = os.path.join(CONF, "candidates", "best")
 
 def test_best_candidate_is_wired_as_decided_and_matches_its_sim_copy():
     """`T6` ＝ F2-2 RFE（`sel_small4_1995`）1 本を asis・θ 50・3 人と同じ 5 本・整数株・$300（利用者決定「(b) で進めて」）。
-    本番の人ではない（直下に無い）。sim6 の `sim_T6` は写し（test = true と名前だけ違う）。"""
+    本番の人ではない（直下に無い）。sim6 の `sim_T6` はコピー（test = true と名前だけ違う）。"""
     from trader import load_traders
     (t,) = load_traders(["T6"], BEST)
     assert not t.test and t.combine == "asis" and t.threshold == 50.0 and t.budget_usd == 300.0
@@ -227,7 +227,7 @@ LIVE = {"T18", "T19"}       # 2026-11-01 利用者「T18 と T19 で」＝ 直�
 
 
 def test_horizon_candidates_without_stop_and_centered_are_wired_as_decided():
-    """`T12`〜`T15` ＝ `T7`〜`T10` から損切り係を外しただけ（同じ作り置き H1〜H4）／ `T16`〜`T19` ＝ さらに買い係・売り係を土台差の
+    """`T12`〜`T15` ＝ `T7`〜`T10` から損切り係を外しただけ（同じキャッシュ H1〜H4）／ `T16`〜`T19` ＝ さらに買い係・売り係を土台差の
     検知器（`trade_own_fwdmulti_c`）にした人。どちらも最短保有 ＝ 買い係の期間・θ 50・5 本・整数株・$300・本番の人ではない。"""
     from trader import load_traders
     for group, exp, names in ((NO_STOP, "trade_own_fwdmulti_a", H), (CENTERED, "trade_own_fwdmulti_c", HC)):
@@ -239,13 +239,13 @@ def test_horizon_candidates_without_stop_and_centered_are_wired_as_decided():
             assert [(m.kind, m.name, m.method, m.role) for m in t.models] == [("experiment", exp, names[hb], "buy"), ("experiment", exp, names[he], "exit")]
             assert t.min_hold_days == hb and not t.stop_models and not t.stop_blocks_buy
             if name in LIVE:
-                # ⚠ 2026-11-01 本番の人（直下の写し）。原本との違いは予算 $600 だけ
+                # ⚠ 2026-11-01 本番の人（直下のコピー）。原本との違いは予算 $600 だけ
                 live = load_traders([name], CONF)[0]
                 assert live.budget_usd == 600.0 and [(m.name, m.method, m.role) for m in live.models] == [(m.name, m.method, m.role) for m in t.models]
                 assert (live.symbols, live.sizing, live.threshold, live.combine, live.min_hold_days) == (t.symbols, t.sizing, t.threshold, t.combine, t.min_hold_days)
             else:
                 assert not os.path.exists(os.path.join(CONF, f"{name}.toml"))
-    # 損切りなしの人の作り置きは T7〜T10 と同じ (実験名, 手法) ＝ sim8 に新しい予測は要らない
+    # 損切りなしの人のキャッシュは T7〜T10 と同じ (実験名, 手法) ＝ sim8 に新しい予測は要らない
     import simpredict
     a = set(simpredict.experiment_models(load_traders(["T7", "T8", "T9", "T10"], HORIZON)))
     b = set(simpredict.experiment_models(load_traders(list(NO_STOP), HORIZON)))
@@ -253,7 +253,7 @@ def test_horizon_candidates_without_stop_and_centered_are_wired_as_decided():
 
 
 def test_horizon_sim_copies_sim8_sim9_match_and_lift_the_total_budget():
-    """sim8（`sim_T12`〜`sim_T15`）／ sim9（`sim_T16`〜`sim_T19`）は候補の写し。4 人 × $300 ＝ $1,200 は `max_total_budget_usd` で上げる。"""
+    """sim8（`sim_T12`〜`sim_T15`）／ sim9（`sim_T16`〜`sim_T19`）は候補のコピー。4 人 × $300 ＝ $1,200 は `max_total_budget_usd` で上げる。"""
     import simdata
     from trader import load_traders
     key = lambda t: (t.symbols, t.sizing, t.threshold, t.budget_usd, t.combine, t.combine_buy, t.combine_exit, t.min_hold_days,   # noqa: E731
@@ -292,8 +292,8 @@ def test_horizon_candidates_are_wired_as_decided():
 
 
 def test_horizon_sim_copies_match_and_sim7_lifts_the_total_budget():
-    """sim7 の人（`sim_T7`〜`sim_T10`）は候補の写し（`test = true` と名前だけ違う）。4 人 × $300 ＝ $1,200 は執行器の既定の上限 $1,000 を
-    超えるので、`config/sim/sim7.toml` の `max_total_budget_usd` を運転手が執行器に渡す（simrun.budget_args。⚠ sim の中だけ）。"""
+    """sim7 の人（`sim_T7`〜`sim_T10`）は候補のコピー（`test = true` と名前だけ違う）。4 人 × $300 ＝ $1,200 は執行エンジンの既定の上限 $1,000 を
+    超えるので、`config/sim/sim7.toml` の `max_total_budget_usd` をランナーが執行エンジンに渡す（simrun.budget_args。⚠ sim の中だけ）。"""
     import simdata
     from trader import load_traders
     want = {t.name: t for t in load_traders(["T7", "T8", "T9", "T10"], HORIZON)}

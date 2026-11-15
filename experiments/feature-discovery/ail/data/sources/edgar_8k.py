@@ -1,4 +1,4 @@
-"""SEC EDGAR の 8-K（臨時の開示）の提出日と項目（登録簿 `20261108-edgar-8k-event-flags`。rules.md 26 章の取得元 `edgar` の隣）。
+"""SEC EDGAR の 8-K（臨時の開示）の提出日と項目（レジストリ `20261108-edgar-8k-event-flags`。rules.md 26 章の取得元 `edgar` の隣）。
 
 1 銘柄 3 系列（値 ＝ その提出日の件数。時刻 ＝ **提出日** の 00:00 UTC）:
   `K8_<銘柄>`     … 8-K ／ 8-K/A の提出
@@ -6,7 +6,7 @@
   `K8I202_<銘柄>` … 項目 2.02（決算の発表）を含む提出
 ⚠ 読むのは submissions の JSON だけ（`edgar` と同じ URL・同じ決まり ＝ User-Agent に連絡先・0.25 秒あける・失敗しても叩き直さない）。
 ⚠ 連絡先は環境変数 `AIL_EDGAR_CONTACT`（E2 ＝ 取得のたびに利用者から。リポジトリ・記録に書かない）。
-⚠ 置き場は `data/raw/edgar_8k/series/`（新しい置き場 ＝ 研究用の日足にも `edgar` の系列にも触らない）。
+⚠ 保存先は `data/raw/edgar_8k/series/`（新しい保存先 ＝ 研究用の日足にも `edgar` の系列にも触らない）。
 """
 
 from __future__ import annotations

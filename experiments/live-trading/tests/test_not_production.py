@@ -1,8 +1,8 @@
 """「本番の機械ではない」印 `NOT_PRODUCTION`（live-trading.md §0-14。3 台の役割分け Phase 3）。
 
 ⚠ ネットワークは使わない（拒否は全部、認証の前で起きる）。印・MODE・run.lock は `LT_MODE_DIR` で tmp に向ける（本物を触らない）。
-固定するもの: 印なしで何も変わらない ／ set が hostname を書く・status・clear・mode.log ／ 印のある機械の本番 submit は許可があっても rc=7 ／
-prod の plan・dry-run と cert の submit は印で拒まれない ／ 他の機械の印・壊れた印でも拒む ／ sample.py も同じ印で本番の発注系を拒む。
+固定するもの: 印なしで何も変わらない ／ set が hostname を書く・status・clear・mode.log ／ 印のあるマシンの本番 submit は許可があっても rc=7 ／
+prod の plan・dry-run と cert の submit は印で拒まれない ／ 他のマシンの印・壊れた印でも拒む ／ sample.py も同じ印で本番の発注系を拒む。
 """
 import json
 import os
@@ -86,7 +86,7 @@ def test_set_writes_hostname_status_clear_and_log(base):
     assert all(x["machine"] == "titan-test" and x["matches_host"] for x in log)
 
 
-# ---------- 執行器
+# ---------- 執行エンジン
 
 def test_marked_machine_refuses_prod_submit_before_permissions_and_network(base):
     modes.set_not_production(by="test", reason="稽古")

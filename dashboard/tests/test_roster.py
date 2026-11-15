@@ -1,5 +1,5 @@
 """名簿の面（`/roster`。dashboard.md §13-9・§13-10。plan archive/trader-status-flow.md）: 状態 4 つ ＋ 指示 3 つ ＋ 取り消し。
-画面は名簿と control/ を書くだけ ／ 指示は執行器の次の回を通るまで状態に入れない ／ 押せない理由 ／ 面ごとの経路。"""
+画面は名簿と control/ を書くだけ ／ 指示は執行エンジンの次の回を通るまで状態に入れない ／ 押せない理由 ／ 面ごとの経路。"""
 import json
 from datetime import datetime
 from urllib.parse import unquote
@@ -16,7 +16,7 @@ TRADER = 'name = "{name}"\nbudget_usd = {budget}\nsymbols = ["SPY"]\n[[models]]\
 
 
 class Clock:
-    """指示の時刻（操作の履歴の at）を 1 分ずつ進める。執行器の回はその間に置く（秒が同じだと前後が決まらない）。"""
+    """指示の時刻（操作の履歴の at）を 1 分ずつ進める。執行エンジンの回はその間に置く（秒が同じだと前後が決まらない）。"""
     def __init__(self):
         self.t = datetime.fromisoformat("2026-10-08T17:00:00+00:00")
 
@@ -36,7 +36,7 @@ def world(settings, monkeypatch):
     (live / "config" / "traders").mkdir(parents=True)
     for name, budget in (("A1", 600), ("B2", 600), ("C3", 900)):
         (live / "config" / "traders" / f"{name}.toml").write_text(TRADER.format(name=name, budget=budget), encoding="utf-8")
-    # 前の回の記録: 上限 $1,300（live.env の値を執行器が start に書いたもの）
+    # 前の回の記録: 上限 $1,300（live.env の値を執行エンジンが start に書いたもの）
     livefs.append(live / "out" / "2026-08-31" / "events.jsonl",
                   json.dumps({"kind": "start", "env": "prod", "traders": ["A1"], "max_total_budget": 1300.0}))
     livefs.append(live / "out" / "2026-08-31" / "positions.jsonl",
@@ -61,7 +61,7 @@ def roster_file(settings):
 
 
 def run_passed(s):
-    """執行器の発注の回が通った（いままでの指示より後・次の指示より前の `start`）。"""
+    """執行エンジンの発注の回が通った（いままでの指示より後・次の指示より前の `start`）。"""
     from datetime import timedelta
     when = (s._clock.t + timedelta(seconds=30)).isoformat(timespec="seconds")
     livefs.append(s.live_dir / "out" / "2026-10-08" / "events.jsonl", json.dumps({"kind": "start", "mode": "submit", "env": "prod", "traders": [], "now_et": when}))
@@ -234,7 +234,7 @@ def test_status_table():
 
 
 def test_pending_before_and_after_the_run():
-    """plan §2-2: 指示の時刻 ＞ 最後の発注の回の start なら「指示」。前なら状態。置き場が指示の結果と違えば指示と見ない。"""
+    """plan §2-2: 指示の時刻 ＞ 最後の発注の回の start なら「指示」。前なら状態。保存先が指示の結果と違えば指示と見ない。"""
     from datetime import datetime as dt
     row = {"at": "2026-10-08T17:25:00+00:00", "actor": "me", "detail": {"instruction": "paused", "prev": "active", "reason": "入金待ち"}}
     before = dt.fromisoformat("2026-10-08T15:40:00-04:00")      # 19:40 UTC ＝ 指示より後
@@ -243,7 +243,7 @@ def test_pending_before_and_after_the_run():
     p = lineup.pending_of("paused", row, earlier)
     assert p["kind"] == "paused" and p["prev"] == "active" and p["reason"] == "入金待ち"
     assert lineup.pending_of("paused", row, None)["kind"] == "paused"            # 回がまだ一度も無い
-    assert lineup.pending_of("active", row, earlier) is None                      # CLI で消した ＝ 置き場が正
+    assert lineup.pending_of("active", row, earlier) is None                      # CLI で消した ＝ 保存先が正
     assert lineup.pending_of("active", {**row, "detail": {"instruction": "cancel"}}, earlier) is None
 
 

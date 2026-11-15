@@ -63,7 +63,7 @@ class Settings:
     version: str = VERSION
     # デモ: 資格情報が無い（または AIL_DEMO=1）とき、本物には繋がずモックのデータで全画面を出す
     demo: bool = False
-    # 機械のモード（実売買 ／ シミュレーション）の正本 `MODE` がある場所（執行器のディレクトリ）。None ＝ 常に実売買（公開面・テスト）
+    # マシンのモード（実売買 ／ シミュレーション）の正本 `MODE` がある場所（執行エンジンのディレクトリ）。None ＝ 常に実売買（公開面・テスト）
     mode_dir: Path | None = None
     live_dir_explicit: bool = False   # AIL_LIVE_DIR を手で指定した（モードと木の種類が食い違えば数字を出さない。simmode.py）
 
@@ -181,12 +181,12 @@ class Settings:
 
         for d in (self.data_dir, self.records_dir, self.monitor_dir, self.jobs_dir, self.ops_dir):
             d.mkdir(parents=True, exist_ok=True)
-        # ⚠ 記録は DB（2026-09-21。プラン db-model-facts.md §11）: 開発機の既定の置き場はリポジトリ直下の live.sqlite。
-        #    デモ（data/demo）・Docker（/data）・テストの置き場には、そこに自分の DB を作る
+        # ⚠ 記録は DB（2026-09-21。プラン db-model-facts.md §11）: 開発機の既定の保存先はリポジトリ直下の live.sqlite。
+        #    デモ（data/demo）・Docker（/data）・テストの保存先には、そこに自分の DB を作る
         ensure_db(self.data_dir, "demo" if self.demo else "live")
         ensure_db(self.records_dir, "demo" if self.demo else "live")
         if self.demo and self.live_dir == (DASHBOARD_DIR / "demo" / "live").resolve():
-            load_fixture(self.live_dir)            # git に入っているデモの執行器の記録 → demo.sqlite
+            load_fixture(self.live_dir)            # git に入っているデモの執行エンジンの記録 → demo.sqlite
 
 
 def load_settings(environ: dict | None = None) -> Settings:
@@ -225,7 +225,7 @@ def load_settings(environ: dict | None = None) -> Settings:
     exp_dir = Path(env.get("AIL_EXP_DIR")
                    or REPO_ROOT / "experiments" / "feature-discovery").resolve()
 
-    # 実売買の執行器（/live）が読むディレクトリ（config/traders・state/<env>・out/<日付>）。⚠ **無くてよい**（空でも 200）
+    # 実売買の執行エンジン（/live）が読むディレクトリ（config/traders・state/<env>・out/<日付>）。⚠ **無くてよい**（空でも 200）
     live_dir = Path(env.get("AIL_LIVE_DIR")
                     or REPO_ROOT / "experiments" / "live-trading").resolve()
 
@@ -247,7 +247,7 @@ def load_settings(environ: dict | None = None) -> Settings:
         # デモのデータ（記録・監視ログ・ジョブ・操作履歴）は本物と混ぜない
         data_dir = data_dir / "demo"
         records_dir = Path(env.get("AIL_RECORDS_DIR") or data_dir / "records").resolve()
-        # 2026-09-18: 概要・トレーダーの画面もデモで見えるように、執行器のモックの記録（3 人 × 20 営業日。mock: true）を読む。
+        # 2026-09-18: 概要・トレーダーの画面もデモで見えるように、執行エンジンのモックの記録（3 人 × 20 営業日。mock: true）を読む。
         # ⚠ AIL_LIVE_DIR を指定したときはそれを読む。g3plus には dashboard/demo/ を COPY しないので、そこでは空のまま（§7）
         if not env.get("AIL_LIVE_DIR"):
             live_dir = (DASHBOARD_DIR / "demo" / "live").resolve()

@@ -54,7 +54,7 @@ def test_recorder() -> None:
     with tempfile.TemporaryDirectory() as tmp:
         import livefs
 
-        livefs.init(tmp, "demo")                   # ⚠ 記録は DB（2026-09-21）。一時置き場に自分の DB を作る
+        livefs.init(tmp, "demo")                   # ⚠ 記録は DB（2026-09-21）。一時ディレクトリに自分の DB を作る
         rec = record.Recorder(tmp, venue="tastytrade", env="cert")
         rec.mask.add("token-abcdef", "<access_token:masked>")
         with rec.step(1, "テスト手順") as row:
@@ -100,7 +100,7 @@ if __name__ == "__main__":
 
 
 def test_livefs_leaves_timer_screen_copies_alone() -> None:
-    """systemd の画面の写し（out/timer-*.log）は記録ではない ＝ 取り込まない・突き合わせない・remove で消さない。
+    """systemd の画面のコピー（out/timer-*.log）は記録ではない ＝ 取り込まない・照合ない・remove で消さない。
     ⚠ `StandardOutput=append:` は親ディレクトリが無いと書けないので、`remove` が `out/` 自体を消さないことも固定する。"""
     import livefs
     with tempfile.TemporaryDirectory() as tmp:

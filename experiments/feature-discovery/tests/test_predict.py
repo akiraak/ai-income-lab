@@ -42,7 +42,7 @@ def data_dir(tmp_path, monkeypatch):
     symbols = config.symbols_of(config.dataset("daily")["universe"])
     for i, s in enumerate(symbols):
         store.write_bars(store.adjusted_dir("d"), s, _bars(i))
-    # ⚠ 外部系列（T2 の ex 層）は本物の写しを使う（作り物にすると系列の一覧を二重に持つことになる）。無ければ T2 は飛ばす
+    # ⚠ 外部系列（T2 の ex 層）は本物のコピーを使う（作り物にすると系列の一覧を二重に持つことになる）。無ければ T2 は飛ばす
     for src in ("ecb", "treasury", "noaa", "usgs"):
         d = os.path.join(real, "raw", src, "series")
         if os.path.isdir(d):
@@ -92,7 +92,7 @@ def test_future_bars_do_not_change_the_output(data_dir, exp, method):
     cut = int(pd.Timestamp(ASOF, tz="UTC").value // 1_000_000)
     for s in config.symbols_of(config.dataset("daily")["universe"]):
         # ⚠ **`asof` までの行は 1 バイトも変えない**（CSV を読んで書き直すと、pandas の既定の読み方では
-        # 末尾の桁が 1 ulp 動くことがある ＝ 先読みではないのに指紋が変わる）。後ろの行だけ文字のまま書き換える
+        # 末尾の桁が 1 ulp 動くことがある ＝ 先読みではないのにフィンガープリントが変わる）。後ろの行だけ文字のまま書き換える
         path = store.path_of(store.adjusted_dir("d"), s)
         lines = open(path, encoding="utf-8").read().splitlines()
         out = [lines[0]]
@@ -130,7 +130,7 @@ def test_proxy_equal_to_the_bar_is_a_noop_and_can_append_a_missing_day(data_dir)
         b = store.read_bars(store.adjusted_dir("d"), s)
         row = b[b["ts"] == a].iloc[0]
         proxy[s] = {c: float(row[c]) for c in ("open", "high", "low", "close", "volume")}
-        store.write_bars(store.adjusted_dir("d"), s, b[b["ts"] < a])      # 置き場は前の日まで（実売買の 15:50 の形）
+        store.write_bars(store.adjusted_dir("d"), s, b[b["ts"] < a])      # 保存先は前の日まで（実売買の 15:50 の形）
     with pytest.raises(SystemExit):
         P.predict(*T1[:1], ASOF, T1[1])                                   # 今日の足が無ければ止まる
     again, meta = P.predict(*T1[:1], ASOF, T1[1], proxy=proxy)

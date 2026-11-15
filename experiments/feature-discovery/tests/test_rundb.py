@@ -68,12 +68,12 @@ def test_closed_run_cannot_be_rewritten_or_deleted(db):
 
 
 def test_run_writes_through_and_close_moves_the_work_dir(db):
-    """⚠ **書いたその場で読める**（`cli.run` は閉じる前に台帳を数える）。`close()` で作業の置き場を入れて消す。"""
+    """⚠ **書いたその場で読める**（`cli.run` は閉じる前に検証結果一覧を数える）。`close()` で作業の保存先を入れて消す。"""
     run = runs.Run("x", {"name": "x"}, seed=0)
     assert run.name in runs.list_runs()
     run.result(pd.DataFrame({"手法": ["A"], "fold": [1]}), pd.DataFrame({"純利bp": [1.0]}, index=pd.Index(["A"], name="手法")))
     assert runs.read_csv(run.name, "summary.csv", index_col=0).loc["A", "純利bp"] == 1.0     # 閉じる前に見える
-    with open(os.path.join(run.dir, "extra.csv"), "w", encoding="utf-8") as f:              # 道でしか書けないもの
+    with open(os.path.join(run.dir, "extra.csv"), "w", encoding="utf-8") as f:              # パスでしか書けないもの
         f.write("a\n1\n")
     run.log("こんにちは")
     assert run.close() == run.name
@@ -97,7 +97,7 @@ def test_run_csv_bytes_match_writing_to_a_file(db, tmp_path):
 
 
 def test_sweep_closes_a_crashed_run_and_keeps_what_it_left(db):
-    """⚠ **途中で落ちた実行**（プロセスが居ない）を閉じる。作業の置き場に残ったファイルは入れて消す。"""
+    """⚠ **途中で落ちた実行**（プロセスが居ない）を閉じる。作業の保存先に残ったファイルは入れて消す。"""
     conn = rundb.connect(runs.db_path())
     rundb.open_run(conn, "2026-01-01T00-00-00_crashed")
     conn.execute("UPDATE runs SET pid = 999999999 WHERE name = '2026-01-01T00-00-00_crashed'")
@@ -135,7 +135,7 @@ def test_queue_state_round_trips(db):
 
 
 def test_db_cli_imports_verifies_and_removes_only_matching_dirs(db, capsys):
-    """`cli.db`: 取り込む → 突き合わせる → ⚠ 一致した実行ディレクトリだけを消す（了承の印が無ければ消さない）。"""
+    """`cli.db`: 取り込む → 照合する → ⚠ 一致した実行ディレクトリだけを消す（了承の印が無ければ消さない）。"""
     from cli import db as dbcli
     root = db / "runs"
     for name in ("2026-01-01T00-00-00_a", "2026-01-02T00-00-00_b"):
@@ -161,10 +161,10 @@ def test_db_cli_imports_verifies_and_removes_only_matching_dirs(db, capsys):
         dbcli.main(["backup", "--to", str(backup)])
 
 
-# ---------------------------------------------------------------- 診断・突き合わせの出力（いままでの out/。2026-09-21）
+# ---------------------------------------------------------------- 診断・照合の出力（いままでの out/。2026-09-21）
 
 def test_outputs_are_kept_as_is_and_frozen(db):
-    """⚠ **出力は元のバイト列のまま・同じ道には入れ直さない・書き換えも削除もできない**（1 記録 1 回）。"""
+    """⚠ **出力は元のバイト列のまま・同じパスには入れ直さない・書き換えも削除もできない**（1 記録 1 回）。"""
     conn = rundb.connect(runs.db_path())
     assert runs.put_output("diag/2026-01-01T00-00-00_x/folds.csv", "fold,a\n1,0.5\n") == \
         "DB の outputs/diag/2026-01-01T00-00-00_x/folds.csv"
@@ -183,7 +183,7 @@ def test_outputs_are_kept_as_is_and_frozen(db):
 
 
 def test_out_dir_import_verify_remove_and_export(db, monkeypatch):
-    """`out/` を取り込み → 突き合わせ → 一致したファイルだけ消す（食い違ったものは残す）→ 書き戻すと 1 ビットも違わない。"""
+    """`out/` を取り込み → 照合 → 一致したファイルだけ消す（食い違ったものは残す）→ 書き戻すと 1 ビットも違わない。"""
     from cli import db as cli_db
 
     out = db / "out"

@@ -1,9 +1,9 @@
-"""日付をずらした偽の実行で、上乗せの「差なしの分布」を作る（登録簿 `20261107-date-shuffle-null`）。⚠ **読むだけ。**
+"""日付をずらした偽の実行で、上乗せの「差なしの分布」を作る（レジストリ `20261107-date-shuffle-null`）。⚠ **読むだけ。**
 
     python3 -m cli.null_shuffle [--experiment trade_own_ridge_a] [--perms 200] [--block 20] [--json out.json] [--save]
 
-作り方（登録簿の structure・水準は事前固定）:
-  - 本物の表（既定 `trade_own_ridge_a` ＝ own_2018・63 本・2018-01-31〜）の 日付・銘柄・特徴量・fold の切れ目をそのまま使う。
+作り方（レジストリの structure・水準は事前固定）:
+  - 本物の表（既定 `trade_own_ridge_a` ＝ own_2018・63 本・2018-01-31〜）の 日付・銘柄・特徴量・fold の分割点をそのまま使う。
   - 各 fold の **訓練分割と評価分割それぞれの中で**、日付を 20 営業日の塊に切り、塊の順を乱数で入れ替える（種 0〜199）。
     行 (銘柄, 日 d_i) の `y` を (同じ銘柄, 入れ替えた並びの i 番目の日) の `y` に差し替える（⚠ 銘柄の断面は保つ ＝ 同じ日の全銘柄が
     同じ日から `y` を借りる。fold をまたいで `y` を動かさない。借り先にその銘柄の行が無ければその行を落とす）。
@@ -11,7 +11,7 @@
   - 器 ＝ 素の own × Ridge（`全部使う（基準）`・形式 (A)）を `cli.run.fold_buy_pct` で・θ 50 ／ 55 ／ 60 は同じ買い% から。
     純利は `cli.perm_split.fold_net`・B&H ＝ 買い% 100 の同じ器（入れ替えた `y` で）。判定は `cli.planted_power.verdict`（catalog と同じ 3 値）。
   - 元の行（入れ替えなし）も同じ関数で回し、偽の分布の中の分位を出す。
-  ⚠ 判定の式は変えない（並べて見せるだけ）。⚠ 塊の長さ ／ 回数は結果を見て変えない（登録簿の failure_modes 1・4）。
+  ⚠ 判定の式は変えない（並べて見せるだけ）。⚠ 塊の長さ ／ 回数は結果を見て変えない（レジストリの failure_modes 1・4）。
 
 ⚠ **検証結果一覧に行を作らない・`n_trials` に数えない・`runs/` を作らない**（偽の実行 ＝ 対照）。
 ⚠ `--save` のときだけ DB の `outputs` の `diag/<時刻>_null_shuffle/` に JSON を入れる（`runs.put_output`・上書きしない）。
@@ -31,7 +31,7 @@ from ail.contracts import META_COLUMNS
 from ail.validation import splits
 
 SELECTOR = "全部使う（基準）"
-THETAS = (50.0, 55.0, 60.0)    # ⚠ 事前固定（登録簿 ＝ 素の own × Ridge の 3 行）
+THETAS = (50.0, 55.0, 60.0)    # ⚠ 事前固定（レジストリ ＝ 素の own × Ridge の 3 行）
 PERMS = 200                    # ⚠ 事前固定（種 0〜199）
 BLOCK = 20                     # ⚠ 事前固定（営業日）
 
@@ -45,7 +45,7 @@ def date_permutation(days: np.ndarray, block: int, rng: np.random.Generator) -> 
 
 
 def shuffle_y(df: pd.DataFrame, block: int, rng: np.random.Generator) -> pd.DataFrame:
-    """df の中で y を日付の塊ごとに入れ替えた写し（借り先が無い行は落とす）。"""
+    """df の中で y を日付の塊ごとに入れ替えたコピー（借り先が無い行は落とす）。"""
     ts = pd.to_datetime(df["ts"])
     days = pd.DatetimeIndex(ts.unique()).sort_values()
     src = pd.Series(date_permutation(days, block, rng), index=days)

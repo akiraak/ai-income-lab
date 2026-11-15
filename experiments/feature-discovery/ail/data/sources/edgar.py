@@ -59,7 +59,7 @@ def _get(url: str, ua: str, timeout: float = 60) -> dict:
 
 
 def sec_ticker(symbol: str) -> str:
-    """`BRK/B` → `BRK-B`（SEC の一覧の綴り）。"""
+    """`BRK/B` → `BRK-B`（SEC の一覧の表記）。"""
     return symbol.replace("/", "-").upper()
 
 

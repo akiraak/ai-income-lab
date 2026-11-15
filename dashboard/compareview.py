@@ -3,8 +3,8 @@
 
   - ⚠ **数字は全部 研究の DB の `ledger_rows`**（検証結果一覧の生成物。leak = 0・n_trials に数える行）から引く。手で写す欄は無い
   - ⚠ **人 ／ モデル → 検証名の対応と画面の言葉は `dashboard/compare.toml`**（説明をこのコードに書かない）。
-    トレーダーの形の行の名前（5 本 ／ 全銘柄）は、素の形の検証名の 2 つ目の部品に `-<shape>` ／ `-trall` を差し込んで機械で作る
-    （綴りは `experiments/feature-discovery/config/names.toml` の `[trader]`。rules.md 20-4 の 2）
+    トレーダーの形の行の名前（5 本 ／ 全銘柄）は、素の形の検証名の 2 つ目の部品に `-<shape>` ／ `-trall` を差し込んで自動で作る
+    （表記は `experiments/feature-discovery/config/names.toml` の `[trader]`。rules.md 20-4 の 2）
   - ⚠ **「予測モデル」「トレーダー」のタブの決まり（見くらべる表・順位・くらべる文を置かない）は変えない**。このページは研究の側の表で、
     用語（θ・bp・fold・B&H）をそのまま使い、あちらからここへのリンクは置かない
   - ⚠ **成績で人を選ばない**（CLAUDE.md）。ページの頭に注意を出す。⚠ 売買結果（損益・注文）は出さない（3012 の管理画面の仕事）
@@ -28,7 +28,7 @@ from traderview import TraderPaths, esc
 THETAS = ("50", "55", "60")
 SHAPED = re.compile(r"〔トレーダー・[^〕]*〕")   # トレーダーの形の行の印（手法名の末尾。rules.md 20-4）
 VERDICT_CLASS = {"採る": "adopt", "保留": "hold", "落とす": "drop"}
-TRALL = "trall"                      # 全銘柄・全部を買える予算の綴り（names.toml [trader]）
+TRALL = "trall"                      # 全銘柄・全部を買える予算の表記（names.toml [trader]）
 ITEM = "compare"                     # 実行タブの目次の id
 SIDEBAR_LABEL = "モデルとトレーダーの比較"
 SIDEBAR_SUB = "検証結果一覧から（研究の DB を読むだけ）"
@@ -100,7 +100,7 @@ SCRIPT = """
 
 @dataclass(frozen=True)
 class Row:
-    """検証結果一覧の 1 行（`ledger_rows` の写し。`doc` は行まるごとの JSON）。"""
+    """検証結果一覧の 1 行（`ledger_rows` のコピー。`doc` は行まるごとの JSON）。"""
     name: str            # 検証名（trial_name。θ つき）
     model: str           # 予測モデル名（θ なし）
     verdict: str
@@ -143,7 +143,7 @@ def load_words(paths: TraderPaths) -> dict:
 
 
 def shapes(paths: TraderPaths, words: dict) -> list[str]:
-    """トレーダーの形の綴り（`names.toml` の `[trader]` の値 ＋ compare.toml に書いた `shape`）。長いものから（`tr5-600` を `tr5` より先に当てる）。"""
+    """トレーダーの形の表記（`names.toml` の `[trader]` の値 ＋ compare.toml に書いた `shape`）。長いものから（`tr5-600` を `tr5` より先に当てる）。"""
     found = {str(v) for v in (traderview._load(paths.names).get("trader") or {}).values()}
     for t in words.get("trader") or []:
         for f in t.get("forms") or []:
@@ -162,7 +162,7 @@ def with_shape(name: str, shape: str) -> str:
 
 
 def strip_shape(name: str, shape_list: list[str]) -> tuple[str, str | None]:
-    """トレーダーの形の検証名 → (素の形の検証名, 綴り)。形でなければ (name, None)。"""
+    """トレーダーの形の検証名 → (素の形の検証名, 表記)。形でなければ (name, None)。"""
     parts = name.split(".", 2)
     if len(parts) < 3:
         return name, None
@@ -402,7 +402,7 @@ def _model_rows(paths: TraderPaths, words: dict, twords: dict, rows: dict[str, R
 def _orphan_rows(common: dict, rows: dict[str, Row] | None, shape_list: list[str], claimed: set[str]) -> list[str]:
     """DB にある `〔トレーダー・…〕` の行のうち、人の表で使わなかったもの。1 行 ＝ 1 条件（素の形と、その条件の行を横に）。
 
-    ⚠ 2026-10-22: 条件の綴りは tr5 ／ trall だけでなく選抜（`sel5-…`）も増えたので、同じ素の形に条件が何本あっても 1 本 1 行で出す。
+    ⚠ 2026-10-22: 条件の表記は tr5 ／ trall だけでなく選抜（`sel5-…`）も増えたので、同じ素の形に条件が何本あっても 1 本 1 行で出す。
     """
     if not rows:
         return []
@@ -480,7 +480,7 @@ def sidebar(paths: TraderPaths) -> dict:
 
 
 def fingerprint(paths: TraderPaths) -> dict[str, float]:
-    """見張り用。言葉と設定（predict モデルのタブと同じ）＋ 検証結果一覧を DB に入れ直した時刻 ＋ compare.toml。"""
+    """監視用。言葉と設定（predict モデルのタブと同じ）＋ 検証結果一覧を DB に入れ直した時刻 ＋ compare.toml。"""
     out = modelview.fingerprint(paths)
     try:
         out[str(paths.compare)] = paths.compare.stat().st_mtime

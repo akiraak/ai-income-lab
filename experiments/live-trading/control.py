@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""トレーダーの状態のうち「一時停止」「手じまい中」の置き場。管理画面（状態を変える指示）と CLI が書き、執行器が毎日の回で読む
+"""トレーダーの状態のうち「一時停止」「手じまい中」の保存先。管理画面（状態を変える指示）と CLI が書き、執行エンジンが毎日の回で読む
 （プラン docs/plans/archive/trader-control-flags.md。2026-10-05 利用者決定。2026-10-09 に言葉を「印」から状態 ＋ 指示へ ＝ docs/plans/archive/trader-status-flow.md）。
 
     python control.py show                       # 一時停止 ／ 手じまいの人の一覧
@@ -9,12 +9,12 @@
 
 状態との対応（名簿 roster.json と合わせて決まる。dashboard.md §13-9）: ファイルなし ＝ 稼働 ／ paused ＝ 一時停止 ／
 liquidate ＝ 手じまい中 ／ liquidate ＋ done ＝ 停止（手じまい済み）。名簿の外 ＝ 停止。
-⚠ ファイル・項目の名前（`control/<人>.json`・`paused`・`liquidate`・`done`）とコードの識別子は変えていない（下の「印」は置き場のファイルのこと）。
+⚠ ファイル・項目の名前（`control/<人>.json`・`paused`・`liquidate`・`done`）とコードの識別子は変えていない（下の「印」は保存先のファイルのこと）。
 
-置き場: <記録ディレクトリ>/control/<人>.json（`HALT` と同じ記録ディレクトリ ＝ `TT_OUT_DIR` か tastytrade-api-sample/out。⚠ ファイルのまま）。
+保存先: <記録ディレクトリ>/control/<人>.json（`HALT` と同じ記録ディレクトリ ＝ `TT_OUT_DIR` か tastytrade-api-sample/out。⚠ ファイルのまま）。
 中身: {"paused": bool, "liquidate": bool, "since": iso, "actor": str, "reason": str, "done": {"date", "fills"} | null}
-⚠ 壊れた印は「印なし」と読まない（`ControlError` ＝ 執行器は起動を拒む。`NOT_PRODUCTION` の印と同じ考え）。
-⚠ 書いても、その場では何も売らない。売るのは執行器の毎日の回（発注できる時間帯・許可・`HALT` は今までどおり）。
+⚠ 壊れた印は「印なし」と読まない（`ControlError` ＝ 執行エンジンは起動を拒む。`NOT_PRODUCTION` の印と同じ考え）。
+⚠ 書いても、その場では何も売らない。売るのは執行エンジンの毎日の回（発注できる時間帯・許可・`HALT` は今までどおり）。
 """
 
 from __future__ import annotations
@@ -63,7 +63,7 @@ class Flag:
 
 
 def control_dir(halt_file: str) -> str:
-    """印の置き場 ＝ `HALT` と同じ記録ディレクトリの `control/`。"""
+    """印の保存先 ＝ `HALT` と同じ記録ディレクトリの `control/`。"""
     return os.path.join(os.path.dirname(halt_file), DIR_NAME)
 
 
@@ -136,7 +136,7 @@ def clear_flag(dir_: str, name: str) -> bool:
 
 
 def restore_flag(dir_: str, name: str, data: dict | None) -> None:
-    """管理画面の「指示を取り消す」: 指示の前の形に戻す（`data` ＝ 前の中身 `as_dict()`。None ＝ 無かった）。⚠ 置き場の形は変えない。"""
+    """管理画面の「指示を取り消す」: 指示の前の形に戻す（`data` ＝ 前の中身 `as_dict()`。None ＝ 無かった）。⚠ 保存先の形は変えない。"""
     if data is None:
         clear_flag(dir_, name)
         return

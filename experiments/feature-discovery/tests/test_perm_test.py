@@ -29,8 +29,8 @@ def test_block_order_keeps_blocks_and_is_a_permutation():
     rng = np.random.default_rng(0)
     o = pt.block_order(23, 5, rng)
     assert sorted(o) == list(range(23))
-    assert int((np.diff(o) != 1).sum()) <= 4                  # 塊 5 つ ＝ 切れ目は 4 か所まで
-    assert (pt.N, pt.BLOCK, pt.SEED) == (200, 5, 0)            # ⚠ 事前固定（登録簿）
+    assert int((np.diff(o) != 1).sum()) <= 4                  # 塊 5 つ ＝ 分割点は 4 か所まで
+    assert (pt.N, pt.BLOCK, pt.SEED) == (200, 5, 0)            # ⚠ 事前固定（レジストリ）
 
 
 def test_same_date_shuffle_for_all_symbols_keeps_each_symbols_values():

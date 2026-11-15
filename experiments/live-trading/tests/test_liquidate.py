@@ -72,7 +72,7 @@ def post(base, path, body):
 
 
 def setup(base):
-    """本物の木に触らない置き場: MODE ／ run.lock・記録・状態・HALT・トレーダーの設定を tmp に。売買履歴に SPY 2 株・QQQ 1 株。"""
+    """本物の木に触らない保存先: MODE ／ run.lock・記録・状態・HALT・トレーダーの設定を tmp に。売買履歴に SPY 2 株・QQQ 1 株。"""
     tdir = base / "traders"
     tdir.mkdir()
     (tdir / "lq_a.toml").write_text(TRADER, encoding="utf-8")

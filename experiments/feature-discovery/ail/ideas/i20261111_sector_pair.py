@@ -1,4 +1,4 @@
-"""登録簿 `20261111-sector-pair-revert`（参考なし・枠の外。記録 dev-loop.md）:
+"""レジストリ `20261111-sector-pair-revert`（参考なし・枠の外。記録 dev-loop.md）:
 当てるものを「1 銘柄の翌日の方向」から **「同じセクターの 2 銘柄の開きが先 5 日で縮むか」** に替え、出遅れた側だけを買う検知器 PR1。
 
 - 組: 会社ごとに、同じセクター ETF（`config/universe/us63.toml` の `[sector_of]`）に属する会社のうち、**訓練分割の日次リターン
@@ -27,8 +27,8 @@ from sklearn.preprocessing import StandardScaler
 from ail.models import calibrate
 from ail.registry import register
 
-FWD = 5                # ⚠ 事前固定（登録簿）
-WINDOWS = (20, 60)     # ⚠ 事前固定（登録簿）
+FWD = 5                # ⚠ 事前固定（レジストリ）
+WINDOWS = (20, 60)     # ⚠ 事前固定（レジストリ）
 BASE = 60              # ずれの土台 ＝ 直近 60 日の平均
 MIN_CORR_DAYS = 120
 MIN_ROWS = 500

@@ -1,4 +1,4 @@
-"""登録簿 `20261025-h5-pick-centered`（参考あり・組み合わせる。rules.md 31 章・記録 dev-loop.md §2）:
+"""レジストリ `20261025-h5-pick-centered`（参考あり・組み合わせる。rules.md 31 章・記録 dev-loop.md §2）:
 先 5 ／ 10 ／ 20 ／ 40 日のゲート 4 本を **土台を引いた買い%**（25-7 ＝ 100 × σ(logit(p_W) − logit(π_W))）で比べ、最大の期間を保有日数にする検知器。
 
 ⚠ 中身は `fwd.h5_pick`（25-5）と同じ流れで、`forward_gate(..., center=True)` を 4 回呼ぶだけ。既存の H1〜H5 は触らない（`center` の既定 False）。

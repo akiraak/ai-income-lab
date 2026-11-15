@@ -115,7 +115,7 @@ def assemble(experiment: str, layer: str = "adjusted", leak: bool = False, shift
         cols = [bars[["ts", "close"]]] + [parts[l][s] for l in keep]
         cols.append(labels.build_one(bars, horizon, leak=leak))
         # ⚠ **スケールのラベルは「学習の対象」で、損益の `y` とは別**（プラン §2-2）。
-        # ⚠ **末尾 W 本は NaN のまま。** 下の `dropna` が 1 か所で落とす（表の尻が W 本だけ短くなる）
+        # ⚠ **末尾 W 本は NaN のまま。** 下の `dropna` が 1 か所で落とす（表の末尾が W 本だけ短くなる）
         if scales:
             cols.append(labels.build_scales(bars, scales, leak=leak))
         x = pd.concat(cols if keep_tail else labels.trim(cols, horizon), axis=1)
@@ -137,7 +137,7 @@ def cut_period(df: pd.DataFrame, start: str | None = None, end: str | None = Non
     """`start_date` ／ `end_date` で表の期間を揃える（両端とも含む）。⚠ **無ければ 1 行も変えない。**
     ⚠ `end_date` は 2026-10-19 に足した（rules.md 27-3）: 新しく取った銘柄の日足は今日まであるが、
     材料の銘柄は取り直さない（2026-09-09 で止まっている）ので、終わりを揃えないと own だけの行と
-    cs ／ ll の行で fold の切れ目がずれる。"""
+    cs ／ ll の行で fold の分割点がずれる。"""
     if start:
         df = df[df["ts"] >= pd.Timestamp(start, tz="UTC")]
         print(f"  期間を {start} 以降に揃える → {len(df):,} 行")
@@ -179,8 +179,8 @@ def build(experiment: str, layer: str = "adjusted", leak: bool = False,
     df.to_parquet(out, index=False)
 
     # ⚠ **どの層から作った表かを、表の隣に書く。** ⚠ `cli.run --layer` は自己申告なので、
-    # ⚠ **食い違うと台帳の「データの層」の列がそのまま嘘になる**（`ail/catalog.py`）。
-    # ⚠ **表の開始と終わりも隣に書く。** ⚠ **台帳の鍵の「期間」がこれを読む**（rules.md 14-4 の
+    # ⚠ **食い違うと検証結果一覧の「データの層」の列がそのまま嘘になる**（`ail/catalog.py`）。
+    # ⚠ **表の開始と終わりも隣に書く。** ⚠ **検証結果一覧の鍵の「期間」がこれを読む**（rules.md 14-4 の
     # ⚠ 橋渡し対。2018 表と 1995 表が同じ鍵にまとまると、期間だけの差として読めない）
     meta = {"layer": layer, "experiment": experiment, "period": period, "leak": leak,
             "shift_days": int(shift_days),

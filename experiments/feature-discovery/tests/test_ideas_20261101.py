@@ -1,4 +1,4 @@
-"""登録簿 2026-11-01 の 2 本: 夜間 ／ 日中の層 `gap_`（`ail/ideas/i20261101_gap_layer.py`）とボラ割りラベル（`prep.train_label`）。
+"""レジストリ 2026-11-01 の 2 本: 夜間 ／ 日中の層 `gap_`（`ail/ideas/i20261101_gap_layer.py`）とボラ割りラベル（`prep.train_label`）。
 
 ⚠ 見るもの: 無い config は 1 ビットも変わらない ／ 足 i の値は足 i までで決まる ／ 列の中身 ／ ラベル ＝ y ÷ own_vol_60・欠けた σ は中央値・識別項目。
 """
@@ -74,7 +74,7 @@ def test_crash_label_uses_only_the_next_five_rows_inside_training():
     got = pd.Series(lab, index=tr.index).sort_index()
     ok = pd.Series(use, index=tr.index).sort_index()
     assert list(got[:7]) == [0, 0, 1, 1, 1, 1, 1]             # 行 t は y_t〜y_{t+4} を見る（行 2〜6 が 6 を含む）
-    assert not ok.iloc[-4:].any() and ok.iloc[:8].all()       # 先の 4 本が無い尻は使わない
+    assert not ok.iloc[-4:].any() and ok.iloc[:8].all()       # 先の 4 本が無い末尾は使わない
 
 
 def test_crash_detector_is_registered_and_named():

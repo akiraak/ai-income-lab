@@ -3,13 +3,13 @@
 ⚠ **純粋関数。読むのは呼び元が渡した訓練分割（`tr`）だけ** ＝ 評価期間には触れない（14-11「選抜は訓練分割の内側」と同じ置き方。
   評価期間の銘柄別 bp で選んで同じ fold で測り直すのは循環 ＝ 13-7・14-9）。
 ⚠ **候補は「買える株」だけ**（`pool`: 訓練分割の最後の終値が枠 ＝ 予算 ÷ K 以下。実売買の D3「1 株単位で買えるように」と同じ考え）。
-⚠ **数は 1 水準ずつ事前固定**（窓 252 営業日・最低 126 行・尻の最低 20 行）。結果を見て動かさない（14-9・17-7 の 3）。
+⚠ **数は 1 水準ずつ事前固定**（窓 252 営業日・最低 126 行・末尾の最低 20 行）。結果を見て動かさない（14-9・17-7 の 3）。
 
-物差し（`BY`）:
+指標（`BY`）:
   `ret` ＝ 株自身の成績: 訓練分割の最後の 252 営業日の累積対数リターン（`y` の和）の大きい順
-  `net` ＝ モデルの成績: 訓練分割を頭 ／ 尻に割り（`tail_holdout`。門 14-5 と同じ割り方）、頭で fit したモデルの尻の予測を Platt
-          （holdout 較正）で買い% にし、尻で 13 章の閾値売買を銘柄ごとに回した純利 bp の大きい順（θ ごとに選ぶ）。
-          ⚠ 尻で 1 回も取引しなかった銘柄は成績なし（候補から外す）。候補が 0 本なら何も選ばない（全期間 現金）
+  `net` ＝ モデルの成績: 訓練分割を頭 ／ 末尾に割り（`tail_holdout`。門 14-5 と同じ割り方）、頭で fit したモデルの末尾の予測を Platt
+          （holdout 較正）で買い% にし、末尾で 13 章の閾値売買を銘柄ごとに回した純利 bp の大きい順（θ ごとに選ぶ）。
+          ⚠ 末尾で 1 回も取引しなかった銘柄は成績なし（候補から外す）。候補が 0 本なら何も選ばない（全期間 現金）
 """
 
 from __future__ import annotations
@@ -20,7 +20,7 @@ import pandas as pd
 BY = ("ret", "net")
 RET_WINDOW = 252       # 「株自身の成績」の窓（営業日。1 水準）
 RET_MIN_ROWS = 126     # 窓の中の行がこれ未満の銘柄は候補から外す
-NET_MIN_ROWS = 20      # 訓練の尻にこれ未満の行しか無い銘柄は候補から外す
+NET_MIN_ROWS = 20      # 訓練の末尾にこれ未満の行しか無い銘柄は候補から外す
 SCORE_COLUMNS = ["symbol", "閾値", "rows", "score", "chosen"]
 
 
@@ -64,8 +64,8 @@ def by_model_net(tr: pd.DataFrame, feats: list[str], exp: dict, ctx: dict, model
                  min_rows: int = NET_MIN_ROWS) -> tuple[dict[float, list[str]], pd.DataFrame]:
     """モデルの成績で上位 k 本（θ ごと）。戻り値 ({θ: 選んだ銘柄}, 表〔symbol・閾値・rows・score・chosen〕)。
 
-    ⚠ 門（`ail/validation/gate.py` の `_fold_selectors`）と同じ手順で尻の買い% を作る: 訓練全体で scaler ／ 変換 ／ 選別を fit し、
-    頭で fit したモデルの尻の予測を holdout 較正で買い% にする。尻が切れないとき（訓練が短い）は何も選ばない。
+    ⚠ 門（`ail/validation/gate.py` の `_fold_selectors`）と同じ手順で末尾の買い% を作る: 訓練全体で scaler ／ 変換 ／ 選別を fit し、
+    頭で fit したモデルの末尾の予測を holdout 較正で買い% にする。末尾が切れないとき（訓練が短い）は何も選ばない。
     """
     from sklearn.preprocessing import StandardScaler
 
@@ -107,7 +107,7 @@ def by_model_net(tr: pd.DataFrame, feats: list[str], exp: dict, ctx: dict, model
                 rows.append({"symbol": s, "閾値": th, "rows": int(len(idx)), "score": float("nan"), "trades": 0})
                 continue
             r = sim.simulate(buy[idx], yv[idx], th, cost_bp)
-            # ⚠ 尻で 1 回も取引しなかった銘柄は「成績なし」＝ 候補から外す（29-3。純利 0 の同点を銘柄名の順で選ぶ退化を防ぐ ＝
+            # ⚠ 末尾で 1 回も取引しなかった銘柄は「成績なし」＝ 候補から外す（29-3。純利 0 の同点を銘柄名の順で選ぶ退化を防ぐ ＝
             #    2026-10-22 の 1 回目で θ55 ／ 60 の候補 44 本が全部 0 で同点になった。記録 §1-0）
             scores[s] = float(np.sum(r["net_bp"])) if int(r["trades"]) > 0 else float("nan")
             rows.append({"symbol": s, "閾値": th, "rows": int(len(idx)), "score": scores[s], "trades": int(r["trades"])})

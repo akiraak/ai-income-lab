@@ -172,7 +172,7 @@ def _pair_names(w_in, w_out):
 
 
 def test_evaluate_trading_runs_two_output_detectors(run):
-    """⚠ **出力 2 本の検知器が既存の配線でそのまま回る**（シミュレータから先は同じ物差し）。"""
+    """⚠ **出力 2 本の検知器が既存の配線でそのまま回る**（シミュレータから先は同じ指標）。"""
     p = _panel()
     names = _pair_names(WINDOWS[0], WINDOWS[-1])
     res, per_sym, summary, _daily, extra = evaluate_trading(p, _feats(p), _exp(names), run)
@@ -210,7 +210,7 @@ def test_the_six_pairs_are_fixed_and_have_no_symmetric_entry():
 def test_every_detector_in_the_config_resolves_and_names_carry_the_construction():
     """⚠ **config の 12 本が registry で引けること**（打ち間違いを実行前に落とす。16-4）。
 
-    ⚠ **名前に入口と出口の窓が入っていること**も見る（16-6 の 1。入れ忘れると台帳で行が
+    ⚠ **名前に入口と出口の窓が入っていること**も見る（16-6 の 1。入れ忘れると検証結果一覧で行が
     まとまり、⚠ **差が「再現の幅」に化ける**）。
     """
     exp = config.resolve_experiment("trend_pairs_1995")

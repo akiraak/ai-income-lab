@@ -1,11 +1,11 @@
-"""登録簿 `20261106-cluster-laggard-revert`（参考なし・枠の外。記録 dev-loop.md）:
+"""レジストリ `20261106-cluster-laggard-revert`（参考なし・枠の外。記録 dev-loop.md）:
 訓練分割の日次リターンの相関から銘柄の集まりを作り、評価期間で「集まりの平均より直近 5 日に遅れた銘柄」を買う規則 L1（学習器なし）。
 
 - 集まり: 訓練分割の `own_ret_1` を 日 × 銘柄 に並べた相関（2 銘柄の重なりが 60 日未満の組は 0）→ 距離 1 − ρ →
   階層クラスタ（平均連結）を集まりの数 8 で切る（⚠ 事前固定・1 水準）。fold ごとに作り直す。
 - 点: 評価の各行で s ＝ −（`own_ret_5` − 同じ日・同じ集まりの `own_ret_5` の平均）。
 - 買い% ＝ 訓練分割の s の分布での順位 × 100（同点は半分）。⚠ 較正は Platt を通さない（学習器なしの規則 ＝ 順位そのもの。
-  Platt は向きを学び直すので規則が逆になりうる）。⚠ ctx の model は呼ばない（config の model は綴りのためだけ）。
+  Platt は向きを学び直すので規則が逆になりうる）。⚠ ctx の model は呼ばない（config の model は表記のためだけ）。
 - 基準線（数えない）「集まりを乱数で割り当てた遅れの買い（8個）」: 同じ大きさの集まりに銘柄を乱数で割り当て（種 ＝ config の種）、
   同じ規則の順位が 50 を超える行で買う（基準線の買い% は 0 ／ 100 ＝ θ 50 の行と比べる）。
 - ⚠ leak 対照: 規則は LEAK_ 列を読まない ＝ leak は跳ねない（器の確かめにならない）。
@@ -21,7 +21,7 @@ from scipy.spatial.distance import squareform
 
 from ail.registry import register
 
-N_CLUSTERS = 8         # ⚠ 事前固定（登録簿）
+N_CLUSTERS = 8         # ⚠ 事前固定（レジストリ）
 LOOKBACK = "own_ret_5"
 DAILY = "own_ret_1"
 MIN_OVERLAP = 60

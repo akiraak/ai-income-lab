@@ -1,6 +1,6 @@
-"""⚠ **試した結果の台帳を「生成する」ための突き合わせ層。**
+"""⚠ **試した結果の検証結果一覧を「生成する」ための照合層。**
 
-台帳は 3 つの正本を突き合わせた**生成物**である。⚠ **どれも手で書き写さない。**
+検証結果一覧は 3 つの正本を照合した**生成物**である。⚠ **どれも手で書き写さない。**
 
 | 正本 | 何の正本か | ここでの読み方 |
 | --- | --- | --- |
@@ -82,7 +82,7 @@ def _rows_of_table(lines: list[str], start: int) -> list[list[str]]:
 # --- カタログ（spec §2）--------------------------------------------------
 
 def entries(spec: str = SPEC) -> list[dict]:
-    """spec §2 の 5 系統 25 件。⚠ **写しは作らない。表をその場で読む。**"""
+    """spec §2 の 5 系統 25 件。⚠ **コピーは作らない。表をその場で読む。**"""
     lines = open(spec, encoding="utf-8").read().splitlines()
     out: list[dict] = []
     family = family_name = None
@@ -106,7 +106,7 @@ def entries(spec: str = SPEC) -> list[dict]:
                     "系統名": family_name, "量": _clean(cells[2]), "相関": _clean(cells[3]),
                     "検定": _clean(cells[4]), "拠": _clean(cells[5])})
 
-    # ⚠ **書式が変われば黙って減る。** 見出しが宣言している件数と突き合わせて、合わなければ止める
+    # ⚠ **書式が変われば黙って減る。** 見出しが宣言している件数と照合して、合わなければ止める
     declared = family_counts(spec)
     got: dict[str, int] = {}
     for e in out:
@@ -120,7 +120,7 @@ def entries(spec: str = SPEC) -> list[dict]:
 
 
 def family_counts(spec: str = SPEC) -> dict[str, int]:
-    """見出しが宣言している件数（`### F1. … （7）`）。⚠ **実際に読めた件数と突き合わせる。**"""
+    """見出しが宣言している件数（`### F1. … （7）`）。⚠ **実際に読めた件数と照合する。**"""
     out = {}
     for line in open(spec, encoding="utf-8").read().splitlines():
         m = _FAMILY_HEAD.match(line)
@@ -132,11 +132,11 @@ def family_counts(spec: str = SPEC) -> dict[str, int]:
 # --- 実装（registry）----------------------------------------------------
 
 def implemented() -> dict[str, str]:
-    """カタログの ID → registry の名前。⚠ **名前の先頭の ID で突き合わせる。**
+    """カタログの ID → registry の名前。⚠ **名前の先頭の ID で照合する。**
 
     ⚠ **`transform` も見る**（2026-09-12）。F5 表現学習型は `selector` の契約に入らないので
     種類が別（プラン `plans/selectors-small-four.md` §1-1）。⚠ **ここを見落とすと、回したのに
-    ⚠ **台帳 §3 では「未実施」のままになる** — ⚠ **空白の数え方が静かに狂う。**
+    ⚠ **検証結果一覧 §3 では「未実施」のままになる** — ⚠ **空白の数え方が静かに狂う。**
     """
     from ail import registry
     import ail.bootstrap  # noqa: F401  （@register は import されて初めて効く）
@@ -164,7 +164,7 @@ def detector_names() -> set[str]:
     """検知器（買い% 1 本を返す手法。rules.md 14-1）。⚠ 登録は起動時に決まるので 1 度だけ引く。
 
     ⚠ **カタログ 25 件の「選別手法」ではない**ので ID を持たないが、⚠ **基準線でもない。**
-    ⚠ **ID が無いだけで「基準線」に寄せると、台帳が「試した手法」を基準線として見せてしまう**
+    ⚠ **ID が無いだけで「基準線」に寄せると、検証結果一覧が「試した手法」を基準線として見せてしまう**
     （数え方は `is_trial` が正本で、そちらは最初から手法として数えている）。
     """
     from ail import registry
@@ -174,7 +174,7 @@ def detector_names() -> set[str]:
 
 
 def mix_names() -> set[str]:
-    """合わせる口の手法（rules.md 20-6 の 4）。⚠ 登録の正本は `config/names.toml` の `[mix]`（registry には無い）。"""
+    """合成オプションの手法（rules.md 20-6 の 4）。⚠ 登録の正本は `config/names.toml` の `[mix]`（registry には無い）。"""
     from ail import names
 
     return set(names.table().get("mix", {}))
@@ -203,7 +203,7 @@ def _symbols_of(run: dict) -> str:
 def _set_of(run: dict) -> str:
     """鍵に入れる**銘柄集合の名前**（2026-10-23。rules.md 10 章 規約・11 章 規約 4「銘柄集合」）。
 
-    ⚠ **その実行が記録している config の `dataset`**（`config.json` ＝ 回したときの写し）を正とする。
+    ⚠ **その実行が記録している config の `dataset`**（`config.json` ＝ 回したときのコピー）を正とする。
     いまの `config/` からは引かない（`_symbols_of` と同じ向き）。無ければ「—」。
     ⚠ **`_symbols_of` は本数だけ**なので、同じ本数で中身の違う集合（中位 48 本と S&P 500 の次の 48 本・
     小型 50 本と次の 50 本）が同じ鍵にまとまる。⚠ **まとまると既存の行が「2 実行・不一致」に化け、
@@ -255,7 +255,7 @@ def _read_run(name: str) -> dict | None:
     doc = {"実行": name, "leak": name.endswith("_leak"), "config": config}
     for f in ("inputs", "env", "checks"):
         doc[f] = runs.read_json(name, f + ".json") or {}
-    # ⚠ **日付をずらした偽薬**（`_shift<S>`）。⚠ **試行ではなく対照なので台帳の行に入れない**
+    # ⚠ **日付をずらした偽薬**（`_shift<S>`）。⚠ **試行ではなく対照なので検証結果一覧の行に入れない**
     doc["shift_days"] = runs.shift_days_of(name, doc["config"])
     gate = doc["checks"].get("gate") or {}
     summary = runs.read_csv(name, "summary.csv", index_col=0)
@@ -263,7 +263,7 @@ def _read_run(name: str) -> dict | None:
         doc["summary"] = summary
     elif gate.get("blocked") and not gate.get("forced"):
         # ⚠ **全手法が門前の実行は summary を持たない**（検証を回していない）。
-        # ⚠ **台帳に「門前」で残すために拾う**（隠さない。rules.md 14-5）。
+        # ⚠ **検証結果一覧に「門前」で残すために拾う**（隠さない。rules.md 14-5）。
         # ⚠ **`forced`（門前の手法も回した印。既定・`--ignore-gate`）で summary が無いのは「回したのに落ちた」**なので従来どおり読まない
         # ⚠ 2026-09-14 から門は既定で止めない。**全手法が門前で summary が無いのは `--gate` で足切りした実行だけ**
         doc["summary"] = pd.DataFrame()
@@ -300,7 +300,7 @@ def _period_of(run: dict) -> str:
     ⚠ 列に出て、配線の疑いと読み違える）。出所は 3 段:
 
       1. `inputs.panel_start`  — 実行が記録している（2026-09-11 以降の実行）
-      2. `features_meta.start` — 実行が持っている sidecar の写し
+      2. `features_meta.start` — 実行が持っている sidecar のコピー
       3. ⚠ **`features_file` が指す表の実物**（2026-09-12 の利用者決定で遡って埋めた）
 
     ⚠ **3 は「行数が実行の記録と一致する」ときだけ使う。** 表は後から作り直されていることがあり
@@ -334,7 +334,7 @@ def threshold_style(cfg: dict) -> str:
     if n := (cfg.get("validation") or {}).get("max_train_days"):
         parts.append(f"訓練直近{int(n)}日")
     if c := (cfg.get("validation") or {}).get("cut_offset"):
-        # ⚠ 評価期間の切れ目を後ろへずらした行（rules.md 33-3。2026-11-11）。無い config は書かない ＝ 既存の行は割れない
+        # ⚠ 評価期間の分割点を後ろへずらした行（rules.md 33-3。2026-11-11）。無い config は書かない ＝ 既存の行は割れない
         parts.append(f"切れ目ずらし{c}")
     ex = (cfg.get("trading") or {}).get("execution") or "close"
     if ex == "next_open":
@@ -345,10 +345,10 @@ def threshold_style(cfg: dict) -> str:
         # ⚠ 費用を上げた行（rules.md 28-3。2026-10-22）。既定 5bp（13-4）は書かない ＝ 既存の行は 1 行も割れない
         parts.append(f"費用{c:g}bp")
     if cfg.get("label") == "xs_excess":
-        # ⚠ 訓練のラベルを断面の超過リターンにした行（開発ループの登録簿 20261025-xs-excess-label。2026-10-25）。無い config は書かない ＝ 既存の行は割れない
+        # ⚠ 訓練のラベルを断面の超過リターンにした行（開発ループのレジストリ 20261025-xs-excess-label。2026-10-25）。無い config は書かない ＝ 既存の行は割れない
         parts.append("断面超過ラベル")
     elif cfg.get("label") == "vol_scaled":
-        parts.append("ボラ割りラベル")   # 開発ループの登録簿 20261101-vol-scaled-label（2026-11-01）
+        parts.append("ボラ割りラベル")   # 開発ループのレジストリ 20261101-vol-scaled-label（2026-11-01）
     return "閾値売買" + (f"（{'・'.join(parts)}）" if parts else "")
 
 
@@ -603,7 +603,7 @@ def _judge_trading(row: dict, note: str) -> tuple[str, str]:
                       f"（対 B&H 上乗せ {edge:+.2f}bp ≤ 0。rules.md 13-7）")
 
 
-# --- 台帳の行 -----------------------------------------------------------
+# --- 検証結果一覧の行 -----------------------------------------------------------
 
 KEY = ("鍵", "モデル", "粒度", "地平", "特徴量の層", "層", "期間", "銘柄", "集合",
        "検証方式", "形式", "較正", "閾値")   # ⚠ 利用者が決めた 1 行の粒度
@@ -625,7 +625,7 @@ KEY = ("鍵", "モデル", "粒度", "地平", "特徴量の層", "層", "期間
 
 
 def is_trial(row: dict) -> bool:
-    """台帳の 1 行を n_trials に数えるか。⚠ **数え落とすと DSR が必ず甘くなる**（rules.md 11 章 規約 4）。
+    """検証結果一覧の 1 行を n_trials に数えるか。⚠ **数え落とすと DSR が必ず甘くなる**（rules.md 11 章 規約 4）。
 
     カタログ ID を持つ行（従来どおり）に加え、⚠ **モデルが処置の行**
     （「全部使う × Ridge 以外のモデル」）も数える（plans/archive/gpu-models.md §3-4）。
@@ -670,7 +670,7 @@ def canonical(name: str) -> tuple[str | None, str]:
 
 
 def trials() -> tuple[list[dict], list[dict], list[dict]]:
-    """(台帳の行, ⚠ 先読みの検査の行, 実行の一覧) を返す。
+    """(検証結果一覧の行, ⚠ 先読みの検査の行, 実行の一覧) を返す。
 
     ⚠ **同じ鍵（手法 × 粒度 × 地平 × 特徴量の層 × データの層）の実行はまとめる。**
     まとめた本数と、⚠ **まとまりの中で数字が食い違っていないか**を出す。
@@ -694,7 +694,7 @@ def trials() -> tuple[list[dict], list[dict], list[dict]]:
                                   if run["shift_days"] else "runs/"),
                          "偽薬": run["shift_days"]})
         if run["shift_days"]:
-            # ⚠ **偽薬は試行に数えず、台帳の行にも混ぜない。** ⚠ **鍵（手法 × 特徴量の層 …）が本物と同じなので、
+            # ⚠ **偽薬は試行に数えず、検証結果一覧の行にも混ぜない。** ⚠ **鍵（手法 × 特徴量の層 …）が本物と同じなので、
             # 混ぜると「最新の実行」として代表の行を乗っ取る**（2026-09-16。27 本回すと本物が見えなくなる）
             continue
         all_rows += _run_trials(run)
@@ -737,7 +737,7 @@ def _collapse(rows: list[dict], tol: float = 0.1) -> list[dict]:
 
 
 def ledger() -> dict:
-    """台帳に要るものを全部そろえて返す。表示は `cli/report.py` の仕事。"""
+    """検証結果一覧に要るものを全部そろえて返す。表示は `cli/report.py` の仕事。"""
     cat = entries()
     impl = implemented()
     bases = baseline_names()
@@ -756,7 +756,7 @@ def ledger() -> dict:
                 else _VARIANT.sub("", r["鍵"]))
         r["系統"] = (f"{c['系統']} {c['系統名']}" if c
                      else "検知器" if base in dets
-                     else "合成" if base in mixes else "基準線")       # 合成 ＝ 合わせる口（rules.md 20-6 の 4）
+                     else "合成" if base in mixes else "基準線")       # 合成 ＝ 合成オプション（rules.md 20-6 の 4）
         r["実装"] = "✅" if (r["ID"] in impl or base in bases or base in dets or base in mixes
                              or base in ("持ち続ける", "乱択選抜")) else "⚠ 無"   # 持ち続ける ＝ rules.md 20-3 の 1 ／ 乱択選抜 ＝ 29-4
         r["判定"], r["理由"] = judge(r, bases)
@@ -785,12 +785,12 @@ def ledger() -> dict:
             "runs": run_list, "not_tried": not_tried, "notes": note}
 
 
-# ⚠ **未実施を並べる順。** 手間の小さいものから読めないと、台帳を見ても次の一手が決まらない
+# ⚠ **未実施を並べる順。** 手間の小さいものから読めないと、検証結果一覧を見ても次の一手が決まらない
 COST_ORDER = ("小", "中", "大", "見送り")
 
 
 def notes(path: str | None = None) -> dict[str, dict]:
-    """⚠ **「次に何が要るか」だけは機械では出せない。** 1 か所（`config/catalog_notes.toml`）に閉じる。"""
+    """⚠ **「次に何が要るか」だけはマシンでは出せない。** 1 か所（`config/catalog_notes.toml`）に閉じる。"""
     p = path or os.path.join(CONFIG, "catalog_notes.toml")
     if not os.path.exists(p):
         return {}
@@ -802,7 +802,7 @@ def notes(path: str | None = None) -> dict[str, dict]:
 
 # --- 閉じる注記（rules.md 14 章） ----------------------------------------
 
-# `[[closed]]` の照合キー → 台帳の列名。⚠ **TOML の bare key は ASCII だけ**なのでここで写す
+# `[[closed]]` の照合キー → 検証結果一覧の列名。⚠ **TOML の bare key は ASCII だけ**なのでここで写す
 _CLOSED_FIELDS = {"key": "鍵", "model": "モデル", "layers": "特徴量の層",
                   "style": "検証方式", "threshold": "閾値", "layer": "層",
                   "form": "形式", "granularity": "粒度", "period": "期間",
@@ -832,7 +832,7 @@ def closed_notes(path: str | None = None) -> list[dict]:
 
 
 def _apply_closed(rows: list[dict], closed: list[dict]) -> None:
-    """`[[closed]]` を台帳の行に当てる。⚠ **黙って空振りさせない。**
+    """`[[closed]]` を検証結果一覧の行に当てる。⚠ **黙って空振りさせない。**
 
     - 1 エントリは**ちょうど 1 行**に一致すること（0 件 = 書き間違い、2 件以上 = 照合の鍵が足りない）
     - 一致した行の判定は**「保留」**であること（⚠ **閉じられるのは保留だけ。** 落とす行を閉じるのは設計ミス）

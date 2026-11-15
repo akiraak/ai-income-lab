@@ -1,4 +1,4 @@
-"""登録簿 `20261104-perm-split-timing`（`cli.perm_split`）。⚠ 合成の表だけ・本物の DB は読まない。"""
+"""レジストリ `20261104-perm-split-timing`（`cli.perm_split`）。⚠ 合成の表だけ・本物の DB は読まない。"""
 
 from __future__ import annotations
 

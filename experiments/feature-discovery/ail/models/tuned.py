@@ -1,12 +1,12 @@
 """ハイパーパラメータを**訓練分割の内側**で選ぶモデル（rules.md 14-12。2026-10-09 利用者決定 B）。
 
-`<モデル>（内側選抜）` ＝ 事前固定した候補（`CANDIDATES`。既定が先頭）を訓練分割の尻 10%（`tail_holdout`。
-門・較正・GA と同じ置き場）で Spearman ρ で測り、champion を訓練全体で学び直して評価分割を当てる。
+`<モデル>（内側選抜）` ＝ 事前固定した候補（`CANDIDATES`。既定が先頭）を訓練分割の末尾 10%（`tail_holdout`。
+門・較正・GA と同じ保存先）で Spearman ρ で測り、champion を訓練全体で学び直して評価分割を当てる。
 
 ⚠ **評価分割 `Xte` には champion が決まった後にしか触れない**（14-11 規約 3 と同型の検査 ＝ `tests/test_tuned.py`）。
 ⚠ **champion が既定なら、基底のモデルと 1 ビットも違わない**（14-12 規約 4）。
-⚠ **モデルが呼ばれるたびにその訓練の尻で選ぶ**（門・較正・本番で champion が違ってよい。規約 5）。
-⚠ **候補は結果を見て足さない・動かさない**（規約 1。写しを `tests/test_tuned.py` が固定する）。
+⚠ **モデルが呼ばれるたびにその訓練の末尾で選ぶ**（門・較正・本番で champion が違ってよい。規約 5）。
+⚠ **候補は結果を見て足さない・動かさない**（規約 1。コピーを `tests/test_tuned.py` が固定する）。
 ⚠ **config にこのモデル名が無ければ 1 ビットも変えない**（基底の `trees.py`・`deep.py` は ctx に項目が無ければ今までの定数）。
 
 ⚠ **14-12-3（2026-10-09 利用者決定「推すのですすめる」）: `<モデル>（内側選抜・1 度）`** ＝ 規約 5 の例外 1 つ。
@@ -14,8 +14,8 @@
 このモデルは項目があれば**選ばずに**基底を呼ぶ（記録に「配られた」）。項目が無い呼び出し（門・毎日往復の経路）は
 自前で選ぶ（記録に「自前」）。⚠ `（内側選抜）` の経路は 1 バイトも変えない（結果を見てから直さない ＝ 規約 1。別のモデルとして ＋9）。
 
-記録: 1 回の呼び出しごとに候補・ρ・champion・尻の行数を `ctx[DOC_KEY]` のリストに積む。
-`cli/run.py` の `fold_buy_pct` が本番の呼び出しの後に `drain` で取り出して `fitted_doc[手法]["内側選抜"]` に写し、
+記録: 1 回の呼び出しごとに候補・ρ・champion・末尾の行数を `ctx[DOC_KEY]` のリストに積む。
+`cli/run.py` の `fold_buy_pct` が本番の呼び出しの後に `drain` で取り出して `fitted_doc[手法]["内側選抜"]` にコピー、
 門（`ail/validation/gate.py`）は取り出して捨てる（門は診断）。⚠ 取り残すと fold をまたいで混ざるので、
 モデルを呼んだ側が必ず `drain` する。
 """
@@ -41,7 +41,7 @@ def _front(default: dict, grid: list[dict]) -> list[dict]:
     return [default] + [c for c in grid if c != default]
 
 
-# ⚠ **水準は rules.md 14-12-1 の写し**（回す前に固定。2026-10-09）。既定は基底のモデルの定数と同じ値
+# ⚠ **水準は rules.md 14-12-1 のコピー**（回す前に固定。2026-10-09）。既定は基底のモデルの定数と同じ値
 RIDGE_DEFAULT = {"alpha": 1.0}
 RIDGE = _front(RIDGE_DEFAULT, [{"alpha": a} for a in (1.0, 10.0, 100.0, 1e3, 1e4, 1e5, 1e6)])
 
@@ -58,7 +58,7 @@ CANDIDATES: dict[str, list[dict]] = {"Ridge": RIDGE, "LightGBM": LGBM, "MLP": ML
 
 
 def spearman(pred, y) -> float | None:
-    """尻での予測と y の Spearman ρ（符号つき）。NaN・定数の予測は None（＝ 最低点）。"""
+    """末尾での予測と y の Spearman ρ（符号つき）。NaN・定数の予測は None（＝ 最低点）。"""
     from scipy.stats import rankdata
 
     p = np.asarray(pred, dtype=float)
@@ -75,12 +75,12 @@ def _plain(c: dict) -> dict:
 
 
 def _choose(base, Xtr, ytr, ctx: dict, candidates: list[dict]) -> tuple[dict, dict]:
-    """候補を訓練分割の尻で測って champion を選ぶ（14-12 規約 1〜3）。`(champion, 記録)`。⚠ **評価分割には触れない**。"""
+    """候補を訓練分割の末尾で測って champion を選ぶ（14-12 規約 1〜3）。`(champion, 記録)`。⚠ **評価分割には触れない**。"""
     default = candidates[0]
     doc: dict = {"候補": [_plain(c) for c in candidates], "既定": _plain(default)}
     (Xh, yh), holdout = tail_holdout(Xtr, ytr)
     if holdout is None:
-        # ⚠ 尻が切れない（小さい標本）。既定で動き、記録に残す（14-12 規約 2）
+        # ⚠ 末尾が切れない（小さい標本）。既定で動き、記録に残す（14-12 規約 2）
         doc.update({"切れなかった": True, "尻の行数": 0, "ρ": [None] * len(candidates),
                     "champion": _plain(default), "champion_index": 0, "既定のρ": None})
         return default, doc
@@ -96,11 +96,11 @@ def _choose(base, Xtr, ytr, ctx: dict, candidates: list[dict]) -> tuple[dict, di
 
 
 def inner_select(base, Xtr, ytr, Xte, ctx: dict, candidates: list[dict]):
-    """候補を訓練分割の尻で測って champion を選び、訓練全体で学び直して `Xte` を当てる。
+    """候補を訓練分割の末尾で測って champion を選び、訓練全体で学び直して `Xte` を当てる。
 
     ⚠ **`Xte` に触るのは最後の 1 行だけ**（評価分割を差し替えても champion も ρ も変わらない）。
-    ⚠ **候補の学びは `base(頭, y頭, 尻, …)`** ＝ 基底のモデルの早期打ち切りは頭の中でさらに尻を切る（二重にならない）。
-    学び直しの早期打ち切りは選抜と同じ尻を使う（14-12 規約 9。評価分割には漏れない）。
+    ⚠ **候補の学びは `base(頭, y頭, 尻, …)`** ＝ 基底のモデルの早期打ち切りは頭の中でさらに末尾を切る（二重にならない）。
+    学び直しの早期打ち切りは選抜と同じ末尾を使う（14-12 規約 9。評価分割には漏れない）。
     """
     ytr = np.asarray(ytr, dtype=float)
     champion, doc = _choose(base, Xtr, ytr, ctx, candidates)
@@ -128,8 +128,8 @@ def inner_select_once(base, Xtr, ytr, Xte, ctx: dict, candidates: list[dict]):
 def select_once(model, Xtr, ytr, ctx: dict) -> dict | None:
     """`fold_buy_pct` が**較正の呼び出しの前に、選別ごとに 1 度**呼ぶ（14-12-3 規約 1）。
 
-    `model` が `（内側選抜・1 度）` なら訓練分割 `Xtr` の尻で選んで `ctx[CHAMPION_KEY]` に置き、選抜の記録を返す。
-    ⚠ **ほかのモデルなら None を返し、ctx は 1 バイトも変わらない**（既定経路の指紋は動かない）。
+    `model` が `（内側選抜・1 度）` なら訓練分割 `Xtr` の末尾で選んで `ctx[CHAMPION_KEY]` に置き、選抜の記録を返す。
+    ⚠ **ほかのモデルなら None を返し、ctx は 1 バイトも変わらない**（既定経路のフィンガープリントは動かない）。
     ⚠ 置いた champion は呼んだ側が本番の呼び出しの後に `release` で外す（fold・銘柄をまたいで配らない）。
     """
     spec = ONCE.get(model)
@@ -184,7 +184,7 @@ def mlp_tuned(Xtr, ytr, Xte, ctx):
     return inner_select(deep.mlp, Xtr, ytr, Xte, ctx, MLP)
 
 
-# --- 14-12-3: 1 度選んで較正にも配る（2026-10-09 利用者決定「推すのですすめる」）。候補は上と同じ写し（足さない） ---
+# --- 14-12-3: 1 度選んで較正にも配る（2026-10-09 利用者決定「推すのですすめる」）。候補は上と同じコピー（足さない） ---
 
 @register("model", "Ridge（内側選抜・1 度）")
 def ridge_tuned_once(Xtr, ytr, Xte, ctx):

@@ -103,7 +103,7 @@ def test_closed_fields_and_group_rules_are_the_research_sides_copy():
     assert inventoryview.CLOSED_FIELDS == research
     sc = (REPO / "experiments" / "feature-discovery" / "cli" / "select_candidates.py").read_text(encoding="utf-8")
     for frag in ('startswith("dev_tr_")', 'startswith("dev_")', r're.sub(r"_t\d+b?$", "", experiment)', "机上の持ち越し（31-3 の 3）"):
-        assert frag in sc                                                              # 研究側の区分の決まりが変わったら写しも直す
+        assert frag in sc                                                              # 研究側の区分の決まりが変わったらコピーも直す
     assert inventoryview.group_of("trader_roles_t7b", Path("/nonexistent")) == "trader_roles"
     assert inventoryview.group_of("dev_tr_x", Path("/nonexistent")) == "机上の持ち越し（31-3 の 3）"
     assert inventoryview.group_of("dev_zzz", Path("/nonexistent")) == "開発ループ（id 不明）dev_zzz"

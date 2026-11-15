@@ -1,10 +1,10 @@
-"""開発ループ（rules.md 31 章・プラン docs/plans/daily-dev-loop.md）の登録簿を読む・並べる・登録する。
+"""開発ループ（rules.md 31 章・プラン docs/plans/daily-dev-loop.md）のレジストリを読む・並べる・登録する。
 
-⚠ **Phase 1 の範囲 ＝ `register` だけ**（段 0〜4 を順に回す運転手 `run-devloop.sh` と段の中身は Phase 3）。
-⚠ 登録簿 `config/ideas/<id>.toml` が事前固定の正本（31-1）。`register.md` は生成物（手で書かない）。
+⚠ **Phase 1 の範囲 ＝ `register` だけ**（段 0〜4 を順に回すランナー `run-devloop.sh` と段の中身は Phase 3）。
+⚠ レジストリ `config/ideas/<id>.toml` が事前固定の正本（31-1）。`register.md` は生成物（手で書かない）。
 ⚠ 研究の DB は読み取り専用で読む（既出の疑い ＝ `key_shape` が検証結果一覧の予測モデル名に当たる数）。回さない・数えない。
 
-    .venv/bin/python -m cli.devloop register                     # 登録簿を検査し register.md を吐く
+    .venv/bin/python -m cli.devloop register                     # レジストリを検査し register.md を吐く
     .venv/bin/python -m cli.devloop register --promote <id> …    # 案 → 登録（registered_at ＝ 回すと決めた時刻を打つ。31-1 の 3）
     .venv/bin/python -m cli.devloop register --set <id>=<状態>    # 既出 ／ 共有コード変更 ／ 失敗 など横道へ（31-1 の 2。戻さない）
     .venv/bin/python -m cli.devloop register --run <id>=<実行名>  # 回した実行を結ぶ（作成中 ／ 回した のとき）
@@ -36,7 +36,7 @@ STATUSES = ("案", "登録", "作成中", "回した", "既出", SHARED, "失敗
 FORWARD = {"案": {"登録", "既出", SHARED}, "登録": {"作成中", SHARED, "失敗", "既出"}, "作成中": {"回した", "失敗", SHARED}}
 EFFORTS = ("小", "中", "大")
 FRAMES = ("内", "外")      # 問いの枠（2026-11-01 利用者「未知なものへのトライが増えたらいいな」→「推す案で」＝ rules.md 31-6）
-CONTRACT_VERSION = 4       # 段 1 の契約の版。2 から frame ／ p_hold ／ learn_if_null・3 から needed_effect が要る（それより前の登録簿は求めない）。4 は本文だけ（§2 の検出力の実測に「続く信号」。項目は 3 と同じ）
+CONTRACT_VERSION = 4       # 段 1 の契約の版。2 から frame ／ p_hold ／ learn_if_null・3 から needed_effect が要る（それより前のレジストリは求めない）。4 は本文だけ（§2 の検出力の実測に「続く信号」。項目は 3 と同じ）
 SEATTLE = ZoneInfo("America/Los_Angeles")
 REQUIRED = ("id", "date", "title", "kind", "origin", "question", "structure", "n_trials_planned", "key_shape",
             "failure_modes", "prediction", "effort", "measurable", "touches", "status")
@@ -55,12 +55,12 @@ def now_seattle() -> str:
     return dt.datetime.now(SEATTLE).strftime("%Y-%m-%d %H:%M %Z")
 
 
-# ---------------------------------------------------------------- 登録簿を読む・検査する
+# ---------------------------------------------------------------- レジストリを読む・検査する
 
 
 def validate(doc: dict, path: str) -> list[str]:
     """31-1 の項目がそろっているか。足りなければ理由の一覧（空 ＝ 通る）。"""
-    # ⚠ 数える検証が 0 の案（物差し・ループ自身）は識別項目を持たないので key_shape は空でよい
+    # ⚠ 数える検証が 0 の案（指標・ループ自身）は識別項目を持たないので key_shape は空でよい
     optional_empty = {"key_shape"} if doc.get("n_trials_planned") == 0 else set()
     bad = [f"項目 {k} が無い" for k in REQUIRED if k not in doc or (doc[k] in ("", [], None) and k not in optional_empty)]
     stem = os.path.splitext(os.path.basename(path))[0]
@@ -138,7 +138,7 @@ def duplicates(key_shape, models: list[str] | None) -> tuple[int, list[str]]:
     return len(hit), hit[:3]
 
 
-# ---------------------------------------------------------------- 似た過去の案（登録簿どうしの近さ。⚠ 表示だけ）
+# ---------------------------------------------------------------- 似た過去の案（レジストリどうしの近さ。⚠ 表示だけ）
 # 2026-11-13 利用者「Aで進めて」（docs/plans/archive/devloop-dedupe.md の穴 ①・案 A）。段 1 は毎晩新しい名前で key_shape を書くので、
 # 同じ問いの焼き直しは上の「既出の疑い」（予測モデル名の照合）では拾えない。題名 ＋ 問いの文字 3-gram の Jaccard で
 # 「より前の日付の案」から近い順に並べて見せる。⚠ status は変えない・しきい値で切らない（別物も同じくらいの値になる）
@@ -179,7 +179,7 @@ def similar_map(docs: list[dict], top: int = SIMILAR_TOP, only: set | None = Non
 
 
 def similar_spread(docs: list[dict]) -> tuple[float, float, int] | None:
-    """近さの目盛りの読み方: 登録簿の全対（日付の違う組）の 中央値 ・ 上位 1% の境 ・ 対の数。対が無ければ None。"""
+    """近さの目盛りの読み方: レジストリの全対（日付の違う組）の 中央値 ・ 上位 1% の境 ・ 対の数。対が無ければ None。"""
     grams = [(str(d.get("date") or ""), _grams(d)) for d in docs]
     vals = sorted(_jaccard(a, b) for k, (da, a) in enumerate(grams) for db, b in grams[:k] if da != db)
     if not vals:
@@ -187,7 +187,7 @@ def similar_spread(docs: list[dict]) -> tuple[float, float, int] | None:
     return vals[len(vals) // 2], vals[min(len(vals) - 1, int(len(vals) * 0.99))], len(vals)
 
 
-# ---------------------------------------------------------------- 書く（登録簿の TOML と register.md）
+# ---------------------------------------------------------------- 書く（レジストリの TOML と register.md）
 
 
 def _toml_value(v) -> str:
@@ -207,7 +207,7 @@ def _toml_value(v) -> str:
 
 
 def dump_idea(doc: dict) -> str:
-    """登録簿の 1 ファイル（機械で書く。並びは 31-1 の項目順）。"""
+    """レジストリの 1 ファイル（自動で書く。並びは 31-1 の項目順）。"""
     order = list(REQUIRED) + ["frame", "p_hold", "p_positive", "learn_if_null", "needed_effect", "registered_at", "reference_mode", "notes", "runs", "ran_in", "sandbox"]
     keys = [k for k in order if k in doc] + [k for k in doc if k not in order]
     lines = ["# ⚠ 開発ループの登録簿（rules.md 31-1）。cli.devloop が書く。status が 登録 より先なら structure ／ prediction ／ n_trials_planned ／ key_shape を直さない（直すなら新しい id）"]
@@ -507,9 +507,9 @@ def main(argv: list[str] | None = None) -> None:
 
 
 
-# ================================================================ 夜の 1 周（段 0 門 → 段 1〜4 → 日誌 → commit。Phase 3・rules.md 31 章）
+# ================================================================ 夜の 1 周（段 0 門 → 段 1〜4 → ログ → commit。Phase 3・rules.md 31 章）
 #
-# ⚠ 呼ぶのは `run-devloop.sh`（timer）か人。段ごとに時間と費用の上限・どの段で止まっても日誌は書く・段 4（読むだけ）は必ず回す。
+# ⚠ 呼ぶのは `run-devloop.sh`（timer）か人。段ごとに時間と費用の上限・どの段で止まってもログは書く・段 4（読むだけ）は必ず回す。
 # ⚠ 外の世界（git・claude -p・cli.queue・pytest）は `env` の関数で呼ぶ ＝ テストは差し替える。
 
 import re
@@ -552,8 +552,8 @@ def claude_bin() -> str:
 def model_names(usage) -> str:
     """`claude -p` の応答の `modelUsage` から、使ったモデルの名前（定価換算の費用の大きい順・「＋」でつなぐ）。無ければ空。
 
-    ⚠ 運転手は `--model` を渡さない ＝ その機械の会話用の設定（`~/.claude/settings.json`）のモデルで動く。
-    設定やモデルの版が替わると費用（定価換算）が動くので、晩ごとに名前を日誌に残す（2026-11-13 利用者「モデル名を日誌に残して」）。
+    ⚠ ランナーは `--model` を渡さない ＝ そのマシンの会話用の設定（`~/.claude/settings.json`）のモデルで動く。
+    設定やモデルの版が替わると費用（定価換算）が動くので、晩ごとに名前をログに残す（2026-11-13 利用者「モデル名を日誌に残して」）。
     """
     if not isinstance(usage, dict):
         return ""
@@ -618,7 +618,7 @@ def default_env(cfg: dict, conn=None) -> dict:
             "mail": None}                    # 報告メールの送り手（None ＝ devloop_mail の既定 ＝ SMTP。テストの FakeEnv はこの項目を持たない ＝ 送らない）
 
 
-# ---------------------------------------------------------------- 状態・錠
+# ---------------------------------------------------------------- 状態・ロック
 
 
 def load_state(conn) -> dict:
@@ -644,7 +644,7 @@ def _pid_alive(pid: int) -> bool:
 
 
 def take_lock(path: str) -> bool:
-    """錠（同時に 2 つ走らない）。死んだ pid の錠は外して取り直す。"""
+    """ロック（同時に 2 つ走らない）。死んだ pid のロックは外して取り直す。"""
     if os.path.exists(path):
         try:
             with open(path, encoding="utf-8") as f:
@@ -671,7 +671,7 @@ def release_lock(path: str) -> None:
 
 
 def own_outputs(cfg: dict, env: dict) -> list[str]:
-    """運転手が毎晩書く置き場（リポジトリからの相対・末尾の / なし）。門の「汚れた木」に数えない。"""
+    """ランナーが毎晩書く保存先（リポジトリからの相対・末尾の / なし）。門の「汚れたワーキングツリー」に数えない。"""
     repo = env.get("repo", REPO)
     paths = [_path(cfg, "log"), _path(cfg, "register"), env.get("drafts_dir") or DRAFTS]
     return [os.path.relpath(os.path.abspath(p), repo).replace(os.sep, "/") for p in paths]
@@ -683,7 +683,7 @@ def _is_own(rel: str, own: list[str]) -> bool:
 
 
 def gate(cfg: dict, env: dict, state: dict) -> str | None:
-    """止める理由（None ＝ 通る）。順: HALT → 打ち切り ② ③ → 作業ツリー → git pull --ff-only。"""
+    """止める理由（None ＝ 通る）。順: HALT → 打ち切り ② ③ → ワーキングツリー → git pull --ff-only。"""
     stop = cfg.get("stop") or {}
     halt = os.path.join(ROOT, stop.get("halt_file", "DEVLOOP_HALT"))
     if os.path.exists(halt):
@@ -697,10 +697,10 @@ def gate(cfg: dict, env: dict, state: dict) -> str | None:
         rc, out, err = env["sh"](["git", "status", "--porcelain"], cwd=env["repo"])
         if rc:
             return f"git status が失敗: {err.strip()[-200:]}"
-        # ⚠ 自分の錠（devloop.lock）は数えない（night が門の前に取る ＝ 数えると門は毎晩止まる。2026-11-01 に踏んだ）
+        # ⚠ 自分のロック（devloop.lock）は数えない（night が門の前に取る ＝ 数えると門は毎晩止まる。2026-11-01 に踏んだ）
         mine = os.path.basename((cfg.get("stop") or {}).get("lock_file", "devloop.lock"))
-        # ⚠ 自分が書く置き場（日誌・register.md・週 1 回の下書き）も数えない。コミットの後に日誌を書き直す・止まった晩も
-        #    段 4 と日誌は書く ＝ 数えると次の晩から毎晩止まる（2026-11-03 Sx360 が見つけた）。次に通った晩のコミットに入る
+        # ⚠ 自分が書く保存先（ログ・register.md・週 1 回の下書き）も数えない。コミットの後にログを書き直す・止まった晩も
+        #    段 4 とログは書く ＝ 数えると次の晩から毎晩止まる（2026-11-03 Sx360 が見つけた）。次に通った晩のコミットに入る
         own = own_outputs(cfg, env)
         dirty = [l for l in out.splitlines()
                  if l.strip() and os.path.basename(l[3:].strip()) != mine and not _is_own(l[3:].strip(), own)]
@@ -777,7 +777,7 @@ def _key_shapes(v) -> list[str]:
 
 
 def register_ideas(cfg: dict, raw_ideas: list[dict], *, source: str, meta: dict, date: str, models: list[str] | None) -> list[dict]:
-    """段 1 の案を登録簿に写し、重複の検査と K7 の線で status を決める（31-1 の 2）: 既出 ／ 共有コード変更 ／ 登録（項目が足りなければ 案 のまま）。"""
+    """段 1 の案をレジストリにコピー、重複の検査と K7 の線で status を決める（31-1 の 2）: 既出 ／ 共有コード変更 ／ 登録（項目が足りなければ 案 のまま）。"""
     ideas_dir = _path(cfg, "ideas")
     os.makedirs(ideas_dir, exist_ok=True)
     out = []
@@ -859,7 +859,7 @@ def ideate(cfg: dict, env: dict, date: str, log, models: list[str] | None) -> di
     except Exception as e:       # noqa: BLE001
         out["similar"] = {}
         log(f"  ⚠ 似た過去の案を引けなかった（表示だけ ＝ 続ける）: {type(e).__name__}: {e}")
-    # ⚠ 31-6: 枠の外の本数（下限に届かなくても止めない ＝ 日誌に書く）
+    # ⚠ 31-6: 枠の外の本数（下限に届かなくても止めない ＝ ログに書く）
     need = int(ide.get("outside_frame_min", 2))
     out["outside"] = sum(1 for d in out["ideas"] if d.get("frame") == "外")
     if out["outside"] < need:
@@ -907,7 +907,7 @@ def changed_files(env: dict) -> set[str]:
 
 
 def _rel_root(repo_rel: str) -> str:
-    """リポジトリ基準の道 → experiments/feature-discovery 基準（外なら `../` 始まり）。"""
+    """リポジトリ基準のパス → experiments/feature-discovery 基準（外なら `../` 始まり）。"""
     return _norm(os.path.relpath(os.path.join(REPO, repo_rel), ROOT))
 
 
@@ -1332,10 +1332,10 @@ def sandbox_stage(cfg: dict, env: dict, state: dict, date: str, log, deadline: f
     return out
 
 
-# ---------------------------------------------------------------- 週 1 回の候補の棚（rules.md 31-3 の 4・プラン 4-2・2026-11-01）
+# ---------------------------------------------------------------- 週 1 回の候補リスト（rules.md 31-3 の 4・プラン 4-2・2026-11-01）
 
 WEEKLY_WEEKDAY = 5          # 土曜 01:00 の回 ＝ 金曜の晩（31-3 の 4）
-DRAFTS = os.path.abspath(os.path.join(ROOT, "..", "..", "docs", "specs", "experiments", "dev-loop", "drafts"))   # ⚠ 執行器の側（live-trading/）には書かない（allowlist の forbid）
+DRAFTS = os.path.abspath(os.path.join(ROOT, "..", "..", "docs", "specs", "experiments", "dev-loop", "drafts"))   # ⚠ 執行エンジンの側（live-trading/）には書かない（allowlist の forbid）
 _RUN_ID = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}_(.+)$")
 
 
@@ -1404,13 +1404,13 @@ def weekly_stage(cfg: dict, env: dict, date: str, log, drafts_dir: str | None = 
     return out
 
 
-# ---------------------------------------------------------------- 日誌・commit・1 晩
+# ---------------------------------------------------------------- ログ・commit・1 晩
 
 
 def _journal_path(cfg: dict, date: str) -> str:
     d = _path(cfg, "log")
     os.makedirs(d, exist_ok=True)
-    # ⚠ 同じ日の 2 回目以降は <日付>-2.md … に書く（前の回の日誌を上書きしない。2026-11-01 に踏んだ）
+    # ⚠ 同じ日の 2 回目以降は <日付>-2.md … に書く（前の回のログを上書きしない。2026-11-01 に踏んだ）
     path, k = os.path.join(d, f"{date}.md"), 2
     while os.path.exists(path):
         path, k = os.path.join(d, f"{date}-{k}.md"), k + 1
@@ -1582,7 +1582,7 @@ def mail_extras(cfg: dict, env: dict, parts: dict) -> tuple[list[dict], dict | N
 
 def report(cfg: dict, env: dict, date: str, parts: dict, journal_text: str, journal_path: str | None, log, *,
            mail: bool | None, dry_run: bool) -> str | None:
-    """報告メール（プラン docs/plans/archive/devloop-mail.md）。日誌とコミットの後に 1 通。⚠ 送れなくても止めない・日誌は書き換えない。
+    """報告メール（プラン docs/plans/archive/devloop-mail.md）。ログとコミットの後に 1 通。⚠ 送れなくても止めない・ログは書き換えない。
 
     mail: None ＝ dry-run でなければ送る ／ True ＝ 送る ／ False ＝ 送らない。⚠ env に "mail" が無ければ送らない（テストの FakeEnv）。
     """
@@ -1616,7 +1616,7 @@ def report(cfg: dict, env: dict, date: str, parts: dict, journal_text: str, jour
 
 def night(cfg: dict, env: dict, *, date: str | None = None, stages: tuple[int, ...] = (0, 1, 2, 3, 4, 5), dry_run: bool = False,
           log=print, journal: bool = True, mail: bool | None = None) -> dict:
-    """1 晩。段 0 で止まれば段 1〜3 は回さず段 4 だけ回して日誌を書く。どの段が落ちても日誌は書く。最後に報告メール。"""
+    """1 晩。段 0 で止まれば段 1〜3 は回さず段 4 だけ回してログを書く。どの段が落ちてもログは書く。最後に報告メール。"""
     t0 = time.time()
     date = date or env["now"]().strftime("%Y-%m-%d")
     conn = env["conn"]
@@ -1653,7 +1653,7 @@ def night(cfg: dict, env: dict, *, date: str | None = None, stages: tuple[int, .
                 parts["cost"] += s1["cost"]
                 new = s1["counts"].get("登録", 0)
                 state["consecutive_no_new"] = 0 if new else state.get("consecutive_no_new", 0) + 1
-            except Exception as e:           # noqa: BLE001  ⚠ 日誌に残して先へ
+            except Exception as e:           # noqa: BLE001  ⚠ ログに残して先へ
                 parts["ideate_error"] = f"{type(e).__name__}: {e}"
                 log(f"⚠ 段 1 が落ちた: {parts['ideate_error']}")
         if 2 in stages and not parts.get("stopped") and not dry_run:
@@ -1715,13 +1715,13 @@ def night(cfg: dict, env: dict, *, date: str | None = None, stages: tuple[int, .
                         f" ／ 段 4 新顔 {len((parts.get('select') or {}).get('new', []))}"
                         + (f" ／ サンドボックス {len(parts['sandbox']['done'])} 本" if (parts.get("sandbox") or {}).get("enabled") else ""))
                 parts["commit"] = commit(cfg, env, date, summ, log)
-                journal_text = write_journal(cfg, date, parts, path)   # commit の結果を書き足す（⚠ 日誌自身は次の晩のコミットに入る ＝ 門は数えない）
+                journal_text = write_journal(cfg, date, parts, path)   # commit の結果を書き足す（⚠ ログ自身は次の晩のコミットに入る ＝ 門は数えない）
             log(f"日誌 {os.path.relpath(path, REPO)}")
     finally:
         release_lock(lock)
     status = report(cfg, env, date, parts, journal_text, journal_path, log, mail=mail, dry_run=dry_run)
     if status is not None and not dry_run and (state.get("nights") or []):
-        state["nights"][-1]["mail"] = status          # ⚠ 状態にだけ残す（日誌は書き換えない）
+        state["nights"][-1]["mail"] = status          # ⚠ 状態にだけ残す（ログは書き換えない）
         try:
             save_state(conn, state)
         except sqlite3.Error:
@@ -1762,7 +1762,7 @@ def cmd_night(args) -> int:
 
 
 def sample_html(cfg: dict, m: dict) -> str:
-    """`mail-test --sample`: 登録簿の最新の晩のアイデア ＋ 最後に回した 2 本の結果で HTML の本文を組む（読むだけ）。"""
+    """`mail-test --sample`: レジストリの最新の晩のアイデア ＋ 最後に回した 2 本の結果で HTML の本文を組む（読むだけ）。"""
     from ail import rundb
     from ail import runs as _runs
     from cli import devloop_mail as dm

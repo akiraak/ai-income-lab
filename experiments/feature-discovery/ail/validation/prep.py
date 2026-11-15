@@ -40,15 +40,15 @@ def apply(exp: dict, Xtr: pd.DataFrame, Xte: pd.DataFrame, ctx: dict, ytr=None, 
     return registry.resolve("transform", name)(Xtr, Xte, ctx)
 
 
-XS_LABEL = "xs_excess"     # 登録簿 20261025-xs-excess-label（2026-10-25）
-VOL_LABEL = "vol_scaled"   # 登録簿 20261101-vol-scaled-label（2026-11-01）
+XS_LABEL = "xs_excess"     # レジストリ 20261025-xs-excess-label（2026-10-25）
+VOL_LABEL = "vol_scaled"   # レジストリ 20261101-vol-scaled-label（2026-11-01）
 VOL_COLUMN = "own_vol_60"  # その銘柄の直近 60 日の日次 σ（足 t の終値まで ＝ 未来を見ない）
 
 
 def train_label(exp: dict, tr: pd.DataFrame):
-    """訓練のラベル。⚠ **`label` の無い config は `tr["y"].values` そのまま**（1 ビットも変わらない ＝ 既定経路の指紋）。
+    """訓練のラベル。⚠ **`label` の無い config は `tr["y"].values` そのまま**（1 ビットも変わらない ＝ 既定経路のフィンガープリント）。
 
-    `label = "xs_excess"`（開発ループの登録簿 `20261025-xs-excess-label`・rules.md 31 章）: 訓練のラベルを **y − 同じ日の表の全銘柄の y の平均**
+    `label = "xs_excess"`（開発ループのレジストリ `20261025-xs-excess-label`・rules.md 31 章）: 訓練のラベルを **y − 同じ日の表の全銘柄の y の平均**
     （断面の超過リターン）にする。訓練の行だけで作る（検証の行の y は使わない）。評価の損益・売買の器・θ・較正の式は変えない
     （較正は符号で行うので「平均を上回ったか」の確率になる）。⚠ 学習範囲 shared だけ（銘柄別は呼ぶ側が拒む）。
     """
@@ -71,7 +71,7 @@ def train_label(exp: dict, tr: pd.DataFrame):
 def label(exp: dict, method: str) -> str:
     """手法名に変換を混ぜる。⚠ **変換名を先頭に置く。**
 
-    ⚠ **台帳は手法名の先頭から `F5-1` を ID として読む**（`ail/catalog.py` の `_ID`）。
+    ⚠ **検証結果一覧は手法名の先頭から `F5-1` を ID として読む**（`ail/catalog.py` の `_ID`）。
     ⚠ **混ぜないと「全部使う（基準）」の行に化けて、その試行が数えられない**（rules.md 11 章 規約 4）。
     """
     name = exp.get("transform")

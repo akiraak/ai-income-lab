@@ -1,7 +1,7 @@
-"""NYSE の暦（experiments/tastytrade-api-sample/nyse_calendar.py）。手で写した日付を、規則から独立に計算した日付と突き合わせる。
+"""NYSE の暦（experiments/tastytrade-api-sample/nyse_calendar.py）。手で写した日付を、規則から独立に計算した日付と照合する。
 
 ⚠ 規則は NYSE Rule 7.2 の慣行（土曜の祝日は金曜へ・日曜は月曜へ。ただし 1 月 1 日が土曜なら振り替えない）。
-   暦に年を足したときに写し間違いを拾うためのもので、正本は NYSE の公表（nyse_calendar.py の頭の出典）。
+   暦に年を足したときにコピー間違いを拾うためのもので、正本は NYSE の公表（nyse_calendar.py の頭の出典）。
 """
 
 from datetime import date, datetime, timedelta, timezone

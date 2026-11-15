@@ -1,4 +1,4 @@
-"""執行器が人ごとの印（停止 ／ 手じまい。control.py）を読むこと（モックサーバで通す。プラン docs/plans/archive/trader-control-flags.md）。
+"""執行エンジンが人ごとの印（停止 ／ 手じまい。control.py）を読むこと（モックサーバで通す。プラン docs/plans/archive/trader-control-flags.md）。
 
 停止 ＝ その人を飛ばす（合図を読まず・売買しない・持ち株はそのまま）／ 手じまい ＝ 合図を読まず持ち株を全部売り、済んだら control/ に「済み」を書き（＝ 停止）、以後は飛ばす ／
 HALT が優先 ／ 壊れた印は起動を拒む ／ 予算の合計の上限は「買う人」だけで見る ／ 口座が足りない銘柄は売らず翌日に持ち越す。
@@ -71,7 +71,7 @@ def post(base, path, body):
 
 
 def setup(base):
-    """`lq_a`（持ち株 SPY 2・QQQ 1）と `ac_b`（持ち株なし・今日 SPY を買う合図）。印の置き場は HALT の隣の control/。"""
+    """`lq_a`（持ち株 SPY 2・QQQ 1）と `ac_b`（持ち株なし・今日 SPY を買う合図）。印の保存先は HALT の隣の control/。"""
     tdir, sdir = base / "traders", base / "signals"
     tdir.mkdir(), sdir.mkdir()
     for name in ("lq_a", "ac_b"):

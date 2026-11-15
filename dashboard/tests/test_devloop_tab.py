@@ -1,4 +1,4 @@
-"""「開発ループ」（外部のタブ「実行」の 1 ページ ＝ `devloopview.py`。dashboard.md §20）。登録簿・日誌・設定・研究の DB を読むだけ。"""
+"""「開発ループ」（外部のタブ「実行」の 1 ページ ＝ `devloopview.py`。dashboard.md §20）。レジストリ・ログ・設定・研究の DB を読むだけ。"""
 
 from __future__ import annotations
 

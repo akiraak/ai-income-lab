@@ -141,7 +141,7 @@ def test_exp_overview_methods_and_traits(runs_dir):
     # fixture の実検証は feature_layers に cs があるので断面。組の表に組が出る
     assert "断面・日足・1 日先・調整後" in body
     assert "先読みの検査・日足・1 日先・調整後" in body
-    assert "4,087" in body                       # breadth の実効観測数（写し）
+    assert "4,087" in body                       # breadth の実効観測数（コピー）
 
 
 def test_exp_overview_analysis_pass(runs_dir):
@@ -195,11 +195,11 @@ def test_exp_run_html(runs_dir):
     assert "F3-1 Lasso" in body            # 最良手法
     assert "3.5" in body                   # 上乗せ t
     assert "パネルの注意書き" in body
-    assert "全部使う（基準）" in body       # summary.csv の写し
+    assert "全部使う（基準）" in body       # summary.csv のコピー
 
 
 def test_exp_run_html_holding_days_column(runs_dir):
-    """閾値売買の詳細に「保有日数 中央値（p25–p75）」の列が出る。⚠ **checks.json の写し**で、鍵が無い θ は「—」。"""
+    """閾値売買の詳細に「保有日数 中央値（p25–p75）」の列が出る。⚠ **checks.json のコピー**で、鍵が無い θ は「—」。"""
     d = RunDir(runs_dir, "2026-09-10T10-00-00_trade_own_ridge_a")
     (d / "summary.csv").write_text(
         "手法,閾値,本数,的中率,IC,粗利bp,純利bp,取引回数,保有日率,fold数\n"
@@ -281,7 +281,7 @@ def test_gated_run_is_listed_apart_and_not_counted(runs_dir):
     assert "実行 1 件" in by_id["overview"]["sub"]          # ⚠ 門前を足して 2 件にしない
     body = vibetab.exp_overview_html(runs_dir)
     assert "門前（前置きの門を通らず、検証を回していない）" in body
-    assert "0.503" in body and "3.2" in body                # 門の 2 値（写し）
+    assert "0.503" in body and "3.2" in body                # 門の 2 値（コピー）
 
 
 def test_gated_run_page_shows_the_gate_not_an_empty_score(runs_dir):
@@ -300,7 +300,7 @@ def test_data_sidebar_sections(exp_dir):
     items = vibetab.data_sidebar(vibetab.ExpPaths(exp_dir))["items"]
     assert [i["id"] for i in items] == [sec for sec, _ in vibetab.DATA_SECTIONS]
     by_id = {i["id"]: i for i in items}
-    assert "1,500" in by_id["overview"]["sub"]   # manifest の rows の合計（写し）
+    assert "1,500" in by_id["overview"]["sub"]   # manifest の rows の合計（コピー）
 
 
 @pytest.mark.parametrize("section", [sec for sec, _ in vibetab.DATA_SECTIONS])
@@ -313,7 +313,7 @@ def test_data_section_contents(exp_dir):
     paths = vibetab.ExpPaths(exp_dir)
     assert "gaps 3" in vibetab.data_section_html(paths, "bars")          # 検査の引っかかり
     external = vibetab.data_section_html(paths, "external")
-    assert "災害は保険と操業停止に効く" in external                       # 仮説は宣言の写し
+    assert "災害は保険と操業停止に効く" in external                       # 仮説は宣言のコピー
     assert "USGS 地震" in external
     assert "後知恵あり" in vibetab.data_section_html(paths, "exposures")  # 後知恵
     assert vibetab.data_section_html(paths, "nazo") is None
@@ -327,7 +327,7 @@ def test_data_external_details_and_placebo(exp_dir):
     assert "系列の一覧" in body                       # manifest ごとの系列の details
     assert "ex_tmax" in body                          # 系列の一覧の中身
     assert "値動きと因果を想定しない（偽薬）" in body   # 仮説なしの偽薬の既定文
-    assert "公開データ" in body                        # 規約の列（sources.toml の写し）
+    assert "公開データ" in body                        # 規約の列（sources.toml のコピー）
     assert "偽発見率" in body                          # 脚注
 
 
@@ -410,13 +410,13 @@ def test_http_routes(server):
     assert _get(f"{server}/glossary/view?item=nai")[0] == 404
 
 
-# ---------------------------------------------------------------- 見張り
+# ---------------------------------------------------------------- 監視
 
 
 def test_exp_fingerprint_moves_on_checks_update(runs_dir):
     before = vibetab.exp_fingerprint(runs_dir)
     p = RunDir(runs_dir, "2026-09-09T12-00-00_own_2018") / "checks.json"
-    p.write_text(p.read_text().replace("0.97", "0.98"))        # ⚠ 中身が変われば指紋が動く（記録は DB）
+    p.write_text(p.read_text().replace("0.97", "0.98"))        # ⚠ 中身が変わればフィンガープリントが動く（記録は DB）
     after = vibetab.exp_fingerprint(runs_dir)
     assert after != before
     assert set(after) == set(before)
@@ -465,7 +465,7 @@ def make_trading_run(runs_dir: Path, name: str) -> RunDir:
 
 
 def test_exp_run_html_shows_thresholds(tmp_path):
-    """⚠ 3 閾値とも出す・上乗せは対 B&H・銘柄別は要約だけ（checks.json の写し）。"""
+    """⚠ 3 閾値とも出す・上乗せは対 B&H・銘柄別は要約だけ（checks.json のコピー）。"""
     runs = tmp_path / "runs"
     make_trading_run(runs, "2026-09-10T12-00-00_trade_own_ridge_a")
     body = vibetab.exp_run_html(runs, "2026-09-10T12-00-00_trade_own_ridge_a")
@@ -621,7 +621,7 @@ def hw_server(runs_dir, exp_dir):
 
 def test_hardware_routes(hw_server):
     base, sampler = hw_server
-    assert not sampler.running                      # ⚠ handler を作っただけでは見張りは起きない
+    assert not sampler.running                      # ⚠ handler を作っただけでは監視は起きない
     status, body = _get(f"{base}/hardware/api/sidebar")
     assert status == 200 and [i["id"] for i in json.loads(body)["items"]] == ["now", "history"]
     status, body = _get(f"{base}/hardware/api/snapshot")

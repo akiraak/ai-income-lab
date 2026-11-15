@@ -10,10 +10,10 @@
 
 ⚠ **先読みをしない**（rules.md 7 章）: `asof` より後の足は読んだ直後に捨てる。`asof` の終値（15:50 の代役）を
   含むラベルの行（＝ 前の営業日の行）は訓練に入れない。`asof` の行の `y` は見ない。
-⚠ **`runs/` を作らない・台帳に出ない**（試行ではない。既存の構成をそのまま通すだけ）。
+⚠ **`runs/` を作らない・検証結果一覧に出ない**（試行ではない。既存の構成をそのまま通すだけ）。
 ⚠ **研究用の表（`data/features/`）を読まない・書かない**（足から毎回メモリ上で組む）。実売買では `AIL_DATA_DIR` を
-  実売買用の置き場（`live_update.sh` の `data-live/`）に向ける。
-⚠ **`asof` の足**: 置き場にあればそれを使う（市場時間中に `live_update.sh` を流すと「今日の途中の足」が入る ＝ 終値の代役）。
+  実売買用の保存先（`live_update.sh` の `data-live/`）に向ける。
+⚠ **`asof` の足**: 保存先にあればそれを使う（市場時間中に `live_update.sh` を流すと「今日の途中の足」が入る ＝ 終値の代役）。
   `--proxy` は足を上書き ／ 追加する口（検算と、足が取れなかったときの予備）。代役と公式終値の差は差 1 の一部として後で測る。
 """
 
@@ -66,7 +66,7 @@ def make_panel_hook(asof: pd.Timestamp, proxy: dict | None, notes: dict):
                 if missing:
                     raise PredictError(f"--proxy の {s} に {missing} が無い（足 1 本ぶん open/high/low/close/volume が要る）")
                 b = b[b["ts"].dt.normalize() < asof]
-                # ⚠ 足の時刻（UTC の何時か）は直前の足に合わせる（置き場の流儀をそのまま継ぐ）
+                # ⚠ 足の時刻（UTC の何時か）は直前の足に合わせる（保存先の流儀をそのまま継ぐ）
                 offset = (b["ts"].iloc[-1] - b["ts"].iloc[-1].normalize()) if len(b) else pd.Timedelta(0)
                 ts = asof + offset
                 row = {"time_ms": int(ts.value // 1_000_000), "ts": ts,
@@ -92,7 +92,7 @@ def split_asof(df: pd.DataFrame, feats: list[str], asof: pd.Timestamp, start: st
     #    （[forward10-target.md §4 の 7](../../../docs/specs/experiments/forward10-target.md)）。⚠ `y_fwd_` の無い表では 1 ビットも変わらない
     scales = sorted(int(c[len(label_cols.SCALE_PREFIX):]) for c in df.columns if c.startswith(label_cols.SCALE_PREFIX))
     if scales and max(scales) > horizon:
-        # 同じ銘柄の W 本先の ts（表は銘柄ごとに足の順で並んでいる ＝ `assemble`）。尻の W 本は NaT ＝ 訓練に入らない（ラベルも NaN）
+        # 同じ銘柄の W 本先の ts（表は銘柄ごとに足の順で並んでいる ＝ `assemble`）。末尾の W 本は NaT ＝ 訓練に入らない（ラベルも NaN）
         end_w = df.groupby("symbol", sort=False)["ts"].shift(-max(scales)).dt.normalize()
         label_end = label_end.where(label_end >= end_w, end_w)      # ⚠ NaT は比較で False → NaT を採る
     tr = df[(day < asof) & (label_end < asof)].dropna()

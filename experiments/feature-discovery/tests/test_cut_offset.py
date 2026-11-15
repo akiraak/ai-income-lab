@@ -1,8 +1,8 @@
-"""評価期間の切れ目をずらす口 `[validation] cut_offset`（rules.md 33 章。2026-11-11・登録簿 `20261111-fold-cut-shift`）。
+"""評価期間の分割点をずらす口 `[validation] cut_offset`（rules.md 33 章。2026-11-11・レジストリ `20261111-fold-cut-shift`）。
 
-⚠ **無い config は 1 ビットも変わらない**（切れ目・fold の行。既定経路の指紋は `test_trading_run.py`）。
+⚠ **無い config は 1 ビットも変わらない**（分割点・fold の行。既定経路のフィンガープリントは `test_trading_run.py`）。
 ずらし ＝ fold g（1〜5）の初日を、その群の日付の数 L_g × 分子 ÷ 分母（切り捨て）個ぶん後ろへ。最初の日と最後の端は不変。
-門・合わせる口のメンバーも同じ切れ目。検証方式の変種 `閾値売買（切れ目ずらし1/3）`・予測モデル名 `~cut1of3`。
+門・合成オプションのメンバーも同じ分割点。検証方式の変種 `閾値売買（切れ目ずらし1/3）`・予測モデル名 `~cut1of3`。
 """
 
 from __future__ import annotations
@@ -72,7 +72,7 @@ def test_bad_value_stops(bad):
 
 
 def test_levels_are_the_two_fixed_ones():
-    assert splits.CUT_OFFSETS == {"1/3": (1, 3), "2/3": (2, 3)}    # ⚠ rules.md 33-2 の写し。足すなら新しい id で先に登録
+    assert splits.CUT_OFFSETS == {"1/3": (1, 3), "2/3": (2, 3)}    # ⚠ rules.md 33-2 のコピー。足すなら新しい id で先に登録
 
 
 def test_style_and_name_and_counting():
@@ -92,7 +92,7 @@ def test_style_and_name_and_counting():
     both = catalog.threshold_style({"trading": {"style": "threshold", "execution": "next_open"},
                                     "validation": {"cut_offset": "1/3"}})
     assert both == "閾値売買（切れ目ずらし1/3・翌日始値）"            # ほかの変種とは `・` でつなぐ（33-3）
-    with pytest.raises(SystemExit):                                  # 綴りの無い量は名前が付かない
+    with pytest.raises(SystemExit):                                  # 表記の無い量は名前が付かない
         names.trial_name({**key, "検証方式": "閾値売買（切れ目ずらし1/2）"})
 
 
@@ -123,14 +123,14 @@ def test_trading_runs_on_the_shifted_folds(run):
     n = lambda r, m: r[r["手法"] == m].sort_values("fold")["検証日数"].to_numpy()
     assert sorted(b["fold"].unique()) == [1, 2, 3, 4, 5]
     want = [int(((days >= off[g]) & (days < off[g + 1])).sum()) for g in range(1, 6)]
-    assert list(n(b, BH)) == want and list(n(b, ALL)) == want       # 基準線も同じ切れ目（33-1 の 6）
+    assert list(n(b, BH)) == want and list(n(b, ALL)) == want       # 基準線も同じ分割点（33-1 の 6）
     assert n(b, BH).sum() < n(a, BH).sum() and n(b, BH)[-1] < n(a, BH)[-1]   # 最後の評価期間が縮む
     net = lambda r, m: r[r["手法"] == m].sort_values("fold")["純利bp"].to_numpy()
     assert not np.allclose(net(a, BH), net(b, BH)) and not np.allclose(net(a, ALL), net(b, ALL))
 
 
 def test_gate_and_body_use_the_same_edges(run, monkeypatch):
-    """門（`evaluate_gate`）と本体（`evaluate_trading`）が同じ切れ目で fold を切る（33-1 の 4）。"""
+    """門（`evaluate_gate`）と本体（`evaluate_trading`）が同じ分割点で fold を切る（33-1 の 4）。"""
     seen: list = []
     real = splits.folds_by_dates
 
@@ -155,7 +155,7 @@ def _host(text=None, mix=None):
 
 
 def test_mix_members_are_cut_by_the_owner(run):
-    """合わせる口（33-1 の 5）: メンバーの config に `cut_offset` は無い ＝ 持ち主のずらしで切る。同じ表・同じ config の
+    """合成オプション（33-1 の 5）: メンバーの config に `cut_offset` は無い ＝ 持ち主のずらしで切る。同じ表・同じ config の
     メンバーを平均すると持ち主の行と同じ ＝ メンバーもずらした fold を学んだ証拠。"""
     panel = tm._panel()
     loader = tm._loader({"ext": panel})
@@ -174,7 +174,7 @@ def test_mix_member_with_other_edges_still_stops(run):
                          mix_loader=tm._loader({"ext": tm._panel(shift_days=40)}))
 
 
-# --- config 4 本（rules.md 33-2 の写し） -----------------------------------
+# --- config 4 本（rules.md 33-2 のコピー） -----------------------------------
 
 CONFIGS = {"cut13_sel_small4_1995": ("sel_small4_1995", "1/3"), "cut23_sel_small4_1995": ("sel_small4_1995", "2/3"),
            "cut13_mix_t4": ("trader_mix_t4", "1/3"), "cut23_mix_t4": ("trader_mix_t4", "2/3")}
@@ -182,7 +182,7 @@ CONFIGS = {"cut13_sel_small4_1995": ("sel_small4_1995", "1/3"), "cut23_sel_small
 
 @pytest.mark.parametrize("name", sorted(CONFIGS))
 def test_configs_are_copies_with_the_offset(name):
-    """元の config の写しで、違いは `name`・`cut_offset`・θ 50 だけ・手法の絞り（sel）／ トレーダーの形を外す（mix）だけ。"""
+    """元の config のコピーで、違いは `name`・`cut_offset`・θ 50 だけ・手法の絞り（sel）／ トレーダーの形を外す（mix）だけ。"""
     src, text = CONFIGS[name]
     a, b = config.experiment(src), config.experiment(name)
     assert b["name"] == name and b["validation"].pop("cut_offset") == text

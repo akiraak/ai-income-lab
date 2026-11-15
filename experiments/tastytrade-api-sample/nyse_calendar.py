@@ -1,9 +1,9 @@
-"""NYSE の休場日と半日立会（13:00 ET 引け）。読み手は market_calendar.py（管理画面と執行器が同じものを使う）。
+"""NYSE の休場日と半日立会（13:00 ET 引け）。読み手は market_calendar.py（管理画面と執行エンジンが同じものを使う）。
 
 【公表値】NYSE "Holidays & Trading Hours" https://www.nyse.com/markets/hours-calendars （取得 2026-09-18）
 
-⚠ **手で写した**。写し間違いは dashboard/tests/test_market_calendar.py が規則（第 n 月曜・聖金曜日・土日の振替）から
-   独立に計算した日付と突き合わせて拾う。
+⚠ **手で写した**。コピー間違いは dashboard/tests/test_market_calendar.py が規則（第 n 月曜・聖金曜日・土日の振替）から
+   独立に計算した日付と照合して拾う。
 ⚠ **年に 1 度、NYSE が次の年を公表したら足す**（YEARS に年を足し、HOLIDAYS / EARLY_CLOSES に日付を足す）。
    載っていない年は「平日＝営業日」に戻り、管理画面に「仮」の印が出る。
 ⚠ **データを .py に置くのは、g3plus のコンテナがこのディレクトリの `*.py` と `*.sh` しか COPY しないため**

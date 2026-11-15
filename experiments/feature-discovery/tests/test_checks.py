@@ -151,7 +151,7 @@ def test_leak_runs_are_marked():
 # --- 試行数の数え方（2026-09-12。⚠ 二重計上を直した） ----------------------
 
 def test_the_ledger_already_counts_the_run_that_just_wrote_its_summary(tmp_path, monkeypatch):
-    """⚠ **`summary.csv` を書いた時点で、台帳はもうこの実行を数えている。**
+    """⚠ **`summary.csv` を書いた時点で、検証結果一覧はもうこの実行を数えている。**
 
     だから `n_trials_now` に「この実行ぶん」を足してはいけない（足すと二重になる。
     2026-09-12 までそうなっていた。validation-power.md §8-2-5）。
@@ -164,19 +164,19 @@ def test_the_ledger_already_counts_the_run_that_just_wrote_its_summary(tmp_path,
     count = lambda: len([r for r in catalog.trials()[0] if catalog.is_trial(r)])  # noqa: E731
     before = count()
 
-    # ⚠ 記録は DB。**実行中（閉じる前）に書いた `summary.csv` も、書いたその場で台帳に見える**（`cli.run` はここで数える）
+    # ⚠ 記録は DB。**実行中（閉じる前）に書いた `summary.csv` も、書いたその場で検証結果一覧に見える**（`cli.run` はここで数える）
     import pandas as pd
     run = runs.Run("x", {"model": "Ridge", "bar_minutes": 1440.0, "horizon": 1, "feature_layers": ["own"],
                          "trading": {"style": "threshold", "thresholds": [50]}}, seed=0)
     run.result(pd.DataFrame({"手法": ["全部使う（基準）"]}),
                pd.DataFrame({"閾値": [50.0], "純利bp": [1.0]}, index=pd.Index(["全部使う（基準）"], name="手法")))
 
-    assert count() == before + 1                      # ⚠ 書いただけで台帳が数える（閉じる前）
+    assert count() == before + 1                      # ⚠ 書いただけで検証結果一覧が数える（閉じる前）
     assert checks.n_trials_now() == before + 1        # ⚠ 足さないのが正しい
 
 
 def test_n_trials_now_matches_the_ledger():
-    """⚠ **正本は台帳。** `checks.json` に残るのは「そのときの台帳の数」そのものである。"""
+    """⚠ **正本は検証結果一覧。** `checks.json` に残るのは「そのときの検証結果一覧の数」そのものである。"""
     from ail import catalog
 
     assert checks.n_trials_now() == len([r for r in catalog.trials()[0] if catalog.is_trial(r)])

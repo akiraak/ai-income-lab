@@ -76,7 +76,7 @@ def test_switch_with_open_real_positions_needs_confirmation(base):
     assert modes.switch("sim", "sim1", real_trading_will_stop=True).is_sim
 
 
-# ---------- シミュレーションモードでは本物の執行器が起動しない
+# ---------- シミュレーションモードでは本物の執行エンジンが起動しない
 
 def test_sim_mode_refuses_real_run_day_even_with_prod_keys(base):
     modes.switch("sim", "sim1")

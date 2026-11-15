@@ -1,8 +1,8 @@
-"""執行器の「いま」と待ちを 1 か所から引く。既定は本物の時計、シミュレーションでは仮の時計（live-trading.md §0-7）。
+"""執行エンジンの「いま」と待ちを 1 か所から引く。既定は本物の時計、シミュレーションでは仮の時計（live-trading.md §0-7）。
 
 仮の時計の正本は `sim/<名前>/sim/control.json` の 1 ファイル:
     仮のいま ＝ sim_epoch ＋（実時間の経過 × speed）        （止まっている・最速のときは sim_epoch のまま）
-運転手（simrun）・執行器（run_day）・操作の口（simctl）は同じファイルを読むので、別プロセスでも同じ「いま」を見る。
+ランナー（simrun）・執行エンジン（run_day）・操作の口（simctl）は同じファイルを読むので、別プロセスでも同じ「いま」を見る。
 速さ・停止を変える側は、その瞬間の仮のいまを計算して錨（sim_epoch ／ real_epoch）を打ち直す ＝ 変えても時刻が飛ばない。
 最速（`max`）は待たずに、待つはずだった秒数だけ錨を進める（実時間に依らない ＝ 回帰テストが決定的）。
 
@@ -62,7 +62,7 @@ def _write(path: str, ctl: dict) -> None:
 
 
 def update_control(path: str, change, real_time=time.time) -> dict:
-    """読む → 錨をいまへ打ち直す → `change(ctl)` → 書く、を flock の中で行う（運転手と simctl が同時に書いても壊れない）。"""
+    """読む → 錨をいまへ打ち直す → `change(ctl)` → 書く、を flock の中で行う（ランナーと simctl が同時に書いても壊れない）。"""
     with open(path + ".lock", "a") as lk:
         fcntl.flock(lk, fcntl.LOCK_EX)
         ctl = read_control(path)
@@ -96,7 +96,7 @@ def resume(path: str, **kw) -> dict:
 
 
 def jump_to(path: str, when: datetime, **kw) -> dict:
-    """発注できる時間帯の外を飛ばす（運転手）。⚠ 進めるだけ。仮の時計は戻らない。"""
+    """発注できる時間帯の外を飛ばす（ランナー）。⚠ 進めるだけ。仮の時計は戻らない。"""
     return update_control(path, lambda c: c.update(sim_epoch=max(c["sim_epoch"], when.timestamp())), **kw)
 
 

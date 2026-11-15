@@ -99,7 +99,7 @@ def good_run(run_id="20260908T140000Z", at="2026-09-08T14:00:00.000+00:00", mock
 
 
 def write_run(records_dir: Path, rows):
-    """API 検証の記録を 1 本置く（⚠ 2026-09-21 から DB ＝ `livefs`。道はいままでと同じ）。"""
+    """API 検証の記録を 1 本置く（⚠ 2026-09-21 から DB ＝ `livefs`。パスはいままでと同じ）。"""
     import livefs
 
     head = rows[0]
@@ -110,7 +110,7 @@ def write_run(records_dir: Path, rows):
 
 @pytest.fixture(autouse=True)
 def _no_monitors_in_tests(monkeypatch):
-    """テストで監視を起こさせない番人。`create_app(settings)` のまま `TestClient` を開くと落ちる。
+    """テストで監視を起こさせないガード。`create_app(settings)` のまま `TestClient` を開くと落ちる。
 
     ⚠ **監視は `TT_REST_BASE=http://127.0.0.1:1` へ認証しに行く**。ふつうの Linux は即 `ConnectionRefused` だが、
     WSL2（mirrored）は閉じたループバックのポートが無応答で、`ttclient` の 30 秒を 1 本ずつ待ち切る
@@ -175,7 +175,7 @@ def write_experiment(runs_dir: Path, run_id: str, *, config: dict, inputs: dict,
 
 @pytest.fixture(autouse=True)
 def _record_db(tmp_path):
-    """⚠ 記録は DB（2026-09-21。プラン db-model-facts.md §11）。テストの一時置き場に自分の DB を作る ＝ 本物の live.sqlite に書かない。"""
+    """⚠ 記録は DB（2026-09-21。プラン db-model-facts.md §11）。テストの一時ディレクトリに自分の DB を作る ＝ 本物の live.sqlite に書かない。"""
     import livefs
 
     livefs.init(tmp_path, "live")
@@ -185,7 +185,7 @@ def _record_db(tmp_path):
 
 @pytest.fixture(autouse=True)
 def _pin_watch_clock(monkeypatch):
-    """見張り「今日の起動が無い」の時計を止める（§13-8）。⚠ 止めないと、本物の時計が 16:15 ET を過ぎた時刻にテストを流すと
+    """監視「今日の起動が無い」の時計を止める（§13-8）。⚠ 止めないと、本物の時計が 16:15 ET を過ぎた時刻にテストを流すと
     営業日の列が今日まで延び、記録の日付を固定したテストが落ちる（2026-09-24 に 1 件落ちた）。
     2026-09-01（火・営業日）09:00 ET ＝ 窓の前 ＝ 何も延びない。時刻を変えるテストは自分で `lv.now_et` を差し替える。"""
     from datetime import datetime

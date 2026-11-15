@@ -1,14 +1,14 @@
-"""約定後の実際の手数料（口座の取引履歴）を読んで、注文の見積りと突き合わせる。プラン docs/plans/archive/actual-fees.md（2026-10-19）。
+"""約定後の実際の手数料（口座の取引履歴）を読んで、注文の見積りと照合する。プラン docs/plans/archive/actual-fees.md（2026-10-19）。
 
     python3 fees.py fetch [--since YYYY-MM-DD] [--env prod] [--match]   # 取引履歴を取り足す → out/fees.jsonl（読むだけの照会。発注しない）
     python3 fees.py match                                                # out/<日付>/orders.jsonl × out/fees.jsonl → out/fees.csv
     python3 fees.py print                                                # 人ごとの 見積り ／ 実額 のまとめ（書かない）
 
-⚠ **読むだけの後処理**（`yardstick.py`・`launchlog.py` と同じ型）。執行器・売買履歴（`state/`）は触らない ＝ 売買履歴の `fees_usd` は
-   dry-run の見積りのまま。実額の正本は `out/fees.jsonl`（取引履歴の写し。1 取引 1 行）と `out/fees.csv`（注文ごとの 見積り ／ 実額 ／ 差）。
+⚠ **読むだけの後処理**（`yardstick.py`・`launchlog.py` と同じ型）。執行エンジン・売買履歴（`state/`）は触らない ＝ 売買履歴の `fees_usd` は
+   dry-run の見積りのまま。実額の正本は `out/fees.jsonl`（取引履歴のコピー。1 取引 1 行）と `out/fees.csv`（注文ごとの 見積り ／ 実額 ／ 差）。
 ⚠ 本番の照会は許可なし（`allow_prod_orders=False`）＝ 発注できない。口座番号は記録しない（応答の文字列も `Masker` を通す）。
-⚠ 「本番の機械ではない」印（`NOT_PRODUCTION`）のある機械では取りに行かない（titan の `live.sqlite` は読むだけの写し）。
-⚠ 置き場は `<out>/fees.jsonl`・`<out>/fees.csv`（`LT_OUT_DIR` があればそこ）。`out/<日付>/` には書かない（見張り「今日の起動が無い」を崩さない）。
+⚠ 「本番の機械ではない」印（`NOT_PRODUCTION`）のあるマシンでは取りに行かない（titan の `live.sqlite` は読むだけのコピー）。
+⚠ 保存先は `<out>/fees.jsonl`・`<out>/fees.csv`（`LT_OUT_DIR` があればそこ）。`out/<日付>/` には書かない（監視「今日の起動が無い」を崩さない）。
 
 取引履歴で分かったこと【実測 2026-10-19・本番の読むだけの照会】: 注文 1 本 ＝ 取引 1 行で `order-id` が入る ／ 1 行の手数料は dry-run の
 見積りを $0.001 に丸めた値 ／ `is-estimated-fee` は 1 か月たっても true のまま ／ 規制費の精算は週 1 回の「Regulatory fee adjustment」
@@ -62,7 +62,7 @@ def _signed(value, effect) -> float:
 
 
 def fee_of(tx: dict) -> float:
-    """1 取引の手数料の実額（払う額が正）。執行器の `fee_total_usd` と同じ向き。"""
+    """1 取引の手数料の実額（払う額が正）。執行エンジンの `fee_total_usd` と同じ向き。"""
     return round(sum(_signed(tx.get(k), tx.get(k + "-effect")) for k in FEE_KEYS), 6)
 
 

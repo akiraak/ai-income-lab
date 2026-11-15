@@ -155,7 +155,7 @@ def fitness(vals: np.ndarray, y_rank: np.ndarray) -> float:
 
 # --- 適合度を替える（rules.md 23 章。2026-10-08）--------------------------
 # ⚠ **既定 `pooled` は上の `fitness` そのまま**（探索の出力が 1 ビットも変わらない。`tests/test_ga_fitness.py`）。
-# ⚠ 測る行（訓練分割の尻）・探索・champion は替えない。替えるのは式の良さの測り方だけ
+# ⚠ 測る行（訓練分割の末尾）・探索・champion は替えない。替えるのは式の良さの測り方だけ
 FITNESS_LABELS = {                    # 手法名の後ろに付ける印（`prep.label`。識別項目に残す ＝ 23-2）
     "xs_mean": "〔適合度・断面の平均〕",
     "xs_ir": "〔適合度・断面の安定性〕",
@@ -360,14 +360,14 @@ def tf_symbolic(Xtr: pd.DataFrame, Xte: pd.DataFrame, ctx: dict):
     kind = str(ctx.get("fitness", "pooled"))
     ts_tr = ctx.get("ts_tr")
 
-    # ⚠ **測る場所は訓練分割の尻**（門・較正と同じ。13-2 の 2）。⚠ **切れなければ訓練全体で測る**
+    # ⚠ **測る場所は訓練分割の末尾**（門・較正と同じ。13-2 の 2）。⚠ **切れなければ訓練全体で測る**
     (_Xh, _yh), hold = tail_holdout(Xtr, y, frac=float(p["holdout_frac"]))
     if hold is None:
         Xs, ys, where = Xtr.to_numpy(dtype=float), y, "切れなかった（訓練全体で測った）"
         ds = ts_tr
     else:
         Xs, ys, where = hold[0].to_numpy(dtype=float), hold[1], "訓練分割の尻"
-        # 日付も `tail_holdout` と同じ切り方で尻を取る（行の並びは Xtr と同じ）
+        # 日付も `tail_holdout` と同じ切り方で末尾を取る（行の並びは Xtr と同じ）
         ds = None if ts_tr is None else tail_holdout(np.asarray(ts_tr), y, frac=float(p["holdout_frac"]))[1][0]
 
     doc = search(Xs, ys, names, {**p, "fitness": kind}, int(ctx.get("seed", 0)), dates=ds)

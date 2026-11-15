@@ -1,7 +1,7 @@
-"""登録簿 `20261109-null-shuffle-top-rows`（2026-11-13 の段 2・人の手）: 偽の実行の物差しを上位の行と「採る」の行に当てる（cli.null_rows）。
+"""レジストリ `20261109-null-shuffle-top-rows`（2026-11-13 の段 2・人の手）: 偽の実行の指標を上位の行と「採る」の行に当てる（cli.null_rows）。
 
 ⚠ 見るもの: 入れ替えは fold の切り口だけ（with を抜けたら元に戻る）／ 同じ (種, fold, 分割) と同じ日付の集合なら表が違っても同じ入れ替え ／
-   断面を保つ・y の集合は同じ ／ 対象の config は要らない部品だけを外した写し（元の config は変えない）／ 記録の口は何も書かない。
+   断面を保つ・y の集合は同じ ／ 対象の config は要らない部品だけを外したコピー（元の config は変えない）／ 記録の口は何も書かない。
 """
 
 from __future__ import annotations
@@ -73,7 +73,7 @@ def test_shuffle_keeps_cross_section_and_is_the_same_for_tables_with_the_same_da
             src_b = (xb["y"] % 1000).groupby(xb["ts"].to_numpy()).first()
             assert src.equals(src_b)                                            # 表が違っても、日付の集合が同じなら同じ入れ替え
     assert sum(moved) >= 8 and sum(other) >= 8                                  # 並びは変わる・種が違えば違う（短い分割は偶然同じになりうる）
-    # 単独の表では cli.null_shuffle.shuffle_y と同じ入れ替え（11/7 の物差しと同じ差し替え方）
+    # 単独の表では cli.null_shuffle.shuffle_y と同じ入れ替え（11/7 の指標と同じ差し替え方）
     f1, tr1, _te1 = plain[0]
     want = ns.shuffle_y(tr1.reset_index(drop=True), ns.BLOCK, np.random.default_rng([7, int(f1), 0, 20261109]))
     assert np.array_equal(a[0][1]["y"].to_numpy(), want["y"].to_numpy())

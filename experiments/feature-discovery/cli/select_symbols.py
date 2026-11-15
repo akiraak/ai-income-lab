@@ -1,7 +1,7 @@
 """いまの選抜（rules.md 29-8）: 訓練分割の成績で銘柄を選ぶ規則を**全期間を訓練にして** 1 回当て、K 本を出す。
 
 ⚠ **読むだけ**（`runs/` を作らない・DB に書かない）。config の `[[trading.trader]] select` の条件をそのまま使う
-（物差し・K・予算 ＝ 枠 ＝ 候補の線）。表は `cli.build.assemble`（`features_from` の持ち主）・訓練 ＝ ラベルの確かめられている行の全部。
+（指標・K・予算 ＝ 枠 ＝ 候補の線）。表は `cli.build.assemble`（`features_from` の持ち主）・訓練 ＝ ラベルの確かめられている行の全部。
 出すのは候補の人の銘柄の**案**。⚠ 人を作るかは利用者（成績で採らない）。
 
     .venv/bin/python -m cli.select_symbols --experiment sel_small_cs [--json out.json]

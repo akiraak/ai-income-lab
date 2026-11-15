@@ -1,11 +1,11 @@
-"""機械のモード（実売買 ／ シミュレーション）を読む。⚠ **読むだけ・表示だけ**（切り替え・速さ・停止は CLI の `simctl.py`。dashboard.md §13）。
+"""マシンのモード（実売買 ／ シミュレーション）を読む。⚠ **読むだけ・表示だけ**（切り替え・速さ・停止は CLI の `simctl.py`。dashboard.md §13）。
 
-正本は執行器（`experiments/live-trading/`）が持つ:
+正本は執行エンジン（`experiments/live-trading/`）が持つ:
   - `MODE`                          … `{"mode": "real" ／ "sim", "name": …, "since": …}`。⚠ **無ければ real**
   - `NOT_PRODUCTION`                … 「本番の機械ではない」印 `{"machine": <hostname>, "since", "by", "reason"}`（live-trading.md §0-14）。
-                                      あると執行器は本番の発注を拒む ＝ 帯に出す。⚠ 壊れていても「ある」として出す（執行器と同じ向き）
+                                      あると執行エンジンは本番の発注を拒む ＝ 帯に出す。⚠ 壊れていても「ある」として出す（執行エンジンと同じ向き）
   - `sim/<名前>/sim/control.json`   … 仮の時計（仮のいま ＝ sim_epoch ＋ 実時間の経過 × speed。`simclock.py` と同じ式）
-  - `sim/<名前>/sim/status.json`    … 運転手の状態（何日目・発注できる時間帯の中 ／ 外）
+  - `sim/<名前>/sim/status.json`    … ランナーの状態（何日目・発注できる時間帯の中 ／ 外）
 
 ⚠ **1 つの画面に本物とシミュレーションを混ぜない**: 読む記録はモードから決まる（real ＝ 本物の記録 ／ sim ＝ `sim/<名前>/`）。
    `AIL_LIVE_DIR` を手で指定していて、木の種類がモードと食い違うときは、数字を出さずに「食い違っている」とだけ出す。
@@ -68,7 +68,7 @@ def is_sim_tree(path: Path) -> bool:
 
 
 def clock(root: Path, real_now: float | None = None) -> dict | None:
-    """仮の時計のいま。control.json が無ければ None（運転手をまだ 1 度も起こしていない）。"""
+    """仮の時計のいま。control.json が無ければ None（ランナーをまだ 1 度も起こしていない）。"""
     ctl = _json(root / "sim" / "control.json")
     if not ctl:
         return None

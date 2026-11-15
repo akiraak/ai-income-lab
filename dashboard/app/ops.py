@@ -1,13 +1,13 @@
 """操作。⚠ **管理画面から出せるのは「全体の停止」と「解除」と、トレーダーの状態を変える指示（開始 ／ 一時停止 ／ 手じまい ／ 取り消す）だけ**（2026-09-18 に手動の注文を外した）。
 
 - 状態を変える指示（2026-10-09。プラン docs/plans/archive/trader-status-flow.md。前は「人ごとの印」と「名簿の開始 ／ 外す」）:
-  名簿 `roster.json`（`HALT` の隣）と `control/<人>.json` を書くだけ。⚠ **その場では何も売買しない**。執行器の次の回が読む
-  （`run_day.py --traders @roster`。発注の許可は執行器だけ ＝ この画面に発注の経路は無いまま）
+  名簿 `roster.json`（`HALT` の隣）と `control/<人>.json` を書くだけ。⚠ **その場では何も売買しない**。執行エンジンの次の回が読む
+  （`run_day.py --traders @roster`。発注の許可は執行エンジンだけ ＝ この画面に発注の経路は無いまま）
 
 - 停止（両面）: HALT フラグを書き、働いている注文を全部取り消す（取消は cert 常に可、prod は scope に trade があるときだけ）
 - 解除（ローカル面）
 - ⚠ **このモジュールが開ける本番の鍵は「取消」だけ**（`allow_prod_cancel`）。dry-run の鍵も発注の鍵も渡さない ＝
-  管理画面のコードから発注はできない。実売買の発注は執行器（`experiments/live-trading/run_day.py`）が行う
+  管理画面のコードから発注はできない。実売買の発注は執行エンジン（`experiments/live-trading/run_day.py`）が行う
 """
 
 from __future__ import annotations
@@ -31,7 +31,7 @@ class OpsError(Exception):
 
 
 def _load_executor_module(stem: str):
-    """執行器の `<stem>.py`（experiments/live-trading。標準ライブラリだけ）を道で読む ＝ 印・名簿の形の正本は執行器の側。"""
+    """執行エンジンの `<stem>.py`（experiments/live-trading。標準ライブラリだけ）をパスで読む ＝ 印・名簿の形の正本は執行エンジンの側。"""
     path = Path(__file__).resolve().parents[2] / "experiments" / "live-trading" / f"{stem}.py"
     spec = importlib.util.spec_from_file_location(f"lt_{stem}", path)
     mod = importlib.util.module_from_spec(spec)
@@ -102,13 +102,13 @@ class Ops:
         self._history("resume", actor, "-", out)
         return out
 
-    # ---------------- 置き場（`control/<人>.json` ＝ 一時停止 ／ 手じまい・名簿 ＝ 誰を動かすか）。⚠ 読むだけ。書くのは下の指示
+    # ---------------- 保存先（`control/<人>.json` ＝ 一時停止 ／ 手じまい・名簿 ＝ 誰を動かすか）。⚠ 読むだけ。書くのは下の指示
 
     def control_dir(self) -> Path:
         return Path(control.control_dir(str(self.settings.halt_file)))
 
     def flags(self) -> dict[str, dict]:
-        """{識別名: {kind, label, since, actor, reason, done}}。壊れた印は label に「読めない」（執行器は起動を拒む）。"""
+        """{識別名: {kind, label, since, actor, reason, done}}。壊れた印は label に「読めない」（執行エンジンは起動を拒む）。"""
         out: dict[str, dict] = {}
         try:
             for name, fl in control.read_all(str(self.control_dir())).items():
@@ -135,10 +135,10 @@ class Ops:
             return None, str(exc)[:200]
 
     # ---------------- 状態を変える指示（開始 ／ 一時停止 ／ 手じまい ／ 取り消す。plan archive/trader-status-flow.md §2-3）
-    # ⚠ 書くだけ。売買は執行器の次の回。押せるかの判定は lineup.actions（呼ぶ側が先に見る）。⚠ 置き場の形は変えない
+    # ⚠ 書くだけ。売買は執行エンジンの次の回。押せるかの判定は lineup.actions（呼ぶ側が先に見る）。⚠ 保存先の形は変えない
 
     def instruct(self, name: str, kind: str, row: dict, actor: str, reason: str = "") -> dict:
-        """指示を置き場に書く。`row` ＝ lineup.board の行（いまの状態）。前の形を履歴に残す（取り消すときに戻す）。"""
+        """指示を保存先に書く。`row` ＝ lineup.board の行（いまの状態）。前の形を履歴に残す（取り消すときに戻す）。"""
         if kind not in ("start", "paused", "liquidate"):
             raise OpsError(f"指示は start ／ paused ／ liquidate だけ: {kind!r}")
         cdir, rpath = str(self.control_dir()), str(self.roster_path())

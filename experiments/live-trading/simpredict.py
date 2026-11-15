@@ -1,17 +1,17 @@
 #!/usr/bin/env python3
-"""シミュレーションの `kind = "experiment"` のトレーダーに渡す予測の作り置き（live-trading.md §0-7 (k)）。
+"""シミュレーションの `kind = "experiment"` のトレーダーに渡す予測のキャッシュ（live-trading.md §0-7 (k)）。
 
     python simpredict.py make sim3 --jobs 8     # 出どころの日付 × 実験ごとに cli.predict を回して作り置く（出来ているものは飛ばす ＝ 再開できる）
     python simpredict.py status sim3            # 何日ぶん出来ているか
 
   - シミュレーションは「k 番目の仮の営業日 ＝ 出どころの k 番目の足」（simdata.build）。予測は **出どころの日付** で作り（`cli.predict --asof`）、
-    運転手（simrun.py）が木を作るときに `install()` が行の日付を **仮の日付** に書き換えて `sim/<名前>/out/<仮の日付>/predict.jsonl` に置く。
-    執行器（run_day.py）は既定の場所から読むだけ ＝ 本物と同じコードのまま。
+    ランナー（simrun.py）が木を作るときに `install()` が行の日付を **仮の日付** に書き換えて `sim/<名前>/out/<仮の日付>/predict.jsonl` に置く。
+    執行エンジン（run_day.py）は既定の場所から読むだけ ＝ 本物と同じコードのまま。
   - 入力は研究用の `data/`（`AIL_DATA_DIR` を外して回す）＝ シミュレーションの値段の出どころと同じ足。⚠ **読むだけ**。
-    予測の `proxy_close` とその日の気配を置くときに突き合わせ、食い違いを数える（日付の当て方のずれの検知）。
-  - 作り置きは `sim-predict/<出どころの日付>/<実験>.jsonl`（git 管理外。`LT_SIM_PREDICT_DIR`）。`--fresh` で消える木の外に置く。
-    LightGBM の無い機械（Sx360）へは titan で作ったこのディレクトリを写す。
-⚠ tastytrade に繋がない・資格情報の `.env` を読まない。⚠ `runs/` を作らない（試行ではない ＝ 台帳の n_trials は動かない）。
+    予測の `proxy_close` とその日の気配を置くときに照合し、食い違いを数える（日付の当て方のずれの検知）。
+  - キャッシュは `sim-predict/<出どころの日付>/<実験>.jsonl`（git 管理外。`LT_SIM_PREDICT_DIR`）。`--fresh` で消える木の外に置く。
+    LightGBM の無いマシン（Sx360）へは titan で作ったこのディレクトリを写す。
+⚠ tastytrade に繋がない・資格情報の `.env` を読まない。⚠ `runs/` を作らない（試行ではない ＝ 売買履歴の n_trials は動かない）。
 ⚠ 日付は仮・値段は過去の実物 ＝ 損益に意味は無い。
 """
 
@@ -56,7 +56,7 @@ def experiment_models(traders) -> list[tuple[str, str | None]]:
 
 
 def cache_path(base: str, source_date: str, experiment: str, method: str | None) -> str:
-    """同じ実験を違う手法で使う人がいても取り違えないよう、手法があれば名前に短い指紋を足す。"""
+    """同じ実験を違う手法で使う人がいても取り違えないよう、手法があれば名前に短いフィンガープリントを足す。"""
     tag = f"{experiment}@{hashlib.sha1(method.encode('utf-8')).hexdigest()[:8]}" if method else experiment
     return os.path.join(base, source_date, f"{tag}.jsonl")
 
@@ -66,14 +66,14 @@ def read_rows(path: str) -> list[dict]:
 
 
 def _ensure_db(base: str) -> None:
-    """作り置きの置き場の DB（`<置き場>/sim.sqlite`）。⚠ 本物の live.sqlite に混ぜない（プラン db-model-facts.md §11）。"""
+    """キャッシュの保存先の DB（`<置き場>/sim.sqlite`）。⚠ 本物の live.sqlite に混ぜない（プラン db-model-facts.md §11）。"""
     if not any(os.path.isfile(os.path.join(base, n)) for n in livefs.DB_NAMES):
         livefs.init(base, "sim")
 
 
 def plan_jobs(name: str, traders_dir: str | None = None, base: str | None = None,
               data_dir: str | None = None) -> tuple[list[tuple[str, str, str | None, str]], int]:
-    """(まだ無い仕事の一覧 [(出どころの日付, 実験, 手法, 置き場)], 全部の数)。"""
+    """(まだ無い仕事の一覧 [(出どころの日付, 実験, 手法, 保存先)], 全部の数)。"""
     cfg = simdata.load_config(name)
     traders = load_traders(cfg.traders, traders_dir) if traders_dir else load_traders(cfg.traders)
     models = experiment_models(traders)
@@ -87,7 +87,7 @@ def plan_jobs(name: str, traders_dir: str | None = None, base: str | None = None
 
 def _predict_one(job: tuple[str, str, str | None, str], python: str) -> tuple[tuple, int, float, str]:
     src, exp, method, path = job
-    os.makedirs(os.path.dirname(path), exist_ok=True)       # cli.predict が書く一時ファイルの置き場（DB に入れたら消す）
+    os.makedirs(os.path.dirname(path), exist_ok=True)       # cli.predict が書く一時ファイルの保存先（DB に入れたら消す）
     part = path + ".part"
     for p in (part, part + ".tmp"):
         if os.path.exists(p):
@@ -132,7 +132,7 @@ def make(name: str, jobs: int = 8, python: str | None = None, limit: int | None 
 
 
 def install(root: str, cfg: simdata.SimConfig, traders_dir: str, data: dict, base: str | None = None) -> dict | None:
-    """作り置きを仮の日付に書き換えて木に置く。`experiment` のモデルが無ければ何もしない（None）。
+    """キャッシュを仮の日付に書き換えて木に置く。`experiment` のモデルが無ければ何もしない（None）。
 
     ⚠ 1 日でも欠けていたら止まる（予測の無い日は「合図なし」で静かに何もしない ＝ 通ったように見えてしまう）。
     """
@@ -162,7 +162,7 @@ def install(root: str, cfg: simdata.SimConfig, traders_dir: str, data: dict, bas
                 elif close is not None and abs(float(close) - quote) > 1e-6 * max(1.0, abs(quote)):
                     mismatch.append({"date": day, "source_date": src, "symbol": row["symbol"], "proxy_close": close, "quote": quote})
                 out_rows.append({**row, "date": day, "source_date": src, **MARKS})
-        # ⚠ 木の記録は木の sim.sqlite（道はそのまま）。⚠ 同じ木に 2 度置かない（行は足すだけなので、2 度目は重なる）
+        # ⚠ 木の記録は木の sim.sqlite（パスはそのまま）。⚠ 同じ木に 2 度置かない（行は足すだけなので、2 度目は重なる）
         target = os.path.join(root, "out", day, "predict.jsonl")
         texts = [json.dumps(row, ensure_ascii=False) for row in out_rows]
         have = livefs.read_lines(target, missing_ok=True)

@@ -1,6 +1,6 @@
 """実売買の画面（/live）。
 
-⚠ **この画面の約束は 2 つ — 執行器が書いたものを写すだけ（数え直さない）、発注は画面から出さない（POST が無い）。**
+⚠ **この画面の約束は 2 つ — 執行エンジンが書いたものを写すだけ（数え直さない）、発注は画面から出さない（POST が無い）。**
 差 1（合図時の気配 → 約定）だけは画面で bp に直す（記録には価格しか無い）。正 ＝ 不利。
 """
 
@@ -47,7 +47,7 @@ name = "trade_ownex_lgbm_a"
 
 
 def _jsonl(path: Path, rows: list[dict]) -> None:
-    # ⚠ 執行器の記録は DB（livefs。道はそのまま）
+    # ⚠ 執行エンジンの記録は DB（livefs。パスはそのまま）
     livefs.append_many(path, [json.dumps(r, ensure_ascii=False) for r in rows])
 
 
@@ -190,7 +190,7 @@ def test_placeholders_are_marked_and_not_in_api(settings):
 
 
 def test_missing_weekday_is_shown_as_not_started(settings):
-    """N7: 営業日なのに執行器の記録が無い日を出す（営業日は NYSE の暦。test_holiday_is_not_a_missing_day）。"""
+    """N7: 営業日なのに執行エンジンの記録が無い日を出す（営業日は NYSE の暦。test_holiday_is_not_a_missing_day）。"""
     build_live_dir(settings.live_dir)
     base = {"date": "2026-09-15", "env": "cert", "run_id": "20260915T195500Z"}
     _jsonl(settings.live_dir / "out" / "2026-09-15" / "events.jsonl", [{**base, "kind": "start", "mode": "dry-run", "traders": ["test_a"], "test": True}])
@@ -242,7 +242,7 @@ def test_public_face_can_read_but_not_post(settings):
 
 
 def test_new_executor_events_count_as_problems(settings):
-    """2026-09-19: 含み損の警告（執行器は止めない ＝ 人が気づけるように画面の「問題」に出す）・起動の拒否・台帳に入れられなかった約定。"""
+    """2026-09-19: 含み損の警告（執行エンジンは止めない ＝ 人が気づけるように画面の「問題」に出す）・起動の拒否・売買履歴に入れられなかった約定。"""
     live = build_live_dir(settings.live_dir)
     path = live / "out" / "2026-09-18" / "events.jsonl"
     for kind in ("drawdown_warning", "refused_mode_sim", "refused_lock_busy", "ledger_error", "journal_recovered", "journal_unresolved", "position_short"):
@@ -312,7 +312,7 @@ def test_history_is_grouped_by_month_and_only_the_latest_is_open(settings):
 
 
 def test_month_subtotals_are_counted_from_the_rows(settings):
-    """月の小計は表示のための足し算だけ（⚠ 損益は出さない ＝ 正本は台帳）。"""
+    """月の小計は表示のための足し算だけ（⚠ 損益は出さない ＝ 正本は売買履歴）。"""
     ds = build_long_live_dir(settings.live_dir, 45)
     b = lv.board(settings.live_dir, days=None)
     m = lv.history(b, "test_a")[0]
@@ -390,7 +390,7 @@ def test_day_records_are_cached_per_day_and_reread_when_the_files_change(setting
 
 
 def test_real_paper_control_replaces_the_placeholder_when_daily_csv_exists(settings):
-    """実売買の Phase 3: 執行器の paper.py が書いた daily.csv があれば、紙上の損益・差 3・B&H は本物を出す（仮の印を外す）。無い人は仮のまま。"""
+    """実売買の Phase 3: 執行エンジンの paper.py が書いた daily.csv があれば、紙上の損益・差 3・B&H は本物を出す（仮の印を外す）。無い人は仮のまま。"""
     build_live_dir(settings.live_dir)
     b0 = lv.board(settings.live_dir)
     d = b0["dates"][-1]
@@ -452,7 +452,7 @@ def test_nicks_file_missing_or_broken_means_identifier_only(settings, tmp_path, 
     assert lv.nicks() == {} and lv.label_of("T1", None) == "T1" and lv.label_of("T1", "アキ") == "アキ（T1）"
 
 
-# ---------------- 見張り「今日の起動が無い」（3 台の役割分け Phase 5。dashboard.md §13-8）
+# ---------------- 監視「今日の起動が無い」（3 台の役割分け Phase 5。dashboard.md §13-8）
 
 def _et(s: str):
     from datetime import datetime
@@ -501,7 +501,7 @@ def test_watch_is_quiet_before_the_window_and_when_today_has_records(settings, m
 
 
 def test_watch_skips_holidays_and_weekends(settings, monkeypatch):
-    """休場日（2026-09-07 Labor Day）と週末は「起動しない」のが正しい ＝ 見張らない（checked は True・why は 休場日）。"""
+    """休場日（2026-09-07 Labor Day）と週末は「起動しない」のが正しい ＝ 監視しない（checked は True・why は 休場日）。"""
     _watch_day(settings, "2026-09-04")
     for now in ("2026-09-07T17:00:00", "2026-09-05T17:00:00"):
         monkeypatch.setattr(lv, "now_et", lambda now=now: _et(now))
@@ -510,7 +510,7 @@ def test_watch_skips_holidays_and_weekends(settings, monkeypatch):
 
 
 def test_watch_is_suppressed_by_the_mark_halt_and_demo(settings, monkeypatch):
-    """印のある機械（読むだけの写し）・HALT の日・デモでは判定しない（checked False・why に理由）。⚠ 停止中は「起動しない」が正しい。"""
+    """印のあるマシン（読むだけのコピー）・HALT の日・デモでは判定しない（checked False・why に理由）。⚠ 停止中は「起動しない」が正しい。"""
     _watch_day(settings, "2026-09-23")
     monkeypatch.setattr(lv, "now_et", lambda: _et("2026-09-24T16:20:00"))
     assert lv.watch(settings.live_dir, suppress="not_production") == {"date": "2026-09-24", "after_et": "16:15", "checked": False, "missing": False, "why": "not_production"}
@@ -548,7 +548,7 @@ def test_aligned_diff3_is_used_when_paper_py_writes_it(settings):
 
 
 def test_yardstick_section_appears_only_when_yardstick_csv_exists(settings):
-    """指標 A〜E（dashboard.md §13-13）: 執行器の yardstick.py が書いた yardstick.csv があればトレーダーの詳細に出す。無ければ節ごと出さない。"""
+    """指標 A〜E（dashboard.md §13-13）: 執行エンジンの yardstick.py が書いた yardstick.csv があればトレーダーの詳細に出す。無ければ節ごと出さない。"""
     build_live_dir(settings.live_dir)
     with TestClient(create_app(settings, start_monitors=False), client=("127.0.0.1", 50000)) as c:
         assert "指標 A〜E" not in c.get("/traders/test_a").text
@@ -608,7 +608,7 @@ def test_launch_table_shows_each_day_and_marks_a_missing_or_failed_run(settings)
         assert "毎日の起動" in page and "朝: urllib.error.HTTPError: HTTP Error 500" in page and "記録なし" in page
 
 
-# --- 手数料の実額（執行器の fees.py が書く out/fees.csv を写すだけ。プラン docs/plans/archive/actual-fees.md） ---
+# --- 手数料の実額（執行エンジンの fees.py が書く out/fees.csv を写すだけ。プラン docs/plans/archive/actual-fees.md） ---
 
 FEES_CSV = (
     "kind,date,env,trader,symbol,side,shares,order_id,final_status,fee_est_usd,fee_actual_usd,diff_usd,n_tx,estimated,tx_qty,tx_price,clearing_usd,regulatory_usd,other_usd,note\n"

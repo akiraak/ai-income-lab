@@ -40,7 +40,7 @@ def experiment(name: str) -> dict:
 
 
 def scenario(name: str) -> dict:
-    """⚠ **シナリオ予測（分布 → CRPS）の設定。** `cli.run` の実験とは物差しが違うので置き場を分ける。"""
+    """⚠ **シナリオ予測（分布 → CRPS）の設定。** `cli.run` の実験とは指標が違うので保存先を分ける。"""
     return _load("scenario", name)
 
 

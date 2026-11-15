@@ -63,7 +63,7 @@ def main() -> None:
         print(f"== 上昇確率の帯（{figures.SERIES[k][0]}）")
         print(pd.DataFrame(rows).round(4).to_string(index=False))
     print("== 被覆率", json.dumps(cov, ensure_ascii=False))
-    with runs.materialized(name) as d:             # ⚠ 重みを読むための写し（出たら消す）
+    with runs.materialized(name) as d:             # ⚠ 重みを読むためのコピー（出たら消す）
         rep = reproduce(d, df, args.fold, args.seed)
     print(f"== 再現: {args.fold} 種 {args.seed}・{rep['n']} 起点・{rep['device']}  CRPS の平均 {rep['mean_crps_then']:.8f} → "
           f"{rep['mean_crps_now']:.8f}  起点ごとの差の最大 {rep['max_abs_diff']:.2e}")

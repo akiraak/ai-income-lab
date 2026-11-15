@@ -9,7 +9,7 @@
 
 ⚠ 本番の鍵は `ttclient.Client` の 3 段そのまま。⚠ **鍵を入れて起動するのは利用者**（CLAUDE.md の例外）。
 ⚠ 記録は `out/<日付>/*.jsonl`（`Masker` 経由。口座番号・トークンは出ない）。状態は `state/<env>/<トレーダー>.json`。
-   ⚠ 2026-09-21 から、どちらも道はそのままで中身は DB（`livefs`。本物はリポジトリ直下の live.sqlite・シミュレーションは木の sim.sqlite）。
+   ⚠ 2026-09-21 から、どちらもパスはそのままで中身は DB（`livefs`。本物はリポジトリ直下の live.sqlite・シミュレーションは木の sim.sqlite）。
 ⚠ `--mode submit` 以外では状態を書き換えない。
 ⚠ **実売買とシミュレーションは排他**（live-trading.md §0-7 (a)）: 起動時に `MODE` を見て `run.lock` を取る。`MODE` が無ければ real ＝ 今までどおり。
    `--sim-clock`（仮の時計）は MODE が sim ＆ 接続先がループバックのモック ＆ prod でない ＆ 本番の鍵が無いときだけ受け付ける。
@@ -85,7 +85,7 @@ def in_window(now_et: datetime) -> bool:
     return window_refusal(now_et) is None
 
 
-# 執行器の「いま」と待ちはここ 1 か所から引く。⚠ 既定は本物の時計。仮の時計に替えるのは main() の sim_clock_refusal() を通ったときだけ
+# 執行エンジンの「いま」と待ちはここ 1 か所から引く。⚠ 既定は本物の時計。仮の時計に替えるのは main() の sim_clock_refusal() を通ったときだけ
 CLOCK = simclock.RealClock()
 
 
@@ -111,7 +111,7 @@ def sim_clock_refusal(machine: modes.Mode, cfg: dict, env: str, args) -> str | N
 
 
 class DayRecorder:
-    """`out/<日付>/<種類>.jsonl` に 1 行ずつ（⚠ 道はそのまま・中身は DB の lines）。全行が Masker を通る。"""
+    """`out/<日付>/<種類>.jsonl` に 1 行ずつ（⚠ パスはそのまま・中身は DB の lines）。全行が Masker を通る。"""
 
     def __init__(self, out_dir: str, date: str, env: str, run_id: str, mock: bool, sim: bool = False):
         self.dir = os.path.join(out_dir, date)
@@ -120,7 +120,7 @@ class DayRecorder:
 
     def read(self, kind: str) -> list[dict]:
         """その日の記録を読み直す（⚠ **同じ日に何度起動しても合計で数えるため**。壊れた行は飛ばす）。
-        ⚠ 中身は DB の lines（`write` と同じ道）。⚠ **どの DB にも当たらない道は止まる**（missing_ok にしない ＝
+        ⚠ 中身は DB の lines（`write` と同じパス）。⚠ **どの DB にも当たらない道は止まる**（missing_ok にしない ＝
         設定の誤りで「今日はまだ買っていない」と読み、上限を 0 から数え直さない）。"""
         rows: list[dict] = []
         for line in livefs.read_lines(os.path.join(self.dir, f"{kind}.jsonl")):
@@ -218,7 +218,7 @@ def main() -> int:
             return 2
         root = modes.sim_root(machine.name)
         CLOCK = simclock.SimClock(modes.control_file(machine.name))
-        # ⚠ シミュレーションの置き場は MODE の名前から決まる（本物の out/・state/・HALT に 1 バイトも書かない）
+        # ⚠ シミュレーションの保存先は MODE の名前から決まる（本物の out/・state/・HALT に 1 バイトも書かない）
         args.out_dir = os.environ.get("LT_OUT_DIR") or os.path.join(root, "out")
         args.traders_dir = os.environ.get("LT_TRADERS_DIR") or os.path.join(root, "config", "traders")
         state_dir = args.state_dir or os.environ.get("LT_STATE_DIR") or os.path.join(root, "state", env)
@@ -293,8 +293,8 @@ def main() -> int:
     if sim:
         meta["sim_name"], meta["sim_speed"] = machine.name, CLOCK.control()["speed"]
     if env == "prod" and args.mode == "submit":
-        # ⚠ 「本番の機械ではない」印（§0-14）。許可の 3 段より前 ＝ 許可があっても・無くても、印のある機械は本番に発注しない。
-        #    壊れた印・他の機械の印でも拒む（読めない印を「無い」と読まない）。本物の記録に残す ＝ 起動しなかった理由が後から分かる
+        # ⚠ 「本番の機械ではない」印（§0-14）。許可の 3 段より前 ＝ 許可があっても・無くても、印のあるマシンは本番に発注しない。
+        #    壊れた印・他のマシンの印でも拒む（読めない印を「無い」と読まない）。本物の記録に残す ＝ 起動しなかった理由が後から分かる
         mark = modes.read_not_production()
         if mark is not None:
             rec.write("events", {**meta, "kind": "refused_not_production", **mark.as_dict(),
@@ -322,7 +322,7 @@ def main() -> int:
     if lock.acquire(machine.mode, f"run_day {env} {args.mode}"):
         atexit.register(lock.release)
     elif not (sim and lock.held_by_parent_sim()):
-        # 運転手（simrun）が鍵を持ったまま起こした執行器だけは通す。それ以外の二重起動は拒否
+        # ランナー（simrun）が鍵を持ったまま起こした執行エンジンだけは通す。それ以外の二重起動は拒否
         rec.write("events", {**meta, "kind": "refused_lock_busy", "holder": lock.holder()})
         print(f"拒否: 別の執行器 ／ 運転手が動いている（run.lock の持ち主 {lock.holder()}）", file=sys.stderr)
         return 6
@@ -367,7 +367,7 @@ def main() -> int:
     rec.write("balances", {"when": "before", "balances": record.excerpt(balances, limit=40)})
     rec.write("positions", {"when": "before", "positions": [{k: p.get(k) for k in ("symbol", "quantity", "quantity-direction", "average-open-price")} for p in positions]})
 
-    # ---- 1-2. 口座の建玉と売買履歴の帳尻（live-trading.md §0-8）: 控えの未完を戻す → 突き合わせる。⚠ 売買の前に済ませる
+    # ---- 1-2. 口座の建玉と売買履歴の帳尻（live-trading.md §0-8）: 控えの未完を戻す → 照合する。⚠ 売買の前に済ませる
     journal = Journal(state_dir, date, now=CLOCK.now)
     rec_events, blocked = recovery.recover_unfinished(journal, client, account, state_dir, date, write=args.mode == "submit")
     for ev in rec_events:
@@ -422,7 +422,7 @@ def main() -> int:
                               **({"signal_date": signal_date} if args.signal_date else {}),
                               **({"stop": sg.stop} if sg.stop is not None else {})})     # 毎日読む出口%（損切り係のある人だけ）
 
-    # ---- 3. 状態機械 → 気配 → 株数 → 合算
+    # ---- 3. ステートマシン → 気配 → 株数 → 合算
     raw_by_trader = {}
     need_quotes: set[str] = set()
     for t in traders:
@@ -477,7 +477,7 @@ def main() -> int:
     def settle(res) -> None:
         nonlocal ledger_errors
         if sim and os.environ.get("LT_SIM_CRASH") == "after_submit":
-            # 筋書き crash_mid（シミュレーションだけ）: 発注の後・記録と売買履歴の保存の前に落ちる。⚠ 仮の時計の検査を通った実行でしか効かない
+            # シナリオ crash_mid（シミュレーションだけ）: 発注の後・記録と売買履歴の保存の前に落ちる。⚠ 仮の時計の検査を通った実行でしか効かない
             os._exit(137)
         o = res.order
         rec.write("orders", {
@@ -545,7 +545,7 @@ def main() -> int:
     for t in traders:
         row = ledger.daily_row(t, states[t.name], quotes, date)
         rec.write("ledger", row)
-        # 含み損の警告（§0-2。2026-09-19 の利用者決定「警告だけ・止めるのは人」）。⚠ 執行器は売買を止めない。止めるのは利用者（停止ボタン ＝ HALT）
+        # 含み損の警告（§0-2。2026-09-19 の利用者決定「警告だけ・止めるのは人」）。⚠ 執行エンジンは売買を止めない。止めるのは利用者（停止ボタン ＝ HALT）
         dd = row.get("drawdown_pct_of_budget")
         if dd is not None and dd >= DRAWDOWN_WARN_PCT:
             rec.write("events", {"kind": "drawdown_warning", "trader": t.name, "drawdown_pct_of_budget": dd, "threshold_pct": DRAWDOWN_WARN_PCT,

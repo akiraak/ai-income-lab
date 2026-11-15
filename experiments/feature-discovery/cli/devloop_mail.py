@@ -1,9 +1,9 @@
-"""開発ループの報告メール（プラン docs/plans/archive/devloop-mail.md・2026-11-03 利用者「推す案ですすめて」＝ M1 Gmail の SMTP ／ M2 毎晩 ／ M3 要約 ＋ 日誌の全文）。
+"""開発ループの報告メール（プラン docs/plans/archive/devloop-mail.md・2026-11-03 利用者「推す案ですすめて」＝ M1 Gmail の SMTP ／ M2 毎晩 ／ M3 要約 ＋ ログの全文）。
 
 ⚠ **標準ライブラリだけ**（`ail` を import しない）＝ Python の .venv ごと落ちた晩に `run-devloop.sh` がシステムの python3 で呼ぶ送り手にもなる。
 ⚠ **秘密（宛先・アプリ パスワード）はリポジトリの外**: titan の `~/.config/ai-income-lab/devloop-mail.env`（chmod 600・置くのは利用者）。
-   リポジトリ・日誌・メモリ・プランに書かない。無ければ送らず「not-sent」の 1 行を返すだけ。
-⚠ **送れなくてもループは止めない**（呼ぶ側は戻り値の文を timer.log と状態に残すだけ・日誌は書き換えない）。
+   リポジトリ・ログ・メモリ・プランに書かない。無ければ送らず「not-sent」の 1 行を返すだけ。
+⚠ **送れなくてもループは止めない**（呼ぶ側は戻り値の文を timer.log と状態に残すだけ・ログは書き換えない）。
 
     python3 cli/devloop_mail.py fallback --date 2026-11-04 --rc 1 --log devloop/logs/2026-11-04.log   # run-devloop.sh が呼ぶ
 """
@@ -147,7 +147,7 @@ def sandbox_block(parts: dict) -> str:
 
 def stop_short(why: str) -> str:
     """件名に入れる止まった理由の短い形（2026-11-05 利用者「3つとも直して」）。括弧の中身（ファイルの並び）は本文に回す。
-    例 ＝「段 0: 作業ツリーが汚れている（利用者の未コミット 19 件: …）」→「段 0: 作業ツリーが汚れている（未コミット 19 件）」。"""
+    例 ＝「段 0: ワーキングツリーが汚れている（利用者の未コミット 19 件: …）」→「段 0: ワーキングツリーが汚れている（未コミット 19 件）」。"""
     head = why.split("（", 1)[0].strip()
     if len(head) > 40:
         head = head[:39] + "…"
@@ -219,7 +219,7 @@ def body(parts: dict, date: str, journal_text: str, journal_rel: str, max_chars:
 
 # ---------------------------------------------------------------- HTML の本文（2026-11-04 利用者「D」＋ 頭の 1 行 ＋ 結果の札）
 # ⚠ メールなので CSS は全部 style 属性に書く・横並びは table・外の字体や画像は読まない・JavaScript なし。
-# ⚠ 札の文は登録簿の原文を切り出すだけ（言い換えない）。テキストの本文（body）は今までどおり一緒に送る。
+# ⚠ 札の文はレジストリの原文を切り出すだけ（言い換えない）。テキストの本文（body）は今までどおり一緒に送る。
 
 FONT = "'Hiragino Sans','Noto Sans JP','Yu Gothic UI',Meiryo,sans-serif"
 MONO = "Menlo,Consolas,monospace"
@@ -239,7 +239,7 @@ def _inline(s) -> str:
 
 
 def clip(s, n: int = 120) -> str:
-    """原文の先頭の文から n 字まで（文の切れ目「。」で止める・超えたら「…」）。言い換えない。"""
+    """原文の先頭の文から n 字まで（文の分割点「。」で止める・超えたら「…」）。言い換えない。"""
     s = " ".join(str(s or "").split())
     if not s:
         return ""
@@ -260,7 +260,7 @@ def stage_strip(parts: dict) -> list[tuple[str, str, str]]:
     """段 0〜4 の (色, 印, 文)。"""
     stages = {int(x) for x in str(parts.get("stages") or "").split(",") if x.strip().isdigit()}
     out = []
-    if parts.get("stopped") and not parts.get("gate"):          # 錠が取れない晩など、門の前で止まった
+    if parts.get("stopped") and not parts.get("gate"):          # ロックが取れない晩など、門の前で止まった
         out.append((C["bad"], "✕", "門 止まった"))
     elif parts.get("gate"):
         out.append((C["bad"], "✕", "門 止まった"))
@@ -342,7 +342,7 @@ def idea_card(d: dict, similar: list[dict] | None = None) -> str:
         rows.append(f'<b style="color:#344054">予想</b>　{_inline(clip(d["prediction"]))}')
     if d.get("learn_if_null"):
         rows.append(f'<b style="color:#344054">差が出なかったら</b>　{_inline(clip(d["learn_if_null"]))}')
-    if similar:      # 登録簿の中の近い案（⚠ 表示だけ ＝ 状態は変えない。同じ問いかを決めるのは人）
+    if similar:      # レジストリの中の近い案（⚠ 表示だけ ＝ 状態は変えない。同じ問いかを決めるのは人）
         rows.append(f'<b style="color:#344054">似た過去の案</b>　<span style="color:{C["dim"]}">題名 ＋ 問いの文字の近さ（0〜1）</span><br>' + "<br>".join(
             f'<span style="font-family:{MONO}">{float(r.get("score", 0.0)):.2f}</span>　{_inline(clip(r.get("title"), 44))}'
             f'<span style="color:{C["dim"]}">（{_e(r.get("status"))} ・ {_e(str(r.get("id"))[:8])}）</span>' for r in similar))
@@ -473,7 +473,7 @@ def html_body(parts: dict, date: str, journal_rel: str, *, repo_url: str = "", r
         commit = _e(commit).replace(m.group(1), f'<a href="{_e(repo_url)}/commit/{m.group(1)}" style="color:{C["accent"]};font-family:{MONO}">{m.group(1)}</a>', 1)
     else:
         commit = _e(commit)
-    # ⚠ 日誌が GitHub にあるのはこの晩のコミットと push が通ったときだけ（止まった晩 ／ コミットか push に失敗した晩はリンクを出さない ＝ 404 になる）
+    # ⚠ ログが GitHub にあるのはこの晩のコミットと push が通ったときだけ（止まった晩 ／ コミットか push に失敗した晩はリンクを出さない ＝ 404 になる）
     label = "日誌を開く" + ("（段 1 の原文つき）" if bundles else "")
     if repo_url and "push ✅" in str(parts.get("commit") or "") and journal_rel and journal_rel != "—":
         jl = f'<a href="{_e(repo_url)}/blob/main/{_e(journal_rel)}" style="color:{C["accent"]}">{label}</a>'
@@ -539,7 +539,7 @@ def default_sender():
 
 
 def mark(status: str) -> None:
-    """run-devloop.sh が渡す印の道（AIL_DEVLOOP_MAIL_MARK）に「送ろうとした」を書く ＝ 送り手を 2 度呼ばない。"""
+    """run-devloop.sh が渡す印のパス（AIL_DEVLOOP_MAIL_MARK）に「送ろうとした」を書く ＝ 送り手を 2 度呼ばない。"""
     p = os.environ.get("AIL_DEVLOOP_MAIL_MARK")
     if p:
         try:

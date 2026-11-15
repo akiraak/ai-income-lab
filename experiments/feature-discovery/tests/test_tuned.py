@@ -1,8 +1,8 @@
-"""ハイパーパラメータを訓練分割の内側で選ぶ段（`ail/models/tuned.py`。rules.md 14-12 規約 7）。
+"""ハイパーパラメータを訓練分割の内側で選ぶステップ（`ail/models/tuned.py`。rules.md 14-12 規約 7）。
 
 ⚠ **規約は破れても気づけないが、この検査は破れば落ちる**:
 (a) 評価分割を差し替えても champion が変わらない ／ (b) 候補が既定だけなら基底のモデルと予測が同一 ／
-(c) 新しいモデル名の無い config は指紋が動かない（`tests/test_trading_run.py` の既存の指紋がそのまま効く）。
+(c) 新しいモデル名の無い config はフィンガープリントが動かない（`tests/test_trading_run.py` の既存のフィンガープリントがそのまま効く）。
 """
 
 from __future__ import annotations
@@ -28,7 +28,7 @@ def _data(seed: int = 0, n: int = N):
     return X, y
 
 
-# --- 候補の一覧は事前固定どおり（rules.md 14-12-1 の写し） --------------------------------------
+# --- 候補の一覧は事前固定どおり（rules.md 14-12-1 のコピー） --------------------------------------
 
 def test_candidates_match_the_prefixed_levels():
     assert [c["alpha"] for c in tuned.RIDGE] == [1.0, 10.0, 100.0, 1e3, 1e4, 1e5, 1e6]
@@ -80,7 +80,7 @@ def test_default_only_mlp_equals_the_base_model(monkeypatch):
 
 
 def test_base_models_read_the_levels_from_ctx(monkeypatch):
-    """ctx に項目があれば基底のモデルの形が変わる（無ければ既定 ＝ 指紋テストが縛る）。"""
+    """ctx に項目があれば基底のモデルの形が変わる（無ければ既定 ＝ 回帰テストが縛る）。"""
     X, y = _data()
     Xte = X.iloc[:100]
     a = linear.ridge(X, y, Xte, {"seed": 0})
@@ -134,7 +134,7 @@ def test_spearman_is_signed_and_none_for_degenerate_predictions():
     assert tuned.spearman(np.r_[np.nan, y[1:]], y) is None
 
 
-# --- 尻が切れないときは既定 ---------------------------------------------------------------------
+# --- 末尾が切れないときは既定 ---------------------------------------------------------------------
 
 def test_small_sample_falls_back_to_the_default_and_records_it():
     X, y = _data(n=MIN_TRAIN - 50)
@@ -329,7 +329,7 @@ def test_once_replacing_the_evaluation_split_keeps_the_champion_and_the_calibrat
 
 def test_once_does_not_touch_ctx_or_records_of_the_other_models():
     """(4) 口を閉じれば同一: ほかのモデルでは `select_once` が None を返し ctx は 1 バイトも変わらない。
-    既定経路の指紋は `tests/test_trading_run.py`・`tests/test_predict.py`、`（内側選抜）` の記録の形は上のテスト。"""
+    既定経路のフィンガープリントは `tests/test_trading_run.py`・`tests/test_predict.py`、`（内側選抜）` の記録の形は上のテスト。"""
     X, y = _data()
     for name in ("Ridge", "Ridge（内側選抜）"):
         ctx = {"seed": 0, "k": 2}
@@ -351,20 +351,20 @@ def test_once_selects_on_its_own_when_no_champion_is_distributed(tmp_path, monke
     p2 = registry.resolve("model", "Ridge（内側選抜）")(X, y, Xte, c2)
     d1, d2 = tuned.drain(c1)[0], tuned.drain(c2)[0]
     assert d1.pop("自前") is True and "配られた" not in d1
-    assert d1 == d2                                                   # 同じ候補・同じ尻 ＝ 同じ champion・同じ ρ
+    assert d1 == d2                                                   # 同じ候補・同じ末尾 ＝ 同じ champion・同じ ρ
     assert np.array_equal(np.asarray(p1), np.asarray(p2))
     assert tuned.CHAMPION_KEY not in c1
     # 門は配らない（14-12-3 規約 2）＝ 自前で選んで記録は捨てる。取り残しなし
     monkeypatch.setattr(runs, "RUNS", str(tmp_path))
     run = runs.Run("test_tuned_once_gate", {}, seed=0)
     assert gate.evaluate_gate(_panel(), ["own_ret_1", "noise"], _exp(ONCE_RIDGE), run) is not None
-    # 配られた champion が候補の外なら止まる（候補は 14-12-1 の写し）
+    # 配られた champion が候補の外なら止まる（候補は 14-12-1 のコピー）
     with pytest.raises(ValueError):
         registry.resolve("model", ONCE_RIDGE)(X, y, Xte, {"seed": 0, tuned.CHAMPION_KEY: {"alpha": 3.0}})
 
 
 def test_once_spellings_candidates_and_configs():
-    """(6) 綴り・候補の写し・config: 候補は `（内側選抜）` と同じオブジェクト（足していない）。"""
+    """(6) 表記・候補のコピー・config: 候補は `（内側選抜）` と同じオブジェクト（足していない）。"""
     import tomllib
 
     from ail import names

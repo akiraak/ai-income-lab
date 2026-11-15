@@ -1,7 +1,7 @@
 """`cli.run` の閾値つき売買パスを、合成パネルで端から端まで通す。
 
 ⚠ **leak の配線検査**（rules.md 13-10）: 未来を知る列を混ぜた表では対 B&H の上乗せが
-跳ね上がる。⚠ **跳ねなければ 較正 → 閾値 → 状態機械 のどこかが壊れている。**
+跳ね上がる。⚠ **跳ねなければ 較正 → 閾値 → ステートマシン のどこかが壊れている。**
 """
 
 from __future__ import annotations
@@ -138,8 +138,8 @@ def test_calibration_coefficients_are_recorded(run, tmp_path):
 def test_default_path_fingerprint_is_unchanged(run, form):
     """⚠ **保有日数・逆売買の列を足しても、既存の出力は 1 ビットも変わらない。**
 
-    指紋は 2026-09-17 に列を足す前のコード（commit 696cf7b）で取った `tests/fixtures/trading_fingerprint.json`。
-    ⚠ **同じ機械で取った指紋**（数値は 6 桁に丸めて比べる）。⚠ **合わなければ配線を疑う** — 直すのは指紋ではなく配線。
+    フィンガープリントは 2026-09-17 に列を足す前のコード（commit 696cf7b）で取った `tests/fixtures/trading_fingerprint.json`。
+    ⚠ **同じ自動で取ったフィンガープリント**（数値は 6 桁に丸めて比べる）。⚠ **合わなければ配線を疑う** — 直すのはフィンガープリントではなく配線。
     """
     import json
     import os
@@ -198,7 +198,7 @@ def test_reverse_columns_follow_the_identity(run):
 @pytest.mark.parametrize("form", ["shared", "per_symbol"])
 def test_saved_buy_pct_replays_the_same_trades(run, form):
     """⚠ 2026-11-01（プラン save-buy-pct.md）: 保存した行ごとの買い% から `simulate` を回し直すと、`per_symbol.csv` の純利と同じ。
-    写しを取るだけで、売買・判定は変えない（指紋 `test_default_path_fingerprint_is_unchanged` も通る）。"""
+    コピーを取るだけで、売買・判定は変えない（フィンガープリント `test_default_path_fingerprint_is_unchanged` も通る）。"""
     from ail.validation import simulate as sim
     panel = _panel()
     res, per_sym, summary, daily, extra = evaluate_trading(panel, _feats(panel), _exp(form), run)

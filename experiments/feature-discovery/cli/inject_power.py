@@ -1,20 +1,20 @@
-"""本物のリターンに既知の上乗せを埋めて、器と判定式がどこから「採る」を出すかを測る（登録簿 `20261108-signal-inject-power`）。⚠ **読むだけ。**
+"""本物のリターンに既知の上乗せを埋めて、器と判定式がどこから「採る」を出すかを測る（レジストリ `20261108-signal-inject-power`）。⚠ **読むだけ。**
 
     python3 -m cli.inject_power [--kind iid|persist|oracle] [--experiment trade_own_ridge_a] [--seeds 5] [--json out.json] [--save]
 
-`cli.planted_power`（登録簿 `20261106-planted-signal-power`）との違いは 1 つ: **リターンを合成（多変量正規）に差し替えず、本物の `y` のまま** 埋める
+`cli.planted_power`（レジストリ `20261106-planted-signal-power`）との違いは 1 つ: **リターンを合成（多変量正規）に差し替えず、本物の `y` のまま** 埋める
 ＝ 本物の太い裾・ボラの塊・fold ごとの偏りが残る（11/6 の版が「検出力を甘く見積もる側」と書いた穴）。
 
-作り方（登録簿の structure・水準は回す前に固定）:
-  - 本物の表（既定 `trade_own_ridge_a` ＝ own_2018・63 本）の行・特徴量の列・fold の切れ目をそのまま使う。
+作り方（レジストリの structure・水準は回す前に固定）:
+  - 本物の表（既定 `trade_own_ridge_a` ＝ own_2018・63 本）の行・特徴量の列・fold の分割点をそのまま使う。
   - 表の外で作った乱数の列 `own_planted`（行ごとに独立な N(0,1) ＝ 本物の列と相関しない）を足し、
     `y` ← 本物の `y` ＋ k bp × 列の符号（訓練分割と評価分割の両方）。⚠ 同じ種では k をまたいで列が同じ（対の曲線）。
   - k の 3 段 ＝ 検出限界 L の 0.1 倍 ／ 1 倍 ／ 10 倍。**L ＝ 300 bp/fold ÷ 評価期間 1 つの営業日数の平均**
-    （契約 §2「机上で測れるのは数百 bp/fold の上乗せ」の「数百」を 300 と読んだ ＝ 2026-11-13 回す前に固定。日数は表の切れ目から数える）。
+    （契約 §2「机上で測れるのは数百 bp/fold の上乗せ」の「数百」を 300 と読んだ ＝ 2026-11-13 回す前に固定。日数は表の分割点から数える）。
   - 各段 × θ 50 ／ 55 ／ 60 × 種 5。器 ・ 純利 ・ 判定は `cli.planted_power.one` をそのまま呼ぶ
     （素の own × Ridge ＝ `全部使う（基準）`・形式 (A)・B&H ＝ 買い% 100 の同じ器・採る ＝ 平均 > 0 で fold 全部が正）。
 
-**種類 `--kind persist`（2026-11-14・登録簿 `20261114-persist-signal-power`。既定は `iid` ＝ 上の形のまま・既存の結果は変わらない）**:
+**種類 `--kind persist`（2026-11-14・レジストリ `20261114-persist-signal-power`。既定は `iid` ＝ 上の形のまま・既存の結果は変わらない）**:
 植える列を、行ごとに独立な乱数から **何十日も続く局面（2 状態の対称なマルコフ連鎖の ±1）** に替える。読み手・器・判定は同じ。
   - 連鎖: 1 日ごとに確率 1 ／ L で反対の状態へ（期待滞在 L ＝ 20 ／ 60 営業日）。最初の状態は ±1 を半々。
   - 列の単位 2 つ: `common` ＝ 表の日付の上に 1 本（その日の全銘柄が同じ状態）／ `each` ＝ 銘柄ごとに別の連鎖（その銘柄の行を日付順に詰めて数える）。
@@ -22,7 +22,7 @@
   - 対の相手 ＝ 同じ k の `iid`（同じ実行の中で回し直す）。出力に 持つ日の割合・取引回数（回/fold）・列が ＋1 の行の割合 を足す。
   - 読みは回す前に固定した（`docs/plans/archive/persist-signal-power.md` §2-1）。
   - `--kind oracle` ＝ **事後に足した読み**（persist の結果を見た後）: 学習器を通さず局面そのものを買い% にする（＋1 の日 100 ／ −1 の日 0）。
-    読み手と、器 ＋ 判定のどちらが拾えないのかを分けるため。登録簿の structure の外。
+    読み手と、器 ＋ 判定のどちらが拾えないのかを分けるため。レジストリの structure の外。
 
 ⚠ **検証結果一覧に行を作らない・`n_trials` に数えない・`runs/` を作らない**（偽の信号の行 ＝ leak 対照 ・ 基準線と同じ扱い）。
 ⚠ `--save` のときだけ DB の `outputs` の `diag/<時刻>_inject_power/`（persist は `…_inject_power_persist/`）に JSON を入れる（`runs.put_output`・上書きしない）。
@@ -46,14 +46,14 @@ LIMIT_BP_PER_FOLD = 300.0          # ⚠ 事前固定（契約 §2 の「数百 
 MULTIPLES = (0.1, 1.0, 10.0)       # ⚠ 事前固定（検出限界の 0.1 倍 ／ 1 倍 ／ 10 倍）
 THETAS = (50.0, 55.0, 60.0)        # ⚠ 事前固定
 SEEDS = 5                          # ⚠ 事前固定
-# ---- 種類 persist（登録簿 20261114-persist-signal-power。⚠ 事前固定 ＝ 回す前に決めた）
+# ---- 種類 persist（レジストリ 20261114-persist-signal-power。⚠ 事前固定 ＝ 回す前に決めた）
 PERSIST_MULTIPLES = (0.0, 0.1, 1.0, 10.0)   # k = 0 ＝ 植えない行（列は足す）
 UNITS = ("common", "each")                  # 全銘柄に共通の局面 ／ 銘柄ごとに独立な局面
 DWELLS = (20, 60)                           # 期待滞在（営業日）
 
 
 def inject(panel: pd.DataFrame, k_bp: float, seed: int) -> pd.DataFrame:
-    """本物の y に k bp × 乱数の列の符号を足した写し。⚠ 種が同じなら k によらず列は同じ。"""
+    """本物の y に k bp × 乱数の列の符号を足したコピー。⚠ 種が同じなら k によらず列は同じ。"""
     x = np.random.default_rng([int(seed), 20261108]).standard_normal(len(panel))
     y = panel["y"].to_numpy(dtype=float) + float(k_bp) * 1e-4 * np.sign(x)
     out = panel.assign(y=y, **{pp.PLANTED: x})
@@ -90,7 +90,7 @@ def persist_column(panel: pd.DataFrame, seed: int, unit: str, dwell: int) -> np.
 
 
 def inject_persist(panel: pd.DataFrame, k_bp: float, seed: int, unit: str, dwell: int) -> pd.DataFrame:
-    """本物の y に k bp × 局面（±1）を足した写し。⚠ 種が同じなら k によらず列は同じ。"""
+    """本物の y に k bp × 局面（±1）を足したコピー。⚠ 種が同じなら k によらず列は同じ。"""
     x = persist_column(panel, seed, unit, dwell)
     y = panel["y"].to_numpy(dtype=float) + float(k_bp) * 1e-4 * x
     out = panel.assign(y=y, **{pp.PLANTED: x})
@@ -240,7 +240,7 @@ def oracle_one(tab: pd.DataFrame, exp: dict, edges_dates, cost_bp: float) -> dic
 
 def oracle(experiment: str = "trade_own_ridge_a", seeds: int = SEEDS, units=UNITS, dwells=DWELLS,
            multiples=PERSIST_MULTIPLES, log=print) -> dict:
-    """⚠ **事後に足した読み（2026-11-14・persist の結果を見た後。登録簿の structure の外・数えない）**:
+    """⚠ **事後に足した読み（2026-11-14・persist の結果を見た後。レジストリの structure の外・数えない）**:
     学習器を通さず、植えた局面そのものを買い% にする（＋1 の日 100 ／ −1 の日 0）＝ 列を完全に読めた読み手。
     同じ器（`fold_net`）と判定（`pp.verdict`）に通し、「読み手が列を拾えない」のか「器と判定が拾えない」のかを分ける。
     買い% が 0 ／ 100 だけなので θ（50 以上）によらない。"""

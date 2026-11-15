@@ -8,7 +8,7 @@ from ail.data.sources import tastytrade      # noqa: F401
 from ail.data.sources import ecb, noaa, treasury, usgs   # noqa: F401
 # ⚠ **社会にインパクトを与えるもの（本命）。** 偽薬（気象・地震）とは枠が別
 from ail.data.sources import epu, ncei_storm            # noqa: F401
-# ⚠ **警報は 2 経路**: IEM は保管庫（検証用）、NWS は配信（運用用）。⚠ **突き合わせは cli/crosscheck.py**
+# ⚠ **警報は 2 経路**: IEM は保管庫（検証用）、NWS は配信（運用用）。⚠ **照合は cli/crosscheck.py**
 from ail.data.sources import iem, nws                   # noqa: F401
 # ⚠ **暦（発表日）。** 値ではなく日付そのものが情報（econ_calendar）
 from ail.data.sources import fomc                       # noqa: F401
@@ -31,7 +31,7 @@ from ail.features import tsfresh as _tsfresh                    # noqa: F401
 from ail.models import baselines, linear     # noqa: F401
 # ⚠ **モデルの軸**（plans/archive/gpu-models.md）: 勾配ブースティング・MLP・GAN 増強
 from ail.models import trees, deep, gan      # noqa: F401
-# ⚠ **ハイパーパラメータを訓練分割の内側で選ぶ段**（`<モデル>（内側選抜）`。rules.md 14-12。2026-10-09 利用者決定 B）
+# ⚠ **ハイパーパラメータを訓練分割の内側で選ぶステップ**（`<モデル>（内側選抜）`。rules.md 14-12。2026-10-09 利用者決定 B）
 from ail.models import tuned as _tuned       # noqa: F401
 # ⚠ **検知器（買い% 1 本を返す手法）**。下降トレンドの検知（plans/archive/downtrend-detection.md）
 from ail.detectors import scale as _scale    # noqa: F401
@@ -58,7 +58,7 @@ from ail.search import evolve as _evolve  # noqa: F401
 from ail.validation import splits            # noqa: F401
 from ail.data.sources import edgar                      # noqa: F401  決算（rules.md 26 章。2026-10-19）
 from ail.features import earnings                            # noqa: F401
-# ⚠ **開発ループが足す新しい口**（rules.md 31 章・2026-10-25。登録簿 config/ideas/）: `ail/ideas/i*.py` を全部 import する。
-#    registry に登録するだけ ＝ 既存の経路は 1 ビットも変わらない（指紋テスト）。⚠ 共有の経路（この並び・features・detectors・cli/run.py）は人の手のまま
+# ⚠ **開発ループが足す新しい口**（rules.md 31 章・2026-10-25。レジストリ config/ideas/）: `ail/ideas/i*.py` を全部 import する。
+#    registry に登録するだけ ＝ 既存の経路は 1 ビットも変わらない（回帰テスト）。⚠ 共有の経路（この並び・features・detectors・cli/run.py）は人の手のまま
 from ail import ideas as _ideas                               # noqa: E402
 _ideas.load_all()

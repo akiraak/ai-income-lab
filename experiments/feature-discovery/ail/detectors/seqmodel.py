@@ -43,9 +43,9 @@ def patchtst_detector(tr: pd.DataFrame, te: pd.DataFrame, feats, ctx: dict):
     leak = [c for c in feats if c.startswith("LEAK_")]
     Xtr, Xte = _inputs(tr, feats, leak), _inputs(te, feats, leak)
     ytr = tr["y"].to_numpy(dtype=float)
-    # ⚠ **ctx は写しを渡す**（窓の長さと学習の記録を書き込むので、呼び元の ctx を汚さない）
+    # ⚠ **ctx はコピーを渡す**（窓の長さと学習の記録を書き込むので、呼び元の ctx を汚さない）
     c = {**ctx, "seq_window": seq.WINDOW, "n_exog": len(leak)}
-    cal = calibrate.fit(model, Xtr, ytr, c)                   # ⚠ 訓練の尻の holdout で較正（13-2 の 2）
+    cal = calibrate.fit(model, Xtr, ytr, c)                   # ⚠ 訓練の末尾の holdout で較正（13-2 の 2）
     fit_cal = c.pop(patchtst.DOC_KEY, None)
     pred = model(Xtr, ytr, Xte, c)
     fit_main = c.pop(patchtst.DOC_KEY, None)

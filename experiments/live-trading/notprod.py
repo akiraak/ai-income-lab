@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """「本番の機械ではない」印 `NOT_PRODUCTION` の操作（⚠ CLI だけ。置くのも外すのも利用者 ＝ 3 台の役割分け Phase 4・5）。
 
-    python notprod.py status                          # 印があるか・中身・この機械の hostname と合うか
-    python notprod.py set --reason "本番は 13500t"    # 印を置く（この機械の hostname を書く）。以後この機械では本番の発注を拒む
+    python notprod.py status                          # 印があるか・中身・このマシンの hostname と合うか
+    python notprod.py set --reason "本番は 13500t"    # 印を置く（このマシンの hostname を書く）。以後このマシンでは本番の発注を拒む
     python notprod.py clear                           # 印を外す（13500t が落ちた日に titan へ戻すとき ＝ Phase 5）
 
 印があると `run_day.py`・`sample.py` は **本番の発注（--env prod --mode submit）だけ** を許可より前で拒む（rc=7）。

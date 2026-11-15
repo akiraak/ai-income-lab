@@ -1,6 +1,6 @@
-"""登録簿 `20261111-meta-label-filter`（2026-11-13 の段 2・人の手）: 一段目の合図の当たりを当てる二段目 M1（メタラベル）。
+"""レジストリ `20261111-meta-label-filter`（2026-11-13 の段 2・人の手）: 一段目の合図の当たりを当てる二段目 M1（メタラベル）。
 
-⚠ 見るもの: 無い config は 1 ビットも変わらない（既存の登録名・綴り）／ ラベルと当たりの割合の定義 ／ 出力は「一段目の買い% か 50」・
+⚠ 見るもの: 無い config は 1 ビットも変わらない（既存の登録名・表記）／ ラベルと当たりの割合の定義 ／ 出力は「一段目の買い% か 50」・
    出口は一段目のまま ／ 先の日を見ない ／ 間引けないときは一段目そのまま ／ leak 対照が一段目に届く。
 """
 
@@ -49,7 +49,7 @@ def test_new_name_registered_spelled_and_existing_untouched():
         assert n in registry.available("detector")
     key = dict(鍵=ml.NAME, モデル="Ridge", 粒度="日足", 地平="1 本（1 日）", 特徴量の層="own", 層="adjusted", 期間="2018-01-31",
                銘柄="63", 検証方式="閾値売買", 形式="共通", 較正="std", 閾値="50")
-    assert names.trial_name(key) == "own.meta-t1.ridge.shared@50"               # 登録簿の key_shape
+    assert names.trial_name(key) == "own.meta-t1.ridge.shared@50"               # レジストリの key_shape
     key.update(モデル="LightGBM", 閾値="60")
     assert names.trial_name(key) == "own.meta-t1.lgbm.shared@60"
     assert ml.LINE == 50.0 and ml.COST == 5.0e-4 and ml.HIT_WINDOW == 20 and ml.STAGE1 == "Ridge"
@@ -120,7 +120,7 @@ def test_m1_leak_columns_reach_stage1():
     assert held.any() and (te["y"].to_numpy()[held] > 0).mean() > 0.9          # 通した合図はほぼ全部が上がる
 
 
-# --- 登録簿 `20261111-sector-pair-revert`: 同じセクターの相手との開きが縮むかを当てて出遅れを買う PR1 ---------------------
+# --- レジストリ `20261111-sector-pair-revert`: 同じセクターの相手との開きが縮むかを当てて出遅れを買う PR1 ---------------------
 
 from ail.ideas import i20261111_sector_pair as pr  # noqa: E402
 

@@ -1,7 +1,7 @@
-"""⚠ **台帳を作る側そのものを検査する。**
+"""⚠ **検証結果一覧を作る側そのものを検査する。**
 
-台帳は spec の表・registry・`runs/` を突き合わせた**生成物**である。
-⚠ **突き合わせが静かに壊れると、「試していない」が「効かない」に化ける。**
+検証結果一覧は spec の表・registry・`runs/` を照合した**生成物**である。
+⚠ **照合が静かに壊れると、「試していない」が「効かない」に化ける。**
 だから ⚠ **わざと壊した spec を食わせて、ちゃんと止まることを確かめる。**
 """
 
@@ -86,13 +86,13 @@ def test_real_spec_has_26_methods_in_5_families():
 
 
 def test_every_implemented_selector_is_in_the_catalog():
-    """⚠ **registry に `F9-9` のような幽霊 ID があれば、台帳から静かに消える。**"""
+    """⚠ **registry に `F9-9` のような幽霊 ID があれば、検証結果一覧から静かに消える。**"""
     ids = {x["ID"] for x in catalog.entries()}
     assert set(catalog.implemented()) <= ids
     # ⚠ **2026-09-12 に「手間 小」の 4 件を足した**（プラン `plans/selectors-small-four.md`）。
     # ⚠ **F5-1 は `selector` ではなく `transform`** なので、`implemented()` が両方を見ている
-    # ことの検査も兼ねる（見落とすと、回したのに台帳 §3 で「未実施」のままになる）
-    # ⚠ **F3-1b は 2026-09-13 に足した**（F3-1 の直した版。ID を分けないと台帳で同じ行にまとまる）
+    # ことの検査も兼ねる（見落とすと、回したのに検証結果一覧 §3 で「未実施」のままになる）
+    # ⚠ **F3-1b は 2026-09-13 に足した**（F3-1 の直した版。ID を分けないと検証結果一覧で同じ行にまとまる）
     # ⚠ **2026-09-15 に「手間 中」の 6 件を足した**（プラン `plans/ledger-blanks-six.md`）。
     # ⚠ **F4-4 と F5-4 は `transform`**（F5-1 と同じ枠）。⚠ **F4 系統はこれが初めての実装である。**
     # ⚠ **F4-1 は 2026-09-16 に足した**（記号回帰。プラン `plans/archive/evolutionary-search-runner.md`）。
@@ -101,7 +101,7 @@ def test_every_implemented_selector_is_in_the_catalog():
     # ⚠ **F4-3 tsfresh と F5-3 行列プロファイルは 2026-09-16 に足した**
     # （プラン `plans/archive/ledger-blanks-large-two.md`）。⚠ **これで実施可能な空白は 0 件になった**
     # （残るは見送り 3 件 — F4-2・F5-2・F2-4）。⚠ **2 件とも `transform`**:
-    # ⚠ **`feature` 層にすると `implemented()` が見ず、回しても台帳 §3 で「未実施」のままになる**
+    # ⚠ **`feature` 層にすると `implemented()` が見ず、回しても検証結果一覧 §3 で「未実施」のままになる**
     assert set(catalog.implemented()) == {"F1-1", "F1-2", "F1-3", "F1-4", "F1-5", "F1-6", "F1-7",
                                           "F2-1", "F2-2", "F2-3", "F3-1", "F3-1b", "F3-2", "F3-3",
                                           "F3-4", "F3-5", "F3-6", "F4-1", "F4-3", "F4-4",
@@ -327,10 +327,10 @@ def test_one_minute_raw_is_not_held():
     assert got == "落とす"
 
 
-# --- 台帳の組み立て -----------------------------------------------------
+# --- 検証結果一覧の組み立て -----------------------------------------------------
 
 def test_leak_rows_never_enter_the_ledger():
-    """⚠ **的中率 99% の行が本体に混ざると、台帳全体が嘘になる。**"""
+    """⚠ **的中率 99% の行が本体に混ざると、検証結果一覧全体が嘘になる。**"""
     d = catalog.ledger()
     assert all(not r["leak"] for r in d["rows"])
     assert d["leak"], "先読みの検査の実行が runs/ に無い（配線の検査が回っていない）"
@@ -348,7 +348,7 @@ def test_ledger_lists_every_catalog_method_exactly_once():
 
 
 def test_every_unimplemented_method_says_what_it_needs():
-    """⚠ **未実施を空白にしない。** 「次の一手」が無い行は台帳として役に立たない。"""
+    """⚠ **未実施を空白にしない。** 「次の一手」が無い行は検証結果一覧として役に立たない。"""
     d = catalog.ledger()
     missing = [c["ID"] for c in d["not_tried"] if not c["次の一手"]]
     assert not missing, f"config/catalog_notes.toml に無い: {missing}"
@@ -365,7 +365,7 @@ def test_ledger_markdown_renders():
 
 
 def test_unimplemented_rows_are_ordered_by_effort():
-    """⚠ **上から読んで次の一手が決まらなければ、台帳は一覧として役に立たない。**"""
+    """⚠ **上から読んで次の一手が決まらなければ、検証結果一覧は一覧として役に立たない。**"""
     d = catalog.ledger()
     order = [catalog.COST_ORDER.index(c["手間"]) for c in d["not_tried"]]
     assert order == sorted(order)
@@ -488,7 +488,7 @@ def test_closed_note_rejects_unknown_keys_and_missing_note():
 
 
 def test_real_closed_entries_each_hit_exactly_one_held_row():
-    """実物の `[[closed]]` が実台帳にちょうど 1 行ずつ当たり、判定を変えない。"""
+    """実物の `[[closed]]` が実検証結果一覧にちょうど 1 行ずつ当たり、判定を変えない。"""
     d = catalog.ledger()                      # ⚠ 中で _apply_closed が走る（合わなければ止まる）
     closed = [r for r in d["rows"] if r.get("閉じる")]
     # ⚠ **2026-09-16 に 62 件足した**（保留の処遇。plans/ledger-hold-disposition.md）。16 ＋ 62 ＝ 78

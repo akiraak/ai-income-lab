@@ -1,12 +1,12 @@
 """実行記録。⚠ **1 実行 1 記録・上書きしない**（rules.md 10 章）。正本は `runs/research.sqlite`（`ail/rundb.py`）。
 
 ⚠ **2026-09-21 にディレクトリから DB へ移した**（利用者の裁定「2 か所には置かない。DB に入れたらファイルは削除」。
-[プラン](../../../docs/plans/archive/db-model-facts.md)）。実行の名前（`<時刻>_<実験名>`）と、中のファイルの道・中身は
-いままでのディレクトリと同じで、置き場だけが DB の行になった:
+[プラン](../../../docs/plans/archive/db-model-facts.md)）。実行の名前（`<時刻>_<実験名>`）と、中のファイルのパス・中身は
+いままでのディレクトリと同じで、保存先だけが DB の行になった:
 
     実行 2026-09-08T22-31-00_own_only_h1 の中のファイル
-      config.json    使った設定の写し（TOML を解決したあとの姿）
-      inputs.json    ⚠ 入力の指紋（層・行数・最古・最新・ハッシュ）
+      config.json    使った設定のコピー（TOML を解決したあとの姿）
+      inputs.json    ⚠ 入力のフィンガープリント（層・行数・最古・最新・ハッシュ）
       env.json       種・コードの版（git の commit）・ライブラリの版
       result.csv     手法ごとの成績（fold ごとの生の行）
       summary.csv    手法ごとにまとめたもの
@@ -21,11 +21,11 @@
 ⚠ **これが無いと「昨日より良くなったか」が言えない。** 日々改善は、前回の数字が
 ⚠ **同じ入力・同じ種で再現できて初めて回る。**
 
-  - ⚠ **書くたびにその場で DB に入れる**（`cli.run` は自分の `summary.csv` が台帳に入った状態で `n_trials` を数える）
-  - `Run.dir` は作業の置き場（`runs/work/<実行>/`）。道でしか書けないもの（`torch.save` など）はここに置けば、
-    `close()` が DB に入れて置き場を消す。⚠ 途中で落ちた実行は、次の `Run` か `python3 -m cli.db sweep` が閉じる
-  - 読むのは `list_runs()`・`read_json()`・`read_csv()`・`read_bytes()`・`materialized()`（道が要る読み手のため）
-  - ⚠ **診断・突き合わせの出力（いままでの `out/`）も同じ DB**（`put_output()`。表 `outputs`・道は `out/` からの相対。
+  - ⚠ **書くたびにその場で DB に入れる**（`cli.run` は自分の `summary.csv` が検証結果一覧に入った状態で `n_trials` を数える）
+  - `Run.dir` は作業の保存先（`runs/work/<実行>/`）。パスでしか書けないもの（`torch.save` など）はここに置けば、
+    `close()` が DB に入れて保存先を消す。⚠ 途中で落ちた実行は、次の `Run` か `python3 -m cli.db sweep` が閉じる
+  - 読むのは `list_runs()`・`read_json()`・`read_csv()`・`read_bytes()`・`materialized()`（パスが要る読み手のため）
+  - ⚠ **診断・照合の出力（いままでの `out/`）も同じ DB**（`put_output()`。表 `outputs`・パスは `out/` からの相対。
     実行ではないので検証結果一覧・実行タブには出ない。2026-09-21）
 """
 
@@ -48,7 +48,7 @@ import pandas as pd
 from ail import rundb
 
 ROOT = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
-# ⚠ DB（`research.sqlite`）と作業の置き場（`work/`）の親。テストはここを一時ディレクトリに差し替える
+# ⚠ DB（`research.sqlite`）と作業の保存先（`work/`）の親。テストはここを一時ディレクトリに差し替える
 RUNS = os.path.join(ROOT, "runs")
 
 
@@ -60,12 +60,12 @@ def work_root() -> str:
     return os.path.join(RUNS, "work")
 
 
-# ⚠ いままでの診断・突き合わせの出力の置き場（`cli.db import-out` が取り込む元。2026-09-21 から新しいファイルは作らない）
+# ⚠ いままでの診断・照合の出力の保存先（`cli.db import-out` が取り込む元。2026-09-21 から新しいファイルは作らない）
 OUT = os.path.join(ROOT, "out")
 
 
 def put_output(path: str, data: bytes | str) -> str:
-    """診断の出力を DB の `outputs` に入れる（道は `out/` からの相対 ＝ `diag/<時刻>_<名前>/folds.csv` など。上書きしない）。
+    """診断の出力を DB の `outputs` に入れる（パスは `out/` からの相対 ＝ `diag/<時刻>_<名前>/folds.csv` など。上書きしない）。
     表示用の文字を返す。読み戻すのは `python3 -m cli.db export-out --prefix <道> --to <置き場>`。"""
     rundb.put_output(rundb.connect(db_path()), path, data.encode("utf-8") if isinstance(data, str) else data)
     return f"DB の outputs/{path}"
@@ -74,14 +74,14 @@ def put_output(path: str, data: bytes | str) -> str:
 def _reader():
     return rundb.shared(db_path())
 
-# ⚠ **日付をずらした偽薬の実行は名前の末尾で見分ける**（`_leak` と同じ扱い。台帳の試行に数えない）
+# ⚠ **日付をずらした偽薬の実行は名前の末尾で見分ける**（`_leak` と同じ扱い。検証結果一覧の試行に数えない）
 _SHIFT = re.compile(r"_shift(\d+)$")
 
 
 def variant(experiment: str, leak: bool = False, shift_days: int = 0) -> str:
     """表（`data/features/<これ>/`）と実行（`runs/<時刻>_<これ>/`）の名前。
 
-    ⚠ **対照（先読み・偽薬）は名前の末尾で本物と分ける。** ⚠ **本物と同じ名前にすると、台帳が
+    ⚠ **対照（先読み・偽薬）は名前の末尾で本物と分ける。** ⚠ **本物と同じ名前にすると、検証結果一覧が
     「特徴量の層」で実行をまとめるときに偽薬が代表の行を乗っ取る**（鍵が同じ「own ex」になる）。
     """
     if shift_days < 0:
@@ -134,7 +134,7 @@ class Run:
         self.conn = rundb.connect(db_path())
         rundb.sweep(self.conn, work_root())          # ⚠ 前に落ちた実行を閉じる（中身は足さない）
         rundb.open_run(self.conn, self.name)
-        self.dir = os.path.join(work_root(), self.name)   # ⚠ 作業の置き場。close() で DB に入れて消す
+        self.dir = os.path.join(work_root(), self.name)   # ⚠ 作業の保存先。close() で DB に入れて消す
         os.makedirs(self.dir, exist_ok=True)
         self.lines: list[str] = []
         self._write("config.json", {k: v for k, v in config.items() if not k.startswith("__")})
@@ -156,7 +156,7 @@ class Run:
         self.lines.append(text)
 
     def inputs(self, doc: dict) -> None:
-        """⚠ **入力の指紋。** 同じ指紋・同じ種なら同じ数字が出なければならない。"""
+        """⚠ **入力のフィンガープリント。** 同じフィンガープリント・同じ種なら同じ数字が出なければならない。"""
         self._write("inputs.json", doc)
 
     def fitted(self, name: str, doc) -> None:
@@ -212,7 +212,7 @@ class Run:
             self._csv("trader.csv", df, index=False)
 
     def buy_pct(self, df) -> None:
-        """⚠ **行ごとの買い% ／ 出口%**（2026-11-01・プラン save-buy-pct.md）。後から別の物差しで回し直さずに測り直す材料。
+        """⚠ **行ごとの買い% ／ 出口%**（2026-11-01・プラン save-buy-pct.md）。後から別の指標で回し直さずに測り直す材料。
         ⚠ **採否には使わない**。parquet（列ごとに圧縮）で入れる ＝ 読むのは `read_parquet`。"""
         if df is not None and len(df):
             buf = io.BytesIO()
@@ -225,7 +225,7 @@ class Run:
             self._csv("per_symbol.csv", df, index=False)
 
     def close(self) -> str:
-        """ログと作業の置き場を DB に入れ、実行を閉じる（⚠ 以後は書き換えない）。戻り値は実行の名前。"""
+        """ログと作業の保存先を DB に入れ、実行を閉じる（⚠ 以後は書き換えない）。戻り値は実行の名前。"""
         self._put("log.txt", ("\n".join(self.lines) + "\n").encode("utf-8"))
         if os.path.isdir(self.dir):
             rundb.put_dir(self.conn, self.name, self.dir)
@@ -270,9 +270,9 @@ def files(run: str, prefix: str = "") -> list[str]:
 
 @contextlib.contextmanager
 def materialized(run: str):
-    """実行のファイルを一時ディレクトリに書き戻して、その道を渡す（`torch.load` のように道が要る読み手のため）。
+    """実行のファイルを一時ディレクトリに書き戻して、そのパスを渡す（`torch.load` のようにパスが要る読み手のため）。
 
-    ⚠ 読むためだけの写し。出たら消す（2 か所に置かない）。
+    ⚠ 読むためだけのコピー。出たら消す（2 か所に置かない）。
     """
     run = resolve(run)
     with tempfile.TemporaryDirectory(prefix="ail-run-") as d:

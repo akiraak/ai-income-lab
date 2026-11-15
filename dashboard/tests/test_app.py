@@ -86,7 +86,7 @@ def test_halt_writes_flag_and_resume(client, settings):
     assert "停止した" in client.get(r.headers["location"]).text
     # 取消は API に届く前に接続エラーになる（TT_REST_BASE が閉じたポート）が、HALT 自体は書かれている
     assert "停止中（HALT）" in client.get("/").text
-    # ⚠ 停止中に発注を拒否するのは執行器とサンプル（同じ HALT を見る）。管理画面に発注の経路は無い（test_dropped_routes_are_gone）
+    # ⚠ 停止中に発注を拒否するのは執行エンジンとサンプル（同じ HALT を見る）。管理画面に発注の経路は無い（test_dropped_routes_are_gone）
     r = client.post("/ops/resume", data={"csrf": csrf}, follow_redirects=False)
     assert r.status_code == 303 and not settings.halt_file.exists()
     hist = client.app.state.ops.history()

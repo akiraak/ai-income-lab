@@ -1,11 +1,11 @@
-"""登録簿 `20261104-regime-cluster-ridge`（参考あり・枠の外。記録 dev-loop.md）:
+"""レジストリ `20261104-regime-cluster-ridge`（参考あり・枠の外。記録 dev-loop.md）:
 ラベルを使わずに日ごとの相場の局面を k-means で分け、**局面ごとに別の学習器（Ridge）** を学ぶ検知器 R1。
 
 - 局面の入力（日ごとに 4 列・断面の要約）: own_ret_1 の断面平均 ／ own_ret_1 の断面のばらつき（標準偏差）／ own_vol_20 の断面平均 ／
   終値がその行までの SMA200 より上にある銘柄の割合（表の close から。SMA の無い銘柄は数えない・1 本も無い日は訓練の中央値で埋める）。
 - 訓練分割の日だけで標準化と k-means（K ＝ 2 ／ 4・種 0・事前固定）を当て、評価の日は近い重心に振り分ける。
 - 局面ごとに own 35 列（＋ leak 対照の LEAK_ 列）× ctx の model を学ぶ。訓練の中で 250 日に満たない局面は全体の 1 本で埋める。
-- 較正は全体で 1 回（`calibrate.fit` ＝ 素の own × Ridge と同じ訓練分割の尻。尻でも局面ごとの学習器で予測する）。
+- 較正は全体で 1 回（`calibrate.fit` ＝ 素の own × Ridge と同じ訓練分割の末尾。末尾でも局面ごとの学習器で予測する）。
 ⚠ 登録するだけ ＝ この検知器を名指さない config は 1 ビットも変わらない。
 """
 
@@ -19,7 +19,7 @@ from sklearn.preprocessing import StandardScaler
 from ail.models import calibrate
 from ail.registry import register
 
-KS = (2, 4)            # ⚠ 事前固定（登録簿）
+KS = (2, 4)            # ⚠ 事前固定（レジストリ）
 SEED = 0
 MIN_DAYS = 250         # 訓練の中でこれより少ない局面は全体の学習器で埋める
 SMA = 200
@@ -72,7 +72,7 @@ def regimes(tr: pd.DataFrame, te: pd.DataFrame, k: int) -> tuple[np.ndarray, np.
 
 
 def regime_model(base, cols: list[str]):
-    """局面ごとに base を学ぶ学習器（X に局面と日の列を持たせて渡す ＝ calibrate.fit の尻でも同じ形で呼べる）。"""
+    """局面ごとに base を学ぶ学習器（X に局面と日の列を持たせて渡す ＝ calibrate.fit の末尾でも同じ形で呼べる）。"""
     def fn(Xtr, ytr, Xte, ctx):
         ytr = np.asarray(ytr, dtype=float)
         rtr, rte = Xtr[_R].to_numpy(), Xte[_R].to_numpy()

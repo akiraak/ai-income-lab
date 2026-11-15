@@ -1,4 +1,4 @@
-"""口座の建玉と台帳の帳尻（§0-8）: 控え・復元・突き合わせ・人が合わせる CLI。ネットワークは使わない。"""
+"""口座の建玉と売買履歴の帳尻（§0-8）: 控え・復元・照合・人が合わせる CLI。ネットワークは使わない。"""
 import json
 import os
 import subprocess
@@ -160,8 +160,8 @@ def test_cli_respects_the_lock_and_the_mode(cli, monkeypatch):
     monkeypatch.setenv("LT_MODE_DIR", str(tmp))
     lock = modes.RunLock()
     assert lock.acquire("real", "run_day")
-    assert run("add", "T1", "KO", "1", "--price", "70").returncode == 6        # 執行器が動いている間は触らない
+    assert run("add", "T1", "KO", "1", "--price", "70").returncode == 6        # 執行エンジンが動いている間は触らない
     lock.release()
     modes.switch("sim", "sim1", real_trading_will_stop=True)   # 本物の建玉が残っているので追加の確認が要る（mode.py）
-    r = run("add", "T1", "KO", "1", "--price", "70")                           # シミュレーションモードで本物の台帳は触らない
+    r = run("add", "T1", "KO", "1", "--price", "70")                           # シミュレーションモードで本物の売買履歴は触らない
     assert r.returncode == 2 and "sim" in r.stderr and "KO" not in load_state(sd, "T1").holdings

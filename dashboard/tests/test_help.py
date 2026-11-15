@@ -90,7 +90,7 @@ def test_pages_show_marks_without_breaking_csp_or_paragraphs(client):
         assert_clean(r.text, path)
     body = client.get("/").text
     assert 'aria-label="「差 1（執行価格）」の説明"' in body and 'role="note"' in body
-    assert "正 ＝ 不利" in body                       # 文面は TOML の写し
+    assert "正 ＝ 不利" in body                       # 文面は TOML のコピー
     assert "用語の正本（glossary.toml）が読めない" not in body
 
 

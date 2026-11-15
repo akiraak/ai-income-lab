@@ -108,7 +108,7 @@ def build_exp_dir(exp_dir: Path, *, dataset_toml=DATASET_TOML) -> Path:
     put("raw_d.json", manifest())
     put("adjusted_d.json", manifest(layer="adjusted", rows=990, repaired_breaks=4,
                                     kept_as_real_move=9, rows_rescaled=123, dividend_adjusted=False))
-    # ⚠ manifest の枠（取得時の写し）は、わざと config の宣言（本命）と食い違わせてある
+    # ⚠ manifest の枠（取得時のコピー）は、わざと config の宣言（本命）と食い違わせてある
     put("raw_ncei_storm_series.json", manifest(layer="raw_ncei_storm", period="series",
                                                source="ncei_storm", dataset="impact_daily",
                                                rows=100, symbols=13, role="偽薬"))
@@ -186,7 +186,7 @@ def _add_universe_fixtures(exp_dir: Path) -> None:
 
 def test_universe_table_mirrors_config_and_manifests(settings):
     """銘柄の集合の一覧表。⚠ **対象 ＝ etf ＋ company から材料（`inputs_*`）を除いたもの**・足の有無は調整後の manifest の
-    銘柄名との突き合わせ・重複を除いた合計・実験の設定は config の宣言の数（`targets` 別）。"""
+    銘柄名との照合・重複を除いた合計・実験の設定は config の宣言の数（`targets` 別）。"""
     build_exp_dir(settings.exp_dir)
     _add_universe_fixtures(settings.exp_dir)
     ut = inv.index(settings)["universe_table"]
@@ -223,7 +223,7 @@ def test_role_and_hypothesis_are_mirrored_from_config(settings):
     assert storm["role_mismatch"] is True               # manifest（偽薬）との食い違いを隠さない
     assert "保険" in storm["hypothesis"]
     noaa = [e for e in d["external"] if e["source"] == "noaa"][0]
-    assert noaa["role"] == "偽薬"                       # 宣言が無い dataset は manifest の写し
+    assert noaa["role"] == "偽薬"                       # 宣言が無い dataset は manifest のコピー
     assert noaa["role_mismatch"] is False and noaa["hypothesis"] is None
 
 
@@ -245,7 +245,7 @@ def test_features_meta_and_leak_split(settings):
 
 
 def test_exposure_is_listed_with_hindsight(settings):
-    """割り当ては経路と重みをそのまま出す。⚠ **後知恵の印も宣言の写し。**"""
+    """割り当ては経路と重みをそのまま出す。⚠ **後知恵の印も宣言のコピー。**"""
     build_exp_dir(settings.exp_dir)
     x = inv.index(settings)["exposures"][0]
     assert x["hindsight"] is True and x["selected_on"] == "2026-09-09"

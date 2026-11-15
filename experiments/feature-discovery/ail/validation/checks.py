@@ -129,7 +129,7 @@ def _panel_checks(panel: pd.DataFrame, full_panel: pd.DataFrame | None, gross_bp
         d = stats.deflated_sharpe(sr, int(n_obs_eff), int(n_trials))
         out["dsr"] = {"SR": round(sr, 6), "SR0": round(float(d["SR0"]), 6),
                       "DSR": round(float(d["DSR"]), 4),
-                      # ⚠ **試行数は増えていく。** 正本は台帳で、ここは「そのときの値」
+                      # ⚠ **試行数は増えていく。** 正本は検証結果一覧で、ここは「そのときの値」
                       "n_trials": int(n_trials), "n_obs": int(round(n_obs_eff)),
                       "注記": "⚠ SR > 0 の検定であって、基準線を超えたかの検定ではない"}
     return out
@@ -320,7 +320,7 @@ def _selection_edge(result: pd.DataFrame, method: str, th: float) -> dict | None
 
     露出（保有日率）を揃えたときの「日の選び方」の上乗せ。⚠ **14-6 (b) の乱択ゲートの期待値を乱数なしで
     厳密に出したもの**（乱択ゲートの実測は 1 回の乱数の引きを含む）。逆売買では −S になる（配線の検査）。
-    13-7 の物差し（対 B&H 上乗せ）は「露出を減らして逃したドリフト」も手法の責任として数えるが S はそれを免除する。
+    13-7 の指標（対 B&H 上乗せ）は「露出を減らして逃したドリフト」も手法の責任として数えるが S はそれを免除する。
     """
     if "保有日率" not in result.columns or "粗利bp" not in result.columns:
         return None                                    # 旧い形の result（合成の検査など）では省く
@@ -440,7 +440,7 @@ def compute_trading(result: pd.DataFrame, summary: pd.DataFrame, per_symbol: pd.
     t = config.get("trading", {})
     doc: dict = {"leak": bool(leak), "style": "threshold",
                  "form": str(t.get("form", "shared")),
-                 # ⚠ **較正の版を残す**（rules.md 13-2 の 6）。⚠ **台帳の鍵に入るので、
+                 # ⚠ **較正の版を残す**（rules.md 13-2 の 6）。⚠ **検証結果一覧の鍵に入るので、
                  # ⚠ **旧実行（この key が無い ＝「旧」）と同じ行にまとまらない**
                  "calibration": calibrate.VERSION,
                  "cost_bp": float(config.get("cost_bp", 5.0)),
@@ -511,7 +511,7 @@ def compute_trading(result: pd.DataFrame, summary: pd.DataFrame, per_symbol: pd.
     if (br := _breadth_trading(panel)) is not None:
         doc["breadth"] = br
 
-    # 最良の閾値の写しを最上位にも置く（一覧の 1 数字）。⚠ **3 閾値とも by_threshold にある**
+    # 最良の閾値のコピーを最上位にも置く（一覧の 1 数字）。⚠ **3 閾値とも by_threshold にある**
     if by:
         top = max(by, key=lambda k: by[k]["best"]["純利bp"])
         doc["best"] = {**by[top]["best"], "閾値": float(top)}
@@ -527,15 +527,15 @@ def compute_trading(result: pd.DataFrame, summary: pd.DataFrame, per_symbol: pd.
 
 
 def n_trials_now() -> int | None:
-    """台帳が数えている試行数。⚠ **数え落とすと必ず甘くなる**（rules.md 11 章 規約 4）。
+    """検証結果一覧が数えている試行数。⚠ **数え落とすと必ず甘くなる**（rules.md 11 章 規約 4）。
 
     ⚠ **数える規則は `catalog.is_trial` が正本**（カタログ ID の行 ＋ モデルが処置の行）。
 
-    ⚠ **`summary.csv` を書いたあとに呼ぶ。** 台帳は `runs/*/summary.csv` を読むので、
-    ⚠ **この時点で台帳はもうこの実行の行を数えている。** だから「この実行ぶん」を足さない
+    ⚠ **`summary.csv` を書いたあとに呼ぶ。** 検証結果一覧は `runs/*/summary.csv` を読むので、
+    ⚠ **この時点で検証結果一覧はもうこの実行の行を数えている。** だから「この実行ぶん」を足さない
     （2026-09-12 まで足しており、各実行の `n_trials` がそのぶん多かった。
-    ⚠ **足す方式は重複にも弱い** — 同じ設定を同じ表で回し直すと台帳の鍵では 1 試行のままだし、
-    leak 対照は台帳に入らない。[validation-power.md §8-2-5](../../../../docs/specs/experiments/feature-discovery/validation-power.md)）。
+    ⚠ **足す方式は重複にも弱い** — 同じ設定を同じ表で回し直すと検証結果一覧の鍵では 1 試行のままだし、
+    leak 対照は検証結果一覧に入らない。[validation-power.md §8-2-5](../../../../docs/specs/experiments/feature-discovery/validation-power.md)）。
     ⚠ **引数は受けない**（受けると同じ間違いがまた書ける）。
     """
     try:

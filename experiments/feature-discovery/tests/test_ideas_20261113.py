@@ -1,7 +1,7 @@
-"""登録簿の 2 本（2026-11-13 の段 2・人の手）: 自分の直近 252 日の予測値の中の順位 TR1 ／ 本物のリターンへの植え込み（cli.inject_power）。
+"""レジストリの 2 本（2026-11-13 の段 2・人の手）: 自分の直近 252 日の予測値の中の順位 TR1 ／ 本物のリターンへの植え込み（cli.inject_power）。
 
-⚠ 見るもの: 無い config は 1 ビットも変わらない（既存の登録名・綴り）／ 先の日を見ない（順位は その行と前の日の予測値だけ）／
-   尻の予測は尻を外して学んだ 1 本（訓練内の当てはめ値を使わない）／ 出力の契約（行数・0〜100）／ 識別項目の綴り ／
+⚠ 見るもの: 無い config は 1 ビットも変わらない（既存の登録名・表記）／ 先の日を見ない（順位は その行と前の日の予測値だけ）／
+   末尾の予測は末尾を外して学んだ 1 本（訓練内の当てはめ値を使わない）／ 出力の契約（行数・0〜100）／ 識別項目の表記 ／
    植え込みは本物の y を残す・種が同じなら列は同じ・水準は事前固定。
 """
 
@@ -53,9 +53,9 @@ def test_new_name_registered_spelled_and_existing_untouched():
         assert n in registry.available("model")
     key = dict(鍵=trk.NAME, モデル="Ridge", 粒度="日足", 地平="1 本（1 日）", 特徴量の層="own", 層="adjusted", 期間="2018-01-31",
                銘柄="63", 検証方式="閾値売買", 形式="共通", 較正="std", 閾値="50")
-    assert names.trial_name(key) == "own.ts-rank252.ridge.shared@50"            # 登録簿の key_shape
+    assert names.trial_name(key) == "own.ts-rank252.ridge.shared@50"            # レジストリの key_shape
     key.update(鍵="全部使う（基準）")
-    assert names.trial_name(key) == "own.all.ridge.shared@50"                   # 対の相手の綴りは前のまま
+    assert names.trial_name(key) == "own.all.ridge.shared@50"                   # 対の相手の表記は前のまま
 
 
 def test_trailing_rank_uses_only_the_row_and_earlier_days():
@@ -88,7 +88,7 @@ def test_tr1_contract_tail_is_out_of_sample_and_no_lookahead():
     te2.loc[late, "own_x0"] = 99.0
     buy2, _ = registry.resolve("detector", trk.NAME)(tr, te2, feats, _ctx())
     assert np.array_equal(buy[~late], buy2[~late]) and not np.array_equal(buy[late], buy2[late])
-    # 尻の予測は尻を外して学んだ 1 本: 尻の y を壊しても、評価の予測値（全部で学ぶ 1 本）が変わるぶんしか動かない ＝ 尻の y だけでは尻の予測は変わらない
+    # 末尾の予測は末尾を外して学んだ 1 本: 末尾の y を壊しても、評価の予測値（全部で学ぶ 1 本）が変わるぶんしか動かない ＝ 末尾の y だけでは末尾の予測は変わらない
     ts_tr = pd.to_datetime(tr["ts"]).to_numpy()
     tail = np.isin(ts_tr, trk.tail_days(ts_tr))
     calls = []
@@ -99,7 +99,7 @@ def test_tr1_contract_tail_is_out_of_sample_and_no_lookahead():
         return base(Xtr, ytr, Xte, ctx)
     registry.resolve("detector", trk.NAME)(tr, te, feats, {"model": spy, "seed": 0})
     assert calls == [(int((~tail).sum()), int(tail.sum())), (len(tr), len(te))]
-    # 訓練が 2N 日に満たなければ尻は後ろ半分
+    # 訓練が 2N 日に満たなければ末尾は後ろ半分
     short = np.sort(pd.unique(ts_tr))[:300]
     assert len(trk.tail_days(short)) == 150
 

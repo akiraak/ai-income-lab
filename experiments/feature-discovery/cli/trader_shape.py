@@ -1,14 +1,14 @@
-"""検証結果一覧の行（検証名）から、トレーダーと同じ形で机上にかける config（rules.md 20 章・howto-model-trader.md §3-2）を機械で書く。
+"""検証結果一覧の行（検証名）から、トレーダーと同じ形で机上にかける config（rules.md 20 章・howto-model-trader.md §3-2）を自動で書く。
 
-⚠ **中身は 20 章の写し ＝ 新しい規約ではない**。手で写していた作業（元の実験の config を写し・手法を候補に絞り・θ を行の 1 水準にし・
-   `[[trading.trader]]` を 2 つ足す）をそのまま機械でやる。⚠ 20 章の売買の規則・条件・判定は 1 行も変えない。
-⚠ **回すと決めるのは結果を見る前**（事前固定 ＝ 20 章の節 ／ 登録簿を先に書く）。この CLI は config を書くだけで、回さない・DB に書かない。
-⚠ 2a の条件は **5 本・$600**（rules.md 25-2 の 7 ＝ 2026-10-04 から 1 人 $600。`--budget 300` で 2026-10-02 までの形）。綴りは `config/names.toml` の `[trader]` に無ければ止まる。
+⚠ **中身は 20 章のコピー ＝ 新しい規約ではない**。手で写していた作業（元の実験の config をコピー・手法を候補に絞り・θ を行の 1 水準にし・
+   `[[trading.trader]]` を 2 つ足す）をそのまま自動でやる。⚠ 20 章の売買の規則・条件・判定は 1 行も変えない。
+⚠ **回すと決めるのは結果を見る前**（事前固定 ＝ 20 章の節 ／ レジストリを先に書く）。この CLI は config を書くだけで、回さない・DB に書かない。
+⚠ 2a の条件は **5 本・$600**（rules.md 25-2 の 7 ＝ 2026-10-04 から 1 人 $600。`--budget 300` で 2026-10-02 までの形）。表記は `config/names.toml` の `[trader]` に無ければ止まる。
 
     .venv/bin/python -m cli.trader_shape --from own.f1-7.ridge.shared~p1995-02-10@50            # DB で検証名 → 元の実験・手法・θ を引く
     .venv/bin/python -m cli.trader_shape --from <検証名> --from <同じ実験・同じ θ の検証名>     # 1 つの config に 2 本
     .venv/bin/python -m cli.trader_shape --experiment trade_own_ridge_a --method "全部使う（基準）" --theta 50 --budget 300 --print
-    （既定の置き場 `config/experiment/trader_<元の実験名>.toml`。あれば `--force` が無い限り書かない）
+    （既定の保存先 `config/experiment/trader_<元の実験名>.toml`。あれば `--force` が無い限り書かない）
 """
 
 from __future__ import annotations

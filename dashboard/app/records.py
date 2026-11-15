@@ -89,7 +89,7 @@ def step_brief(row: dict) -> dict:
 
 
 def _read_file(path_str: str) -> tuple:
-    """記録 1 本の行（⚠ 2026-09-21 から DB の lines ＝ `livefs`。道はそのまま）。"""
+    """記録 1 本の行（⚠ 2026-09-21 から DB の lines ＝ `livefs`。パスはそのまま）。"""
     rows = []
     for line in livefs.read_lines(path_str, missing_ok=True):
         line = line.strip()

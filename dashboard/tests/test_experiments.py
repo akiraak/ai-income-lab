@@ -234,7 +234,7 @@ def test_trading_summary_keeps_the_threshold_columns(tmp_path):
 # --- 前置きの門（rules.md 14-5） ----------------------------------------
 #
 # ⚠ **門前の実行は `summary.csv` を持たない**（閾値売買を回していないから）。
-# ⚠ **画面から黙って消えてはいけない**（台帳には「門前」の行で残る。隠さない）。
+# ⚠ **画面から黙って消えてはいけない**（検証結果一覧には「門前」の行で残る。隠さない）。
 
 def gate_doc(blocked=("全部使う（基準）",), passed=(), forced=False, auc=0.5034, width=3.2):
     methods = {}
@@ -276,7 +276,7 @@ def test_gated_run_is_kept_but_not_counted_as_a_validation(tmp_path):
     assert sum(ex["kinds"].values()) == 1
     g = ex["gated_runs"][0]
     assert g["score"] is None and g["gated"] is True
-    # 門の値は checks.json の写し（画面では判定し直さない）
+    # 門の値は checks.json のコピー（画面では判定し直さない）
     assert [m["method"] for m in g["gate_blocked"]] == ["全部使う（基準）"]
     assert g["gate_blocked"][0]["auc"] == 0.5034 and g["gate_blocked"][0]["width_pt"] == 3.2
     assert g["gate"]["auc_min"] == 0.52 and g["gate"]["width_min_pt"] == 20.0
@@ -299,7 +299,7 @@ def test_gated_run_has_no_marks_because_it_was_not_run(tmp_path):
 
 
 def test_forced_run_without_summary_is_still_dropped(tmp_path):
-    """⚠ **`--ignore-gate` で summary が無いのは「回したのに結果が無い」**（台帳と同じ条件）。"""
+    """⚠ **`--ignore-gate` で summary が無いのは「回したのに結果が無い」**（検証結果一覧と同じ条件）。"""
     write_gated_experiment(tmp_path, "2026-09-11T11-00-00_trade_own_lgbm_a",
                            gate=gate_doc(forced=True))
     ex = exp.index(tmp_path)

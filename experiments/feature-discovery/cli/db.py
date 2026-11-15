@@ -2,18 +2,18 @@
 
     python3 -m cli.db stats                        # 実行の数・ファイルの数・大きさ
     python3 -m cli.db import                       # ⚠ いままでの実行ディレクトリ（runs/<実行>/）を全部取り込む（入っているものはとばす）
-    python3 -m cli.db verify                       # ⚠ ディレクトリと DB を 1 ビットずつ突き合わせる（消す前に必ず）
-    python3 -m cli.db remove-dirs --i-verified     # ⚠ 突き合わせて一致した実行ディレクトリだけを消す（⚠ 利用者の了承のあと）
+    python3 -m cli.db verify                       # ⚠ ディレクトリと DB を 1 ビットずつ照合する（消す前に必ず）
+    python3 -m cli.db remove-dirs --i-verified     # ⚠ 照合して一致した実行ディレクトリだけを消す（⚠ 利用者の了承のあと）
     python3 -m cli.db sweep                        # 途中で落ちた実行を閉じる
-    python3 -m cli.db export --run <実行> --to <道>  # 実行のファイルを書き戻す（読むための写し）
-    python3 -m cli.db backup --to <道>             # ⚠ 控え（SQLite の backup。書いている最中でも壊れない写し）
-    python3 -m cli.db import-out                   # ⚠ いままでの out/（診断・突き合わせの出力）を表 outputs に取り込む（2026-09-21）
-    python3 -m cli.db verify-out                   # ⚠ out/ のファイルと DB を 1 ビットずつ突き合わせる
-    python3 -m cli.db remove-out --i-verified      # ⚠ 突き合わせて一致した out/ のファイルだけを消す（⚠ 利用者の了承のあと）
-    python3 -m cli.db export-out --prefix <道> --to <置き場>   # 出力を書き戻す（読むための写し。例 --prefix diag/2026-09-13T08-56-31_trade_own_ridge_a/）
+    python3 -m cli.db export --run <実行> --to <パス>  # 実行のファイルを書き戻す（読むためのコピー）
+    python3 -m cli.db backup --to <パス>             # ⚠ 控え（SQLite の backup。書いている最中でも壊れないコピー）
+    python3 -m cli.db import-out                   # ⚠ いままでの out/（診断・照合の出力）を表 outputs に取り込む（2026-09-21）
+    python3 -m cli.db verify-out                   # ⚠ out/ のファイルと DB を 1 ビットずつ照合する
+    python3 -m cli.db remove-out --i-verified      # ⚠ 照合して一致した out/ のファイルだけを消す（⚠ 利用者の了承のあと）
+    python3 -m cli.db export-out --prefix <パス> --to <保存先>   # 出力を書き戻す（読むためのコピー。例 --prefix diag/2026-09-13T08-56-31_trade_own_ridge_a/）
 
 ⚠ **取り込みは 1 実行 1 トランザクション**（途中で止めても、入った実行は全部そろっている）。
-⚠ **`remove-dirs` は `verify` と同じ突き合わせをもう一度してから消す**（DB から取り出したバイト列の指紋 ＝ ディスクの指紋）。
+⚠ **`remove-dirs` は `verify` と同じ照合をもう一度してから消す**（DB から取り出したバイト列のフィンガープリント ＝ ディスクのフィンガープリント）。
 """
 
 from __future__ import annotations
@@ -27,7 +27,7 @@ import time
 
 from ail import rundb, runs
 
-# ⚠ 実行ディレクトリではないもの（`cli.queue` の状態 ・ 作業の置き場）
+# ⚠ 実行ディレクトリではないもの（`cli.queue` の状態 ・ 作業の保存先）
 NOT_RUNS = {"queue", "work"}
 
 
@@ -132,7 +132,7 @@ def cmd_remove_dirs(conn: sqlite3.Connection, confirmed: bool) -> int:
 
 
 def out_files() -> list[str]:
-    """`out/` にまだ残っているファイル（`out/` からの道）。"""
+    """`out/` にまだ残っているファイル（`out/` からのパス）。"""
     return rundb._walk(runs.OUT) if os.path.isdir(runs.OUT) else []
 
 

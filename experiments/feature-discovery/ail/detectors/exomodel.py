@@ -13,7 +13,7 @@
 | S4 TimeXer（60日窓・先10日・外生あり） | `TimeXer`（教師あり） | 全 63 銘柄の道筋（自分の枠は 0）＋ 金利 7 ＋ 為替 7 の水準の道筋 |
 
 ⚠ **学習の対象は `y_fwd_10`**（先 10 営業日の累積対数リターン。rules.md 15-3）。損益の対象は 1 日の `y` のまま。
-⚠ **較正は訓練の日付の尻を 10 営業日ぶん（暦 15 日）パージして Platt**（15-5。`scale._fit_calibration` と同じ）。
+⚠ **較正は訓練の日付の末尾を 10 営業日ぶん（暦 15 日）パージして Platt**（15-5。`scale._fit_calibration` と同じ）。
 ⚠ **fit は訓練分割の内側だけ**（3 章 B）。⚠ **評価期間の行は transform にしか使わない。**
 
 ⚠ **共変量の履歴は「表の同じ日付の行」と「外部系列の as-of」から組む**ので、⚠ **未来は構造的に入らない**
@@ -174,7 +174,7 @@ def _prepare(tr: pd.DataFrame, te: pd.DataFrame, feats, ctx: dict, kind: str, mo
         raise SystemExit(f"⚠ {target} が表に無い。`label_scales = [{HORIZON}]` の表を `features_from` で読む")
     cols = seq.window_columns(feats)
     leak = [c for c in feats if c.startswith("LEAK_")]
-    # ⚠ **末尾はラベルが取れない行**（表の尻）。訓練からだけ落とす（検証の行はラベルを使わない）
+    # ⚠ **末尾はラベルが取れない行**（表の末尾）。訓練からだけ落とす（検証の行はラベルを使わない）
     tr_ok = tr.loc[tr[target].notna().to_numpy()]
     slots = symbol_slots(tr_ok, te)
     Xtr, names = build_inputs(tr_ok, feats, leak, slots, kind)
@@ -189,9 +189,9 @@ def _prepare(tr: pd.DataFrame, te: pd.DataFrame, feats, ctx: dict, kind: str, mo
 
 def _chronos(kind: str, name: str, tr, te, feats, ctx):
     model, tr_ok, Xtr, Xte, ytr, leak, n_cov, names, doc = _prepare(tr, te, feats, ctx, kind, "Chronos-2")
-    # ⚠ **ctx は写しを渡す**（窓の長さと記録を書き込むので、呼び元の ctx を汚さない）
+    # ⚠ **ctx はコピーを渡す**（窓の長さと記録を書き込むので、呼び元の ctx を汚さない）
     c = {**ctx, "seq_window": seq.WINDOW, "n_cov": n_cov, "cov_names": names, "n_exog": len(leak)}
-    cal = _fit_calibration(model, Xtr, ytr, tr_ok["ts"], HORIZON, c)     # ⚠ 10 営業日ぶんパージした尻で較正
+    cal = _fit_calibration(model, Xtr, ytr, tr_ok["ts"], HORIZON, c)     # ⚠ 10 営業日ぶんパージした末尾で較正
     fit_cal = c.pop(chronos2.DOC_KEY, None)
     pred = model(Xtr, ytr, Xte, c)
     fit_main = c.pop(chronos2.DOC_KEY, None)
@@ -214,7 +214,7 @@ def timexer_exo(tr, te, feats, ctx):
     model, tr_ok, Xtr, Xte, ytr, leak, n_cov, names, doc = _prepare(tr, te, feats, ctx, "timexer", "TimeXer")
     ts = tr_ok["ts"].to_numpy()
     c = {**ctx, "seq_window": seq.WINDOW, "n_exo": n_cov, "n_exog": len(leak)}
-    # ⚠ **較正は訓練の日付の尻（10 営業日ぶんパージ）**。学習器にも同じ日付を渡し、早期打ち切りの検証も日付で切らせる
+    # ⚠ **較正は訓練の日付の末尾（10 営業日ぶんパージ）**。学習器にも同じ日付を渡し、早期打ち切りの検証も日付で切らせる
     split = date_holdout(ts, label_bars=HORIZON)
     if split is None:
         pred_c = np.asarray(model(Xtr, ytr, Xtr, {**c, "ts_tr": ts}), dtype=float)

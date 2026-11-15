@@ -3,7 +3,7 @@
 ⚠ **読むだけ。** 正本は実験側が書いたもので、この画面は数え直さない・書かない
 （[dashboard.md §11](../../docs/specs/dashboard.md) が仕様。§10 と同じ立て方）:
 
-  - 系列数・行数・期間     → `data/manifests/*.json`（取得時に検査して書かれた指紋）
+  - 系列数・行数・期間     → `data/manifests/*.json`（取得時に検査して書かれたフィンガープリント）
   - 特徴量の表             → `data/features/*/<粒度>.meta.json`（`cli/build.py` の sidecar）
   - 枠（本命 ／ 偽薬）・仮説 → `config/dataset/*.toml`（⚠ **取得の前の宣言。** 結果を見て分類しない）
   - 銘柄の種別（会社株 ／ ETF）→ `config/universe/*.toml` の `groups`（銘柄名で引く）
@@ -131,7 +131,7 @@ def universe_table(universes: list[dict], datasets: list[dict], bars: list[dict]
 
     ⚠ **対象の銘柄は `etf` ＋ `company`**（実験側の `ail.config.symbols_of` と同じ）から、材料（`inputs_*`）と宣言された
        ものを除いたもの。`equity_like` も対象に数えない。⚠ **実験はこの中からさらに `targets`（all ／ company）で絞る**。
-    ⚠ **足の有無は調整後の manifest の銘柄名と突き合わせる**（CSV を開かない・ディレクトリを数えない）。
+    ⚠ **足の有無は調整後の manifest の銘柄名と照合する**（CSV を開かない・ディレクトリを数えない）。
     """
     have = {p: {s["name"] for m in bars if m["layer"] == "adjusted" and m["period"] == p for s in m["series"]}
             for p in ("d", "m")}
@@ -287,7 +287,7 @@ def load_manifests(manifests_dir: Path) -> list[dict]:
 
 
 def load_features(features_dir: Path) -> list[dict]:
-    """`data/features/<実験>/<粒度>.meta.json`。特徴量の表の指紋。"""
+    """`data/features/<実験>/<粒度>.meta.json`。特徴量の表のフィンガープリント。"""
     if not features_dir.is_dir():
         return []
     out = []
@@ -330,7 +330,7 @@ def index(settings) -> dict:
         if m["period"] == "series":
             decl = declaration_of(datasets, m["dataset"], m["source"])
             src = sources.get(m["source"]) or {}
-            # ⚠ 枠は config の宣言が正。manifest（取得時の写し）と食い違ったら画面に ⚠ を出す
+            # ⚠ 枠は config の宣言が正。manifest（取得時のコピー）と食い違ったら画面に ⚠ を出す
             role = decl.get("role") or m["role"]
             external.append({**m, "source_label": label_of(m["source"]),
                              "role": role,

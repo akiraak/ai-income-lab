@@ -1,10 +1,10 @@
-"""通し運転で確かめる 3 つ（プラン: docs/plans/test-automation-sim.md Phase 3）。⚠ 作り物の日足・モックだけ。
+"""通し実行で確かめる 3 つ（プラン: docs/plans/test-automation-sim.md Phase 3）。⚠ 作り物の日足・モックだけ。
 
 1. **予算の上限**: 何日流しても、取得原価が予算を超えない（⚠ 1 日に何回売買しても同じ）
 2. **1 日に 2 つの発注できる時間帯**: 同じ日に 2 回起きて、⚠ **二重に買わない**（TODO の C9・D13 の前提）
 3. **停止と解除**: 途中で `HALT` を置くとその日から発注が止まり、消すと翌日から再開する（⚠ 日をまたぐ振る舞い）
 
-⚠ `halt` は筋書き（設定）に入れない（live-trading.md §0-7 (i) の決めごと「人が押す」）＝ **テスト自身が `HALT` を置く**。
+⚠ `halt` はシナリオ（設定）に入れない（live-trading.md §0-7 (i) の決めごと「人が押す」）＝ **テスト自身が `HALT` を置く**。
 """
 import json
 import os
@@ -83,7 +83,7 @@ def drive(name, child, *, days):
 
 
 def rows(root, day, kind):
-    return jsonl(os.path.join(root, "out", day, f"{kind}.jsonl"))       # ⚠ 記録は DB（livefs。道はそのまま）
+    return jsonl(os.path.join(root, "out", day, f"{kind}.jsonl"))       # ⚠ 記録は DB（livefs。パスはそのまま）
 
 
 @pytest.fixture(autouse=True)
@@ -170,9 +170,9 @@ def early(tmp_path_factory):
 
 
 def test_a_window_outside_the_executor_window_is_refused(early):
-    """⚠ **執行器の発注できる時間帯は 15:45〜16:05 ET に固定**（`run_day.WINDOW_START/END`）。
+    """⚠ **執行エンジンの発注できる時間帯は 15:45〜16:05 ET に固定**（`run_day.WINDOW_START/END`）。
 
-    運転手は何時にでも起こせるが、執行器が `out_of_window` で拒む ＝ ⚠ **1 日に何度も売買する形（TODO の C9・D13）に
+    ランナーは何時にでも起こせるが、執行エンジンが `out_of_window` で拒む ＝ ⚠ **1 日に何度も売買する形（TODO の C9・D13）に
     進むときは、まずここを広げる必要がある**。この検査は、広げたときに落ちて気づくための印である。
     """
     root, days = early

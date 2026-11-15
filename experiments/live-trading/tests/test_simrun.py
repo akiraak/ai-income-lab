@@ -1,4 +1,4 @@
-"""仮データ（日足の再生・合図）と、運転手 simrun.py ／ 操作の口 simctl.py（ループバックのモックだけ。資格情報なし）。
+"""仮データ（日足の再生・合図）と、ランナー simrun.py ／ 操作の口 simctl.py（ループバックのモックだけ。資格情報なし）。
 
 ⚠ 日足（`feature-discovery/data/`）は git 管理外なので、テストは作り物の日足を `LT_SIM_DATA_DIR` に置く。MODE ／ run.lock ／ 記録は tmp。
 """
@@ -159,13 +159,13 @@ def test_three_days_at_max_speed(env):
     for name in ("sim_a", "sim_c"):
         st = doc(os.path.join(root, "state", "cert", f"{name}.json"))
         assert st["holdings"] and all(float(h["shares"]).is_integer() for h in st["holdings"].values()), name
-    # 金額の内訳が注文ごとに残り、売りの手数料はその人の台帳に入る
+    # 金額の内訳が注文ごとに残り、売りの手数料はその人の売買履歴に入る
     assert all(set(o["amounts"]) >= {"gross_usd", "fee_usd", "net_usd", "fee_breakdown", "buying_power_effect"} and "total-fees" in o["amounts"]["fee_breakdown"] for o in orders)
     assert {o["quote_at_signal"]["mid"] for o in orders if o["symbol"] == "SPY"} != {o["quote_at_signal"]["mid"] for o in orders if o["symbol"] == "T"}   # 銘柄ごとの気配
     assert all(f["filled_at"].startswith(o["date"]) for o in orders for f in o["fills"])          # モックの時刻も仮の時計
     status = json.load(open(os.path.join(root, "sim", "status.json")))
     assert status["state"] == "終了" and status["day_index"] == 3 and status["days_total"] == 64 and status["sim"] is True
-    assert simclock.read_control(modes.control_file("sim1"))["paused"] is True                    # 運転手がいない間は時計を止める
+    assert simclock.read_control(modes.control_file("sim1"))["paused"] is True                    # ランナーがいない間は時計を止める
     assert cli("simctl.py", ["check"], child).returncode == 0
     assert livefs.listdir(os.path.join(root, "state", "cert")) == ["journal.jsonl", "sim_a.json", "sim_b.json", "sim_c.json"]
     assert simrun  # 控え（journal.jsonl）は全部閉じている ＝ 未完なし
@@ -234,12 +234,12 @@ def test_step_runs_one_day_then_pauses_and_stop_ends_the_driver(env):
     finally:
         if proc.poll() is None:
             proc.kill()
-    assert cli("simctl.py", ["mode", "real"], child).returncode == 0                                 # 運転手が止まれば戻せる
+    assert cli("simctl.py", ["mode", "real"], child).returncode == 0                                 # ランナーが止まれば戻せる
 
 
 def test_budget_args_come_only_from_the_sim_config(tmp_path):
-    """`max_total_budget_usd` のある sim だけ、運転手が執行器に `--max-total-budget` ／ `--max-day-usd` を渡す（2026-10-19 sim7 ＝ 4 人 × $300）。
-    無い sim は空 ＝ 1 ビットも変わらない（黄金の集計値 sim1 ／ sim2）。"""
+    """`max_total_budget_usd` のある sim だけ、ランナーが執行エンジンに `--max-total-budget` ／ `--max-day-usd` を渡す（2026-10-19 sim7 ＝ 4 人 × $300）。
+    無い sim は空 ＝ 1 ビットも変わらない（ゴールデンテスト sim1 ／ sim2）。"""
     conf = tmp_path / "sim"
     conf.mkdir()
     base = 'traders = ["sim_a"]\nstart = "2026-10-01"\nend = "2026-10-10"\nsource_start = "2026-06-01"\n'

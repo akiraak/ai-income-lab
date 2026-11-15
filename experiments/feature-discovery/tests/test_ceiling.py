@@ -80,7 +80,7 @@ def test_peak_to_trough_window_sums_to_the_decline():
 def test_perfect_entry_earns_exactly_zero_over_the_recovery():
     """⚠ **B&H は常に買い持ちなので、完全に持てば上乗せはちょうど 0。**
 
-    ⚠ **ここが 0 にならない実装は「持っている日にも上乗せが出る」ことになり、物差しが壊れている。**
+    ⚠ **ここが 0 にならない実装は「持っている日にも上乗せが出る」ことになり、指標が壊れている。**
     """
     bh = _panel()
     spans = ceiling.episode_spans(bh, min_drop_bp=1000.0)
@@ -163,13 +163,13 @@ def _two_symbol_panel():
 
 
 def test_portfolio_bp_charges_one_way_cost_on_entry_and_forced_close():
-    """⚠ **建てた日と手仕舞った日に片道 2.5bp**（13-4 規約 3）＋ ⚠ **fold の尻は強制清算**（規約 4）。"""
+    """⚠ **建てた日と手仕舞った日に片道 2.5bp**（13-4 規約 3）＋ ⚠ **fold の末尾は強制清算**（規約 4）。"""
     y = np.full((4, 1), 100.0)
     avail = np.ones((4, 1), dtype=bool)
     got = ceiling._portfolio_bp(np.ones((4, 1)), y, avail, [4], 2.5)
     assert got[0] == pytest.approx(100.0 - 2.5)          # 初日に建てる
     assert got[1] == pytest.approx(100.0)
-    assert got[3] == pytest.approx(100.0 - 2.5)          # 尻で強制清算
+    assert got[3] == pytest.approx(100.0 - 2.5)          # 末尾で強制清算
     assert ceiling._portfolio_bp(np.zeros((4, 1)), y, avail, [4], 2.5) == pytest.approx(0.0)
 
 

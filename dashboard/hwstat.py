@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""機械の利用状況（GPU・CPU・メモリ・ディスク）を読む。外部のタブ「ハード」の読み手。
+"""マシンの利用状況（GPU・CPU・メモリ・ディスク）を読む。外部のタブ「ハード」の読み手。
 
 仕様は docs/specs/dashboard.md §14。⚠ **読むだけ・写すだけ**（閾値の判定は持たない）。
 
@@ -10,7 +10,7 @@
 
 ⚠ **標準ライブラリだけで書く**（`vibetab.py` と同じ。psutil / pynvml は入れない）。
 ⚠ **`dashboard/app/` の下に置かない**（`app/` は g3plus に載る。これは開発機の話）。
-⚠ **import しただけでは何も走らない**。見張り（`Sampler`）は `start()` を呼んだときだけ回る。
+⚠ **import しただけでは何も走らない**。監視（`Sampler`）は `start()` を呼んだときだけ回る。
 """
 
 from __future__ import annotations
@@ -273,7 +273,7 @@ def read_disks(mounts=DISK_MOUNTS, disk_usage=shutil.disk_usage) -> list[dict]:
 def read_snapshot(prev_stat: dict | None = None, *, run=subprocess.run, proc: Path = Path("/proc"),
                   mounts=DISK_MOUNTS, disk_usage=shutil.disk_usage,
                   now=time.time) -> tuple[dict, dict]:
-    """いまの状態を 1 件。戻り値は（写し, 次回に渡す `/proc/stat` の生の値）。
+    """いまの状態を 1 件。戻り値は（コピー, 次回に渡す `/proc/stat` の生の値）。
 
     ⚠ **GPU が読めなくても CPU・メモリ・ディスクは入れて返す。**
     """
@@ -297,7 +297,7 @@ def history_point(snap: dict) -> dict:
             "cpu": snap["cpu"].get("total_pct"), "mem": snap["mem"].get("used_pct")}
 
 
-# ---------------------------------------------------------------- 見張り
+# ---------------------------------------------------------------- 監視
 
 
 def interval_from_env() -> float:
@@ -308,10 +308,10 @@ def interval_from_env() -> float:
 
 
 class Sampler:
-    """値を読むのはここ 1 か所。画面は `latest()` の写しを取りに来るだけ。
+    """値を読むのはここ 1 か所。画面は `latest()` のコピーを取りに来るだけ。
 
     ⚠ **`start()` を呼ぶまでスレッドは無い。** 止まっている間の `latest()` は、その場で 1 回読む
-    （テストと、見張りの最初の 1 回が終わる前の要求のため）。
+    （テストと、監視の最初の 1 回が終わる前の要求のため）。
     ⚠ **履歴はメモリ上の輪だけ**（ディスクに書かない。プロセスを入れ直すと消える）。
     """
 
@@ -360,7 +360,7 @@ class Sampler:
         while True:
             try:
                 self.sample()
-            except Exception as e:  # noqa: BLE001（見張りを死なせない。次の回でまた読む）
+            except Exception as e:  # noqa: BLE001（監視を死なせない。次の回でまた読む）
                 print(f"[hwstat] 読み出しに失敗: {e.__class__.__name__}: {e}", flush=True)
             time.sleep(self.interval_s)
 

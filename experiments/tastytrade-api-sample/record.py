@@ -85,8 +85,8 @@ def sdk_versions() -> dict:
 
 
 class Recorder:
-    """1 実行 = 1 本（道 `out/<venue>-<env>-<run_id>.jsonl`）。手順ごとに 1 行を足す。
-    ⚠ 2026-09-21 から中身は DB（`livefs`。道はそのまま・本物はリポジトリ直下の live.sqlite）。"""
+    """1 実行 = 1 本（パス `out/<venue>-<env>-<run_id>.jsonl`）。手順ごとに 1 行を足す。
+    ⚠ 2026-09-21 から中身は DB（`livefs`。パスはそのまま・本物はリポジトリ直下の live.sqlite）。"""
 
     def __init__(self, out_dir: str, venue: str, env: str, run_id: str | None = None, mock: bool = False) -> None:
         self.venue = venue

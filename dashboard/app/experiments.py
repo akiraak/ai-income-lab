@@ -2,7 +2,7 @@
 
 ⚠ **記録は DB**（2026-09-21 にディレクトリから移した。書き手は実験側の `ail/rundb.py`）。
 ⚠ **読み取り専用で開く**（`mode=ro`。無ければ作らない ＝ git 管理外なので別環境では空）。
-実行の名前・中のファイルの道（`summary.csv`・`checks.json` …）・中身は、いままでのディレクトリと同じ。
+実行の名前・中のファイルのパス（`summary.csv`・`checks.json` …）・中身は、いままでのディレクトリと同じ。
 
 ⚠ **読むだけ。** 検査（fold の符号・上乗せ・実効標本数・デフレーテッド SR）は
 ⚠ **実験側が `checks.json` に書いたものをそのまま出す**（[プラン §2](../../docs/plans/archive/dashboard-experiments.md)）。
@@ -30,7 +30,7 @@ from pathlib import Path
 
 # ⚠ 実験側 `ail/rundb.py` の `FILE_NAME` と同じ（`runs_dir` の中に置く）
 DB_NAME = "research.sqlite"
-# 見張り（`vibetab.exp_fingerprint`）が見るファイル
+# 監視（`vibetab.exp_fingerprint`）が見るファイル
 WATCHED = ("summary.csv", "checks.json", "config.json", "inputs.json", "env.json")
 
 
@@ -84,7 +84,7 @@ class Store:
         return None
 
     def digests(self) -> dict[str, float]:
-        """実行ごとの指紋（見張りの 5 ファイルの sha256 から）。中身が変われば値が変わる。"""
+        """実行ごとのフィンガープリント（監視の 5 ファイルの sha256 から）。中身が変われば値が変わる。"""
         if self.conn is None:
             return {}
         acc: dict[str, int] = {}
@@ -200,7 +200,7 @@ def _mark(ok: bool | None) -> str:
 
 
 def gate_methods(gate: dict) -> list[dict]:
-    """前置きの門（rules.md 14-5）の写し。手法ごとに AUC・買い% 幅・通過。
+    """前置きの門（rules.md 14-5）のコピー。手法ごとに AUC・買い% 幅・通過。
 
     ⚠ **写すだけ。** 水準（AUC ≥ 0.52・幅 ≥ 20 点）と通過は実験側が `checks.json` に
     書いたものをそのまま出す（⚠ **画面で門を再判定しない**）。
@@ -279,7 +279,7 @@ def load_run(store: Store, name: str) -> dict | None:
         "breadth": breadth,
         "drift_gross": ch.get("drift_粗利bp"),
         "panel_note": ch.get("panel"),
-        # 閾値つき売買（rules.md 13 章）。⚠ **checks.json の写しを出すだけ。画面側で数え直さない**
+        # 閾値つき売買（rules.md 13 章）。⚠ **checks.json のコピーを出すだけ。画面側で数え直さない**
         "style": ch.get("style"),
         "form": ch.get("form"),
         "thresholds": ch.get("thresholds"),

@@ -1,12 +1,12 @@
-"""登録簿 `20261106-regime-ex-cluster-ridge`（参考あり・枠の内。記録 dev-loop.md）:
+"""レジストリ `20261106-regime-ex-cluster-ridge`（参考あり・枠の内。記録 dev-loop.md）:
 R1（`i20261104_regime_ridge`）の局面を決める軸を **外生の列（米国債金利・ECB 為替の差分と z スコア）** に替えた検知器 R2。
 
 - 局面の入力（日ごとに 28 列）: 表の `ex_UST*` ／ `ex_EURTO*`（`_d1`・`_z20`）。外部系列は全銘柄で同じ値なので日ごとに 1 つ取る。
-  ⚠ 気象（`ex_WX_*`）・地震（`ex_EQ_*`）は使わない（登録簿の question ＝ 金利・為替）。
+  ⚠ 気象（`ex_WX_*`）・地震（`ex_EQ_*`）は使わない（レジストリの question ＝ 金利・為替）。
 - 訓練分割の日だけで標準化と k-means（K ＝ 2 ／ 4・種 0・事前固定 ＝ R1 と同じ）を当て、評価の日は近い重心に振り分ける。
 - 局面ごとの学習器は R1 と同じ（own 35 列 ＋ leak 対照の LEAK_ 列 × ctx の model。ex は Ridge の入力に入れない・
   訓練の中で 250 日に満たない局面は全体の 1 本で埋める・較正は全体で 1 回）。⚠ R1 との違いは局面の列だけ。
-- 記録（登録簿の failure_modes の確かめ）: 局面の滞在日数の中央値（訓練 ／ 評価）・評価期間の局面の割合。
+- 記録（レジストリの failure_modes の確かめ）: 局面の滞在日数の中央値（訓練 ／ 評価）・評価期間の局面の割合。
 ⚠ 登録するだけ ＝ この検知器を名指さない config は 1 ビットも変わらない。
 """
 
@@ -21,7 +21,7 @@ from ail.ideas import i20261104_regime_ridge as r1
 from ail.models import calibrate
 from ail.registry import register
 
-KS = (2, 4)            # ⚠ 事前固定（登録簿 ＝ R1 と同じ）
+KS = (2, 4)            # ⚠ 事前固定（レジストリ ＝ R1 と同じ）
 SEED = 0
 PREFIXES = ("ex_UST", "ex_EURTO")
 

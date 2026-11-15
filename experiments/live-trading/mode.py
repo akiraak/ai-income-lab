@@ -1,11 +1,11 @@
-"""機械全体のモード（実売買 ／ シミュレーション）と起動の排他（live-trading.md §0-7 (a)）。
+"""マシン全体のモード（実売買 ／ シミュレーション）と起動の排他（live-trading.md §0-7 (a)）。
 
-⚠ **実売買とシミュレーションは排他**（2026-09-19 利用者決定）。モードは機械に 1 つだけで、片方のモードではもう片方の部品が起動を拒む。
+⚠ **実売買とシミュレーションは排他**（2026-09-19 利用者決定）。モードはマシンに 1 つだけで、片方のモードではもう片方の部品が起動を拒む。
   - 正本は `MODE`（git 管理外）。⚠ **無ければ `real`** ＝ いまの動きを 1 行も変えない
-  - `run.lock`（flock）を執行器も運転手も起動時に取り、終わるまで持つ ＝ 二重起動と、動作中の切り替えを防ぐ
+  - `run.lock`（flock）を執行エンジンもランナーも起動時に取り、終わるまで持つ ＝ 二重起動と、動作中の切り替えを防ぐ
   - 切り替えは人が CLI で行う（`simctl.py mode …`）。`mode.log` に残す
 
-置き場は既定でこのディレクトリ。`LT_MODE_DIR` はテスト用の差し替え（⚠ モック以外への submit では使えない ＝ `run_day.py` が拒否する）。
+保存先は既定でこのディレクトリ。`LT_MODE_DIR` はテスト用の差し替え（⚠ モック以外への submit では使えない ＝ `run_day.py` が拒否する）。
 
 ⚠ **「本番の機械ではない」印 `NOT_PRODUCTION`**（2026-09-24。3 台の役割分け Phase 3 ＝ docs/plans/production-switch-mark.md）:
   `MODE` と同じ型の JSON `{"machine": <置いた機械の hostname>, "since", "by", "reason"}`。あると `run_day.py`・`sample.py` は
@@ -106,7 +106,7 @@ def read_not_production() -> NotProduction | None:
 
 
 def set_not_production(by: str = "cli", reason: str | None = None) -> NotProduction:
-    """印を置く（この機械の hostname を書く ＝ 他の機械の名前は書けない）。`mode.log` に 1 行。"""
+    """印を置く（このマシンの hostname を書く ＝ 他のマシンの名前は書けない）。`mode.log` に 1 行。"""
     now = datetime.now(timezone.utc).isoformat(timespec="seconds")
     mark = NotProduction(machine=hostname(), since=now, by=by, reason=reason)
     os.makedirs(base_dir(), exist_ok=True)
@@ -221,7 +221,7 @@ class RunLock:
             return None
 
     def held_by_parent_sim(self) -> bool:
-        """運転手（simrun）が鍵を持ったまま起こした執行器か。⚠ 親が sim として持っているときだけ通す。"""
+        """ランナー（simrun）が鍵を持ったまま起こした執行エンジンか。⚠ 親が sim として持っているときだけ通す。"""
         h = self.holder() or {}
         return h.get("mode") == "sim" and h.get("pid") == os.getppid()
 
@@ -247,8 +247,8 @@ def open_real_positions(state_dir: str | None = None) -> list[str]:
 
 
 def _ensure_record_db() -> None:
-    """機械の置き場の記録（`mode.log`・`state/prod`）が入る DB。⚠ テスト・作業用の置き場（LT_MODE_DIR）に DB が無ければそこに作る
-    （本物の live.sqlite には落とさない。本物の置き場はリポジトリ直下の live.sqlite に入る）。"""
+    """マシンの保存先の記録（`mode.log`・`state/prod`）が入る DB。⚠ テスト・作業用のディレクトリ（LT_MODE_DIR）に DB が無ければそこに作る
+    （本物の live.sqlite には落とさない。本物の保存先はリポジトリ直下の live.sqlite に入る）。"""
     from _livefs import livefs
 
     try:
@@ -261,7 +261,7 @@ def switch(to: str, name: str | None = None, by: str = "cli", real_trading_will_
     """モードを切り替える。⚠ 何かが動いている（`run.lock` が取れない）ときは拒否。
 
     ⚠ 本物の建玉が残っているときに sim へ入るなら `real_trading_will_stop` が要る
-      （シミュレーション中は実売買の執行器が動かない ＝ 手仕舞いも出ない）。
+      （シミュレーション中は実売買の執行エンジンが動かない ＝ 手仕舞いも出ない）。
     """
     if to not in ("real", "sim"):
         raise ModeError(f"モード {to!r} は無い（real ／ sim）")

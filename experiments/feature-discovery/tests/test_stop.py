@@ -6,7 +6,7 @@
   3. `simulate` の口: `stop_loss_pct`・`max_hold_days` を省けば 1 ビットも変わらない ／ 立てば買値から −x% を割った翌足に降りる ／ d 日で降りる
   4. `[trading.position_exits]` の無い config は `evaluate_trading` の行が 1 つも変わらず、ある config では既存の行がそのままで
      `〔買値から−N%〕`・`基準 …〔N日で降りる〕` の行が後ろに足されること（18 章の売る線と同じ形）
-  5. 名前の綴り（`-stopN`・`-holdN`）
+  5. 名前の表記（`-stopN`・`-holdN`）
   6. leak 対照が跳ねること（入口に `LEAK_future_ret`）
 """
 
@@ -228,7 +228,7 @@ def test_no_position_exits_is_empty():
     assert cli_run.position_exits({}) == {"methods": [], "stop_loss_pct": [], "max_hold_days": []}
 
 
-# --- 5. 綴り ----------------------------------------------------------------
+# --- 5. 表記 ----------------------------------------------------------------
 
 def _row(key, model="Ridge"):
     return {"鍵": key, "モデル": model, "粒度": "日足", "地平": "1 本（1 日）", "特徴量の層": "own trend",
@@ -250,7 +250,7 @@ def test_name_spellings():
 # --- 7. 出口だけを言うモデル（本番の器。Phase 3） -----------------------------
 
 def test_exit_only_detectors_return_entry_100_and_the_bare_rule():
-    """⚠ 入口% は常に 100（K2）・出口% は規則そのもの（主モデルの出口と合わせない ＝ 合わせるのは執行器の `unanimous`）。"""
+    """⚠ 入口% は常に 100（K2）・出口% は規則そのもの（主モデルの出口と合わせない ＝ 合わせるのは執行エンジンの `unanimous`）。"""
     p = _panel()
     tr, te = _split(p)
     feats, ctx = _feats(p), _ctx()

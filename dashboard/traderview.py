@@ -46,18 +46,18 @@ class TraderPaths:
     system: Path = DASHBOARD_DIR / "system.toml"
     ledger: Path = REPO_ROOT / "docs" / "specs" / "experiments" / "feature-discovery" / "ledger.md"
     # 「予測モデル」タブ（modelview.py）が試した経緯の数を引く研究の DB（`ledger_rows` だけ・読み取り専用）。
-    # ⚠ None ＝ 読まない（TOML の数を出す）。vibetab は実行タブと同じ置き場（`--runs-dir`）の DB を渡す
+    # ⚠ None ＝ 読まない（TOML の数を出す）。vibetab は実行タブと同じ保存先（`--runs-dir`）の DB を渡す
     research_db: Path | None = None
     # 「モデルとトレーダーの比較」（compareview.py。2026-10-22）が読むもの: 言葉と「人 ／ モデル → 検証名」の対応の正本と、
-    # トレーダーの形の綴り（`[trader]`）を引く研究の `names.toml`（読むだけ。無ければ compare.toml に書いた綴りだけで動く）
+    # トレーダーの形の表記（`[trader]`）を引く研究の `names.toml`（読むだけ。無ければ compare.toml に書いた表記だけで動く）
     compare: Path = DASHBOARD_DIR / "compare.toml"
     names: Path = REPO_ROOT / "experiments" / "feature-discovery" / "config" / "names.toml"
-    # 「開発ループ」（devloopview.py。2026-10-25）が読むもの: 登録簿・数と置き場・日誌（読むだけ）
+    # 「開発ループ」（devloopview.py。2026-10-25）が読むもの: レジストリ・数と保存先・ログ（読むだけ）
     ideas_dir: Path = REPO_ROOT / "experiments" / "feature-discovery" / "config" / "ideas"
     devloop_toml: Path = REPO_ROOT / "experiments" / "feature-discovery" / "config" / "devloop.toml"
     devloop_log: Path = REPO_ROOT / "docs" / "specs" / "experiments" / "dev-loop" / "log"
-    # 「棚卸し」（inventoryview.py。2026-11-07）が読むもの: 実験の config（開発ループの行の区分 ＝ 頭の「登録簿 `<id>`」）と、
-    # 棚卸しの文書と閉じる案の下書きの置き場（`ledger-hold-inventory*.md`・`assets/ledger-hold-inventory-*closed-draft.toml`。読むだけ）
+    # 「棚卸し」（inventoryview.py。2026-11-07）が読むもの: 実験の config（開発ループの行の区分 ＝ 頭の「レジストリ `<id>`」）と、
+    # 棚卸しの文書と閉じる案の下書きの保存先（`ledger-hold-inventory*.md`・`assets/ledger-hold-inventory-*closed-draft.toml`。読むだけ）
     experiment_dir: Path = REPO_ROOT / "experiments" / "feature-discovery" / "config" / "experiment"
     inventory_dir: Path = REPO_ROOT / "docs" / "specs" / "experiments"
 
@@ -219,7 +219,7 @@ def load_facts(paths: TraderPaths, name: str) -> dict | None:
     models = [{"name": str(m.get("name") or ""), "method": str(m.get("method") or ""), "kind": str(m.get("kind") or ""),
                "role": str(m.get("role") or "both")}
               for m in doc.get("models", [])]
-    # 役割と最短保有（2026-10-19。執行器の trader.py と同じ読み: role ／ combine_buy ／ combine_exit ／ min_hold_days ／ stop_blocks_buy のどれかを書いた人）
+    # 役割と最短保有（2026-10-19。執行エンジンの trader.py と同じ読み: role ／ combine_buy ／ combine_exit ／ min_hold_days ／ stop_blocks_buy のどれかを書いた人）
     combine_buy, combine_exit = doc.get("combine_buy"), doc.get("combine_exit")
     min_hold, blocks = doc.get("min_hold_days"), bool(doc.get("stop_blocks_buy"))
     has_roles = any(m["role"] != "both" for m in models) or combine_buy is not None or combine_exit is not None or min_hold is not None or blocks
@@ -238,7 +238,7 @@ def load_facts(paths: TraderPaths, name: str) -> dict | None:
 def find_model(words: dict, spec: dict) -> dict | None:
     """設定の [[models]] の 1 本に当たる説明。⚠ 手法（method）まで同じものだけ（違う手法は別のモデル）。
 
-    `also = [{ name, method }]`（2026-10-19）＝ 同じモデルを別の表の実験名で使う綴り（例 `fwd10-gate` の `trade_own_fwdmulti_a`）。
+    `also = [{ name, method }]`（2026-10-19）＝ 同じモデルを別の表の実験名で使う表記（例 `fwd10-gate` の `trade_own_fwdmulti_a`）。
     """
     def hit(m: dict) -> bool:
         pairs = [(m.get("name"), str(m.get("method") or ""))] + [(a.get("name"), str(a.get("method") or "")) for a in (m.get("also") or [])]
@@ -404,13 +404,13 @@ def trader_body(paths: TraderPaths, name: str) -> str | None:
 
 
 def _role_word(common: dict, role: str) -> str:
-    """係の呼び方（traders.toml の role_both ／ role_buy ／ role_exit ／ role_stop ／ role_watch。無ければ設定の綴りのまま）。"""
+    """係の呼び方（traders.toml の role_both ／ role_buy ／ role_exit ／ role_stop ／ role_watch。無ければ設定の表記のまま）。"""
     return str(common.get("role_" + role) or role)
 
 
 def _roles_text(common: dict, facts: dict) -> str:
     """役割のある人の「使うモデル」の下の文（2026-10-19）: 係のしくみ ＋ 係が 2 本以上の側の合わせ方 ＋ 最短保有 ＋ 損切り係が言う日は買わない。
-    ⚠ 損切り係は合わせ方に入らない（執行器では別の口 ＝ 言えば降りる）。"""
+    ⚠ 損切り係は合わせ方に入らない（執行エンジンでは別の口 ＝ 言えば降りる）。"""
     parts = [str(common.get("roles_intro") or "")]
     sides = (("buy", ("both", "buy"), facts.get("combine_buy")), ("exit", ("both", "exit"), facts.get("combine_exit")))
     for side, roles, rule in sides:
@@ -461,7 +461,7 @@ def body(paths: TraderPaths, item: str) -> str | None:
 
 
 def fingerprint(paths: TraderPaths) -> dict[str, float]:
-    """見張り用。言葉の正本（人の側・モデルの側）と設定（確定・候補）の mtime。"""
+    """監視用。言葉の正本（人の側・モデルの側）と設定（確定・候補）の mtime。"""
     files = [paths.words, paths.models, *sorted(paths.traders_dir.glob("*.toml")), *candidate_files(paths)]
     out = {}
     for f in files:

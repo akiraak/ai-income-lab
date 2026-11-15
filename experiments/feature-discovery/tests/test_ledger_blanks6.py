@@ -1,4 +1,4 @@
-"""台帳の空白 6 件（F1-6・F2-1・F3-4・F3-6・F4-4・F5-4）の配線（[プラン](../../../docs/plans/ledger-blanks-six.md) §4）。
+"""検証結果一覧の空白 6 件（F1-6・F2-1・F3-4・F3-6・F4-4・F5-4）の配線（[プラン](../../../docs/plans/ledger-blanks-six.md) §4）。
 
 ⚠ **ここで落としたいのは 5 つ。**
   1. 選別の契約（返すのは入力にある列・k 本以内。k を使わない手法は本数が信号）
@@ -7,7 +7,7 @@
   4. ⚠ **knockoffs の枠が働くこと**（雑音だらけの表で、選んだ中の偽物が目標の近くに収まる）
   5. 変換の形（多項式 665 列 ／ ウェーブレットは窓を係数に置き換え、own 列はそのまま）
 
-⚠ **登録名は F 番号で始める**（`ail/catalog.py` の `_ID` が読む。⚠ **外れると台帳に試行として載らない**）。
+⚠ **登録名は F 番号で始める**（`ail/catalog.py` の `_ID` が読む。⚠ **外れると検証結果一覧に試行として載らない**）。
 """
 
 from __future__ import annotations
@@ -61,7 +61,7 @@ def test_selector_returns_columns_of_the_input(name):
 
 @pytest.mark.parametrize("name", NAMES + TRANSFORMS)
 def test_registered_name_starts_with_a_catalog_id(name):
-    """⚠ **台帳は手法名の先頭から ID を読む**（外れると試行として数えられない）。"""
+    """⚠ **検証結果一覧は手法名の先頭から ID を読む**（外れると試行として数えられない）。"""
     assert catalog._ID.match(name), name
 
 

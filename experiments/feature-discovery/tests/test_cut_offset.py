@@ -169,7 +169,7 @@ def test_mix_members_are_cut_by_the_owner(run):
 
 def test_mix_member_with_other_edges_still_stops(run):
     panel = tm._panel()
-    with pytest.raises(SystemExit, match="切れ目"):
+    with pytest.raises(SystemExit, match="分割点"):
         evaluate_trading(panel, tm._feats(panel), _host("1/3", tm._mix()), run,
                          mix_loader=tm._loader({"ext": tm._panel(shift_days=40)}))
 

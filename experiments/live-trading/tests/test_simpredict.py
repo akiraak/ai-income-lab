@@ -126,7 +126,7 @@ def test_driver_runs_an_experiment_trader(env):
     assert cli("simctl.py", ["mode", "sim", "simx"], child).returncode == 0
     # キャッシュが無ければランナーは起動しない
     r = cli("simrun.py", ["simx", "--speed", "max", "--traders-dir", traders_dir], child)
-    assert r.returncode == 2 and "予測の作り置きが 7 本足りない" in r.stderr
+    assert r.returncode == 2 and "予測のキャッシュが 7 本足りない" in r.stderr
     fill_cache(cache, data)
     r = cli("simrun.py", ["simx", "--fresh", "--speed", "max", "--days", "3", "--traders-dir", traders_dir], child)
     assert r.returncode == 0, r.stdout + r.stderr

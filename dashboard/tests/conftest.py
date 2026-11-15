@@ -120,7 +120,7 @@ def _no_monitors_in_tests(monkeypatch):
     from app.monitor import Monitors
 
     async def _refuse(self):
-        raise AssertionError("テストで監視を起こさない: create_app(settings, start_monitors=False) にする（conftest.py の番人）")
+        raise AssertionError("テストで監視を起こさない: create_app(settings, start_monitors=False) にする（conftest.py のガード）")
 
     monkeypatch.setattr(Monitors, "start", _refuse)
 

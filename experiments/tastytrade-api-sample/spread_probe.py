@@ -133,7 +133,7 @@ def summarize(label: str, rows: list[dict]) -> dict:
 
 def main() -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--label", default="", help="写しの名前（A ／ B）。記録の行に残す")
+    ap.add_argument("--label", default="", help="コピーの名前（A ／ B）。記録の行に残す")
     ap.add_argument("--csv", default="", help="行を CSV にも書く（作業用）")
     args = ap.parse_args()
 
@@ -158,7 +158,7 @@ def main() -> int:
                "sets": {k: v for k, v in sets}, "lines": {"break_even_bp": BREAK_EVEN_BP, "cost_high_bp": COST_HIGH_BP, "frame_usd": FRAME_USD},
                "market_session": {k: session.get(k) for k in ("state", "open-at", "close-at", "instrument-collection") if isinstance(session, dict)},
                "注記": "⚠ 銘柄と線は結果を見る前に固定した（plans/smallcap-spread-probe.md §3）。GET だけ・発注しない"})
-    print(f"記録: {rec.path}  写し {args.label or '-'}  市場 {session.get('state') if isinstance(session, dict) else session}")
+    print(f"記録: {rec.path}  コピー {args.label or '-'}  市場 {session.get('state') if isinstance(session, dict) else session}")
 
     all_rows: list[dict] = []
     summaries: list[dict] = []

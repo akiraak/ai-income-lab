@@ -1038,7 +1038,7 @@ flowchart LR
 | マシンのモード | ⚠ **13500t は常に `real`**（シミュレーションは Sx360 ＝ K9）。`experiments/live-trading/MODE` を置かない ＝ 既定の `real` |
 | 資格情報 | `experiments/tastytrade-api-sample/.env`（⚠ **置くのは利用者**・git 管理外・image に焼かない） |
 | 外向き通信 | ⚠ **ネットワーク無しでは動かない**（`ail-predict-bench` と違う）。`api.tastyworks.com`・`streamer.tastyworks.com`・`*.dxfeed.com`（日足 ＝ DXLink）・外部系列の取得先（`exog_live` ＝ 為替・金利・気象・地震の公開 API） |
-| 排他 | `run.lock`（flock）はホストの clone の中のファイル ＝ ⚠ **同じ clone を mount するコンテナどうしでしか効かない**。13500t の中で執行エンジンを 2 つの保存先から起こさない。⚠ **titan との二重発注は防げない**（K4 ＝ Phase 3 の「本番の機械ではない」フラグ） |
+| 排他 | `run.lock`（flock）はホストの clone の中のファイル ＝ ⚠ **同じ clone を mount するコンテナどうしでしか効かない**。13500t の中で執行エンジンを 2 つの保存先から起こさない。⚠ **titan との二重発注は防げない**（K4 ＝ Phase 3 の「本番のマシンではない」フラグ） |
 | auto-update | 13500t が GitHub の **`prod`** を pull（K2。⚠ 2026-09-25 から `main` ではない ＝ [プラン](../../plans/archive/prod-branch.md)。`prod` を進めるのは `run-deploy.sh` だけ・fast-forward だけ。clone の HEAD が `origin/prod` の祖先でなければ何もせず ERROR）。⚠ **pull しないとき**: ① 売買の時間帯（15:30〜16:15 ET）② `run.lock` が取れない（`flock -n` で確かめてすぐ放す）③ `HALT` がある ④ ワーキングツリーが汚れている（`git status --porcelain` が空でない）。pull は `--ff-only`。⚠ **`prod` を進める ＝ 次の pull から本番に反映**（`main` への push では動かない） |
 | healthcheck | 常駐しない（使い捨て）ので無し。代わりに `run-live.sh` の rc を host の log に残す（rc の意味は `run-live.sh` の頭の注記: 5 ＝ sim ／ 6 ＝ 二重起動 ／ 11 ＝ 引けに間に合わない） |
 
@@ -1086,7 +1086,7 @@ flowchart LR
 ⚠ **ガード**: 「10:00 に起こしても `out_of_window` で拒む」テスト（`tests/test_sim_limits.py`）が、この決定を守るフラグになる。
 ✅ **残っていた宿題は同日に直した**（利用者の指示「その方法で直して」）: **1 日の買いの上限は、起動時にその日の `orders.jsonl` から数え直して全トレーダー・全起動で 1 つの上限を分け合う**（§0-2 の表。⚠ **DB は足さない ＝ 記録が正本**）。直す前は**トレーダーごと・1 起動ごとにリセット**されていた【実測 2026-09-20】＝ 3 人なら実質 3 倍。テストは `tests/test_day_cap.py`（6 件）。
 
-### 0-14. 本番を titan → 13500t へ切り替える手順と「本番の機械ではない」フラグ（正本。2026-09-24。[プラン](../../plans/archive/production-switch-mark.md)・親は [three-machines.md](../../plans/archive/three-machines.md) Phase 3〜5）
+### 0-14. 本番を titan → 13500t へ切り替える手順と「本番のマシンではない」フラグ（正本。2026-09-24。[プラン](../../plans/archive/production-switch-mark.md)・親は [three-machines.md](../../plans/archive/three-machines.md) Phase 3〜5）
 
 決定の前提: K4 ＝ 発注するのは常に 1 台（切り替えまで titan の timer・切り替え後は 13500t の cron）／ K6 ＝ 記録は切り替えの日に移し、titan は読むだけのコピー ／ 2026-09-24 の決定 ＝ Phase 4 は週末・利用者（早ければ 9/26〜27・「数日」なら 10/3〜4）。⚠ **切り替えを実行するのは利用者（＋ 13500t 側は Sx360 の Claude）**。titan の Claude はコピーと手順まで。
 
@@ -1110,7 +1110,7 @@ flowchart LR
 | 取り違え | フラグの `machine` が今の hostname と違う（フラグを写した・ホスト名を変えた）→ **それでも拒む**が、メッセージ・記録・バナーに「このマシンのフラグではない」と出る ＝ 13500t に titan のフラグが紛れ込んだら、起動しなかった理由がすぐ分かる（消すのは `notprod.py clear`）。壊れたフラグ（JSON でない・`machine` が無い）も拒む ＝ 読めないフラグを「無い」と読まない |
 | 操作 | `notprod.py status ／ set [--reason …] ／ clear`（⚠ CLI だけ・**置くのも外すのも利用者**）。`set` は自分の hostname を書く（他のマシンの名前は書けない）。置く・外すは `mode.log` に 1 行（`not_production_set` ／ `not_production_cleared`） |
 | 早見 | `run-live.sh` は submit ＋ `--env prod` ＋ フラグ で 95 秒むだにせず rc=7（ゲートの本体は `run_day.py`） |
-| 管理画面 | 全ページの最上部に灰のバナー「本番の機械ではない」・`/api/*` に `not_production`（[dashboard.md §13-6](../dashboard.md)）。⚠ 表示だけ・公開面は読まない |
+| 管理画面 | 全ページの最上部に灰のバナー「本番のマシンではない」・`/api/*` に `not_production`（[dashboard.md §13-6](../dashboard.md)）。⚠ 表示だけ・公開面は読まない |
 | 守り 2 枚 | フラグ（仕組み）＋ timer を止め `live.env` から許可を外す（運用）。⚠ フラグは timer を止める代わりではない（timer が起きるたびに rc=7 の記録が増えるだけ） |
 
 #### (b) 切り替えの手順（Phase 4。市場の外の日。⚠ 発注しない日に）
@@ -1147,7 +1147,7 @@ flowchart LR
 | ---: | --- | --- |
 | ③ | `livefs.py backup` → 13500t 役の `live.sqlite` | 0.045 秒・整合性 ok・コピーの sha256 `d426d113…` が転送後も `OK`・`stats` は元と同じ **115 本・1,602 行 ／ 丸ごと 6（前の中身 14）** |
 | ⑤ | 13500t 役で `reconcile.py --env prod show`（`LT_MODE_DIR`・`LT_STATE_DIR`・`LT_OUT_DIR` を作業用のディレクトリへ） | 4 人・口座（9/23 の記録）− 売買履歴 ＝ **5 銘柄とも差 0**（T 4 ・ PFE 4 ・ NKE 2 ・ VZ 2 ・ BAC 2 ＝ T1 と T3 が半分ずつ）・ジャーナルの未完 0・rc=0 |
-| ② | titan 役に `notprod.py set --reason 稽古` → `run_day.py --traders T1,T2,T3 --env prod --mode submit --ignore-window`（⚠ 許可も資格情報も付けない） | **rc=7**「このマシンは本番の機械ではない」・`events.jsonl` に `refused_not_production`（`machine: titan`・`matches_host: true`）。同じフラグのまま `--mode plan` はフラグで止まらず「資格情報が無い」まで進む（rc=1） |
+| ② | titan 役に `notprod.py set --reason 稽古` → `run_day.py --traders T1,T2,T3 --env prod --mode submit --ignore-window`（⚠ 許可も資格情報も付けない） | **rc=7**「このマシンは本番のマシンではない」・`events.jsonl` に `refused_not_production`（`machine: titan`・`matches_host: true`）。同じフラグのまま `--mode plan` はフラグで止まらず「資格情報が無い」まで進む（rc=1） |
 | 戻し | `notprod.py clear` → `status` | フラグなし。`mode.log` に `not_production_set` → `not_production_cleared` の 2 行 |
 
 ⚠ 稽古で分かったこと: `reconcile.py --env cert show` は「口座の建玉」を `out/` の最後の記録から読むので、**cert の売買履歴に prod の口座の建玉が並ぶ**（差 2〜4 と出る）。切り替えで見るのは `--env prod` だけ ＝ 実害なし。cert の欄は読まない。
@@ -1284,7 +1284,7 @@ flowchart LR
 
 | 決めごと | 中身 |
 | --- | --- |
-| 読むもの | `experiments/live-trading/fees.py fetch --match`（`ttclient.list_transactions` ＝ 頁を全部めくる・`get_total_fees`）。本番の読むだけの認証（`TT_PROD_*`。発注の許可は不要・`allow_prod_orders=False`）。「本番の機械ではない」フラグのあるマシン（titan）では取りに行かない |
+| 読むもの | `experiments/live-trading/fees.py fetch --match`（`ttclient.list_transactions` ＝ 頁を全部めくる・`get_total_fees`）。本番の読むだけの認証（`TT_PROD_*`。発注の許可は不要・`allow_prod_orders=False`）。「本番のマシンではない」フラグのあるマシン（titan）では取りに行かない |
 | 保存先 | `out/fees.jsonl`（取引履歴のコピー。1 取引 1 行・口座番号は持たない・同じ中身は足さない・仮 → 確定は新しい行で読むときは最後が勝つ）／ `out/fees.csv`（注文ごとの 見積り `fee_est_usd` ／ 実額 `fee_actual_usd` ／ 差・`kind` ＝ order ／ outside〔売買履歴の外〕／ adjustment〔口座の精算〕）。⚠ `out/<日付>/` には書かない |
 | 照合 | 執行エンジンの `submitted.order_id` × env ＝ 取引履歴の `order-id`（1 注文 1 トレーダー）。鍵の無い取引は誰にも割り振らない（outside） |
 | 実額の式 | `commission` ＋ `clearing-fees` ＋ `regulatory-fees` ＋ `proprietary-index-option-fees` ＋ `other-charge` ＋ `currency-conversion-fees`（`*-effect` Debit ＝ 正・Credit ＝ 負・None ＝ 0）。執行エンジンの `fee_total_usd` と同じ向き |

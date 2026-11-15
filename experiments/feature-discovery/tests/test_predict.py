@@ -140,7 +140,7 @@ def test_proxy_equal_to_the_bar_is_a_noop_and_can_append_a_missing_day(data_dir)
 
 def test_lgbm_trader_predicts_company_stocks_only(data_dir):
     if not os.path.isdir(os.path.join(str(data_dir), "raw", "ecb", "series")):
-        pytest.skip("外部系列の写しが無い")
+        pytest.skip("外部系列のコピーが無い")
     rows, meta = P.predict(*T2[:1], ASOF, T2[1])
     company = set(config.universe(config.dataset("daily")["universe"])["groups"]["company"])
     assert rows and {r["symbol"] for r in rows} <= company

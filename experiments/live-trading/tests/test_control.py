@@ -19,9 +19,9 @@ def test_set_read_done_clear(tmp_path):
     assert not fl.active and fl.describe() == "手じまい中"
     got = control.read_flag(d, "T3")
     assert got == fl
-    control.mark_done(d, "T3", "2026-10-06", 5, note="執行器が全部売った")
+    control.mark_done(d, "T3", "2026-10-06", 5, note="執行エンジンが全部売った")
     got = control.read_flag(d, "T3")
-    assert got.done == {"date": "2026-10-06", "fills": 5, "note": "執行器が全部売った"} and got.describe() == "停止（手じまい済み）"
+    assert got.done == {"date": "2026-10-06", "fills": 5, "note": "執行エンジンが全部売った"} and got.describe() == "停止（手じまい済み）"
     p = control.set_flag(d, "T4", "paused", "akira", "入金待ち")
     assert p.paused and not p.liquidate and p.describe() == "一時停止"
     assert sorted(control.read_all(d)) == ["T3", "T4"]

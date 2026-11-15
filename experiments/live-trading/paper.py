@@ -442,7 +442,7 @@ def write_csv(path: str, rows: list[dict]) -> None:
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--out-dir", default=os.environ.get("LT_OUT_DIR") or os.path.join(HERE, "out"))
-    ap.add_argument("--bars-dir", default=DEFAULT_BARS, help="公式終値（日足の CSV）の置き場")
+    ap.add_argument("--bars-dir", default=DEFAULT_BARS, help="公式終値（日足の CSV）の保存先")
     ap.add_argument("--close-from", choices=["bars", "quotes"], default="bars",
                     help="quotes ＝ 合図時の気配の中値を終値の代役にする（モック ／ シミュレーション。⚠ 差 1 の「約定 → 終値」は意味を持たない）")
     ap.add_argument("--close-fixes", default=CLOSE_FIXES, help="手で直した終値の表（既定: 隣の close_fixes.toml）")

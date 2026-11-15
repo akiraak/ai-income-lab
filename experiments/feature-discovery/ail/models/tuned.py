@@ -116,7 +116,7 @@ def inner_select_once(base, Xtr, ytr, Xte, ctx: dict, candidates: list[dict]):
     if CHAMPION_KEY in ctx:
         champion = ctx[CHAMPION_KEY]
         if champion not in candidates:
-            raise ValueError(f"配られた champion が候補の外: {champion!r}（14-12-3 規約 1 ＝ 候補は 14-12-1 の写し）")
+            raise ValueError(f"配られた champion が候補の外: {champion!r}（14-12-3 規約 1 ＝ 候補は 14-12-1 のコピー）")
         doc = {"配られた": True, "champion": _plain(champion), "champion_index": candidates.index(champion)}
     else:
         champion, doc = _choose(base, Xtr, ytr, ctx, candidates)

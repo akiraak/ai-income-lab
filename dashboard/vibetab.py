@@ -291,7 +291,7 @@ def _methods_html(groups: list[dict]) -> str:
         ])
     body.append(table(["実行の種類", "実行", "4 検査 ✅", "最良 純利bp", "fold", "上乗せ t", "DSR", "実効観測数"],
                       rows, {1, 3, 5, 6, 7}))
-    body.append("<p class='meta'>数字は各組で最もスコアの高い実行の checks.json の写し（組では数え直さない）。"
+    body.append("<p class='meta'>数字は各組で最もスコアの高い実行の checks.json のコピー（組では数え直さない）。"
                 "4 検査 ＝ 純利・fold・上乗せ・DSR（層を除く）。"
                 "⚠ 組どうしは条件（銘柄・期間・列の数）が違うので、スコアの差が手法の差とは限らない。</p>")
     return "\n".join(body)
@@ -358,7 +358,7 @@ def _analysis_html(idx: dict, groups: list[dict]) -> str:
 
     return ("<h2>どの実行が有効か</h2>\n<ul>"
             + "".join(f"<li>{i}</li>" for i in items)
-            + "</ul>\n<p class='meta'>この節は runs/ の写し（✅ / ⚠ / ⏳ は仕様 §10-3 の条件）から"
+            + "</ul>\n<p class='meta'>この節は runs/ のコピー（✅ / ⚠ / ⏳ は仕様 §10-3 の条件）から"
               "機械的に組む。run が増えれば文面も変わる。</p>")
 
 
@@ -545,7 +545,7 @@ def exp_run_html(runs_dir: Path, run_id: str) -> str | None:
                     "fold の符号は対 B&H の上乗せで見る（13-7）。「θ が高いほど良い」は"
                     "「取引しないだけ」の可能性があるので取引回数を必ず横に読む（13-10）。"
                     "銘柄別 bp は成果物（per_symbol.csv）で採否には使わない。"
-                    "保有日数は 1 取引ごとの分布（holds.csv）の写しで、強制清算を含む。"
+                    "保有日数は 1 取引ごとの分布（holds.csv）のコピーで、強制清算を含む。"
                     "旧実行には無いので「—」（13-4 の 6。採否には使わない）。</p>")
     body.append("<h2>手法ごとの成績（summary.csv）</h2>")
     if threshold:
@@ -669,10 +669,10 @@ def data_section_html(paths: ExpPaths, section: str) -> str | None:
         body.append("<h2>在庫の概要</h2>")
         body.append("<p class='meta'><b>この画面は読むだけ。</b>系列数・行数・期間は取得時に実験側が書いた"
                     " manifest（data/manifests/*.json）の値をそのまま出す（CSV を開いて数え直さない）。"
-                    "枠（本命 ／ 偽薬）と仮説は config/dataset/*.toml の宣言の写しで、結果を見て分類し直さない。"
+                    "枠（本命 ／ 偽薬）と仮説は config/dataset/*.toml の宣言のコピーで、結果を見て分類し直さない。"
                     "ずらし幅と規約の判定は config/sources.toml の宣言（コードとの一致は実験側のテストが固定）。</p>")
         body.append(kv_table([
-            ("行数の合計（manifest の写し）", fmt(inv["total_rows"], 0)),
+            ("行数の合計（manifest のコピー）", fmt(inv["total_rows"], 0)),
             ("足（価格）", f"{len(inv['bars'])} 表"),
             ("外部系列", f"{len(inv['external'])} 表 ・ " + " ／ ".join(
                 f"{esc(k)} {v} 本" for k, v in inv["external_roles"].items())),
@@ -719,7 +719,7 @@ def data_section_html(paths: ExpPaths, section: str) -> str | None:
                          lag, esc(e.get("terms") or "—"), hyp])
         body.append(table(["枠", "取得元", "系列", "行数", "期間", "ずらし幅", "規約", "仮説（取得の前の宣言）"],
                           rows, {2, 3}))
-        body.append("<p class='meta'>枠（本命 ／ 偽薬）と仮説は config/dataset の宣言の写し。結果を見てからの分類はしない。"
+        body.append("<p class='meta'>枠（本命 ／ 偽薬）と仮説は config/dataset の宣言のコピー。結果を見てからの分類はしない。"
                     "⚠ 偽薬（気象・地震）は値動きと因果を想定しない対照。選別手法がそれを選んだ割合が"
                     "偽発見率の実測になる（daily-data-sources.md §9）。<br>"
                     "⚠ ずらし幅 ＝ 足の日から何日前の時点で公表されている値を使うか。"
@@ -747,7 +747,7 @@ def data_section_html(paths: ExpPaths, section: str) -> str | None:
                          ((f"<b>{fmt(s.get('lag_days'), 0)} 日ずらす</b> — " if s.get("lag_days") else "")
                           + esc(s.get("publish_note") or "—"))])
         body.append(table(["取得元", "規約の判定", "根拠", "公表の遅れ ／ ずらし幅"], rows))
-        body.append("<p class='meta'>ずらし幅と規約は config/sources.toml の写し。コードとの一致は実験側のテストが固定する。"
+        body.append("<p class='meta'>ずらし幅と規約は config/sources.toml のコピー。コードとの一致は実験側のテストが固定する。"
                     "⚠ 「要判断」で採っていない取得元（FRED・Open-Meteo・SILSO）はデータを持っていないので"
                     "この表に無い（daily-data-sources.md §2・§4 が正本）。</p>")
     elif section == "universes":
@@ -883,7 +883,7 @@ def glossary_html(item: str, path: Path | None = None) -> str | None:
             "<p class='meta'><b>この画面は索引。</b>1 語 1〜2 行だけを出す。"
             "⚠ <b>定義の正本はリンク先の文書</b>で、食い違ったらあちらが勝つ。"
             "⚠ <b>節（§）へは飛べない</b>ので、飛び先の文書の中で節を探す。"
-            "用語そのものは <code>dashboard/glossary.toml</code> が正本（画面はその写し）。</p>"]
+            "用語そのものは <code>dashboard/glossary.toml</code> が正本（画面はそのコピー）。</p>"]
     if not sections:
         body.append("<p class='warn'>⚠ 用語の表を読めない（<code>dashboard/glossary.toml</code> が無いか壊れている）。</p>")
         return page(title, "\n".join(body))

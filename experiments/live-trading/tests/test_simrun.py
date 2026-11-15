@@ -221,7 +221,7 @@ def test_step_runs_one_day_then_pauses_and_stop_ends_the_driver(env):
                     return
                 time.sleep(0.1)
             raise AssertionError(what)
-        wait_for(lambda: os.path.exists(os.path.join(root, "sim", "status.json")), "運転手が起きない")
+        wait_for(lambda: os.path.exists(os.path.join(root, "sim", "status.json")), "ランナーが起きない")
         time.sleep(0.5)
         assert not isdir(os.path.join(root, "out"))                                                 # 止まっている間は何も起きない
         assert cli("simctl.py", ["step"], child).returncode == 0

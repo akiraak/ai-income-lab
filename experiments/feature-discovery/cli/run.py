@@ -321,7 +321,7 @@ def evaluate_trading(panel: pd.DataFrame, feats: list[str], exp: dict, run: runs
     # ⚠ **`[[trading.mix]]` の無い config は経路が 1 行も変わらない**（メンバーの表も読まない）
     mixes = mix_specs(t)
     if mixes and form == "per_symbol":
-        raise SystemExit("⚠ 合わせる口（rules.md 20-6 の 4）は形式 (A) だけ（(B) は銘柄ごとに較正が違う）")
+        raise SystemExit("⚠ 合成オプション（rules.md 20-6 の 4）は形式 (A) だけ（(B) は銘柄ごとに較正が違う）")
     mix_ext = _mix_prepare(mixes, edges, leak, mix_loader or load_mix_member, cut) if mixes else {}
     mix_opts: dict[str, dict] = {}   # ⚠ 役割つきの合成オプションの最短保有・毎日読む出口（rules.md 25-2。fold ごとに置き直す）
     if t.get("top_k") and "close" in panel:
@@ -797,7 +797,7 @@ def _mix_prepare(specs: list[dict], edges: list, leak: bool, loader, cut: tuple[
         mv = mexp.get("validation", {})
         medges = splits.date_edges(mpanel["ts"], int(mv.get("folds", 5)), cut)
         if len(medges) != len(edges) or any(pd.Timestamp(a) != pd.Timestamp(b) for a, b in zip(medges, edges)):
-            raise SystemExit(f"⚠ trading.mix のメンバー {name} は fold の切れ目がこの実行と違う（rules.md 20-6 の 4 の 2）: "
+            raise SystemExit(f"⚠ trading.mix のメンバー {name} は fold の分割点がこの実行と違う（rules.md 20-6 の 4 の 2）: "
                              f"{[str(pd.Timestamp(e).date()) for e in medges]} ≠ {[str(pd.Timestamp(e).date()) for e in edges]}")
         folds = {f: (tr, te.reset_index(drop=True))
                  for f, tr, te in splits.folds_by_dates(mpanel, edges, float(mexp["horizon_min"]),
@@ -1330,7 +1330,7 @@ def main() -> None:
     run.log(f"実験 {args.experiment} / 層 {layer} / {ds['period']} 足")
     run.log(f"行 {len(panel):,} / 特徴量 {len(feats)}"
             + (f"  ⚠ **わざとした先読みの列あり: {leaky}**" if leaky else "")
-            + (f"  ⚠ **偽薬: ex_ の日付を過去へ {args.shift_days} 日ずらした表（台帳の試行に数えない）**"
+            + (f"  ⚠ **偽薬: ex_ の日付を過去へ {args.shift_days} 日ずらした表（検証結果一覧の試行に数えない）**"
                if args.shift_days else ""))
 
     if trading:

@@ -207,7 +207,7 @@ def null_dist(target: str, perms: int = ns.PERMS, state: str | None = None, log=
 
 
 def main() -> None:
-    p = argparse.ArgumentParser(description="偽の実行の物差しを上位の行と「採る」の行に当てる（読むだけ・n_trials に数えない）")
+    p = argparse.ArgumentParser(description="偽の実行の指標を上位の行と「採る」の行に当てる（読むだけ・n_trials に数えない）")
     p.add_argument("--target", required=True, choices=["sel1995", "mix", "sel600"])
     p.add_argument("--perms", type=int, default=ns.PERMS)
     p.add_argument("--state", help="途中の結果を置く JSON（あれば続きから）")

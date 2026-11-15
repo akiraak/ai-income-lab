@@ -188,8 +188,8 @@ def test_quiet_window_refuses(world, monkeypatch):
     et = lv.now_et().tzinfo
     monkeypatch.setattr(lu_mod.lv, "now_et", lambda: datetime(2026, 9, 1, 15, 45, tzinfo=et))
     r = post(c, "B2", kind="start", confirm="B2")
-    assert "執行器の回の時間" in flash(r) and not roster_file(s).exists()
-    assert "執行器の回の時間" in c.get("/roster").text
+    assert "執行エンジンの回の時間" in flash(r) and not roster_file(s).exists()
+    assert "執行エンジンの回の時間" in c.get("/roster").text
 
 
 def test_unknown_trader_and_bad_kind(world):

@@ -223,9 +223,9 @@ def main() -> None:
     ap.add_argument("--method", default=None, help="実験の中の手法（選別 ／ 検知器の名前）。1 本しか無ければ省ける")
     ap.add_argument("--layer", default="adjusted", choices=("adjusted", "raw"))
     ap.add_argument("--proxy", default=None,
-                    help="`asof` の足の代役（JSON: {銘柄: {open, high, low, close, volume}}）。置き場の足を上書き ／ 追加する")
+                    help="`asof` の足の代役（JSON: {銘柄: {open, high, low, close, volume}}）。保存先の足を上書き ／ 追加する")
     ap.add_argument("--out", default=None, help="predict.jsonl（無ければ標準出力へ）")
-    ap.add_argument("--meta-out", default=None, help="記録（訓練の範囲・指紋・所要時間）の JSON。既定は <out>.meta.jsonl に 1 行足す")
+    ap.add_argument("--meta-out", default=None, help="記録（訓練の範囲・フィンガープリント・所要時間）の JSON。既定は <out>.meta.jsonl に 1 行足す")
     ap.add_argument("--verbose", action="store_true")
     args = ap.parse_args()
 
@@ -244,7 +244,7 @@ def main() -> None:
             print(json.dumps(r, ensure_ascii=False))
     s = meta["seconds"]
     print(f"{args.experiment} ／ {meta['method']} ／ {args.asof}: {len(rows)} 銘柄・訓練 {meta['train_rows']:,} 行"
-          f"（〜{meta['train_end']}）・表 {s['table']} 秒 ＋ fit {s['fit_predict']} 秒・指紋 {meta['input_fingerprint']}"
+          f"（〜{meta['train_end']}）・表 {s['table']} 秒 ＋ fit {s['fit_predict']} 秒・フィンガープリント {meta['input_fingerprint']}"
           + (f"・⚠ 特徴量が欠けて外した銘柄 {meta['dropped_symbols_nan_features']}" if meta["dropped_symbols_nan_features"] else ""),
           file=sys.stderr)
 

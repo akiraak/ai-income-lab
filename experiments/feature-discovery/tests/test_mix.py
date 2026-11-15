@@ -116,7 +116,7 @@ def test_missing_rows_skip_the_symbol(run):
 
 def test_members_must_share_the_fold_edges(run):
     panel = _panel()
-    with pytest.raises(SystemExit, match="切れ目"):
+    with pytest.raises(SystemExit, match="分割点"):
         evaluate_trading(panel, _feats(panel), _exp(_mix()), run, mix_loader=_loader({"ext": _panel(shift_days=40)}))
 
 

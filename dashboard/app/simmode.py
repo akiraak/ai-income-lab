@@ -2,7 +2,7 @@
 
 正本は執行エンジン（`experiments/live-trading/`）が持つ:
   - `MODE`                          … `{"mode": "real" ／ "sim", "name": …, "since": …}`。⚠ **無ければ real**
-  - `NOT_PRODUCTION`                … 「本番の機械ではない」印 `{"machine": <hostname>, "since", "by", "reason"}`（live-trading.md §0-14）。
+  - `NOT_PRODUCTION`                … 「本番のマシンではない」印 `{"machine": <hostname>, "since", "by", "reason"}`（live-trading.md §0-14）。
                                       あると執行エンジンは本番の発注を拒む ＝ 帯に出す。⚠ 壊れていても「ある」として出す（執行エンジンと同じ向き）
   - `sim/<名前>/sim/control.json`   … 仮の時計（仮のいま ＝ sim_epoch ＋ 実時間の経過 × speed。`simclock.py` と同じ式）
   - `sim/<名前>/sim/status.json`    … ランナーの状態（何日目・発注できる時間帯の中 ／ 外）
@@ -41,7 +41,7 @@ def read_mode(mode_dir: Path | None) -> dict:
         return {"mode": "real"}
     doc = _json(mode_dir / "MODE")
     if not doc or doc.get("mode") not in ("real", "sim"):
-        return {"mode": "unknown", "error": "MODE が読めない（執行器も運転手も起動を拒否している。直すか消す）"}
+        return {"mode": "unknown", "error": "MODE が読めない（執行エンジンもランナーも起動を拒否している。直すか消す）"}
     if doc["mode"] == "real":
         return {"mode": "real", "since": doc.get("since")}
     if not NAME_RE.match(str(doc.get("name") or "")):
@@ -50,7 +50,7 @@ def read_mode(mode_dir: Path | None) -> dict:
 
 
 def read_not_production(mode_dir: Path | None) -> dict | None:
-    """「本番の機械ではない」印。無ければ None。{"machine", "since", "by", "reason", "host", "matches_host", "error"}。"""
+    """「本番のマシンではない」印。無ければ None。{"machine", "since", "by", "reason", "host", "matches_host", "error"}。"""
     if mode_dir is None or not (mode_dir / "NOT_PRODUCTION").exists():
         return None
     host = socket.gethostname()
@@ -58,7 +58,7 @@ def read_not_production(mode_dir: Path | None) -> dict | None:
     machine = (doc or {}).get("machine")
     if not doc or not isinstance(machine, str) or not machine:
         return {"machine": None, "since": None, "by": None, "reason": None, "host": host, "matches_host": False,
-                "error": "NOT_PRODUCTION が読めない（執行器は本番の発注を拒む。直すか notprod.py clear で外す）"}
+                "error": "NOT_PRODUCTION が読めない（執行エンジンは本番の発注を拒む。直すか notprod.py clear で外す）"}
     return {"machine": machine, "since": doc.get("since"), "by": doc.get("by"), "reason": doc.get("reason"), "host": host,
             "matches_host": machine == host, "error": None}
 
@@ -93,7 +93,7 @@ def resolve(mode_dir: Path | None, live_dir: Path, live_dir_explicit: bool) -> d
         if not live_dir_explicit:
             out["live_dir"] = root
         elif not is_sim_tree(live_dir):
-            out["mismatch"] = "機械はシミュレーションモードだが、AIL_LIVE_DIR はシミュレーションの記録ではない"
+            out["mismatch"] = "マシンはシミュレーションモードだが、AIL_LIVE_DIR はシミュレーションの記録ではない"
         st = _json(out["live_dir"] / "sim" / "status.json") or {}
         c = clock(out["live_dir"]) or {}
         age = time.time() - float(st.get("updated_at") or 0)
@@ -101,7 +101,7 @@ def resolve(mode_dir: Path | None, live_dir: Path, live_dir_explicit: bool) -> d
                       "sim_date": st.get("sim_date"), "source_date": st.get("source_date"), "last_rc": st.get("last_rc"),
                       "driver_alive": bool(st) and st.get("state") != "終了" and age < DRIVER_STALE_S, "started": bool(c)}
     elif m["mode"] == "real" and live_dir_explicit and is_sim_tree(live_dir):
-        out["mismatch"] = "機械は実売買モードだが、AIL_LIVE_DIR はシミュレーションの記録を指している"
+        out["mismatch"] = "マシンは実売買モードだが、AIL_LIVE_DIR はシミュレーションの記録を指している"
     return out
 
 

@@ -32,7 +32,7 @@ GOLDEN = pathlib.Path(HERE, "tests", "golden")
 SECRETS = ("MOCK-SECRET", "MOCK-REFRESH", "5WT00042", "eyJ")
 
 pytestmark = pytest.mark.skipif(not os.environ.get("AIL_GOLDEN"),
-                                reason="通し運転は重い: AIL_GOLDEN=1 で回す（./run-tests.sh --full）")
+                                reason="通し実行は重い: AIL_GOLDEN=1 で回す（./run-tests.sh --full）")
 
 
 def missing_bars(name: str) -> list[str]:
@@ -135,7 +135,7 @@ def test_summary_matches_the_golden_file(ran):
         pytest.skip(f"黄金値を書き直した: {path}")
     assert path.exists(), f"{path} が無い（AIL_UPDATE_GOLDEN=1 で作る）"
     want = json.loads(path.read_text(encoding="utf-8"))
-    assert got == want, ("通し運転の集計値が変わった。⚠ 直す前に理由を確かめる\n"
+    assert got == want, ("通し実行の集計値が変わった。⚠ 直す前に理由を確かめる\n"
                          f"いま: {json.dumps(got, ensure_ascii=False)}\n前:   {json.dumps(want, ensure_ascii=False)}")
 
 

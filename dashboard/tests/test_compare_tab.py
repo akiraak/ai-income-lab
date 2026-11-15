@@ -271,7 +271,7 @@ def test_real_mapping_rows_exist_in_the_db():
     paths = _real_paths()
     rows = compareview.ledger(paths)
     if not rows:  # 無い ／ 表はあるが 0 行（Sx360 は runs/ の器だけ ＝ 検証結果一覧を再生成していない）
-        pytest.skip("研究の DB（ledger_rows）が無い ／ 空の機械")
+        pytest.skip("研究の DB（ledger_rows）が無い ／ 空のマシン")
     words = compareview.load_words(paths)
     for t in words["trader"]:
         for f in t["forms"]:

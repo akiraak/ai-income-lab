@@ -52,12 +52,12 @@ def cmd_stats(conn: sqlite3.Connection) -> None:
     print(f"  キューの状態 {conn.execute('SELECT count(*) FROM queue_state').fetchone()[0]}")
     left = run_dirs()
     if left:
-        print(f"  ⚠ runs/ に残っている実行ディレクトリ {len(left)}（取り込んで突き合わせたら `remove-dirs`）")
+        print(f"  ⚠ runs/ に残っている実行ディレクトリ {len(left)}（取り込んで照合したら `remove-dirs`）")
     n_out, out_size = conn.execute("SELECT count(*), coalesce(sum(size), 0) FROM outputs").fetchone()
-    print(f"  診断・突き合わせの出力 {n_out:,}（{out_size / 1e6:,.2f} MB）")
+    print(f"  診断・照合の出力 {n_out:,}（{out_size / 1e6:,.2f} MB）")
     left = out_files()
     if left:
-        print(f"  ⚠ out/ に残っているファイル {len(left)}（取り込んで突き合わせたら `remove-out`）")
+        print(f"  ⚠ out/ に残っているファイル {len(left)}（取り込んで照合したら `remove-out`）")
 
 
 def cmd_import(conn: sqlite3.Connection) -> None:

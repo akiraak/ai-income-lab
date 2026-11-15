@@ -587,7 +587,7 @@ def _formal_table(paths: TraderPaths, m: dict) -> str:
 
     rows = [("正式な名前", "<ul>" + "".join(f"<li><code>{esc(x)}</code></li>" for x in m.get("formal") or []) + "</ul>")]
     if m.get("name"):
-        rows.append(("実売買の設定での綴り", f"<code>{esc(m['name'])}</code>"
+        rows.append(("実売買の設定での表記", f"<code>{esc(m['name'])}</code>"
                      + (f" <code>{esc(m['method'])}</code>" if m.get("method") else "")))
     for rel, keys in _configs(paths, m):
         copied = "".join(f"<br>{esc(k)} = {cell(v)}" for k, v in keys.items())

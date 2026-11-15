@@ -94,7 +94,7 @@ def test_machine_config_matches_the_hand_written_ones(src, method, hand):
         assert a == b
         assert catalog.threshold_style(tomllib.loads(text)) == sc.CUT_STYLES[offset]
         assert cs.counted(text) == (1 if src == "sel_small4_1995" else 2)     # 合成 ＝ 1 ＋ この実行の中のメンバー（33-6 の 4）
-        assert f"登録簿 `{cs.IDEA}`" in text[:2000]                            # 棚卸しの区分（`group_of`）は config の頭から読む
+        assert f"レジストリ `{cs.IDEA}`" in text[:2000]                            # 棚卸しの区分（`group_of`）は config の頭から読む
 
 
 MULTI = '''# 頭の説明

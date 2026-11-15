@@ -867,7 +867,7 @@ note = "管理画面の概要・全体の詳細・トレーダーの詳細に出
   where = "§0-7 (a) 実売買とシミュレーションは排他"
 
   [[section.term]]
-  name = "本番の機械ではない"
+  name = "本番のマシンではない"
   short = "フラグ（NOT_PRODUCTION）のあるマシンでは、執行エンジンと CLI が本番の発注だけを許可より前で拒む。plan・dry-run・cert は通る。置く・外すは利用者。"
   doc = "docs/specs/experiments/live-trading.md"
   where = "§0-14 本番を titan → 13500t へ切り替える"

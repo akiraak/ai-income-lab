@@ -961,7 +961,7 @@ def step_prod_dry_run_types(rec: record.Recorder, cfg: dict) -> None:
 
 
 def not_production_mark() -> str | None:
-    """「本番の機械ではない」印の説明（無ければ None）。⚠ 読めない（import が壊れた）ときも「ある」側に倒す。"""
+    """「本番のマシンではない」印の説明（無ければ None）。⚠ 読めない（import が壊れた）ときも「ある」側に倒す。"""
     lt = os.path.normpath(os.path.join(HERE, "..", "live-trading"))
     if lt not in sys.path:
         sys.path.insert(0, lt)
@@ -1005,11 +1005,11 @@ def main() -> int:
         return 3
 
     if env == "prod" and (set(steps) & ORDER_STEPS):
-        # ⚠ 「本番の機械ではない」印（experiments/live-trading/NOT_PRODUCTION。live-trading.md §0-14）。発注の経路は執行エンジンとこの CLI の
+        # ⚠ 「本番のマシンではない」印（experiments/live-trading/NOT_PRODUCTION。live-trading.md §0-14）。発注の経路は執行エンジンとこの CLI の
         #    2 本なので、こちらも同じ印で本番の発注系を拒む（許可の 3 段より前。壊れた印・他のマシンの印でも拒む）
         mark = not_production_mark()
         if mark is not None:
-            print(f"拒否: この機械は本番の機械ではない（{mark}）。本番の発注系の手順 {sorted(set(steps) & ORDER_STEPS)} を実行しない。"
+            print(f"拒否: このマシンは本番のマシンではない（{mark}）。本番の発注系の手順 {sorted(set(steps) & ORDER_STEPS)} を実行しない。"
                   "外すのは experiments/live-trading/notprod.py clear", file=sys.stderr)
             return 7
 

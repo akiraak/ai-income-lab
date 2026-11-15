@@ -99,7 +99,7 @@ def main(argv: list[str] | None = None) -> None:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--experiment", required=True)
     ap.add_argument("--layer", default="adjusted")
-    ap.add_argument("--json", default=None, help="結果を JSON で書く道（表は除く）")
+    ap.add_argument("--json", default=None, help="結果を JSON で書くパス（表は除く）")
     args = ap.parse_args(argv)
     res = current_selection(args.experiment, args.layer)
     print(_md(res))

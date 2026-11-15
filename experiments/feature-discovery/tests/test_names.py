@@ -93,7 +93,7 @@ def test_names_are_one_to_one_with_the_real_ledger():
     """⚠ **検証結果一覧の全行（本体 ＋ leak 対照）で、鍵が違えば名前も違う・鍵が同じなら名前も同じ。**"""
     d = catalog.ledger()
     for rows in (d["rows"], d["leak"]):
-        assert rows, "runs/ が空（台帳の行が無い）"
+        assert rows, "runs/ が空（検証結果一覧の行が無い）"
         trial = {}
         model = {}
         for r in rows:

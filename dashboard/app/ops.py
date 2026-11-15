@@ -75,7 +75,7 @@ class Ops:
         results = []
         if machine["mode"] == "sim":
             # ⚠ シミュレーションモードの停止ボタン ＝ シミュレーションの木の HALT だけ（通し稽古）。本物の HALT も本物の注文も触らない
-            results.append({"env": f"sim:{machine['name']}", "skipped": "シミュレーション: 仮の執行器は次の発注から拒否する。本物の口座の注文には触らない"})
+            results.append({"env": f"sim:{machine['name']}", "skipped": "シミュレーション: 仮の執行エンジンは次の発注から拒否する。本物の口座の注文には触らない"})
         for env, mon in ([] if machine["mode"] == "sim" else self.monitors.items.items()):
             if not mon.client.token or not mon.account_number:
                 results.append({"env": env, "skipped": "認証されていない（取消は行わない）"})
@@ -162,7 +162,7 @@ class Ops:
             control.set_flag(cdir, name, kind, actor, reason)
         out = {"trader": name, "instruction": kind, "kind": kind, "prev": row.get("status"), "prev_flag": before.as_dict() if before else None,
                "prev_entry": prev_entry, "prev_index": idx, "roster_touched": touched_roster, "actor": actor, "reason": reason[:200], "mode": self.settings.machine()["mode"],
-               "note": "その場では何も売買しない。執行器の次の回から状態が変わる"}
+               "note": "その場では何も売買しない。執行エンジンの次の回から状態が変わる"}
         kind_rec = "roster" if touched_roster else "trader_flag"            # ⚠ 記録の種類の名前は今までどおり
         self.events.append("dashboard", "-", kind_rec, out)
         self._history(kind_rec, actor, "-", out)

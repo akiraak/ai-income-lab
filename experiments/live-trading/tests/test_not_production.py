@@ -1,4 +1,4 @@
-"""「本番の機械ではない」印 `NOT_PRODUCTION`（live-trading.md §0-14。3 台の役割分け Phase 3）。
+"""「本番のマシンではない」印 `NOT_PRODUCTION`（live-trading.md §0-14。3 台の役割分け Phase 3）。
 
 ⚠ ネットワークは使わない（拒否は全部、認証の前で起きる）。印・MODE・run.lock は `LT_MODE_DIR` で tmp に向ける（本物を触らない）。
 固定するもの: 印なしで何も変わらない ／ set が hostname を書く・status・clear・mode.log ／ 印のあるマシンの本番 submit は許可があっても rc=7 ／
@@ -63,7 +63,7 @@ def test_no_mark_means_nothing_changes(base):
     assert r.returncode == 0 and "印なし" in r.stdout
     # 印が無ければ、本番 submit は今までどおり許可の 3 段で止まる（rc=2。印の rc=7 ではない）
     r = run("run_day.py", base, PROD_SUBMIT, PROD_NOKEY)
-    assert r.returncode == 2 and "TT_ALLOW_PROD_ORDERS" in r.stderr and "本番の機械ではない" not in r.stderr
+    assert r.returncode == 2 and "TT_ALLOW_PROD_ORDERS" in r.stderr and "本番のマシンではない" not in r.stderr
 
 
 def test_set_writes_hostname_status_clear_and_log(base):
@@ -91,7 +91,7 @@ def test_set_writes_hostname_status_clear_and_log(base):
 def test_marked_machine_refuses_prod_submit_before_permissions_and_network(base):
     modes.set_not_production(by="test", reason="稽古")
     r = run("run_day.py", base, PROD_SUBMIT, PROD)
-    assert r.returncode == 7 and "本番の機械ではない" in r.stderr and "notprod.py clear" in r.stderr
+    assert r.returncode == 7 and "本番のマシンではない" in r.stderr and "notprod.py clear" in r.stderr
     ev = events(base)
     assert [e["kind"] for e in ev] == ["refused_not_production"]
     assert ev[0]["machine"] == "titan-test" and ev[0]["matches_host"] and ev[0]["mode"] == "submit"
@@ -107,19 +107,19 @@ def test_mark_does_not_refuse_plan_dry_run_or_cert(base):
                  ["--traders", "test_a", "--env", "prod", "--mode", "dry-run", "--allow-prod-dry-run", "--ignore-window"]):
         r = run("run_day.py", base, args, PROD_NOKEY)
         # 印では止まらず認証（ループバックの閉じたポート）まで進む ＝ 接続の失敗で終わる
-        assert r.returncode != 7 and "本番の機械ではない" not in r.stderr and "127.0.0.1" in r.stderr, (args, r.stderr)
+        assert r.returncode != 7 and "本番のマシンではない" not in r.stderr and "127.0.0.1" in r.stderr, (args, r.stderr)
     # cert の submit: 印では止まらない（LT_MODE_DIR ＋ モック以外の submit の既存の拒否 rc=2 に落ちる ＝ 外へは出ない）
     r = run("run_day.py", base, ["--traders", "test_a", "--mode", "submit", "--ignore-window"], CERT)
-    assert r.returncode == 2 and "LT_MODE_DIR" in r.stderr and "本番の機械ではない" not in r.stderr
+    assert r.returncode == 2 and "LT_MODE_DIR" in r.stderr and "本番のマシンではない" not in r.stderr
     assert not [e for e in events(base) if e["kind"] == "refused_not_production"]
 
 
 def test_foreign_or_broken_mark_still_refuses(base):
     (base / "NOT_PRODUCTION").write_text(json.dumps({"machine": "titan", "since": "2026-09-27T00:00:00+00:00", "by": "u"}))
     mark = modes.read_not_production()
-    assert mark.machine == "titan" and not mark.matches_host and "この機械（titan-test）の印ではない" in mark.describe()
+    assert mark.machine == "titan" and not mark.matches_host and "このマシン（titan-test）の印ではない" in mark.describe()
     r = run("run_day.py", base, PROD_SUBMIT, PROD)
-    assert r.returncode == 7 and "この機械（titan-test）の印ではない" in r.stderr
+    assert r.returncode == 7 and "このマシン（titan-test）の印ではない" in r.stderr
     assert events(base)[-1]["matches_host"] is False
     r = run("notprod.py", base, ["status"], {})
     assert r.returncode == 1 and "印ではない" in r.stdout
@@ -135,10 +135,10 @@ def test_foreign_or_broken_mark_still_refuses(base):
 def test_sample_cli_refuses_prod_order_steps_with_mark(base):
     modes.set_not_production(by="test")
     r = run("sample.py", base, ["--env", "prod", "--step", "4", "--i-know-this-is-real-money"], PROD, cwd=SAMPLE)
-    assert r.returncode == 7 and "本番の機械ではない" in r.stderr
+    assert r.returncode == 7 and "本番のマシンではない" in r.stderr
     # 読み取りだけの手順は印で止まらない
     r = run("sample.py", base, ["--env", "prod", "--step", "probe"], PROD_NOKEY, cwd=SAMPLE)
-    assert r.returncode != 7 and "本番の機械ではない" not in r.stderr
+    assert r.returncode != 7 and "本番のマシンではない" not in r.stderr
     modes.clear_not_production(by="test")
     r = run("sample.py", base, ["--env", "prod", "--step", "4", "--i-know-this-is-real-money"], PROD, cwd=SAMPLE)
     assert r.returncode != 7

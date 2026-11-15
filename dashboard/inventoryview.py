@@ -126,7 +126,7 @@ def page_body(paths: TraderPaths) -> str:
            "<ul class='caution'>"
            "<li>⚠ 判定・n_trials は変えない。「閉じる」は「効かないと確かめた」ではない（注記を足すだけで行は分母に残る）。</li>"
            "<li>⚠ 案は下書き（<code>docs/specs/experiments/assets/ledger-hold-inventory-*closed-draft.toml</code>）から写す。"
-           "閉じるのは利用者の「閉じて」の後（Claude が <code>config/catalog_notes.toml</code> に貼って吐き直す）。この画面に操作は無い。</li>"
+           "閉じるのは利用者の「閉じて」の後（Claude が <code>config/catalog_notes.toml</code> に貼って再生成する）。この画面に操作は無い。</li>"
            "<li>⚠ 区分の処遇は記録で決める（行の数字の大小で選ばない）。根拠は棚卸しの文書の §2。</li></ul>"]
     got = open_rows(paths)
     if got is None:

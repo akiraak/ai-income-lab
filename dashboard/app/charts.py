@@ -107,7 +107,7 @@ def line_chart(series: list[dict], bd: list[str], missing: list[str], *, w: int,
         if d not in bd:
             continue
         i = bd.index(d)
-        o.append(f'<rect class="miss" x="{x(i) - step / 2:.1f}" y="{pad_t}" width="{step:.1f}" height="{ph}"><title>{d}: 起動なし（営業日なのに執行器の記録が無い）</title></rect>')
+        o.append(f'<rect class="miss" x="{x(i) - step / 2:.1f}" y="{pad_t}" width="{step:.1f}" height="{ph}"><title>{d}: 起動なし（営業日なのに執行エンジンの記録が無い）</title></rect>')
         if miss_text:
             o.append(f'<text class="miss-t" x="{x(i):.1f}" y="{pad_t + 10}" text-anchor="middle">起動なし</text>')
     if show_x:

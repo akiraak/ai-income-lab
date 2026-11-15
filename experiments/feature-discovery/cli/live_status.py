@@ -53,7 +53,7 @@ def main() -> int:
     want = previous_session(today)
     ds = config.dataset(args.dataset)
     symbols = config.symbols_of(ds["universe"])
-    print(f"置き場 {store.DATA}")
+    print(f"保存先 {store.DATA}")
     print(f"今日（ET）{today} ／ 前の営業日 {want}")
 
     rc = 0

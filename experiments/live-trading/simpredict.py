@@ -117,7 +117,7 @@ def make(name: str, jobs: int = 8, python: str | None = None, limit: int | None 
     python = python or os.path.join(FD_DIR, ".venv", "bin", "python")
     _ensure_db(predict_dir())
     todo, total = plan_jobs(name)
-    print(f"[simpredict] {name}: 作り置き {total - len(todo)}/{total}・これから {len(todo)} 本（{jobs} 並列）→ {predict_dir()}", flush=True)
+    print(f"[simpredict] {name}: キャッシュ {total - len(todo)}/{total}・これから {len(todo)} 本（{jobs} 並列）→ {predict_dir()}", flush=True)
     if limit is not None:
         todo = todo[:limit]
     failed, t0 = 0, time.time()
@@ -145,8 +145,8 @@ def install(root: str, cfg: simdata.SimConfig, traders_dir: str, data: dict, bas
                if not livefs.exists(cache_path(base, data["source"][day], exp, method), missing_ok=True)]
     if missing:
         head = ", ".join(f"{s} {e}" for s, e in missing[:4])
-        raise SimPredictError(f"予測の作り置きが {len(missing)} 本足りない（{head}{' …' if len(missing) > 4 else ''}）。"
-                              f"先に python simpredict.py make {cfg.name}（LightGBM の無い機械では titan の {os.path.basename(base)}/ を写す）")
+        raise SimPredictError(f"予測のキャッシュが {len(missing)} 本足りない（{head}{' …' if len(missing) > 4 else ''}）。"
+                              f"先に python simpredict.py make {cfg.name}（LightGBM の無いマシンでは titan の {os.path.basename(base)}/ を写す）")
     rows_total, mismatch, no_quote = 0, [], 0
     for day in data["days"]:
         src = data["source"][day]
@@ -154,7 +154,7 @@ def install(root: str, cfg: simdata.SimConfig, traders_dir: str, data: dict, bas
         for exp, method in models:
             for row in read_rows(cache_path(base, src, exp, method)):
                 if row.get("date") != src:
-                    raise SimPredictError(f"作り置き {src} {exp} の行の日付が {row.get('date')!r}（出どころの日付と違う）")
+                    raise SimPredictError(f"キャッシュ {src} {exp} の行の日付が {row.get('date')!r}（出どころの日付と違う）")
                 quote = data["quotes"][day].get(row["symbol"])
                 close = row.get("proxy_close")
                 if quote is None:
@@ -178,7 +178,7 @@ def install(root: str, cfg: simdata.SimConfig, traders_dir: str, data: dict, bas
 
 
 def main() -> int:
-    ap = argparse.ArgumentParser(description="シミュレーションの experiment トレーダーに渡す予測の作り置き")
+    ap = argparse.ArgumentParser(description="シミュレーションの experiment トレーダーに渡す予測のキャッシュ")
     sub = ap.add_subparsers(dest="cmd", required=True)
     mk = sub.add_parser("make")
     mk.add_argument("name")
@@ -191,7 +191,7 @@ def main() -> int:
     if args.cmd == "make":
         return make(args.name, args.jobs, args.python, args.limit)
     todo, total = plan_jobs(args.name)
-    print(f"{args.name}: 作り置き {total - len(todo)}/{total}（{predict_dir()}）" + (f"・無いものの先頭 {todo[0][0]} {todo[0][1]}" if todo else ""))
+    print(f"{args.name}: キャッシュ {total - len(todo)}/{total}（{predict_dir()}）" + (f"・無いものの先頭 {todo[0][0]} {todo[0][1]}" if todo else ""))
     return 0 if not todo else 1
 
 

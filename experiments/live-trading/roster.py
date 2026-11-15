@@ -149,7 +149,7 @@ def restore(path: str, name: str, entry: dict | None, index: int | None = None) 
 
 def main() -> int:
     ap = argparse.ArgumentParser(description="名簿（誰を動かすか）")
-    ap.add_argument("--path", default=None, help="名簿の置き場（既定は記録ディレクトリの roster.json）")
+    ap.add_argument("--path", default=None, help="名簿の保存先（既定は記録ディレクトリの roster.json）")
     sub = ap.add_subparsers(dest="cmd", required=True)
     sub.add_parser("show")
     a = sub.add_parser("add")
@@ -170,7 +170,7 @@ def main() -> int:
             return 0
         if args.cmd == "add":
             e = add(p, args.name, args.by, args.reason)
-            print(f"入れた（開始）: {e.name}（{p}）。⚠ 売買が始まるのは執行器の次の回から")
+            print(f"入れた（開始）: {e.name}（{p}）。⚠ 売買が始まるのは執行エンジンの次の回から")
             return 0
         print(("名簿から抜いた（停止）: " if remove(p, args.name) else "名簿に居なかった: ") + args.name)
         return 0

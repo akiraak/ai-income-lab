@@ -63,7 +63,7 @@ def train_label(exp: dict, tr: pd.DataFrame):
         sig = sig.where(sig > 0).fillna(float(sig[sig > 0].median()))
         return (tr["y"].astype(float) / sig).to_numpy(dtype=float)
     if kind != XS_LABEL:
-        raise SystemExit(f"⚠ label = {kind!r} は受けない（{XS_LABEL!r} ／ {VOL_LABEL!r} だけ。rules.md 31 章の登録簿）")
+        raise SystemExit(f"⚠ label = {kind!r} は受けない（{XS_LABEL!r} ／ {VOL_LABEL!r} だけ。rules.md 31 章のレジストリ）")
     y = tr["y"].astype(float)
     return (y - y.groupby(tr["ts"]).transform("mean")).to_numpy(dtype=float)
 

@@ -166,9 +166,9 @@ def marks_of(r: Row) -> list[str]:
     if (n_sym is not None and n_sym not in LIVE_SYMBOLS) or sset not in LIVE_SETS:
         out.append(f"本番の 63 銘柄の集合に無い（{syms} 本・{sset}）")
     if r.method in names.table().get("mix", {}):
-        out.append("合成の行（人は members を執行器の合成規則で持つ）")
+        out.append("合成の行（人は members を執行エンジンの合成規則で持つ）")
     if (m := _VARIANT.search(r.method)) and not is_trader_shape(r.method) and not is_topk(r.method):
-        out.append(f"執行器に無い形〔{m.group(1)}〕")
+        out.append(f"執行エンジンに無い形〔{m.group(1)}〕")
     if r.closed:
         out.append("閉じる注記あり")
     return out
@@ -323,7 +323,7 @@ def weekly(conn: sqlite3.Connection) -> list[Row]:
 
 
 def render_weekly(rows: list[Row], n_trials: int | None) -> str:
-    L = [f"## 週 1 回の候補の棚（rules.md 31-3 の 4・読むだけ）— n_trials {n_trials if n_trials is not None else '—'}", "",
+    L = [f"## 週 1 回の候補リスト（rules.md 31-3 の 4・読むだけ）— n_trials {n_trials if n_trials is not None else '—'}", "",
          "- 対象 ＝ 20 章の机上で **採る** になった条件 2a（5 本・$600）の行。⚠ 候補の人にするか・呼び名・本番に入れるかは利用者（成績で人を選ばない）", ""]
     if not rows:
         return "\n".join(L + ["（該当なし）", ""])
@@ -409,7 +409,7 @@ def _row_cells(i: int, r: Row) -> list[str]:
 def render(res: dict, all_rows: bool = False) -> str:
     head = ["順", "検証名", "手法（モデル・層・期間・銘柄）", "fold（上乗せの符号）", "上乗せ bp/fold", "θ", "実行", "印（決まり 6）",
             "DSR", "日次 t", "最大 fold 外し", "取引/fold", "保有日率", "切れ目ずらし"]
-    lines = [f"## 候補の上位（howto §3-1 の物差し・読むだけ）— n_trials {res.get('n_trials')}・検証結果一覧 {res.get('built_at') or '—'}"
+    lines = [f"## 候補の上位（howto §3-1 の指標・読むだけ）— n_trials {res.get('n_trials')}・検証結果一覧 {res.get('built_at') or '—'}"
              + (f"・`--asof {res['asof']}`（{res['asof']} までに最初の実行があった行だけ）" if res.get("asof") else ""), ""]
     ex = " ／ ".join(f"{k} {v}" for k, v in sorted(res["excluded"].items())) or "—"
     lines.append(f"- 数える行 {res['counted']:,} → 決まり 1（{STYLE}・{VERDICT}）{res['rule1']} → 決まり 2 で除く {ex} → 残り {res['rule2']}"
@@ -417,7 +417,7 @@ def render(res: dict, all_rows: bool = False) -> str:
     lines.append("- ⚠ これは並べたものであって採用ではない。候補の人にするかは利用者（howto §3-4）・本番に入れるかも利用者。成績で人を選ばない")
     lines.append("- ⚠ 併記の 5 列は診断（順位に使わない）: DSR ＝ 日次純利系列の SR をいまの n_trials で割り引いた確率（SR > 0 の検定であって B&H を超えたかの検定ではない）／"
                  " 日次 t ＝ 対 B&H の日次差の t ／ 最大 fold 外し ＝ 上乗せが最大の fold を外した平均（1 fold が作った上乗せに気づくため）／ 取引/fold・保有日率 ＝ 実行の記録の平均")
-    lines.append("- ⚠ 併記「切れ目ずらし」も診断（順位・採否に使わない ＝ rules.md 33-6）: 同じ行を fold の切れ目を後ろへ 1/3 ／ 2/3 ずらして回した 2 行が、"
+    lines.append("- ⚠ 併記「切れ目ずらし」も診断（順位・採否に使わない ＝ rules.md 33-6）: 同じ行を fold の分割点を後ろへ 1/3 ／ 2/3 ずらして回した 2 行が、"
                  "2 行とも 上乗せ > 0 かつ 保留以上 なら「残る」・1 行でも外れれば「切れ目に依る」・回していなければ「—」。⚠ 残っても採る根拠にしない")
     lines.append("")
     lines.append("| " + " | ".join(head) + " |")
@@ -445,9 +445,9 @@ def main(argv: list[str] | None = None) -> None:
     ap.add_argument("--top", type=int, default=3)
     ap.add_argument("--all", action="store_true", help="決まり 4 まで通した全部を並べ順で出す")
     ap.add_argument("--no-diag", action="store_true", help="併記（実行の記録を読む）を省く")
-    ap.add_argument("--json", default=None, help="結果を JSON で書く道")
+    ap.add_argument("--json", default=None, help="結果を JSON で書くパス")
     ap.add_argument("--inventory", action="store_true", help="月 1 回の棚卸しの材料（保留で閉じる注記の無い行を区分ごとに）だけを出す")
-    ap.add_argument("--weekly", action="store_true", help="週 1 回の候補の棚（20 章の机上で採るになった 5 本・$600 の行）だけを出す")
+    ap.add_argument("--weekly", action="store_true", help="週 1 回の候補リスト（20 章の机上で採るになった 5 本・$600 の行）だけを出す")
     args = ap.parse_args(argv)
     conn = open_db(args.db)
     if args.inventory:

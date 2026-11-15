@@ -143,12 +143,12 @@ def locate(path) -> tuple[str, str]:
     if not key.startswith(".."):
         _check_real(key, p)            # 本物の DB がまだ無い（最初の 1 回）＝ 決まったパスなら作る
         return REAL_DB, key
-    raise LiveFsError(f"記録の置き場の DB が無い: {p}（シミュレーション・テストは `livefs.init(<置き場>, ...)` で先に作る）")
+    raise LiveFsError(f"記録の保存先の DB が無い: {p}（シミュレーション・テストは `livefs.init(<保存先>, ...)` で先に作る）")
 
 
 def _check_real(key: str, p: str) -> None:
     if not any(_under(key, x) for x in REAL_PLACES) or any(_under(key, x) for x in REAL_EXCLUDED):
-        raise LiveFsError(f"本物の DB（{REAL_DB}）に入れてよい置き場ではない: {p}"
+        raise LiveFsError(f"本物の DB（{REAL_DB}）に入れてよい保存先ではない: {p}"
                           "（シミュレーションの木・デモは自分の DB を先に作る）")
 
 

@@ -57,8 +57,8 @@ def show_status(machine: modes.Mode) -> int:
         with open(status_path, encoding="utf-8") as f:
             st = json.load(f)
         age = time.time() - st.get("updated_at", 0)
-        alive = "" if st.get("state") == "終了" or age < 10 else f"   ⚠ 運転手の更新が {age:.0f} 秒前で止まっている"
-        print(f"運転手: {st.get('state')}   {st.get('day_index', 0)}/{st.get('days_total', '?')} 日目（仮の {st.get('sim_date')}・出どころ {st.get('source_date')}）"
+        alive = "" if st.get("state") == "終了" or age < 10 else f"   ⚠ ランナーの更新が {age:.0f} 秒前で止まっている"
+        print(f"ランナー: {st.get('state')}   {st.get('day_index', 0)}/{st.get('days_total', '?')} 日目（仮の {st.get('sim_date')}・出どころ {st.get('source_date')}）"
               f"   直前の run_day rc={st.get('last_rc')}{alive}")
     return 0
 
@@ -88,7 +88,7 @@ def main() -> int:
     m = sub.add_parser("mode")
     m.add_argument("to", choices=["real", "sim"])
     m.add_argument("name", nargs="?")
-    m.add_argument("--real-trading-will-stop", action="store_true", help="本物の建玉が残っていてもシミュレーションへ入る（⚠ その間、実売買の執行器は動かない ＝ 手仕舞いも出ない）")
+    m.add_argument("--real-trading-will-stop", action="store_true", help="本物の建玉が残っていてもシミュレーションへ入る（⚠ その間、実売買の執行エンジンは動かない ＝ 手仕舞いも出ない）")
     sp = sub.add_parser("speed")
     sp.add_argument("speed")
     for name in ("pause", "resume", "step", "stop"):
@@ -104,7 +104,7 @@ def main() -> int:
             after = modes.switch(args.to, args.name, by=getpass.getuser(), real_trading_will_stop=args.real_trading_will_stop)
             print(modes.banner(after))
             if after.is_sim:
-                print("⚠ この機械では、実売買モードへ戻すまで本物の執行器（run_day.py）は起動しない。戻すのは simctl.py mode real")
+                print("⚠ このマシンでは、実売買モードへ戻すまで本物の執行エンジン（run_day.py）は起動しない。戻すのは simctl.py mode real")
             return 0
         machine = modes.read_mode()
     except modes.ModeError as exc:

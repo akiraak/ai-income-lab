@@ -197,5 +197,5 @@ def test_変換があれば手法名に混ざる():
     from ail import catalog
     lab = prep.label({"transform": "F5-1 PCA"}, "全部使う（基準）")
     assert lab == "F5-1 PCA ＋ 全部使う（基準）"
-    assert catalog.canonical(lab)[0] == "F5-1", "台帳が F5-1 の試行として読めない"
+    assert catalog.canonical(lab)[0] == "F5-1", "検証結果一覧が F5-1 の試行として読めない"
     assert catalog.is_trial({"検証方式": "閾値売買", "手法名": lab}), "試行に数えられない"

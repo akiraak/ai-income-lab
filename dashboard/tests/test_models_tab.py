@@ -488,7 +488,7 @@ def test_real_history_matches_the_db():
     paths = dataclasses.replace(traderview.TraderPaths.default(), research_db=REAL_DB)
     ledger = modelview.ledger_rows(paths)
     if not ledger:
-        pytest.skip("研究の DB（ledger_rows）が無い機械")
+        pytest.skip("研究の DB（ledger_rows）が無いマシン")
     bad = []
     for m in _real()["model"]:
         for r in m.get("history") or []:
@@ -571,10 +571,10 @@ def test_real_detail_plugs_match_the_db():
         assert x.group(4) in modelview.PLUG_FIELDS[x.group(1)], x.group(0)
     facts = modelview.RunFacts(dataclasses.replace(traderview.TraderPaths.default(), research_db=REAL_DB))
     if facts.conn is None:
-        pytest.skip("研究の DB が無い機械")
+        pytest.skip("研究の DB が無いマシン")
     if facts.conn.execute("SELECT COUNT(*) FROM runs").fetchone()[0] == 0:
         facts.close()
-        pytest.skip("研究の DB に実行が 0（中身の無い器）＝ DB の無い機械と同じ")
+        pytest.skip("研究の DB に実行が 0（中身の無い器）＝ DB の無いマシンと同じ")
     bad = []
     for mid, part, x in plugs:
         kind, run, method, field, fmt, fallback = x.groups()

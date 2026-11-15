@@ -155,7 +155,7 @@ def mark_done(dir_: str, name: str, date: str, fills: int, note: str = "") -> Fl
 
 def main() -> int:
     ap = argparse.ArgumentParser(description="トレーダーの一時停止 ／ 手じまい（control/<人>.json）")
-    ap.add_argument("--dir", default=None, help="置き場（既定は記録ディレクトリの control/）")
+    ap.add_argument("--dir", default=None, help="保存先（既定は記録ディレクトリの control/）")
     sub = ap.add_subparsers(dest="cmd", required=True)
     sub.add_parser("show")
     s = sub.add_parser("set")
@@ -168,13 +168,13 @@ def main() -> int:
     try:
         if args.cmd == "show":
             flags = read_all(d)
-            print(f"一時停止 ／ 手じまいの置き場: {d}（{len(flags)} 人）")
+            print(f"一時停止 ／ 手じまいの保存先: {d}（{len(flags)} 人）")
             for fl in flags.values():
                 print(f"  {fl.name:8s} {fl.describe():10s} {fl.since or ''} {fl.actor or ''} {fl.reason}" + (f"  済み {fl.done}" if fl.done else ""))
             return 0
         if args.cmd == "set":
             fl = set_flag(d, args.name, args.kind, args.by, args.reason)
-            print(f"書いた: {fl.name} → {fl.describe()}（{path_of(d, fl.name)}）。⚠ 売買が変わるのは次の執行器の回から")
+            print(f"書いた: {fl.name} → {fl.describe()}（{path_of(d, fl.name)}）。⚠ 売買が変わるのは次の執行エンジンの回から")
             return 0
         print(("消した: " if clear_flag(d, args.name) else "一時停止 ／ 手じまいではなかった: ") + args.name)
         return 0

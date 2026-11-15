@@ -175,7 +175,7 @@ def compare(a_path: str, b_path: str) -> int:
             maxdiff = max(maxdiff, abs(x["buy"][s] - y["buy"][s]), abs(x["exit"][s] - y["exit"][s]))
             if (x["buy"][s] > th) != (y["buy"][s] > th) or (x["exit"][s] > th) != (y["exit"][s] > th):
                 flips.append(s)
-        print(f"  {k[0]} {k[1]} {k[2] or ''}: 入力の指紋 {fp} ・ {len(syms)} 銘柄 ・ 最大の差 {maxdiff:.6g} ・"
+        print(f"  {k[0]} {k[1]} {k[2] or ''}: 入力のフィンガープリント {fp} ・ {len(syms)} 銘柄 ・ 最大の差 {maxdiff:.6g} ・"
               f" 判定が変わった銘柄 {flips or 'なし'}")
         bad |= bool(flips)
     return 1 if bad else 0
@@ -187,7 +187,7 @@ def main() -> None:
     ap.add_argument("--repeat", type=int, default=6, help="asof ごとの回数（1 回目 ＝ 冷えた状態）")
     ap.add_argument("--traders", default="T1,T2,T3")
     ap.add_argument("--traders-dir", default=TRADERS_DIR)
-    ap.add_argument("--out", help="結果の JSONL（1 行目に機械の仕様・最後に要約）")
+    ap.add_argument("--out", help="結果の JSONL（1 行目にマシンの仕様・最後に要約）")
     ap.add_argument("--compare", nargs=2, metavar=("A", "B"), help="2 つの結果を並べる")
     args = ap.parse_args()
 

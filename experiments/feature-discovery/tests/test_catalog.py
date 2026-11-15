@@ -242,7 +242,7 @@ def test_each_row_reports_the_numbers_of_its_own_run():
             continue
         assert float(hit["純利bp"].iloc[0]) == float(r["純利bp"]), r["実行"] + " / " + r["手法名"]
         checked += 1
-    assert checked > 100, f"突き合わせた行が {checked} 行しかない（runs/ が空か配線が変わった）"
+    assert checked > 100, f"照合した行が {checked} 行しかない（runs/ が空か配線が変わった）"
 
 
 def test_period_is_part_of_the_key():

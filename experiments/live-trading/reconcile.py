@@ -55,7 +55,7 @@ def show(state_dir: str, out_dir: str) -> int:
         mark = "⚠ 口座が少ない ＝ 売買が止まる" if sym in short else ("売買履歴の外の株（止めない）" if sym in outside else "")
         print(f"  {sym:6s} {account.get(sym, 0.0):12.6f} {ledger:12.6f} {account.get(sym, 0.0) - ledger:12.6f}  {holders or '—'}  {mark}")
     open_entries = Journal(state_dir).unfinished()
-    print(f"控えの未完: {len(open_entries)} 件" + ("（次の起動で執行器が照会する。照会できなければ resolve で閉じる）" if open_entries else ""))
+    print(f"控えの未完: {len(open_entries)} 件" + ("（次の起動で執行エンジンが照会する。照会できなければ resolve で閉じる）" if open_entries else ""))
     for e in open_entries:
         print(f"  {e['ext']}  {e.get('date')}  {e['trader']} {e['side']} {e['symbol']} {e.get('shares') or e.get('value_usd')}  注文番号 {e.get('order_id', '—')}")
     return 1 if short or open_entries else 0
@@ -106,7 +106,7 @@ def main() -> int:
             return 2
     lock = modes.RunLock()
     if not lock.acquire(machine.mode, f"reconcile {args.cmd}"):
-        print(f"拒否: 執行器 ／ 運転手が動いている（run.lock の持ち主 {lock.holder()}）", file=sys.stderr)
+        print(f"拒否: 執行エンジン ／ ランナーが動いている（run.lock の持ち主 {lock.holder()}）", file=sys.stderr)
         return 6
     try:
         if args.cmd == "show":

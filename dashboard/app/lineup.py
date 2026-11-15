@@ -42,7 +42,7 @@ def quiet_reason(machine: dict, now_et=None) -> str | None:
         return None
     if QUIET_FROM <= now.time() < QUIET_TO:
         span = f"{lv.et_to_seattle(f'{QUIET_FROM:%H:%M}', now.date())}〜{lv.et_to_seattle(f'{QUIET_TO:%H:%M}', now.date())}"
-        return f"執行器の回の時間（{span}）は名簿を書かない。終わってから押す"
+        return f"執行エンジンの回の時間（{span}）は名簿を書かない。終わってから押す"
     return None
 
 

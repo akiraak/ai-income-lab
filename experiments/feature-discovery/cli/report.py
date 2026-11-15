@@ -134,7 +134,7 @@ def main() -> None:
             print(f"--- {name}")
             print(f"    入力 {inp.get('features_file')} / 層 {inp.get('layer')} / "
                   f"行 {inp.get('rows_before_sample'):,} / 特徴量 {inp.get('features')}")
-            print(f"    指紋 {inp.get('data_manifest')} / 種 {env.get('seed')} / "
+            print(f"    フィンガープリント {inp.get('data_manifest')} / 種 {env.get('seed')} / "
                   f"commit {env.get('git_commit')}")
         a, b = (_load(n)["summary"] for n in args.diff)
         if a is None or b is None:

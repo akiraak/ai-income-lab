@@ -10,14 +10,14 @@
 {# ⚠ シミュレーションモードのバナー（live-trading.md §0-7 (a)）: 全ページの最上部・部分更新の外 ＝ 消せない。色は実売買の画面では使わないもの。
    取り直すのは中の時刻だけ。操作（速さ・停止・切り替え）は CLI の simctl.py だけで、ここには置かない #}
 {% if machine.mode == 'sim' %}
-<div class="simbar" role="status"><b>[SIM] シミュレーション {{ machine.name }}</b> — 仮データ・仮の時計。<b>実売買ではない</b>（この機械では、実売買の執行エンジンは起動しない）{{ info("シミュレーションモード") }}
+<div class="simbar" role="status"><b>[SIM] シミュレーション {{ machine.name }}</b> — 仮データ・仮の時計。<b>実売買ではない</b>（このマシンでは、実売買の執行エンジンは起動しない）{{ info("シミュレーションモード") }}
   <span id="simclock" data-poll="/?partial=simclock" data-interval="1000">{% include "simclock_panel.html" %}</span></div>
 {% endif %}
 {% if machine.mismatch %}
 <div class="simbar simbar-ng" role="alert">⚠ <b>モードと記録が食い違っている</b> — {{ machine.mismatch }}。取り違えを防ぐため、実売買（トレーダー）の数字は出さない</div>
 {% endif %}
 {% if machine.not_production %}
-<div class="simbar simbar-np" role="status">🚫 <b>本番の機械ではない</b> — この機械では執行エンジンが本番の発注を拒む（{% if machine.not_production.error %}⚠ {{ machine.not_production.error }}{% else %}印: {{ machine.not_production.machine }}・{{ machine.not_production.since }} から{% if not machine.not_production.matches_host %} ⚠ <b>この機械（{{ machine.not_production.host }}）の印ではない</b>{% endif %}{% endif %}）。記録は読むだけのコピー。本番の発注は 13500t{{ info("本番の機械ではない") }}
+<div class="simbar simbar-np" role="status">🚫 <b>本番のマシンではない</b> — このマシンでは執行エンジンが本番の発注を拒む（{% if machine.not_production.error %}⚠ {{ machine.not_production.error }}{% else %}印: {{ machine.not_production.machine }}・{{ machine.not_production.since }} から{% if not machine.not_production.matches_host %} ⚠ <b>このマシン（{{ machine.not_production.host }}）の印ではない</b>{% endif %}{% endif %}）。記録は読むだけのコピー。本番の発注は 13500t{{ info("本番のマシンではない") }}
 {% endif %}
 {# 左ペイン（dashboard.md §15-6。2026-09-18 の利用者の決定）: 見る ／ トレーダー ／ API 検証 ／ ローカル面だけ。停止ボタンは右の上 #}
 <div class="shell">

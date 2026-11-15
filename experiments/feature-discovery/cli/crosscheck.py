@@ -64,7 +64,7 @@ def main() -> None:
                     help="UTC の日（YYYY-MM-DD）。⚠ 配信側は 3 日前から取るので、4 日以内の日が確実"
                          "（API は 7〜14 日で消える）")
     ap.add_argument("--out", default=None,
-                    help="⚠ 省けば DB の outputs に入れる（2026-09-21 から。道 crosscheck_<日>.json）。置き場を書けばファイルの写しも作る")
+                    help="⚠ 省けば DB の outputs に入れる（2026-09-21 から。パス crosscheck_<日>.json）。保存先を書けばファイルのコピーも作る")
     args = ap.parse_args()
 
     doc = compare(args.day)
@@ -83,7 +83,7 @@ def main() -> None:
         path = os.path.join(args.out, f"crosscheck_{args.day}.json")
         with open(path, "w", encoding="utf-8") as f:
             f.write(text)
-        print(f"   写し {path}")
+        print(f"   コピー {path}")
 
 
 if __name__ == "__main__":

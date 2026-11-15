@@ -229,7 +229,7 @@ def _parser() -> argparse.ArgumentParser:
     p.add_argument("--theta", type=float, action="append", default=None, help="θ（複数可。省くと実行の全部）")
     p.add_argument("--n", type=int, default=200)
     p.add_argument("--seed", type=int, default=0)
-    p.add_argument("--json", default=None, help="結果を JSON に書く道")
+    p.add_argument("--json", default=None, help="結果を JSON に書くパス")
     p.add_argument("--save", action="store_true", help="DB の outputs の diag/<時刻>_perm_split/ にも入れる")
     return p
 

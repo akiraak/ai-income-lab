@@ -56,7 +56,7 @@ def table(path: str = TABLE) -> dict:
 
 
 def _stop(what: str, value: str) -> None:
-    raise SystemExit(f"⚠ 名前の綴りが決まっていない{what}: {value!r}"
+    raise SystemExit(f"⚠ 名前の表記が決まっていない{what}: {value!r}"
                      f"（{os.path.relpath(TABLE, ROOT)} に 1 行足す。rules.md 10-2）")
 
 
@@ -201,7 +201,7 @@ def _options(row: dict) -> list[str]:
 
 def model_name(row: dict) -> str:
     """予測モデル名 ＝ 検証結果一覧の鍵から θ を除いた 12 列。例 `own-seq.t3-quant60.ridge.shared`（`60` ＝ 観測期間 60 日）。"""
-    form = table()["form"].get(row["形式"]) or _stop("学習範囲（台帳の列「形式」）", row["形式"])
+    form = table()["form"].get(row["形式"]) or _stop("学習範囲（検証結果一覧の列「形式」）", row["形式"])
     base = ".".join((layers_slug(row["特徴量の層"]), method_slug(row["鍵"]), learner_slug(row["モデル"]), form))
     return base + "".join("~" + o for o in _options(row))
 

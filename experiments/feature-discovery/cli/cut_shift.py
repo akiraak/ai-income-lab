@@ -106,14 +106,14 @@ def cut_config(text: str, *, src: str, method: str, theta: str, offset: str, nam
     if t.get("style") != "threshold":
         raise SystemExit(f"⚠ {src}: `[trading] style = \"threshold\"` の config だけ（rules.md 33 章）")
     if catalog.threshold_style(doc) != PLAIN:
-        raise SystemExit(f"⚠ {src}: 元の config が変種（{catalog.threshold_style(doc)}）＝ 機械では書かない（rules.md 33-6 の 5）")
+        raise SystemExit(f"⚠ {src}: 元の config が変種（{catalog.threshold_style(doc)}）＝ 自動では書かない（rules.md 33-6 の 5）")
     sel = [str(s) for s in doc.get("selectors") or []]
     det = [str(s) for s in doc.get("detectors") or []]
     mixes = {str(m.get("name")): m for m in t.get("mix") or []}
     kind = "detector" if method in det else "selector" if method in sel else "mix" if method in mixes else None
     if kind is None:
         raise SystemExit(f"⚠ {src} の selectors ／ detectors ／ trading.mix に無い手法: {method!r}"
-                         "（〔…〕の付いた行は機械では書かない ＝ rules.md 33-6 の 5）")
+                         "（〔…〕の付いた行は自動では書かない ＝ rules.md 33-6 の 5）")
     out = ts._strip_header(text)
     out = ts._replace_statement(out, "name", f'name = "{name}"')
     if "features_from" not in doc:
@@ -141,8 +141,8 @@ def cut_config(text: str, *, src: str, method: str, theta: str, offset: str, nam
     out = ts._remove_table(out, "[[trading.trader]]")
     out = _add_cut_offset(out, offset)
     header = (
-        f"# ⚠ **評価期間の切れ目をずらして上位の行を測り直す**（rules.md 33 章・33-6 ＝ 選ぶ段の併記・登録簿 `{IDEA}`）。\n"
-        f"#    `cli.cut_shift` が機械で書いた（元 `{src}.toml`・手法 {method}・θ {th}・ずらし {offset}）。\n"
+        f"# ⚠ **評価期間の分割点をずらして上位の行を測り直す**（rules.md 33 章・33-6 ＝ 選ぶステージの併記・レジストリ `{IDEA}`）。\n"
+        f"#    `cli.cut_shift` が自動で書いた（元 `{src}.toml`・手法 {method}・θ {th}・ずらし {offset}）。\n"
         f"# ⚠ **`{src}.toml` との違い**: `[validation] cut_offset = \"{offset}\"`・θ を行の 1 水準に・手法を当てる行に絞った"
         f"（合成はその合成とこの実行の中のメンバーだけ）・\n"
         f"#    表は `features_from` で借りる（作り直さない ＝ 13-8）・`[[trading.trader]]` ／ 上位 K ／ 出口の線の項目は外した。"
@@ -162,7 +162,7 @@ def main(argv: list[str] | None = None) -> None:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--from", dest="trial", required=True, metavar="検証名", help="検証結果一覧の行（θ つき）")
     ap.add_argument("--print", action="store_true", help="書かずに標準出力へ")
-    ap.add_argument("--force", action="store_true", help="同じ道にあっても書き換える")
+    ap.add_argument("--force", action="store_true", help="同じパスにあっても書き換える")
     ap.add_argument("--db", default=None)
     args = ap.parse_args(argv)
     conn = rundb.connect(args.db or runs.db_path(), readonly=True)

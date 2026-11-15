@@ -143,12 +143,12 @@ def test_sim_clock_cannot_write_outside_its_tree(base):
     from datetime import datetime, timezone
     simclock.init_control(modes.control_file("sim1"), datetime(2026, 10, 1, 19, 46, tzinfo=timezone.utc))
     r = run_day(base, SIM_ARGS, MOCK)                                                          # LT_OUT_DIR ＝ base/out（本物の側）
-    assert r.returncode == 2 and "置き場" in r.stderr and not isdir(base / "out")
+    assert r.returncode == 2 and "保存先" in r.stderr and not isdir(base / "out")
 
 
 def test_real_clock_cannot_write_into_sim_tree(base):
     r = run_day(base, ["--traders", "test_a", "--mode", "plan"], {**CERT, "LT_OUT_DIR": str(base / "sim" / "sim1" / "out")})
-    assert r.returncode == 2 and "シミュレーションの置き場" in r.stderr
+    assert r.returncode == 2 and "シミュレーションの保存先" in r.stderr
 
 
 # ---------- run.lock ／ LT_MODE_DIR の歯止め

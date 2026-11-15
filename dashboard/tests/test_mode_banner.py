@@ -194,7 +194,7 @@ def test_stop_button_in_sim_mode_writes_only_the_sim_halt(world):
         assert real_halt.exists() and not sim_halt.exists()
 
 
-# ---------- 「本番の機械ではない」印（live-trading.md §0-14。表示だけ）
+# ---------- 「本番のマシンではない」印（live-trading.md §0-14。表示だけ）
 
 def test_not_production_mark_shows_a_band_on_every_page(world):
     import socket
@@ -208,7 +208,7 @@ def test_not_production_mark_shows_a_band_on_every_page(world):
     with client_of(s) as c:
         for path in pages:
             r = c.get(path)
-            assert r.status_code == 200 and 'class="simbar simbar-np"' in r.text and "本番の機械ではない" in r.text, path
+            assert r.status_code == 200 and 'class="simbar simbar-np"' in r.text and "本番のマシンではない" in r.text, path
             assert "[SIM]" not in r.text and "印ではない" not in r.text, path          # 実売買モードのまま・このマシンの印
             assert_clean(r.text, path)
         for api in ("/api/state", "/api/live", "/api/records"):

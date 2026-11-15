@@ -7,7 +7,7 @@
 
 保存先は既定でこのディレクトリ。`LT_MODE_DIR` はテスト用の差し替え（⚠ モック以外への submit では使えない ＝ `run_day.py` が拒否する）。
 
-⚠ **「本番の機械ではない」印 `NOT_PRODUCTION`**（2026-09-24。3 台の役割分け Phase 3 ＝ docs/plans/production-switch-mark.md）:
+⚠ **「本番のマシンではない」印 `NOT_PRODUCTION`**（2026-09-24。3 台の役割分け Phase 3 ＝ docs/plans/production-switch-mark.md）:
   `MODE` と同じ型の JSON `{"machine": <置いた機械の hostname>, "since", "by", "reason"}`。あると `run_day.py`・`sample.py` は
   **本番の発注（`--env prod --mode submit`）だけ**を、許可の 3 段より前で拒む（plan・dry-run・cert は通る）。
   `machine` が今の hostname と違っても・壊れていても**拒む**（読めない印を「無い」と読まない）。置く・外すは `notprod.py`（利用者）。
@@ -63,7 +63,7 @@ def not_production_file() -> str:
 
 @dataclass(frozen=True)
 class NotProduction:
-    """「本番の機械ではない」印の中身。`error` があるときは読めなかった印（⚠ それでも「ある」として扱う）。"""
+    """「本番のマシンではない」印の中身。`error` があるときは読めなかった印（⚠ それでも「ある」として扱う）。"""
     machine: str | None = None
     since: str | None = None
     by: str | None = None
@@ -77,8 +77,8 @@ class NotProduction:
     def describe(self) -> str:
         if self.error:
             return f"印が読めない（{self.error}）"
-        host = "" if self.matches_host else f" ⚠ この機械（{hostname()}）の印ではない ＝ 写した・ホスト名を変えた？"
-        return f"機械 {self.machine}・{self.since} から・{self.by}{f'・{self.reason}' if self.reason else ''}{host}"
+        host = "" if self.matches_host else f" ⚠ このマシン（{hostname()}）の印ではない ＝ 写した・ホスト名を変えた？"
+        return f"マシン {self.machine}・{self.since} から・{self.by}{f'・{self.reason}' if self.reason else ''}{host}"
 
     def as_dict(self) -> dict:
         return {"machine": self.machine, "since": self.since, "by": self.by, "reason": self.reason, "error": self.error,
@@ -277,7 +277,7 @@ def switch(to: str, name: str | None = None, by: str = "cli", real_trading_will_
             held = open_real_positions()
             if held and not real_trading_will_stop:
                 raise ModeError("切り替えを拒否: 本物の建玉が残っている（" + ", ".join(held) + "）。"
-                                "⚠ シミュレーション中は実売買の執行器が動かない ＝ 手仕舞いも出ない。承知のうえなら --real-trading-will-stop")
+                                "⚠ シミュレーション中は実売買の執行エンジンが動かない ＝ 手仕舞いも出ない。承知のうえなら --real-trading-will-stop")
         now = datetime.now(timezone.utc).isoformat(timespec="seconds")
         after = Mode(mode=to, name=name if to == "sim" else None, since=now, by=by)
         os.makedirs(base_dir(), exist_ok=True)

@@ -9,7 +9,7 @@
 ⚠ **毎日の執行エンジン（run_day.py）とは別の 1 本**で、部品（発注・控え・売買履歴・記録・許可・印・ロック）はそのまま使う ＝ 毎日の経路は変えない。
 ⚠ 売るのは **その人の売買履歴にある持ち株だけ**。口座にあって売買履歴に無い株は売らない（差を推測で誰かに割り振らない ＝ live-trading.md §0-8）。
 ⚠ 許可は毎日の執行エンジンと同じ 3 段（既定 dry-run ／ 本番の dry-run は --allow-prod-dry-run ／ 本番の発注は TT_ALLOW_PROD_ORDERS=1 ＋ --i-know-this-is-real-money）。
-   「本番の機械ではない」印・シミュレーションモードでは拒む。run.lock を取る（毎日の執行エンジンと同時に動かない）。
+   「本番のマシンではない」印・シミュレーションモードでは拒む。run.lock を取る（毎日の執行エンジンと同時に動かない）。
 ⚠ HALT がある間は拒む。--while-halted を付けたときだけ通す（止めてから手じまいする、が普通の順）。
 ⚠ 動くのは市場が開いている間（NYSE の営業日の 9:30〜引け）。15:45〜16:05 の時間帯には限らない。--ignore-market-hours はテスト・モック用。
 ⚠ 記録は毎日の執行エンジンと同じ out/<日付>/（orders.jsonl の行に liquidate: true）。状態を書くのは --mode submit のときだけ。
@@ -120,10 +120,10 @@ def main() -> int:
     state_dir = args.state_dir or os.environ.get("LT_STATE_DIR") or os.path.join(HERE, "state", env)
     in_sim_tree = [p for p in (args.out_dir, state_dir, halt_file) if modes.inside(p, modes.sim_base())]
     if in_sim_tree:
-        print(f"拒否: シミュレーションの置き場を指している: {in_sim_tree}", file=sys.stderr)
+        print(f"拒否: シミュレーションの保存先を指している: {in_sim_tree}", file=sys.stderr)
         return 2
     if modes.overridden() and any(modes.inside(p, os.path.join(HERE, d)) for p, d in ((args.out_dir, "out"), (state_dir, "state"))):
-        print("拒否: LT_MODE_DIR（テスト用の MODE の置き場）を使うときは、LT_OUT_DIR ／ LT_STATE_DIR も本物の out/・state/ の外へ向ける", file=sys.stderr)
+        print("拒否: LT_MODE_DIR（テスト用の MODE の保存先）を使うときは、LT_OUT_DIR ／ LT_STATE_DIR も本物の out/・state/ の外へ向ける", file=sys.stderr)
         return 2
     print(modes.banner(machine))
     date = args.date or day.now_et().strftime("%Y-%m-%d")
@@ -141,8 +141,8 @@ def main() -> int:
     if env == "prod" and args.mode == "submit":
         mark = modes.read_not_production()
         if mark is not None:
-            rec.write("events", {**meta, "kind": "refused_not_production", **mark.as_dict(), "note": "「本番の機械ではない」印があるので本番の発注はしない（本番は 13500t）"})
-            print(f"拒否: この機械は本番の機械ではない（{modes.not_production_file()}: {mark.describe()}）", file=sys.stderr)
+            rec.write("events", {**meta, "kind": "refused_not_production", **mark.as_dict(), "note": "「本番のマシンではない」印があるので本番の発注はしない（本番は 13500t）"})
+            print(f"拒否: このマシンは本番のマシンではない（{modes.not_production_file()}: {mark.describe()}）", file=sys.stderr)
             return 7
         if not allow_prod_orders:
             print("拒否: 本番の発注には TT_ALLOW_PROD_ORDERS=1 と --i-know-this-is-real-money の両方が要る（取消・dry-run の鍵では開かない）", file=sys.stderr)
@@ -152,16 +152,16 @@ def main() -> int:
         return 2
     if machine.is_sim:
         rec.write("events", {**meta, "kind": "refused_mode_sim", "sim_name": machine.name, "since": machine.since,
-                             "note": "機械がシミュレーションモードなので手じまいは動かない（戻すのは simctl.py mode real）"})
-        print(f"拒否: 機械がシミュレーションモード（{machine.name}・{machine.since} から）", file=sys.stderr)
+                             "note": "マシンがシミュレーションモードなので手じまいは動かない（戻すのは simctl.py mode real）"})
+        print(f"拒否: マシンがシミュレーションモード（{machine.name}・{machine.since} から）", file=sys.stderr)
         return 5
     if modes.overridden() and not day.is_loopback(cfg.get("TT_PROD_REST_BASE" if env == "prod" else "TT_REST_BASE")) and args.mode == "submit":
-        print("拒否: LT_MODE_DIR（テスト用の MODE ／ run.lock の置き場）は、モック以外への submit では使えない", file=sys.stderr)
+        print("拒否: LT_MODE_DIR（テスト用の MODE ／ run.lock の保存先）は、モック以外への submit では使えない", file=sys.stderr)
         return 2
     lock = modes.RunLock()
     if not lock.acquire(machine.mode, f"liquidate {env} {args.mode}"):
         rec.write("events", {**meta, "kind": "refused_lock_busy", "holder": lock.holder()})
-        print(f"拒否: 別の執行器 ／ 運転手が動いている（run.lock の持ち主 {lock.holder()}）", file=sys.stderr)
+        print(f"拒否: 別の執行エンジン ／ ランナーが動いている（run.lock の持ち主 {lock.holder()}）", file=sys.stderr)
         return 6
     atexit.register(lock.release)
     print(f"=== 手じまい {date} {env} mode={args.mode} traders={[t.name for t in traders]} 記録: {rec.dir} ===")

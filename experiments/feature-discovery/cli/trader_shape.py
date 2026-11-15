@@ -38,7 +38,7 @@ def resolve_trial(conn: sqlite3.Connection, trial_name: str) -> dict:
     """検証結果一覧の行 → {experiment, method, theta, run}。⚠ 元の実験 ＝ 実行一覧のうち `[[trading.trader]]` の無い最初の実行の config。"""
     row = conn.execute("SELECT doc FROM ledger_rows WHERE leak = 0 AND is_trial = 1 AND trial_name = ?", (trial_name,)).fetchone()
     if row is None:
-        raise SystemExit(f"⚠ 検証結果一覧に {trial_name!r} が無い（leak = 0・数える行だけ。綴りは ledger.md の行の名前）")
+        raise SystemExit(f"⚠ 検証結果一覧に {trial_name!r} が無い（leak = 0・数える行だけ。表記は ledger.md の行の名前）")
     import json
     doc = json.loads(row[0])
     th = str(doc.get("閾値") or "")
@@ -156,7 +156,7 @@ def shape_config(text: str, *, src: str, methods: list[str], theta: str, budget:
         raise SystemExit(f"⚠ {src}: `[trading] style = \"threshold\"` の config だけ（rules.md 20 章）")
     tag_a = f"5本・${budget}"
     if tag_a not in names.table().get("trader", {}):
-        raise SystemExit(f"⚠ 条件 {tag_a!r} の綴りが config/names.toml の [trader] に無い（先に綴りを登録する ＝ rules.md 20-4 の 4）")
+        raise SystemExit(f"⚠ 条件 {tag_a!r} の表記が config/names.toml の [trader] に無い（先に表記を登録する ＝ rules.md 20-4 の 4）")
     sel = [str(s) for s in doc.get("selectors") or []]
     det = [str(s) for s in doc.get("detectors") or []]
     mix = [str(m.get("name")) for m in (doc.get("trading") or {}).get("mix") or []]
@@ -189,11 +189,11 @@ def shape_config(text: str, *, src: str, methods: list[str], theta: str, budget:
     n = len(methods)
     header = (
         f"# ⚠ **検証結果一覧の行をトレーダーと同じ形で机上にかける**（rules.md 20 章・howto-model-trader.md §3-2）。\n"
-        f"#    `cli.trader_shape` が機械で書いた（元 `{src}.toml`・手法 {' ／ '.join(methods)}・θ {th}）。\n"
+        f"#    `cli.trader_shape` が自動で書いた（元 `{src}.toml`・手法 {' ／ '.join(methods)}・θ {th}）。\n"
         f"# ⚠ **`{src}.toml` との違い**: 手法を候補の {n} 本に絞った・θ を行の 1 水準にした・表は `features_from` で借りる（作り直さない ＝ 13-8）・\n"
         f"#    `[[trading.trader]]` を 2 つ足した（2a {tag_a} ／ 2b {TAG_ALL}）。表・モデル・k・fold・種・コストは同じ\n"
         f"#    （素の行は既存と同じ識別項目にまとまる ＝ 再現の検算）。\n"
-        f"# ⚠ **回すと決めるのは結果を見る前**（事前固定 ＝ 20 章の節 ／ 登録簿を先に書く）。⚠ {n} 本 × 条件 2 ＝ {2 * n} 検証として数える（leak 対照は queue が足す）。\n"
+        f"# ⚠ **回すと決めるのは結果を見る前**（事前固定 ＝ 20 章の節 ／ レジストリを先に書く）。⚠ {n} 本 × 条件 2 ＝ {2 * n} 検証として数える（leak 対照は queue が足す）。\n"
         f"#\n"
         f"# ⚠ **TOML の平の key はテーブル見出しより上に書く**（rules.md 10 章 規約 1）\n")
     text_out = header + out
@@ -213,9 +213,9 @@ def main(argv: list[str] | None = None) -> None:
     ap.add_argument("--theta", default=None, help="θ（--experiment と一緒に）")
     ap.add_argument("--budget", type=int, default=DEFAULT_BUDGET, help=f"2a の予算（既定 {DEFAULT_BUDGET} ＝ rules.md 25-2 の 7）")
     ap.add_argument("--name", default=None, help="config の name（既定 trader_<元の実験名>）")
-    ap.add_argument("--out", default=None, help="書く道（既定 config/experiment/<name>.toml）")
+    ap.add_argument("--out", default=None, help="書くパス（既定 config/experiment/<name>.toml）")
     ap.add_argument("--print", action="store_true", help="書かずに標準出力へ")
-    ap.add_argument("--force", action="store_true", help="同じ道にあっても書き換える")
+    ap.add_argument("--force", action="store_true", help="同じパスにあっても書き換える")
     ap.add_argument("--db", default=None)
     args = ap.parse_args(argv)
 

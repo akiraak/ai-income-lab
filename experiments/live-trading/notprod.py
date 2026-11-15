@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""「本番の機械ではない」印 `NOT_PRODUCTION` の操作（⚠ CLI だけ。置くのも外すのも利用者 ＝ 3 台の役割分け Phase 4・5）。
+"""「本番のマシンではない」印 `NOT_PRODUCTION` の操作（⚠ CLI だけ。置くのも外すのも利用者 ＝ 3 台の役割分け Phase 4・5）。
 
     python notprod.py status                          # 印があるか・中身・このマシンの hostname と合うか
     python notprod.py set --reason "本番は 13500t"    # 印を置く（このマシンの hostname を書く）。以後このマシンでは本番の発注を拒む
@@ -23,16 +23,16 @@ import mode as modes  # noqa: E402
 
 
 def show(mark: modes.NotProduction | None) -> int:
-    print(f"機械: {modes.hostname()}   印: {modes.not_production_file()}")
+    print(f"マシン: {modes.hostname()}   印: {modes.not_production_file()}")
     if mark is None:
-        print("印なし ＝ この機械は本番の発注ができる（許可の 3 段はそのまま要る）")
+        print("印なし ＝ このマシンは本番の発注ができる（許可の 3 段はそのまま要る）")
         return 0
     print(f"印あり ＝ 本番の発注（--env prod --mode submit）を拒む: {mark.describe()}")
     return 0 if mark.matches_host else 1
 
 
 def main() -> int:
-    ap = argparse.ArgumentParser(description="「本番の機械ではない」印（CLI だけ）")
+    ap = argparse.ArgumentParser(description="「本番のマシンではない」印（CLI だけ）")
     sub = ap.add_subparsers(dest="cmd", required=True)
     sub.add_parser("status")
     st = sub.add_parser("set")
@@ -47,13 +47,13 @@ def main() -> int:
             return show(before)
         mark = modes.set_not_production(by=by, reason=args.reason)
         print(f"印を置いた: {mark.describe()}")
-        print("⚠ この機械では本番の発注（--env prod --mode submit）を拒む。外すのは notprod.py clear")
+        print("⚠ このマシンでは本番の発注（--env prod --mode submit）を拒む。外すのは notprod.py clear")
         return 0
     if args.cmd == "clear":
         before = modes.clear_not_production(by=by)
         print("印は無かった（何もしない）" if before is None else f"印を外した: {before.describe()}")
         if before is not None:
-            print("⚠ この機械で本番の発注ができるようになった（許可の 3 段を出せば）。⚠ 13500t の cron が同時に発注していないことを確かめる")
+            print("⚠ このマシンで本番の発注ができるようになった（許可の 3 段を出せば）。⚠ 13500t の cron が同時に発注していないことを確かめる")
         return 0
     return show(modes.read_not_production())
 

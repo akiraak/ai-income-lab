@@ -13,7 +13,7 @@
 ⚠ `--mode submit` 以外では状態を書き換えない。
 ⚠ **実売買とシミュレーションは排他**（live-trading.md §0-7 (a)）: 起動時に `MODE` を見て `run.lock` を取る。`MODE` が無ければ real ＝ 今までどおり。
    `--sim-clock`（仮の時計）は MODE が sim ＆ 接続先がループバックのモック ＆ prod でない ＆ 本番の鍵が無いときだけ受け付ける。
-⚠ **「本番の機械ではない」印 `NOT_PRODUCTION`**（live-trading.md §0-14。2026-09-24）: あると **本番の発注（--env prod --mode submit）だけ** を
+⚠ **「本番のマシンではない」印 `NOT_PRODUCTION`**（live-trading.md §0-14。2026-09-24）: あると **本番の発注（--env prod --mode submit）だけ** を
    許可の 3 段より前で拒む（rc=7・`refused_not_production`）。plan・dry-run・cert は通る。印の `machine` が hostname と違っても壊れていても拒む。
 """
 
@@ -172,7 +172,7 @@ def make_client(cfg: dict, env: str, allow_prod_dry_run: bool, allow_prod_orders
 
 
 def main() -> int:
-    ap = argparse.ArgumentParser(description="実売買の執行器: 1 営業日を 1 回通す")
+    ap = argparse.ArgumentParser(description="実売買の執行エンジン: 1 営業日を 1 回通す")
     ap.add_argument("--traders", required=True, help="カンマ区切り（config/traders/<名前>.toml）か @roster（記録ディレクトリの roster.json ＝ 管理画面の名簿）")
     ap.add_argument("--date", default=None, help="YYYY-MM-DD（既定は今日 ET）")
     ap.add_argument("--env", default=None, choices=["cert", "prod"], help="既定は .env の TT_ENV、無ければ cert")
@@ -195,7 +195,7 @@ def main() -> int:
     ap.add_argument("--max-day-usd", type=float, default=float(os.environ.get("LT_MAX_DAY_USD") or DEFAULT_MAX_DAY_USD))
     ap.add_argument("--max-total-budget", type=float, default=float(os.environ.get("LT_MAX_TOTAL_BUDGET_USD") or DEFAULT_MAX_TOTAL_BUDGET))
     ap.add_argument("--sim-clock", action="store_true", default=os.environ.get("LT_SIM_CLOCK") == "1",
-                    help="仮の時計で動かす（シミュレーション。時計と記録の置き場は MODE の名前から決まる。⚠ モック以外では起動を拒否）")
+                    help="仮の時計で動かす（シミュレーション。時計と記録の保存先は MODE の名前から決まる。⚠ モック以外では起動を拒否）")
     args = ap.parse_args()
 
     cfg = load_env(os.environ.get("TT_ENV_FILE") or os.path.join(SAMPLE_DIR, ".env"))
@@ -225,7 +225,7 @@ def main() -> int:
         halt_file = os.environ.get("TT_HALT_FILE") or os.path.join(root, "HALT")
         outside = [p for p in (args.out_dir, args.traders_dir, state_dir, halt_file, args.predict) if p and not modes.inside(p, root)]
         if outside:
-            print(f"拒否: シミュレーションの置き場（{root}）の外を指している: {outside}", file=sys.stderr)
+            print(f"拒否: シミュレーションの保存先（{root}）の外を指している: {outside}", file=sys.stderr)
             return 2
     else:
         sample_out = os.environ.get("TT_OUT_DIR") or os.path.join(SAMPLE_DIR, "out")
@@ -233,11 +233,11 @@ def main() -> int:
         state_dir = args.state_dir or os.environ.get("LT_STATE_DIR") or os.path.join(HERE, "state", env)
         in_sim_tree = [p for p in (args.out_dir, state_dir, halt_file) if modes.inside(p, modes.sim_base())]
         if in_sim_tree:
-            print(f"拒否: 本物の時計の実行がシミュレーションの置き場を指している: {in_sim_tree}", file=sys.stderr)
+            print(f"拒否: 本物の時計の実行がシミュレーションの保存先を指している: {in_sim_tree}", file=sys.stderr)
             return 2
         if modes.overridden() and any(modes.inside(p, os.path.join(HERE, d)) for p, d in ((args.out_dir, "out"), (state_dir, "state"))):
             # テスト用の MODE で動いた結果（拒否の記録も含む）を、本物の記録に混ぜない
-            print("拒否: LT_MODE_DIR（テスト用の MODE の置き場）を使うときは、LT_OUT_DIR ／ LT_STATE_DIR も本物の out/・state/ の外へ向ける", file=sys.stderr)
+            print("拒否: LT_MODE_DIR（テスト用の MODE の保存先）を使うときは、LT_OUT_DIR ／ LT_STATE_DIR も本物の out/・state/ の外へ向ける", file=sys.stderr)
             return 2
     print(modes.banner(machine, CLOCK.describe() if sim else ""))
     date = args.date or now_et().strftime("%Y-%m-%d")
@@ -293,13 +293,13 @@ def main() -> int:
     if sim:
         meta["sim_name"], meta["sim_speed"] = machine.name, CLOCK.control()["speed"]
     if env == "prod" and args.mode == "submit":
-        # ⚠ 「本番の機械ではない」印（§0-14）。許可の 3 段より前 ＝ 許可があっても・無くても、印のあるマシンは本番に発注しない。
+        # ⚠ 「本番のマシンではない」印（§0-14）。許可の 3 段より前 ＝ 許可があっても・無くても、印のあるマシンは本番に発注しない。
         #    壊れた印・他のマシンの印でも拒む（読めない印を「無い」と読まない）。本物の記録に残す ＝ 起動しなかった理由が後から分かる
         mark = modes.read_not_production()
         if mark is not None:
             rec.write("events", {**meta, "kind": "refused_not_production", **mark.as_dict(),
-                                 "note": "「本番の機械ではない」印があるので本番の発注はしない（外すのは notprod.py clear。本番は 13500t）"})
-            print(f"拒否: この機械は本番の機械ではない（{modes.not_production_file()}: {mark.describe()}）。本番の発注は 13500t の cron が出す。"
+                                 "note": "「本番のマシンではない」印があるので本番の発注はしない（外すのは notprod.py clear。本番は 13500t）"})
+            print(f"拒否: このマシンは本番のマシンではない（{modes.not_production_file()}: {mark.describe()}）。本番の発注は 13500t の cron が出す。"
                   "外すのは notprod.py clear（⚠ 2 台で同時に発注しないことを確かめてから）", file=sys.stderr)
             return 7
     if env == "prod" and args.mode == "submit" and not allow_prod_orders:
@@ -312,11 +312,11 @@ def main() -> int:
     if machine.is_sim and not sim:
         # ⚠ 本番の鍵と確認の引数があっても起動しない。本物の記録に残す ＝「起動しなかった日」の理由が後から分かる
         rec.write("events", {**meta, "kind": "refused_mode_sim", "sim_name": machine.name, "since": machine.since,
-                             "note": "機械がシミュレーションモードなので本物の執行器は起動しない（戻すのは simctl.py mode real）"})
-        print(f"拒否: 機械がシミュレーションモード（{machine.name}・{machine.since} から）。本物の執行器は起動しない。戻すのは simctl.py mode real", file=sys.stderr)
+                             "note": "マシンがシミュレーションモードなので本物の執行エンジンは起動しない（戻すのは simctl.py mode real）"})
+        print(f"拒否: マシンがシミュレーションモード（{machine.name}・{machine.since} から）。本物の執行エンジンは起動しない。戻すのは simctl.py mode real", file=sys.stderr)
         return 5
     if modes.overridden() and not is_loopback(cfg.get("TT_PROD_REST_BASE" if env == "prod" else "TT_REST_BASE")) and args.mode == "submit":
-        print("拒否: LT_MODE_DIR（テスト用の MODE ／ run.lock の置き場）は、モック以外への submit では使えない", file=sys.stderr)
+        print("拒否: LT_MODE_DIR（テスト用の MODE ／ run.lock の保存先）は、モック以外への submit では使えない", file=sys.stderr)
         return 2
     lock = modes.RunLock()
     if lock.acquire(machine.mode, f"run_day {env} {args.mode}"):
@@ -324,7 +324,7 @@ def main() -> int:
     elif not (sim and lock.held_by_parent_sim()):
         # ランナー（simrun）が鍵を持ったまま起こした執行エンジンだけは通す。それ以外の二重起動は拒否
         rec.write("events", {**meta, "kind": "refused_lock_busy", "holder": lock.holder()})
-        print(f"拒否: 別の執行器 ／ 運転手が動いている（run.lock の持ち主 {lock.holder()}）", file=sys.stderr)
+        print(f"拒否: 別の執行エンジン ／ ランナーが動いている（run.lock の持ち主 {lock.holder()}）", file=sys.stderr)
         return 6
     print(f"=== {date} {env} mode={args.mode} traders={[t.name for t in traders]} 記録: {rec.dir} ===")
 
@@ -529,7 +529,7 @@ def main() -> int:
                 continue
             if not states[t.name].holdings:
                 try:
-                    control.mark_done(control_dir, t.name, date, sum(1 for f in fills_by_trader if f["trader"] == t.name), note="執行器が全部売った")
+                    control.mark_done(control_dir, t.name, date, sum(1 for f in fills_by_trader if f["trader"] == t.name), note="執行エンジンが全部売った")
                     rec.write("events", {"kind": "liquidate_complete", "trader": t.name, "note": "持ち株を全部売った。手じまい中 → 停止（開始の指示があるまで買わない）"})
                 except control.ControlError as exc:
                     rec.write("events", {"kind": "liquidate_mark_failed", "trader": t.name, "note": str(exc)[:200]})
@@ -549,8 +549,8 @@ def main() -> int:
         dd = row.get("drawdown_pct_of_budget")
         if dd is not None and dd >= DRAWDOWN_WARN_PCT:
             rec.write("events", {"kind": "drawdown_warning", "trader": t.name, "drawdown_pct_of_budget": dd, "threshold_pct": DRAWDOWN_WARN_PCT,
-                                 "note": "含み損が予算の 20% 以上。執行器は止めない（投げ売りもしない）。止めるなら停止ボタン（HALT）"})
-            print(f"⚠ 含み損の警告: {t.name} が予算の {dd}%（線 {DRAWDOWN_WARN_PCT}%）。執行器は止めない ＝ 止めるなら停止ボタン（HALT）", file=sys.stderr)
+                                 "note": "含み損が予算の 20% 以上。執行エンジンは止めない（投げ売りもしない）。止めるなら停止ボタン（HALT）"})
+            print(f"⚠ 含み損の警告: {t.name} が予算の {dd}%（線 {DRAWDOWN_WARN_PCT}%）。執行エンジンは止めない ＝ 止めるなら停止ボタン（HALT）", file=sys.stderr)
 
     bad = [r for r in results if r.final_status in ("error", "guarded", "halted", "not_submitted", UNKNOWN)]
     rec.write("events", {"kind": "end", "now_et": now_et().isoformat(timespec="seconds"), "orders": len(results), "bad": len(bad), "fills": len(fills_by_trader),

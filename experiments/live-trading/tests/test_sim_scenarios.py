@@ -196,4 +196,4 @@ def test_unknown_scenario_is_refused(tmp_path):
     child = {k: v for k, v in os.environ.items() if not k.startswith(("TT_", "LT_"))}
     child.update(LT_MODE_DIR=str(base), LT_SIM_CONFIG_DIR=str(conf))
     r = subprocess.run([sys.executable, os.path.join(HERE, "simrun.py"), "simf"], capture_output=True, text=True, env=child, timeout=60)
-    assert r.returncode == 2 and "筋書きが読めない" in r.stderr
+    assert r.returncode == 2 and "シナリオが読めない" in r.stderr

@@ -261,7 +261,7 @@ def budget_args(cfg) -> list[str]:
 
 
 def main() -> int:
-    ap = argparse.ArgumentParser(description="シミュレーションの運転手（仮データと仮の時計で執行器を通しで動かす）")
+    ap = argparse.ArgumentParser(description="シミュレーションのランナー（仮データと仮の時計で執行エンジンを通しで動かす）")
     ap.add_argument("name", help="シミュレーションの名前（config/sim/<名前>.toml ／ 記録は sim/<名前>/）")
     ap.add_argument("--fresh", action="store_true", help="記録の木を消して最初から（⚠ 消すのは sim/<名前>/ だけ）")
     ap.add_argument("--speed", default=None, help="速さの初期値（1 ／ 10 ／ 60 ／ 300 ／ 1440 ／ max。既定は設定の値。続きからのときは今の速さ）")
@@ -278,22 +278,22 @@ def main() -> int:
         return 5
     print(modes.banner(machine))
     if not machine.is_sim or machine.name != args.name:
-        print(f"拒否: 機械のモードが {machine.mode}{f'（{machine.name}）' if machine.name else ''}。シミュレーション {args.name} を回すには、"
+        print(f"拒否: マシンのモードが {machine.mode}{f'（{machine.name}）' if machine.name else ''}。シミュレーション {args.name} を回すには、"
               f"何も動いていないときに simctl.py mode sim {args.name}", file=sys.stderr)
         return 5
     lock = modes.RunLock()
     if not lock.acquire("sim", f"simrun {args.name}"):
-        print(f"拒否: 別の執行器 ／ 運転手が動いている（run.lock の持ち主 {lock.holder()}）", file=sys.stderr)
+        print(f"拒否: 別の執行エンジン ／ ランナーが動いている（run.lock の持ち主 {lock.holder()}）", file=sys.stderr)
         return 6
     try:
         creds = credentials_present()
         if creds:
-            print(f"⚠ 警告: シミュレーションモードなのに資格情報の .env が見つかった（{', '.join(creds)}）。運転手は読まないが、"
-                  "シミュレーション専用の機械（Sx360）には置かない決まり（live-trading.md §0-7 (f)）", file=sys.stderr)
+            print(f"⚠ 警告: シミュレーションモードなのに資格情報の .env が見つかった（{', '.join(creds)}）。ランナーは読まないが、"
+                  "シミュレーション専用のマシン（Sx360）には置かない決まり（live-trading.md §0-7 (f)）", file=sys.stderr)
         cfg = simdata.load_config(args.name)
         unknown = [e for e in cfg.events if e.get("kind") not in MOCK_FAULTS + DRIVER_EVENTS or not int(e.get("day", 0)) >= 1]
         if unknown:
-            print(f"拒否: 筋書きが読めない（kind は {MOCK_FAULTS + DRIVER_EVENTS}・day は 1 以上）: {unknown}", file=sys.stderr)
+            print(f"拒否: シナリオが読めない（kind は {MOCK_FAULTS + DRIVER_EVENTS}・day は 1 以上）: {unknown}", file=sys.stderr)
             return 2
         root = modes.sim_root(args.name)
         if args.fresh and os.path.isdir(root):

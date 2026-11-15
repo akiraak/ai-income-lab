@@ -513,7 +513,7 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--out-dir", default=os.environ.get("LT_OUT_DIR") or os.path.join(HERE, "out"))
     ap.add_argument("--daily", default=None, help="E の出どころ（既定は <out-dir>/daily.csv。無ければ E は空欄）")
-    ap.add_argument("--state-dir", default=None, help="reconcile.log の置き場の親（既定は記録の隣の state/）")
+    ap.add_argument("--state-dir", default=None, help="reconcile.log の保存先の親（既定は記録の隣の state/）")
     ap.add_argument("--csv", default=None, help="既定は <out-dir>/yardstick.csv")
     ap.add_argument("--print", action="store_true", help="書かずに、人ごとのいまの期間のまとめを出す")
     args = ap.parse_args()

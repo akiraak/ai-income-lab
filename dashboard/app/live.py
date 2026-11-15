@@ -372,7 +372,7 @@ PROBLEM_LABEL = {
     "position_short": "口座が売買履歴より少ない", "order_unknown": "約定が分からない注文", "ledger_error": "売買履歴の失敗",
     "liquidate_mark_failed": "手じまいの印の失敗", "drawdown_warning": "含み損 20% の警告", "blocked_symbol": "売買しない銘柄",
     "over_total_budget": "予算の合計が上限を超えた", "refused_mode_sim": "シミュレーションモードで拒否",
-    "refused_lock_busy": "二重起動で拒否", "refused_not_production": "本番の機械ではない印で拒否",
+    "refused_lock_busy": "二重起動で拒否", "refused_not_production": "本番のマシンではない印で拒否",
     "close_kept": "終値の書き換えを拒んだ（配当の調整）", "close_out_of_range": "終値が安値〜高値の外",
     "prepare_failed": "朝の準備が rc ≠ 0", "prepare_missing": "朝の準備の記録なし",
 }
@@ -681,7 +681,7 @@ def board(live_dir: Path, days: int | None = DAYS, today=None, now_et_=None, sup
             day_ = dd.get(d)
             for s in t["symbols"]:
                 if day_ is None:
-                    grid[s].append({"a": "nostart", "tip": f"{d} {s}: 起動なし（営業日なのに執行器の記録が無い）"})
+                    grid[s].append({"a": "nostart", "tip": f"{d} {s}: 起動なし（営業日なのに執行エンジンの記録が無い）"})
                     continue
                 sig = next((x for x in day_["signals"] if x.get("trader") == name and x.get("symbol") == s), None)
                 stop_t = f" ／ 損切り {sig['stop']:.0f}" if sig and sig.get("stop") is not None else ""     # 損切り係のある人だけ（2026-10-18）

@@ -7,7 +7,7 @@
 ⚠ **読むだけの後処理**（`yardstick.py`・`launchlog.py` と同じ型）。執行エンジン・売買履歴（`state/`）は触らない ＝ 売買履歴の `fees_usd` は
    dry-run の見積りのまま。実額の正本は `out/fees.jsonl`（取引履歴のコピー。1 取引 1 行）と `out/fees.csv`（注文ごとの 見積り ／ 実額 ／ 差）。
 ⚠ 本番の照会は許可なし（`allow_prod_orders=False`）＝ 発注できない。口座番号は記録しない（応答の文字列も `Masker` を通す）。
-⚠ 「本番の機械ではない」印（`NOT_PRODUCTION`）のあるマシンでは取りに行かない（titan の `live.sqlite` は読むだけのコピー）。
+⚠ 「本番のマシンではない」印（`NOT_PRODUCTION`）のあるマシンでは取りに行かない（titan の `live.sqlite` は読むだけのコピー）。
 ⚠ 保存先は `<out>/fees.jsonl`・`<out>/fees.csv`（`LT_OUT_DIR` があればそこ）。`out/<日付>/` には書かない（監視「今日の起動が無い」を崩さない）。
 
 取引履歴で分かったこと【実測 2026-10-19・本番の読むだけの照会】: 注文 1 本 ＝ 取引 1 行で `order-id` が入る ／ 1 行の手数料は dry-run の
@@ -312,14 +312,14 @@ def make_client(cfg: dict, env: str, masker: record.Masker) -> tuple[Client, str
 
 
 def not_production_mark() -> str | None:
-    """「本番の機械ではない」印があれば理由の 1 行（取りに行かない）。"""
+    """「本番のマシンではない」印があれば理由の 1 行（取りに行かない）。"""
     import mode as modes
     mark = modes.read_not_production()
-    return None if mark is None else f"「本番の機械ではない」印がある（{mark.machine or mark.error}）"
+    return None if mark is None else f"「本番のマシンではない」印がある（{mark.machine or mark.error}）"
 
 
 def main(argv: list[str] | None = None) -> int:
-    ap = argparse.ArgumentParser(description="約定後の実際の手数料（口座の取引履歴）を読む・注文の見積りと突き合わせる")
+    ap = argparse.ArgumentParser(description="約定後の実際の手数料（口座の取引履歴）を読む・注文の見積りと照合する")
     ap.add_argument("cmd", choices=["fetch", "match", "print"])
     ap.add_argument("--out-dir", default=default_out_dir())
     ap.add_argument("--env", default=None, choices=["cert", "prod"], help="既定は prod（取引履歴があるのは本番だけ。`.env` の TT_ENV は読まない）")
@@ -351,7 +351,7 @@ def main(argv: list[str] | None = None) -> int:
         rows = match(out_dir)
         write_csv(os.path.join(out_dir, NAME_CSV), rows)
         s = summarize(rows)
-        print(f"突き合わせ: 注文 {sum(p['orders'] for p in s['people'])} 本（実額あり {sum(p['matched'] for p in s['people'])}）・売買履歴の外 {s['outside']['n']}・精算 {s['adjust']['n']} → {NAME_CSV}")
+        print(f"照合: 注文 {sum(p['orders'] for p in s['people'])} 本（実額あり {sum(p['matched'] for p in s['people'])}）・売買履歴の外 {s['outside']['n']}・精算 {s['adjust']['n']} → {NAME_CSV}")
         return 0
     print_summary(summarize(read_csv(out_dir)))
     return 0

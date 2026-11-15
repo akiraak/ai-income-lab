@@ -170,7 +170,7 @@ def run_queue(name: str, *, dry_run: bool = False, restart: bool = False,
         for i in state["items"]:
             log(f"  [{i['status']:>7}] {i['id']}")
         log(f"  打ち切り: 連続失敗 {cfg['max_failures']} ／ 時間 "
-            f"{cfg['time_budget_s'] or '—'}s ／ 台帳 {'吐き直す' if cfg['ledger'] else '触らない'}")
+            f"{cfg['time_budget_s'] or '—'}s ／ 検証結果一覧 {'再生成する' if cfg['ledger'] else '触らない'}")
         return state
 
     save_state(state)

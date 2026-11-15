@@ -67,7 +67,7 @@ def seed(dataset: str) -> None:
     with open(os.path.join(store.DATA, "seed.json"), "w", encoding="utf-8") as f:
         json.dump(doc, f, ensure_ascii=False, indent=1)
     ends = sorted({str(pd.to_datetime(v, unit="ms").date()) for v in freeze.values()})
-    print(f"種: {len(symbols)} 銘柄 ／ 種の最終日 {' '.join(ends)} → {store.DATA}")
+    print(f"シード: {len(symbols)} 銘柄 ／ シードの最終日 {' '.join(ends)} → {store.DATA}")
 
 
 def _digest() -> str | None:
@@ -98,8 +98,8 @@ def merge(staging: str, dataset: str) -> int:
         m = base[base["time_ms"] <= fz].tail(OVERLAP_BARS).merge(new, on="time_ms", suffixes=("_o", "_n"))
         ratio = float((m["close_n"] / m["close_o"]).median()) if len(m) else float("nan")
         if not (abs(ratio - 1.0) <= OVERLAP_TOL):
-            print(f"  ⚠ {s}: 継ぎ目が合わない（種の最後の {len(m)} 本で 取り直し ÷ 種 ＝ {ratio:.4f}）→ 継がない。"
-                  "種の最終日より後に分割などが無いか見て、種を作り直す")
+            print(f"  ⚠ {s}: 継ぎ目が合わない（シードの最後の {len(m)} 本で 取り直し ÷ シード ＝ {ratio:.4f}）→ 継がない。"
+                  "シードの最終日より後に分割などが無いか見て、シードを作り直す")
             rc = 3
             continue
         tail = new[new["time_ms"] >= fz]
@@ -107,12 +107,12 @@ def merge(staging: str, dataset: str) -> int:
         jump = out["close"].pct_change().iloc[len(old):].abs()
         if (jump > JUMP_WARN).any():
             when = pd.to_datetime(out["time_ms"].iloc[len(old):][jump > JUMP_WARN], unit="ms").dt.date
-            print(f"  ⚠ {s}: 種の最終日以降に 1 日で ±{JUMP_WARN:.0%} 超の足: {', '.join(map(str, when))}")
+            print(f"  ⚠ {s}: シードの最終日以降に 1 日で ±{JUMP_WARN:.0%} 超の足: {', '.join(map(str, when))}")
             rc = max(rc, 2)
         store.write_bars(live, s, out)
         added[s] = len(tail)
     n = sorted(set(added.values()))
-    print(f"継いだ: {len(added)} 銘柄 ／ 種の最終日以降の足 {n[0] if n else 0}〜{n[-1] if n else 0} 本")
+    print(f"継いだ: {len(added)} 銘柄 ／ シードの最終日以降の足 {n[0] if n else 0}〜{n[-1] if n else 0} 本")
     from cli.fetch import _record          # ⚠ 書いたら必ず検査して manifest に残す（rules.md 5 章）
     _record(live, "raw", ds["period"], {"source": ds["source"], "dataset": ds["name"],
                                         "live_merge": {"staging": staging, "rc": rc}})

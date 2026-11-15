@@ -280,7 +280,7 @@ def test_gated_run_is_listed_apart_and_not_counted(runs_dir):
     assert g["badge"] == "門前" and "門前" in g["group"]
     assert "実行 1 件" in by_id["overview"]["sub"]          # ⚠ 門前を足して 2 件にしない
     body = vibetab.exp_overview_html(runs_dir)
-    assert "門前（前置きの門を通らず、検証を回していない）" in body
+    assert "門前（前置きのゲートを通らず、検証を回していない）" in body
     assert "0.503" in body and "3.2" in body                # ゲートの 2 値（コピー）
 
 
@@ -288,7 +288,7 @@ def test_gated_run_page_shows_the_gate_not_an_empty_score(runs_dir):
     make_gated_run(runs_dir, "2026-09-11T11-00-00_trade_own_lgbm_a")
     body = vibetab.exp_run_html(runs_dir, "2026-09-11T11-00-00_trade_own_lgbm_a")
     assert body is not None
-    assert "回していない" in body and "前置きの門" in body
+    assert "回していない" in body and "前置きのゲート" in body
     assert "0.503" in body and "閾値売買・共通" in body
     assert "スコア（最良手法の純利 bp）" not in body        # ⚠ 空の成績を出さない
 

@@ -969,7 +969,7 @@ def not_production_mark() -> str | None:
         import mode as lt_mode
         mark = lt_mode.read_not_production()
     except Exception as exc:  # noqa: BLE001
-        return f"印を確かめられない: {type(exc).__name__}: {exc}"
+        return f"フラグを確かめられない: {type(exc).__name__}: {exc}"
     return None if mark is None else mark.describe()
 
 

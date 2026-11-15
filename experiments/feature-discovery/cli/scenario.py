@@ -85,7 +85,7 @@ def run(args) -> None:
 
         for seed in seeds:
             t0 = time.time()
-            r.log(f"-- {f.name} 種 {seed}")
+            r.log(f"-- {f.name} シード {seed}")
             gen, hist_rows = model.fit(Xtr, Ytr, Xva, Yva, cfg["model"], seed, sc.y_scale, log=r.log)
             picked = next(h for h in hist_rows if h["selected"])
             if picked["collapsed"] or picked["extreme"]:
@@ -116,8 +116,8 @@ def run(args) -> None:
         r.log(f"== 判定: {verdict['verdict']}  " + " ".join(f"({k}) {'○' if v else '×'}" for k, v in verdict["ok"].items()))
         a = verdict["a_diff_vs_hist"]
         r.log(f"   (a) CRPS の差 cGAN − 履歴ベース {a['mean']:+.6f}（95% 区間 {a['ci_low']:+.6f} 〜 {a['ci_high']:+.6f}）")
-        r.log(f"   (b) 塊ごと {verdict['b_per_fold']}  (c) 種ごと {verdict['c_per_seed']}")
-        r.log(f"   (d) 被覆率 {verdict['d_coverage']}・印 {verdict['d_flagged']}  (e) {verdict['e_crps']}")
+        r.log(f"   (b) 塊ごと {verdict['b_per_fold']}  (c) シードごと {verdict['c_per_seed']}")
+        r.log(f"   (d) 被覆率 {verdict['d_coverage']}・フラグ {verdict['d_flagged']}  (e) {verdict['e_crps']}")
     else:
         r.log("⚠ 一部だけの実行（--folds / --seeds / --max-epochs）なので判定は出さない")
     print(r.close())

@@ -300,4 +300,4 @@ def test_ledger_renders_pregate_rows(tmp_path, monkeypatch):
     assert "門前が 1 行" in md
     assert "＋ 1 行（門前）" in md
     assert "**門前**" in md
-    assert "門を通らず" in md
+    assert "ゲートを通らず" in md

@@ -146,7 +146,7 @@ def cut_config(text: str, *, src: str, method: str, theta: str, offset: str, nam
         f"# ⚠ **`{src}.toml` との違い**: `[validation] cut_offset = \"{offset}\"`・θ を行の 1 水準に・手法を当てる行に絞った"
         f"（合成はその合成とこの実行の中のメンバーだけ）・\n"
         f"#    表は `features_from` で借りる（作り直さない ＝ 13-8）・`[[trading.trader]]` ／ 上位 K ／ 出口の線の項目は外した。"
-        f"表・モデル・k・fold の数・種・費用は同じ。\n"
+        f"表・モデル・k・fold の数・シード・費用は同じ。\n"
         f"# ⚠ **回すと決めたのは結果を見る前**（33-6 の 2 ＝ 新しく上位に入った行だけ）。⚠ 回した行は全部数える（33-6 の 4）。"
         f"⚠ 残っても採る根拠にしない（33-4 の 1）。\n"
         f"#\n"

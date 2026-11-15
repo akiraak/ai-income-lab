@@ -58,7 +58,7 @@ def recover_unfinished(journal: Journal, client, account: str, state_dir: str, t
         if why and why != "not_submitted":
             unresolved.add(e["symbol"])
             events.append({"kind": "journal_unresolved", **base, "reason": why,
-                           "note": "控えの注文を照会できない ＝ この銘柄は今日売買しない。口座の注文履歴を見て reconcile.py resolve で閉じる"})
+                           "note": "ジャーナルの注文を照会できない ＝ この銘柄は今日売買しない。口座の注文履歴を見て reconcile.py resolve で閉じる"})
             continue
         qty, price = _fills(order_obj) if order_obj else (0.0, 0.0)
         outcome = "recovered_filled" if qty > 0 else ("not_submitted" if why else "recovered_no_fill")

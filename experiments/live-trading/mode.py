@@ -76,8 +76,8 @@ class NotProduction:
 
     def describe(self) -> str:
         if self.error:
-            return f"印が読めない（{self.error}）"
-        host = "" if self.matches_host else f" ⚠ このマシン（{hostname()}）の印ではない ＝ 写した・ホスト名を変えた？"
+            return f"フラグが読めない（{self.error}）"
+        host = "" if self.matches_host else f" ⚠ このマシン（{hostname()}）のフラグではない ＝ 写した・ホスト名を変えた？"
         return f"マシン {self.machine}・{self.since} から・{self.by}{f'・{self.reason}' if self.reason else ''}{host}"
 
     def as_dict(self) -> dict:

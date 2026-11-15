@@ -84,5 +84,5 @@ def layer(panel: dict[str, pd.DataFrame], ctx: dict) -> dict[str, pd.DataFrame]:
             empty.append(s)
         out[s] = build_one(bars, views, lag).add_prefix(PREFIX)
     if empty:
-        print(f"  ⚠ attn: 閲覧数の系列が無い銘柄 {len(empty)} 本（印 1 で表に残る）: {' '.join(empty[:20])}", flush=True)
+        print(f"  ⚠ attn: 閲覧数の系列が無い銘柄 {len(empty)} 本（フラグ 1 で表に残る）: {' '.join(empty[:20])}", flush=True)
     return out

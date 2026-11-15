@@ -2,9 +2,11 @@
 SKIP に書いた (ファイル名の末尾, 置き換え前の文字) は当てない。"""
 import ast, io, sys, tokenize, re
 sys.path.insert(0, sys.argv[0].rsplit("/", 1)[0])
-from rules_code import rules_for
+import importlib
+_rm = sys.argv[sys.argv.index('--rules') + 1] if '--rules' in sys.argv else 'rules_code'
+rules_for = importlib.import_module(_rm).rules_for
 from apply_code import doc_spans
-try: from strings_skip import SKIP
+try: SKIP = importlib.import_module('strings_skip2' if _rm != 'rules_code' else 'strings_skip').SKIP
 except ImportError: SKIP = set()
 write = "--write" in sys.argv
 total = 0

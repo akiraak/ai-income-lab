@@ -76,7 +76,7 @@ def check(machine: modes.Mode) -> int:
             leaks += any(s in line for s in SECRETS)
     names = [os.path.basename(p)[:-5] for p in livefs.find(os.path.join(root, "state"), "*/*.json")]
     misnamed = [n for n in names if not n.startswith(modes.SIM_TRADER_PREFIX)]
-    print(f"記録 {rows} 行: 印（sim ／ mock ／ test）の無い行 {bad}・秘密の出ている行 {leaks}・sim_ で始まらない状態 {misnamed or 0}")
+    print(f"記録 {rows} 行: フラグ（sim ／ mock ／ test）の無い行 {bad}・秘密の出ている行 {leaks}・sim_ で始まらない状態 {misnamed or 0}")
     return 0 if rows and not bad and not leaks and not misnamed else 1
 
 

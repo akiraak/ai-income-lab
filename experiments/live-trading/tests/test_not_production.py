@@ -60,7 +60,7 @@ PROD_SUBMIT = ["--traders", "test_a", "--env", "prod", "--mode", "submit", "--ig
 def test_no_mark_means_nothing_changes(base):
     assert modes.read_not_production() is None
     r = run("notprod.py", base, ["status"], {})
-    assert r.returncode == 0 and "印なし" in r.stdout
+    assert r.returncode == 0 and "フラグなし" in r.stdout
     # フラグが無ければ、本番 submit は今までどおり許可の 3 段で止まる（rc=2。フラグの rc=7 ではない）
     r = run("run_day.py", base, PROD_SUBMIT, PROD_NOKEY)
     assert r.returncode == 2 and "TT_ALLOW_PROD_ORDERS" in r.stderr and "本番のマシンではない" not in r.stderr
@@ -68,19 +68,19 @@ def test_no_mark_means_nothing_changes(base):
 
 def test_set_writes_hostname_status_clear_and_log(base):
     r = run("notprod.py", base, ["set", "--reason", "本番は 13500t"], {})
-    assert r.returncode == 0 and "印を置いた" in r.stdout
+    assert r.returncode == 0 and "フラグを置いた" in r.stdout
     doc = json.loads((base / "NOT_PRODUCTION").read_text())
     assert doc["machine"] == "titan-test" and doc["reason"] == "本番は 13500t" and doc["since"] and doc["by"]
     mark = modes.read_not_production()
     assert mark.matches_host and mark.error is None
     r = run("notprod.py", base, ["status"], {})
-    assert r.returncode == 0 and "印あり" in r.stdout and "titan-test" in r.stdout
+    assert r.returncode == 0 and "フラグあり" in r.stdout and "titan-test" in r.stdout
     r = run("notprod.py", base, ["set"], {})                       # 置き直さない
-    assert r.returncode == 0 and "既に印がある" in r.stdout and json.loads((base / "NOT_PRODUCTION").read_text())["since"] == doc["since"]
+    assert r.returncode == 0 and "既にフラグがある" in r.stdout and json.loads((base / "NOT_PRODUCTION").read_text())["since"] == doc["since"]
     r = run("notprod.py", base, ["clear"], {})
-    assert r.returncode == 0 and "印を外した" in r.stdout and not (base / "NOT_PRODUCTION").exists()
+    assert r.returncode == 0 and "フラグを外した" in r.stdout and not (base / "NOT_PRODUCTION").exists()
     r = run("notprod.py", base, ["clear"], {})
-    assert r.returncode == 0 and "印は無かった" in r.stdout
+    assert r.returncode == 0 and "フラグは無かった" in r.stdout
     log = jsonl(base / "mode.log")
     assert [x["kind"] for x in log] == ["not_production_set", "not_production_cleared"]
     assert all(x["machine"] == "titan-test" and x["matches_host"] for x in log)
@@ -117,17 +117,17 @@ def test_mark_does_not_refuse_plan_dry_run_or_cert(base):
 def test_foreign_or_broken_mark_still_refuses(base):
     (base / "NOT_PRODUCTION").write_text(json.dumps({"machine": "titan", "since": "2026-09-27T00:00:00+00:00", "by": "u"}))
     mark = modes.read_not_production()
-    assert mark.machine == "titan" and not mark.matches_host and "このマシン（titan-test）の印ではない" in mark.describe()
+    assert mark.machine == "titan" and not mark.matches_host and "このマシン（titan-test）のフラグではない" in mark.describe()
     r = run("run_day.py", base, PROD_SUBMIT, PROD)
-    assert r.returncode == 7 and "このマシン（titan-test）の印ではない" in r.stderr
+    assert r.returncode == 7 and "このマシン（titan-test）のフラグではない" in r.stderr
     assert events(base)[-1]["matches_host"] is False
     r = run("notprod.py", base, ["status"], {})
-    assert r.returncode == 1 and "印ではない" in r.stdout
+    assert r.returncode == 1 and "フラグではない" in r.stdout
     for broken in ("{", json.dumps({"since": "x"}), json.dumps({"machine": ""})):
         (base / "NOT_PRODUCTION").write_text(broken)
         assert modes.read_not_production().error
         r = run("run_day.py", base, PROD_SUBMIT, PROD)
-        assert r.returncode == 7 and "印が読めない" in r.stderr, broken
+        assert r.returncode == 7 and "フラグが読めない" in r.stderr, broken
 
 
 # ---------- sample.py（発注の経路のもう 1 本）

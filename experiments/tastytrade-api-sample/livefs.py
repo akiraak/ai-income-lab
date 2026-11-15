@@ -149,7 +149,7 @@ def locate(path) -> tuple[str, str]:
 def _check_real(key: str, p: str) -> None:
     if not any(_under(key, x) for x in REAL_PLACES) or any(_under(key, x) for x in REAL_EXCLUDED):
         raise LiveFsError(f"本物の DB（{REAL_DB}）に入れてよい保存先ではない: {p}"
-                          "（シミュレーションの木・デモは自分の DB を先に作る）")
+                          "（シミュレーションのツリー・デモは自分の DB を先に作る）")
 
 
 def connect(db: str) -> sqlite3.Connection:
@@ -484,14 +484,14 @@ def cmd_export(dirpath: str, dest: str) -> int:
 
 def cmd_backup(db: str, dest: str) -> int:
     if os.path.exists(dest):
-        raise SystemExit(f"⚠ {dest} はもうある（控えを上書きしない）")
+        raise SystemExit(f"⚠ {dest} はもうある（バックアップを上書きしない）")
     os.makedirs(os.path.dirname(os.path.abspath(dest)), exist_ok=True)
     out = sqlite3.connect(dest)
     with _LOCK:
         connect(db).backup(out)
     out.close()
     ok = sqlite3.connect(f"file:{dest}?mode=ro", uri=True).execute("PRAGMA integrity_check").fetchone()[0]
-    print(f"控え {dest}（{os.path.getsize(dest) / 1e6:,.2f} MB・整合性 {ok}）")
+    print(f"バックアップ {dest}（{os.path.getsize(dest) / 1e6:,.2f} MB・整合性 {ok}）")
     return 0 if ok == "ok" else 1
 
 

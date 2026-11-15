@@ -315,7 +315,7 @@ def not_production_mark() -> str | None:
     """「本番のマシンではない」フラグがあれば理由の 1 行（取りに行かない）。"""
     import mode as modes
     mark = modes.read_not_production()
-    return None if mark is None else f"「本番のマシンではない」印がある（{mark.machine or mark.error}）"
+    return None if mark is None else f"「本番のマシンではない」フラグがある（{mark.machine or mark.error}）"
 
 
 def main(argv: list[str] | None = None) -> int:

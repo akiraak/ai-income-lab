@@ -12,7 +12,7 @@ from html import escape
 import numpy as np
 
 MIN_COUNT = 20        # 校正図に描く帯の件数の下限（それ未満は 1 件で 0% か 100% に飛ぶので図には描かず、表にだけ出す）
-SERIES = {"cgan": ("cGAN（種 3 つの平均）", "s1"), "hist": ("履歴ベース", "s2"), "light": ("軽量モデル", "s3")}
+SERIES = {"cgan": ("cGAN（シード 3 つの平均）", "s1"), "hist": ("履歴ベース", "s2"), "light": ("軽量モデル", "s3")}
 STYLE = """
   .bg{fill:#fcfcfb} .ink{fill:#0b0b0b} .ink2{fill:#52514e} .mut{fill:#898781}
   .grid{stroke:#e1e0d9;stroke-width:1} .axis{stroke:#c3c2b7;stroke-width:1} .ref{stroke:#898781;stroke-width:1}
@@ -63,7 +63,7 @@ def calibration(reliability: dict[str, list[dict]], coverage: dict[str, dict[int
     """左: 上昇確率の帯ごとの「予想 → 実際」（対角線が理想）。右: 区間の名目 → 実際の被覆率（横棒が名目）。"""
     W, H, y0, ph = 860, 430, 126, 230
     body = ['<text class="t ink" x="24" y="30">確率と区間は、実際の頻度と合っているか（テストの 5 塊・2,512 起点）</text>',
-            '<text class="ink2" x="24" y="50">左は対角線、右は横線に近いほどよい。印の大きさは件数。重なった 5 日予測なので、独立な観測はおよそ 1/5</text>',
+            '<text class="ink2" x="24" y="50">左は対角線、右は横線に近いほどよい。フラグの大きさは件数。重なった 5 日予測なので、独立な観測はおよそ 1/5</text>',
             f'<text class="ink2" x="24" y="68">⚠ {MIN_COUNT} 件未満の帯は描いていない（記録の表には件数つきで全部ある）</text>']
     body += _legend(24, 92, list(reliability))
     # 左: 校正

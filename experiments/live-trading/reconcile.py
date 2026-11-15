@@ -55,7 +55,7 @@ def show(state_dir: str, out_dir: str) -> int:
         mark = "⚠ 口座が少ない ＝ 売買が止まる" if sym in short else ("売買履歴の外の株（止めない）" if sym in outside else "")
         print(f"  {sym:6s} {account.get(sym, 0.0):12.6f} {ledger:12.6f} {account.get(sym, 0.0) - ledger:12.6f}  {holders or '—'}  {mark}")
     open_entries = Journal(state_dir).unfinished()
-    print(f"控えの未完: {len(open_entries)} 件" + ("（次の起動で執行エンジンが照会する。照会できなければ resolve で閉じる）" if open_entries else ""))
+    print(f"ジャーナルの未完: {len(open_entries)} 件" + ("（次の起動で執行エンジンが照会する。照会できなければ resolve で閉じる）" if open_entries else ""))
     for e in open_entries:
         print(f"  {e['ext']}  {e.get('date')}  {e['trader']} {e['side']} {e['symbol']} {e.get('shares') or e.get('value_usd')}  注文番号 {e.get('order_id', '—')}")
     return 1 if short or open_entries else 0
@@ -117,7 +117,7 @@ def main() -> int:
         if args.cmd == "resolve":
             entry = next((e for e in journal.unfinished() if e["ext"] == args.ext), None)
             if entry is None:
-                print(f"拒否: 控えに未完の {args.ext} は無い（reconcile.py show）", file=sys.stderr)
+                print(f"拒否: ジャーナルに未完の {args.ext} は無い（reconcile.py show）", file=sys.stderr)
                 return 2
             if args.filled is not None and (args.filled <= 0 or args.price is None or args.price <= 0):
                 print("拒否: --filled には株数（正）と --price（約定価格）が要る", file=sys.stderr)

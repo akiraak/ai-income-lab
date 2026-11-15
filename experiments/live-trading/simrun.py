@@ -263,7 +263,7 @@ def budget_args(cfg) -> list[str]:
 def main() -> int:
     ap = argparse.ArgumentParser(description="シミュレーションのランナー（仮データと仮の時計で執行エンジンを通しで動かす）")
     ap.add_argument("name", help="シミュレーションの名前（config/sim/<名前>.toml ／ 記録は sim/<名前>/）")
-    ap.add_argument("--fresh", action="store_true", help="記録の木を消して最初から（⚠ 消すのは sim/<名前>/ だけ）")
+    ap.add_argument("--fresh", action="store_true", help="記録のツリーを消して最初から（⚠ 消すのは sim/<名前>/ だけ）")
     ap.add_argument("--speed", default=None, help="速さの初期値（1 ／ 10 ／ 60 ／ 300 ／ 1440 ／ max。既定は設定の値。続きからのときは今の速さ）")
     ap.add_argument("--paused", action="store_true", help="止めた状態で始める（simctl.py resume ／ step で動かす）")
     ap.add_argument("--days", type=int, default=None, help="この回に流す発注できる時間帯の数（既定は最終日まで）")

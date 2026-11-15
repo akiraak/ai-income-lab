@@ -209,7 +209,7 @@ def test_not_production_mark_shows_a_band_on_every_page(world):
         for path in pages:
             r = c.get(path)
             assert r.status_code == 200 and 'class="simbar simbar-np"' in r.text and "本番のマシンではない" in r.text, path
-            assert "[SIM]" not in r.text and "印ではない" not in r.text, path          # 実売買モードのまま・このマシンのラベル
+            assert "[SIM]" not in r.text and "フラグではない" not in r.text, path          # 実売買モードのまま・このマシンのラベル
             assert_clean(r.text, path)
         for api in ("/api/state", "/api/live", "/api/records"):
             np = c.get(api).json()["not_production"]
@@ -218,7 +218,7 @@ def test_not_production_mark_shows_a_band_on_every_page(world):
     (mode_dir / "NOT_PRODUCTION").write_text(json.dumps({"machine": "elsewhere", "since": "x"}))
     with client_of(s) as c:
         body = c.get("/").text
-        assert "印ではない" in body and "elsewhere" in body and c.get("/api/live").json()["not_production"]["matches_host"] is False
+        assert "フラグではない" in body and "elsewhere" in body and c.get("/api/live").json()["not_production"]["matches_host"] is False
     (mode_dir / "NOT_PRODUCTION").write_text("{")
     with client_of(s) as c:
         assert "NOT_PRODUCTION が読めない" in c.get("/").text and c.get("/api/live").json()["not_production"]["error"]

@@ -260,7 +260,7 @@ note = "良い数字が偶然かどうかを見る道具。DSR の図解は dsr.
   where = "§7 先読み禁止 ／ §13-10"
 
   [[section.term]]
-  name = "前置きの門"
+  name = "前置きのゲート（旧: 前置きの門）"
   short = "訓練の内側だけを見て、確率の質が足りない手法の検証を回さない足切り。水準は事前固定で、採否には使わない。"
   doc = "docs/specs/experiments/feature-discovery/rules.md"
   where = "§14-5 前置きのゲート"

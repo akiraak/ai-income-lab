@@ -43,7 +43,7 @@ def resolve_trial(conn: sqlite3.Connection, trial_name: str) -> dict:
     doc = json.loads(row[0])
     th = str(doc.get("閾値") or "")
     if doc.get("検証方式") != "閾値売買" or th in ("", "—"):
-        raise SystemExit(f"⚠ {trial_name!r} は閾値売買の行ではない（検証方式 {doc.get('検証方式')}）＝ 20 章の器にかけられない")
+        raise SystemExit(f"⚠ {trial_name!r} は閾値売買の行ではない（検証方式 {doc.get('検証方式')}）＝ 20 章のシミュレーターにかけられない")
     for run in doc.get("実行一覧") or []:
         c = runs.read_json(str(run), "config.json")
         if not c or not c.get("name"):
@@ -191,7 +191,7 @@ def shape_config(text: str, *, src: str, methods: list[str], theta: str, budget:
         f"# ⚠ **検証結果一覧の行をトレーダーと同じ形で机上にかける**（rules.md 20 章・howto-model-trader.md §3-2）。\n"
         f"#    `cli.trader_shape` が自動で書いた（元 `{src}.toml`・手法 {' ／ '.join(methods)}・θ {th}）。\n"
         f"# ⚠ **`{src}.toml` との違い**: 手法を候補の {n} 本に絞った・θ を行の 1 水準にした・表は `features_from` で借りる（作り直さない ＝ 13-8）・\n"
-        f"#    `[[trading.trader]]` を 2 つ足した（2a {tag_a} ／ 2b {TAG_ALL}）。表・モデル・k・fold・種・コストは同じ\n"
+        f"#    `[[trading.trader]]` を 2 つ足した（2a {tag_a} ／ 2b {TAG_ALL}）。表・モデル・k・fold・シード・コストは同じ\n"
         f"#    （素の行は既存と同じ識別項目にまとまる ＝ 再現の検算）。\n"
         f"# ⚠ **回すと決めるのは結果を見る前**（事前固定 ＝ 20 章の節 ／ レジストリを先に書く）。⚠ {n} 本 × 条件 2 ＝ {2 * n} 検証として数える（leak 対照は queue が足す）。\n"
         f"#\n"

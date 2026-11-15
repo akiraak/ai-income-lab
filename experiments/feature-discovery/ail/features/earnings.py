@@ -97,7 +97,7 @@ def _layer(panel: dict[str, pd.DataFrame], ctx: dict, flag: bool) -> dict[str, p
         x = build_one(bars, series, lag, max_stale)
         out[s] = flag_missing(x, max_stale) if flag else x
     if empty:
-        how = "3 列とも印 1 で表に残る（ernf）" if flag else "3 列とも欠損 ＝ 対象なら dropna で消える"
+        how = "3 列ともフラグ 1 で表に残る（ernf）" if flag else "3 列とも欠損 ＝ 対象なら dropna で消える"
         print(f"  ⚠ {'ernf' if flag else 'ern'}: 決算の系列が無い銘柄 {len(empty)} 本（{how}）: {' '.join(empty[:20])}", flush=True)
     return out
 

@@ -82,10 +82,10 @@ def find(out_dir: str, day: str, needed: list[tuple[str, str]], cal=None) -> tup
         return None, str(exc)
     lines = livefs.read_lines(os.path.join(out_dir, p, DONE), missing_ok=True)
     if not lines:
-        return None, f"前の営業日 {p} の夜の予測の「済み」の印が無い"
+        return None, f"前の営業日 {p} の夜の予測の「済み」のフラグが無い"
     row = json.loads(lines[-1])
     if row.get("asof") != p:
-        return None, f"印の asof {row.get('asof')} が前の営業日 {p} と違う"
+        return None, f"フラグの asof {row.get('asof')} が前の営業日 {p} と違う"
     have = {tuple(m) for m in row.get("models") or []}
     missing = [m for m in needed if tuple(m) not in have]
     if missing:

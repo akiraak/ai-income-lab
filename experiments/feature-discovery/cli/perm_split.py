@@ -247,7 +247,7 @@ def main() -> None:
     docs = [analyse_run(r, a.method, a.theta, n=a.n, seed=a.seed) for r in names]
     with pd.option_context("display.width", 200, "display.max_columns", 20, "display.unicode.east_asian_width", True):
         print(table(docs).to_string(index=False))
-    print(f"\n並べ替え 各 {a.n} 回（種 {a.seed}）・{time.perf_counter() - t0:.1f} 秒。"
+    print(f"\n並べ替え 各 {a.n} 回（シード {a.seed}）・{time.perf_counter() - t0:.1f} 秒。"
           "⚠ 分位は 0〜1（1 に近い ＝ 並べ替えると上乗せが減る）。採否には使わない")
     text = json.dumps({"n": a.n, "seed": a.seed, "runs": docs}, ensure_ascii=False, indent=1, default=float)
     if a.json:

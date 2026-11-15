@@ -65,14 +65,14 @@ def main() -> None:
     print("== 被覆率", json.dumps(cov, ensure_ascii=False))
     with runs.materialized(name) as d:             # ⚠ 重みを読むためのコピー（出たら消す）
         rep = reproduce(d, df, args.fold, args.seed)
-    print(f"== 再現: {args.fold} 種 {args.seed}・{rep['n']} 起点・{rep['device']}  CRPS の平均 {rep['mean_crps_then']:.8f} → "
+    print(f"== 再現: {args.fold} シード {args.seed}・{rep['n']} 起点・{rep['device']}  CRPS の平均 {rep['mean_crps_then']:.8f} → "
           f"{rep['mean_crps_now']:.8f}  起点ごとの差の最大 {rep['max_abs_diff']:.2e}")
     os.makedirs(args.out, exist_ok=True)
     with open(os.path.join(args.out, "cgan-calibration.svg"), "w", encoding="utf-8") as fh:
         fh.write(figures.calibration(rel, cov))
     with open(os.path.join(args.out, "cgan-intervals.svg"), "w", encoding="utf-8") as fh:
         fh.write(figures.intervals(rep["dates"], rep["q"], rep["y5"],
-                                   f"cGAN・最後の塊 {args.fold}（{rep['dates'][0]}〜{rep['dates'][-1]}）・種 {args.seed}・実行 {name}"))
+                                   f"cGAN・最後の塊 {args.fold}（{rep['dates'][0]}〜{rep['dates'][-1]}）・シード {args.seed}・実行 {name}"))
     print("図:", os.path.join(args.out, "cgan-calibration.svg"), os.path.join(args.out, "cgan-intervals.svg"))
 
 

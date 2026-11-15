@@ -180,14 +180,14 @@ def cmd_export_out(conn: sqlite3.Connection, prefix: str, dest: str) -> None:
 
 def cmd_backup(conn: sqlite3.Connection, dest: str) -> None:
     if os.path.exists(dest):
-        raise SystemExit(f"⚠ {dest} はもうある（控えを上書きしない。日付を付けた別の名前にする）")
+        raise SystemExit(f"⚠ {dest} はもうある（バックアップを上書きしない。日付を付けた別の名前にする）")
     os.makedirs(os.path.dirname(os.path.abspath(dest)), exist_ok=True)
     out = sqlite3.connect(dest)
     with out:
         conn.backup(out)
     out.close()
     ok = sqlite3.connect(f"file:{dest}?mode=ro", uri=True).execute("PRAGMA integrity_check").fetchone()[0]
-    print(f"控え {dest}（{os.path.getsize(dest) / 1e6:,.1f} MB・整合性 {ok}）")
+    print(f"バックアップ {dest}（{os.path.getsize(dest) / 1e6:,.1f} MB・整合性 {ok}）")
 
 
 def main(argv: list[str] | None = None) -> int:

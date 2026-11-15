@@ -143,7 +143,7 @@ def test_timexer_same_seed_same_prediction_and_fit_record():
     p1 = np.asarray(fn(Xtr, ytr, Xte, c1))
     p2 = np.asarray(fn(Xtr, ytr, Xte, c2))
     assert p1.shape == (len(Xte),) and np.isfinite(p1).all()
-    assert np.array_equal(p1, p2), "TimeXer が同じ種で違う予測を出した"
+    assert np.array_equal(p1, p2), "TimeXer が同じシードで違う予測を出した"
     doc = c1[timexer.DOC_KEY]
     assert doc["epochs_run"] == 2 and doc["device"] == "cpu" and doc["patch_num"] == 6 and doc["n_exo"] == 3
     assert doc["holdout"] == "rows" and doc["検証の行"] > 0 and 1 <= doc["best_epoch"] <= 2

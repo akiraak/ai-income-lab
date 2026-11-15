@@ -1237,9 +1237,9 @@ def apply_gate(exp: dict, gate_doc: dict, enforce: bool, run: runs.Run) -> dict 
         if blocked:
             gate_doc["forced"] = True
             run.log("⚠ 門前の手法も回す: " + "、".join(blocked)
-                    + "（門は診断。回したものは全部数える。rules.md 14-10 規約 2）")
+                    + "（ゲートは診断。回したものは全部数える。rules.md 14-10 規約 2）")
         return exp
-    run.log("⚠ --gate: 門で足切りする（14-10 規約 2 に反する使い方。rules.md 14-5 の経緯）")
+    run.log("⚠ --gate: ゲートで足切りする（14-10 規約 2 に反する使い方。rules.md 14-5 の経緯）")
     if not gate_doc.get("passed"):
         run.log("⚠ **全手法が門前 ＝ 閾値売買を回さない**（検証結果一覧には「門前」で残す・"
                 "n_trials に数えない。rules.md 14-5）")
@@ -1262,9 +1262,9 @@ def _parser() -> argparse.ArgumentParser:
     g = ap.add_mutually_exclusive_group()
     # ⚠ **既定はゲートで止めない**（rules.md 14-10 規約 2）。付け忘れで黙って 1 行も回らない罠を塞いだ（2026-09-14）
     g.add_argument("--gate", action="store_true",
-                   help="⚠ 門で足切りする（全部門前なら回さない・一部なら外す）。14-10 規約 2 に反する使い方")
+                   help="⚠ ゲートで足切りする（全部門前なら回さない・一部なら外す）。14-10 規約 2 に反する使い方")
     g.add_argument("--ignore-gate", action="store_true",
-                   help="既定と同じ（門は診断で全部回す）。過去の記録のコマンドのために残す別名")
+                   help="既定と同じ（ゲートは診断で全部回す）。過去の記録のコマンドのために残す別名")
     return ap
 
 

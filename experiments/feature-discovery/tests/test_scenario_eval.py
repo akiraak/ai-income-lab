@@ -172,7 +172,7 @@ def test_cli_run_and_predict_end_to_end(tmp_path, monkeypatch, capsys):
     monkeypatch.setattr(sys, "argv", ["x", "--run", run_dir, "--out", str(tmp_path / "fig"), "--fold", "f2", "--seed", "1"])
     scenario_report.main()
     text = capsys.readouterr().out
-    assert "== 再現: f2 種 1" in text
+    assert "== 再現: f2 シード 1" in text
     with runs.materialized(run_dir) as d:
         rep = scenario_report.reproduce(d, pd.read_csv(f"{d}/origins.csv"), "f2", 1)
     assert rep["max_abs_diff"] < 1e-9                                  # CPU では 1 ビットも違わないはず（許容は丸めの分）

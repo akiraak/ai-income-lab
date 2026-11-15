@@ -141,7 +141,7 @@ def main() -> int:
     if env == "prod" and args.mode == "submit":
         mark = modes.read_not_production()
         if mark is not None:
-            rec.write("events", {**meta, "kind": "refused_not_production", **mark.as_dict(), "note": "「本番のマシンではない」印があるので本番の発注はしない（本番は 13500t）"})
+            rec.write("events", {**meta, "kind": "refused_not_production", **mark.as_dict(), "note": "「本番のマシンではない」フラグがあるので本番の発注はしない（本番は 13500t）"})
             print(f"拒否: このマシンは本番のマシンではない（{modes.not_production_file()}: {mark.describe()}）", file=sys.stderr)
             return 7
         if not allow_prod_orders:
@@ -197,7 +197,7 @@ def main() -> int:
     rec_events, blocked = recovery.recover_unfinished(journal, client, account, state_dir, date, write=args.mode == "submit")
     for ev in rec_events:
         rec.write("events", ev)
-        print(f"⚠ 控えの未完: {ev['trader']} {ev['side']} {ev['symbol']} → {ev.get('outcome') or ev.get('reason')}", file=sys.stderr)
+        print(f"⚠ ジャーナルの未完: {ev['trader']} {ev['side']} {ev['symbol']} → {ev.get('outcome') or ev.get('reason')}", file=sys.stderr)
     if any(ev["kind"] == "journal_recovered" and ev.get("shares") for ev in rec_events):
         positions = client.list_positions(account)
     states = {t.name: load_state(state_dir, t.name) for t in traders}
@@ -261,8 +261,8 @@ def main() -> int:
         if res.final_status == UNKNOWN:
             rec.write("events", {"kind": "order_unknown", "trader": o.parts[0]["trader"], "symbol": o.symbol, "side": o.side,
                                  "external_id": res.external_id, "order_id": (res.submitted or {}).get("order_id"),
-                                 "note": "状態を読めなかった注文。控えは開いたまま ＝ 次の起動が照会して売買履歴に戻す（急ぐなら reconcile.py resolve）"})
-            print(f"⚠ 状態を読めなかった注文: {o.side} {o.symbol}（控えは開いたまま）", file=sys.stderr)
+                                 "note": "状態を読めなかった注文。ジャーナルは開いたまま ＝ 次の起動が照会して売買履歴に戻す（急ぐなら reconcile.py resolve）"})
+            print(f"⚠ 状態を読めなかった注文: {o.side} {o.symbol}（ジャーナルは開いたまま）", file=sys.stderr)
             return
         for f in fills:
             try:

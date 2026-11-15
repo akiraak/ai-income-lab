@@ -298,7 +298,7 @@ def main() -> int:
         mark = modes.read_not_production()
         if mark is not None:
             rec.write("events", {**meta, "kind": "refused_not_production", **mark.as_dict(),
-                                 "note": "「本番のマシンではない」印があるので本番の発注はしない（外すのは notprod.py clear。本番は 13500t）"})
+                                 "note": "「本番のマシンではない」フラグがあるので本番の発注はしない（外すのは notprod.py clear。本番は 13500t）"})
             print(f"拒否: このマシンは本番のマシンではない（{modes.not_production_file()}: {mark.describe()}）。本番の発注は 13500t の cron が出す。"
                   "外すのは notprod.py clear（⚠ 2 台で同時に発注しないことを確かめてから）", file=sys.stderr)
             return 7
@@ -372,7 +372,7 @@ def main() -> int:
     rec_events, blocked = recovery.recover_unfinished(journal, client, account, state_dir, date, write=args.mode == "submit")
     for ev in rec_events:
         rec.write("events", ev)
-        print(f"⚠ 控えの未完: {ev['trader']} {ev['side']} {ev['symbol']} → {ev.get('outcome') or ev.get('reason')}", file=sys.stderr)
+        print(f"⚠ ジャーナルの未完: {ev['trader']} {ev['side']} {ev['symbol']} → {ev.get('outcome') or ev.get('reason')}", file=sys.stderr)
     if any(ev["kind"] == "journal_recovered" and ev.get("shares") for ev in rec_events):
         positions = client.list_positions(account)
     states = {t.name: load_state(state_dir, t.name) for t in traders}       # ⚠ 戻した約定が入った後の売買履歴を読み直す
@@ -498,8 +498,8 @@ def main() -> int:
             #    照会して、その人の売買履歴に戻す（§0-8 のステップ 1）。ここで「約定 0」と書くと、約定していたとき売買履歴から漏れる
             rec.write("events", {"kind": "order_unknown", "trader": o.parts[0]["trader"] if o.parts else None, "symbol": o.symbol, "side": o.side,
                                  "external_id": res.external_id, "order_id": (res.submitted or {}).get("order_id"),
-                                 "note": "状態を読めなかった注文。控えは開いたまま ＝ 次の起動が照会して売買履歴に戻す。急ぐなら口座の注文履歴を見て reconcile.py で合わせる"})
-            print(f"⚠ 状態を読めなかった注文: {o.side} {o.symbol}（控えは開いたまま。次の起動が照会して売買履歴に戻す）", file=sys.stderr)
+                                 "note": "状態を読めなかった注文。ジャーナルは開いたまま ＝ 次の起動が照会して売買履歴に戻す。急ぐなら口座の注文履歴を見て reconcile.py で合わせる"})
+            print(f"⚠ 状態を読めなかった注文: {o.side} {o.symbol}（ジャーナルは開いたまま。次の起動が照会して売買履歴に戻す）", file=sys.stderr)
             return
         for f in fills:
             # ⚠ 1 件の食い違いで落ちない: ここで落ちると、約定済みのほかの売買まで状態に残らない

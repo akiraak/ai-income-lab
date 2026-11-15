@@ -529,7 +529,7 @@ JUDGE_RULES = [
     ("純利 ≤ 0 かつ 粗利 ≤ 0", "落とす", "**X2 ＋ X9** コスト以前に優位性が無い"),
     ("⚠ 日足 × データの層が raw", "保留", "⚠ **無効・要再測**（分割調整の誤り。§6-3）"),
     ("基準線の行", "基準", "⚠ 採否の対象ではない。手法はこれを超えて初めて意味がある"),
-    ("閾値売買: 門を通らない（訓練内 holdout の AUC ＜ 0.52 または 買い% 幅 ＜ 20 点）", "門前",
+    ("閾値売買: ゲートを通らない（訓練内 holdout の AUC ＜ 0.52 または 買い% 幅 ＜ 20 点）", "門前",
      "⚠ **検証を回さない・n_trials に数えない**（rules.md 14-5）"),
     ("閾値売買: 上乗せ > 0 かつ fold の上乗せ符号が全部正", "採る",
      "⚠ DSR を通すまでは根拠「中」が上限（rules.md 13-7）"),
@@ -580,7 +580,7 @@ def _judge_trading(row: dict, note: str) -> tuple[str, str]:
     if g := row.get("門前"):
         auc = "—" if g.get("auc") is None else f"{g['auc']:.3f}"
         width = "—" if g.get("width_pt") is None else f"{g['width_pt']:.1f}"
-        return "門前", (f"⚠ **門を通らず、検証を回していない**（訓練内 holdout の AUC {auc}・"
+        return "門前", (f"⚠ **ゲートを通らず、検証を回していない**（訓練内 holdout の AUC {auc}・"
                         f"買い% 幅 {width} 点。水準は AUC ≥ 0.52・幅 ≥ 20 点で事前固定。"
                         "n_trials に数えない — rules.md 14-5）")
     name = row.get("手法名") or ""

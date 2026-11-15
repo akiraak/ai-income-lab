@@ -46,7 +46,7 @@ NEED = [("trade_own_fwdmulti_c", "H4"), ("trade_own_ridge_a", "全部使う（�
 
 def test_find_needs_the_previous_trading_days_mark_with_every_model(out):
     got, why = nightly.find(out, "2026-11-03", NEED)
-    assert got is None and "印が無い" in why
+    assert got is None and "フラグが無い" in why
     _mark(out, "2026-11-02", NEED[:1])
     got, why = nightly.find(out, "2026-11-03", NEED)
     assert got is None and "欠けている" in why

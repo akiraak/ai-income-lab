@@ -147,7 +147,7 @@ def test_cli_resolve_and_show(cli):
     out = tmp / "out" / "2026-10-01"
     put_jsonl(out / "positions.jsonl", [{"date": "2026-10-01", "when": "before", "positions": [{"symbol": "KO", "quantity": "2", "quantity-direction": "Long"}]}])
     r = run("show")
-    assert r.returncode == 1 and "控えの未完: 2 件" in r.stdout and "口座が少ない" in r.stdout and "lt-x" in r.stdout
+    assert r.returncode == 1 and "ジャーナルの未完: 2 件" in r.stdout and "口座が少ない" in r.stdout and "lt-x" in r.stdout
     assert run("resolve", "lt-x", "--filled", "2").returncode == 2             # 価格が要る
     assert run("resolve", "lt-x", "--filled", "2", "--price", "70.2").returncode == 0
     assert run("resolve", "lt-y", "--not-filled").returncode == 0

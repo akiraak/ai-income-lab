@@ -43,7 +43,7 @@ def test_決定性と形(name):
     assert p1.shape == (len(Xte),)
     assert np.isfinite(p1).all()
     # ⚠ **同じシード・同じ入力なら 1 ビットも違わない**（rules.md 10 章。再現の前提）
-    assert np.array_equal(p1, p2), f"{name} が同じ種で違う予測を出した"
+    assert np.array_equal(p1, p2), f"{name} が同じシードで違う予測を出した"
 
 
 def test_非線形モデルは非線形の信号を拾える():

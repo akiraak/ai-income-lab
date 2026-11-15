@@ -167,7 +167,7 @@ def install(root: str, cfg: simdata.SimConfig, traders_dir: str, data: dict, bas
         texts = [json.dumps(row, ensure_ascii=False) for row in out_rows]
         have = livefs.read_lines(target, missing_ok=True)
         if have and have != texts:
-            raise SimPredictError(f"木に違う予測がもう置いてある: {target}（最初からやり直すなら --fresh）")
+            raise SimPredictError(f"ツリーに違う予測がもう置いてある: {target}（最初からやり直すなら --fresh）")
         if not have:
             livefs.append_many(target, texts)
         rows_total += len(out_rows)

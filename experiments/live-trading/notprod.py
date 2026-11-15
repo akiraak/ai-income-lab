@@ -23,16 +23,16 @@ import mode as modes  # noqa: E402
 
 
 def show(mark: modes.NotProduction | None) -> int:
-    print(f"マシン: {modes.hostname()}   印: {modes.not_production_file()}")
+    print(f"マシン: {modes.hostname()}   フラグ: {modes.not_production_file()}")
     if mark is None:
-        print("印なし ＝ このマシンは本番の発注ができる（許可の 3 段はそのまま要る）")
+        print("フラグなし ＝ このマシンは本番の発注ができる（許可の 3 段はそのまま要る）")
         return 0
-    print(f"印あり ＝ 本番の発注（--env prod --mode submit）を拒む: {mark.describe()}")
+    print(f"フラグあり ＝ 本番の発注（--env prod --mode submit）を拒む: {mark.describe()}")
     return 0 if mark.matches_host else 1
 
 
 def main() -> int:
-    ap = argparse.ArgumentParser(description="「本番のマシンではない」印（CLI だけ）")
+    ap = argparse.ArgumentParser(description="「本番のマシンではない」フラグ（CLI だけ）")
     sub = ap.add_subparsers(dest="cmd", required=True)
     sub.add_parser("status")
     st = sub.add_parser("set")
@@ -43,15 +43,15 @@ def main() -> int:
     if args.cmd == "set":
         before = modes.read_not_production()
         if before is not None and before.error is None and before.matches_host:
-            print(f"既に印がある（{before.describe()}）。置き直さない")
+            print(f"既にフラグがある（{before.describe()}）。置き直さない")
             return show(before)
         mark = modes.set_not_production(by=by, reason=args.reason)
-        print(f"印を置いた: {mark.describe()}")
+        print(f"フラグを置いた: {mark.describe()}")
         print("⚠ このマシンでは本番の発注（--env prod --mode submit）を拒む。外すのは notprod.py clear")
         return 0
     if args.cmd == "clear":
         before = modes.clear_not_production(by=by)
-        print("印は無かった（何もしない）" if before is None else f"印を外した: {before.describe()}")
+        print("フラグは無かった（何もしない）" if before is None else f"フラグを外した: {before.describe()}")
         if before is not None:
             print("⚠ このマシンで本番の発注ができるようになった（許可の 3 段を出せば）。⚠ 13500t の cron が同時に発注していないことを確かめる")
         return 0

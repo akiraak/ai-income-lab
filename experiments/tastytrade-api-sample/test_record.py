@@ -35,7 +35,7 @@ def test_masker() -> None:
     check("client secret が消える", "s3cr3t-client-secret" not in text)
     check("口座番号が消える", "5WT00042" not in text)
     check("refresh token が消える", "refresh-token-value" not in text)
-    check("置き換え後の印が残る", "<account:masked>" in text and "<client_secret:masked>" in text)
+    check("置き換え後のフラグが残る", "<account:masked>" in text and "<client_secret:masked>" in text)
 
     jwt = "eyJhbGciOiJSUzI1NiJ9.eyJleHAiOjE3ODg2MjIxMTl9.signaturepart"
     check("登録していない JWT も消える", "eyJ" not in masker.text(f"token={jwt}"))

@@ -415,12 +415,12 @@ def _gate_html(run: dict) -> str:
                      " ".join(fmt(w, 1) for w in m["width_folds"]) or "—",
                      "通過" if m["passed"] else "<span class='warn'>⚠ 門前</span>",
                      esc(m["note"] or "")])
-    out = [f"<h2>前置きの門（診断・水準は事前固定 {_gate_levels(gate)}）</h2>",
-           table(["手法", "holdout AUC", "買い% 幅", "fold ごとの AUC", "fold ごとの幅", "門", "注記"],
+    out = [f"<h2>前置きのゲート（診断・水準は事前固定 {_gate_levels(gate)}）</h2>",
+           table(["手法", "holdout AUC", "買い% 幅", "fold ごとの AUC", "fold ごとの幅", "ゲート", "注記"],
                  rows, {1, 2}),
            "<p class='meta'>2 値は訓練分割の内側の tail holdout で測る（評価期間には特徴量にも"
-           "触っていないので、門は評価期間のデータの選別にならない）。⚠ 門の値は採否に使わない。"
-           "⚠ 既定では回すかどうかも門で決めない（門前の手法も回し、普通の検証として数える。"
+           "触っていないので、ゲートは評価期間のデータの選別にならない）。⚠ ゲートの値は採否に使わない。"
+           "⚠ 既定では回すかどうかもゲートで決めない（門前の手法も回し、普通の検証として数える。"
            "rules.md 14-10 規約 2）。<code>--gate</code> で足切りした実行だけ、回さなかった手法を"
            "検証数（n_trials）に数えない（14-5 の経緯）。</p>"]
     return "\n".join(out)
@@ -455,7 +455,7 @@ def exp_overview_html(runs_dir: Path) -> str:
                 "1 つの数字なので、検査の列（fold の符号・上乗せ t・実効標本数・デフレーテッド SR）を必ず横に見る。</p>")
     if idx["gated_runs"]:
         # ⚠ 門前（rules.md 14-5）。上の一覧・件数には入れないが、隠さずここに出す
-        body.append("<h2>⚠ 門前（前置きの門を通らず、検証を回していない）</h2>")
+        body.append("<h2>⚠ 門前（前置きのゲートを通らず、検証を回していない）</h2>")
         rows = []
         for r in idx["gated_runs"]:
             for m in r["gate_blocked"]:
@@ -570,7 +570,7 @@ def exp_run_html(runs_dir: Path, run_id: str) -> str | None:
     if run["gate"]:
         # 門前の手法も回した実行（既定）か、`--gate` で一部を外した実行。⚠ 回さなかった手法を隠さない
         if run["gate_forced"]:
-            body.append("<p class='warn'>⚠ 門前の手法も回した実行。門は診断なので、"
+            body.append("<p class='warn'>⚠ 門前の手法も回した実行。ゲートは診断なので、"
                         "普通の検証として数える（rules.md 14-10 規約 2）。</p>")
         elif run["gate_blocked"]:
             body.append(f"<p class='warn'>⚠ 門前の手法が {len(run['gate_blocked'])} 件あり、"

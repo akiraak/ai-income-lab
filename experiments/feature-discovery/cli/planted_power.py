@@ -166,7 +166,7 @@ def curve(experiment: str = "trade_own_ridge_a", strengths=STRENGTHS, seeds: int
 
 
 def _parser() -> argparse.ArgumentParser:
-    p = argparse.ArgumentParser(description="合成の表で器と判定式の検出力の曲線を測る（読むだけ・n_trials に数えない）")
+    p = argparse.ArgumentParser(description="合成の表でシミュレーターと判定式の検出力の曲線を測る（読むだけ・n_trials に数えない）")
     p.add_argument("--experiment", default="trade_own_ridge_a")
     p.add_argument("--strengths", default=",".join(f"{s:g}" for s in STRENGTHS))
     p.add_argument("--seeds", type=int, default=SEEDS)

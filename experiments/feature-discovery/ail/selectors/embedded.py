@@ -168,8 +168,8 @@ def gaussian_knockoffs(X: np.ndarray, seed: int) -> np.ndarray:
     mat = 2.0 * S - S @ inv @ S
     w, V = np.linalg.eigh(mat)                       # ⚠ 数値誤差で微小な負が出るので切り上げる
     C = V @ np.diag(np.sqrt(np.clip(w, 0.0, None))) @ V.T
-    # ⚠ **種は `seed` そのものではなく、形も混ぜた別の流れから引く**（2026-09-15 に踏んだ罠）。
-    # ⚠ **`default_rng(seed)` で引くと、同じ種で作った合成データと E がビット単位で一致し、
+    # ⚠ **シードは `seed` そのものではなく、形も混ぜた別の流れから引く**（2026-09-15 に踏んだ罠）。
+    # ⚠ **`default_rng(seed)` で引くと、同じシードで作った合成データと E がビット単位で一致し、
     # ⚠ **偽物が本物のコピーになる**（対角の相関 0.99）。⚠ **そうなると枠は何も検出できない。**
     E = np.random.default_rng(np.random.SeedSequence([int(seed), n, p, 0x6B6E6F66])).normal(size=(n, p))
     return mu + Xc @ (np.eye(p) - inv @ S) + E @ C

@@ -15,7 +15,7 @@ import pandas as pd
 
 from ail import registry
 
-# ⚠ **変換を検知器に通す口**（rules.md 24 章。2026-10-09 利用者決定 A「汎用の口」）。
+# ⚠ **変換を検知器に通すオプション**（rules.md 24 章。2026-10-09 利用者決定 A「汎用の口」）。
 # 変換が返した列はこの接頭辞に限らない（GA ＝ `gp_NN`・PCA ＝ `pc_…`）。⚠ 既存の列名と重なれば止める（`augment`）
 
 
@@ -23,7 +23,7 @@ def apply(exp: dict, Xtr: pd.DataFrame, Xte: pd.DataFrame, ctx: dict, ytr=None, 
     """(Xtr, Xte, 係数) を返す。⚠ **変換が無ければ入力をそのまま返す**（同じオブジェクト）。
 
     ⚠ **`ytr` は教師つきの変換だけが読む**（F4-1 記号回帰の適合度。2026-09-16 に足した）。
-    ⚠ **渡すのは訓練分割の y だけ**で、⚠ **検証分割の y はこの口に来ない**（3 章 B）。
+    ⚠ **渡すのは訓練分割の y だけ**で、⚠ **検証分割の y はこのインターフェースに来ない**（3 章 B）。
     ⚠ **ctx は複製して渡す** — 呼び元の ctx に混ぜると、選別やモデルにも見えてしまう。
     """
     name = exp.get("transform")
@@ -49,7 +49,7 @@ def train_label(exp: dict, tr: pd.DataFrame):
     """訓練のラベル。⚠ **`label` の無い config は `tr["y"].values` そのまま**（1 ビットも変わらない ＝ 既定経路のフィンガープリント）。
 
     `label = "xs_excess"`（開発ループのレジストリ `20261025-xs-excess-label`・rules.md 31 章）: 訓練のラベルを **y − 同じ日の表の全銘柄の y の平均**
-    （断面の超過リターン）にする。訓練の行だけで作る（検証の行の y は使わない）。評価の損益・売買の器・θ・較正の式は変えない
+    （断面の超過リターン）にする。訓練の行だけで作る（検証の行の y は使わない）。評価の損益・売買のシミュレーター・θ・較正の式は変えない
     （較正は符号で行うので「平均を上回ったか」の確率になる）。⚠ 学習範囲 shared だけ（銘柄別は呼ぶ側が拒む）。
     """
     kind = exp.get("label")
@@ -88,7 +88,7 @@ def label(exp: dict, method: str) -> str:
 
 
 def augment(exp: dict, tr: pd.DataFrame, te: pd.DataFrame, feats: list[str], ctx: dict):
-    """検知器に渡す表へ、変換の列を**足す**口（rules.md 24 章）。(tr, te, feats, 係数) を返す。
+    """検知器に渡す表へ、変換の列を**足す**オプション（rules.md 24 章）。(tr, te, feats, 係数) を返す。
 
     ⚠ **config に `transform` が無ければ入力をそのまま返す**（同じオブジェクト。1 ビットも変えない ＝
     この経路は 13500t の毎日の予測 `cli/predict.py` も通る）。

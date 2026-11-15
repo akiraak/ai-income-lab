@@ -2,13 +2,13 @@
 
 正本は執行エンジン（`experiments/live-trading/`）が持つ:
   - `MODE`                          … `{"mode": "real" ／ "sim", "name": …, "since": …}`。⚠ **無ければ real**
-  - `NOT_PRODUCTION`                … 「本番のマシンではない」印 `{"machine": <hostname>, "since", "by", "reason"}`（live-trading.md §0-14）。
-                                      あると執行エンジンは本番の発注を拒む ＝ 帯に出す。⚠ 壊れていても「ある」として出す（執行エンジンと同じ向き）
+  - `NOT_PRODUCTION`                … 「本番のマシンではない」フラグ `{"machine": <hostname>, "since", "by", "reason"}`（live-trading.md §0-14）。
+                                      あると執行エンジンは本番の発注を拒む ＝ バナーに出す。⚠ 壊れていても「ある」として出す（執行エンジンと同じ向き）
   - `sim/<名前>/sim/control.json`   … 仮の時計（仮のいま ＝ sim_epoch ＋ 実時間の経過 × speed。`simclock.py` と同じ式）
   - `sim/<名前>/sim/status.json`    … ランナーの状態（何日目・発注できる時間帯の中 ／ 外）
 
 ⚠ **1 つの画面に本物とシミュレーションを混ぜない**: 読む記録はモードから決まる（real ＝ 本物の記録 ／ sim ＝ `sim/<名前>/`）。
-   `AIL_LIVE_DIR` を手で指定していて、木の種類がモードと食い違うときは、数字を出さずに「食い違っている」とだけ出す。
+   `AIL_LIVE_DIR` を手で指定していて、ツリーの種類がモードと食い違うときは、数字を出さずに「食い違っている」とだけ出す。
 ⚠ 標準ライブラリだけ。どのファイルが無くても・壊れていても落とさない。
 """
 
@@ -50,7 +50,7 @@ def read_mode(mode_dir: Path | None) -> dict:
 
 
 def read_not_production(mode_dir: Path | None) -> dict | None:
-    """「本番のマシンではない」印。無ければ None。{"machine", "since", "by", "reason", "host", "matches_host", "error"}。"""
+    """「本番のマシンではない」フラグ。無ければ None。{"machine", "since", "by", "reason", "host", "matches_host", "error"}。"""
     if mode_dir is None or not (mode_dir / "NOT_PRODUCTION").exists():
         return None
     host = socket.gethostname()
@@ -83,7 +83,7 @@ def clock(root: Path, real_now: float | None = None) -> dict | None:
 
 
 def resolve(mode_dir: Path | None, live_dir: Path, live_dir_explicit: bool) -> dict:
-    """いまのモードと、画面が読む記録の木。`mismatch` があるとき、画面は数字を出さない。"""
+    """いまのモードと、画面が読む記録のツリー。`mismatch` があるとき、画面は数字を出さない。"""
     m = read_mode(mode_dir)
     out = {"mode": m["mode"], "name": m.get("name"), "since": m.get("since"), "live_dir": live_dir, "mismatch": m.get("error"), "sim": None,
            "not_production": read_not_production(mode_dir)}

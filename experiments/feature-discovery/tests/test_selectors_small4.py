@@ -74,7 +74,7 @@ def test_契約を守る(name):
 
 @pytest.mark.parametrize("name", SELECTORS)
 def test_決定性(name):
-    """⚠ **同じ種・同じ入力なら 1 本も違わない**（rules.md 10 章。再現の前提）。"""
+    """⚠ **同じシード・同じ入力なら 1 本も違わない**（rules.md 10 章。再現の前提）。"""
     X, y = _panel()
     fn = registry.resolve("selector", name)
     assert fn(X, y, 4, dict(CTX)) == fn(X, y, 4, dict(CTX)), f"{name} が呼ぶたび違う列を返す"

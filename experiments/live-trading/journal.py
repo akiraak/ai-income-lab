@@ -1,4 +1,4 @@
-"""控え（発注の前に書く注文の覚え書き）。口座の建玉と売買履歴の帳尻を合わせる 3 段のうちの段 1（live-trading.md §0-8）。
+"""ジャーナル（発注の前に書く注文の覚え書き）。口座の建玉と売買履歴の帳尻を合わせる 3 段のうちのステップ 1（live-trading.md §0-8）。
 
     intent     発注の直前: 注文の ID（external-identifier）・日付・誰の・銘柄・向き・数量・手数料の見積り
     submitted  発注の後: 相手側の注文番号
@@ -6,7 +6,7 @@
 
 `state/<env>/journal.jsonl` に 1 行ずつ足すだけ（書き換えない。⚠ 2026-09-21 から DB の lines ＝ `livefs`。パスはそのまま鍵）。⚠ `--mode submit` のときだけ書く。
 起動時に done の無い intent があれば、その注文は「口座では約定したかもしれないのに売買履歴に入っていない」＝ `recovery.py` が照会して戻す。
-1 注文 1 トレーダー（2026-09-19）なので、誰の売買履歴に入れるかは控えで確実に分かる。⚠ 差を推測で割り振らない。
+1 注文 1 トレーダー（2026-09-19）なので、誰の売買履歴に入れるかはジャーナルで確実に分かる。⚠ 差を推測で割り振らない。
 """
 
 from __future__ import annotations
@@ -41,12 +41,12 @@ class Journal:
         self._append({"op": "submitted", "ext": ext, "order_id": order_id})
 
     def done(self, ext: str, outcome: str, **extra) -> None:
-        if ext in self._open:   # 発注の手前で終わった注文（HALT・dry-run のエラー）は控えに無い
+        if ext in self._open:   # 発注の手前で終わった注文（HALT・dry-run のエラー）はジャーナルに無い
             self._open.discard(ext)
             self._append({"op": "done", "ext": ext, "outcome": outcome, **extra})
 
     def close(self, ext: str, outcome: str, **extra) -> None:
-        """起動時の復元・人の手（reconcile.py）が未完の控えを閉じる。"""
+        """起動時の復元・人の手（reconcile.py）が未完のジャーナルを閉じる。"""
         self._append({"op": "done", "ext": ext, "outcome": outcome, **extra})
 
     def unfinished(self) -> list[dict]:

@@ -1,7 +1,7 @@
-"""レジストリ `20261109-null-shuffle-top-rows`（2026-11-13 の段 2・人の手）: 偽の実行の指標を上位の行と「採る」の行に当てる（cli.null_rows）。
+"""レジストリ `20261109-null-shuffle-top-rows`（2026-11-13 のステージ 2・人の手）: 偽の実行の指標を上位の行と「採る」の行に当てる（cli.null_rows）。
 
-⚠ 見るもの: 入れ替えは fold の切り口だけ（with を抜けたら元に戻る）／ 同じ (種, fold, 分割) と同じ日付の集合なら表が違っても同じ入れ替え ／
-   断面を保つ・y の集合は同じ ／ 対象の config は要らない部品だけを外したコピー（元の config は変えない）／ 記録の口は何も書かない。
+⚠ 見るもの: 入れ替えは fold の切り口だけ（with を抜けたら元に戻る）／ 同じ (シード, fold, 分割) と同じ日付の集合なら表が違っても同じ入れ替え ／
+   断面を保つ・y の集合は同じ ／ 対象の config は要らない部品だけを外したコピー（元の config は変えない）／ 記録のフックは何も書かない。
 """
 
 from __future__ import annotations
@@ -68,11 +68,11 @@ def test_shuffle_keeps_cross_section_and_is_the_same_for_tables_with_the_same_da
             day = (x["y"] % 1000).groupby(x["ts"].to_numpy()).nunique()
             assert (day == 1).all()                                             # 同じ日の全銘柄が同じ日から y を借りる
             assert (x["y"] // 1000).tolist() == [("A", "B", "C").index(s) for s in x["symbol"]]                                # 自分の銘柄の y
-            assert np.array_equal(x["y"].to_numpy(), x2["y"].to_numpy())        # 同じ種なら同じ
+            assert np.array_equal(x["y"].to_numpy(), x2["y"].to_numpy())        # 同じシードなら同じ
             src = (x["y"] % 1000).groupby(x["ts"].to_numpy()).first()
             src_b = (xb["y"] % 1000).groupby(xb["ts"].to_numpy()).first()
             assert src.equals(src_b)                                            # 表が違っても、日付の集合が同じなら同じ入れ替え
-    assert sum(moved) >= 8 and sum(other) >= 8                                  # 並びは変わる・種が違えば違う（短い分割は偶然同じになりうる）
+    assert sum(moved) >= 8 and sum(other) >= 8                                  # 並びは変わる・シードが違えば違う（短い分割は偶然同じになりうる）
     # 単独の表では cli.null_shuffle.shuffle_y と同じ入れ替え（11/7 の指標と同じ差し替え方）
     f1, tr1, _te1 = plain[0]
     want = ns.shuffle_y(tr1.reset_index(drop=True), ns.BLOCK, np.random.default_rng([7, int(f1), 0, 20261109]))

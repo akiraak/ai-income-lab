@@ -5,11 +5,11 @@
     python simpredict.py status sim3            # 何日ぶん出来ているか
 
   - シミュレーションは「k 番目の仮の営業日 ＝ 出どころの k 番目の足」（simdata.build）。予測は **出どころの日付** で作り（`cli.predict --asof`）、
-    ランナー（simrun.py）が木を作るときに `install()` が行の日付を **仮の日付** に書き換えて `sim/<名前>/out/<仮の日付>/predict.jsonl` に置く。
+    ランナー（simrun.py）がツリーを作るときに `install()` が行の日付を **仮の日付** に書き換えて `sim/<名前>/out/<仮の日付>/predict.jsonl` に置く。
     執行エンジン（run_day.py）は既定の場所から読むだけ ＝ 本物と同じコードのまま。
   - 入力は研究用の `data/`（`AIL_DATA_DIR` を外して回す）＝ シミュレーションの値段の出どころと同じ足。⚠ **読むだけ**。
     予測の `proxy_close` とその日の気配を置くときに照合し、食い違いを数える（日付の当て方のずれの検知）。
-  - キャッシュは `sim-predict/<出どころの日付>/<実験>.jsonl`（git 管理外。`LT_SIM_PREDICT_DIR`）。`--fresh` で消える木の外に置く。
+  - キャッシュは `sim-predict/<出どころの日付>/<実験>.jsonl`（git 管理外。`LT_SIM_PREDICT_DIR`）。`--fresh` で消えるツリーの外に置く。
     LightGBM の無いマシン（Sx360）へは titan で作ったこのディレクトリを写す。
 ⚠ tastytrade に繋がない・資格情報の `.env` を読まない。⚠ `runs/` を作らない（試行ではない ＝ 売買履歴の n_trials は動かない）。
 ⚠ 日付は仮・値段は過去の実物 ＝ 損益に意味は無い。
@@ -132,7 +132,7 @@ def make(name: str, jobs: int = 8, python: str | None = None, limit: int | None 
 
 
 def install(root: str, cfg: simdata.SimConfig, traders_dir: str, data: dict, base: str | None = None) -> dict | None:
-    """キャッシュを仮の日付に書き換えて木に置く。`experiment` のモデルが無ければ何もしない（None）。
+    """キャッシュを仮の日付に書き換えてツリーに置く。`experiment` のモデルが無ければ何もしない（None）。
 
     ⚠ 1 日でも欠けていたら止まる（予測の無い日は「合図なし」で静かに何もしない ＝ 通ったように見えてしまう）。
     """
@@ -162,7 +162,7 @@ def install(root: str, cfg: simdata.SimConfig, traders_dir: str, data: dict, bas
                 elif close is not None and abs(float(close) - quote) > 1e-6 * max(1.0, abs(quote)):
                     mismatch.append({"date": day, "source_date": src, "symbol": row["symbol"], "proxy_close": close, "quote": quote})
                 out_rows.append({**row, "date": day, "source_date": src, **MARKS})
-        # ⚠ 木の記録は木の sim.sqlite（パスはそのまま）。⚠ 同じ木に 2 度置かない（行は足すだけなので、2 度目は重なる）
+        # ⚠ ツリーの記録はツリーの sim.sqlite（パスはそのまま）。⚠ 同じツリーに 2 度置かない（行は足すだけなので、2 度目は重なる）
         target = os.path.join(root, "out", day, "predict.jsonl")
         texts = [json.dumps(row, ensure_ascii=False) for row in out_rows]
         have = livefs.read_lines(target, missing_ok=True)

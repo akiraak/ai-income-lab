@@ -3,7 +3,9 @@
 import ast, io, sys, tokenize, re, random
 sys.path.insert(0, sys.argv[0].rsplit("/", 1)[0])
 import trlib
-from rules_code import rules_for
+import importlib
+_rm = sys.argv[sys.argv.index('--rules') + 1] if '--rules' in sys.argv else 'rules_code'
+rules_for = importlib.import_module(_rm).rules_for
 
 def doc_spans(tree):
     out = set()
@@ -69,4 +71,4 @@ if __name__ == "__main__":
     for f, e in bad: print(f"⚠ 書かなかった: {f}: {e}")
     if show:
         random.seed(0)
-        for x in random.sample(shown, min(show, len(shown))): print(x)
+        for x in (shown if show >= len(shown) else random.sample(shown, show)): print(x)

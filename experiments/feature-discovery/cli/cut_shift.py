@@ -2,7 +2,7 @@
 
 ⚠ **中身は 33-2 ／ 33-6 の 3 のコピー ＝ 新しい規約ではない**。手で書いた `cut13_*` ／ `cut23_*`（2026-11-11）と同じ作り方:
    元の実験の config をコピー・手法を行の 1 本に絞り・θ を行の 1 水準にし・`[validation] cut_offset` を足す。
-   表・モデル・k・fold の数・パージ・エンバーゴ・種・費用は触らない。
+   表・モデル・k・fold の数・パージ・エンバーゴ・シード・費用は触らない。
 ⚠ **回すと決めるのは結果を見る前**（開発ループでは 33-6 の 2 ＝ 新顔の行だけ。手で当てるなら先にレジストリへ）。
    この CLI は config を書くだけで、回さない・DB に書かない。
 ⚠ 書かない形（33-6 の 5）: 手法名に〔…〕の付いた行（上位 K・出口の線・トレーダーの形）・元の config が変種（訓練の窓・翌日始値など）の行。
@@ -98,7 +98,7 @@ def _add_cut_offset(text: str, offset: str) -> str:
 
 
 def cut_config(text: str, *, src: str, method: str, theta: str, offset: str, name: str) -> str:
-    """元の実験の TOML（文字列）→ 分割点をずらした config（文字列）。⚠ 表・モデル・k・fold・種・費用は触らない。"""
+    """元の実験の TOML（文字列）→ 分割点をずらした config（文字列）。⚠ 表・モデル・k・fold・シード・費用は触らない。"""
     if offset not in splits.CUT_OFFSETS:
         raise SystemExit(f"⚠ ずらしは {' ／ '.join(splits.CUT_OFFSETS)} だけ（rules.md 33-2）: {offset!r}")
     doc = tomllib.loads(text)

@@ -1,7 +1,7 @@
-"""段 2b の 3 処置（rules.md 28 章。2026-10-22）。ネットワークを使わない。
+"""ステージ 2b の 3 処置（rules.md 28 章。2026-10-22）。ネットワークを使わない。
 
 ⚠ **落としたいのは 5 つ。**
-  1. 層 `ernf` ＝ `ern` の 3 列の欠損を印の列 3 本（1 ＝ 無い）にコピー、値を埋める（日数 ＝ stale の上限・前年同期比 ＝ 0）。欠損が残らない
+  1. 層 `ernf` ＝ `ern` の 3 列の欠損をフラグの列 3 本（1 ＝ 無い）にコピー、値を埋める（日数 ＝ stale の上限・前年同期比 ＝ 0）。欠損が残らない
   2. `ern` 層は 1 ビットも変わらない（欠損のまま）・系列の無い銘柄も `ernf` では表に残る
   3. 登録と並び（`ern` の後・`cal` の前）・`ern` と `ernf` を両方書いた config は止まる
   4. 費用 5bp 以外は検証方式の変種 `閾値売買（費用20bp）`（数える・判定は閾値売買のまま）・5bp は「閾値売買」のまま
@@ -41,7 +41,7 @@ def test_flags_mark_missing_and_fill_values():
     f = earnings.flag_missing(x)
     assert tuple(f.columns) == earnings.COLUMNS + earnings.FLAG_COLUMNS and len(f) == len(DATES)
     assert not f.isna().any().any()
-    # 提出日の当日まで（0・1 行目）は無い ＝ 印 1・日数は上限 400・前年同期比は 0
+    # 提出日の当日まで（0・1 行目）は無い ＝ フラグ 1・日数は上限 400・前年同期比は 0
     assert list(f["ern_na_ann"]) == [1, 1, 0, 0, 0, 0, 1] and list(f["ern_days_since_ann"].iloc[[0, 1, 6]]) == [400.0] * 3
     assert list(f["ern_na_eps"]) == [1, 1, 0, 0, 0, 0, 1] and list(f["ern_eps_yoy"].iloc[[0, 6]]) == [0.0, 0.0]
     assert list(f["ern_na_rev"]) == [1, 1, 0, 0, 0, 0, 1] and f["ern_rev_yoy"].iloc[2] == 0.1

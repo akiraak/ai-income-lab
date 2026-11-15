@@ -81,7 +81,7 @@ def test_distance_correlation_sees_a_nonlinear_dependence():
 
 
 def test_distance_correlation_subsamples_and_is_reproducible():
-    """⚠ **部分標本は種で決まる**（同じ種なら同じ結果）。⚠ **大きさは事前固定で動かさない。**"""
+    """⚠ **部分標本はシードで決まる**（同じシードなら同じ結果）。⚠ **大きさは事前固定で動かさない。**"""
     assert filt.DCOR_ROWS == 5000
     X, y = _nonlinear(n=200)
     a = registry.resolve("selector", "F1-6 距離相関・HSIC")(X, y, 4, _ctx())
@@ -173,12 +173,12 @@ def test_wavelet_stops_when_the_window_is_missing():
 def test_knockoffs_are_not_copies_of_the_original_columns():
     """⚠ **2026-09-15 に踏んだ罠の回帰テスト。**
 
-    ⚠ **`E` を `default_rng(seed)` で引くと、同じ種で作った合成データと E が一致し、
+    ⚠ **`E` を `default_rng(seed)` で引くと、同じシードで作った合成データと E が一致し、
     ⚠ **偽物が本物のコピーになる**（対角の相関 0.99）。⚠ **そうなると枠は何も検出できない。**
-    ⚠ **データの種と ctx の種をわざと同じにして確かめる。**
+    ⚠ **データのシードと ctx のシードをわざと同じにして確かめる。**
     """
     n, p, seed = 800, 6, 0
-    X = np.random.default_rng(seed).normal(size=(n, p))       # ⚠ ctx の種と同じ流れ
+    X = np.random.default_rng(seed).normal(size=(n, p))       # ⚠ ctx のシードと同じ流れ
     Xt = embedded.gaussian_knockoffs(X, seed)
     corr = np.array([abs(np.corrcoef(X[:, j], Xt[:, j])[0, 1]) for j in range(p)])
     assert corr.max() < 0.3, corr                              # ⚠ コピーになっていない

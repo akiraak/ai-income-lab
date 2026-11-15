@@ -1,4 +1,4 @@
-"""仮データ（日足の再生・合図）と、ランナー simrun.py ／ 操作の口 simctl.py（ループバックのモックだけ。資格情報なし）。
+"""仮データ（日足の再生・合図）と、ランナー simrun.py ／ 操作の手段 simctl.py（ループバックのモックだけ。資格情報なし）。
 
 ⚠ 日足（`feature-discovery/data/`）は git 管理外なので、テストは作り物の日足を `LT_SIM_DATA_DIR` に置く。MODE ／ run.lock ／ 記録は tmp。
 """
@@ -168,7 +168,7 @@ def test_three_days_at_max_speed(env):
     assert simclock.read_control(modes.control_file("sim1"))["paused"] is True                    # ランナーがいない間は時計を止める
     assert cli("simctl.py", ["check"], child).returncode == 0
     assert livefs.listdir(os.path.join(root, "state", "cert")) == ["journal.jsonl", "sim_a.json", "sim_b.json", "sim_c.json"]
-    assert simrun  # 控え（journal.jsonl）は全部閉じている ＝ 未完なし
+    assert simrun  # ジャーナル（journal.jsonl）は全部閉じている ＝ 未完なし
     import journal as jn
     assert jn.Journal(os.path.join(root, "state", "cert")).unfinished() == []
     assert (db_tree(os.path.join(HERE, "out")), db_tree(os.path.join(HERE, "state"))) == real_before

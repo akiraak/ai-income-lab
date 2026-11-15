@@ -177,7 +177,7 @@ def test_pages_render_and_have_no_secrets(settings):
 
 
 def test_placeholders_are_marked_and_not_in_api(settings):
-    """⚠ 仮データ（紙上の損益・差 3・休場日の暦）は画面で印を付け、/api/live には出さない（本物と取り違えない）。"""
+    """⚠ 仮データ（紙上の損益・差 3・休場日の暦）は画面でラベルを付け、/api/live には出さない（本物と取り違えない）。"""
     build_live_dir(settings.live_dir)
     b = lv.board(settings.live_dir)
     assert b["placeholder"]["paper"] and b["traders"][0]["paper_pct"]
@@ -202,7 +202,7 @@ def test_missing_weekday_is_shown_as_not_started(settings):
 
 
 def test_holiday_is_not_a_missing_day(settings):
-    """NYSE の休場日（2026-09-07 Labor Day・月曜）は「起動なし」に数えない。暦の中では「仮」の印も出ない。"""
+    """NYSE の休場日（2026-09-07 Labor Day・月曜）は「起動なし」に数えない。暦の中では「仮」のラベルも出ない。"""
     build_live_dir(settings.live_dir)
     base = {"date": "2026-09-04", "env": "cert", "run_id": "20260904T195500Z"}
     _jsonl(settings.live_dir / "out" / "2026-09-04" / "events.jsonl", [{**base, "kind": "start", "mode": "dry-run", "traders": ["test_a"], "test": True}])
@@ -218,7 +218,7 @@ def test_holiday_is_not_a_missing_day(settings):
 
 
 def test_outside_the_calendar_falls_back_to_weekdays_and_is_marked(settings, monkeypatch):
-    """暦に載っていない年は平日をすべて営業日とみなし、画面に「仮」の印を出す（⚠ 黙って平日扱いにしない）。"""
+    """暦に載っていない年は平日をすべて営業日とみなし、画面に「仮」のラベルを出す（⚠ 黙って平日扱いにしない）。"""
     build_live_dir(settings.live_dir)
     info = lv.calendar_info("2031-01-02", "2031-01-03")
     assert not info["covered"]
@@ -390,7 +390,7 @@ def test_day_records_are_cached_per_day_and_reread_when_the_files_change(setting
 
 
 def test_real_paper_control_replaces_the_placeholder_when_daily_csv_exists(settings):
-    """実売買の Phase 3: 執行エンジンの paper.py が書いた daily.csv があれば、紙上の損益・差 3・B&H は本物を出す（仮の印を外す）。無い人は仮のまま。"""
+    """実売買の Phase 3: 執行エンジンの paper.py が書いた daily.csv があれば、紙上の損益・差 3・B&H は本物を出す（仮のラベルを外す）。無い人は仮のまま。"""
     build_live_dir(settings.live_dir)
     b0 = lv.board(settings.live_dir)
     d = b0["dates"][-1]
@@ -510,7 +510,7 @@ def test_watch_skips_holidays_and_weekends(settings, monkeypatch):
 
 
 def test_watch_is_suppressed_by_the_mark_halt_and_demo(settings, monkeypatch):
-    """印のあるマシン（読むだけのコピー）・HALT の日・デモでは判定しない（checked False・why に理由）。⚠ 停止中は「起動しない」が正しい。"""
+    """フラグのあるマシン（読むだけのコピー）・HALT の日・デモでは判定しない（checked False・why に理由）。⚠ 停止中は「起動しない」が正しい。"""
     _watch_day(settings, "2026-09-23")
     monkeypatch.setattr(lv, "now_et", lambda: _et("2026-09-24T16:20:00"))
     assert lv.watch(settings.live_dir, suppress="not_production") == {"date": "2026-09-24", "after_et": "16:15", "checked": False, "missing": False, "why": "not_production"}

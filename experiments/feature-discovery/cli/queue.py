@@ -1,4 +1,4 @@
-"""実験を並べて回し続ける器。⚠ **`cli/run.py` は置き換えない。外から 1 本ずつ起動するだけ。**
+"""実験を並べて回し続ける仕組み。⚠ **`cli/run.py` は置き換えない。外から 1 本ずつ起動するだけ。**
 
     python3 -m cli.queue --config blank_f41              # 回す（⚠ 途中から再開する）
     python3 -m cli.queue --config blank_f41 --dry-run    # ⚠ 実行を 1 つも作らずに並びだけ見る
@@ -166,7 +166,7 @@ def run_queue(name: str, *, dry_run: bool = False, restart: bool = False,
     done = len(state["items"]) - len(todo)
     log(f"キュー {name}: 全 {len(state['items'])} 本（済み {done} ／ 残り {len(todo)}）")
     if dry_run:
-        # ⚠ **何も実行せず、状態も書かない。** 並びと打ち切りだけを見るための口
+        # ⚠ **何も実行せず、状態も書かない。** 並びと打ち切りだけを見るためのオプション
         for i in state["items"]:
             log(f"  [{i['status']:>7}] {i['id']}")
         log(f"  打ち切り: 連続失敗 {cfg['max_failures']} ／ 時間 "
@@ -219,7 +219,7 @@ def main() -> None:
     ap.add_argument("--restart", action="store_true",
                     help="⚠ 状態を捨てて最初から（済んだ実行も回し直す）")
     args = ap.parse_args()
-    # ⚠ **パスを直に渡せる口**（器だけを確かめたいときに `config/queue/` を汚さないため）
+    # ⚠ **パスを直に渡せるオプション**（シミュレーターだけを確かめたいときに `config/queue/` を汚さないため）
     path = args.config if os.path.exists(args.config) else None
     name = os.path.basename(args.config)[:-5] if path and args.config.endswith(".toml") else args.config
     run_queue(name, dry_run=args.dry_run, restart=args.restart, config_path=path)

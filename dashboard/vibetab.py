@@ -21,7 +21,7 @@ project-manager の別ポートの表示用サーバ（8205）が `/ext/<name>/.
     （モデルの解説）、画面は `traderview.py`。⚠ **売買結果は出さない・`out/` と `state/` を読まない**。dashboard.md §16）
   - `/models/api/sidebar` ・ `/models/view?item=<all|own-ridge…>` ・ `/models/api/watch`
     （予測モデルの一覧と、1 本ずつの解説。言葉の正本は `dashboard/models.toml`、画面は `modelview.py`。
-    ⚠ **売買結果は出さない・`runs/` も読まない**（試した結果の印は人が記録から写したもの）。dashboard.md §17）
+    ⚠ **売買結果は出さない・`runs/` も読まない**（試した結果のラベルは人が記録から写したもの）。dashboard.md §17）
   - `/system/api/sidebar` ・ `/system/view?item=<overview|build|verify|live|names>` ・ `/system/api/watch`
     （このシステムの説明。先頭のタブ〔並びは `~/project-manager/projects.yaml`〕。言葉の正本は `dashboard/system.toml`、画面と図は `systemview.py`。
     ⚠ 開くのは TOML と検証結果一覧（`ledger.md`）だけ。dashboard.md §18）
@@ -129,7 +129,7 @@ def fmt(v, digits: int = 2) -> str:
     """数値は桁を丸め、無いものは —。
 
     ⚠ **削るのは小数点以下の 0 だけ。** 素の `rstrip("0")` は整数部の 0 まで削るので、
-    ⚠ **20.0 が「2」・1650.0 が「1,65」になる**（2026-09-11 に門の水準の表示で踏んだ）。
+    ⚠ **20.0 が「2」・1650.0 が「1,65」になる**（2026-09-11 にゲートの水準の表示で踏んだ）。
     """
     if v is None:
         return "—"
@@ -400,13 +400,13 @@ def _marks_row(run: dict) -> str:
 
 
 def _gate_levels(gate: dict) -> str:
-    """門の水準（事前固定）。⚠ **checks.json のコピー。** 画面で決め直さない。"""
+    """ゲートの水準（事前固定）。⚠ **checks.json のコピー。** 画面で決め直さない。"""
     auc, width = (gate or {}).get("auc_min"), (gate or {}).get("width_min_pt")
     return f"AUC ≥ {fmt(auc, 2)}・買い% 幅 ≥ {fmt(width, 0)} 点"
 
 
 def _gate_html(run: dict) -> str:
-    """前置きの門（rules.md 14-5）の表。⚠ **写すだけ**（通過・門前も checks.json のまま）。"""
+    """前置きのゲート（rules.md 14-5）の表。⚠ **写すだけ**（通過・門前も checks.json のまま）。"""
     gate = run.get("gate") or {}
     rows = []
     for m in run.get("gate_methods") or []:

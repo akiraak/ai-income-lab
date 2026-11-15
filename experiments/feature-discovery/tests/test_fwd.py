@@ -237,7 +237,7 @@ def test_fold_buy_pct_puts_hold_days_in_ctx_and_drain_empties_it(run):
     assert exits[NAME] is None and np.all(exits[fwd.PICK_NAME] == 0.0)
 
 
-# --- 25-7. 土台を引いた買い%（2026-10-19。案 A） ----------------------------------------------
+# --- 25-7. ベースレートを引いた買い%（2026-10-19。案 A） ----------------------------------------------
 
 def test_centered_names_are_registered_and_plain_gates_untouched():
     """登録名 4 つ（`… 土台差`）が解けて、既存の H1〜H5 の登録名と `center` の既定（False）は変わっていない。"""

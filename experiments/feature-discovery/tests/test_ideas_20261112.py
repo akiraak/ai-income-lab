@@ -1,7 +1,7 @@
-"""レジストリ `20261112-wiki-pageview-layer`（2026-11-13 の段 2・人の手）: 取得元 `wikimedia` と閲覧数の層 `attn_`。⚠ ネットワークに出ない。
+"""レジストリ `20261112-wiki-pageview-layer`（2026-11-13 のステージ 2・人の手）: 取得元 `wikimedia` と閲覧数の層 `attn_`。⚠ ネットワークに出ない。
 
 ⚠ 見るもの: 無い config は 1 ビットも変わらない（既存の登録名）／ URL と応答の読み方 ・ 題名ごとの系列を日ごとに足す ／
-   その足の日 − 1 日までの閲覧数だけ（先の日を見ない）／ 欠けは印にして埋める（行を落とさない）／ 連絡先はコードにも対応表にも無い。
+   その足の日 − 1 日までの閲覧数だけ（先の日を見ない）／ 欠けはフラグにして埋める（行を落とさない）／ 連絡先はコードにも対応表にも無い。
 """
 
 from __future__ import annotations
@@ -72,7 +72,7 @@ def test_attn_layer_uses_views_up_to_the_day_before_and_flags_gaps():
     v2[v2.index >= cut_day] *= 50.0
     x2 = attn.build_one(bars, v2, lag_days=1)
     assert x.iloc[:21].equals(x2.iloc[:21]) and not x.iloc[21:].equals(x2.iloc[21:])
-    # 欠け: 系列が無い ／ 過去の日数が足りない ／ 途中に無い日がある → 印 1 ・ 値は z 0 ・ 比 1（行は落とさない）
+    # 欠け: 系列が無い ／ 過去の日数が足りない ／ 途中に無い日がある → フラグ 1 ・ 値は z 0 ・ 比 1（行は落とさない）
     x0 = attn.build_one(bars, None, lag_days=1)
     assert (x0["na"] == 1).all() and (x0["z60"] == 0).all() and (x0["r5_20"] == attn.R_FILL).all()
     short = attn.build_one(bars, _views("2023-12-20", 60), lag_days=1)

@@ -1,7 +1,7 @@
-"""執行エンジンが人ごとの印（停止 ／ 手じまい。control.py）を読むこと（モックサーバで通す。プラン docs/plans/archive/trader-control-flags.md）。
+"""執行エンジンが人ごとのフラグ（停止 ／ 手じまい。control.py）を読むこと（モックサーバで通す。プラン docs/plans/archive/trader-control-flags.md）。
 
 停止 ＝ その人を飛ばす（合図を読まず・売買しない・持ち株はそのまま）／ 手じまい ＝ 合図を読まず持ち株を全部売り、済んだら control/ に「済み」を書き（＝ 停止）、以後は飛ばす ／
-HALT が優先 ／ 壊れた印は起動を拒む ／ 予算の合計の上限は「買う人」だけで見る ／ 口座が足りない銘柄は売らず翌日に持ち越す。
+HALT が優先 ／ 壊れたフラグは起動を拒む ／ 予算の合計の上限は「買う人」だけで見る ／ 口座が足りない銘柄は売らず翌日に持ち越す。
 """
 import json
 import os
@@ -71,7 +71,7 @@ def post(base, path, body):
 
 
 def setup(base):
-    """`lq_a`（持ち株 SPY 2・QQQ 1）と `ac_b`（持ち株なし・今日 SPY を買う合図）。印の保存先は HALT の隣の control/。"""
+    """`lq_a`（持ち株 SPY 2・QQQ 1）と `ac_b`（持ち株なし・今日 SPY を買う合図）。フラグの保存先は HALT の隣の control/。"""
     tdir, sdir = base / "traders", base / "signals"
     tdir.mkdir(), sdir.mkdir()
     for name in ("lq_a", "ac_b"):
@@ -175,7 +175,7 @@ def test_short_position_is_carried_to_the_next_day(tmp_path, mock_server):
 
 
 def test_no_flags_means_the_old_path(tmp_path, mock_server):
-    """印の無い人は今までどおり（合図で売買・予算の上限は全員ぶん）。"""
+    """フラグの無い人は今までどおり（合図で売買・予算の上限は全員ぶん）。"""
     tdir, cdir = setup(tmp_path)
     post(mock_server, "/_mock/positions", {"positions": {"SPY": 2, "QQQ": 1}})
     r = run(tmp_path, tdir, ["--traders", "lq_a,ac_b", "--mode", "submit"], mock_server)

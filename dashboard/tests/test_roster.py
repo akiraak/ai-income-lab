@@ -110,7 +110,7 @@ def test_cancel_returns_to_the_form_before(world):
     assert "「開始」の指示を取り消した（停止のまま）" in flash(r)
     assert json.loads(roster_file(s).read_text(encoding="utf-8"))["traders"] == []
     assert "■ 停止" in row_of(c, "A1") and "指示: なし" in row_of(c, "A1")
-    # 一時停止の指示 → 取り消すと印も消える
+    # 一時停止の指示 → 取り消すとラベルも消える
     post(c, "A1", kind="start", confirm="A1")
     run_passed(s)
     assert "「一時停止」の指示を出した" in flash(flag_post(c, "A1", kind="paused", confirm="A1", reason="入金待ち"))
@@ -132,12 +132,12 @@ def test_pause_then_start_and_liquidate(world):
     run_passed(s)
     row = row_of(c, "B2")
     assert "⏸ 一時停止" in row and "持ち株はそのまま" in row and "▶ 開始" in row and "🧹 手じまい" in row
-    # 一時停止 → 開始 ＝ 印を消す（名簿の並びは変えない）
+    # 一時停止 → 開始 ＝ フラグを消す（名簿の並びは変えない）
     assert "「開始」の指示を出した" in flash(post(c, "B2", kind="start", confirm="B2"))
     assert not flag_file(s, "B2").exists()
     assert [e["name"] for e in json.loads(roster_file(s).read_text(encoding="utf-8"))["traders"]] == ["A1", "B2"]
     assert "⏸ 一時停止" in row_of(c, "B2") and "指示: ▶ 開始" in row_of(c, "B2")
-    # 取り消すと一時停止の印が戻る
+    # 取り消すと一時停止のラベルが戻る
     flag_post(c, "B2", kind="cancel")
     assert json.loads(flag_file(s, "B2").read_text(encoding="utf-8"))["paused"] is True
     # 手じまい

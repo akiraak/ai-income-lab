@@ -1,22 +1,22 @@
 """ハイパーパラメータを**訓練分割の内側**で選ぶモデル（rules.md 14-12。2026-10-09 利用者決定 B）。
 
 `<モデル>（内側選抜）` ＝ 事前固定した候補（`CANDIDATES`。既定が先頭）を訓練分割の末尾 10%（`tail_holdout`。
-門・較正・GA と同じ保存先）で Spearman ρ で測り、champion を訓練全体で学び直して評価分割を当てる。
+ゲート・較正・GA と同じ保存先）で Spearman ρ で測り、champion を訓練全体で学び直して評価分割を当てる。
 
 ⚠ **評価分割 `Xte` には champion が決まった後にしか触れない**（14-11 規約 3 と同型の検査 ＝ `tests/test_tuned.py`）。
 ⚠ **champion が既定なら、基底のモデルと 1 ビットも違わない**（14-12 規約 4）。
-⚠ **モデルが呼ばれるたびにその訓練の末尾で選ぶ**（門・較正・本番で champion が違ってよい。規約 5）。
+⚠ **モデルが呼ばれるたびにその訓練の末尾で選ぶ**（ゲート・較正・本番で champion が違ってよい。規約 5）。
 ⚠ **候補は結果を見て足さない・動かさない**（規約 1。コピーを `tests/test_tuned.py` が固定する）。
 ⚠ **config にこのモデル名が無ければ 1 ビットも変えない**（基底の `trees.py`・`deep.py` は ctx に項目が無ければ今までの定数）。
 
 ⚠ **14-12-3（2026-10-09 利用者決定「推すのですすめる」）: `<モデル>（内側選抜・1 度）`** ＝ 規約 5 の例外 1 つ。
 `fold_buy_pct` が較正の呼び出しの前に `select_once` で 1 度選び、champion を `ctx[CHAMPION_KEY]` で較正と本番に配る。
-このモデルは項目があれば**選ばずに**基底を呼ぶ（記録に「配られた」）。項目が無い呼び出し（門・毎日往復の経路）は
+このモデルは項目があれば**選ばずに**基底を呼ぶ（記録に「配られた」）。項目が無い呼び出し（ゲート・毎日往復の経路）は
 自前で選ぶ（記録に「自前」）。⚠ `（内側選抜）` の経路は 1 バイトも変えない（結果を見てから直さない ＝ 規約 1。別のモデルとして ＋9）。
 
 記録: 1 回の呼び出しごとに候補・ρ・champion・末尾の行数を `ctx[DOC_KEY]` のリストに積む。
 `cli/run.py` の `fold_buy_pct` が本番の呼び出しの後に `drain` で取り出して `fitted_doc[手法]["内側選抜"]` にコピー、
-門（`ail/validation/gate.py`）は取り出して捨てる（門は診断）。⚠ 取り残すと fold をまたいで混ざるので、
+ゲート（`ail/validation/gate.py`）は取り出して捨てる（ゲートは診断）。⚠ 取り残すと fold をまたいで混ざるので、
 モデルを呼んだ側が必ず `drain` する。
 """
 
@@ -111,7 +111,7 @@ def inner_select(base, Xtr, ytr, Xte, ctx: dict, candidates: list[dict]):
 
 def inner_select_once(base, Xtr, ytr, Xte, ctx: dict, candidates: list[dict]):
     """`（内側選抜・1 度）`（14-12-3）: `ctx[CHAMPION_KEY]` があれば**選ばずに**その champion で基底を呼ぶ（記録「配られた」）。
-    無ければ自前で選ぶ（記録「自前」。門・毎日往復の経路）。⚠ 選び方は `inner_select` と同じ `_choose`。"""
+    無ければ自前で選ぶ（記録「自前」。ゲート・毎日往復の経路）。⚠ 選び方は `inner_select` と同じ `_choose`。"""
     ytr = np.asarray(ytr, dtype=float)
     if CHAMPION_KEY in ctx:
         champion = ctx[CHAMPION_KEY]

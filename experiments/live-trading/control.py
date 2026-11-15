@@ -13,7 +13,7 @@ liquidate ＝ 手じまい中 ／ liquidate ＋ done ＝ 停止（手じまい�
 
 保存先: <記録ディレクトリ>/control/<人>.json（`HALT` と同じ記録ディレクトリ ＝ `TT_OUT_DIR` か tastytrade-api-sample/out。⚠ ファイルのまま）。
 中身: {"paused": bool, "liquidate": bool, "since": iso, "actor": str, "reason": str, "done": {"date", "fills"} | null}
-⚠ 壊れた印は「印なし」と読まない（`ControlError` ＝ 執行エンジンは起動を拒む。`NOT_PRODUCTION` の印と同じ考え）。
+⚠ 壊れたフラグは「印なし」と読まない（`ControlError` ＝ 執行エンジンは起動を拒む。`NOT_PRODUCTION` のフラグと同じ考え）。
 ⚠ 書いても、その場では何も売らない。売るのは執行エンジンの毎日の回（発注できる時間帯・許可・`HALT` は今までどおり）。
 """
 
@@ -44,11 +44,11 @@ class Flag:
     since: str | None = None
     actor: str | None = None
     reason: str = ""
-    done: dict | None = None        # 手じまいが済んだ印 {"date", "fills", "note"}。以後その人は飛ばす
+    done: dict | None = None        # 手じまいが済んだフラグ {"date", "fills", "note"}。以後その人は飛ばす
 
     @property
     def active(self) -> bool:
-        """印が無い ＝ 普通に売買する人。"""
+        """フラグが無い ＝ 普通に売買する人。"""
         return not (self.paused or self.liquidate)
 
     def describe(self) -> str:
@@ -63,7 +63,7 @@ class Flag:
 
 
 def control_dir(halt_file: str) -> str:
-    """印の保存先 ＝ `HALT` と同じ記録ディレクトリの `control/`。"""
+    """フラグの保存先 ＝ `HALT` と同じ記録ディレクトリの `control/`。"""
     return os.path.join(os.path.dirname(halt_file), DIR_NAME)
 
 
@@ -83,7 +83,7 @@ def _now() -> str:
 
 
 def read_flag(dir_: str, name: str) -> Flag | None:
-    """印を読む。無ければ None。⚠ 壊れていれば ControlError（「無い」と読まない）。"""
+    """フラグを読む。無ければ None。⚠ 壊れていれば ControlError（「無い」と読まない）。"""
     p = path_of(dir_, name)
     if not os.path.exists(p):
         return None
@@ -119,7 +119,7 @@ def _write(dir_: str, fl: Flag) -> str:
 
 
 def set_flag(dir_: str, name: str, kind: str, actor: str, reason: str = "") -> Flag:
-    """印を立てる（`paused` ／ `liquidate`）。手じまいは停止を兼ねる（立て直すと `done` は消える ＝ もう一度売る）。"""
+    """フラグを立てる（`paused` ／ `liquidate`）。手じまいは停止を兼ねる（立て直すと `done` は消える ＝ もう一度売る）。"""
     if kind not in ("paused", "liquidate"):
         raise ControlError(f"種類は paused（一時停止）か liquidate（手じまい）: {kind!r}")
     fl = Flag(name=name, paused=(kind == "paused"), liquidate=(kind == "liquidate"), since=_now(), actor=actor, reason=reason[:200], done=None)

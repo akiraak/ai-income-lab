@@ -45,7 +45,7 @@ def _wrap(text: str, limit: float) -> list[str]:
 
 # パート（箱の塗り分け。`parts` の並び順で色を当てる。凡例の文字は TOML）
 PART_FILLS = (("#ddf4ff", "#54aeff"), ("#dafbe1", "#4ac26b"), ("#fbefff", "#c297ff"), ("#fff1e5", "#fb8f44"))
-# 箱の種類ごとの塗りと線（`kind`）。無印は灰
+# 箱の種類ごとの塗りと線（`kind`）。無ラベルは灰
 _KIND_FILLS = {"note": ("#fff8c5", "#d4a72c"), "out": ("#ddf4ff", "#2a78d6")}
 
 

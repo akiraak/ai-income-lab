@@ -6,10 +6,10 @@
     python liquidate.py --traders T1,T3 --env prod --mode dry-run --allow-prod-dry-run
     TT_ALLOW_PROD_ORDERS=1 python liquidate.py --traders T1,T3 --env prod --mode submit --i-know-this-is-real-money --while-halted
 
-⚠ **毎日の執行エンジン（run_day.py）とは別の 1 本**で、部品（発注・控え・売買履歴・記録・許可・印・ロック）はそのまま使う ＝ 毎日の経路は変えない。
+⚠ **毎日の執行エンジン（run_day.py）とは別の 1 本**で、部品（発注・ジャーナル・売買履歴・記録・許可・フラグ・ロック）はそのまま使う ＝ 毎日の経路は変えない。
 ⚠ 売るのは **その人の売買履歴にある持ち株だけ**。口座にあって売買履歴に無い株は売らない（差を推測で誰かに割り振らない ＝ live-trading.md §0-8）。
 ⚠ 許可は毎日の執行エンジンと同じ 3 段（既定 dry-run ／ 本番の dry-run は --allow-prod-dry-run ／ 本番の発注は TT_ALLOW_PROD_ORDERS=1 ＋ --i-know-this-is-real-money）。
-   「本番のマシンではない」印・シミュレーションモードでは拒む。run.lock を取る（毎日の執行エンジンと同時に動かない）。
+   「本番のマシンではない」フラグ・シミュレーションモードでは拒む。run.lock を取る（毎日の執行エンジンと同時に動かない）。
 ⚠ HALT がある間は拒む。--while-halted を付けたときだけ通す（止めてから手じまいする、が普通の順）。
 ⚠ 動くのは市場が開いている間（NYSE の営業日の 9:30〜引け）。15:45〜16:05 の時間帯には限らない。--ignore-market-hours はテスト・モック用。
 ⚠ 記録は毎日の執行エンジンと同じ out/<日付>/（orders.jsonl の行に liquidate: true）。状態を書くのは --mode submit のときだけ。
@@ -109,7 +109,7 @@ def main() -> int:
     allow_prod_orders = args.i_know_this_is_real_money and cfg.get("TT_ALLOW_PROD_ORDERS") == "1"
     is_mock = bool(cfg.get("TT_REST_BASE") or cfg.get("TT_PROD_REST_BASE"))
 
-    # ---- 0. モード・保存先・印・許可・ロック（毎日の執行エンジンと同じ順。⚠ 手じまいは本物の時計だけ ＝ 仮の時計は無い）
+    # ---- 0. モード・保存先・フラグ・許可・ロック（毎日の執行エンジンと同じ順。⚠ 手じまいは本物の時計だけ ＝ 仮の時計は無い）
     try:
         machine = modes.read_mode()
     except modes.ModeError as exc:
@@ -179,7 +179,7 @@ def main() -> int:
     # ⚠ --while-halted のとき、発注の部品（Executor）には「無い」パスを渡す ＝ 部品の HALT の監視をこの実行だけ外す（本物の HALT は触らない）
     exec_halt_file = halt_file if not args.while_halted else halt_file + ".ignored-by-liquidate"
 
-    # ---- 1. 認証・口座・建玉・残高 → 控えの未完 → 照合（毎日の執行エンジンと同じ順。売買の前に済ませる）
+    # ---- 1. 認証・口座・建玉・残高 → ジャーナルの未完 → 照合（毎日の執行エンジンと同じ順。売買の前に済ませる）
     try:
         client = day.make_client(cfg, env, args.allow_prod_dry_run, allow_prod_orders, rec, args.auth_retry_wait)
     except ApiError as exc:
@@ -238,7 +238,7 @@ def main() -> int:
     for o in orders:
         print(f"  {o.parts[0]['trader']:6s} {o.symbol:6s} {o.shares:>10} 株（約 ${o.value_usd:,.2f}）")
 
-    # ---- 3. 執行と売買履歴（submit のときだけ状態を書く。1 注文ごとに 控え → 約定 → 保存 → 控えを閉じる）
+    # ---- 3. 執行と売買履歴（submit のときだけ状態を書く。1 注文ごとに ジャーナル → 約定 → 保存 → ジャーナルを閉じる）
     ledger_errors = 0
     fills_all: list[dict] = []
 

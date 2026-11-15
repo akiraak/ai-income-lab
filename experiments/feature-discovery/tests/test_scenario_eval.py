@@ -101,7 +101,7 @@ def test_judge_follows_the_preregistered_rules():
     assert good["verdict"] == "採る" and all(good["ok"].values()) and good["b_better"] == 5
     assert good["a_diff_vs_hist"]["ci_high"] < 0 and good["a_diff_vs_hist"]["non_overlapping"]["n"] == 300
     assert evaluate.judge(_frame(+0.05), EV, [])["verdict"] == "落とす"
-    # 差は負でも、印が付いたら (d) が欠けて「保留」止まり
+    # 差は負でも、フラグが付いたら (d) が欠けて「保留」止まり
     held = evaluate.judge(_frame(-0.05), EV, flagged=["f3_seed1"])
     assert held["verdict"] == "保留" and not held["ok"]["d"] and held["ok"]["a"]
     # 区間が狭すぎる（被覆率が帯の外）でも「採る」にならない
@@ -158,7 +158,7 @@ def test_cli_run_and_predict_end_to_end(tmp_path, monkeypatch, capsys):
     assert out["as_of"] == str(ts[-1].date()) and out["n_scenarios"] == 60 and out["return_basis"]
     assert out["model_version"].endswith("f2_seed0.pt") and 0 <= out["probability_up_5d"] <= 1
     assert out["training_cutoff"] < "2020-03-01"                       # f2 の学習は検証（2020-03-01〜）の前で終わる
-    # 同じ重み・同じ種なら同じ予測（保存 → 読込の再現）
+    # 同じ重み・同じシードなら同じ予測（保存 → 読込の再現）
     scenario.predict(argparse.Namespace(run=run_dir, latest=True, asof=None, seed=0))
     assert json.loads(capsys.readouterr().out)["median_return_5d"] == out["median_return_5d"]
     with pytest.raises(SystemExit):                                    # 最初のテストの始まりより前は、使える重みが無い

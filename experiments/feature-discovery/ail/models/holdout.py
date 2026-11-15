@@ -44,10 +44,10 @@ def purge_days(bars: float) -> float:
 
 def date_holdout(ts, label_bars: float, frac: float = 0.1,
                  min_train: int = MIN_TRAIN, min_val: int = 50):
-    """⚠ **日付で切る holdout。** 訓練分割の末尾 `frac` を較正・門に回し、⚠ **頭との間をパージする。**
+    """⚠ **日付で切る holdout。** 訓練分割の末尾 `frac` を較正・ゲートに回し、⚠ **頭との間をパージする。**
 
     ⚠ **`tail_holdout` は行数で隙間を取る**（63 銘柄なら 28 日ぶん）ので、
-    ⚠ **200 営業日のラベルでは頭と末尾のラベルが重なる** — 較正も門の値も楽観側に外れる。
+    ⚠ **200 営業日のラベルでは頭と末尾のラベルが重なる** — 較正もゲートの値も楽観側に外れる。
     長いラベルを使う手法はこちらを使う（[プラン §2-2](../../../../docs/plans/archive/downtrend-detection.md) の 5）。
 
     戻り値は (頭のマスク, 末尾のマスク) の 2 本。⚠ **切れないときは None**（素通しして呼び元が決める）。

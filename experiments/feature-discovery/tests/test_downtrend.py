@@ -2,7 +2,7 @@
 
 ⚠ **ここで落としたいのは 4 つ。**
   1. 検知器の出力の契約（買い% が 0〜100・検証の行数ぶん。rules.md 14-1）
-  2. ⚠ **較正と門の holdout が、長いラベルのぶんパージされていること**（重なると楽観側に外れる）
+  2. ⚠ **較正とゲートの holdout が、長いラベルのぶんパージされていること**（重なると楽観側に外れる）
   3. ⚠ **乱択ゲートが保有日数を保つこと**（保たないと「休んだだけ」との分離が効かない。14-6 b）
   4. leak 対照が跳ねること（13-10。⚠ **スケールごとの答えを混ぜて初めて長いスケールでも跳ねる**）
 """
@@ -97,7 +97,7 @@ def test_classic_filter_is_the_sign_of_the_moving_average_gap():
 # --- 2. holdout のパージ ------------------------------------------------
 
 def test_date_holdout_purges_by_the_label_length():
-    """⚠ **頭の終わり ＋ W 日 ≤ 末尾の始まり。** 重なると較正も門の値も楽観側に外れる。"""
+    """⚠ **頭の終わり ＋ W 日 ≤ 末尾の始まり。** 重なると較正もゲートの値も楽観側に外れる。"""
     ts = pd.Series(pd.date_range("2020-01-01", periods=4000, freq="D", tz="UTC"))
     head, hold = date_holdout(ts, label_bars=200)
     gap = ts[hold].min() - ts[head].max()
@@ -178,7 +178,7 @@ def test_without_leak_the_edge_stays_small(run):
 
 
 def test_gate_is_measured_for_detectors(run):
-    """⚠ **門は検知器でも測る**（値は記録するだけ。回すかどうかはプラン §2-6 の決定）。"""
+    """⚠ **ゲートは検知器でも測る**（値は記録するだけ。回すかどうかはプラン §2-6 の決定）。"""
     p = _panel()
     exp = _exp(_detector_names(WINDOWS))
     doc = gate.evaluate_gate(p, _feats(p), exp, run=None)

@@ -8,7 +8,7 @@
 ⚠ **checkpoint は検証期間の CRPS で選ぶ**（敵対的損失では選ばない）。⚠ **MSE の補助損失は入れない**（分布が縮む）。
 
 ⚠ **増強 GAN（`ail/models/gan.py`）とは別物**で、部品も共有しない（記録 `cgan-scenario.md` §0 決定 4）。
-共有するのはデバイスの選び方と種の固定（`ail/models/deep.py`）だけ。入力は `data.Scaler` を通した後の値。
+共有するのはデバイスの選び方とシードの固定（`ail/models/deep.py`）だけ。入力は `data.Scaler` を通した後の値。
 """
 
 from __future__ import annotations
@@ -24,7 +24,7 @@ from ail.scenario import metrics
 #   多様性 ＝ シナリオ間の 5 日累積リターンの σ（起点の平均）÷ 学習区間の実測の 5 日累積リターンの σ
 COLLAPSE_RATIO = 0.1         # これ未満 ＝ z を変えてもほぼ同じ未来しか出していない
 EXTREME_SIGMA = 10.0         # 日次リターンが学習区間の σ の何倍を超えたら「極端な値」と数えるか
-EXTREME_SHARE = 0.01         # 極端な値の割合がこれを超えたら印を付ける
+EXTREME_SHARE = 0.01         # 極端な値の割合がこれを超えたらフラグを付ける
 
 
 def build(n_features: int, horizon: int, cfg: dict):
@@ -86,7 +86,7 @@ def gradient_penalty(critic, x, y_real, y_fake, eps):
 def generate(gen, X: np.ndarray, n: int, seed: int, device=None, chunk: int = 256) -> np.ndarray:
     """起点ごとに n 本。返り値 `[len(X), n, horizon]`（⚠ **scaler を通した後の単位**。戻すのは呼び元）。
 
-    ⚠ **z は CPU の乱数列から作る**（デバイスに依らず同じ種で同じ z。決定性）。
+    ⚠ **z は CPU の乱数列から作る**（デバイスに依らず同じシードで同じ z。決定性）。
     """
     import torch
 
@@ -159,7 +159,7 @@ def fit(Xtr, Ytr, Xva, Yva, cfg: dict, seed: int, y_scale: float, log=print, dev
             opt_g.step()
         if epoch % int(cfg["eval_every"]) and epoch != int(cfg["max_epochs"]):
             continue
-        # ⚠ **検証の z は毎回同じ種**（checkpoint どうしを同じ乱数で比べる。学習の乱数列は進めない）
+        # ⚠ **検証の z は毎回同じシード**（checkpoint どうしを同じ乱数で比べる。学習の乱数列は進めない）
         paths = generate(gen, Xva, int(cfg["eval_scenarios"]), seed=seed + 10_000, device=device)
         crps = metrics.crps_5d(paths * y_scale, np.asarray(Yva) * y_scale)
         row = {"epoch": epoch, "loss_critic": float(loss_c.detach()), "loss_generator": float(loss_g.detach()),

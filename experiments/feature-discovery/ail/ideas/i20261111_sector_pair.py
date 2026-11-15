@@ -29,7 +29,7 @@ from ail.registry import register
 
 FWD = 5                # ⚠ 事前固定（レジストリ）
 WINDOWS = (20, 60)     # ⚠ 事前固定（レジストリ）
-BASE = 60              # ずれの土台 ＝ 直近 60 日の平均
+BASE = 60              # ずれのベース ＝ 直近 60 日の平均
 MIN_CORR_DAYS = 120
 MIN_ROWS = 500
 UNIVERSE = os.path.join(os.path.dirname(__file__), "..", "..", "config", "universe", "us63.toml")

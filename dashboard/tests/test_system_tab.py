@@ -186,7 +186,7 @@ def test_real_part_pages_render():
     first = modelview.body(paths, data["models"][0]["id"])
     assert "<a href='/#system/model' target='_top'>" in first and "/#models/build" not in first   # モデルのページから共通の流れへ
     assert [i["id"] for i in modelview.sidebar(paths)["items"]][:1] == [modelview.LIST_ID]
-    assert not {"build", "verify"} & {i["id"] for i in modelview.sidebar(paths)["items"]}   # 予測モデルのタブにしくみの束は無い
+    assert not {"build", "verify"} & {i["id"] for i in modelview.sidebar(paths)["items"]}   # 予測モデルのタブにしくみのグループは無い
 
 
 def test_system_detail_label():

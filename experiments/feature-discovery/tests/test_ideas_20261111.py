@@ -1,4 +1,4 @@
-"""レジストリ `20261111-meta-label-filter`（2026-11-13 の段 2・人の手）: 一段目の合図の当たりを当てる二段目 M1（メタラベル）。
+"""レジストリ `20261111-meta-label-filter`（2026-11-13 のステージ 2・人の手）: 一段目の合図の当たりを当てる二段目 M1（メタラベル）。
 
 ⚠ 見るもの: 無い config は 1 ビットも変わらない（既存の登録名・表記）／ ラベルと当たりの割合の定義 ／ 出力は「一段目の買い% か 50」・
    出口は一段目のまま ／ 先の日を見ない ／ 間引けないときは一段目そのまま ／ leak 対照が一段目に届く。
@@ -175,7 +175,7 @@ def test_pr1_buys_only_laggards_exits_when_gap_closes_and_no_lookahead():
     assert (buy[out] == 50).all() and (ex[out] == 100).all()                    # 相手のいない会社と ETF は対象外
     lag = ex != 100.0
     assert lag.any() and np.allclose(ex[lag], 100.0 - buy[lag]) and (buy[~lag] == 50).all()
-    # 出遅れの印は「その日までの終値」の 60 日の z < 0 と同じ
+    # 出遅れのフラグは「その日までの終値」の 60 日の z < 0 と同じ
     both = pd.concat([tr, te])
     close = both.pivot_table(index="ts", columns="symbol", values="close")
     close.index = pd.to_datetime(close.index)

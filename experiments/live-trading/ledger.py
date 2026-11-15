@@ -15,7 +15,7 @@ def daily_row(trader: Trader, st: TraderState, quotes: dict[str, float], date: s
             market += h.shares * px
             priced += 1
         else:
-            market += h.cost  # 気配が無い銘柄は原価で置く（印を付ける）
+            market += h.cost  # 気配が無い銘柄は原価で置く（フラグを付ける）
     cost = st.cost_in_use()
     return {
         "date": date,

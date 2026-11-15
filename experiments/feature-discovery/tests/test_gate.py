@@ -1,6 +1,6 @@
-"""前置きの門（rules.md 14-5）の検査。
+"""前置きのゲート（rules.md 14-5）の検査。
 
-⚠ **門は採否に使わない。** ⚠ **2026-09-14 から既定では回すかどうかにも使わない**（診断。
+⚠ **ゲートは採否に使わない。** ⚠ **2026-09-14 から既定では回すかどうかにも使わない**（診断。
 rules.md 14-10 規約 2）。足切りは `--gate` のときだけ。水準は事前固定（2026-09-11 利用者決定）。
 ⚠ **検証 fold には特徴量にも触れない**。実測の形は validation-power.md §5-1（雑音は幅で落ち、leak は大差で通る）。
 """
@@ -46,7 +46,7 @@ def _feats(panel):
     return [c for c in panel.columns if c not in ("symbol", "ts", "y")]
 
 
-# --- 門の計算（gate.evaluate_gate） ---------------------------------------
+# --- ゲートの計算（gate.evaluate_gate） ---------------------------------------
 
 def test_levels_are_pinned():
     """⚠ **水準は事前固定**（2026-09-11 利用者決定）。動かすなら rules.md 14-5 に追記してから。"""
@@ -55,7 +55,7 @@ def test_levels_are_pinned():
 
 
 def test_baselines_are_not_gated():
-    """基準線は門に掛けない（採否の対象ではない）。「全部使う」は手法（13-9 の 4）。"""
+    """基準線はゲートに掛けない（採否の対象ではない）。「全部使う」は手法（13-9 の 4）。"""
     assert gate.is_gated("全部使う（基準）")
     assert not gate.is_gated("乱択（基準）")
     assert not gate.is_gated("基準 常に上（ドリフト）")
@@ -69,7 +69,7 @@ def test_noise_is_blocked():
     assert d["passed"] is False
     assert doc["blocked"] == ["全部使う（基準）"] and doc["passed"] == []
     assert d["width_pt"] < gate.WIDTH_MIN_PT
-    assert "乱択（基準）" not in doc["methods"]        # 基準線は門に掛けない
+    assert "乱択（基準）" not in doc["methods"]        # 基準線はゲートに掛けない
 
 
 def test_leak_passes_by_a_wide_margin():
@@ -83,9 +83,9 @@ def test_leak_passes_by_a_wide_margin():
 
 
 def test_gate_never_touches_validation_folds():
-    """⚠ **検証 fold には特徴量にも触れない**（14-5。門が n_trials に入らない根拠）。
+    """⚠ **検証 fold には特徴量にも触れない**（14-5。ゲートが n_trials に入らない根拠）。
 
-    最終 fold の検証区間はどの fold の訓練にも入らないので、そこを壊しても門の値は 1 桁も動かない。
+    最終 fold の検証区間はどの fold の訓練にも入らないので、そこを壊してもゲートの値は 1 桁も動かない。
     """
     panel = _panel()
     exp = _exp()
@@ -123,12 +123,12 @@ def test_default_does_not_stop_when_everything_is_blocked(run):
     doc = _gate_doc(blocked=("全部使う（基準）",))
     out = apply_gate(exp, doc, False, run)
     assert out is exp
-    assert doc["forced"] is True                         # 検証結果一覧が門前の行を作らない印
+    assert doc["forced"] is True                         # 検証結果一覧が門前の行を作らないフラグ
     assert doc["mode"] == "診断"
 
 
 def test_default_keeps_the_blocked_selectors(run):
-    """既定では一部が門前でも外さない（門の値は checks に残るだけ）。"""
+    """既定では一部が門前でも外さない（ゲートの値は checks に残るだけ）。"""
     exp = {**_exp(), "selectors": ["A", "B", "乱択（基準）"]}
     doc = _gate_doc(passed=("A",), blocked=("B",))
     out = apply_gate(exp, doc, False, run)
@@ -137,7 +137,7 @@ def test_default_keeps_the_blocked_selectors(run):
 
 
 def test_default_without_blocked_is_not_forced(run):
-    """門前が無ければ forced は付けない（回さなかった手法が無いので印も要らない）。"""
+    """門前が無ければ forced は付けない（回さなかった手法が無いのでフラグも要らない）。"""
     exp = {**_exp(), "selectors": ["A"]}
     doc = _gate_doc(passed=("A",))
     assert apply_gate(exp, doc, False, run) is exp

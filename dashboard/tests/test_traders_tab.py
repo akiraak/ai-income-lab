@@ -2,7 +2,7 @@
 
 ⚠ モデルの解説は `models.toml`（「予測モデル」タブと同じ 1 本。§17）。ここの `FORBIDDEN`・`COMPARING`・`_texts` は `test_models_tab.py` も使う。
 
-見るもの: やさしい言葉（本文に専門用語が無い）／ ほかの人とくらべる文が無い ／ どこまで確かかの印 ／ 数字は設定から写すだけ ／
+見るもの: やさしい言葉（本文に専門用語が無い）／ ほかの人とくらべる文が無い ／ どこまで確かかのラベル ／ 数字は設定から写すだけ ／
 だれが居るかは設定から（人数を数えない・見くらべるページが無い）／ 売買の記録を開かない ／ 経路 ／ HTML の escape。
 """
 
@@ -54,7 +54,7 @@ def _walk(where: str, v) -> list[tuple[str, str]]:
 
 def _texts(doc: dict) -> list[tuple[str, str]]:
     """本文の全部の文（入れ子の表・配列も）。⚠ モデルの正式な名前の欄（`FORMAL_KEYS`）・「詳しく」の欄（`DETAIL_KEYS`）・
-    印の鍵（`basis`・`verdict`・経緯の表の数と `old`）と呼び名は除く。人ごとの「売買する株を選んだ理由」（`[symbols_why]`）は本文。"""
+    ラベルの鍵（`basis`・`verdict`・経緯の表の数と `old`）と呼び名は除く。人ごとの「売買する株を選んだ理由」（`[symbols_why]`）は本文。"""
     out = _walk("common", doc.get("common") or {}) + _walk("symbols_why", doc.get("symbols_why") or {})
     for m in doc.get("model", []):
         body = {k: v for k, v in m.items() if k not in FORMAL_KEYS + DETAIL_KEYS}
@@ -268,10 +268,10 @@ def test_page_shows_the_model_and_its_traits(paths):
                      ("4", "この人の決まり"), ("5", "気をつけること")]
     assert "<code>exp_a</code> <code>手法 A</code>" in body and "モデル A のひとこと" in body      # 使うモデルを表示する
     assert "モデルは 1 本だけ。" in body
-    # 使うモデルの札から「予測モデル」タブのそのモデルのページへ（id のあるモデルだけ）
+    # 使うモデルのラベルから「予測モデル」タブのそのモデルのページへ（id のあるモデルだけ）
     assert "<a href='/#models/a-type' target='_top'>モデルのページ</a>" in body
     assert "/#models/" not in traderview.body(paths, "TB").split("モデル B のひとこと")[1].split("</div></div>")[0]
-    # 特性には、どこまで確かかの印。印の無い文は「見立て」として出す
+    # 特性には、どこまで確かかのラベル。ラベルの無い文は「見立て」として出す
     assert "特性 1<span class='tag build'>作りから</span>" in body
     assert "特性 2<span class='tag trial'>試し運転で見えた</span>" in body
     assert "特性 3<span class='tag guess'>見立て</span>" in body
@@ -298,12 +298,12 @@ def test_page_shows_the_model_and_its_traits(paths):
 
 def test_trader_with_several_models_and_candidate_mark(paths):
     body = traderview.body(paths, "TB")
-    # 候補の人の印は「正式な名前」の「（候補）」だけ（「まだ確定していない」の帯は 2026-09-26 に消した）
+    # 候補の人のラベルは「正式な名前」の「（候補）」だけ（「まだ確定していない」のバナーは 2026-09-26 に消した）
     assert "（候補）" in body and "class='note'" not in body and "まだ確定していない" not in body
     assert "モデル A のひとこと" in body and "モデル B のひとこと" in body and "2 本のモデルの点を平均する。" in body
     assert "特性 1" in body and "特性 B" in body and "<h3>B の型</h3>" in body               # モデルごとに分けて出す
     assert "点が 50 を上回ったら買い、50 を下回ったら売る。" in body
-    # 選んだ理由の無い人には理由の文が出ない。モデルが 2 本なら「出力スコアを出す株」の札にモデルの呼び方が付く（sets の無い B は出ない）
+    # 選んだ理由の無い人には理由の文が出ない。モデルが 2 本なら「出力スコアを出す株」のラベルにモデルの呼び方が付く（sets の無い B は出ない）
     assert "売り買いするのは 4 本: E1、C1、C2、C3。</p>" in body and "値段の低い順" not in body
     assert "<div class='chip'><b>モデルが点を出す株</b>&lt;b&gt;形&lt;/b&gt;を読む型 — 見る株の全部（A）</div>" in body
     assert body.count("<div class='chip'><b>モデルが点を出す株</b>") == 1
@@ -330,7 +330,7 @@ def test_ruler_widths_follow_the_lines(paths):
     common = traderview.load_words(paths)["common"]
     band = traderview.ruler(common, traderview.load_facts(paths, "TA"))       # 55 ／ 45
     assert [float(w) for w in re.findall(r"width:([\d.]+)%", band)] == [45.0, 10.0, 45.0]
-    assert "class='wait'" in band and "何もしない" not in band               # 狭い帯に長い札を押し込まない（短い札が無ければ空）
+    assert "class='wait'" in band and "何もしない" not in band               # 狭い帯に長いラベルを押し込まない（短いラベルが無ければ空）
     same = traderview.ruler(common, traderview.load_facts(paths, "TB"))       # 50
     assert [float(w) for w in re.findall(r"width:([\d.]+)%", same)] == [50.0, 50.0] and "class='wait'" not in same
 
@@ -445,7 +445,7 @@ def test_roles_show_as_tags_and_min_hold_text(roles):
     assert "役割（role）" in body and "<code>手法 A</code> ＝ 買う係" in body and "<code>手法 C</code> ＝ 損切り係" in body
     assert "最短保有（min_hold_days）" in body and "10 営業日" in body and "係の一言" in body and "最短保有の一言" in body
     assert "側ごとの合わせ方" not in body and "（候補）" in body
-    # 説明の無いモデル（exp_c）にも係の札は付く
+    # 説明の無いモデル（exp_c）にも係のラベルは付く
     assert "<span class='role'>損切り係</span><code>exp_c</code>" in body
 
 
@@ -461,7 +461,7 @@ def test_roles_side_rules_and_stop_blocks_buy(roles):
 
 
 def test_people_without_roles_do_not_change(roles):
-    """役割の無い人（TA・TB・TD）は 1 文字も変わらない: 係の札も役割の文も行も出ない。"""
+    """役割の無い人（TA・TB・TD）は 1 文字も変わらない: 係のラベルも役割の文も行も出ない。"""
     for name in ("TA", "TB", "TD"):
         body = traderview.body(roles, name)
         assert "class='role'" not in body and "係がある" not in body and "役割（role）" not in body and "最短保有" not in body
@@ -487,7 +487,7 @@ def test_keys_sort_naturally(paths):
 
 
 def test_real_horizon_candidates_have_roles_words_and_models():
-    """候補 T7〜T10（損切り係あり）・T12〜T15（損切り係なし）・T16〜T19（土台差・損切り係なし。2026-10-19 Phase 6）は 係の札・最短保有の文・
+    """候補 T7〜T10（損切り係あり）・T12〜T15（損切り係なし）・T16〜T19（土台差・損切り係なし。2026-10-19 Phase 6）は 係のラベル・最短保有の文・
     「（候補）」が出て、全部のモデルに説明がある（`also` で当てる H1 を含む）。並びは数の順。"""
     paths = traderview.TraderPaths.default()
     words = traderview.load_words(paths)

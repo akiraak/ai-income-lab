@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""「本番のマシンではない」印 `NOT_PRODUCTION` の操作（⚠ CLI だけ。置くのも外すのも利用者 ＝ 3 台の役割分け Phase 4・5）。
+"""「本番のマシンではない」フラグ `NOT_PRODUCTION` の操作（⚠ CLI だけ。置くのも外すのも利用者 ＝ 3 台の役割分け Phase 4・5）。
 
-    python notprod.py status                          # 印があるか・中身・このマシンの hostname と合うか
-    python notprod.py set --reason "本番は 13500t"    # 印を置く（このマシンの hostname を書く）。以後このマシンでは本番の発注を拒む
-    python notprod.py clear                           # 印を外す（13500t が落ちた日に titan へ戻すとき ＝ Phase 5）
+    python notprod.py status                          # フラグがあるか・中身・このマシンの hostname と合うか
+    python notprod.py set --reason "本番は 13500t"    # フラグを置く（このマシンの hostname を書く）。以後このマシンでは本番の発注を拒む
+    python notprod.py clear                           # フラグを外す（13500t が落ちた日に titan へ戻すとき ＝ Phase 5）
 
-印があると `run_day.py`・`sample.py` は **本番の発注（--env prod --mode submit）だけ** を許可より前で拒む（rc=7）。
+フラグがあると `run_day.py`・`sample.py` は **本番の発注（--env prod --mode submit）だけ** を許可より前で拒む（rc=7）。
 plan・dry-run・cert は通る。詳しくは live-trading.md §0-14。
 """
 

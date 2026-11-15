@@ -1,4 +1,4 @@
-"""レジストリの 3 本（2026-11-04 の段 2・人の手）: 損切り係 X7（C3 SMA200 を出口だけに）／ 荒れる日を休む V2 ／ 局面別 Ridge R1。
+"""レジストリの 3 本（2026-11-04 のステージ 2・人の手）: 損切り係 X7（C3 SMA200 を出口だけに）／ 荒れる日を休む V2 ／ 局面別 Ridge R1。
 
 ⚠ 見るもの: 無い config は 1 ビットも変わらない（既存の登録名・表記・ideas の読み込み）／ 先を見ない ／ 出力の契約（行数・0〜100）／
    訓練分割だけで決める（分位・k-means）／ 識別項目の表記。
@@ -124,7 +124,7 @@ def test_regime_kmeans_is_fit_on_training_days_only_and_buy_in_range():
     rtr, rte, _ = rg.regimes(tr, te, 2)
     rtr2, _rte2, _ = rg.regimes(tr, te.iloc[: len(te) // 2], 2)       # 評価分割を差し替えても訓練の割り当ては同じ
     assert np.array_equal(rtr, rtr2)
-    assert np.array_equal(rg.regimes(tr, te, 2)[1], rte)              # 決定的（種 0）
+    assert np.array_equal(rg.regimes(tr, te, 2)[1], rte)              # 決定的（シード 0）
 
 
 def test_regime_small_regimes_fall_back_to_the_global_model():

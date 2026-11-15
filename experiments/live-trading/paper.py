@@ -26,14 +26,14 @@
      `liquidate_flag` の日は合図を読まず終値で全部売る
   bp は USD の損益 ÷ その人の予算。累計は期間ごと（期間の外は空欄）。
 
-終値の控え（`out/closes.json`。2026-10-18 利用者決定「案1で進めて」＝ プラン docs/plans/archive/daily-record-auto.md Phase 4）:
+終値のスナップショット（`out/closes.json`。2026-10-18 利用者決定「案1で進めて」＝ プラン docs/plans/archive/daily-record-auto.md Phase 4）:
   DXLink は権利落ち日の**前日の終値だけ**を配当ぶん下げた値に後から書き換える（始値・高値・安値・出来高はそのまま【実測 10/8 の T・VZ】）。
-  毎朝作り直すと、そろえた紙上が付いていない値で買ったことになり、差 3 に配当ぶんが残り続ける。そこで記録のある日の足を控えに残し、
-  ① 控えに無い日 → 足す ／ ② 終値**だけ**が変わった → 控えの終値を使う（書き換えを拒み `kept` に残す）／ ③ ほかも変わった → 受け入れる
+  毎朝作り直すと、そろえた紙上が付いていない値で買ったことになり、差 3 に配当ぶんが残り続ける。そこで記録のある日の足をスナップショットに残し、
+  ① スナップショットに無い日 → 足す ／ ② 終値**だけ**が変わった → スナップショットの終値を使う（書き換えを拒み `kept` に残す）／ ③ ほかも変わった → 受け入れる
   （⚠ 朝の時点で前の日の足がまだ 15:50 ごろの途中の値のことがある【実測 10/12 朝の 10/9】＝ 確定すると出来高が増えるので ③ で入れ替わる）。
-  控えを作る前に起きた書き換えは `close_fixes.toml`（リポジトリ）で手で直す。`--close-from quotes` では使わない。
+  スナップショットを作る前に起きた書き換えは `close_fixes.toml`（リポジトリ）で手で直す。`--close-from quotes` では使わない。
   ✅ 2026-11-09（docs/plans/closes-snapshot-night.md）: 朝だけ控えると、権利落ち日の朝にもう書き換わっていて ② が働かないことがある
-  【実測 11/5 の PFE】→ 夜の予測の後に `--snapshot-only`（控えだけ・daily.csv は書かない）を `run-live.sh --predict-only` が流す。
+  【実測 11/5 の PFE】→ 夜の予測の後に `--snapshot-only`（スナップショットだけ・daily.csv は書かない）を `run-live.sh --predict-only` が流す。
   ② は出来高の差 `VOLUME_TOL`（1%）以内を「同じ」とみなす（夜の足と朝の足は出来高だけ最大 +0.37% 違う【実測 11/3】）。
 """
 from __future__ import annotations
@@ -54,7 +54,7 @@ from _livefs import livefs  # noqa: E402
 
 DEFAULT_BARS = os.path.normpath(os.path.join(HERE, "..", "feature-discovery", "data-live", "adjusted", "d"))
 CLOSE_FIXES = os.path.join(HERE, "close_fixes.toml")
-BAR_KEYS = ("open", "high", "low")               # これが同じで終値だけ違う ＝ 配当の書き換え（控えの ②）
+BAR_KEYS = ("open", "high", "low")               # これが同じで終値だけ違う ＝ 配当の書き換え（スナップショットの ②）
 VOLUME_TOL = 0.01      # ② で出来高の差がこの割合以内なら「同じ」とみなす（夜の足と朝の足は出来高だけ最大 +0.37% 違う【実測 2026-11-03】。
                        # 途中の足 → 確定は引けのオークションで大きく増える ＝ ③。docs/plans/closes-snapshot-night.md）
 COST_BP = 5.0          # 往復。片道 2.5bp（rules.md 13-4。バックテストと同じ）
@@ -98,7 +98,7 @@ def load_bars(bars_dir: str, symbols: set[str]) -> dict[str, dict[str, dict[str,
 
 
 def load_closes_from_bars(bars_dir: str, symbols: set[str]) -> dict[str, dict[str, float]]:
-    """銘柄 → {日付: 終値}（控えを通さない生の日足）。"""
+    """銘柄 → {日付: 終値}（スナップショットを通さない生の日足）。"""
     return {s: {d: b["close"] for d, b in m.items()} for s, m in load_bars(bars_dir, symbols).items()}
 
 
@@ -112,7 +112,7 @@ def load_fixes(path: str = CLOSE_FIXES) -> dict[tuple[str, str], float]:
 
 
 def _same_but_close(new: dict, old: dict) -> bool:
-    """始値 ・ 高値 ・ 安値が同じで、出来高の差が `VOLUME_TOL` 以内（控えの ② の条件。終値は見ない）。"""
+    """始値 ・ 高値 ・ 安値が同じで、出来高の差が `VOLUME_TOL` 以内（スナップショットの ② の条件。終値は見ない）。"""
     if not all(new.get(k) == old.get(k) for k in BAR_KEYS):
         return False
     nv, ov = new.get("volume"), old.get("volume")
@@ -123,7 +123,7 @@ def _same_but_close(new: dict, old: dict) -> bool:
 
 def settle_closes(bars: dict[str, dict[str, dict[str, float]]], dates: list[str], snap: dict | None,
                   fixes: dict[tuple[str, str], float] | None = None, now: str = "") -> tuple[dict[str, dict[str, float]], dict]:
-    """控え（モジュールの頭の ①〜③）を通した終値と、新しい控え。控えに載せるのは `dates`（記録のある日）だけ。ほかの日は日足のまま。"""
+    """スナップショット（モジュールの頭の ①〜③）を通した終値と、新しいスナップショット。スナップショットに載せるのは `dates`（記録のある日）だけ。ほかの日は日足のまま。"""
     snap = snap or {}
     held: dict[str, dict[str, dict]] = {s: dict(m) for s, m in (snap.get("bars") or {}).items()}
     kept: list[dict] = list(snap.get("kept") or [])
@@ -135,7 +135,7 @@ def settle_closes(bars: dict[str, dict[str, dict[str, float]]], dates: list[str]
         for d in sorted(want & (set(bars.get(s, {})) | set(mine))):
             new, old = bars.get(s, {}).get(d), mine.get(d)
             if new is None:
-                pass                                                       # 日足から消えた日は控えのまま
+                pass                                                       # 日足から消えた日はスナップショットのまま
             elif old is None:
                 mine[d] = dict(new)
             elif new["close"] != old["close"] and _same_but_close(new, old):

@@ -1,4 +1,4 @@
-"""既知の強さの信号を埋めた合成データで、器と判定式の検出力の曲線を測る（レジストリ `20261106-planted-signal-power`）。⚠ **読むだけ。**
+"""既知の強さの信号を埋めた合成データで、シミュレーターと判定式の検出力の曲線を測る（レジストリ `20261106-planted-signal-power`）。⚠ **読むだけ。**
 
     python3 -m cli.planted_power [--experiment trade_own_ridge_a] [--strengths 0,0.1,1,5,20] [--seeds 20] [--theta 50]
                                  [--json out.json] [--save]
@@ -7,11 +7,11 @@
   - 本物の表（既定 `trade_own_ridge_a` ＝ own_2018・63 本・2018-01-31〜）の 日付・銘柄・行・特徴量の列・fold の分割点をそのまま使う。
   - `y` だけを合成に差し替える: 日ごとに 多変量正規（平均 ＝ 銘柄ごとの本物の平均・共分散 ＝ 本物の `y` の共分散〔重なり 250 日未満の組は 0・
     固有値を 0 以上に切る〕）＋ 既知の列 `own_planted`（行ごとに独立な N(0,1)）× s bp。
-    ⚠ 同じ種では s をまたいで雑音と既知の列が同じ（対の曲線 ＝ s の差だけが効く）。
-  - 器 ＝ 素の own × Ridge（`全部使う（基準）`・形式 (A)・θ）を `cli.run.fold_buy_pct` で（既存の列 ＋ 既知の列）。
-    純利は `cli.perm_split.fold_net`（`evaluate_trading._row` の素の枝のコピー）・B&H ＝ 買い% 100 の同じ器。
+    ⚠ 同じシードでは s をまたいで雑音と既知の列が同じ（対の曲線 ＝ s の差だけが効く）。
+  - シミュレーター ＝ 素の own × Ridge（`全部使う（基準）`・形式 (A)・θ）を `cli.run.fold_buy_pct` で（既存の列 ＋ 既知の列）。
+    純利は `cli.perm_split.fold_net`（`evaluate_trading._row` の素の枝のコピー）・B&H ＝ 買い% 100 の同じシミュレーター。
   - 判定 ＝ `catalog._judge_trading` と同じ式: 上乗せの平均 > 0 で fold 全部が正 → 採る ／ 平均だけ正 → 保留 ／ それ以外 → 落とす。
-    ⚠ DSR・門は掛けない（素の 3 値の割合を見る）。
+    ⚠ DSR・ゲートは掛けない（素の 3 値の割合を見る）。
   - 学習器が既知の列を拾ったかの記録: 評価の行の 買い% と 既知の列 の相関（fold の平均）。
 
 ⚠ **検証結果一覧に行を作らない・`n_trials` に数えない・`runs/` を作らない**（合成の表 ＝ 識別項目を持たない）。
@@ -53,7 +53,7 @@ def real_moments(panel: pd.DataFrame) -> tuple[list[str], np.ndarray, np.ndarray
 
 
 def synth(panel: pd.DataFrame, syms: list[str], mu: np.ndarray, L: np.ndarray, s_bp: float, seed: int) -> pd.DataFrame:
-    """y を合成に差し替え、既知の列を足したコピー。⚠ 種が同じなら s によらず雑音と既知の列は同じ。"""
+    """y を合成に差し替え、既知の列を足したコピー。⚠ シードが同じなら s によらず雑音と既知の列は同じ。"""
     rng = np.random.default_rng([int(seed), 20261106])
     days = np.sort(panel["ts"].unique())
     Z = rng.standard_normal((len(days), len(syms))) @ L.T + mu
@@ -92,7 +92,7 @@ def hold_stats(te: pd.DataFrame, bp: np.ndarray, y: np.ndarray, th: float, cost_
 
 
 def one(panel: pd.DataFrame, feats: list[str], exp: dict, edges_dates, th: float, detail: bool = False) -> dict:
-    """1 つの合成の表を器に通す → fold ごとの上乗せ・判定・既知の列との相関。
+    """1 つの合成の表をシミュレーターに通す → fold ごとの上乗せ・判定・既知の列との相関。
     ⚠ `detail=True`（2026-11-14・`cli.inject_power` の persist）のときだけ、持つ日の割合・取引回数（回/fold）・
     評価の行のうち既知の列が正の割合を足す。既定では戻り値は今までと同じ項目。"""
     from cli import run as run_mod

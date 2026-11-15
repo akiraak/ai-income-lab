@@ -70,7 +70,7 @@ def test_fingerprint_changes_with_content():
 # --- 長い空白（ティッカーの使い回し）— 2026-09-17 ------------------------
 
 def test_a_long_gap_is_counted_but_does_not_stop():
-    """⚠ **30 日を超える空白は、別の銘柄が同じティッカーで繋がっている印**（`FB` は Facebook ＋ ETF）。
+    """⚠ **30 日を超える空白は、別の銘柄が同じティッカーで繋がっているフラグ**（`FB` は Facebook ＋ ETF）。
 
     ⚠ **止めない。** 上場廃止・取引停止でも同じ形になるので、⚠ **数えて人が見る**。
     """

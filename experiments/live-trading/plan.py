@@ -149,9 +149,9 @@ def decide(trader: Trader, state: TraderState, signals: list[Signal], today: str
 
 
 def liquidation_raw(trader: Trader, state: TraderState) -> tuple[list[dict], list[dict]]:
-    """手じまいの印（control.py）が立っている人: 合図を読まず、持ち株の全部を「売り」の意図の素にする（買いは組まない）。
+    """手じまいのフラグ（control.py）が立っている人: 合図を読まず、持ち株の全部を「売り」の意図の素にする（買いは組まない）。
 
-    ⚠ `decide` は変えない（印の無い人は 1 ビットも変わらない）。買い% ／ 出口% は無いので 0 ／ 100 を置く（記録の形を揃えるため）。
+    ⚠ `decide` は変えない（フラグの無い人は 1 ビットも変わらない）。買い% ／ 出口% は無いので 0 ／ 100 を置く（記録の形を揃えるため）。
     """
     raw = [{"symbol": sym, "side": "sell", "buy_pct": 0.0, "exit_pct": 100.0, "liquidate": True}
            for sym, h in sorted(state.holdings.items()) if h.shares > 0]

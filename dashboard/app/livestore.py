@@ -3,7 +3,7 @@
     from app.livestore import livefs
 
 ⚠ 2026-09-21 から、執行エンジン・API 検証・管理画面の記録はパスはそのままで中身は DB（本物はリポジトリ直下の live.sqlite・
-シミュレーションは木の sim.sqlite・デモはデモの保存先の demo.sqlite）。プラン db-model-facts.md §11。
+シミュレーションはツリーの sim.sqlite・デモはデモの保存先の demo.sqlite）。プラン db-model-facts.md §11。
 ⚠ `HALT` はファイルのまま（停止ボタンはファイルの有無で止める）。
 """
 

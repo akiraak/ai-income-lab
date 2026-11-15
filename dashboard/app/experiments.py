@@ -13,7 +13,7 @@
 ⚠ **スコアは「最良手法（基準線を除く）の純利 bp」**（利用者が 2026-09-08 に決めた）。
 ⚠ **1 つの数字なので fold の偏りも多重検定も出ない。** だから検査の列を必ず横に並べる。
 
-⚠ **前置きの門（rules.md 14-5）を通らなかった実行も出す**（2026-09-11。仕様 §10-6）。
+⚠ **前置きのゲート（rules.md 14-5）を通らなかった実行も出す**（2026-09-11。仕様 §10-6）。
 ⚠ **`summary.csv` を持たないので黙って落ちていた。** 検証結果一覧には「門前」で残るので、画面からも消さない。
 ⚠ **ただし実行の件数には数えない**（回していないから）ので、`index` が別枠（`gated_runs`）に出す。
 """
@@ -200,10 +200,10 @@ def _mark(ok: bool | None) -> str:
 
 
 def gate_methods(gate: dict) -> list[dict]:
-    """前置きの門（rules.md 14-5）のコピー。手法ごとに AUC・買い% 幅・通過。
+    """前置きのゲート（rules.md 14-5）のコピー。手法ごとに AUC・買い% 幅・通過。
 
     ⚠ **写すだけ。** 水準（AUC ≥ 0.52・幅 ≥ 20 点）と通過は実験側が `checks.json` に
-    書いたものをそのまま出す（⚠ **画面で門を再判定しない**）。
+    書いたものをそのまま出す（⚠ **画面でゲートを再判定しない**）。
     """
     blocked = [str(m) for m in (gate.get("blocked") or [])]
     methods = gate.get("methods") or {}
@@ -221,9 +221,9 @@ def gate_methods(gate: dict) -> list[dict]:
 def is_gated(summary: list[dict], gate: dict) -> bool:
     """⚠ **全手法が門前 ＝ 閾値売買を回していない実行か**（`summary.csv` を持たない）。
 
-    ⚠ **条件は検証結果一覧（`ail/catalog.py`）と同じ。** `forced`（門前の手法も回した印。既定・
+    ⚠ **条件は検証結果一覧（`ail/catalog.py`）と同じ。** `forced`（門前の手法も回したラベル。既定・
     `--ignore-gate`）で summary が無いのは「回したのに結果が無い」なので門前とは読まない。
-    ⚠ 2026-09-14 から門は既定で止めないので、門前の実行は `--gate` で足切りしたときだけ生まれる。
+    ⚠ 2026-09-14 からゲートは既定で止めないので、門前の実行は `--gate` で足切りしたときだけ生まれる。
     """
     return not summary and bool(gate.get("blocked")) and not gate.get("forced")
 
@@ -288,7 +288,7 @@ def load_run(store: Store, name: str) -> dict | None:
         "per_symbol": ch.get("per_symbol"),
         "has_checks": bool(ch),
         "summary": summary,
-        # 前置きの門（rules.md 14-5）。⚠ **門前も残す**（数えないが隠さない）
+        # 前置きのゲート（rules.md 14-5）。⚠ **門前も残す**（数えないが隠さない）
         "gated": gated,
         "gate": gate or None,
         "gate_methods": methods,
@@ -307,7 +307,7 @@ def with_marks(run: dict) -> dict:
     """検査の列に ✅ / ⚠ / ⏳ を付ける。⚠ **スコアの横に必ず出すもの。**
 
     ⚠ **門前の実行には付けない**（rules.md 14-5）。⏳ を 5 つ並べると「計算待ち」に見えるが、
-    ⚠ **門前は計算していないのではなく検証を回していない。** 代わりに門の 2 値を出す。
+    ⚠ **門前は計算していないのではなく検証を回していない。** 代わりにゲートの 2 値を出す。
     """
     if run.get("gated"):
         run["marks"] = {}

@@ -297,13 +297,13 @@ def main() -> int:
             return 2
         root = modes.sim_root(args.name)
         if args.fresh and os.path.isdir(root):
-            livefs.forget()                            # 木の sim.sqlite を消す前に、このプロセスの接続を閉じる
+            livefs.forget()                            # ツリーの sim.sqlite を消す前に、このプロセスの接続を閉じる
             shutil.rmtree(root)
         control = modes.control_file(args.name)
         resumed = os.path.exists(control)
         if not resumed:
             data = simdata.write_tree(root, cfg, args.traders_dir)
-            # `kind = "experiment"` のトレーダーがいるときだけ: 予測のキャッシュを仮の日付に書き換えて木に置く（§0-7 (k)）。いなければ何もしない
+            # `kind = "experiment"` のトレーダーがいるときだけ: 予測のキャッシュを仮の日付に書き換えてツリーに置く（§0-7 (k)）。いなければ何もしない
             import simpredict
             try:
                 placed = simpredict.install(root, cfg, args.traders_dir, data)

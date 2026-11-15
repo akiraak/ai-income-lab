@@ -1,4 +1,4 @@
-"""表の期間の口 `end_date`（rules.md 27-3。2026-10-19）。⚠ **無い config は 1 行も変わらない・両端は含む。**"""
+"""表の期間のオプション `end_date`（rules.md 27-3。2026-10-19）。⚠ **無い config は 1 行も変わらない・両端は含む。**"""
 
 from __future__ import annotations
 

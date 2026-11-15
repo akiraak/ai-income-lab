@@ -138,7 +138,7 @@ def test_crash_after_submit_leaves_a_start_without_an_end(ran):
 
 
 def test_the_day_after_the_crash_recovers_the_fill_and_does_not_trade_twice(ran):
-    """段 1: 落ちた日の売りは口座では約定している。次の日の起動で控えから戻し、その人の売買履歴に入れる ＝ もう一度売らない。"""
+    """ステップ 1: 落ちた日の売りは口座では約定している。次の日の起動でジャーナルから戻し、その人の売買履歴に入れる ＝ もう一度売らない。"""
     ev = [e for e in rows(ran[0], DAYS[9], "events") if e["kind"] == "journal_recovered"]
     assert len(ev) == 1 and ev[0]["outcome"] == "recovered_filled" and ev[0]["side"] == "sell" and ev[0]["intent_date"] == DAYS[8] and ev[0]["trader"] == "sim_a"
     assert the_order(ran[0], DAYS[9])["side"] == "buy"                          # 売れていたことが売買履歴に入ったので、次は買い（二重の売りではない）
@@ -148,7 +148,7 @@ def test_the_day_after_the_crash_recovers_the_fill_and_does_not_trade_twice(ran)
 
 
 def test_lost_position_blocks_the_symbol_until_a_human_reconciles(ran):
-    """段 2: 12 日目に口座から T が消える（人が口座を直接触った代役）→ T は売買しない。ほかは止めない。段 3 で人が合わせるまで続く。"""
+    """ステップ 2: 12 日目に口座から T が消える（人が口座を直接触った代役）→ T は売買しない。ほかは止めない。ステップ 3 で人が合わせるまで続く。"""
     for d in (DAYS[11], DAYS[12]):
         ev = rows(ran[0], d, "events")
         assert [e["symbol"] for e in ev if e["kind"] == "position_short"] == ["T"] and rows(ran[0], d, "orders") == []

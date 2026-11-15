@@ -1,8 +1,8 @@
 """実売買とシミュレーションの見分け（live-trading.md §0-7 (a)・dashboard.md §13）。
 
-⚠ シミュレーションモードの間は全ページに帯と `[SIM]`・数字に「仮」の印・`/api/*` に `mode`。実売買モードでは 1 つも出ない。
-⚠ 1 つの画面に本物とシミュレーションを混ぜない（モードと木が食い違えば数字を出さない）。
-⚠ 管理画面は表示だけ: POST の経路は増えない。シミュレーションモードの停止ボタンは、シミュレーションの木の HALT だけを書く。
+⚠ シミュレーションモードの間は全ページに帯と `[SIM]`・数字に「仮」のラベル・`/api/*` に `mode`。実売買モードでは 1 つも出ない。
+⚠ 1 つの画面に本物とシミュレーションを混ぜない（モードとツリーが食い違えば数字を出さない）。
+⚠ 管理画面は表示だけ: POST の経路は増えない。シミュレーションモードの停止ボタンは、シミュレーションのツリーの HALT だけを書く。
 """
 from __future__ import annotations
 
@@ -64,7 +64,7 @@ def set_mode(mode_dir: Path, mode: str, name: str | None = None) -> None:
 
 @pytest.fixture
 def world(settings, tmp_path):
-    """本物の記録（test_a・実売買の木）と、シミュレーションの木（sim_a）を両方置く。"""
+    """本物の記録（test_a・実売買の木）と、シミュレーションのツリー（sim_a）を両方置く。"""
     real = build_live_dir(tmp_path / "real-live")
     mode_dir = tmp_path / "executor"
     build_sim_tree(mode_dir)
@@ -101,7 +101,7 @@ def test_sim_mode_marks_every_page(world):
             assert "2026-10-05" in r.text and "×60" in r.text and "3 ／ 64 日目" in r.text, path
             assert_clean(r.text, path)
         body = c.get("/").text
-        assert "sim-mark" in body and "sim_a" in body and "test_a" not in body            # 数字に「仮」の印・本物のトレーダーは混ざらない
+        assert "sim-mark" in body and "sim_a" in body and "test_a" not in body            # 数字に「仮」のラベル・本物のトレーダーは混ざらない
         assert c.get("/traders/test_a").status_code == 404
         clock = c.get("/?partial=simclock").text
         assert "2026-10-05" in clock and "simbar" not in clock
@@ -132,13 +132,13 @@ def test_sim_today_and_pause_show(world):
 
 def test_mismatch_shows_no_numbers(world, tmp_path):
     s, mode_dir, real = world
-    # (1) sim モード × 手で指定した本物の木
+    # (1) sim モード × 手で指定した本物のツリー
     set_mode(mode_dir, "sim", "sim1")
     with client_of(dataclasses.replace(s, live_dir_explicit=True)) as c:
         body = c.get("/").text
         assert "モードと記録が食い違っている" in body and "test_a" not in body and "sim_a" not in body
         assert c.get("/api/live").json()["mode_mismatch"] and c.get("/api/live").json()["traders"] == []
-    # (2) 実売買モード × 手で指定したシミュレーションの木
+    # (2) 実売買モード × 手で指定したシミュレーションのツリー
     set_mode(mode_dir, "real")
     with client_of(dataclasses.replace(s, live_dir=mode_dir / "sim" / "sim1", live_dir_explicit=True)) as c:
         body = c.get("/").text
@@ -162,8 +162,8 @@ def test_no_new_post_routes(world):
     s, _, _ = world
     app = create_app(s, start_monitors=False)
     posts = sorted(r.path for r in app.routes if "POST" in (getattr(r, "methods", None) or ()))
-    # ⚠ 2026-10-06 に人ごとの印（停止 ／ 手じまい ／ 印を消す）の POST を 1 本足した（dashboard.md §13-9。利用者決定 10/5）。
-    #    画面は印を書くだけで、発注の経路は増えていない
+    # ⚠ 2026-10-06 に人ごとのラベル（停止 ／ 手じまい ／ フラグを消す）の POST を 1 本足した（dashboard.md §13-9。利用者決定 10/5）。
+    #    画面はラベルを書くだけで、発注の経路は増えていない
     # ⚠ 2026-10-07 に名簿（開始 ／ 外す）の POST を 1 本足した（dashboard.md §13-10。利用者決定 10/7）。名簿を書くだけで、発注の経路は増えていない
     assert posts == ["/ops/halt", "/ops/resume", "/ops/retry-auth", "/ops/roster/{name}", "/ops/traders/{name}/flag"]
 
@@ -194,7 +194,7 @@ def test_stop_button_in_sim_mode_writes_only_the_sim_halt(world):
         assert real_halt.exists() and not sim_halt.exists()
 
 
-# ---------- 「本番のマシンではない」印（live-trading.md §0-14。表示だけ）
+# ---------- 「本番のマシンではない」フラグ（live-trading.md §0-14。表示だけ）
 
 def test_not_production_mark_shows_a_band_on_every_page(world):
     import socket
@@ -202,19 +202,19 @@ def test_not_production_mark_shows_a_band_on_every_page(world):
     pages = [p if p != "/traders/sim_a" else "/traders/test_a" for p in PAGES]   # 実売買モードのまま ＝ 本物の人
     with client_of(s) as c:
         for path in pages:
-            assert "simbar-np" not in c.get(path).text, path                   # 印が無ければ 1 文字も変わらない
+            assert "simbar-np" not in c.get(path).text, path                   # ラベルが無ければ 1 文字も変わらない
         assert "not_production" not in c.get("/api/live").json()
     (mode_dir / "NOT_PRODUCTION").write_text(json.dumps({"machine": socket.gethostname(), "since": "2026-09-27T00:00:00+00:00", "by": "u", "reason": "本番は 13500t"}))
     with client_of(s) as c:
         for path in pages:
             r = c.get(path)
             assert r.status_code == 200 and 'class="simbar simbar-np"' in r.text and "本番のマシンではない" in r.text, path
-            assert "[SIM]" not in r.text and "印ではない" not in r.text, path          # 実売買モードのまま・このマシンの印
+            assert "[SIM]" not in r.text and "印ではない" not in r.text, path          # 実売買モードのまま・このマシンのラベル
             assert_clean(r.text, path)
         for api in ("/api/state", "/api/live", "/api/records"):
             np = c.get(api).json()["not_production"]
             assert np["machine"] == socket.gethostname() and np["matches_host"] is True and np["error"] is None, api
-    # 他のマシンの印・壊れた印は、それと分かる帯（執行エンジンと同じく「ある」側に倒す）
+    # 他のマシンのラベル・壊れたフラグは、それと分かる帯（執行エンジンと同じく「ある」側に倒す）
     (mode_dir / "NOT_PRODUCTION").write_text(json.dumps({"machine": "elsewhere", "since": "x"}))
     with client_of(s) as c:
         body = c.get("/").text

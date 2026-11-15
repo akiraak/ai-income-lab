@@ -138,7 +138,7 @@ def fold_buy_pct(tr: pd.DataFrame, te: pd.DataFrame, feats: list[str], exp: dict
                  groups: dict, f, picked: list[dict], log=print):
     """訓練 1 塊 → 検証 1 塊の **買い% ／ 出口%**（手法ごと）。⚠ **`evaluate_trading` の fold の中身をそのまま切り出したもの**。
 
-    ⚠ **バックテストの fold と、実売買の「今日の買い%」（`cli/predict.py`）が同じ 1 本を通る**ための口。
+    ⚠ **バックテストの fold と、実売買の「今日の買い%」（`cli/predict.py`）が同じ 1 本を通る**ためのオプション。
     ⚠ **ここでモデル・較正・変換の式を変えない**（変えると既定経路のフィンガープリントが動く。`tests/test_trading_run.py`）。
     戻り値は (buy, exits, n_cols, fitted_doc)。`picked` には選んだ列を足す（呼び出し側の一覧）。
     """
@@ -158,7 +158,7 @@ def fold_buy_pct(tr: pd.DataFrame, te: pd.DataFrame, feats: list[str], exp: dict
     if detectors:
         # ⚠ **検知器は買い% を直接返す**（rules.md 14-1 の出力の契約）。選別もモデルも中に隠れる。
         # ⚠ **シミュレータから先は選別 × モデルの経路とまったく同じものを使う**（指標を揃える）
-        # ⚠ **変換を検知器に通す口**（rules.md 24 章。2026-10-09）: config に `transform` があれば、訓練分割で fit した
+        # ⚠ **変換を検知器に通すオプション**（rules.md 24 章。2026-10-09）: config に `transform` があれば、訓練分割で fit した
         # 変換の列を `tr`・`te`・`feats` に**足して**渡す（置き換えない）。手法名は「変換名 ＋ 検知器名」（`prep.label`）。
         # ⚠ **`transform` の無い config は 1 ビットも変わらない**（`prep.augment` は同じオブジェクトを返す。
         # この経路は 13500t の毎日の予測 `cli/predict.py` も通る ＝ `tests/test_transform_detector.py` のフィンガープリント）
@@ -277,7 +277,7 @@ def evaluate_trading(panel: pd.DataFrame, feats: list[str], exp: dict, run: runs
     pexits = position_exits(t)
     # ⚠ **翌日始値で執行する**（rules.md 22 章。2026-10-08）: ステートマシンに渡す損益の系列だけを `y_exec` に替える。
     # ⚠ **`execution` の無い config は `y` のまま ＝ 経路は 1 行も変わらない**（的中率・IC は常に `y` で測る）
-    # ⚠ 1 日遅れの引け（rules.md 32 章。2026-11-01）も同じ口: 系列を継ぐ値段が終値なだけ
+    # ⚠ 1 日遅れの引け（rules.md 32 章。2026-11-01）も同じオプション: 系列を継ぐ値段が終値なだけ
     next_open = execution_of(t) in ("next_open", "next_close")
     if next_open and EXEC_COLUMN not in panel:
         raise SystemExit(f"⚠ execution = \"{execution_of(t)}\" には表に {EXEC_COLUMN} が要る（`next_open_returns` で継ぐ。rules.md 22-1）")
@@ -294,7 +294,7 @@ def evaluate_trading(panel: pd.DataFrame, feats: list[str], exp: dict, run: runs
     detectors = registry.resolve_all("detector", exp.get("detectors", []))
     baselines = registry.resolve_all("model", exp.get("baselines", []))
 
-    # ⚠ **分割点をずらす口**（rules.md 33 章。2026-11-11）: `[validation] cut_offset` が無ければ None ＝ 分割点は 1 ビットも変わらない
+    # ⚠ **分割点をずらすオプション**（rules.md 33 章。2026-11-11）: `[validation] cut_offset` が無ければ None ＝ 分割点は 1 ビットも変わらない
     cut = splits.cut_offset(v)
     edges = splits.date_edges(panel["ts"], int(v.get("folds", 5)), cut)
     out: list[dict] = []
@@ -342,7 +342,7 @@ def evaluate_trading(panel: pd.DataFrame, feats: list[str], exp: dict, run: runs
         buy, exits, n_cols, fitted_doc = fold_buy_pct(
             tr, te, feats, exp, ctx, model=model, selectors=selectors, detectors=detectors,
             baselines=baselines, form=form, k=k, groups=groups, f=f, picked=picked, log=run.log)
-        # ⚠ 保有日数を出す検知器（rules.md 25-5 の 2）: 手法ごとの行の口に置く。無ければ空 ＝ 既存の経路と同一
+        # ⚠ 保有日数を出す検知器（rules.md 25-5 の 2）: 手法ごとの行のオプションに置く。無ければ空 ＝ 既存の経路と同一
         mix_opts.clear()
         holds_by = fwd.drain_holds(ctx)
         for lab, hd in holds_by.items():
@@ -380,7 +380,7 @@ def evaluate_trading(panel: pd.DataFrame, feats: list[str], exp: dict, run: runs
             poss: dict[str, pd.Series] = {}
             revs: dict[str, pd.Series] = {}
             trades, pos_days, days, rand_trades, rev_trades = 0, 0, 0, 0, 0
-            # ⚠ 乱択ゲートの種は config の種。⚠ **引く順は `groups` の並びで決まる**（再現する）
+            # ⚠ 乱択ゲートのシードは config のシード。⚠ **引く順は `groups` の並びで決まる**（再現する）
             rng = np.random.default_rng(seed)
             for s, idx in groups.items():
                 if np.isnan(bp[idx]).any():        # 飛ばした銘柄（(B) で訓練が無い）
@@ -585,7 +585,7 @@ def exit_line_name(method: str, th_out: float) -> str:
     return f"{method}〔売り線{th_out:g}〕"
 
 
-TOPK_RANDOM_SEEDS = 5        # ⚠ 基準線「乱択上位 K」は種 5 つの平均（rules.md 17-4。事前固定）
+TOPK_RANDOM_SEEDS = 5        # ⚠ 基準線「乱択上位 K」はシード 5 つの平均（rules.md 17-4。事前固定）
 TOPK_VOL_WINDOW = 60         # ⚠ 基準線「ボラ上位 K」の窓（営業日）。1 水準だけ・結果を見て動かさない（17-7 の 3）
 TOPK_VOL_MIN = 20            # 窓に最低これだけ無い日は最下位（17-7 の 2）
 TOPK_VOL_COLUMN = "_topk_vol"
@@ -928,13 +928,13 @@ def _roles_fold(s: dict, parts: list[tuple], buy: dict, exits: dict, n_cols: dic
         log(f"  ⚠ 合成 {s['name']} fold {f}: 欠けた行 {miss:,} ／ {len(mixed):,}（欠けのある銘柄は飛ばす）")
 
 
-TRADER_RANDOM_SEEDS = 5      # ⚠ 診断「乱択」は種 5 つの平均（rules.md 20-3 の 3。事前固定）
+TRADER_RANDOM_SEEDS = 5      # ⚠ 診断「乱択」はシード 5 つの平均（rules.md 20-3 の 3。事前固定）
 
 
 def trader_conditions(t: dict, panel: pd.DataFrame, exp: dict | None = None) -> list[dict]:
     """`[[trading.trader]]`（rules.md 20-2）。⚠ **無ければ空 ＝ 既存の経路**。
 
-    各項: `tag`（手法名の印。必須）・`symbols`（省けば表の全部）・`budget_usd`（省けば fold ごとに
+    各項: `tag`（手法名のラベル。必須）・`symbols`（省けば表の全部）・`budget_usd`（省けば fold ごとに
     「評価期間の close の最高値 × 銘柄数」＝ どの日でも全銘柄を 1 株以上買える額）・
     `methods`（条件を当てる手法。⚠ **省けば全部 ＝ 2026-10-01 の経路と同一**。rules.md 20-6 の 4 の 5）。
     ⚠ **銘柄・予算は事前固定。結果を見て動かさない**（20-5 の 5）。
@@ -990,7 +990,7 @@ def trader_hold_name(tag: str) -> str:
 
 
 def trader_random_name(tag: str) -> str:
-    """対照「乱択選抜」（rules.md 29-4）＝ 同じ候補から乱数で K 本を選んで同じ器で売買。⚠ **`基準 ` で始める** ＝ 数えない。"""
+    """対照「乱択選抜」（rules.md 29-4）＝ 同じ候補から乱数で K 本を選んで同じシミュレーターで売買。⚠ **`基準 ` で始める** ＝ 数えない。"""
     return f"基準 乱択選抜〔トレーダー・{tag}〕"
 
 
@@ -1000,7 +1000,7 @@ def _trader_fold(conds: list[dict], te: pd.DataFrame, y, ts_te, buy: dict, exits
                  opts: dict | None = None, select_ctx: dict | None = None) -> None:
     """1 fold ぶんのトレーダーの形の行（手法 × 条件 × θ）と基準線「持ち続ける」を足す（rules.md 20 章）。
 
-    ⚠ 器は 17 章の `simulate_topk` を K ＝ 銘柄数・整数株で呼ぶだけ（20-1 の 2・3）。
+    ⚠ シミュレーターは 17 章の `simulate_topk` を K ＝ 銘柄数・整数株で呼ぶだけ（20-1 の 2・3）。
     """
     from ail.validation import simulate as sim
 
@@ -1058,7 +1058,7 @@ def _trader_fold(conds: list[dict], te: pd.DataFrame, y, ts_te, buy: dict, exits
             if st is not None:
                 rk["stop_exit_pct"] = st
                 if mo.get("stop_blocks_buy"):
-                    rk["stop_blocks_buy"] = True   # ⚠ 25-4（乱択の診断にも同じ口 ＝ 25-4 の 3）
+                    rk["stop_blocks_buy"] = True   # ⚠ 25-4（乱択の診断にも同じオプション ＝ 25-4 の 3）
             hd = None if mo.get("hold_days") is None else mo["hold_days"][mask]
             if hd is not None:
                 rk["hold_days"] = hd               # ⚠ 25-5 行ごとの保有日数
@@ -1108,10 +1108,10 @@ def _select_fold(c: dict, te: pd.DataFrame, y, ts_te, buy: dict, exits: dict, n_
                  exp: dict | None = None, ctx: dict | None = None, model=None, sel_fns: dict | None = None,
                  k_cols: int = 0) -> None:
     """1 fold ぶんの**訓練分割の成績で銘柄を選ぶ条件**（rules.md 29 章）の行 ＝ 手法 × θ と、基準線「持ち続ける」（同じ K 本 ＝ 判定の相手）・
-    対照「乱択選抜」（同じ候補から乱数で K 本・種 5 の平均）。
+    対照「乱択選抜」（同じ候補から乱数で K 本・シード 5 の平均）。
 
     ⚠ 選ぶのは `tr`（訓練分割）だけから（`ail/validation/select.py`）。評価期間 `te` は選んだ後に売買するだけ。
-    ⚠ 器は 20 章と同じ `simulate_topk`（K ＝ 選ぶ本数・整数株・予算）。枠は K で固定（選べた本数が K に満たなくても動かさない）。
+    ⚠ シミュレーターは 20 章と同じ `simulate_topk`（K ＝ 選ぶ本数・整数株・予算）。枠は K で固定（選べた本数が K に満たなくても動かさない）。
     """
     from ail.validation import simulate as sim
 
@@ -1222,9 +1222,9 @@ def _select_fold(c: dict, te: pd.DataFrame, y, ts_te, buy: dict, exits: dict, n_
 
 
 def apply_gate(exp: dict, gate_doc: dict, enforce: bool, run: runs.Run) -> dict | None:
-    """前置きの門を実験に適用する。
+    """前置きのゲートを実験に適用する。
 
-    ⚠ **既定（`enforce=False`）は診断**（rules.md 14-10 規約 2）: 門の値は記録するだけで、
+    ⚠ **既定（`enforce=False`）は診断**（rules.md 14-10 規約 2）: ゲートの値は記録するだけで、
     ⚠ **門前の手法も全部回す**。そのとき `forced` を付けるので、検証結果一覧では門前の行が立たず
     **普通の試行として数えられる**（`--ignore-gate` はこの既定の別名）。
 
@@ -1260,7 +1260,7 @@ def _parser() -> argparse.ArgumentParser:
     ap.add_argument("--sample", type=int, default=60000, help="行が多いとき間引く（0 で間引かない）")
     ap.add_argument("--layer", default="adjusted", help="記録に残すだけ（表は cli.build が作る）")
     g = ap.add_mutually_exclusive_group()
-    # ⚠ **既定は門で止めない**（rules.md 14-10 規約 2）。付け忘れで黙って 1 行も回らない罠を塞いだ（2026-09-14）
+    # ⚠ **既定はゲートで止めない**（rules.md 14-10 規約 2）。付け忘れで黙って 1 行も回らない罠を塞いだ（2026-09-14）
     g.add_argument("--gate", action="store_true",
                    help="⚠ 門で足切りする（全部門前なら回さない・一部なら外す）。14-10 規約 2 に反する使い方")
     g.add_argument("--ignore-gate", action="store_true",
@@ -1334,8 +1334,8 @@ def main() -> None:
                if args.shift_days else ""))
 
     if trading:
-        # ⚠ **門は先に測って checks に残す**（値を見てから回すかを決めない）。⚠ **既定では止めない**
-        # （rules.md 14-10 規約 2）。止めるのは `--gate` のときだけで、そのときは門の値だけ checks に残す
+        # ⚠ **ゲートは先に測って checks に残す**（値を見てから回すかを決めない）。⚠ **既定では止めない**
+        # （rules.md 14-10 規約 2）。止めるのは `--gate` のときだけで、そのときはゲートの値だけ checks に残す
         from ail.validation import gate
         gate_doc = gate.evaluate_gate(panel, feats, exp, run)
         gated_exp = apply_gate(exp, gate_doc, args.gate, run)

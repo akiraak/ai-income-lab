@@ -35,7 +35,7 @@ def _fit_calibration(model, Xtr, ytr, ts, w: int, ctx: dict):
     """較正は ⚠ **訓練分割の末尾（W 日ぶんパージ）** で行う（rules.md 13-2 の 2）。
 
     ⚠ **既定の行数 holdout では 200 営業日のラベルが頭と重なる。** 重なったまま較正すると
-    ⚠ **買い% が実力より振れて見え、門の値も楽観側に外れる。**
+    ⚠ **買い% が実力より振れて見え、ゲートの値も楽観側に外れる。**
     """
     split = date_holdout(ts, label_bars=w)
     if split is None:

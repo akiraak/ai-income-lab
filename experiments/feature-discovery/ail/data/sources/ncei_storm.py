@@ -39,7 +39,7 @@ CATEGORIES = {
     "冬季": ("Winter Storm", "Winter Weather", "Blizzard", "Ice Storm", "Heavy Snow"),
     "熱": ("Heat", "Excessive Heat"),
 }
-# ⚠ **業種に効きそうな地域でまとめる**（割り当ての土台。次の層で銘柄に結び付ける）
+# ⚠ **業種に効きそうな地域でまとめる**（割り当てのベース。次の層で銘柄に結び付ける）
 # ⚠ **地域の定義は `ail/data/regions.py` が正本。** ⚠ **IEM の警報と同じ州でなければ割り当てが噛み合わない**
 REGIONS = {name: regions.full_names(name) for name in regions.REGIONS}
 

@@ -1,6 +1,6 @@
 """起点ごとの成績の表と、採用基準の判定（記録 `cgan-scenario.md` §3-2。⚠ **規則は結果を見る前に固定**）。
 
-表は 1 行 ＝ (fold, 起点, モデル, 種)。モデルは `cgan` / `hist` / `light` / `ridge`。出せない指標は NaN（＝ 対象外）。
+表は 1 行 ＝ (fold, 起点, モデル, シード)。モデルは `cgan` / `hist` / `light` / `ridge`。出せない指標は NaN（＝ 対象外）。
 """
 
 from __future__ import annotations
@@ -32,7 +32,7 @@ def per_origin_from_paths(paths: np.ndarray, Y: np.ndarray) -> dict:
 
 
 def summary(df: pd.DataFrame) -> pd.DataFrame:
-    """(モデル, 種, fold) ごとのまとめ ＋ 5 塊を合わせた行（fold = "all"）。⚠ **CRPS は低いほどよい。**"""
+    """(モデル, シード, fold) ごとのまとめ ＋ 5 塊を合わせた行（fold = "all"）。⚠ **CRPS は低いほどよい。**"""
     rows = []
     for (model, seed), g in df.groupby(["model", "seed"], dropna=False):
         for fold, h in [*g.groupby("fold"), ("all", g)]:
@@ -49,14 +49,14 @@ def summary(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def judge(df: pd.DataFrame, ev: dict, flagged: list[str]) -> dict:
-    """採用基準 (a)〜(e)。`flagged` ＝ 選ばれた checkpoint に崩壊・極端な値の印が付いた (fold, 種) の名前。"""
+    """採用基準 (a)〜(e)。`flagged` ＝ 選ばれた checkpoint に崩壊・極端な値のフラグが付いた (fold, シード) の名前。"""
     folds = sorted(df["fold"].unique())
     key = ["fold", "origin"]
     hist = df[df["model"] == "hist"].set_index(key)["crps"]
     light = df[df["model"] == "light"].set_index(key)["crps"]
     gan = df[df["model"] == "cgan"]
     by_seed = {int(s): g.set_index(key)["crps"] for s, g in gan.groupby("seed")}
-    mean_gan = pd.concat(by_seed.values(), axis=1).mean(axis=1)        # 起点ごとに種の平均
+    mean_gan = pd.concat(by_seed.values(), axis=1).mean(axis=1)        # 起点ごとにシードの平均
     d = (mean_gan - hist.loc[mean_gan.index]).sort_index(level="origin")
     a = metrics.block_bootstrap_mean(d.to_numpy(), int(ev["block_len"]), int(ev["n_boot"]), int(ev["boot_seed"]))
     thin = d.to_numpy()[::5]                                             # 補助: 5 営業日おきの重ならない起点

@@ -135,7 +135,7 @@ def test_queue_state_round_trips(db):
 
 
 def test_db_cli_imports_verifies_and_removes_only_matching_dirs(db, capsys):
-    """`cli.db`: 取り込む → 照合する → ⚠ 一致した実行ディレクトリだけを消す（了承の印が無ければ消さない）。"""
+    """`cli.db`: 取り込む → 照合する → ⚠ 一致した実行ディレクトリだけを消す（了承のフラグが無ければ消さない）。"""
     from cli import db as dbcli
     root = db / "runs"
     for name in ("2026-01-01T00-00-00_a", "2026-01-02T00-00-00_b"):

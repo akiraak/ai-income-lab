@@ -7,10 +7,10 @@
 
 保存先は既定でこのディレクトリ。`LT_MODE_DIR` はテスト用の差し替え（⚠ モック以外への submit では使えない ＝ `run_day.py` が拒否する）。
 
-⚠ **「本番のマシンではない」印 `NOT_PRODUCTION`**（2026-09-24。3 台の役割分け Phase 3 ＝ docs/plans/production-switch-mark.md）:
+⚠ **「本番のマシンではない」フラグ `NOT_PRODUCTION`**（2026-09-24。3 台の役割分け Phase 3 ＝ docs/plans/production-switch-mark.md）:
   `MODE` と同じ型の JSON `{"machine": <置いた機械の hostname>, "since", "by", "reason"}`。あると `run_day.py`・`sample.py` は
   **本番の発注（`--env prod --mode submit`）だけ**を、許可の 3 段より前で拒む（plan・dry-run・cert は通る）。
-  `machine` が今の hostname と違っても・壊れていても**拒む**（読めない印を「無い」と読まない）。置く・外すは `notprod.py`（利用者）。
+  `machine` が今の hostname と違っても・壊れていても**拒む**（読めないフラグを「無い」と読まない）。置く・外すは `notprod.py`（利用者）。
 """
 
 from __future__ import annotations
@@ -63,7 +63,7 @@ def not_production_file() -> str:
 
 @dataclass(frozen=True)
 class NotProduction:
-    """「本番のマシンではない」印の中身。`error` があるときは読めなかった印（⚠ それでも「ある」として扱う）。"""
+    """「本番のマシンではない」フラグの中身。`error` があるときは読めなかったフラグ（⚠ それでも「ある」として扱う）。"""
     machine: str | None = None
     since: str | None = None
     by: str | None = None
@@ -90,7 +90,7 @@ def hostname() -> str:
 
 
 def read_not_production() -> NotProduction | None:
-    """印を読む。無ければ None。⚠ 壊れていても None にしない（発注は拒む側に倒す）。"""
+    """フラグを読む。無ければ None。⚠ 壊れていても None にしない（発注は拒む側に倒す）。"""
     path = not_production_file()
     if not os.path.exists(path):
         return None
@@ -106,7 +106,7 @@ def read_not_production() -> NotProduction | None:
 
 
 def set_not_production(by: str = "cli", reason: str | None = None) -> NotProduction:
-    """印を置く（このマシンの hostname を書く ＝ 他のマシンの名前は書けない）。`mode.log` に 1 行。"""
+    """フラグを置く（このマシンの hostname を書く ＝ 他のマシンの名前は書けない）。`mode.log` に 1 行。"""
     now = datetime.now(timezone.utc).isoformat(timespec="seconds")
     mark = NotProduction(machine=hostname(), since=now, by=by, reason=reason)
     os.makedirs(base_dir(), exist_ok=True)
@@ -119,7 +119,7 @@ def set_not_production(by: str = "cli", reason: str | None = None) -> NotProduct
 
 
 def clear_not_production(by: str = "cli") -> NotProduction | None:
-    """印を外す（無ければ何もしない）。`mode.log` に 1 行。"""
+    """フラグを外す（無ければ何もしない）。`mode.log` に 1 行。"""
     before = read_not_production()
     if before is None:
         return None
@@ -142,7 +142,7 @@ def sim_base() -> str:
 
 
 def sim_root(name: str) -> str:
-    """シミュレーションの記録の木（`config/traders`・`state/cert`・`out/<日付>`・`sim/`・`HALT`）。本物の `out/`・`state/` とは別。"""
+    """シミュレーションの記録のツリー（`config/traders`・`state/cert`・`out/<日付>`・`sim/`・`HALT`）。本物の `out/`・`state/` とは別。"""
     if not NAME_RE.match(name or ""):
         raise ModeError(f"シミュレーションの名前 {name!r} は使えない（英小文字・数字・_・- で 32 字まで）")
     return os.path.join(sim_base(), name)

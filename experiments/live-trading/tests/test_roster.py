@@ -45,7 +45,7 @@ def test_broken_roster_is_an_error(tmp_path, body):
 
 
 def test_roster_is_not_read_as_a_flag(tmp_path):
-    """名簿は control/ の外（印は control/*.json を全部読む）。"""
+    """名簿は control/ の外（フラグは control/*.json を全部読む）。"""
     halt = str(tmp_path / "HALT")
     assert os.path.dirname(roster.roster_path(halt)) != control.control_dir(halt)
 

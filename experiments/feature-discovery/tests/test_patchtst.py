@@ -2,7 +2,7 @@
 
 ⚠ **ここで落としたいのは 5 つ。**
   1. 移植の形（長さ 60 → 7 パッチ・パラメータ数・末尾の埋め方が `ReplicationPad1d` と同じ値）
-  2. ⚠ **同じ種・同じ入力なら 1 ビットも違わない**（CPU。再現の前提）
+  2. ⚠ **同じシード・同じ入力なら 1 ビットも違わない**（CPU。再現の前提）
   3. ⚠ **呼び方の守り**（窓の配列以外では止まる ／ 検知器は `PatchTST` 以外のモデルと組むと止まる）
   4. 検知器の出力の契約と、⚠ **fit が訓練だけで行われること**
   5. ⚠ **`LEAK_` 列の線形の項が効いて、leak 対照で上乗せが跳ねること**
@@ -161,7 +161,7 @@ def run(tmp_path, monkeypatch):
 def test_leak_column_is_passed_and_makes_the_edge_jump(run):
     """⚠ **`LEAK_` の線形の項が効いて上乗せが跳ねる**（rules.md 13-10）。
 
-    ⚠ **合成データは小さいので学習率を上げている**（`patchtst_lr`。テスト用の口。本番は 1e-4・100 epoch）。
+    ⚠ **合成データは小さいので学習率を上げている**（`patchtst_lr`。テスト用のオプション。本番は 1e-4・100 epoch）。
     """
     p = _panel(n_days=600, n_sym=4, leak=True)
     feats = contracts.feature_columns(p)

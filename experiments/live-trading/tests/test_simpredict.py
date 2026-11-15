@@ -139,4 +139,4 @@ def test_driver_runs_an_experiment_trader(env):
     assert all(o["final_status"] == "Filled" for o in orders)
     sig = [s for s in rows(root, "signals") if s["date"] == "2026-10-01"]
     assert sig and all(s["buy"] == 80.0 for s in sig)
-    assert cli("simctl.py", ["check"], child).returncode == 0       # 置いた predict.jsonl の行にも印がある
+    assert cli("simctl.py", ["check"], child).returncode == 0       # 置いた predict.jsonl の行にもフラグがある

@@ -38,7 +38,7 @@ def walk_forward(panel: pd.DataFrame, n_folds: int, horizon_min: float,
         yield f, tr, te
 
 
-# ⚠ **評価期間の分割点をずらす口**（rules.md 33 章。2026-11-11）。水準は事前固定の 2 つだけ（33-2。足さない）
+# ⚠ **評価期間の分割点をずらすオプション**（rules.md 33 章。2026-11-11）。水準は事前固定の 2 つだけ（33-2。足さない）
 CUT_OFFSETS = {"1/3": (1, 3), "2/3": (2, 3)}
 
 

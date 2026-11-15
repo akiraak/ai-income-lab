@@ -264,8 +264,8 @@ def _read_run(name: str) -> dict | None:
     elif gate.get("blocked") and not gate.get("forced"):
         # ⚠ **全手法が門前の実行は summary を持たない**（検証を回していない）。
         # ⚠ **検証結果一覧に「門前」で残すために拾う**（隠さない。rules.md 14-5）。
-        # ⚠ **`forced`（門前の手法も回した印。既定・`--ignore-gate`）で summary が無いのは「回したのに落ちた」**なので従来どおり読まない
-        # ⚠ 2026-09-14 から門は既定で止めない。**全手法が門前で summary が無いのは `--gate` で足切りした実行だけ**
+        # ⚠ **`forced`（門前の手法も回したフラグ。既定・`--ignore-gate`）で summary が無いのは「回したのに落ちた」**なので従来どおり読まない
+        # ⚠ 2026-09-14 からゲートは既定で止めない。**全手法が門前で summary が無いのは `--gate` で足切りした実行だけ**
         doc["summary"] = pd.DataFrame()
     else:
         return None
@@ -431,7 +431,7 @@ def _gate_rows(run: dict, gran: str, bar_min: float, layer: str, period: str,
 
     ⚠ **summary に載っている手法には作らない**: 門前でも回した手法（既定・`--ignore-gate`）は
     普通の行になり、普通に試行として数える（rules.md 14-10 規約 2）。
-    ⚠ **門前の行が立つのは `--gate` で足切りした実行だけ**（2026-09-14 から門は既定で止めない）。
+    ⚠ **門前の行が立つのは `--gate` で足切りした実行だけ**（2026-09-14 からゲートは既定で止めない）。
     ⚠ **閾値は「—」**（どの閾値も回していない。1 手法 1 行で、試行にも数えない）。
     """
     gate = (run.get("checks") or {}).get("gate") or {}
@@ -713,7 +713,7 @@ def trials() -> tuple[list[dict], list[dict], list[dict]]:
 
 
 def _collapse(rows: list[dict], tol: float = 0.1) -> list[dict]:
-    """同じ鍵の行をまとめる。⚠ **食い違ったら黙って隠さず印を付ける**（rules.md 11 章 規約 7）。"""
+    """同じ鍵の行をまとめる。⚠ **食い違ったら黙って隠さずフラグを付ける**（rules.md 11 章 規約 7）。"""
     groups: dict[tuple, list[dict]] = {}
     for r in rows:
         # ⚠ 鍵の列が無い行（手書きの検査用など）は None で寄せる。実運用の行は必ず全列を持つ

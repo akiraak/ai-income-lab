@@ -50,7 +50,7 @@ def test_decompose_is_an_identity():
 
 
 def test_a_falling_benchmark_shows_up_as_the_fallen_part():
-    """⚠ **段 1 で踏んだ形**: 壊滅する銘柄をほぼ持ちっぱなしでも上乗せが出る。
+    """⚠ **ステージ 1 で踏んだ形**: 壊滅する銘柄をほぼ持ちっぱなしでも上乗せが出る。
 
     ⚠ **その多くが「落ちた分」に振り分けられ、残りだけが「当てた分」になる。**
     """

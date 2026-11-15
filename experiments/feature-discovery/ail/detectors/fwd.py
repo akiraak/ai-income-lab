@@ -74,7 +74,7 @@ def forward_gate(w: int, tr: pd.DataFrame, te: pd.DataFrame, feats, ctx: dict, c
 
 
 def center_by_base(buy_pct, base: float):
-    """土台を引いた買い%（rules.md 25-7 の 1）: 100 × σ(logit(p) − logit(π))。p ＝ 買い% ／ 100 を [0.005, 0.995] に収めてから。"""
+    """ベースレートを引いた買い%（rules.md 25-7 の 1）: 100 × σ(logit(p) − logit(π))。p ＝ 買い% ／ 100 を [0.005, 0.995] に収めてから。"""
     p = np.clip(np.asarray(buy_pct, dtype=float) / 100.0, 0.005, 0.995)
     pi = min(max(float(base), 0.005), 0.995)
     z = np.log(p / (1.0 - p)) - np.log(pi / (1.0 - pi))
@@ -101,7 +101,7 @@ for _tag, _w in EXTRA_WINDOWS.items():
 
 EXTRA_NAMES = tuple(name_of(t, w) for t, w in EXTRA_WINDOWS.items())
 
-# ⚠ **25-7（2026-10-19）: 土台を引いた買い%。** H1〜H4 と同じ学び方・同じ較正で、出力だけを π で中心化した別の登録名。
+# ⚠ **25-7（2026-10-19）: ベースレートを引いた買い%。** H1〜H4 と同じ学び方・同じ較正で、出力だけを π で中心化した別の登録名。
 CENTERED_WINDOWS = {"H1": WINDOW, **EXTRA_WINDOWS}
 
 

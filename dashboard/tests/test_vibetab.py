@@ -247,7 +247,7 @@ def test_fmt_only_trims_zeros_after_the_point():
 
 
 def make_gated_run(runs_dir: Path, name: str) -> RunDir:
-    """⚠ **summary.csv を書かない**（前置きの門で閾値売買を回していない実行）。"""
+    """⚠ **summary.csv を書かない**（前置きのゲートで閾値売買を回していない実行）。"""
     d = RunDir(runs_dir, name)
     (d / "config.json").write_text(json.dumps(
         {"dataset": "daily", "horizon": 1, "k": 16, "cost_bp": 5.0, "feature_layers": ["own"],
@@ -281,7 +281,7 @@ def test_gated_run_is_listed_apart_and_not_counted(runs_dir):
     assert "実行 1 件" in by_id["overview"]["sub"]          # ⚠ 門前を足して 2 件にしない
     body = vibetab.exp_overview_html(runs_dir)
     assert "門前（前置きの門を通らず、検証を回していない）" in body
-    assert "0.503" in body and "3.2" in body                # 門の 2 値（コピー）
+    assert "0.503" in body and "3.2" in body                # ゲートの 2 値（コピー）
 
 
 def test_gated_run_page_shows_the_gate_not_an_empty_score(runs_dir):

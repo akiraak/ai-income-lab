@@ -26,11 +26,11 @@ def test_detail_shows_state_and_instruction(world):
     assert r.status_code == 303 and unquote(r.headers["location"]).startswith("/traders/A1?flash=") and "「開始」の指示を出した" in unquote(r.headers["location"])
     sec = state_sec(c, "A1")
     assert "■ 停止" in sec and "指示: ▶ 開始" in sec and "次の回 9/1（火） 12:50 PDT（15:50 ET） から効く" in sec and "↩ 指示を取り消す" in sec
-    assert re.search(r'<span class="badge badge-mock">停止 · 指示: 開始</span>', c.get("/").text)      # 概要の段にも札
+    assert re.search(r'<span class="badge badge-mock">停止 · 指示: 開始</span>', c.get("/").text)      # 概要の段にもラベル
     run_passed(s)
     sec = state_sec(c, "A1")
     assert "▶ 稼働" in sec and "指示: なし" in sec and "⏸ 一時停止" in sec
-    assert 'badge-mock">稼働' not in c.get("/").text                                                     # 稼働で指示なしは札なし
+    assert 'badge-mock">稼働' not in c.get("/").text                                                     # 稼働で指示なしはラベルなし
     # 一時停止の指示（control/ に書く）→ 回を通ると一時停止
     post(c, "A1", kind="paused", confirm="A1", reason="入金待ち")
     d = json.loads(flag_file(s, "A1").read_text(encoding="utf-8"))
@@ -47,7 +47,7 @@ def test_instruction_requires_confirmation_and_known_trader(world):
     r = post(c, "A1", kind="start", confirm="typo")
     assert r.status_code == 303 and "確認の欄" in unquote(r.headers["location"]) and not roster_file(s).exists()
     assert post(c, "A1", kind="halt", confirm="A1").status_code == 400
-    assert post(c, "A1", kind="clear").status_code == 400                       # 「印を消す」は 2026-10-09 に無くした（開始 ／ 取り消す）
+    assert post(c, "A1", kind="clear").status_code == 400                       # 「フラグを消す」は 2026-10-09 に無くした（開始 ／ 取り消す）
     assert post(c, "nobody", kind="paused", confirm="nobody").status_code == 404
     assert c.post("/ops/traders/A1/flag", data={"kind": "paused", "confirm": "A1"}).status_code == 403     # CSRF
 

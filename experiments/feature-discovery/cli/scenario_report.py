@@ -3,7 +3,7 @@
     python3 -m cli.scenario_report --run runs/<実行> --out ../../docs/specs/experiments/assets
 
 ⚠ **学習はしない。** 読むのは `origins.csv`・`history.csv`・`fitted/*.pt` だけ。
-⚠ **再現の確認**: 保存した重みを読み直し、同じ種で最後の塊のシナリオを作り直して、起点ごとの CRPS が `origins.csv` と合うかを見る。
+⚠ **再現の確認**: 保存した重みを読み直し、同じシードで最後の塊のシナリオを作り直して、起点ごとの CRPS が `origins.csv` と合うかを見る。
 """
 
 from __future__ import annotations
@@ -21,7 +21,7 @@ from cli.scenario import TEST_Z_SEED, _prepare
 
 
 def tables(df: pd.DataFrame) -> tuple[dict, dict]:
-    """(確率帯別の表, 被覆率)。cGAN は起点ごとに種の平均を取ってから帯に分ける。"""
+    """(確率帯別の表, 被覆率)。cGAN は起点ごとにシードの平均を取ってから帯に分ける。"""
     rel, cov = {}, {}
     for k in ("cgan", "hist", "light"):
         g = df[df["model"] == k].groupby(["fold", "origin"], sort=False).mean(numeric_only=True)
@@ -31,7 +31,7 @@ def tables(df: pd.DataFrame) -> tuple[dict, dict]:
 
 
 def reproduce(run_dir: str, df: pd.DataFrame, fold: str, seed: int) -> dict:
-    """保存 → 読込 → 同じ種で作り直し → `origins.csv` の CRPS と比べる。"""
+    """保存 → 読込 → 同じシードで作り直し → `origins.csv` の CRPS と比べる。"""
     cfg = json.load(open(os.path.join(run_dir, "config.json"), encoding="utf-8"))
     _bars, _feats, names, s = _prepare(cfg)
     f = next(x for x in data.split(s, **cfg["split"]) if x.name == fold)

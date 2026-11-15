@@ -1,15 +1,15 @@
 #!/usr/bin/env python3
-"""人が売買履歴を口座に合わせる（口座の建玉と売買履歴の帳尻を合わせる 3 段のうちの段 3。live-trading.md §0-8）。
+"""人が売買履歴を口座に合わせる（口座の建玉と売買履歴の帳尻を合わせる 3 段のうちのステップ 3。live-trading.md §0-8）。
 
-    python reconcile.py --env prod show                                   # 売買履歴の合計・最後に記録した口座の建玉・その差・控えの未完
+    python reconcile.py --env prod show                                   # 売買履歴の合計・最後に記録した口座の建玉・その差・ジャーナルの未完
     python reconcile.py --env prod add T1 KO 2 --price 70.15              # T1 の売買履歴に KO を 2 株足す（口座にはあるのに売買履歴に無い）
     python reconcile.py --env prod remove T2 KO 3                         # T2 の売買履歴から KO を 3 株消す（売買履歴にあるのに口座に無い。原価で消す ＝ 損益 0）
     python reconcile.py --env prod remove T2 KO 3 --price 69.80           # 売れていたと分かっているとき: その値段の売りとして入れる（実現損益・受渡し待ちに入る）
-    python reconcile.py --env prod resolve lt-0123abcd --filled 4 --price 25.61   # 控えの未完を人が閉じる（約定していた）／ --not-filled（出ていなかった）
+    python reconcile.py --env prod resolve lt-0123abcd --filled 4 --price 25.61   # ジャーナルの未完を人が閉じる（約定していた）／ --not-filled（出ていなかった）
 
 ⚠ **ネットワークを使わない**（口座は読まない・注文も出さない）。口座の側は、口座の画面か注文履歴を人が見て確かめる。
 ⚠ **誰のぶんかは人が決める**。執行エンジンは差を推測で割り振らない（トレーダーごとの成績が混ざる）。
-⚠ `run.lock` を取る（執行エンジン・ランナーが動いている間は拒否）。マシンのモードに従う木だけを触る（実売買 ＝ `state/<env>/`・シミュレーション ＝ `sim/<名前>/state/cert/`）。
+⚠ `run.lock` を取る（執行エンジン・ランナーが動いている間は拒否）。マシンのモードに従うツリーだけを触る（実売買 ＝ `state/<env>/`・シミュレーション ＝ `sim/<名前>/state/cert/`）。
    直した内容は売買履歴の `history` に `note: "reconcile"` で、`reconcile.log` に 1 行ずつ残す。
 """
 

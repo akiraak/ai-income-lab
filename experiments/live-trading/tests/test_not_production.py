@@ -1,8 +1,8 @@
-"""「本番のマシンではない」印 `NOT_PRODUCTION`（live-trading.md §0-14。3 台の役割分け Phase 3）。
+"""「本番のマシンではない」フラグ `NOT_PRODUCTION`（live-trading.md §0-14。3 台の役割分け Phase 3）。
 
-⚠ ネットワークは使わない（拒否は全部、認証の前で起きる）。印・MODE・run.lock は `LT_MODE_DIR` で tmp に向ける（本物を触らない）。
-固定するもの: 印なしで何も変わらない ／ set が hostname を書く・status・clear・mode.log ／ 印のあるマシンの本番 submit は許可があっても rc=7 ／
-prod の plan・dry-run と cert の submit は印で拒まれない ／ 他のマシンの印・壊れた印でも拒む ／ sample.py も同じ印で本番の発注系を拒む。
+⚠ ネットワークは使わない（拒否は全部、認証の前で起きる）。フラグ・MODE・run.lock は `LT_MODE_DIR` で tmp に向ける（本物を触らない）。
+固定するもの: フラグなしで何も変わらない ／ set が hostname を書く・status・clear・mode.log ／ フラグのあるマシンの本番 submit は許可があっても rc=7 ／
+prod の plan・dry-run と cert の submit はフラグで拒まれない ／ 他のマシンのフラグ・壊れたフラグでも拒む ／ sample.py も同じフラグで本番の発注系を拒む。
 """
 import json
 import os
@@ -27,7 +27,7 @@ def _closed_port() -> int:
         return s.getsockname()[1]
 
 
-# ⚠ 接続先はループバックの閉じたポート ＝ 印で止まらない経路も外（tastytrade）へは 1 度も出ない（偽の資格情報で本番に認証を試みない）
+# ⚠ 接続先はループバックの閉じたポート ＝ フラグで止まらない経路も外（tastytrade）へは 1 度も出ない（偽の資格情報で本番に認証を試みない）
 NOWHERE = {"TT_PROD_REST_BASE": f"http://127.0.0.1:{_closed_port()}", "TT_REST_BASE": f"http://127.0.0.1:{_closed_port()}"}
 PROD = {"TT_PROD_CLIENT_SECRET": "s", "TT_PROD_REFRESH_TOKEN": "r", "TT_ALLOW_PROD_ORDERS": "1", **NOWHERE}
 PROD_NOKEY = {"TT_PROD_CLIENT_SECRET": "s", "TT_PROD_REFRESH_TOKEN": "r", **NOWHERE}
@@ -55,13 +55,13 @@ def events(base):
 PROD_SUBMIT = ["--traders", "test_a", "--env", "prod", "--mode", "submit", "--ignore-window", "--i-know-this-is-real-money"]
 
 
-# ---------- 印の読み書き
+# ---------- フラグの読み書き
 
 def test_no_mark_means_nothing_changes(base):
     assert modes.read_not_production() is None
     r = run("notprod.py", base, ["status"], {})
     assert r.returncode == 0 and "印なし" in r.stdout
-    # 印が無ければ、本番 submit は今までどおり許可の 3 段で止まる（rc=2。印の rc=7 ではない）
+    # フラグが無ければ、本番 submit は今までどおり許可の 3 段で止まる（rc=2。フラグの rc=7 ではない）
     r = run("run_day.py", base, PROD_SUBMIT, PROD_NOKEY)
     assert r.returncode == 2 and "TT_ALLOW_PROD_ORDERS" in r.stderr and "本番のマシンではない" not in r.stderr
 
@@ -95,20 +95,20 @@ def test_marked_machine_refuses_prod_submit_before_permissions_and_network(base)
     ev = events(base)
     assert [e["kind"] for e in ev] == ["refused_not_production"]
     assert ev[0]["machine"] == "titan-test" and ev[0]["matches_host"] and ev[0]["mode"] == "submit"
-    # 許可が無くても同じ拒否（印が許可より先）
+    # 許可が無くても同じ拒否（フラグが許可より先）
     r = run("run_day.py", base, PROD_SUBMIT[:-1], PROD_NOKEY)
     assert r.returncode == 7 and "TT_ALLOW_PROD_ORDERS" not in r.stderr
 
 
 def test_mark_does_not_refuse_plan_dry_run_or_cert(base):
     modes.set_not_production(by="test")
-    # prod の plan ／ dry-run: 印では止まらず、（資格情報が偽なので）認証まで進んで rc=1
+    # prod の plan ／ dry-run: フラグでは止まらず、（資格情報が偽なので）認証まで進んで rc=1
     for args in (["--traders", "test_a", "--env", "prod", "--mode", "plan"],
                  ["--traders", "test_a", "--env", "prod", "--mode", "dry-run", "--allow-prod-dry-run", "--ignore-window"]):
         r = run("run_day.py", base, args, PROD_NOKEY)
-        # 印では止まらず認証（ループバックの閉じたポート）まで進む ＝ 接続の失敗で終わる
+        # フラグでは止まらず認証（ループバックの閉じたポート）まで進む ＝ 接続の失敗で終わる
         assert r.returncode != 7 and "本番のマシンではない" not in r.stderr and "127.0.0.1" in r.stderr, (args, r.stderr)
-    # cert の submit: 印では止まらない（LT_MODE_DIR ＋ モック以外の submit の既存の拒否 rc=2 に落ちる ＝ 外へは出ない）
+    # cert の submit: フラグでは止まらない（LT_MODE_DIR ＋ モック以外の submit の既存の拒否 rc=2 に落ちる ＝ 外へは出ない）
     r = run("run_day.py", base, ["--traders", "test_a", "--mode", "submit", "--ignore-window"], CERT)
     assert r.returncode == 2 and "LT_MODE_DIR" in r.stderr and "本番のマシンではない" not in r.stderr
     assert not [e for e in events(base) if e["kind"] == "refused_not_production"]
@@ -136,7 +136,7 @@ def test_sample_cli_refuses_prod_order_steps_with_mark(base):
     modes.set_not_production(by="test")
     r = run("sample.py", base, ["--env", "prod", "--step", "4", "--i-know-this-is-real-money"], PROD, cwd=SAMPLE)
     assert r.returncode == 7 and "本番のマシンではない" in r.stderr
-    # 読み取りだけの手順は印で止まらない
+    # 読み取りだけの手順はフラグで止まらない
     r = run("sample.py", base, ["--env", "prod", "--step", "probe"], PROD_NOKEY, cwd=SAMPLE)
     assert r.returncode != 7 and "本番のマシンではない" not in r.stderr
     modes.clear_not_production(by="test")

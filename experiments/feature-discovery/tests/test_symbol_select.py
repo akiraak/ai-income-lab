@@ -110,7 +110,7 @@ def test_select_rows_baselines_and_counting(run):
     assert set(d["条件"]) == {TAG_R, TAG_N} and (d["銘柄数"] == 2).all() and (d["予算USD"] == 600).all()
     assert (d["選んだ本数"] <= 2).all() and (d["候補数"] >= d["選んだ本数"]).all()
     assert set(d["選び方"]) == {"ret", "net"}
-    # 枠 $300 で買える株だけが選ばれる（S4・S5 は値段 100・120 から動く ＝ 候補になりうる。全部の銘柄名が表の中）
+    # 枠 $300 で買える株だけが選ばれる（S4・S5 は値ステージ 100・120 から動く ＝ 候補になりうる。全部の銘柄名が表の中）
     for syms in d["選んだ銘柄"]:
         assert set(syms.split()) <= {f"S{i}" for i in range(6)}
     # 判定の相手は同じ条件の「持ち続ける」（20-3 と同じ配線）・checks も読める

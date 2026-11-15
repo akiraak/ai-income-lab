@@ -1,12 +1,12 @@
-"""前置きの門（rules.md 14-5）: 確率に情報が無い手法を測る診断。
+"""前置きのゲート（rules.md 14-5）: 確率に情報が無い手法を測る診断。
 
 ⚠ **2026-09-12 に診断へ降格した（14-10 規約 2）。`cli/run.py` の既定が追随したのは 2026-09-14。**
-⚠ **既定では回すかどうかを門で決めない**（門前の手法も回し、普通に数える）。足切りは `--gate` のときだけ。
+⚠ **既定では回すかどうかをゲートで決めない**（門前の手法も回し、普通に数える）。足切りは `--gate` のときだけ。
 指標はどちらも**訓練分割の内側の tail holdout**（較正の fit と同じ場所。13-2 の 2）から計算する。
-⚠ **検証 fold には特徴量にも触れない。** だから門は検証データの選別にならない
+⚠ **検証 fold には特徴量にも触れない。** だからゲートは検証データの選別にならない
 （`--gate` で外した手法を n_trials に数えない根拠。validation-power.md §5-4 問 2）。
-⚠ **門の値は採否に使わない**（判定に混ぜると門自体が選べた自由度になる）。
-⚠ **門は (A) プール形式で 1 回だけ計算する**（§5-1。門を通らない手法は (B) も回さない）。
+⚠ **ゲートの値は採否に使わない**（判定に混ぜるとゲート自体が選べた自由度になる）。
+⚠ **ゲートは (A) プール形式で 1 回だけ計算する**（§5-1。ゲートを通らない手法は (B) も回さない）。
 """
 
 from __future__ import annotations
@@ -27,7 +27,7 @@ WIDTH_MIN_PT = 20.0
 
 
 def is_gated(name: str) -> bool:
-    """門に掛ける手法か。基準線（「基準 」・乱択）は掛けない（採否の対象ではない）。"""
+    """ゲートに掛ける手法か。基準線（「基準 」・乱択）は掛けない（採否の対象ではない）。"""
     return not (name.startswith("基準 ") or name == "乱択（基準）")
 
 
@@ -52,13 +52,13 @@ def _fold_selectors(panel, feats, exp, methods, per, edges, v, k, ctx, model) ->
                                              int(v.get("embargo_bars", 0)),
                                              float(exp.get("bar_minutes", 0.0)),
                                              max_train_days=splits.max_train_days(v)):   # 21 章（無ければ None）
-        # ⚠ te には特徴量にも触れない（14-5。門が検証データの選別にならない根拠）
+        # ⚠ te には特徴量にも触れない（14-5。ゲートが検証データの選別にならない根拠）
         sc = StandardScaler().fit(tr[feats])
         Xtr = pd.DataFrame(sc.transform(tr[feats]), columns=feats)
         ytr = np.asarray(tr["y"].values, dtype=float)
-        # ⚠ **変換があれば門も同じ列で測る**（無ければ素通り）。⚠ **測らないと、門の数字が
+        # ⚠ **変換があればゲートも同じ列で測る**（無ければ素通り）。⚠ **測らないと、ゲートの数字が
         # ⚠ **実際に回す列とは別の列についてのものになる**（静かに間違った診断が checks に残る）。
-        # ⚠ **門は訓練分割しか見ない**ので、fit も transform も同じ表に当てる（検証 fold に触れない）
+        # ⚠ **ゲートは訓練分割しか見ない**ので、fit も transform も同じ表に当てる（検証 fold に触れない）
         Xtr, _, _ = prep.apply(exp, Xtr, Xtr, ctx, ytr, ts_tr=tr["ts"].to_numpy())
         (Xh, yh), holdout = tail_holdout(Xtr, ytr)
         if holdout is None:
@@ -67,7 +67,7 @@ def _fold_selectors(panel, feats, exp, methods, per, edges, v, k, ctx, model) ->
         for n, fn in methods.items():
             cols = fn(Xtr, ytr, k, ctx)                # 選別は較正と同じく訓練全体で（13-2 の 2）
             pred = np.asarray(model(Xh[cols], yh, Xv[cols], ctx), dtype=float)
-            tuned.drain(ctx)                           # ⚠ 内側選抜の記録は門では捨てる（門は診断。rules.md 14-12）
+            tuned.drain(ctx)                           # ⚠ 内側選抜の記録はゲートでは捨てる（ゲートは診断。rules.md 14-12）
             per[n]["auc"].append(_auc(yv, pred))
             buy = calibrate.fit_from_predictions(pred, yv, "holdout").buy_pct(pred)
             per[n]["width"].append(round(float(np.percentile(buy, 95) - np.percentile(buy, 5)), 4))
@@ -76,7 +76,7 @@ def _fold_selectors(panel, feats, exp, methods, per, edges, v, k, ctx, model) ->
 def _fold_detectors(panel, feats, exp, methods, per, edges, v, ctx) -> None:
     """検知器の枝。⚠ **訓練分割をさらに 2 つに割り、頭で作った買い% を末尾で測る。**
 
-    ⚠ **検知器は買い% を直接返す**ので、門の 2 指標はその買い% からそのまま出せる
+    ⚠ **検知器は買い% を直接返す**ので、ゲートの 2 指標はその買い% からそのまま出せる
     （選別の枝のように Platt を当て直さない）。⚠ **AUC の相手は「その日 1 日が上げたか」**で、
     選別の枝とまったく同じ定義にしてある（水準 0.52 が同じ意味を持つようにするため）。
     ⚠ **AUC は大きさを見ない**ので、レジーム級の効果を落としうる — 扱いは
@@ -93,18 +93,18 @@ def _fold_detectors(panel, feats, exp, methods, per, edges, v, ctx) -> None:
         if len(head) < 500 or len(hold) < 50:
             continue
         yv = np.asarray(hold["y"].values, dtype=float)
-        # ⚠ **変換を検知器に通す口**（rules.md 24 章）: 検証の fold と同じく、頭で fit した変換の列を足して測る。
+        # ⚠ **変換を検知器に通すオプション**（rules.md 24 章）: 検証の fold と同じく、頭で fit した変換の列を足して測る。
         # ⚠ **`transform` の無い config は同じオブジェクトが返る ＝ 1 ビットも変わらない**
         head, hold, feats_f, _ = prep.augment(exp, head, hold, feats, ctx)
         for n, fn in methods.items():
-            buy = np.asarray(fn(head, hold, feats_f, ctx)[0], dtype=float)   # ⚠ 門は買い% だけ読む（4 つ返す検知器も同じ ＝ 25-5 の 2）
+            buy = np.asarray(fn(head, hold, feats_f, ctx)[0], dtype=float)   # ⚠ ゲートは買い% だけ読む（4 つ返す検知器も同じ ＝ 25-5 の 2）
             tuned.drain(ctx)                           # 検知器が内側選抜のモデルを呼んでも取り残さない
             per[n]["auc"].append(_auc(yv, buy))
             per[n]["width"].append(round(float(np.percentile(buy, 95) - np.percentile(buy, 5)), 4))
 
 
 def evaluate_gate(panel: pd.DataFrame, feats: list[str], exp: dict, run=None) -> dict:
-    """手法ごとに門の 2 指標を測り、通過を判定する。
+    """手法ごとにゲートの 2 指標を測り、通過を判定する。
 
     fold の分割点は `evaluate_trading` と同じ日付基準（13-6 の 1）。各 fold の**訓練分割だけ**を
     使い、選別 → tail holdout の頭で fit → 末尾の予測から AUC と（Platt を当てた）買い% の

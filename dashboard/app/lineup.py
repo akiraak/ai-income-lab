@@ -73,7 +73,7 @@ def holdings(states: dict[str, dict[str, dict]], name: str) -> dict[str, float]:
 
 
 def journal_open(live_dir: Path) -> dict[str, list[dict]]:
-    """env → 控えの未完（done の無い intent）。`journal.py` の `unfinished` と同じ数え方。"""
+    """env → ジャーナルの未完（done の無い intent）。`journal.py` の `unfinished` と同じ数え方。"""
     out: dict[str, list[dict]] = {}
     root = live_dir / "state"
     for env in livefs.listdir(root, missing_ok=True):
@@ -191,7 +191,7 @@ def statuses(live_dir: Path, roster_entries: list | None, flags: dict[str, dict]
 
 
 def badges(live_dir: Path, roster_entries: list | None, flags: dict[str, dict], machine: dict, instructions: dict[str, dict]) -> dict[str, str]:
-    """概要の段の札（稼働で指示なしの人は札なし）。⚠ 名簿がまだ無いマシンでは、名簿の外を「停止」と札にしない（live.env の一覧で動いている）。"""
+    """概要の段のラベル（稼働で指示なしの人はラベルなし）。⚠ 名簿がまだ無いマシンでは、名簿の外を「停止」とラベルにしない（live.env の一覧で動いている）。"""
     out = {}
     for name, s in statuses(live_dir, roster_entries, flags, machine, instructions).items():
         if s["pending"]:

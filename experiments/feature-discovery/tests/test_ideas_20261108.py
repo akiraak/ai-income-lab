@@ -1,4 +1,4 @@
-"""レジストリ `20261108-hmm-sticky-regime-hold`（2026-11-13 の段 2・人の手）: 滞在日数に下限のある局面 R4（ガウス HMM・2 ／ 3 状態）。
+"""レジストリ `20261108-hmm-sticky-regime-hold`（2026-11-13 のステージ 2・人の手）: 滞在日数に下限のある局面 R4（ガウス HMM・2 ／ 3 状態）。
 
 ⚠ 見るもの: 無い config は 1 ビットも変わらない（既存の登録名・表記）／ 遷移の対角 ≥ 0.95 ／ 前向きの確率だけ（先の日を見ない）／
    同じ日の全銘柄に同じ買い% ／ 出力の契約（行数・0〜100）／ leak 対照が観測に届く。
@@ -121,7 +121,7 @@ def test_r4_leak_reaches_the_observations():
     assert np.allclose(obs["__o_ret"].to_numpy()[1:], m.to_numpy()[:-1])                              # 2 列は 1 日遅れ
 
 
-# --- レジストリ `20261108-edgar-8k-event-flags`: 8-K の取得元 `edgar_8k` と印の層 `evt_`（⚠ ネットワークに出ない）-----------------
+# --- レジストリ `20261108-edgar-8k-event-flags`: 8-K の取得元 `edgar_8k` とフラグの層 `evt_`（⚠ ネットワークに出ない）-----------------
 
 from ail.data.sources import edgar_8k  # noqa: E402
 from ail.ideas import i20261108_evt_layer as evt  # noqa: E402
@@ -174,7 +174,7 @@ def test_evt_layer_uses_only_filings_before_the_bar_and_fills_missing_with_a_fla
     x2 = evt.build_one(bars, later, lag_days=1)
     cut = day["2024-03-08"] + 1
     assert x.iloc[:cut].equals(x2.iloc[:cut]) and not x.iloc[cut:].equals(x2.iloc[cut:])
-    # 系列の無い銘柄 ＝ 印 1 で残る（行を落とさない）
+    # 系列の無い銘柄 ＝ フラグ 1 で残る（行を落とさない）
     x0 = evt.build_one(bars, {}, lag_days=1)
     assert (x0["na_8k"] == 1).all() and (x0["days_since_8k"] == evt.MAX_DAYS).all() and (x0[["8k_d1", "8k_cnt20"]] == 0).all().all()
     # 件数の窓は直近 20 本

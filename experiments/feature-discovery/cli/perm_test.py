@@ -1,4 +1,4 @@
-"""fold の内側の並べ替え検定（レジストリ `20261025-permutation-yardstick`・買い% の保存の段 2）。⚠ **判定には使わない。**
+"""fold の内側の並べ替え検定（レジストリ `20261025-permutation-yardstick`・買い% の保存のステージ 2）。⚠ **判定には使わない。**
 
     python3 -m cli.perm_test --run <実行> [--force-print]     # 1 本を計算して DB に入れる（既にあれば読むだけ）
     python3 -m cli.perm_test --missing [--jobs 8]             # buy_pct.parquet のある実行のうち、まだのものを全部
@@ -6,11 +6,11 @@
 
 作り方（水準は事前固定 ＝ [プラン save-buy-pct.md §6](../../../docs/plans/archive/save-buy-pct.md)）:
   - 材料は実行が残した行ごとの買い% ／ 出口%（`buy_pct.parquet`。2026-11-01 から・leak の実行には無い）と、その実行が読んだ表の `y`。
-  - 各 fold の評価分割の日付を 5 営業日の塊に切り、塊の順を入れ替える（種 0・200 回）。⚠ **全銘柄に同じ日付の入れ替えを当てる**
+  - 各 fold の評価分割の日付を 5 営業日の塊に切り、塊の順を入れ替える（シード 0・200 回）。⚠ **全銘柄に同じ日付の入れ替えを当てる**
     ＝ 銘柄ごとの買い% の集まりと保有日率は保ち、「日付の並び」だけを壊す。買い% と出口% は同じ行の組で動かす。
     入れ替え先の日にその銘柄の行が無ければ元の値のまま（数を `fallback_rows` に残す）。
-  - 器は `cli.perm_split.fold_net`（`cli.run.evaluate_trading._row` の素の枝のコピー）。元の純利を `result.csv` と照合し、
-    合わない手法（役割つきの組・最短保有・保有日数の口など）は「再現せず」で飛ばす。
+  - シミュレーターは `cli.perm_split.fold_net`（`cli.run.evaluate_trading._row` の素の枝のコピー）。元の純利を `result.csv` と照合し、
+    合わない手法（役割つきの組・最短保有・保有日数のオプションなど）は「再現せず」で飛ばす。
   - fold ごと: 上乗せ ＝ 純利 − 基準 常に上 の純利。分位 ＝（並べ替え < 元 ＋ 同点 × 0.5）÷ n。
     片側の p ＝（並べ替え ≥ 元 の数 ＋ 1）÷（n ＋ 1）。合成 ＝ Fisher（−2 Σ ln p ～ χ²(2 × fold 数)）の片側の p。
 
@@ -104,7 +104,7 @@ def perm_test(frame: pd.DataFrame, y: np.ndarray, method: str, th: float, cost_b
         orig = ps.fold_net(fr, b, e, yy, th, cost_bp)
         if orig is None:
             continue
-        rng = np.random.default_rng([int(seed), int(f)])      # ⚠ 種は (seed, fold) ＝ 手法・θ をまたいで同じ入れ替え
+        rng = np.random.default_rng([int(seed), int(f)])      # ⚠ シードは (seed, fold) ＝ 手法・θ をまたいで同じ入れ替え
         fi = fidx[f]
         dist = np.empty(n)
         for i in range(n):

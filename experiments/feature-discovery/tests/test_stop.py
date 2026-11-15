@@ -1,9 +1,9 @@
-"""損切りを出口だけのモデルにする検知器と、位置を知る出口の口（[記録](../../../docs/specs/experiments/stoploss-as-model.md) §0）。
+"""損切りを出口だけのモデルにする検知器と、位置を知る出口のオプション（[記録](../../../docs/specs/experiments/stoploss-as-model.md) §0）。
 
 ⚠ **ここで落としたいのは 6 つ。**
   1. 出力の契約: L0 は 1 本（＝ 100 − 入口% の退化）・L1〜L3 は 2 本。⚠ **入口は 8 本とも同じ 1 本**（`own_trend*` を見ない）
   2. 合わせ方: 出口% ＝ max(100 − 入口%, 損切りの出口%)。規則は深い水準ほど立たない
-  3. `simulate` の口: `stop_loss_pct`・`max_hold_days` を省けば 1 ビットも変わらない ／ 立てば買値から −x% を割った翌足に降りる ／ d 日で降りる
+  3. `simulate` のオプション: `stop_loss_pct`・`max_hold_days` を省けば 1 ビットも変わらない ／ 立てば買値から −x% を割った翌足に降りる ／ d 日で降りる
   4. `[trading.position_exits]` の無い config は `evaluate_trading` の行が 1 つも変わらず、ある config では既存の行がそのままで
      `〔買値から−N%〕`・`基準 …〔N日で降りる〕` の行が後ろに足されること（18 章の売る線と同じ形）
   5. 名前の表記（`-stopN`・`-holdN`）
@@ -141,7 +141,7 @@ def test_learned_exit_is_the_complement_of_the_forward_gate():
     assert np.allclose(ep, 100.0 - buy_out)
 
 
-# --- 3. simulate の口 ----------------------------------------------------------
+# --- 3. simulate のオプション ----------------------------------------------------------
 
 def _series(seed=0, n=400):
     rng = np.random.default_rng(seed)
@@ -247,7 +247,7 @@ def test_name_spellings():
         assert names.method_slug(n)
 
 
-# --- 7. 出口だけを言うモデル（本番の器。Phase 3） -----------------------------
+# --- 7. 出口だけを言うモデル（本番のシミュレーター。Phase 3） -----------------------------
 
 def test_exit_only_detectors_return_entry_100_and_the_bare_rule():
     """⚠ 入口% は常に 100（K2）・出口% は規則そのもの（主モデルの出口と合わせない ＝ 合わせるのは執行エンジンの `unanimous`）。"""

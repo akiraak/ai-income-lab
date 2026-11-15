@@ -1,8 +1,8 @@
-"""レジストリの 2 本（2026-11-13 の段 2・人の手）: 自分の直近 252 日の予測値の中の順位 TR1 ／ 本物のリターンへの植え込み（cli.inject_power）。
+"""レジストリの 2 本（2026-11-13 のステージ 2・人の手）: 自分の直近 252 日の予測値の中の順位 TR1 ／ 本物のリターンへの植え込み（cli.inject_power）。
 
 ⚠ 見るもの: 無い config は 1 ビットも変わらない（既存の登録名・表記）／ 先の日を見ない（順位は その行と前の日の予測値だけ）／
    末尾の予測は末尾を外して学んだ 1 本（訓練内の当てはめ値を使わない）／ 出力の契約（行数・0〜100）／ 識別項目の表記 ／
-   植え込みは本物の y を残す・種が同じなら列は同じ・水準は事前固定。
+   植え込みは本物の y を残す・シードが同じなら列は同じ・水準は事前固定。
 """
 
 from __future__ import annotations
@@ -118,7 +118,7 @@ def test_inject_keeps_real_returns_and_levels_are_fixed():
     a, b, c = ip.inject(p, 0.0, 3), ip.inject(p, 8.0, 3), ip.inject(p, 8.0, 4)
     assert np.array_equal(a["y"].to_numpy(), p["y"].to_numpy())               # k 0 ＝ 本物の y のまま
     x = a[pp.PLANTED].to_numpy()
-    assert np.array_equal(x, b[pp.PLANTED].to_numpy()) and not np.array_equal(x, c[pp.PLANTED].to_numpy())   # 種が同じなら列は同じ
+    assert np.array_equal(x, b[pp.PLANTED].to_numpy()) and not np.array_equal(x, c[pp.PLANTED].to_numpy())   # シードが同じなら列は同じ
     assert np.allclose(b["y"].to_numpy() - p["y"].to_numpy(), 8.0e-4 * np.sign(x))
     assert abs(np.corrcoef(x, p["y"].to_numpy())[0, 1]) < 0.1                 # 列は本物のリターンと相関しない
     assert ip.MULTIPLES == (0.1, 1.0, 10.0) and ip.THETAS == (50.0, 55.0, 60.0) and ip.SEEDS == 5 and ip.LIMIT_BP_PER_FOLD == 300.0

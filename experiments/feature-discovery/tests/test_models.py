@@ -1,6 +1,6 @@
 """モデルの軸（plans/archive/gpu-models.md）の検査。
 
-⚠ **見るのは 3 つ**: (1) 同じ種で同じ予測が出る（決定性。再現の前提）、
+⚠ **見るのは 3 つ**: (1) 同じシードで同じ予測が出る（決定性。再現の前提）、
 (2) 出力の形と NaN なし、(3) GAN 増強が構造の規約を守る（合成は訓練にだけ・実データの前に足す）。
 ⚠ **テストは CPU で回す**（GPU の有無で数字が変わらないように）。
 """
@@ -42,7 +42,7 @@ def test_決定性と形(name):
     p2 = np.asarray(fn(Xtr, ytr, Xte, dict(CTX)))
     assert p1.shape == (len(Xte),)
     assert np.isfinite(p1).all()
-    # ⚠ **同じ種・同じ入力なら 1 ビットも違わない**（rules.md 10 章。再現の前提）
+    # ⚠ **同じシード・同じ入力なら 1 ビットも違わない**（rules.md 10 章。再現の前提）
     assert np.array_equal(p1, p2), f"{name} が同じ種で違う予測を出した"
 
 

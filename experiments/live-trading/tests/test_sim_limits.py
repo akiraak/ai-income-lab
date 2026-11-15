@@ -48,7 +48,7 @@ windows = [{windows}]
 
 
 def setup(tmp, *, name, trader, budget, symbols, windows='"15:45:30"', signals="buy"):
-    """仮データの木を作り、合図を差し替える（⚠ 毎日「持っていなければ買う」だけ ＝ 何日目に何が起きるかを固定する）。"""
+    """仮データのツリーを作り、合図を差し替える（⚠ 毎日「持っていなければ買う」だけ ＝ 何日目に何が起きるかを固定する）。"""
     base, conf, tdir = tmp / "lt", tmp / "conf", tmp / "traders"
     for d in (base, conf, tdir):
         d.mkdir(exist_ok=True)
@@ -173,7 +173,7 @@ def test_a_window_outside_the_executor_window_is_refused(early):
     """⚠ **執行エンジンの発注できる時間帯は 15:45〜16:05 ET に固定**（`run_day.WINDOW_START/END`）。
 
     ランナーは何時にでも起こせるが、執行エンジンが `out_of_window` で拒む ＝ ⚠ **1 日に何度も売買する形（TODO の C9・D13）に
-    進むときは、まずここを広げる必要がある**。この検査は、広げたときに落ちて気づくための印である。
+    進むときは、まずここを広げる必要がある**。この検査は、広げたときに落ちて気づくためのフラグである。
     """
     root, days = early
     for d in days:

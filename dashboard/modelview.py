@@ -8,20 +8,20 @@
 出力スコアの出かたと読み方 ／ 試した経緯の表 ／ 大見出しごとの「詳しく（用語あり）」の囲み（⚠ **畳まない**）。⚠ **欄の無いモデルは、その部分を出さないだけ**。
 2026-09-26 に足した（設定の説明 Step 5。利用者決定「4 つの集合は重要」）: 組み立ての直下に **3 つの集合の表**（`sets` ＝ 材料に入れるもの ／ 学ぶ株 ／
 出力スコアを出す株。行の名前は `[common] set_*` ＝ dashboard.md §18-2 の表記）＋ 1 文「売買する株はトレーダーが決める」＋「トレーダーのしくみ」への
-リンク ／ 特性の段の印の意味の直後に **試し運転の注**（`[common] trial_note` ＝「試し運転の 64 日」が何だったか。⚠ 本文に「試し運転」があるモデルにだけ）。
+リンク ／ 特性の段のラベルの意味の直後に **試し運転の注**（`[common] trial_note` ＝「試し運転の 64 日」が何だったか。⚠ 本文に「試し運転」があるモデルにだけ）。
 
   - ⚠ **言葉の正本は `dashboard/models.toml`**（トレーダーのタブと同じ 1 本。説明をこのコードに書かない）
   - ⚠ **どれが「いま使っている」かは実売買の設定から引く**（`traderview` の読み手。設定の `[[models]]` と
     `name`・`method` が合う `[[model]]`）。⚠ **本数を数えない・見くらべる表や順位を作らない**
   - ⚠ **用語を書いてよいのは `[model.detail.*]`（「詳しく」の囲み）と正式な名前の欄だけ**。ほかの欄（`axes`・`walk`・`score`・`history` も）は
     やさしい言葉の検査を受ける（`tests/test_traders_tab.py` の `FORBIDDEN`）。⚠ 新しい欄はトレーダーのタブには出ない（人のページを長くしない）
-  - ⚠ **「過去のデータで試した結果」の印と文は人が書く**（`result`）。⚠ **試した経緯の数は研究の DB から数える**（2026-09-21。
+  - ⚠ **「過去のデータで試した結果」のラベルと文は人が書く**（`result`）。⚠ **試した経緯の数は研究の DB から数える**（2026-09-21。
     経緯の行の `names` ＝ 予測モデル名のパターン〔rules.md 10-2〕で `ledger_rows` を引き、θ はまとめて数える。DB が無いマシン・
-    `names` の無い行は TOML の数）。⚠ 印・TOML の数と DB の数が食い違えばテストが落ちる（`tests/test_models_tab.py`）。
-    `[common] show_result = false` で段と印を出さない。⚠ **売買結果は出さない**
+    `names` の無い行は TOML の数）。⚠ ラベル・TOML の数と DB の数が食い違えばテストが落ちる（`tests/test_models_tab.py`）。
+    `[common] show_result = false` で段とラベルを出さない。⚠ **売買結果は出さない**
   - ⚠ **「詳しく」の中の差し込み**（`{{gate|…}}`・`{{calib|…}}` ＝ `PLUG`。2026-09-21）は、実行の記録（DB の `files`）の
-    `checks.json` の門と `fitted/calibration_f*.json` の較正の係数から引く（出どころの実行の識別名を title に出す）。
-    DB の無いマシンでは人が写した控え。⚠ 控えと DB の値が食い違えばテストが落ちる
+    `checks.json` のゲートと `fitted/calibration_f*.json` の較正の係数から引く（出どころの実行の識別名を title に出す）。
+    DB の無いマシンでは人が写したコピー。⚠ コピーと DB の値が食い違えばテストが落ちる
   - ⚠ **`out/`・`state/`・`.env` を読まない**。開くのは TOML と、研究の DB の `ledger_rows`（検証結果一覧の生成物）・
     `files` の `checks.json` と `fitted/calibration_f*.json` だけで、DB は読み取り専用（無い DB は作らない）。
     「正式な名前」の段は実験の config から写す
@@ -44,7 +44,7 @@ from traderview import TraderPaths, esc
 
 LIST_ID = "all"
 VERDICTS = ("adopt", "hold", "drop")
-# 検証結果一覧の判定 → 印（`ledger_rows.verdict`）。⚠ 読むのは n_trials に数える行だけ（基準線の行は数えない）
+# 検証結果一覧の判定 → ラベル（`ledger_rows.verdict`）。⚠ 読むのは n_trials に数える行だけ（基準線の行は数えない）
 LEDGER_VERDICTS = {"採る": "adopt", "保留": "hold", "落とす": "drop"}
 ID_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9-]*$")
 # 実験の config から「正式な名前」の段へ写す鍵（あるものだけ）
@@ -139,7 +139,7 @@ def _paras(items) -> str:
 # 形: [[page]]（id・label・sub・title・lead）→ [[page.section]]（title・text・points・after・note・models・ledger・links・
 #     detail・detail_points・detail_links）→ [page.section.figure] ／ [page.section.table] ／ [page.section.detail_table]。
 #     `models = true` の段 ＝ いま使っている型ごとのしくみ（文は [[model]] から写す）。`ledger = true` の段 ＝ 検証結果一覧の合計（ledger.md から読む）
-#     ⚠ 段が使う札（`no_live_models`・`ledger_*`）はページのある TOML（system.toml）の [common]。`open_page` だけ models.toml の [common]
+#     ⚠ 段が使うラベル（`no_live_models`・`ledger_*`）はページのある TOML（system.toml）の [common]。`open_page` だけ models.toml の [common]
 
 
 def ledger_totals(paths: TraderPaths) -> dict | None:
@@ -218,7 +218,7 @@ def section_html(common: dict, paths: TraderPaths, no: int, sec: dict) -> str:
 
 
 def page_body(common: dict, paths: TraderPaths, page: dict, pages: list[dict], url: str) -> str:
-    """1 ページ ＝ 題 → 前書き → 段（番号つき）→ 同じ束のほかのページ（`url` ＋ id）。"""
+    """1 ページ ＝ 題 → 前書き → 段（番号つき）→ 同じグループのほかのページ（`url` ＋ id）。"""
     out = ["<div style='--who:#2a78d6'>", f"<h1>{esc(page.get('title') or page.get('label'))}</h1>"]
     if page.get("lead"):
         out.append(f"<p class='lead'>{esc(page['lead'])}</p>")
@@ -233,7 +233,7 @@ def page_body(common: dict, paths: TraderPaths, page: dict, pages: list[dict], u
 
 
 def load(paths: TraderPaths) -> dict:
-    """言葉の正本 ＋ だれがどのモデルを使うか。`models` は「いま使っている」→「机上で試した」の順（束の中は書いた順）。"""
+    """言葉の正本 ＋ だれがどのモデルを使うか。`models` は「いま使っている」→「机上で試した」の順（グループの中は書いた順）。"""
     words = traderview.load_words(paths)
     models = [m for m in words["models"] if ID_PATTERN.match(str(m.get("id") or ""))]
     users: dict[str, list[dict]] = {}
@@ -282,7 +282,7 @@ def _chips(common: dict, m: dict) -> str:
 
 
 def list_body(paths: TraderPaths) -> str:
-    """一覧 ＝ モデル 1 本 1 枚の札。⚠ 本数を数えない・見くらべる表や順位を作らない。"""
+    """一覧 ＝ モデル 1 本 1 枚のカード。⚠ 本数を数えない・見くらべる表や順位を作らない。"""
     data = load(paths)
     common, show = data["common"], _show_result(data["common"])
     out = [f"<h1>{esc(common.get('list_title'))}</h1>", f"<p class='lead'>{esc(common.get('list_lead'))}</p>"]
@@ -322,9 +322,9 @@ def _more(label, inner: str) -> str:
 
 
 # 「詳しく」の中の差し込み（2026-09-21。プラン db-model-facts.md の Phase 4）:
-#   {{gate|<実行>|<数字の選び方・作り方>|<項目>|<書き方>|<控え>}}  ＝ checks.json の gate.methods[…][項目]（auc ／ width_pt ／ auc_folds ／ width_folds）
-#   {{calib|<実行>|<数字の選び方・作り方>|<項目>|<書き方>|<控え>}} ＝ fitted/calibration_f1..N.json の […][項目]（a ／ b。fold の順に並べる）
-# 書き方 ＝ 小数の桁（`+` を付けると正の数に ＋）。控え ＝ DB の無い自動で出す、人が写した文字（⚠ DB の値と同じでないとテストが落ちる）
+#   {{gate|<実行>|<数字の選び方・作り方>|<項目>|<書き方>|<コピー>}}  ＝ checks.json の gate.methods[…][項目]（auc ／ width_pt ／ auc_folds ／ width_folds）
+#   {{calib|<実行>|<数字の選び方・作り方>|<項目>|<書き方>|<コピー>}} ＝ fitted/calibration_f1..N.json の […][項目]（a ／ b。fold の順に並べる）
+# 書き方 ＝ 小数の桁（`+` を付けると正の数に ＋）。コピー ＝ DB の無い自動で出す、人が写した文字（⚠ DB の値と同じでないとテストが落ちる）
 PLUG = re.compile(r"\{\{(gate|calib)\|([^|{}]+)\|([^|{}]+)\|([^|{}]+)\|(\+?\d)\|([^{}]*)\}\}")
 PLUG_FIELDS = {"gate": ("auc", "width_pt", "auc_folds", "width_folds"), "calib": ("a", "b")}
 _CALIB_FILE = re.compile(r"^fitted/calibration_f(\d+)\.json$")
@@ -332,7 +332,7 @@ _CALIB_FILE = re.compile(r"^fitted/calibration_f(\d+)\.json$")
 
 class RunFacts:
     """実行の記録（DB の `files`）から「詳しく」に差し込む値を引く。⚠ 読み取り専用・引くのは `checks.json` と
-    `fitted/calibration_f*.json` だけ・無い DB は作らない。DB が無い・開けないときは何も返さない（控えを出す）。"""
+    `fitted/calibration_f*.json` だけ・無い DB は作らない。DB が無い・開けないときは何も返さない（コピーを出す）。"""
 
     def __init__(self, paths: TraderPaths):
         self.conn: sqlite3.Connection | None = None
@@ -521,7 +521,7 @@ def counted(ledger: Ledger | None, patterns) -> dict | None:
 
 def _history(common: dict, m: dict, ledger: Ledger | None = None) -> str:
     """試した経緯の表。数は研究の DB から数える（`names` の無い行・DB の無いマシンは人が写した TOML の数）。
-    いまの印に数えない行は薄く出し、理由を添える:
+    いまのラベルに数えない行は薄く出し、理由を添える:
     `old = true` ＝ 計算を直す前の試し（理由は `[common] history_old`）／ `aside = "理由"` ＝ ちがう売り買いの決まりでの試しなど。"""
     rows = [r for r in m.get("history") or [] if r.get("what")]
     if not rows:
@@ -534,7 +534,7 @@ def _history(common: dict, m: dict, ledger: Ledger | None = None) -> str:
         db = counted(ledger, r.get("names"))
         counts = [(name, int((db or r).get(v) or 0)) for v, name in names]
         split = " ／ ".join(f"{name} {n}" for name, n in counts if n)
-        # ⚠ DB がある自動で、DB から数えられなかった行（`names` が無い）にだけ「人が写した数」の印
+        # ⚠ DB がある自動で、DB から数えられなかった行（`names` が無い）にだけ「人が写した数」のラベル
         hand = (f"<span class='sub'>（{esc(common['history_hand'])}）</span>"
                 if ledger is not None and db is None and common.get("history_hand") else "")
         aside = _aside(common, r)
@@ -551,12 +551,12 @@ def _history(common: dict, m: dict, ledger: Ledger | None = None) -> str:
 
 
 def _aside(common: dict, r: dict) -> str:
-    """いまの印に数えない行の理由（数える行なら ""）。"""
+    """いまのラベルに数えない行の理由（数える行なら ""）。"""
     return str(r.get("aside") or (common.get("history_old") if r.get("old") else "") or "")
 
 
 def best_verdict(m: dict, ledger: Ledger | None = None) -> str:
-    """経緯の表（`old`・`aside` の行を除く）でいちばん良かった印（DB があれば DB の数で）。表が無ければ ""。
+    """経緯の表（`old`・`aside` の行を除く）でいちばん良かったラベル（DB があれば DB の数で）。表が無ければ ""。
     ⚠ `result.verdict` と食い違わないことをテストが見る。"""
     rows = [r for r in m.get("history") or [] if not (r.get("old") or r.get("aside"))]
     for v in VERDICTS:
@@ -566,7 +566,7 @@ def best_verdict(m: dict, ledger: Ledger | None = None) -> str:
 
 
 def _score(common: dict, m: dict) -> str:
-    """出力スコアの出かた（幅・癖。印つき）と読み方。"""
+    """出力スコアの出かた（幅・癖。ラベルつき）と読み方。"""
     score = m.get("score") or {}
     items = [t for t in score.get("items") or [] if t.get("text")]
     if not items and not score.get("read"):
@@ -633,7 +633,7 @@ def _model_body(paths: TraderPaths, data: dict, m: dict, facts: "RunFacts | None
         f"<li>{esc(t.get('text'))}{traderview._tag(common, str(t.get('basis') or ''))}"
         + (f"<span class='why'>理由: {esc(t['why'])}</span>" if t.get("why") else "") + "</li>"
         for t in m.get("traits") or []) + "</ul>")
-    # 印の意味の直後に「試し運転の 64 日」が何だったか（出どころ ＝ `trial_note`）。⚠ モデルのページだけ・本文に「試し運転」があるモデルだけ
+    # ラベルの意味の直後に「試し運転の 64 日」が何だったか（出どころ ＝ `trial_note`）。⚠ モデルのページだけ・本文に「試し運転」があるモデルだけ
     trial = f"<p class='note'>{esc(common['trial_note'])}</p>" if common.get("trial_note") and _mentions_trial(m) else ""
     out.append(f"<p class='sub'>{esc(common.get('basis_note'))}</p>{trial}")
 

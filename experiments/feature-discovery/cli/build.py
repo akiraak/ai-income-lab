@@ -28,7 +28,7 @@ import ail.bootstrap  # noqa: F401
 # ⚠ **`seq` は `trend` の後**（過去 60 営業日のリターンの窓。時系列分類器の入力。⚠ **足しても既存の表の列の並びは変わらない**）
 # ⚠ **`trendvol` は `trend` の直後**（出来高の長い窓。同じ `own_trend{W}_` の接頭辞。⚠ **config に書いたときだけ入る**）
 # ⚠ **`cal` は最後**（暦の列。既存の層の並びを 1 つも動かさない ＝ 既存の表の列順は変わらない）
-ORDER = ("own", "trend", "trendvol", "seq", "cs", "rel", "ll", "ex", "im", "ern", "ernf", "cal")   # ernf ＝ 欠損を印にする決算の層（rules.md 28-1）
+ORDER = ("own", "trend", "trendvol", "seq", "cs", "rel", "ll", "ex", "im", "ern", "ernf", "cal")   # ernf ＝ 欠損をフラグにする決算の層（rules.md 28-1）
 
 
 def layer_order(layers) -> list[str]:
@@ -48,7 +48,7 @@ def assemble(experiment: str, layer: str = "adjusted", leak: bool = False, shift
     ⚠ **`build` の前半をそのまま切り出したもの**（既定の引数なら `build` の出力は 1 ビットも変わらない）。
     ⚠ **`keep_tail` と `panel_hook` は `cli/predict.py`（実売買の「今日の買い%」）だけが使う**:
     `keep_tail` ＝ ラベルの無い末尾 `horizon` 本を落とさない（今日の行が要る）／
-    `panel_hook` ＝ 読んだ足に手を入れる口（`asof` より後を切る・今日の足の代役を末尾に足す）。
+    `panel_hook` ＝ 読んだ足に手を入れるオプション（`asof` より後を切る・今日の足の代役を末尾に足す）。
     """
     exp = config.resolve_experiment(experiment)
     if {"ern", "ernf"} <= set(exp.get("feature_layers", [])):
@@ -82,7 +82,7 @@ def assemble(experiment: str, layer: str = "adjusted", leak: bool = False, shift
 
     wanted = layer_order(exp.get("feature_layers", ["own"]))
     if "own" not in wanted:
-        wanted.insert(0, "own")        # ⚠ cs / rel / ll は own を土台にするので必ず作る
+        wanted.insert(0, "own")        # ⚠ cs / rel / ll は own をベースにするので必ず作る
     parts: dict[str, dict[str, pd.DataFrame]] = {}
     for name in wanted:
         parts[name] = registry.resolve("feature", name)(panel, ctx)

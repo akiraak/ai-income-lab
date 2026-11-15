@@ -96,7 +96,7 @@ def test_fit_selects_checkpoint_by_val_crps_and_save_load_reproduces(tmp_path):
 
     again, hist2 = model.fit(X[:64], Y[:64], X[64:], Y[64:], CFG, seed=0, y_scale=0.01,
                              log=lambda _t: None, device=CPU)
-    assert [h["val_crps"] for h in hist] == [h["val_crps"] for h in hist2]   # 同じ種 ＝ 同じ学習（CPU）
+    assert [h["val_crps"] for h in hist] == [h["val_crps"] for h in hist2]   # 同じシード ＝ 同じ学習（CPU）
 
     path = str(tmp_path / "f1_seed0.pt")
     scaler_doc = {"features": ["a", "b", "c"], "mean": [0.0] * 3, "std": [1.0] * 3, "y_scale": 0.01,

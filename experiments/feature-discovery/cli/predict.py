@@ -14,7 +14,7 @@
 ⚠ **研究用の表（`data/features/`）を読まない・書かない**（足から毎回メモリ上で組む）。実売買では `AIL_DATA_DIR` を
   実売買用の保存先（`live_update.sh` の `data-live/`）に向ける。
 ⚠ **`asof` の足**: 保存先にあればそれを使う（市場時間中に `live_update.sh` を流すと「今日の途中の足」が入る ＝ 終値の代役）。
-  `--proxy` は足を上書き ／ 追加する口（検算と、足が取れなかったときの予備）。代役と公式終値の差は差 1 の一部として後で測る。
+  `--proxy` は足を上書き ／ 追加するオプション（検算と、足が取れなかったときの予備）。代役と公式終値の差は差 1 の一部として後で測る。
 """
 
 from __future__ import annotations
@@ -99,7 +99,7 @@ def split_asof(df: pd.DataFrame, feats: list[str], asof: pd.Timestamp, start: st
     te = df[day == asof]
     bad = te[te[feats].isna().any(axis=1)]["symbol"].tolist()
     te = te[~te["symbol"].isin(bad)]
-    # ⚠ **`asof` の行のラベルは未来**。モデルの関数は見ないが、念のため潰してから渡す（0 は「無い」の印ではなく詰め物）
+    # ⚠ **`asof` の行のラベルは未来**。モデルの関数は見ないが、念のため潰してから渡す（0 は「無い」のフラグではなく詰め物）
     te = te.assign(y=0.0, y_sign=0.0, y_elapsed_min=0.0)
     doc = {"train_rows": int(len(tr)), "train_start": str(tr["ts"].min().date()) if len(tr) else None,
            "train_end": str(tr["ts"].max().date()) if len(tr) else None,

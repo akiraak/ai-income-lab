@@ -9,7 +9,7 @@
 
 増強の対照は「増強なし」＝ 同じ基底モデルの既存の実行（追加の実行は要らない）。
 合成の量は実データと同数（α = 100%）に固定（⚠ **α を振ると水準の数だけ n_trials が増える**）。
-重みは保存せず、⚠ **種＋コード版＋入力のフィンガープリントで再現する**（既存の配線が StandardScaler を
+重みは保存せず、⚠ **シード＋コード版＋入力のフィンガープリントで再現する**（既存の配線が StandardScaler を
 保存しないのと同じ扱い。プラン §2 の規約 5）。
 """
 
@@ -30,7 +30,7 @@ def wgan_gp_sample(Xtr, ytr, ctx) -> tuple[np.ndarray, np.ndarray]:
     seed = int(ctx.get("seed", 0))
     epochs = int(ctx.get("gan_epochs", 300))
     latent = 32
-    _seed_all(seed + 1)                 # ⚠ 基底モデルと同じ種にしない（乱数列の共有を避ける）
+    _seed_all(seed + 1)                 # ⚠ 基底モデルと同じシードにしない（乱数列の共有を避ける）
     dev = torch_device()
 
     X = np.asarray(Xtr, dtype=np.float32)

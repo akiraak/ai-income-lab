@@ -7,7 +7,7 @@
 
 指標（`BY`）:
   `ret` ＝ 株自身の成績: 訓練分割の最後の 252 営業日の累積対数リターン（`y` の和）の大きい順
-  `net` ＝ モデルの成績: 訓練分割を頭 ／ 末尾に割り（`tail_holdout`。門 14-5 と同じ割り方）、頭で fit したモデルの末尾の予測を Platt
+  `net` ＝ モデルの成績: 訓練分割を頭 ／ 末尾に割り（`tail_holdout`。ゲート 14-5 と同じ割り方）、頭で fit したモデルの末尾の予測を Platt
           （holdout 較正）で買い% にし、末尾で 13 章の閾値売買を銘柄ごとに回した純利 bp の大きい順（θ ごとに選ぶ）。
           ⚠ 末尾で 1 回も取引しなかった銘柄は成績なし（候補から外す）。候補が 0 本なら何も選ばない（全期間 現金）
 """
@@ -64,7 +64,7 @@ def by_model_net(tr: pd.DataFrame, feats: list[str], exp: dict, ctx: dict, model
                  min_rows: int = NET_MIN_ROWS) -> tuple[dict[float, list[str]], pd.DataFrame]:
     """モデルの成績で上位 k 本（θ ごと）。戻り値 ({θ: 選んだ銘柄}, 表〔symbol・閾値・rows・score・chosen〕)。
 
-    ⚠ 門（`ail/validation/gate.py` の `_fold_selectors`）と同じ手順で末尾の買い% を作る: 訓練全体で scaler ／ 変換 ／ 選別を fit し、
+    ⚠ ゲート（`ail/validation/gate.py` の `_fold_selectors`）と同じ手順で末尾の買い% を作る: 訓練全体で scaler ／ 変換 ／ 選別を fit し、
     頭で fit したモデルの末尾の予測を holdout 較正で買い% にする。末尾が切れないとき（訓練が短い）は何も選ばない。
     """
     from sklearn.preprocessing import StandardScaler
@@ -89,7 +89,7 @@ def by_model_net(tr: pd.DataFrame, feats: list[str], exp: dict, ctx: dict, model
     Xv, yv = holdout
     cols = selector(Xtr, ytr, int(k_cols), ctx)
     pred = np.asarray(model(Xh[cols], yh, Xv[cols], ctx), dtype=float)
-    tuned.drain(ctx)                                   # 内側選抜の記録は選抜では捨てる（門と同じ。14-12）
+    tuned.drain(ctx)                                   # 内側選抜の記録は選抜では捨てる（ゲートと同じ。14-12）
     buy = np.asarray(calibrate.fit_from_predictions(pred, yv, "holdout").buy_pct(pred), dtype=float)
     n_val = len(yv)
     tail = tr.iloc[len(tr) - n_val:]
@@ -118,7 +118,7 @@ def by_model_net(tr: pd.DataFrame, feats: list[str], exp: dict, ctx: dict, model
 
 
 def random_sets(cands: list[str], k: int, seed: int, n_sets: int) -> list[list[str]]:
-    """対照「乱択選抜」: 同じ候補から k 本を一様に引く（種 `seed + q`。`n_sets` 組）。候補が k 本未満なら全部。"""
+    """対照「乱択選抜」: 同じ候補から k 本を一様に引く（シード `seed + q`。`n_sets` 組）。候補が k 本未満なら全部。"""
     cs = sorted(str(s) for s in cands)
     out = []
     for q in range(int(n_sets)):

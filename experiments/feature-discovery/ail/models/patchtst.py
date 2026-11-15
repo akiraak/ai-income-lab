@@ -236,7 +236,7 @@ def patchtst(Xtr, ytr, Xte, ctx):
         raise SystemExit(f"⚠ PatchTST の入力の形が違う: 訓練 {Xtr.shape} ／ 検証 {Xte.shape}"
                          f"（窓 {window} ＋ 外生 {n_exog} 列のはず）")
     seed = int(ctx.get("seed", 0))
-    # ⚠ **`patchtst_epochs`・`patchtst_lr` はテスト用の口**（config の `model_args` には書かない）。記録に実際の値を残す
+    # ⚠ **`patchtst_epochs`・`patchtst_lr` はテスト用のオプション**（config の `model_args` には書かない）。記録に実際の値を残す
     epochs = int(ctx.get("patchtst_epochs", TRAIN["epochs"]))
     lr0 = float(ctx.get("patchtst_lr", TRAIN["lr"]))
     batch, patience = TRAIN["batch"], TRAIN["patience"]

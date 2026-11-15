@@ -1,8 +1,8 @@
-"""評価期間の分割点をずらす口 `[validation] cut_offset`（rules.md 33 章。2026-11-11・レジストリ `20261111-fold-cut-shift`）。
+"""評価期間の分割点をずらすオプション `[validation] cut_offset`（rules.md 33 章。2026-11-11・レジストリ `20261111-fold-cut-shift`）。
 
 ⚠ **無い config は 1 ビットも変わらない**（分割点・fold の行。既定経路のフィンガープリントは `test_trading_run.py`）。
 ずらし ＝ fold g（1〜5）の初日を、その群の日付の数 L_g × 分子 ÷ 分母（切り捨て）個ぶん後ろへ。最初の日と最後の端は不変。
-門・合成オプションのメンバーも同じ分割点。検証方式の変種 `閾値売買（切れ目ずらし1/3）`・予測モデル名 `~cut1of3`。
+ゲート・合成オプションのメンバーも同じ分割点。検証方式の変種 `閾値売買（切れ目ずらし1/3）`・予測モデル名 `~cut1of3`。
 """
 
 from __future__ import annotations
@@ -130,7 +130,7 @@ def test_trading_runs_on_the_shifted_folds(run):
 
 
 def test_gate_and_body_use_the_same_edges(run, monkeypatch):
-    """門（`evaluate_gate`）と本体（`evaluate_trading`）が同じ分割点で fold を切る（33-1 の 4）。"""
+    """ゲート（`evaluate_gate`）と本体（`evaluate_trading`）が同じ分割点で fold を切る（33-1 の 4）。"""
     seen: list = []
     real = splits.folds_by_dates
 

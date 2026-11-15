@@ -1,4 +1,4 @@
-"""レジストリ `20261025-xs-excess-label`: 訓練のラベルを断面の超過リターン（y − 同じ日の全銘柄の平均）にする口。
+"""レジストリ `20261025-xs-excess-label`: 訓練のラベルを断面の超過リターン（y − 同じ日の全銘柄の平均）にするオプション。
 
 ⚠ `label` の無い config は 1 ビットも変わらない（`prep.train_label` は `tr["y"].values` そのもの）／ 超過ラベルは日ごとの平均が 0 ／
 識別項目は検証方式の変種 `閾値売買（断面超過ラベル）` ＝ 名前 `~xs-label` ／ 学習範囲 shared だけ。
@@ -38,7 +38,7 @@ def test_evaluate_trading_changes_buy_pct_only_with_the_label(tmp_path, monkeypa
     m = "全部使う（基準）"
     assert not np.allclose(a[a["手法"] == m]["純利bp"].to_numpy(), b[b["手法"] == m]["純利bp"].to_numpy())
     bh = "基準 常に上（ドリフト）"
-    assert np.allclose(a[a["手法"] == bh]["純利bp"].to_numpy(), b[b["手法"] == bh]["純利bp"].to_numpy())   # 損益の器は同じ
+    assert np.allclose(a[a["手法"] == bh]["純利bp"].to_numpy(), b[b["手法"] == bh]["純利bp"].to_numpy())   # 損益のシミュレーターは同じ
     with pytest.raises(SystemExit):
         e = {**_exp(), "label": "xs_excess"}
         e["trading"] = {**e["trading"], "form": "per_symbol"}

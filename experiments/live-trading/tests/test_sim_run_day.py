@@ -1,4 +1,4 @@
-"""仮の時計で執行エンジンを 1 日通す（モックサーバに繋ぐ。ループバックだけ）。記録の印と、本物の木に 1 バイトも書かないこと。"""
+"""仮の時計で執行エンジンを 1 日通す（モックサーバに繋ぐ。ループバックだけ）。記録のフラグと、本物のツリーに 1 バイトも書かないこと。"""
 import json
 import os
 import pathlib
@@ -85,7 +85,7 @@ def setup_sim(base, monkeypatch, when_et, speed=60):
     monkeypatch.setenv("LT_MODE_DIR", str(base))
     modes.switch("sim", "sim1", by="test")
     root = modes.sim_root("sim1")
-    livefs.init(root, "sim")                   # 木の記録は木の sim.sqlite（simdata.write_tree と同じ）
+    livefs.init(root, "sim")                   # ツリーの記録はツリーの sim.sqlite（simdata.write_tree と同じ）
     os.makedirs(os.path.join(root, "config", "traders"))
     os.makedirs(os.path.join(root, "config", "signals"))
     open(os.path.join(root, "config", "traders", "sim_x.toml"), "w").write(TRADER)
@@ -99,7 +99,7 @@ def rows(root, date, kind):
 
 
 def test_one_day_under_the_sim_clock(tmp_path, monkeypatch, mock_server):
-    # ⚠ 本物の木（記録・状態・マシンのモード）が 1 バイトも動かないこと。⚠ **「MODE が無い」を前提にしない**
+    # ⚠ 本物のツリー（記録・状態・マシンのモード）が 1 バイトも動かないこと。⚠ **「MODE が無い」を前提にしない**
     #    （このマシンはふだんシミュレーションモード ＝ MODE がある。live-trading.md §0-7 (f)）
     real_mode = pathlib.Path(HERE, "MODE").read_bytes() if os.path.exists(os.path.join(HERE, "MODE")) else None
     real_before = db_tree(os.path.join(HERE, "out")), db_tree(os.path.join(HERE, "state"))
@@ -120,7 +120,7 @@ def test_one_day_under_the_sim_clock(tmp_path, monkeypatch, mock_server):
     assert state["last_date"] == "2026-10-01" and "SPY" in state["holdings"]
     blob_ = blob(root) + "".join(open(os.path.join(d, f), errors="replace").read() for d, _, fs in os.walk(root) for f in fs if not f.endswith((".sqlite", ".sqlite-wal", ".sqlite-shm")))
     assert "MOCK-SECRET" not in blob_ and "MOCK-REFRESH" not in blob_
-    assert (db_tree(os.path.join(HERE, "out")), db_tree(os.path.join(HERE, "state"))) == real_before           # 本物の木は動かない
+    assert (db_tree(os.path.join(HERE, "out")), db_tree(os.path.join(HERE, "state"))) == real_before           # 本物のツリーは動かない
     assert (pathlib.Path(HERE, "MODE").read_bytes() if os.path.exists(os.path.join(HERE, "MODE")) else None) == real_mode
 
 
@@ -180,7 +180,7 @@ def seed_state(root, holdings):
 
 
 def test_crash_after_submit_is_recovered_on_the_next_start(tmp_path, monkeypatch, mock_server):
-    """段 1: 発注の後・売買履歴の保存の前に落ちる → 次の起動で控えから照会し、約定をその人の売買履歴に入れる。二重に買わない。"""
+    """ステップ 1: 発注の後・売買履歴の保存の前に落ちる → 次の起動でジャーナルから照会し、約定をその人の売買履歴に入れる。二重に買わない。"""
     root = setup_sim(tmp_path, monkeypatch, datetime(2026, 10, 1, 15, 46, tzinfo=ET))
     r = run_day(tmp_path, ["--traders", "sim_x", "--mode", "submit", "--sim-clock"], mock_server, extra_env={"LT_SIM_CRASH": "after_submit"})
     assert r.returncode == 137 and not exists(os.path.join(root, "state", "cert", "sim_x.json"))     # 買えているのに売買履歴は空
@@ -197,7 +197,7 @@ def test_crash_after_submit_is_recovered_on_the_next_start(tmp_path, monkeypatch
 
 
 def test_short_position_blocks_only_that_symbol(tmp_path, monkeypatch, mock_server):
-    """段 2: 売買履歴にあるはずの株が口座に無い銘柄だけ、その日は売買しない。ほかの銘柄は通常どおり。"""
+    """ステップ 2: 売買履歴にあるはずの株が口座に無い銘柄だけ、その日は売買しない。ほかの銘柄は通常どおり。"""
     root = setup_sim(tmp_path, monkeypatch, datetime(2026, 10, 1, 15, 46, tzinfo=ET))
     open(os.path.join(root, "config", "traders", "sim_x.toml"), "w").write(TRADER.replace('symbols = ["SPY"]', 'symbols = ["SPY", "QQQ"]'))
     open(os.path.join(root, "config", "signals", "sim_x.csv"), "w").write("date,symbol,buy,exit\n2026-10-01,SPY,0,100\n2026-10-01,QQQ,100,0\n")
@@ -213,7 +213,7 @@ def test_short_position_blocks_only_that_symbol(tmp_path, monkeypatch, mock_serv
 
 
 def test_extra_shares_in_the_account_do_not_stop_trading(tmp_path, monkeypatch, mock_server):
-    """段 2: 口座のほうが多い ＝ 売買履歴の外の株（利用者の手持ちなど）。記録するだけで売買は続ける。"""
+    """ステップ 2: 口座のほうが多い ＝ 売買履歴の外の株（利用者の手持ちなど）。記録するだけで売買は続ける。"""
     root = setup_sim(tmp_path, monkeypatch, datetime(2026, 10, 1, 15, 46, tzinfo=ET))
     post(mock_server, "/_mock/positions", {"positions": {"SPY": 7}})
     r = run_day(tmp_path, ["--traders", "sim_x", "--mode", "submit", "--sim-clock"], mock_server)

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""シミュレーションの操作の口（⚠ **CLI だけ**。管理画面は表示だけ ＝ live-trading.md §0-7 (b)）。
+"""シミュレーションの操作の手段（⚠ **CLI だけ**。管理画面は表示だけ ＝ live-trading.md §0-7 (b)）。
 
     python simctl.py status                          # いまのモード・仮の時刻・速さ・何日目
     python simctl.py mode sim sim1                   # マシンをシミュレーションモードへ（何も動いていないときだけ）
@@ -68,7 +68,7 @@ def check(machine: modes.Mode) -> int:
     rows, bad, leaks = 0, 0, 0
     from _livefs import livefs
 
-    for path in livefs.find(os.path.join(root, "out"), "*/*.jsonl"):     # ⚠ 木の記録は木の sim.sqlite（パスはそのまま）
+    for path in livefs.find(os.path.join(root, "out"), "*/*.jsonl"):     # ⚠ ツリーの記録はツリーの sim.sqlite（パスはそのまま）
         for line in livefs.read_lines(path):
             rows += 1
             row = json.loads(line)

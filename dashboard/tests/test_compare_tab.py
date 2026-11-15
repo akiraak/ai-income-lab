@@ -139,7 +139,7 @@ def test_trader_rows_come_from_config_and_db(paths):
     assert "−540.2" in ta[5] and "落とす" in ta[5]
     assert "5本・$300" in ta[6] and "+278.6" in ta[6] and "3/5 −＋＋−＋" in ta[6] and "保留閉" in ta[6]
     assert ta[7] == "—"
-    assert "title='⚠ 閉じる（棚卸し）'" in body            # 理由の Markdown の飾りを落として印の上に
+    assert "title='⚠ 閉じる（棚卸し）'" in body            # 理由の Markdown の飾りを落としてラベルの上に
     assert "title='行なし: own.all-trall.ridge.shared@55'" in body
     # TB ＝ 候補・形が 2 つ ＝ 2 行（形の名前つき）。tr5-600 の表記で 5 本の行を引く
     rows = [r for r in re.findall(r"<tr>(.*?)</tr>", body, flags=re.S) if "href='/#traders/TB'" in r]

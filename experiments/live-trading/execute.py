@@ -5,7 +5,7 @@
   - 本番の鍵は `ttclient.Client` の 3 段そのまま（dry-run ／ 取消 ／ 発注）。取消の鍵で発注は開かない
   - `Session offline` は `retry_interval` 秒おきに `retries` 回まで再送。再送の前に `external-identifier` で重複を探す
   - 429 は `Retry-After`（無ければ `rate_limit_wait` × 回数・上限 30 秒）待って取り直す。照会は `read_retries` 回まで
-  - ⚠ 注文番号のある注文を照会しきれなかったら `unknown`（「約定 0」で確定させない）＝ 控えを開けたまま次の起動の復元へ渡す
+  - ⚠ 注文番号のある注文を照会しきれなかったら `unknown`（「約定 0」で確定させない）＝ ジャーナルを開けたまま次の起動の復元へ渡す
   - 認証失敗は再試行しない（IP ブロック）
   - 未約定は `cancel_after` 秒で取り消す
 """
@@ -31,7 +31,7 @@ from plan import NetOrder  # noqa: E402
 ORDER_SOURCE = "ai-income-lab/live-trading"
 WORKING = {"Received", "Routed", "In Flight", "Live", "Contingent", "Cancel Requested"}
 FINAL = {"Filled", "Cancelled", "Rejected", "Expired", "Removed"}
-UNKNOWN = "unknown"   # 発注は届いた（か、届いたか分からない）のに状態を読めなかった。⚠ 控えを閉じない（run_day の settle）
+UNKNOWN = "unknown"   # 発注は届いた（か、届いたか分からない）のに状態を読めなかった。⚠ ジャーナルを閉じない（run_day の settle）
 
 
 def field_(obj, name):
@@ -128,7 +128,7 @@ class Executor:
         self.cancel_after = cancel_after
         self.poll_interval = poll_interval
         self.sleep = sleep
-        self.journal = journal if mode == "submit" else None   # 控え（journal.py）。発注の直前と直後に書く
+        self.journal = journal if mode == "submit" else None   # ジャーナル（journal.py）。発注の直前と直後に書く
         self.pipeline = pipeline   # submit のとき 2 段（先に全部出す → 約定をまとめて確かめる）。False で直列
         self.clock = clock   # 仮の時計（シミュレーション）。None なら約定待ちは今までどおり `client.wait_for_status`（本物の時計）
         self.rate_limit_wait = rate_limit_wait   # 429 の待ち（Retry-After が無いとき）＝ これ × 回数・上限 30 秒
@@ -215,7 +215,7 @@ class Executor:
         return res if order_id is None else self.finish_one(res, order_id)
 
     def submit_one(self, order: NetOrder, quote: dict | None = None) -> tuple[ExecResult, object]:
-        """前半: 控え → dry-run → 発注まで。戻り値の 2 つ目は注文番号（発注に至らなかったら None ＝ `res` はもう確定）。"""
+        """前半: ジャーナル → dry-run → 発注まで。戻り値の 2 つ目は注文番号（発注に至らなかったら None ＝ `res` はもう確定）。"""
         ext = f"lt-{uuid.uuid4().hex[:16]}"
         res = ExecResult(order=order, external_id=ext, quote_at_signal=quote)
         body = self.build(order, ext)
@@ -285,7 +285,7 @@ class Executor:
                 try:
                     found = self._read(self.client.find_order_by_external_id, self.account, ext)
                 except ApiError:
-                    res.final_status = UNKNOWN   # ⚠ 探せもしない ＝ 控えを閉じない（次の起動が external-identifier で探す）
+                    res.final_status = UNKNOWN   # ⚠ 探せもしない ＝ ジャーナルを閉じない（次の起動が external-identifier で探す）
                     return res, None
                 if found:
                     res.error = None
@@ -339,7 +339,7 @@ class Executor:
             return res
         except ApiError as exc:
             # ⚠ 注文は相手に届いている（注文番号がある）。照会しきれなかっただけなので「約定 0」で確定させない
-            #    （2026-09-21 の cert: 約定したのに 429 で error・0 株と記録し、控えも閉じた）→ unknown ＝ 控えを開けたまま
+            #    （2026-09-21 の cert: 約定したのに 429 で error・0 株と記録し、ジャーナルも閉じた）→ unknown ＝ ジャーナルを開けたまま
             res.final_status = UNKNOWN
             res.error = {"type": "ApiError", "status": exc.status, "code": exc.code, "message": exc.message[:300], "body": record.excerpt(exc.body, limit=10)}
             return res
@@ -347,13 +347,13 @@ class Executor:
             res.elapsed_ms = round((res.elapsed_ms or 0.0) + (time.perf_counter() - t0) * 1000, 1)
 
     def run_all(self, orders: list[NetOrder], quotes_raw: dict[str, dict], on_result=None) -> list[ExecResult]:
-        """`on_result(res)` は 1 注文が片付くたびに呼ぶ（売買履歴の保存と控えの done を注文ごとに済ませるため）。
+        """`on_result(res)` は 1 注文が片付くたびに呼ぶ（売買履歴の保存とジャーナルの done を注文ごとに済ませるため）。
 
         ⚠ **発注するとき（submit）は 2 段**（2026-09-20。利用者決定 D6）: ① 全部の注文を順に「控え → dry-run → 発注」まで出し、
         ② その後で 1 本ずつ約定を確かめる。1 本ごとに約定を待つ直列の形だと、待ちが本数ぶん積み上がって窓に収まらない
         （120 本で約 19 分【推測。sandbox の実測 dry-run 0.9 ＋ 発注 1.9 ＋ 約定 6.8 秒から】）。
-        順（売りが先・買いが後）・控え・1 注文ごとの売買履歴の保存・1 本ごとの取消の期限は直列のときと同じ。
-        ①の途中で落ちても、出した注文は控えに注文番号つきで残る ＝ 次の起動が照会して売買履歴に戻す（§0-8 の段 1）。
+        順（売りが先・買いが後）・ジャーナル・1 注文ごとの売買履歴の保存・1 本ごとの取消の期限は直列のときと同じ。
+        ①の途中で落ちても、出した注文はジャーナルに注文番号つきで残る ＝ 次の起動が照会して売買履歴に戻す（§0-8 のステップ 1）。
         `pipeline=False`（`run_day.py --serial`）で元の直列に戻せる。
         """
         results: list[ExecResult] = []

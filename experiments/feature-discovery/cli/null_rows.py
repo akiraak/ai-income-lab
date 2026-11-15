@@ -3,7 +3,7 @@
     python3 -m cli.null_rows --target sel1995|mix|sel600 [--perms 200] [--state <途中の保存先.json>] [--json out.json] [--save]
 
 `cli.null_shuffle`（レジストリ `20261107-date-shuffle-null`）は素の own × Ridge だけに当てた。ここでは **対象の行を作ったパスそのもの**
-（`cli.run.evaluate_trading` ＝ 選別 ・ 合成オプション ・ 訓練分割の成績で銘柄を選ぶ条件 ・ 整数株の器）を通す。
+（`cli.run.evaluate_trading` ＝ 選別 ・ 合成オプション ・ 訓練分割の成績で銘柄を選ぶ条件 ・ 整数株のシミュレーター）を通す。
 変えるのは fold の切り口だけ: `splits.folds_by_dates` が返す訓練分割 ／ 評価分割の `y` を、`cli.null_shuffle.shuffle_y` で
 日付の塊ごとに入れ替える（⚠ 塊 20 営業日 ・ 200 回 ・ 断面を保つ ・ fold をまたがない ＝ 11/7 と同じ水準。振らない）。
 
@@ -17,7 +17,7 @@
 対象の config は、対象の行に要らない部品（ほかの選別 ・ ほかの θ ・ ほかのトレーダーの条件）を外したコピー。
 ⚠ 元の行（入れ替えなし）を同じ関数で回し、検証結果一覧の値と一致することを先に確かめる（外した部品が効いていないことの確認）。
 
-⚠ **検証結果一覧に行を作らない・`n_trials` に数えない・`runs/` を作らない**（記録の口は何もしないコピーを渡す）。
+⚠ **検証結果一覧に行を作らない・`n_trials` に数えない・`runs/` を作らない**（記録のフックは何もしないコピーを渡す）。
 ⚠ 判定の式は変えない（並べて見せるだけ）。`--save` のときだけ DB の `outputs` の `diag/<時刻>_null_rows_<対象>/` に JSON を入れる。
 """
 
@@ -72,7 +72,7 @@ def trimmed(target: str) -> dict:
 
 
 class _NoRun:
-    """記録の口のコピー（何も書かない）。"""
+    """記録のフックのコピー（何も書かない）。"""
 
     def log(self, text: str = "") -> None:
         pass
@@ -101,7 +101,7 @@ def apply_src(df: pd.DataFrame, src: pd.Series) -> pd.DataFrame:
 class shuffled_folds:
     """`splits.folds_by_dates` を、返す訓練 ／ 評価の `y` を入れ替える版に差し替える（with の間だけ）。
 
-    入れ替え（日 → 借り先の日）は (種, fold, 分割) ごとに **最初に来た表の日付で 1 度だけ作り**、後から来る表にも同じ対応を当てる
+    入れ替え（日 → 借り先の日）は (シード, fold, 分割) ごとに **最初に来た表の日付で 1 度だけ作り**、後から来る表にも同じ対応を当てる
     ＝ 持ち主の表と外のメンバーの表が同じ入れ替えで学ぶ。日付の集合が違う表（持ち主だけエンバーゴで訓練が 1 日短い、など）は
     `borrowed` に数え、対応に無い日の行を落とす。表が 1 枚だけなら `null_shuffle.shuffle_y` と同じ入れ替えになる。
     """

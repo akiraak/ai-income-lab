@@ -1,6 +1,6 @@
 """夜の予測（2026-11-01。プラン docs/plans/nightly-predict.md §8）。
 
-固定するもの: 前の営業日（週末・祝日・暦の外は止める）／「済み」の印を探す（無い・asof 違い・名簿の人のモデルが欠けている ＝ 使わない・最後の 1 行だけ見る）／
+固定するもの: 前の営業日（週末・祝日・暦の外は止める）／「済み」のフラグを探す（無い・asof 違い・名簿の人のモデルが欠けている ＝ 使わない・最後の 1 行だけ見る）／
 直下の本物の人全員（試験用・sim のコピーを除く）／ run_day.py の歯止め（submit で前の営業日でない signal-date は認証の前に rc 13・
 無ければ今までと同じ）／ 引けの 15 分後。⚠ ネットワークは使わない。MODE・run.lock・記録は tmp。
 """
@@ -53,7 +53,7 @@ def test_find_needs_the_previous_trading_days_mark_with_every_model(out):
     _mark(out, "2026-11-02", NEED + [("other", "x")], file="/y/predict-2.jsonl")    # 最後の 1 行が勝つ
     got, why = nightly.find(out, "2026-11-03", NEED)
     assert got == {"signal_date": "2026-11-02", "predict": "/y/predict-2.jsonl", "finished_at": got["finished_at"]} and why == ""
-    # 2 日前の印は使わない（前の営業日だけ）
+    # 2 日前のフラグは使わない（前の営業日だけ）
     got, why = nightly.find(out, "2026-11-04", NEED)
     assert got is None and "2026-11-03" in why
 
@@ -115,7 +115,7 @@ def test_run_day_without_signal_date_is_unchanged(base):
     assert start and "signal_date" not in start[0]
 
 
-# ---------- run-live.sh（発注の回）: 前の営業日の印を確かめて執行エンジンに渡す ／ 無ければ rc 13 で執行エンジンを起こさない
+# ---------- run-live.sh（発注の回）: 前の営業日のフラグを確かめて執行エンジンに渡す ／ 無ければ rc 13 で執行エンジンを起こさない
 
 import subprocess  # noqa: E402
 
@@ -178,7 +178,7 @@ def test_run_live_same_day_refuses_submit(live_base):
     assert r.returncode == 64 and "plan ／ dry-run だけ" in r.stdout
 
 
-# ---------- 夜の段の終値の控え（docs/plans/closes-snapshot-night.md・2026-11-09）
+# ---------- 夜の段の終値のスナップショット（docs/plans/closes-snapshot-night.md・2026-11-09）
 # run-live.sh の --predict-only の塊だけを切り出し、python ・ live_update.sh ・ run_predict を偽物にして流す（時刻 ・ ネットワークに頼らない）
 
 FAKE_PY = r"""#!/usr/bin/env bash

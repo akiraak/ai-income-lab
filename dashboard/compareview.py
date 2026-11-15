@@ -26,7 +26,7 @@ import traderview
 from traderview import TraderPaths, esc
 
 THETAS = ("50", "55", "60")
-SHAPED = re.compile(r"〔トレーダー・[^〕]*〕")   # トレーダーの形の行の印（手法名の末尾。rules.md 20-4）
+SHAPED = re.compile(r"〔トレーダー・[^〕]*〕")   # トレーダーの形の行のラベル（手法名の末尾。rules.md 20-4）
 VERDICT_CLASS = {"採る": "adopt", "保留": "hold", "落とす": "drop"}
 TRALL = "trall"                      # 全銘柄・全部を買える予算の表記（names.toml [trader]）
 ITEM = "compare"                     # 実行タブの目次の id
@@ -130,7 +130,7 @@ class Row:
 
     @property
     def reason(self) -> str:
-        """「理由」の列を印の上の文にする（Markdown の飾りを落とす）。"""
+        """「理由」の列をラベルの上の文にする（Markdown の飾りを落とす）。"""
         s = str(self.doc.get("理由") or "")
         s = re.sub(r"\[([^\]]*)\]\([^)]*\)", r"\1", s)
         return s.replace("**", "").replace("`", "")
@@ -228,7 +228,7 @@ def _chip(common: dict, row: Row) -> str:
 
 
 def cell(common: dict, row: Row | None, name: str, *, label: str = "") -> str:
-    """1 つの条件の欄: 上乗せ bp/fold ／ fold の符号 ／ 判定（＋ 閉じる注記の印）。行が無ければ「—」（印の上に検証名）。"""
+    """1 つの条件の欄: 上乗せ bp/fold ／ fold の符号 ／ 判定（＋ 閉じる注記のラベル）。行が無ければ「—」（ラベルの上に検証名）。"""
     if row is None:
         return f"<td class='none' title='{esc(common.get('no_rows_model') or '行なし')}: {esc(name)}'>{esc(common.get('missing') or '—')}</td>"
     head = f"<span class='sub'>{esc(label)}</span><br>" if label else ""
@@ -327,7 +327,7 @@ def _shape_label(row: Row | None) -> str:
 
 
 def _current_patterns(m: dict) -> list[str]:
-    """経緯の表のうち、いまの印に数える行（`old`・`aside` を除く）の予測モデル名のパターン（modelview.best_verdict と同じ選び方）。"""
+    """経緯の表のうち、いまのラベルに数える行（`old`・`aside` を除く）の予測モデル名のパターン（modelview.best_verdict と同じ選び方）。"""
     return [str(n) for r in m.get("history") or [] if r.get("what") and not (r.get("old") or r.get("aside"))
             for n in (r.get("names") or [])]
 

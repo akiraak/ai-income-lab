@@ -1,10 +1,10 @@
 """口座の建玉と売買履歴の帳尻を合わせる（live-trading.md §0-8。2026-09-19 の利用者決定「提案の 3 段」）。
 
-    段 1  控えの未完を戻す（自動）   … `recover_unfinished`: 注文番号（無ければ今日の注文から ID）で照会し、約定していればその人の売買履歴に入れる
-    段 2  照合（検知）         … `check_positions`: 口座 − 全員の売買履歴の合計。多い ＝ 売買履歴の外の株（記録だけ）／ 少ない ＝ その銘柄は今日売買しない
-    段 3  人が合わせる               … `reconcile.py`
+    ステップ 1  ジャーナルの未完を戻す（自動）   … `recover_unfinished`: 注文番号（無ければ今日の注文から ID）で照会し、約定していればその人の売買履歴に入れる
+    ステップ 2  照合（検知）         … `check_positions`: 口座 − 全員の売買履歴の合計。多い ＝ 売買履歴の外の株（記録だけ）／ 少ない ＝ その銘柄は今日売買しない
+    ステップ 3  人が合わせる               … `reconcile.py`
 
-⚠ 自動で直すのは、誰の注文かが控えで確実に分かるものだけ。⚠ **差を推測で誰かに割り振らない**（トレーダーごとの成績が混ざる）。
+⚠ 自動で直すのは、誰の注文かがジャーナルで確実に分かるものだけ。⚠ **差を推測で誰かに割り振らない**（トレーダーごとの成績が混ざる）。
 """
 
 from __future__ import annotations
@@ -30,7 +30,7 @@ def _fills(order_obj: dict) -> tuple[float, float]:
 
 
 def recover_unfinished(journal: Journal, client, account: str, state_dir: str, today: str, write: bool) -> tuple[list[dict], set[str]]:
-    """未完の控えを 1 件ずつ照会する。戻り値は (事象, 未解決の銘柄)。`write` が False（plan ／ dry-run）なら売買履歴にも控えにも書かない。"""
+    """未完のジャーナルを 1 件ずつ照会する。戻り値は (事象, 未解決の銘柄)。`write` が False（plan ／ dry-run）なら売買履歴にもジャーナルにも書かない。"""
     events: list[dict] = []
     unresolved: set[str] = set()
     for e in journal.unfinished():

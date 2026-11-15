@@ -1,6 +1,6 @@
 """条件付き GAN のシナリオ予測の入口（記録 `docs/specs/experiments/cgan-scenario.md`）。
 
-    python3 -m cli.scenario run --config cgan_spy                 # 5 fold × 種 3 を学習 → テストの塊を評価 → 判定
+    python3 -m cli.scenario run --config cgan_spy                 # 5 fold × シード 3 を学習 → テストの塊を評価 → 判定
     python3 -m cli.scenario run --config cgan_spy --folds f1 --seeds 0 --max-epochs 10   # 配線の確認（⚠ 判定は出さない）
     python3 -m cli.scenario predict --run runs/<実行> --latest    # 保存した重みから最新日の予測（JSON）
     python3 -m cli.scenario predict --run runs/<実行> --asof 2025-03-14
@@ -24,7 +24,7 @@ from ail import config, runs
 from ail.scenario import baselines, data, evaluate, metrics, model
 
 RETURN_BASIS = "price_return_split_adjusted"      # 分割は調整済み・配当は未調整（記録 §0 決定 10）
-TEST_Z_SEED = 20_000                               # テストの z の種（＋ 種）。検証の z（＋10,000）とは別の乱数列
+TEST_Z_SEED = 20_000                               # テストの z のシード（＋ シード）。検証の z（＋10,000）とは別の乱数列
 
 
 def _code_fingerprint() -> dict:

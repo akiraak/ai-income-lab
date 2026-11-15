@@ -9,12 +9,12 @@
 
 ⚠ 本番の鍵は `ttclient.Client` の 3 段そのまま。⚠ **鍵を入れて起動するのは利用者**（CLAUDE.md の例外）。
 ⚠ 記録は `out/<日付>/*.jsonl`（`Masker` 経由。口座番号・トークンは出ない）。状態は `state/<env>/<トレーダー>.json`。
-   ⚠ 2026-09-21 から、どちらもパスはそのままで中身は DB（`livefs`。本物はリポジトリ直下の live.sqlite・シミュレーションは木の sim.sqlite）。
+   ⚠ 2026-09-21 から、どちらもパスはそのままで中身は DB（`livefs`。本物はリポジトリ直下の live.sqlite・シミュレーションはツリーの sim.sqlite）。
 ⚠ `--mode submit` 以外では状態を書き換えない。
 ⚠ **実売買とシミュレーションは排他**（live-trading.md §0-7 (a)）: 起動時に `MODE` を見て `run.lock` を取る。`MODE` が無ければ real ＝ 今までどおり。
    `--sim-clock`（仮の時計）は MODE が sim ＆ 接続先がループバックのモック ＆ prod でない ＆ 本番の鍵が無いときだけ受け付ける。
-⚠ **「本番のマシンではない」印 `NOT_PRODUCTION`**（live-trading.md §0-14。2026-09-24）: あると **本番の発注（--env prod --mode submit）だけ** を
-   許可の 3 段より前で拒む（rc=7・`refused_not_production`）。plan・dry-run・cert は通る。印の `machine` が hostname と違っても壊れていても拒む。
+⚠ **「本番のマシンではない」フラグ `NOT_PRODUCTION`**（live-trading.md §0-14。2026-09-24）: あると **本番の発注（--env prod --mode submit）だけ** を
+   許可の 3 段より前で拒む（rc=7・`refused_not_production`）。plan・dry-run・cert は通る。フラグの `machine` が hostname と違っても壊れていても拒む。
 """
 
 from __future__ import annotations
@@ -293,8 +293,8 @@ def main() -> int:
     if sim:
         meta["sim_name"], meta["sim_speed"] = machine.name, CLOCK.control()["speed"]
     if env == "prod" and args.mode == "submit":
-        # ⚠ 「本番のマシンではない」印（§0-14）。許可の 3 段より前 ＝ 許可があっても・無くても、印のあるマシンは本番に発注しない。
-        #    壊れた印・他のマシンの印でも拒む（読めない印を「無い」と読まない）。本物の記録に残す ＝ 起動しなかった理由が後から分かる
+        # ⚠ 「本番のマシンではない」フラグ（§0-14）。許可の 3 段より前 ＝ 許可があっても・無くても、フラグのあるマシンは本番に発注しない。
+        #    壊れたフラグ・他のマシンのフラグでも拒む（読めないフラグを「無い」と読まない）。本物の記録に残す ＝ 起動しなかった理由が後から分かる
         mark = modes.read_not_production()
         if mark is not None:
             rec.write("events", {**meta, "kind": "refused_not_production", **mark.as_dict(),
@@ -367,7 +367,7 @@ def main() -> int:
     rec.write("balances", {"when": "before", "balances": record.excerpt(balances, limit=40)})
     rec.write("positions", {"when": "before", "positions": [{k: p.get(k) for k in ("symbol", "quantity", "quantity-direction", "average-open-price")} for p in positions]})
 
-    # ---- 1-2. 口座の建玉と売買履歴の帳尻（live-trading.md §0-8）: 控えの未完を戻す → 照合する。⚠ 売買の前に済ませる
+    # ---- 1-2. 口座の建玉と売買履歴の帳尻（live-trading.md §0-8）: ジャーナルの未完を戻す → 照合する。⚠ 売買の前に済ませる
     journal = Journal(state_dir, date, now=CLOCK.now)
     rec_events, blocked = recovery.recover_unfinished(journal, client, account, state_dir, date, write=args.mode == "submit")
     for ev in rec_events:
@@ -470,8 +470,8 @@ def main() -> int:
     print(f"合図 {len(sigs)} 本 → 意図 {len(intents)} 件 → 口座への注文 {len(orders)} 件")
 
     # ---- 4. 執行と売買履歴（submit のときだけ状態を書く）
-    # ⚠ 売買履歴の保存は 1 注文ごと: 発注の直前に控え（journal）→ 約定 → その人の売買履歴を保存 → 控えを閉じる。
-    #    途中で落ちても、失うのは高々 1 注文で、それも次の起動で控えから戻る（§0-8 の段 1）
+    # ⚠ 売買履歴の保存は 1 注文ごと: 発注の直前にジャーナル（journal）→ 約定 → その人の売買履歴を保存 → ジャーナルを閉じる。
+    #    途中で落ちても、失うのは高々 1 注文で、それも次の起動でジャーナルから戻る（§0-8 のステップ 1）
     ledger_errors = 0
     fills_by_trader: list[dict] = []
     def settle(res) -> None:
@@ -494,8 +494,8 @@ def main() -> int:
         if args.mode != "submit":
             return
         if res.final_status == UNKNOWN:
-            # ⚠ 控えを閉じない: 注文は届いた（か分からない）のに状態を読めなかった。次の起動が注文番号（無ければ external-identifier）で
-            #    照会して、その人の売買履歴に戻す（§0-8 の段 1）。ここで「約定 0」と書くと、約定していたとき売買履歴から漏れる
+            # ⚠ ジャーナルを閉じない: 注文は届いた（か分からない）のに状態を読めなかった。次の起動が注文番号（無ければ external-identifier）で
+            #    照会して、その人の売買履歴に戻す（§0-8 のステップ 1）。ここで「約定 0」と書くと、約定していたとき売買履歴から漏れる
             rec.write("events", {"kind": "order_unknown", "trader": o.parts[0]["trader"] if o.parts else None, "symbol": o.symbol, "side": o.side,
                                  "external_id": res.external_id, "order_id": (res.submitted or {}).get("order_id"),
                                  "note": "状態を読めなかった注文。控えは開いたまま ＝ 次の起動が照会して売買履歴に戻す。急ぐなら口座の注文履歴を見て reconcile.py で合わせる"})

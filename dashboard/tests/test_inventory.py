@@ -245,7 +245,7 @@ def test_features_meta_and_leak_split(settings):
 
 
 def test_exposure_is_listed_with_hindsight(settings):
-    """割り当ては経路と重みをそのまま出す。⚠ **後知恵の印も宣言のコピー。**"""
+    """割り当ては経路と重みをそのまま出す。⚠ **後知恵のラベルも宣言のコピー。**"""
     build_exp_dir(settings.exp_dir)
     x = inv.index(settings)["exposures"][0]
     assert x["hindsight"] is True and x["selected_on"] == "2026-09-09"

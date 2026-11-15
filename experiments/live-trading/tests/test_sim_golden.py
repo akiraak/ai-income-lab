@@ -45,7 +45,7 @@ def missing_bars(name: str) -> list[str]:
 
 @pytest.fixture(scope="module", params=["sim1", "sim2"])
 def ran(request, tmp_path_factory):
-    """`sim<N>` を最速で 1 回だけ通し、記録の保存先を返す。⚠ 本物の木には触らない（LT_MODE_DIR は tmp）。"""
+    """`sim<N>` を最速で 1 回だけ通し、記録の保存先を返す。⚠ 本物のツリーには触らない（LT_MODE_DIR は tmp）。"""
     name = request.param
     gone = missing_bars(name)
     if gone:
@@ -170,7 +170,7 @@ def test_account_and_ledger_agree_except_the_injected_loss(ran):
 
 
 def test_every_row_is_marked_and_no_secret_leaks(ran):
-    """全行に sim ／ mock ／ test の印・秘密が出ていない（`simctl.py check` と同じ）。"""
+    """全行に sim ／ mock ／ test のフラグ・秘密が出ていない（`simctl.py check` と同じ）。"""
     _, root = ran
     n = bad = leaks = 0
     for d in days_of(root):
@@ -194,7 +194,7 @@ def test_scenarios_left_their_marks(ran):
             assert ev[kind] == 0, (kind, ev)                # 故障なしの基準線
         return
     # ⚠ journal_recovered は 2（2026-09-22）: 発注が 2 段（先に全部出す → 約定をまとめて確かめる）になったので、落ちた日（11-19）の
-    #    sim_b の買い 2 本（VZ・XLU）が両方とも口座に届いてから落ちる ＝ 翌日に 2 本とも控えから戻る（直列のときは 1 本だけ）
+    #    sim_b の買い 2 本（VZ・XLU）が両方とも口座に届いてから落ちる ＝ 翌日に 2 本ともジャーナルから戻る（直列のときは 1 本だけ）
     assert ev["auth_failed"] == 1 and ev["auth_5xx_retry"] == 1 and ev["journal_recovered"] == 2, ev
     assert ev["drawdown_warning"] > 0 and ev["position_short"] > 0
     who = {r.get("trader") for d in days_of(root) for r in rows(root, d, "events") if r.get("kind") == "drawdown_warning"}

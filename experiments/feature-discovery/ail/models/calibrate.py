@@ -59,7 +59,7 @@ def fit(model_fn, Xtr, ytr, ctx: dict, split: str = "train") -> Calibration:
 
 
 def fit_from_predictions(pred: np.ndarray, target: np.ndarray, source: str) -> Calibration:
-    """予測と実現値の対から較正を作る（前置きの門も同じ計算を使う。rules.md 14-5）。"""
+    """予測と実現値の対から較正を作る（前置きのゲートも同じ計算を使う。rules.md 14-5）。"""
     pred = np.asarray(pred, dtype=float)
     up = np.asarray(target, dtype=float) > 0
     if up.all() or (~up).all() or np.std(pred) == 0:

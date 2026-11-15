@@ -155,7 +155,7 @@ def write_experiment(runs_dir: Path, run_id: str, *, config: dict, inputs: dict,
                      summary: list[tuple] | None, checks: dict | None = None) -> "RunDir":
     """検証の実行記録（DB の実行 1 つ）を作る。summary は (手法, 本数, 的中率, IC, 粗利, 純利)。
 
-    ⚠ **`summary=None` は `summary.csv` を書かない**（前置きの門で閾値売買を回していない実行。
+    ⚠ **`summary=None` は `summary.csv` を書かない**（前置きのゲートで閾値売買を回していない実行。
     rules.md 14-5。`cli/run.py` は門前のとき summary も result も書かない）。
     """
     d = RunDir(runs_dir, run_id)

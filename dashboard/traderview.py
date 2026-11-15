@@ -3,7 +3,7 @@
 **トレーダー 1 人 1 ページ**。ページには「この人が使うモデル」と、そのモデルの**特性**を、やさしい言葉で出す。
 
   - ⚠ **だれが居るかは実売買の設定から引く**（`experiments/live-trading/config/traders/*.toml` の試験用でない人。
-    直下にまだ居ない `candidates/<組>/` の人は「（候補）」の印つき。2026-09-28 に `notional/` だけから `candidates/*/` へ広げた ＝ 複数モデルの人は `multi/`）。⚠ **人数を数えない・見くらべるページを作らない**
+    直下にまだ居ない `candidates/<組>/` の人は「（候補）」のラベルつき。2026-09-28 に `notional/` だけから `candidates/*/` へ広げた ＝ 複数モデルの人は `multi/`）。⚠ **人数を数えない・見くらべるページを作らない**
     （利用者の指示 2026-09-20。トレーダーは 1 人のときも 10 人のときもある）
   - ⚠ **言葉の正本は 2 本**: モデルの解説 ＝ `dashboard/models.toml` の `[[model]]`（「予測モデル」タブ `modelview.py` と同じ 1 本。
     dashboard.md §17）／ 人の側の言葉 ＝ `dashboard/traders.toml`（呼び名 `[nicks]`・共通の文 `[common]`・売買する株を選んだ理由
@@ -31,7 +31,7 @@ GLOSSARY_URL = "/#glossary/all"
 MODEL_URL = "/#models/"          # 「予測モデル」タブのモデルのページ（後ろに `[[model]]` の id）
 TRADER_URL = "/#traders/"        # このタブの人のページ（後ろに設定の鍵）
 SYSTEM_TRADER_URL = "/#system/trader"   # 「システム説明」の「トレーダーのしくみ」（共通のしくみと設定項目の意味。2026-09-26）
-# 人ごとの色（モデルの札の線と、出力スコアのものさしの「買う」の帯）。白地の上で読める濃さ。足りなくなったら頭から使い回す
+# 人ごとの色（モデルのカードの線と、出力スコアのものさしの「買う」の帯）。白地の上で読める濃さ。足りなくなったら頭から使い回す
 COLORS = ("#2a78d6", "#b0567a", "#2f8f6b", "#a8741a", "#6b5fc7")
 BASES = ("build", "trial", "guess")
 
@@ -247,7 +247,7 @@ def find_model(words: dict, spec: dict) -> dict | None:
 
 
 def _fill(text: str, facts: dict) -> str:
-    """文の中の {budget} などを設定の数字で埋める。⚠ 知らない札はそのまま残す（落とさない）。"""
+    """文の中の {budget} などを設定の数字で埋める。⚠ 知らないラベルはそのまま残す（落とさない）。"""
     values = {"budget": _money(facts["budget"]), "n": str(facts["n"]), "per": _money(facts["per"]),
               "line": _num(facts["line"]), "sell": _num(facts["sell"]), "k": str(facts["k"]),
               "symbols": "、".join(facts.get("symbols") or []),
@@ -300,7 +300,7 @@ def sidebar(paths: TraderPaths) -> dict:
 
 
 def _tag(common: dict, basis: str) -> str:
-    basis = basis if basis in BASES else "guess"      # 印の無い文は、確かめていないものとして出す
+    basis = basis if basis in BASES else "guess"      # ラベルの無い文は、確かめていないものとして出す
     return f"<span class='tag {basis}'>{esc(common.get('basis_' + basis))}</span>"
 
 
@@ -315,12 +315,12 @@ def trader_body(paths: TraderPaths, name: str) -> str | None:
     many = len(models) > 1
     out = [f"<div style='--who:{COLORS[index % len(COLORS)]}'>",
            f"<h1>{esc(nick or name)}" + (f"<small>{esc(name)}</small>" if nick else "") + "</h1>"]
-    # ⚠ 「まだ確定していない」の帯（`unsettled`）は 2026-09-26 に消した（役目を終えた）。候補の人は「正式な名前」の段の「（候補）」だけ
+    # ⚠ 「まだ確定していない」のバナー（`unsettled`）は 2026-09-26 に消した（役目を終えた）。候補の人は「正式な名前」の段の「（候補）」だけ
 
     out.append(_h2(1, "使うモデル"))
     for spec, m in models:
         formal = f"<code>{esc(spec['name'])}</code>" + (f" <code>{esc(spec['method'])}</code>" if spec["method"] else "")
-        # 係の札（役割のある人だけ。2026-10-19。言葉は traders.toml の role_*）
+        # 係のラベル（役割のある人だけ。2026-10-19。言葉は traders.toml の role_*）
         tag = f"<span class='role'>{esc(_role_word(common, spec['role']))}</span>" if facts["has_roles"] else ""
         if m is None:
             out.append(f"<div class='model'><div>{tag}{formal}</div><p>{esc(mcommon.get('no_words'))}</p></div>")
@@ -410,7 +410,7 @@ def _role_word(common: dict, role: str) -> str:
 
 def _roles_text(common: dict, facts: dict) -> str:
     """役割のある人の「使うモデル」の下の文（2026-10-19）: 係のしくみ ＋ 係が 2 本以上の側の合わせ方 ＋ 最短保有 ＋ 損切り係が言う日は買わない。
-    ⚠ 損切り係は合わせ方に入らない（執行エンジンでは別の口 ＝ 言えば降りる）。"""
+    ⚠ 損切り係は合わせ方に入らない（執行エンジンでは別の扱い ＝ 言えば降りる）。"""
     parts = [str(common.get("roles_intro") or "")]
     sides = (("buy", ("both", "buy"), facts.get("combine_buy")), ("exit", ("both", "exit"), facts.get("combine_exit")))
     for side, roles, rule in sides:
@@ -439,7 +439,7 @@ def _roles_rows(common: dict, facts: dict) -> list[tuple[str, str, str]]:
 
 
 def _model_outputs(common: dict, mcommon: dict, models) -> str:
-    """使うモデルが出力スコアを出す株（`[[model]] sets.output` を写す札。モデルが 2 本以上なら呼び方を頭に付ける）。"""
+    """使うモデルが出力スコアを出す株（`[[model]] sets.output` を写すカード。モデルが 2 本以上なら呼び方を頭に付ける）。"""
     head = common.get("stocks_model_output") or mcommon.get("set_output") or ""
     chips = []
     for _spec, m in models:

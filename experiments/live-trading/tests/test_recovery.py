@@ -1,4 +1,4 @@
-"""口座の建玉と売買履歴の帳尻（§0-8）: 控え・復元・照合・人が合わせる CLI。ネットワークは使わない。"""
+"""口座の建玉と売買履歴の帳尻（§0-8）: ジャーナル・復元・照合・人が合わせる CLI。ネットワークは使わない。"""
 import json
 import os
 import subprocess
@@ -108,7 +108,7 @@ def test_check_positions_sums_every_trader_and_separates_more_from_less():
     assert set(outside) == {"SPY"} and outside["SPY"]["diff"] == 1            # AAPL はトレーダーの銘柄ではない ＝ 見ない。VZ は丸めの差の内
 
 
-# ---------- 段 3: 人が合わせる CLI
+# ---------- ステップ 3: 人が合わせる CLI
 
 @pytest.fixture
 def cli(tmp_path):

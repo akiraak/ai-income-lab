@@ -275,7 +275,7 @@ def test_halt_during_the_first_stage_stops_further_submits_but_still_settles_wha
     assert [s for k, s in c.calls if k == "submit"] == ["A"]
 
 
-# ---------- 429（2026-09-21 の cert: 約定したのに約定確認の照会が 429 で「error・0 株」になり、控えも閉じた）----------
+# ---------- 429（2026-09-21 の cert: 約定したのに約定確認の照会が 429 で「error・0 株」になり、ジャーナルも閉じた）----------
 
 def _429(retry_after=None):
     return ApiError(429, "non_json_response", "<html>429 Too Many Requests</html>", "<html>", retry_after=retry_after)

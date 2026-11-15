@@ -115,7 +115,7 @@ def test_shift_placebo_runs_are_kept_out_of_the_ranking(tmp_path):
     assert ex["placebo_runs"][0]["kind"] == "偽薬（日付ずらし）"
 
 
-# --- 検査の印 -----------------------------------------------------------
+# --- 検査のラベル -----------------------------------------------------------
 
 def test_marks_flag_split_folds_and_raw_daily(tmp_path):
     """⚠ **純利が正でも fold が割れていれば ✅ にしない。**"""
@@ -231,7 +231,7 @@ def test_trading_summary_keeps_the_threshold_columns(tmp_path):
     assert row["閾値"] == 50.0 and row["取引回数"] == 60.0 and row["保有日率"] == 0.5
 
 
-# --- 前置きの門（rules.md 14-5） ----------------------------------------
+# --- 前置きのゲート（rules.md 14-5） ----------------------------------------
 #
 # ⚠ **門前の実行は `summary.csv` を持たない**（閾値売買を回していないから）。
 # ⚠ **画面から黙って消えてはいけない**（検証結果一覧には「門前」の行で残る。隠さない）。
@@ -276,7 +276,7 @@ def test_gated_run_is_kept_but_not_counted_as_a_validation(tmp_path):
     assert sum(ex["kinds"].values()) == 1
     g = ex["gated_runs"][0]
     assert g["score"] is None and g["gated"] is True
-    # 門の値は checks.json のコピー（画面では判定し直さない）
+    # ゲートの値は checks.json のコピー（画面では判定し直さない）
     assert [m["method"] for m in g["gate_blocked"]] == ["全部使う（基準）"]
     assert g["gate_blocked"][0]["auc"] == 0.5034 and g["gate_blocked"][0]["width_pt"] == 3.2
     assert g["gate"]["auc_min"] == 0.52 and g["gate"]["width_min_pt"] == 20.0
@@ -307,7 +307,7 @@ def test_forced_run_without_summary_is_still_dropped(tmp_path):
 
 
 def test_run_without_summary_and_without_gate_is_dropped(tmp_path):
-    """門の記録も無い（壊れた・途中で落ちた）実行は従来どおり拾わない。"""
+    """ゲートの記録も無い（壊れた・途中で落ちた）実行は従来どおり拾わない。"""
     write_experiment(tmp_path, "2026-09-11T11-00-00_trade_own_lgbm_a", config=TRADE,
                      inputs={"layer": "adjusted"}, summary=None, checks={"style": "threshold"})
     assert exp.index(tmp_path)["gated_runs"] == [] and exp.index(tmp_path)["runs"] == []

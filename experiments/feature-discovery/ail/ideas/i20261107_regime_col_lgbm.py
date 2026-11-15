@@ -1,7 +1,7 @@
 """レジストリ `20261107-regime-col-lgbm`（参考あり・枠の内。記録 dev-loop.md）:
 R2（`i20261106_regime_ex_ridge`）と同じ外生の局面を、**局面ごとにモデルを分ける代わりに one-hot の列として 1 本の LightGBM に渡す** 検知器 R3。
 
-- 局面: R2 の `regimes`（`ex_UST*` ／ `ex_EURTO*` の 28 列・訓練分割の日だけで標準化と k-means・K ＝ 2 ／ 4・種 0）をそのまま呼ぶ。
+- 局面: R2 の `regimes`（`ex_UST*` ／ `ex_EURTO*` の 28 列・訓練分割の日だけで標準化と k-means・K ＝ 2 ／ 4・シード 0）をそのまま呼ぶ。
 - 学習器の入力: own 35 列（＋ leak 対照の LEAK_ 列）＋ 局面の one-hot `regime_k0..k{K-1}`（足す・置き換えない）。ex は入れない。
   学習器は ctx の model（config の `LightGBM`・既定の水準）。較正は `calibrate.fit`（訓練分割の末尾）。
 - 対照「R3 局面の列なし（own のみ・LightGBM）」: 同じ表・同じ分割点・同じ経路で局面の列だけを外す（レジストリの「局面の列なし」＝ 数える 3 本のうち 1 本）。

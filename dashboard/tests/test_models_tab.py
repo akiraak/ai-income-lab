@@ -1,9 +1,9 @@
 """外部のタブ「予測モデル」（`dashboard/modelview.py`・`dashboard/models.toml`）の検査。仕様は dashboard.md §17。
 
-見るもの: やさしい言葉・くらべる文が無い・設定の数字が無い（`[common]` も）／ 鍵（`id`）／ 試した結果の印と記録のファイル ／
+見るもの: やさしい言葉・くらべる文が無い・設定の数字が無い（`[common]` も）／ 鍵（`id`）／ 試した結果のラベルと記録のファイル ／
 ⚠ 共通のしくみのページは「システム説明」タブ（test_system_tab.py。2026-09-26 に戻した）／
 「いま使っている」は実売買の設定から（本数を数えない）／ `show_result = false` で結果を出さない ／ TOML しか開かない ／ 経路 ／ 白地。
-⚠ 特性の印（`basis`）とモデルの本文の検査は `test_traders_tab.py` が同じ `models.toml` に対して行う。
+⚠ 特性のラベル（`basis`）とモデルの本文の検査は `test_traders_tab.py` が同じ `models.toml` に対して行う。
 """
 
 import builtins
@@ -52,7 +52,7 @@ def test_ids_are_unique_and_url_safe():
 
 
 def test_every_model_has_words_result_and_files():
-    """説明の欄がそろっている ／ 試した結果の印は 3 つのどれか ／ 記録と実験の設定のファイルが在る。"""
+    """説明の欄がそろっている ／ 試した結果のラベルは 3 つのどれか ／ 記録と実験の設定のファイルが在る。"""
     paths = traderview.TraderPaths.default()
     for m in _real()["model"]:
         for key in ("label", "summary", "how", "formal", "traits", "sees"):
@@ -70,7 +70,7 @@ def test_every_model_has_words_result_and_files():
 
 def test_deep_parts_are_well_formed():
     """図は箱 2〜12 個 ／ 組み立ては知っている軸だけ ／ 3 つの集合（材料に入れるもの ／ 学ぶ株 ／ 出力スコアを出す株）は 12 本とも ／
-    出力スコアの癖には印 ／ 経緯のいちばん良い印 ＝ 試した結果の印 ／ 「詳しく」は決まった大見出しにだけ ／ 小さな例があるなら「作りもの」の注が出る。"""
+    出力スコアの癖にはラベル ／ 経緯のいちばん良いラベル ＝ 試した結果のラベル ／ 「詳しく」は決まった大見出しにだけ ／ 小さな例があるなら「作りもの」の注が出る。"""
     doc = _real()
     common = doc["common"]
     for m in doc["model"]:
@@ -100,7 +100,7 @@ def test_deep_parts_are_well_formed():
 def test_trial_sentences_say_which_trial():
     """「試し運転」の話は、どの形の試し運転かが読める（Step 5・O5）: 出力スコアの話（キャッシュの予測 ＝ 本番と同じ作り方）か、
     売り買いの本数の話（金額を決めて全部を買う形 ／ 決まった本数を 1 株単位で買う形）か。特性・癖は `text` ＋ `why` で 1 つと数える。
-    ⚠ `[common]` の札（`basis_trial`・`basis_note`）は検査の外（説明は `trial_note`）。"""
+    ⚠ `[common]` のラベル（`basis_trial`・`basis_note`）は検査の外（説明は `trial_note`）。"""
     units: dict[str, str] = {}
     for where, text in _texts(_real()):
         if where.startswith("common"):
@@ -113,7 +113,7 @@ def test_trial_sentences_say_which_trial():
 
 
 def test_models_in_real_trader_configs_are_listed_as_live():
-    """いま設定に居る人のモデルは全部「いま使っている」の束に出る（束は設定から。人が書かない）。"""
+    """いま設定に居る人のモデルは全部「いま使っている」のグループに出る（グループは設定から。人が書かない）。"""
     paths = traderview.TraderPaths.default()
     data = modelview.load(paths)
     for key, _f, _ok in traderview.trader_files(paths):
@@ -255,7 +255,7 @@ def paths(_trader_paths, tmp_path):
 
 
 def test_sidebar_groups_come_from_trader_config(paths):
-    """「いま使っている」が先・束は設定から・本数を数えない・鍵のおかしいモデルは出さない。"""
+    """「いま使っている」が先・グループは設定から・本数を数えない・鍵のおかしいモデルは出さない。"""
     items = modelview.sidebar(paths)["items"]
     assert [(i["id"], i.get("group"), i.get("badge")) for i in items] == [
         ("all", None, None), ("a-type", "いま使っている", "保留"),
@@ -305,7 +305,7 @@ def test_model_page_deep_parts(paths):
             "<div class='nav'><a href='/#system/trader' target='_top'>トレーダーのしくみへ</a></div>")
     assert about.index("軸の計算") < about.index(sets) < about.index("用語 Ridge の説明")
     assert "知らない軸" not in body and "知らない集合" not in body
-    # 2: 印の意味の直後に、試し運転の注（「試し運転」の話があるモデルにだけ ＝ 下の desk-one の検査）
+    # 2: ラベルの意味の直後に、試し運転の注（「試し運転」の話があるモデルにだけ ＝ 下の desk-one の検査）
     assert "<p class='sub'>印の意味</p><p class='note'>試し運転の注</p>" in part["モデルの特性"]
     # 3: 図（主張が直前・箱の文字はエスケープ）→ 見るもの → 答えの出し方 → 小さな例 → 共通の流れへ → 詳しく
     how = part["何を見て、どう答えを出すか"]
@@ -314,7 +314,7 @@ def test_model_page_deep_parts(paths):
     assert how.index("答えの出し方 A") < how.index("<h3>小さな例</h3>") < how.index("<a href='/#system/model' target='_top'>共通の流れ</a>")
     assert "<li><b>段 1</b>　一段目</li><li>二段目</li></ol>" in how and "空" not in how and "例の数字は作りもの" in how
     assert "alpha = 1.0" in how and "<a href='/#specs/experiments/x.md' target='_top'>記録へ</a>" in how
-    # 4: 癖（印つき。印が無ければ見立て）・読み方・使われ方へのリンク・詳しく
+    # 4: 癖（ラベルつき。ラベルが無ければ見立て）・読み方・使われ方へのリンク・詳しく
     score = part["出力スコアの出かたと読み方"]
     assert "癖 1<span class='tag trial'>試し運転で見えた</span><span class='why'>理由: 癖の理由</span>" in score
     assert "癖 2<span class='tag guess'>見立て</span>" in score and "読み方 1" in score and "Platt の a" in score
@@ -344,7 +344,7 @@ def test_deep_parts_are_absent_when_not_written(paths):
 def test_trader_page_does_not_grow(paths):
     """新しい欄（図・組み立て・3 つの集合の表・試し運転の注・小さな例・出力スコアの段・経緯・詳しく）はトレーダーのページに出ない。
     ⚠ 特性の文（`traits`）だけは両方に出る ＝ 試し運転の話を直せば人のページにも効く。
-    ⚠ 3 つの集合のうち「出力スコアを出す株」の 1 行だけは、人のページの「どの株を」の札に写る（設定の説明の Step 6・2026-09-26。
+    ⚠ 3 つの集合のうち「出力スコアを出す株」の 1 行だけは、人のページの「どの株を」のラベルに写る（設定の説明の Step 6・2026-09-26。
     売買する株との違いを見せるため）。「トレーダーのしくみ」への案内も人のページが自前で出す（traders.toml の `stocks_link` ほか）。"""
     body = traderview.body(paths, "TA")
     assert "モデル A のひとこと" in body and "試し運転で見えた特性" in body
@@ -364,7 +364,7 @@ def test_desk_model_page(paths):
     assert "Formal &lt;One&gt;" in body and "feature_layers = <code>own</code>" in body and "cost_bp" not in body
     # config/ の外は開かない（パスは出すが中身は写さない）
     assert "etc/passwd.toml" in body and body.count("model = ") == 1
-    assert "結果はまだ" in modelview.body(paths, "no-result")                            # 知らない印は出さない
+    assert "結果はまだ" in modelview.body(paths, "no-result")                            # 知らないラベルは出さない
     for gone in ("bad id", "nope", "overview", "TA"):
         assert modelview.body(paths, gone) is None
 
@@ -451,7 +451,7 @@ def _ledger_db(path, rows, built_at="2026-09-21T10-00-00"):
 
 
 def test_history_counts_come_from_the_db(paths, tmp_path):
-    """`names` のある行は DB の数（θ はまとめて・基準線と leak 対照は数えない）。無い行には「人が写した数」の印。
+    """`names` のある行は DB の数（θ はまとめて・基準線と leak 対照は数えない）。無い行には「人が写した数」のラベル。
     ⚠ DB は読み取り専用（中身も時刻も変わらない）・無い DB は作らない。"""
     db = tmp_path / "research.sqlite"
     _ledger_db(db, [
@@ -471,7 +471,7 @@ def test_history_counts_come_from_the_db(paths, tmp_path):
     assert modelview.best_verdict(m, modelview.ledger_rows(with_db)) == "adopt" and modelview.best_verdict(m) == "hold"
     assert modelview.fingerprint(with_db)["ledger_rows"] == 20260921100000.0
     assert (db.read_bytes(), db.stat().st_mtime_ns) == before
-    # DB が無いマシン・表の無い DB では TOML の数（印なし）と「人が写した」の注。無い DB は作らない
+    # DB が無いマシン・表の無い DB では TOML の数（ラベルなし）と「人が写した」の注。無い DB は作らない
     for gone in (tmp_path / "none.sqlite", tmp_path / "empty.sqlite"):
         if gone.name == "empty.sqlite":
             sqlite3.connect(gone).close()
@@ -482,8 +482,8 @@ def test_history_counts_come_from_the_db(paths, tmp_path):
 
 
 def test_real_history_matches_the_db():
-    """⚠ **本物の経緯の表の数（人が写した控え）が、研究の DB から数えた数と同じ**。`names` はどれも 1 行以上に当たり、
-    `when` の日は DB の実行の日の範囲に入り、試した結果の印は DB の数でいちばん良い印と同じ。
+    """⚠ **本物の経緯の表の数（人が写したコピー）が、研究の DB から数えた数と同じ**。`names` はどれも 1 行以上に当たり、
+    `when` の日は DB の実行の日の範囲に入り、試した結果のラベルは DB の数でいちばん良いラベルと同じ。
     ⚠ 食い違ったら、記録で確かめてから `models.toml` の数・印・文を直す（DB を正とする）。DB の無いマシンでは飛ばす。"""
     paths = dataclasses.replace(traderview.TraderPaths.default(), research_db=REAL_DB)
     ledger = modelview.ledger_rows(paths)
@@ -525,7 +525,7 @@ def _files_db(path, files: dict[tuple[str, str], object]):
 
 
 def test_detail_plugs_come_from_run_records(paths, tmp_path):
-    """差し込みは DB の値（点線の下線・title に実行の識別名・fold の順・負は −・`+` で ＋）。DB が無ければ控え。地の文はエスケープ。"""
+    """差し込みは DB の値（点線の下線・title に実行の識別名・fold の順・負は −・`+` で ＋）。DB が無ければコピー。地の文はエスケープ。"""
     run, method = "2026-01-01T00-00-00_x", "方式 <A>"
     db = tmp_path / "research.sqlite"
     _files_db(db, {(run, "fitted/calibration_f2.json"): {method: {"a": -2.5, "b": 0.1}},
@@ -538,7 +538,7 @@ def test_detail_plugs_come_from_run_records(paths, tmp_path):
     assert f"Platt の a <span class='dbv' title='{title}'>＋12.35 ／ −2.50</span>・門 <span class='dbv' title='{title}'>0.512</span>" in score
     assert "<p class='sub'>点線は記録から</p>" in score and "囲みは控え" not in score
     assert db.read_bytes() == before
-    # DB が無いマシン ・ 実行が無い ・ 項目が無い ＝ 控え（印なし）
+    # DB が無いマシン ・ 実行が無い ・ 項目が無い ＝ コピー（ラベルなし）
     for gone in (tmp_path / "none.sqlite", db):
         body = modelview.body(dataclasses.replace(paths, research_db=gone if gone.name == "none.sqlite" else None), "a-type")
         assert "Platt の a ＋1.00 ／ −2.00・門 0.500" in body and "class='dbv'" not in body
@@ -552,8 +552,8 @@ def test_detail_plugs_come_from_run_records(paths, tmp_path):
 
 
 def test_real_detail_plugs_match_the_db():
-    """⚠ **本物の「詳しく」の差し込みはどれも形が正しく、控え（人が写した文字）が DB から引いた値と同じ**。
-    ⚠ 食い違ったら、記録で確かめてから控えを直す（DB を正とする）。`{{` の書き損じも見つける。DB の無いマシンでは形だけ見る。
+    """⚠ **本物の「詳しく」の差し込みはどれも形が正しく、コピー（人が写した文字）が DB から引いた値と同じ**。
+    ⚠ 食い違ったら、記録で確かめてからコピーを直す（DB を正とする）。`{{` の書き損じも見つける。DB の無いマシンでは形だけ見る。
     ⚠ **実行が 0 の DB（`cli.db stats` などが作る中身の無い器）も「DB の無いマシン」として扱う**（2026-09-26 に Sx360 のゲートが
     これで落ちた ＝ 照合する相手が無いのに「DB から引けない」と判定していた）。"""
     doc = _real()
@@ -588,7 +588,7 @@ def test_real_detail_plugs_match_the_db():
 
 
 def test_also_spelling_counts_as_a_user(paths):
-    """`also`（同じモデルの別の表記。2026-10-19）で当たった人も「いま使っている」の束に入る。"""
+    """`also`（同じモデルの別の表記。2026-10-19）で当たった人も「いま使っている」のグループに入る。"""
     models = paths.models.read_text(encoding="utf-8").replace('name = "exp_a"\nmethod = "手法 A"\n', 'name = "exp_a"\nmethod = "手法 A"\nalso = [{ name = "exp_a_multi", method = "手法 A" }]\n', 1)
     paths.models.write_text(models, encoding="utf-8")
     (paths.traders_dir / "TZ.toml").write_text('name = "TZ"\nbudget_usd = 300.0\nuniverse = "u4"\nthreshold = 50.0\n[[models]]\nkind = "experiment"\nname = "exp_a_multi"\nmethod = "手法 A"\n', encoding="utf-8")
@@ -597,12 +597,12 @@ def test_also_spelling_counts_as_a_user(paths):
 
 
 def test_real_horizon_gates_are_live_through_the_candidates():
-    """先 5 ／ 20 ／ 40 日の型と、`also` で当てる先 10 日の型は、候補 T7〜T10 が使う ＝「いま使っている」の束（未確定の印）。"""
+    """先 5 ／ 20 ／ 40 日の型と、`also` で当てる先 10 日の型は、候補 T7〜T10 が使う ＝「いま使っている」のグループ（未確定のラベル）。"""
     paths = traderview.TraderPaths.default()
     data = modelview.load(paths)
     for mid, who in (("fwd5-gate", {"T7", "T8", "T10", "T12", "T13", "T15"}), ("fwd20-gate", {"T8", "T10", "T13", "T15"}), ("fwd40-gate", {"T9", "T14"}),
                      ("fwd10-gate", {"T7", "T9", "T12", "T14"}), ("stop-exit", {"T5", "T7", "T8", "T9", "T10"}),
                      ("fwd5c-gate", {"T16", "T17", "T19"}), ("fwd20c-gate", {"T17", "T19"}), ("fwd40c-gate", {"T18"}), ("fwd10c-gate", {"T16", "T18"})):
         users = {u["key"]: u["settled"] for u in data["users"][mid]}
-        live = who & {"T18", "T19"}     # ⚠ 2026-11-01 本番の人になった（利用者「T18 と T19 で」）＝ 未確定の印は付かない
+        live = who & {"T18", "T19"}     # ⚠ 2026-11-01 本番の人になった（利用者「T18 と T19 で」）＝ 未確定のラベルは付かない
         assert who <= set(users) and not any(users[k] for k in who - live) and all(users[k] for k in live), (mid, users)

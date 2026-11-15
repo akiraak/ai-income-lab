@@ -228,7 +228,7 @@ def _read_day(live_dir: Path, date: str) -> dict:
                                                         "refused_mode_sim", "refused_lock_busy", "ledger_error",
                                                         # 含み損が予算の 20% 以上（⚠ 執行エンジンは警告だけ。止めるのは人 ＝ 停止ボタン）
                                                         "drawdown_warning",
-                                                        # 口座の建玉と売買履歴の帳尻（live-trading.md §0-8）: 前の実行の約定を控えから戻した ／ 照会できない ／ 口座が売買履歴より少ない
+                                                        # 口座の建玉と売買履歴の帳尻（live-trading.md §0-8）: 前の実行の約定をジャーナルから戻した ／ 照会できない ／ 口座が売買履歴より少ない
                                                         "journal_recovered", "journal_unresolved", "position_short")]
     retries = sum(1 for o in orders for t in o.get("transitions") or [] if "retry" in str(t.get("status", "")))
     # 差 4（無人運転）: 拒否・再送・HALT・発注できる時間帯の外。差 3 は Phase 3（紙上の対照）の後で埋まる
@@ -363,7 +363,7 @@ def _yardstick():
     return mod
 
 
-# 指標の「問題」の札（yardstick.py の problems の表記 → 画面の言葉）。⚠ 無い表記はそのまま出す
+# 指標の「問題」のラベル（yardstick.py の problems の表記 → 画面の言葉）。⚠ 無い表記はそのまま出す
 PROBLEM_LABEL = {
     "no_run": "起動なし", "no_end": "終わりの記録なし", "bad": "error ／ unknown の注文", "c_mismatch": "規則と違う判断",
     "diff1_over": "差 1 が 5bp 超", "gap": "口座 − 売買履歴 ≠ 0", "halted": "停止（HALT）", "out_of_window": "取引時間帯の外",
@@ -470,7 +470,7 @@ def launch_rows(live_dir: Path, days: list[str]) -> list[dict] | None:
 
 
 def anomalies(rows: list[dict], first: str | None) -> list[dict]:
-    """全体の詳細の「異常の一覧」: `first` 以降で問題の札が付いた行（試験用の人を除く・新しい順）。異常 0 の日は出さない。"""
+    """全体の詳細の「異常の一覧」: `first` 以降で問題のラベルが付いた行（試験用の人を除く・新しい順）。異常 0 の日は出さない。"""
     out = []
     for r in rows:
         if not r["problems"] or r.get("test") == "True" or (first and r["date"] < first):
@@ -599,7 +599,7 @@ def business_days(first: str, last: str) -> list[str]:
 
 
 def calendar_info(first: str | None, last: str | None, today=None) -> dict:
-    """暦の出どころと、いま見ている範囲を暦が答えられるか。画面は `covered` が False のときだけ「仮」の印を出す。"""
+    """暦の出どころと、いま見ている範囲を暦が答えられるか。画面は `covered` が False のときだけ「仮」のラベルを出す。"""
     from datetime import date as _date, timedelta
     cal = _calendar()
     today = today or _date.today()
@@ -620,7 +620,7 @@ def board(live_dir: Path, days: int | None = DAYS, today=None, now_et_=None, sup
     """概要・全体の詳細・トレーダーの詳細が使う形。トレーダー別の推移（損益・行動のマス目・差 1）と起動しなかった日。
 
     ⚠ `days=None` ＝ **全期間**（トレーダーの詳細。1 人を縦に追う面）。既定の 20 日は概要・全体の詳細（人を横に比べる面）。
-    ⚠ 仮データ（紙上の損益・差 3）は `placeholder` の印を付けて返す。`/api/live` には出さない。
+    ⚠ 仮データ（紙上の損益・差 3）は `placeholder` のラベルを付けて返す。`/api/live` には出さない。
     """
     tr = traders(live_dir)
     ds = dates(live_dir)[:days][::-1]          # 古い順の直近 days 日（days=None なら全部）
@@ -758,7 +758,7 @@ def board(live_dir: Path, days: int | None = DAYS, today=None, now_et_=None, sup
         "fees": fv,
         "fees_account": ({"outside": fv["outside"], "adjust": fv["adjust"], "total_actual": fv["total_actual"]} if fv else None),
         "calendar": cal_info,
-        # ⚠ 仮データの印（画面はこれを見てバッジを出す）。暦は、見ている範囲が NYSE の暦の外に出たときだけ仮（平日＝営業日）
+        # ⚠ 仮データのラベル（画面はこれを見てバッジを出す）。暦は、見ている範囲が NYSE の暦の外に出たときだけ仮（平日＝営業日）
         # ⚠ 紙上の損益・差 3 は、daily.csv（実売買の Phase 3）がある人は本物・無い人は仮データ（`t.paper_real` で人ごとに分かれる）
         "placeholder": {"paper": not any(t.get("paper_real") for t in tr), "diff3_bp_per_day": PAPER_PLACEHOLDER_BP_PER_DAY, "calendar": not cal_info["covered"]},
         # ⚠ そろえた紙上の列（diff3a）が 1 行でもあればそちら（人をまたいで同じ指標にする）。無い daily.csv（古い paper.py）は今までどおり

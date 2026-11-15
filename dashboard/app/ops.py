@@ -31,7 +31,7 @@ class OpsError(Exception):
 
 
 def _load_executor_module(stem: str):
-    """執行エンジンの `<stem>.py`（experiments/live-trading。標準ライブラリだけ）をパスで読む ＝ 印・名簿の形の正本は執行エンジンの側。"""
+    """執行エンジンの `<stem>.py`（experiments/live-trading。標準ライブラリだけ）をパスで読む ＝ フラグ・名簿の形の正本は執行エンジンの側。"""
     path = Path(__file__).resolve().parents[2] / "experiments" / "live-trading" / f"{stem}.py"
     spec = importlib.util.spec_from_file_location(f"lt_{stem}", path)
     mod = importlib.util.module_from_spec(spec)
@@ -74,7 +74,7 @@ class Ops:
         halt_file.write_text(json.dumps(info, ensure_ascii=False), encoding="utf-8")
         results = []
         if machine["mode"] == "sim":
-            # ⚠ シミュレーションモードの停止ボタン ＝ シミュレーションの木の HALT だけ（通し稽古）。本物の HALT も本物の注文も触らない
+            # ⚠ シミュレーションモードの停止ボタン ＝ シミュレーションのツリーの HALT だけ（通し稽古）。本物の HALT も本物の注文も触らない
             results.append({"env": f"sim:{machine['name']}", "skipped": "シミュレーション: 仮の執行エンジンは次の発注から拒否する。本物の口座の注文には触らない"})
         for env, mon in ([] if machine["mode"] == "sim" else self.monitors.items.items()):
             if not mon.client.token or not mon.account_number:
@@ -108,7 +108,7 @@ class Ops:
         return Path(control.control_dir(str(self.settings.halt_file)))
 
     def flags(self) -> dict[str, dict]:
-        """{識別名: {kind, label, since, actor, reason, done}}。壊れた印は label に「読めない」（執行エンジンは起動を拒む）。"""
+        """{識別名: {kind, label, since, actor, reason, done}}。壊れたフラグは label に「読めない」（執行エンジンは起動を拒む）。"""
         out: dict[str, dict] = {}
         try:
             for name, fl in control.read_all(str(self.control_dir())).items():
@@ -152,12 +152,12 @@ class Ops:
                 roster.add(rpath, name, actor, reason)                       # 名簿の外 → 入れる
                 touched_roster = True
             elif before is not None and before.liquidate:
-                control.clear_flag(cdir, name)                               # 手じまい済み → 印を消し、「いつから」を今に付け直す（後から入った人として休む順へ）
+                control.clear_flag(cdir, name)                               # 手じまい済み → フラグを消し、「いつから」を今に付け直す（後から入った人として休む順へ）
                 roster.remove(rpath, name)
                 roster.add(rpath, name, actor, reason)
                 touched_roster = True
             else:
-                control.clear_flag(cdir, name)                               # 一時停止 → 印を消す
+                control.clear_flag(cdir, name)                               # 一時停止 → フラグを消す
         else:
             control.set_flag(cdir, name, kind, actor, reason)
         out = {"trader": name, "instruction": kind, "kind": kind, "prev": row.get("status"), "prev_flag": before.as_dict() if before else None,

@@ -167,8 +167,8 @@ def test_aligned_does_not_trade_on_paused_or_held_back_days(tmp_path):
         return [_start()]
     by = {r["date"]: r for r in paper.build_rows(_aligned_out(tmp_path, events), _closes(), "bars")}
     assert by[DATES[2]]["aligned_trades"] == 0 and by[DATES[3]]["aligned_trades"] == 0
-    assert by[DATES[2]]["paper_trades"] == 1                                         # 今までの紙上は印を知らない（変えていない）
-    assert by[DATES[5]]["aligned_trades"] == 1                                       # 印が消えた後は合図どおり（5 日目 BBB 90）
+    assert by[DATES[2]]["paper_trades"] == 1                                         # 今までの紙上はフラグを知らない（変えていない）
+    assert by[DATES[5]]["aligned_trades"] == 1                                       # フラグが消えた後は合図どおり（5 日目 BBB 90）
 
 
 def test_aligned_liquidation_sells_all_closes_the_period_and_restarts_from_cash(tmp_path):
@@ -187,7 +187,7 @@ def test_aligned_liquidation_sells_all_closes_the_period_and_restarts_from_cash(
     assert by[DATES[4]]["aligned_since"] == DATES[4] and by[DATES[4]]["aligned_cum_bp"] == by[DATES[4]]["aligned_bp"]
 
 
-# --- 終値の控え（out/closes.json。プラン docs/plans/archive/daily-record-auto.md Phase 4 ＝ 2026-10-18 利用者決定「案1で進めて」）
+# --- 終値のスナップショット（out/closes.json。プラン docs/plans/archive/daily-record-auto.md Phase 4 ＝ 2026-10-18 利用者決定「案1で進めて」）
 
 def _bar(c, o=10.0, h=12.0, l=9.0, v=1000.0):
     return {"open": o, "high": h, "low": l, "close": c, "volume": v}
@@ -233,7 +233,7 @@ def test_a_fix_overrides_the_bar_and_the_rewrite_is_listed_once():
 
 
 def test_the_shipped_fixes_are_the_known_rewrites():
-    # 10/8 の T ・ VZ（控えを作る前）／ 11/5 の PFE（控えが書き換えの後に初めて見た日。live-trading.md §1 の 11/5）
+    # 10/8 の T ・ VZ（スナップショットを作る前）／ 11/5 の PFE（スナップショットが書き換えの後に初めて見た日。live-trading.md §1 の 11/5）
     assert paper.load_fixes() == {("T", "2026-10-08"): 24.87, ("VZ", "2026-10-08"): 46.2775,
                                   ("PFE", "2026-11-05"): 29.88}
 
@@ -301,7 +301,7 @@ def test_snapshot_only_writes_closes_json_but_not_daily_csv(tmp_path, monkeypatc
     assert livefs.read_doc(os.path.join(out, "daily.csv"), missing_ok=True) is None
     snap = json.loads(livefs.read_doc(os.path.join(out, "closes.json")))
     assert snap["bars"]["AAA"]["2026-09-23"]["close"] == 99.0 and snap["kept"] == []
-    # 朝の回は夜の控えを使う: 終値だけ書き換わっても控えの値
+    # 朝の回は夜のスナップショットを使う: 終値だけ書き換わってもスナップショットの値
     from datetime import datetime, timezone
     ms = str(int(datetime.fromisoformat("2026-09-23").replace(tzinfo=timezone.utc).timestamp() * 1000))
     lines = (bars / "AAA.csv").read_text(encoding="utf-8").splitlines()

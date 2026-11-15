@@ -150,7 +150,7 @@ def _insert_after_trading(text: str, block: str) -> str:
 
 def shape_config(text: str, *, src: str, methods: list[str], theta: str, budget: int = DEFAULT_BUDGET,
                  name: str | None = None) -> str:
-    """元の実験の TOML（文字列）→ トレーダーの形の config（文字列）。⚠ 表・モデル・k・fold・種・コストは触らない。"""
+    """元の実験の TOML（文字列）→ トレーダーの形の config（文字列）。⚠ 表・モデル・k・fold・シード・コストは触らない。"""
     doc = tomllib.loads(text)
     if (doc.get("trading") or {}).get("style") != "threshold":
         raise SystemExit(f"⚠ {src}: `[trading] style = \"threshold\"` の config だけ（rules.md 20 章）")

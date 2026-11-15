@@ -37,7 +37,7 @@ def test_perm_ts_keeps_each_symbol_multiset_and_pairs():
     fr, _y = _frame()
     rng = np.random.default_rng(2)
     b = rng.uniform(0, 100, len(fr))
-    e = b + 1000.0                                                  # 組のまま動くかを見る印
+    e = b + 1000.0                                                  # 組のまま動くかを見るフラグ
     out = ps.permute_within(np.column_stack([b, e]), ps.group_codes(fr, "perm_ts"), np.random.default_rng(0))
     assert np.array_equal(np.sort(out[:, 1] - out[:, 0]), np.sort(e - b))   # 組のまま（差の集まりが同じ）
     assert np.allclose(out[:, 1] - out[:, 0], 1000.0)
@@ -75,7 +75,7 @@ def test_same_seed_same_numbers():
 
 
 class _FakeRun:
-    """`evaluate_trading` が呼ぶ口だけ（DB に触らない）。"""
+    """`evaluate_trading` が呼ぶオプションだけ（DB に触らない）。"""
     def log(self, *_a, **_k):
         pass
 
@@ -87,7 +87,7 @@ class _FakeRun:
 
 
 def test_unpermuted_frame_reproduces_cli_run_bit_for_bit():
-    """`cli.run.evaluate_trading` が残した buy_pct ＋ 表の y で器を回し直すと、result の純利と 1 ビットも違わない。"""
+    """`cli.run.evaluate_trading` が残した buy_pct ＋ 表の y でシミュレーターを回し直すと、result の純利と 1 ビットも違わない。"""
     rng = np.random.default_rng(0)
     ts = pd.date_range("2019-01-02", periods=600, freq="D", tz="UTC")
     parts = []

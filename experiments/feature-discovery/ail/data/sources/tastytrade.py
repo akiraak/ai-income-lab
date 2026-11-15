@@ -99,8 +99,8 @@ async def _fetch_batch(dxlink_url: str, token: str, symbols: list[str], period: 
                         if sym in got and isinstance(t, (int, float)):
                             if int(t) not in got[sym]:
                                 # ⚠ 「新しい時刻の足」が来たときだけ無音の時計を戻す。市場が開いている間は今日の足（同じ時刻）の
-                                #    更新が 1 秒ごとに届き続けるので、それで戻すと無音にならず、1 束が上限 max_s まで待つ
-                                #    （2026-09-21 の市場時間: 1 束目が 45 秒たっても終わらなかった【実測】→ 63 銘柄 ＝ 4 束 × 300 秒 ≒ 20 分【推測】。閉場中は 52 秒【実測】）
+                                #    更新が 1 秒ごとに届き続けるので、それで戻すと無音にならず、1 バッチが上限 max_s まで待つ
+                                #    （2026-09-21 の市場時間: 1 バッチ目が 45 秒たっても終わらなかった【実測】→ 63 銘柄 ＝ 4 バッチ × 300 秒 ≒ 20 分【推測】。閉場中は 52 秒【実測】）
                                 last_data[0] = time.perf_counter()
                             got[sym][int(t)] = row     # ⚠ 同じ時刻は最後に来たもので上書き
         finally:

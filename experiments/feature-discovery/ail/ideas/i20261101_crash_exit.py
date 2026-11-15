@@ -25,7 +25,7 @@ MAX_SPAN_DAYS = 10 # 先の 4 本が暦でこれより離れたら使わない�
 
 
 def crash_label(tr: pd.DataFrame) -> tuple[np.ndarray, np.ndarray, dict]:
-    """(ラベル 0/1, 使える行の印, 記録)。並びは tr と同じ。"""
+    """(ラベル 0/1, 使える行のフラグ, 記録)。並びは tr と同じ。"""
     df = tr[["symbol", "ts", "y"]].copy()
     df["_i"] = np.arange(len(df))
     df["ts"] = pd.to_datetime(df["ts"])
@@ -66,7 +66,7 @@ def _crash_exit(tr, te, feats, ctx, center: bool):
     exit_pct = np.asarray(cal.buy_pct(pred), dtype=float)
     doc = {"columns": cols, "入口": "常に 100（出口だけ）", "出口": {**ldoc, **cal.doc}, "訓練の行": int(use.sum())}
     if center:
-        # 土台（訓練の使える行の急落の割合 π）を logit で引く ＝ 100 × σ(logit(p) − logit(π))（fwd.center_by_base と同じ式）
+        # ベースレート（訓練の使える行の急落の割合 π）を logit で引く ＝ 100 × σ(logit(p) − logit(π))（fwd.center_by_base と同じ式）
         from ail.detectors.fwd import center_by_base
         base = float(lab[use].mean())
         exit_pct = center_by_base(exit_pct, base)

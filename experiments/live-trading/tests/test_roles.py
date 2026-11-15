@@ -1,6 +1,6 @@
 """役割（買い係 ／ 売り係 ／ 損切り係 ／ 見るだけ）・側ごとの合わせ方・最短保有（プラン docs/plans/trader-model-roles.md §4。2026-10-18）。
 
-⚠ **役割の無い人は 1 ビットも変わらない**（合図の値・意図の素・事象の形）。役割のある人だけ 買い ／ 売り ／ 損切り の 3 つの口を通る。
+⚠ **役割の無い人は 1 ビットも変わらない**（合図の値・意図の素・事象の形）。役割のある人だけ 買い ／ 売り ／ 損切り の 3 つのオプションを通る。
 """
 import json
 import os
@@ -35,11 +35,11 @@ def _doc(models, **over):
 # ---------------------------------------------------------------- trader.py
 
 def test_role_defaults_and_existing_configs_have_no_roles():
-    """`role` を書かない設定は both・役割の口を 1 つも使わない ＝ いままでの経路（直下と候補の全員）。"""
+    """`role` を書かない設定は both・役割のオプションを 1 つも使わない ＝ いままでの経路（直下と候補の全員）。"""
     t = parse_trader(_doc([_fixed()]))
     assert t.models[0].role == "both" and not t.has_roles and t.buy_rule == "asis" and t.exit_rule == "asis"
     assert t.min_hold_days is None and not t.stop_blocks_buy and t.combine_buy is None and t.combine_exit is None
-    # ⚠ 2026-10-19 Phase 4 から役割を使うのは 候補 `candidates/horizon/`（T7〜T10）と sim 用のコピー `sim_T7〜T10` だけ。ほかの全員は役割の口を使わない
+    # ⚠ 2026-10-19 Phase 4 から役割を使うのは 候補 `candidates/horizon/`（T7〜T10）と sim 用のコピー `sim_T7〜T10` だけ。ほかの全員は役割のオプションを使わない
     horizon = {f"sim_T{i}" for i in (7, 8, 9, 10, 12, 13, 14, 15, 16, 17, 18, 19)}    # ⚠ 2026-10-19 Phase 6 で T12〜T19（損切りなし ／ 土台差）が増えた
     live_roles = {"T18", "T19"}                     # ⚠ 2026-11-01 本番の人になった（直下へ写した。利用者「T18 と T19 で」）
     names = [f[:-5] for f in os.listdir(CONF) if f.endswith(".toml")]

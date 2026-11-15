@@ -109,7 +109,7 @@ def build(cfg: SimConfig, symbols: list[str], lookbacks=(20, 10), data_dir: str 
 
 
 def write_tree(root: str, cfg: SimConfig, traders_dir: str, data_dir: str = DATA_DIR) -> dict:
-    """シミュレーションの木に、トレーダーの設定のコピー・合図の CSV・日ごとの気配を書く。⚠ `sim_` で始まらないトレーダーは置けない。"""
+    """シミュレーションのツリーに、トレーダーの設定のコピー・合図の CSV・日ごとの気配を書く。⚠ `sim_` で始まらないトレーダーは置けない。"""
     import shutil
 
     from mode import SIM_TRADER_PREFIX
@@ -121,7 +121,7 @@ def write_tree(root: str, cfg: SimConfig, traders_dir: str, data_dir: str = DATA
     traders = load_traders(cfg.traders, traders_dir)
     symbols = sorted({s for t in traders for s in t.symbols})
     data = build(cfg, symbols, data_dir=data_dir)
-    # ⚠ 木の記録（out/・state/）は木の中の sim.sqlite に入る（本物の live.sqlite に混ぜない。プラン db-model-facts.md §11）
+    # ⚠ ツリーの記録（out/・state/）はツリーの中の sim.sqlite に入る（本物の live.sqlite に混ぜない。プラン db-model-facts.md §11）
     from _livefs import livefs
     livefs.init(root, "sim")
     os.makedirs(os.path.join(root, "config", "traders"), exist_ok=True)

@@ -245,7 +245,7 @@ def test_builds_nothing_without_records(tmp_path):
 
 
 def test_close_snapshot_problems_go_on_the_day_and_do_not_break_d(tmp_path):
-    """paper.py の控え（out/closes.json）: 拒んだ書き換え ＝ close_kept ／ 安値〜高値の外 ＝ close_out_of_range。日足の癖なので D は崩さない。"""
+    """paper.py のスナップショット（out/closes.json）: 拒んだ書き換え ＝ close_kept ／ 安値〜高値の外 ＝ close_out_of_range。日足の癖なので D は崩さない。"""
     out = _october(tmp_path)
     base = {(r["date"], r["trader"]): r for r in yardstick.build_rows(out)}
     snap = {"kept": [{"symbol": "VZ", "date": "2026-10-08", "kept": 46.2775, "rejected": 45.6425, "at": "t"}],

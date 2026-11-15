@@ -7,12 +7,12 @@
 材料は実行が残した行ごとの買い% ／ 出口%（`buy_pct.parquet`。2026-11-01 から・leak の実行には無い）と、その実行が読んだ表の `y`。
   (a) perm_xs ＝ 同じ fold・同じ日の中で、銘柄をまたいで買い% を並べ替える（日ごとの値の集まりは同じ ＝ タイミングを保ち、選択を壊す）
   (b) perm_ts ＝ 同じ fold・同じ銘柄の中で、日をまたいで並べ替える（銘柄ごとの値の集まりは同じ ＝ 選択を保ち、タイミングを壊す）
-出口% を持つ手法は 買い% と出口% を同じ行の組のまま動かす。NaN の行は動かさない（器が銘柄ごと飛ばす集合を変えない）。
-各 n 回・種は固定。器は `cli.run.evaluate_trading` の素の行と同じ呼び方（`simulate.simulate` を銘柄ごと → `portfolio_daily` → fold の和）
+出口% を持つ手法は 買い% と出口% を同じ行の組のまま動かす。NaN の行は動かさない（シミュレーターが銘柄ごと飛ばす集合を変えない）。
+各 n 回・シードは固定。シミュレーターは `cli.run.evaluate_trading` の素の行と同じ呼び方（`simulate.simulate` を銘柄ごと → `portfolio_daily` → fold の和）
 で、上乗せ ＝ fold ごとの（手法の純利 − 基準 常に上 の純利）の平均（`checks.compute_trading` の `edge_vs_bh` と同じ）。
 分位 ＝ (並べ替えの上乗せ < 元 の数 ＋ 同点 × 0.5) ÷ n。B&H は買い% に依らないので、上乗せの分位 ＝ 純利の分位。
 
-⚠ **元の純利を `result.csv` と照合し、合わない手法は出さない**（役割つきの組・最短保有・保有日数の口などは
+⚠ **元の純利を `result.csv` と照合し、合わない手法は出さない**（役割つきの組・最短保有・保有日数のオプションなどは
 `_row` が `simulate` に任意引数を渡すので、ここでは再現しない ＝ 「再現せず」と書いて飛ばす）。
 ⚠ **採否には使わない・検証結果一覧に列を足さない**（列を足すかは利用者）。`n_trials` にも数えない。
 ⚠ `--save` のときだけ DB の `outputs` の `diag/<時刻>_perm_split/` に JSON を入れる（`runs.put_output`・上書きしない）。
@@ -64,7 +64,7 @@ def permute_within(values: np.ndarray, codes: np.ndarray, rng: np.random.Generat
     return out if two else out[:, 0]
 
 
-# ---------------------------------------------------------------- 器（cli.run の素の行と同じ呼び方）
+# ---------------------------------------------------------------- シミュレーター（cli.run の素の行と同じ呼び方）
 
 def fold_net(fr: pd.DataFrame, bp: np.ndarray, ex: np.ndarray | None, y: np.ndarray,
              th: float, cost_bp: float) -> float | None:
@@ -111,7 +111,7 @@ def quantile(orig: float, dist: np.ndarray) -> float:
 
 def perm_split(frame: pd.DataFrame, y: np.ndarray, method: str, th: float, cost_bp: float,
                n: int = 200, seed: int = 0, drift: dict[int, float] | None = None) -> dict:
-    """1 手法 × 1 θ の分位。`drift` を省くと買い% 100 で器を回して作る（＝ 基準 常に上 の行と同じ）。"""
+    """1 手法 × 1 θ の分位。`drift` を省くと買い% 100 でシミュレーターを回して作る（＝ 基準 常に上 の行と同じ）。"""
     folds = fold_index(frame)
     bp = frame[BUY + method].to_numpy(dtype=float)
     ex = frame[EXIT + method].to_numpy(dtype=float) if EXIT + method in frame else None
@@ -122,7 +122,7 @@ def perm_split(frame: pd.DataFrame, y: np.ndarray, method: str, th: float, cost_
     vals = bp[:, None] if ex is None else np.column_stack([bp, ex])
     doc = {"method": method, "theta": float(th), "edge_bp": orig, "net_by_fold": nets, "n": int(n), "seed": int(seed)}
     for j, kind in enumerate(KINDS):
-        rng = np.random.default_rng([int(seed), j])     # ⚠ 種は (seed, 種類) で固定 ＝ 片方だけ回しても同じ列
+        rng = np.random.default_rng([int(seed), j])     # ⚠ シードは (seed, 種類) で固定 ＝ 片方だけ回しても同じ列
         codes = group_codes(frame, kind)
         dist = np.empty(n)
         t0 = time.perf_counter()

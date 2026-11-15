@@ -233,7 +233,7 @@ def create_app(settings: Settings | None = None, start_monitors: bool = True) ->
     # 市場の決まり（ET）の時刻をシアトル時間を先にして出す（2026-10-08 利用者の指示「日時は必ずシアトル時間で」）。例 etpt("15:50")
     templates.env.globals.update(etpt=lambda hhmm: lv.et_to_seattle(hhmm))
     templates.env.filters["ptfull"] = lambda iso: fmt_tz(iso, PT, "PT", "%Y-%m-%d %H:%M:%S")
-    # シミュレーションモードの間、数字と図の見出しに付ける「仮」の印（§15-8 の .chip.placeholder と同じ扱い）
+    # シミュレーションモードの間、数字と図の見出しに付ける「仮」のラベル（§15-8 の .chip.placeholder と同じ扱い）
     from markupsafe import Markup
     SIM_MARK = Markup(' <span class="chip placeholder sim-mark" title="シミュレーション: 仮データ・仮の時計。実売買ではない">仮</span>')
     templates.env.globals.update(simmark=lambda machine: SIM_MARK if (machine or {}).get("mode") == "sim" else "")
@@ -255,7 +255,7 @@ def create_app(settings: Settings | None = None, start_monitors: bool = True) ->
         return str(getattr(request.state, "user", None) or getattr(request.state, "client_ip", "") or "unknown")
 
     # ⚠ 読む記録はモードから決まる（real ＝ 本物 ／ sim ＝ sim/<名前>/。simmode.py）。1 つの画面・1 つの応答に両方を混ぜない。
-    #    モードと木が食い違うときは空の木を読ませる ＝ 数字を出さない（帯に理由が出る）
+    #    モードとツリーが食い違うときは空のツリーを読ませる ＝ 数字を出さない（バナーに理由が出る）
     NO_TREE = Path("/nonexistent/mode-mismatch")
 
     def live_dir_now(machine: dict | None = None) -> Path:
@@ -268,7 +268,7 @@ def create_app(settings: Settings | None = None, start_monitors: bool = True) ->
 
     def watch_args(machine: dict) -> dict:
         # 監視「今日の起動が無い」の材料（§13-8）: シミュレーションは仮の時計の今日・いま。本物は ET のいま。
-        # 判定しないとき（suppress）: 印のあるマシン（読むだけのコピー）／ HALT の日（止めたのは人）／ デモ（記録は過去の日付）
+        # 判定しないとき（suppress）: フラグのあるマシン（読むだけのコピー）／ HALT の日（止めたのは人）／ デモ（記録は過去の日付）
         from datetime import date as _date, datetime as _dt
         sim = machine["sim"] or {}
         args: dict = {}
@@ -320,7 +320,7 @@ def create_app(settings: Settings | None = None, start_monitors: bool = True) ->
             "page": "",
             "machine": {k: machine.get(k) for k in ("mode", "name", "since", "mismatch", "sim", "not_production")},
             "nav_traders": nav_traders(machine),
-            "tbadges": tbadges(machine),                       # トレーダーの状態の札（稼働で指示なしの人は無し。§13-9）。読むだけ
+            "tbadges": tbadges(machine),                       # トレーダーの状態のラベル（稼働で指示なしの人は無し。§13-9）。読むだけ
             "face": settings.face,
             "auth_mode": settings.auth_mode,
             "user": getattr(request.state, "user", None),

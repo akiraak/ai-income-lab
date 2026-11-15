@@ -143,7 +143,7 @@ def test_scrambling_is_a_permutation_so_the_weights_are_the_same_set():
 
 
 def test_scrambling_is_the_same_every_run():
-    """⚠ **種が同じなら同じ入れ替え。** ⚠ **実行ごとに変わると比べられない。**"""
+    """⚠ **シードが同じなら同じ入れ替え。** ⚠ **実行ごとに変わると比べられない。**"""
     syms = [f"S{i:02d}" for i in range(20)]
     a = impact.alias_map(syms, scramble=True, seed=0)
     b = impact.alias_map(syms, scramble=True, seed=0)

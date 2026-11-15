@@ -15,7 +15,7 @@
 ⚠ **公式と違うところ**（記録 §0-2）:
   - 予測の長さは 1 で、⚠ **その 1 点は「10 営業日先の道筋の値」＝ `y_fwd_10`**（公式は連続する `pred_len` 本）。
     道筋 path[j] = log c[t−59+j] − log c[t] の続きなので、先 10 日の点 ＝ log c[t+10] − log c[t] ＝ 学習の対象そのもの
-  - 時刻の印（`x_mark`。時・曜日）は入れない（日足で、暦は別の層 `cal` の役目）
+  - タイムスタンプ（`x_mark`。時・曜日）は入れない（日足で、暦は別の層 `cal` の役目）
   - 尺度: 公式は訓練区間の `StandardScaler` を全変数に当てる。ここでは内生と `y` を同じ 1 つの数（訓練の内生の値の標準偏差）で割り、
     外生は 1 変数ずつ訓練の標準偏差で割る（窓ごとの正規化があるので外生の尺度は数値の安定のためだけ）
   - 早期打ち切りの検証は ⚠ **訓練分割の末尾を日付で切り、10 営業日ぶん（暦 15 日）パージ**（`date_holdout`。検知器が `ts_tr` を渡す。
@@ -99,7 +99,7 @@ def _net_class():
             return self.dropout(x), n_vars
 
     class DataEmbeddingInverted(nn.Module):
-        """`Embed.DataEmbedding_inverted`（外生: 1 系列まるごと → 1 トークン）。⚠ 時刻の印は使わない。"""
+        """`Embed.DataEmbedding_inverted`（外生: 1 系列まるごと → 1 トークン）。⚠ タイムスタンプは使わない。"""
 
         def __init__(self, c_in: int, d_model: int, dropout: float):
             super().__init__()
@@ -279,10 +279,10 @@ def timexer(Xtr, ytr, Xte, ctx):
         raise SystemExit(f"⚠ TimeXer の入力の形が違う: 訓練 {Xtr.shape} ／ 検証 {Xte.shape}"
                          f"（内生 {window} ＋ 外生 {n_exo} × {window} ＋ leak {n_exog} 列のはず）")
     seed = int(ctx.get("seed", 0))
-    # ⚠ **`timexer_epochs`・`timexer_lr` はテスト用の口**（config の `model_args` には書かない）。記録に実際の値を残す
+    # ⚠ **`timexer_epochs`・`timexer_lr` はテスト用のオプション**（config の `model_args` には書かない）。記録に実際の値を残す
     epochs = int(ctx.get("timexer_epochs", TRAIN["epochs"]))
     lr0 = float(ctx.get("timexer_lr", TRAIN["lr"]))
-    # ⚠ **`timexer_d_model`・`timexer_d_ff` もテスト用の口**（小さい合成データで leak の跳ねを測るため。本番は ARCH のまま）
+    # ⚠ **`timexer_d_model`・`timexer_d_ff` もテスト用のオプション**（小さい合成データで leak の跳ねを測るため。本番は ARCH のまま）
     arch = {**ARCH, "d_model": int(ctx.get("timexer_d_model", ARCH["d_model"])),
             "d_ff": int(ctx.get("timexer_d_ff", ARCH["d_ff"]))}
     batch, patience = TRAIN["batch"], TRAIN["patience"]

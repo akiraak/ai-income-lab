@@ -19,7 +19,7 @@ from ail.registry import register
 
 PREFIX = "cs_"
 
-# 断面を取る土台。⚠ **`own_` の列名で指定する**（own を先に作ってから呼ぶ）
+# 断面を取るベース。⚠ **`own_` の列名で指定する**（own を先に作ってから呼ぶ）
 DEFAULT_BASES = ("own_ret_1", "own_ret_5", "own_ret_20", "own_vol_20",
                  "own_vratio_5", "own_z_20", "own_dollar_20")
 MIN_SYMBOLS = 5     # ⚠ これ未満の時刻の断面は意味が無いので NaN にする

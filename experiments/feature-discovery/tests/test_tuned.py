@@ -328,7 +328,7 @@ def test_once_replacing_the_evaluation_split_keeps_the_champion_and_the_calibrat
 
 
 def test_once_does_not_touch_ctx_or_records_of_the_other_models():
-    """(4) 口を閉じれば同一: ほかのモデルでは `select_once` が None を返し ctx は 1 バイトも変わらない。
+    """(4) オプションを閉じれば同一: ほかのモデルでは `select_once` が None を返し ctx は 1 バイトも変わらない。
     既定経路のフィンガープリントは `tests/test_trading_run.py`・`tests/test_predict.py`、`（内側選抜）` の記録の形は上のテスト。"""
     X, y = _data()
     for name in ("Ridge", "Ridge（内側選抜）"):
@@ -341,7 +341,7 @@ def test_once_does_not_touch_ctx_or_records_of_the_other_models():
 
 
 def test_once_selects_on_its_own_when_no_champion_is_distributed(tmp_path, monkeypatch):
-    """(5) 自前の経路: ctx に champion が無い呼び出し（門・毎日往復）は自前で選び、記録に「自前」。予測は `（内側選抜）` と同一。"""
+    """(5) 自前の経路: ctx に champion が無い呼び出し（ゲート・毎日往復）は自前で選び、記録に「自前」。予測は `（内側選抜）` と同一。"""
     from ail.validation import gate
 
     X, y = _data()
@@ -354,7 +354,7 @@ def test_once_selects_on_its_own_when_no_champion_is_distributed(tmp_path, monke
     assert d1 == d2                                                   # 同じ候補・同じ末尾 ＝ 同じ champion・同じ ρ
     assert np.array_equal(np.asarray(p1), np.asarray(p2))
     assert tuned.CHAMPION_KEY not in c1
-    # 門は配らない（14-12-3 規約 2）＝ 自前で選んで記録は捨てる。取り残しなし
+    # ゲートは配らない（14-12-3 規約 2）＝ 自前で選んで記録は捨てる。取り残しなし
     monkeypatch.setattr(runs, "RUNS", str(tmp_path))
     run = runs.Run("test_tuned_once_gate", {}, seed=0)
     assert gate.evaluate_gate(_panel(), ["own_ret_1", "noise"], _exp(ONCE_RIDGE), run) is not None

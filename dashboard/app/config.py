@@ -65,11 +65,11 @@ class Settings:
     demo: bool = False
     # マシンのモード（実売買 ／ シミュレーション）の正本 `MODE` がある場所（執行エンジンのディレクトリ）。None ＝ 常に実売買（公開面・テスト）
     mode_dir: Path | None = None
-    live_dir_explicit: bool = False   # AIL_LIVE_DIR を手で指定した（モードと木の種類が食い違えば数字を出さない。simmode.py）
+    live_dir_explicit: bool = False   # AIL_LIVE_DIR を手で指定した（モードとツリーの種類が食い違えば数字を出さない。simmode.py）
 
     # ---- 派生 ----
     def machine(self) -> dict:
-        """いまのモードと、画面が読む記録の木。⚠ リクエストのたびに読む（管理画面を動かしたまま CLI で切り替わる）。"""
+        """いまのモードと、画面が読む記録のツリー。⚠ リクエストのたびに読む（管理画面を動かしたまま CLI で切り替わる）。"""
         from . import simmode
         return simmode.resolve(self.mode_dir, self.live_dir, self.live_dir_explicit)
 
@@ -88,7 +88,7 @@ class Settings:
         return f"ws://127.0.0.1:{MOCK_PORTS[1]}"
 
     def demo_credentials(self, env: str) -> dict:
-        """デモの監視が使う資格情報。値はモック用の印で、本物の口座には一切届かない。"""
+        """デモの監視が使う資格情報。値はモック用のラベルで、本物の口座には一切届かない。"""
         return {
             "client_id": None,
             "client_secret": f"DEMO-{env.upper()}-CLIENT-SECRET",
@@ -142,7 +142,7 @@ class Settings:
     @property
     def halt_file(self) -> Path:
         # sample.py が見る場所と同じ（TT_HALT_FILE の既定 = 記録ディレクトリの HALT）
-        # ⚠ シミュレーションモードでは、シミュレーションの木の HALT だけ（本物の HALT に 1 バイトも書かない。live-trading.md §0-7 (a)）
+        # ⚠ シミュレーションモードでは、シミュレーションのツリーの HALT だけ（本物の HALT に 1 バイトも書かない。live-trading.md §0-7 (a)）
         return self.machine().get("halt_file") or self.records_dir / "HALT"
 
     @property

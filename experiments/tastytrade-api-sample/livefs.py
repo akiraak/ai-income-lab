@@ -5,9 +5,9 @@
 そのまま鍵にして、パスの近くにある DB ファイルに入れる:
 
   - パスから親へたどり、最初に見つかった `live.sqlite` ／ `sim.sqlite` ／ `demo.sqlite` に入る
-    （鍵 ＝ その DB のあるディレクトリからの相対のパス）。シミュレーションの木・テストの一時ディレクトリは自分の DB を持つ
+    （鍵 ＝ その DB のあるディレクトリからの相対のパス）。シミュレーションのツリー・テストの一時ディレクトリは自分の DB を持つ
   - 本物 ＝ リポジトリ直下の `live.sqlite`（執行エンジン ＋ API 検証 ＋ 管理画面で 1 つ ＝ 2026-09-21 の利用者の裁定）。
-    ⚠ **本物に入れてよいのは `REAL_PLACES` の下だけ**。ほかのパス（DB を作り忘れたシミュレーションの木・デモ）は止まる
+    ⚠ **本物に入れてよいのは `REAL_PLACES` の下だけ**。ほかのパス（DB を作り忘れたシミュレーションのツリー・デモ）は止まる
   - ⚠ どの DB にも当たらない道は止まる（`LiveFsError`）＝ テストが本物に書く事故は起きない
 
 表:
@@ -26,9 +26,9 @@
     python3 livefs.py import <ディレクトリ>...        # いままでのファイルを取り込む（入っているものは照合してとばす）
     python3 livefs.py verify <ディレクトリ>...        # ファイルと DB を 1 ビットずつ照合する
     python3 livefs.py remove --i-verified <ディレクトリ>...   # 照合して一致したファイルだけ消す（⚠ 利用者の了承のあと）
-    python3 livefs.py backup --db <DB> --to <パス>     # 控え（書いている最中でも壊れないコピー）
-    python3 livefs.py export <パス> --to <保存先>       # パスの下の記録を、いままでと同じファイルの形で書き出す（控え・読むためのコピー）
-    python3 livefs.py init <ディレクトリ> live|sim|demo   # そのディレクトリに DB を作る（シミュレーションの木・テスト）
+    python3 livefs.py backup --db <DB> --to <パス>     # バックアップ（書いている最中でも壊れないコピー）
+    python3 livefs.py export <パス> --to <保存先>       # パスの下の記録を、いままでと同じファイルの形で書き出す（バックアップ・読むためのコピー）
+    python3 livefs.py init <ディレクトリ> live|sim|demo   # そのディレクトリに DB を作る（シミュレーションのツリー・テスト）
 """
 
 from __future__ import annotations
@@ -176,7 +176,7 @@ def forget(db: str | None = None) -> None:
 
 
 def init(dirpath, kind: str) -> str:
-    """`<dirpath>/<kind>.sqlite` を作る（シミュレーションの木・テストの一時ディレクトリ・デモ）。できた DB のパス。"""
+    """`<dirpath>/<kind>.sqlite` を作る（シミュレーションのツリー・テストの一時ディレクトリ・デモ）。できた DB のパス。"""
     if f"{kind}.sqlite" not in DB_NAMES:
         raise ValueError(f"知らない DB の種類: {kind}")
     db = os.path.join(os.path.abspath(os.fspath(dirpath)), f"{kind}.sqlite")

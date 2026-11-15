@@ -2,7 +2,7 @@
 
     from _livefs import livefs
 
-⚠ 記録（`out/`・`state/`・`mode.log`・シミュレーションの木の記録）はここを通して DB に入る（プラン db-model-facts.md §11）。
+⚠ 記録（`out/`・`state/`・`mode.log`・シミュレーションのツリーの記録）はここを通して DB に入る（プラン db-model-facts.md §11）。
 ⚠ `HALT`・`MODE`・`run.lock`・`control.json` はファイルのまま（通さない）。
 """
 

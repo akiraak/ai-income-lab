@@ -4,7 +4,7 @@
 ⚠ **検証分割 `Xte` に触れるのは、決まった式を当てるときだけ**である。だから
 
   - ⚠ **`n_trials` に数えるのは champion × θ の 3 試行**で、⚠ **世代 × 個体は数えない**
-    （rules.md 14-5 の門と同型。訓練内 holdout しか見ていないものは偶然の最大値を作る母集団に入らない）
+    （rules.md 14-5 のゲートと同型。訓練内 holdout しか見ていないものは偶然の最大値を作る母集団に入らない）
   - ⚠ **既存 589 試行と同じ土俵で読める**
 
 ⚠ **構造は事前固定**（14-9・プラン §3-2。⚠ **回す前に書いた。結果を見て動かさない**）。
@@ -38,7 +38,7 @@ DEFAULTS: dict = {
     "max_nodes": 30,
     "corr_max": 0.9,         # ⚠ champion を選ぶときの間引き
     "k": 16,                 # ⚠ 出す列の数（選別の k と同じ。比べる相手と列数を揃える）
-    "holdout_frac": 0.1,     # ⚠ 門・較正と同じ場所
+    "holdout_frac": 0.1,     # ⚠ ゲート・較正と同じ場所
 }
 
 OPS2 = ("add", "sub", "mul", "div")
@@ -156,7 +156,7 @@ def fitness(vals: np.ndarray, y_rank: np.ndarray) -> float:
 # --- 適合度を替える（rules.md 23 章。2026-10-08）--------------------------
 # ⚠ **既定 `pooled` は上の `fitness` そのまま**（探索の出力が 1 ビットも変わらない。`tests/test_ga_fitness.py`）。
 # ⚠ 測る行（訓練分割の末尾）・探索・champion は替えない。替えるのは式の良さの測り方だけ
-FITNESS_LABELS = {                    # 手法名の後ろに付ける印（`prep.label`。識別項目に残す ＝ 23-2）
+FITNESS_LABELS = {                    # 手法名の後ろに付けるラベル（`prep.label`。識別項目に残す ＝ 23-2）
     "xs_mean": "〔適合度・断面の平均〕",
     "xs_ir": "〔適合度・断面の安定性〕",
     "worst4": "〔適合度・4期間の最小〕",
@@ -339,7 +339,7 @@ def _champions(pop, fits, X: np.ndarray, p) -> list[tuple]:
     return out
 
 
-# --- 変換の口（registry）------------------------------------------------
+# --- 変換のオプション（registry）------------------------------------------------
 
 @register("transform", "F4-1 記号回帰（遺伝的プログラミング）")
 def tf_symbolic(Xtr: pd.DataFrame, Xte: pd.DataFrame, ctx: dict):
@@ -360,7 +360,7 @@ def tf_symbolic(Xtr: pd.DataFrame, Xte: pd.DataFrame, ctx: dict):
     kind = str(ctx.get("fitness", "pooled"))
     ts_tr = ctx.get("ts_tr")
 
-    # ⚠ **測る場所は訓練分割の末尾**（門・較正と同じ。13-2 の 2）。⚠ **切れなければ訓練全体で測る**
+    # ⚠ **測る場所は訓練分割の末尾**（ゲート・較正と同じ。13-2 の 2）。⚠ **切れなければ訓練全体で測る**
     (_Xh, _yh), hold = tail_holdout(Xtr, y, frac=float(p["holdout_frac"]))
     if hold is None:
         Xs, ys, where = Xtr.to_numpy(dtype=float), y, "切れなかった（訓練全体で測った）"

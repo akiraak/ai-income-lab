@@ -10,7 +10,7 @@
 
 測るもの: 1 本ずつ `/market-data/by-type` の bid ／ ask ／ bid-size ／ ask-size ／ last ／ updated-at。
 気配の差 ＝ (ask − bid) ／ mid × 10^4 bp（mid ＝ (bid ＋ ask) ／ 2）。⚠ 往復の費用と同じ指標（買いは ask・売りは bid）。
-線（プラン §3。⚠ 回す前に固定）: 5.2bp ＝ 小型 50 θ50 の損益分岐 ／ 20bp ＝ 段 2b の費用の変種 ／ $120 ＝ 1 銘柄の枠。
+線（プラン §3。⚠ 回す前に固定）: 5.2bp ＝ 小型 50 θ50 の損益分岐 ／ 20bp ＝ ステージ 2b の費用の変種 ／ $120 ＝ 1 銘柄の枠。
 """
 
 from __future__ import annotations
@@ -36,7 +36,7 @@ UNIVERSE = os.path.join(ROOT, "experiments", "feature-discovery", "config", "uni
 TRADER_T1 = os.path.join(ROOT, "experiments", "live-trading", "config", "traders", "T1.toml")
 
 BREAK_EVEN_BP = 5.2    # 小型 50 θ50 の損益分岐（smallcap-stage2b.md §2-3）
-COST_HIGH_BP = 20.0    # 段 2b の費用の変種（rules.md 28-3）
+COST_HIGH_BP = 20.0    # ステージ 2b の費用の変種（rules.md 28-3）
 FRAME_USD = 120.0      # 1 銘柄の枠 $600 ÷ 5 本（earnings-smallcap.md §3）
 PAUSE_S = 0.3          # 1 本ごとにあける
 TRIES = 3              # 429 のときだけ待って引き直す回数

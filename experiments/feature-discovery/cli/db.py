@@ -6,7 +6,7 @@
     python3 -m cli.db remove-dirs --i-verified     # ⚠ 照合して一致した実行ディレクトリだけを消す（⚠ 利用者の了承のあと）
     python3 -m cli.db sweep                        # 途中で落ちた実行を閉じる
     python3 -m cli.db export --run <実行> --to <パス>  # 実行のファイルを書き戻す（読むためのコピー）
-    python3 -m cli.db backup --to <パス>             # ⚠ 控え（SQLite の backup。書いている最中でも壊れないコピー）
+    python3 -m cli.db backup --to <パス>             # ⚠ バックアップ（SQLite の backup。書いている最中でも壊れないコピー）
     python3 -m cli.db import-out                   # ⚠ いままでの out/（診断・照合の出力）を表 outputs に取り込む（2026-09-21）
     python3 -m cli.db verify-out                   # ⚠ out/ のファイルと DB を 1 ビットずつ照合する
     python3 -m cli.db remove-out --i-verified      # ⚠ 照合して一致した out/ のファイルだけを消す（⚠ 利用者の了承のあと）

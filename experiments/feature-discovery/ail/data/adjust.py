@@ -82,7 +82,7 @@ def detect_scale_breaks(df: pd.DataFrame, window: int = 41) -> pd.DataFrame:
         rgx = float(rng[i] / rng_med[i]) if rng_med[i] else np.nan
         intraday = float(np.log(c[i] / o[i]))
         news = (dvx > NEWS_DOLLAR_VOL or rgx > NEWS_RANGE or abs(intraday) > NEWS_INTRADAY)
-        # 出来高が段差の逆向きに動いているか（提供元が既に出来高も割っている印）
+        # 出来高が段差の逆向きに動いているか（提供元が既に出来高も割っているフラグ）
         before = float(v[max(0, i - 5):i].median() or np.nan)
         after = float(v[i:i + 5].median() or np.nan)
         vx = before / after if after else np.nan
@@ -173,7 +173,7 @@ fix_split_close_fn = fix_split_close
 
 def adjust(df: pd.DataFrame, fix_split_close: bool = False) -> tuple[pd.DataFrame, pd.DataFrame, dict]:
     """`raw` の 1 系列を調整する。返り値は (調整後, 継ぎ目の一覧, 記録用の要約)。
-    ⚠ `fix_split_close` は 2026-10-23 の口（`fix_split_close()`）。既定 False ＝ 今までと 1 ビットも変わらない。"""
+    ⚠ `fix_split_close` は 2026-10-23 のオプション（`fix_split_close()`）。既定 False ＝ 今までと 1 ビットも変わらない。"""
     d = df.reset_index(drop=True).copy()
     close_events: list[dict] = []
     if fix_split_close:

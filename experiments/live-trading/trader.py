@@ -86,7 +86,7 @@ class Trader:
 
     @property
     def has_roles(self) -> bool:
-        """役割の口を 1 つでも使っているか。False の人は 2026-10-18 より前の経路をそのまま通る（1 ビットも変わらない）。"""
+        """役割のオプションを 1 つでも使っているか。False の人は 2026-10-18 より前の経路をそのまま通る（1 ビットも変わらない）。"""
         return (any(m.role != "both" for m in self.models) or self.combine_buy is not None or self.combine_exit is not None
                 or self.min_hold_days is not None or self.stop_blocks_buy)
 

@@ -59,7 +59,7 @@ def test_vol_scaled_label():
     assert names.trial_name(key) == "own.all.ridge.shared~vol-label@50"
 
 
-# ---------- 枠の外 2 本（2026-11-01 契約 2 の段 1）: 急落を当てる出口 ／ 持つ量を段階に
+# ---------- 枠の外 2 本（2026-11-01 契約 2 のステージ 1）: 急落を当てる出口 ／ 持つ量を段階に
 
 from ail.ideas import i20261101_crash_exit as crash          # noqa: E402
 from ail.validation import simulate as sim                   # noqa: E402

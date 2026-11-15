@@ -1,7 +1,7 @@
 """⚠ **進化的探索で唯一新しいのは「数えない範囲」なので、そこを自動で確かめる。**
 
 ⚠ **`n_trials` に champion × θ の 3 試行しか数えない根拠は「選抜が訓練分割の内側だけを見た」こと**
-（rules.md 14-5 の門と同型。プラン `plans/archive/evolutionary-search-runner.md` §2）。
+（rules.md 14-5 のゲートと同型。プラン `plans/archive/evolutionary-search-runner.md` §2）。
 ⚠ **この前提が静かに壊れると、3 試行と申告しながら実際は 2,000 試行を探索したことになる。**
 だから ⚠ **検証分割を替えても答えが 1 文字も変わらないこと**を固定する。
 

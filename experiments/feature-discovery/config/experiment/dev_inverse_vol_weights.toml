@@ -1,0 +1,41 @@
+# ⚠ 開発ループのレジストリ `20261109-inverse-vol-weights`（rules.md 31-7・サンドボックス）。回すと決めたのは結果を見る前。
+#    trade_own_ridge_a（dev_graded_rank と同じ形）の写し ＋ [trading] weights = "inverse_vol" だけが違う
+#    （素の行は既存と同じ識別項目・〔量を逆ボラで〕の行 × θ 3 ＝ ＋3 検証。対の相手は同じ実行の素の行 ＝ 同じ切れ目・同じ合図）。
+#    重み ＝ 1 ／ 直近 60 営業日の日次対数リターンの標準偏差（足 t−1 までの終値・その日の保有銘柄の中で正規化・総量は等加重と同じ）。
+#    ⚠ 観測期間 60 日は事前固定で振らない・保有中の配り直しの費用は引かない（ail/validation/simulate.py の portfolio_inverse_vol）。
+name = "dev_inverse_vol_weights"
+dataset = "daily"
+horizon = 1
+cost_bp = 5.0
+features_from = "own_2018"     # ⚠ 表は作り直さず own_2018 のものを読む（13-8。表の差を混ぜない）
+
+feature_layers = ["own"]
+targets = "all"
+
+horizon_min = 1440.0
+bar_minutes = 1440.0
+
+selectors = ["全部使う（基準）", "乱択（基準）"]
+k = 16
+
+model = "Ridge"
+baselines = ["常に上（ドリフト）", "直前リターンの符号"]
+
+[trading]
+style = "threshold"
+thresholds = [50, 55, 60]      # ⚠ 事前固定。結果を見て動かさない（rules.md 13-3）
+form = "shared"
+weights = "inverse_vol"        # ⚠ 同じ合図で持つ量を値動きの逆数で配る行を足す（無い config は "equal" ＝ 1 ビットも変わらない）
+
+[validation]
+split = "walk_forward_dates"   # ⚠ fold の切れ目は日付で決める（rules.md 13-6 の 1）
+folds = 5
+purge = true
+embargo_bars = 0
+seed = 0
+
+[features]
+ex_lag_days = 1
+ex_zero_fill = ["usgs"]
+ex_transforms = ["d1", "z20"]
+ex_max_stale_days = 7

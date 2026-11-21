@@ -204,6 +204,39 @@ def portfolio_daily(sym_series: dict[str, pd.Series]) -> pd.Series:
     return pd.DataFrame(sym_series).mean(axis=1).sort_index()
 
 
+def portfolio_inverse_vol(nets: dict[str, pd.Series], grosses: dict[str, pd.Series],
+                          poss: dict[str, pd.Series], inv_vols: dict[str, pd.Series]) -> tuple[pd.Series, pd.Series]:
+    """銘柄別の日次系列を **値動きの逆数で配って** 1 本にする（開発ループのレジストリ `20261109-inverse-vol-weights`。2026-11-21）。
+
+    ⚠ `portfolio_daily`（等加重）は触らない。呼ばなければ既存の経路は 1 ビットも変わらない。
+    合図（pos）は等加重の行と同じ。その日に保有している銘柄 H の中で、銘柄 i の倍率
+      m_i ＝ |H| × iv_i ／ Σ_{j∈H} iv_j（iv ＝ 1 ／ 直近の値動き。H の中で平均 1）・保有していない銘柄は 0
+    を掛けてから等加重と同じ平均（その日の銘柄数で割る）を取る ＝ **その日に持つ総量（保有の割合）は等加重の行と同じ**で、
+    違うのは銘柄の間の配り方だけ。iv が欠けた保有銘柄は、その日の保有銘柄の iv の平均で埋める（全部欠ければ 1 ＝ 等加重）。
+    費用: 建てた日と末尾の清算の日はその日の倍率・手仕舞った日（pos 0）は前日の倍率を掛ける。
+    ⚠ 保有中に倍率が日々動くことによる配り直しの費用は引かない（等加重の行も配り直さない形で比べる）。
+    戻り値: (純利の系列, 粗利の系列)。日付は index。
+    """
+    keys = list(nets)
+    pos = pd.DataFrame({s: poss[s] for s in keys}).sort_index()
+    gross = pd.DataFrame({s: grosses[s] for s in keys}).reindex(pos.index)
+    net = pd.DataFrame({s: nets[s] for s in keys}).reindex(pos.index)
+    iv = pd.DataFrame({s: inv_vols[s] for s in keys}).reindex(pos.index)
+    held = pos.fillna(0.0) > 0
+    iv = iv.where(np.isfinite(iv) & (iv > 0))
+    fill = iv.where(held).mean(axis=1)                       # その日の保有銘柄の iv の平均
+    iv = iv.apply(lambda c: c.fillna(fill)).fillna(1.0)
+    ivh = iv.where(held, 0.0)
+    tot = ivh.sum(axis=1)
+    n_held = held.sum(axis=1)
+    m = ivh.mul(n_held.where(tot > 0, 0.0) / tot.where(tot > 0, 1.0), axis=0)
+    cost = gross - net                                       # 費用（建てた日・手仕舞った日・末尾の清算）
+    m_cost = m.where(held, m.shift(1)).fillna(0.0)
+    w_gross = (m * gross).where(gross.notna())
+    w_net = (m * gross - m_cost * cost).where(net.notna())
+    return w_net.mean(axis=1).sort_index(), w_gross.mean(axis=1).sort_index()
+
+
 def simulate_topk(buy_pct, y, dates, symbols, threshold: float, k: int, cost_bp: float = 5.0,
                   exit_pct=None, price=None, budget_usd: float | None = None, rng=None,
                   rank=None, min_hold_days: int | None = None, stop_exit_pct=None,

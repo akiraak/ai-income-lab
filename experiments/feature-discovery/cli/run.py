@@ -324,6 +324,12 @@ def evaluate_trading(panel: pd.DataFrame, feats: list[str], exp: dict, run: runs
         raise SystemExit("⚠ 合成オプション（rules.md 20-6 の 4）は形式 (A) だけ（(B) は銘柄ごとに較正が違う）")
     mix_ext = _mix_prepare(mixes, edges, leak, mix_loader or load_mix_member, cut) if mixes else {}
     mix_opts: dict[str, dict] = {}   # ⚠ 役割つきの合成オプションの最短保有・毎日読む出口（rules.md 25-2。fold ごとに置き直す）
+    # ⚠ **持つ量を値動きの逆数で配る行**（レジストリ 20261109-inverse-vol-weights）。`weights` の無い config は "equal" ＝ ここを通らない
+    ivw = weights_of(t) == "inverse_vol"
+    if ivw:
+        if "close" not in panel:
+            raise SystemExit("⚠ weights = \"inverse_vol\" には表に close 列が要る（値動きを足 t−1 までの終値から作る）")
+        panel = panel.assign(**{IVW_COLUMN: inverse_vol(panel)})
     if t.get("top_k") and "close" in panel:
         # ⚠ **特徴量には入らない**（`feats` は呼び出し側が先に決めている）。fold を切る前に作るのは、窓を過去へ伸ばすため
         panel = panel.assign(**{TOPK_VOL_COLUMN: topk_vol(panel)})
@@ -355,7 +361,8 @@ def evaluate_trading(panel: pd.DataFrame, feats: list[str], exp: dict, run: runs
             bp_out.append(buy_pct_frame(f, te, buy, exits))   # ⚠ コピーを取るだけ（buy ／ exits は書き換えない）
 
         def _row(name: str, base: str, bp, ex, hit: float, ic: float, th: float, th_exit: float | None = None,
-                 stop: float | None = None, hold: int | None = None, graded: bool = False, weight=None):
+                 stop: float | None = None, hold: int | None = None, graded: bool = False, weight=None,
+                 inv_vol=None):
             """手法 × 買う線 θ（× 売る線 ／ × 位置を知る出口）の 1 行ぶん。⚠ **`th_exit`・`stop`・`hold` が None なら
             2026-09-27 より前の経路と同一**（`simulate` に任意引数を渡さない）。売る線を持つ行は名前を `〔売り線N〕` で分け
             （rules.md 18-2）、位置を知る出口の行は `〔買値から−N%〕`・`基準 …〔N日で降りる〕` で分ける（stoploss-as-model.md §0-4）。"""
@@ -379,6 +386,7 @@ def evaluate_trading(panel: pd.DataFrame, feats: list[str], exp: dict, run: runs
             rands: dict[str, pd.Series] = {}
             poss: dict[str, pd.Series] = {}
             revs: dict[str, pd.Series] = {}
+            ivs: dict[str, pd.Series] = {}         # ⚠ inv_vol を渡した行だけ使う（無ければ空のまま）
             trades, pos_days, days, rand_trades, rev_trades = 0, 0, 0, 0, 0
             # ⚠ 乱択ゲートのシードは config のシード。⚠ **引く順は `groups` の並びで決まる**（再現する）
             rng = np.random.default_rng(seed)
@@ -411,6 +419,8 @@ def evaluate_trading(panel: pd.DataFrame, feats: list[str], exp: dict, run: runs
                 rands[key] = pd.Series(rg["net_bp"], index=stamp)
                 poss[key] = pd.Series(r["pos"].astype(float), index=stamp)
                 revs[key] = pd.Series(rv["net_bp"], index=stamp)
+                if inv_vol is not None:
+                    ivs[key] = pd.Series(inv_vol[idx], index=stamp)
                 trades += r["trades"]
                 rand_trades += rg["trades"]
                 rev_trades += rv["trades"]
@@ -436,8 +446,12 @@ def evaluate_trading(panel: pd.DataFrame, feats: list[str], exp: dict, run: runs
                                       "強制清算": bool(r["forced_close"] and i == len(hd) - 1)})
             if not nets:
                 return
-            port_net = sim.portfolio_daily(nets)
-            port_gross = sim.portfolio_daily(grosses)
+            if inv_vol is None:
+                port_net = sim.portfolio_daily(nets)
+                port_gross = sim.portfolio_daily(grosses)
+            else:
+                # ⚠ 値動きの逆数で配る行（20261109-inverse-vol-weights）。乱択ゲート ／ 逆売買 ／ 保有日率は診断 ＝ 等加重のまま
+                port_net, port_gross = sim.portfolio_inverse_vol(nets, grosses, poss, ivs)
             port_rand = sim.portfolio_daily(rands)
             port_rev = sim.portfolio_daily(revs)
             daily.setdefault((name, th), []).append(port_net)
@@ -479,6 +493,12 @@ def evaluate_trading(panel: pd.DataFrame, feats: list[str], exp: dict, run: runs
                 q = rank_weight(bp, ts_te)
                 for th in thresholds:
                     _row(f"{mname}〔量を順位で〕", mname, bp, ex, hit, ic, th, graded=True, weight=q)
+            # ⚠ **同じ合図で持つ量を値動きの逆数で配る行**（レジストリ 20261109-inverse-vol-weights。`[trading] weights = "inverse_vol"` のときだけ・基準線は通さない）
+            if ivw and not (mname.startswith("基準 ") or mname == "乱択（基準）"):
+                with np.errstate(divide="ignore", invalid="ignore"):
+                    iv = 1.0 / te[IVW_COLUMN].to_numpy(dtype=float)   # 0 ／ 欠けは portfolio_inverse_vol が埋める
+                for th in thresholds:
+                    _row(ivw_name(mname), mname, bp, ex, hit, ic, th, inv_vol=iv)
             # ⚠ **位置を知る出口の行**（stoploss-as-model.md §0-4）。⚠ **`methods` に書いた検知器の行の後ろに足すだけ**
             if mname in pexits["methods"]:
                 for th in thresholds:
@@ -601,6 +621,33 @@ def topk_vol(panel: pd.DataFrame) -> pd.Series:
     r = np.log(p["close"]).groupby(p["symbol"]).diff()
     vol = r.groupby(p["symbol"]).rolling(TOPK_VOL_WINDOW, min_periods=TOPK_VOL_MIN).std()
     return vol.reset_index(level=0, drop=True).reindex(panel.index)
+
+
+IVW_COLUMN = "_ivw_vol"
+WEIGHTS = ("equal", "inverse_vol")
+
+
+def weights_of(t: dict) -> str:
+    """`[trading] weights`（レジストリ 20261109-inverse-vol-weights）。無ければ "equal" ＝ 既存の経路。"""
+    w = str(t.get("weights", "equal"))
+    if w not in WEIGHTS:
+        raise SystemExit(f"⚠ [trading] weights = {w!r} は受けない（{' ／ '.join(WEIGHTS)}）")
+    return w
+
+
+def inverse_vol(panel: pd.DataFrame) -> pd.Series:
+    """銘柄ごとの直近 60 営業日の日次対数リターンの標準偏差を **1 本ずらした値**（レジストリ 20261109-inverse-vol-weights）。
+
+    足 t の値 ＝ 足 t−1 までの終値から作った `topk_vol`（＝ 前日までの値だけ）。窓 60・最低 20 本は 17-7 と同じ（事前固定・振らない）。
+    """
+    p = panel.sort_values(["symbol", "ts"])
+    vol = topk_vol(p)
+    return vol.groupby(p["symbol"]).shift(1).reindex(panel.index)
+
+
+def ivw_name(method: str) -> str:
+    """⚠ 構成は手法名に入れる（16-6 規約 1）。表記は `names.py` の `-ivw`。"""
+    return f"{method}〔量を逆ボラで〕"
 
 
 def topk_name(method: str, k: int, kind: str) -> str:

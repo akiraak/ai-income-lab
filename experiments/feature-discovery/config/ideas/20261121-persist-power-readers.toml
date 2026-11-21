@@ -1,0 +1,24 @@
+# ⚠ 開発ループの登録簿（rules.md 31-1）。cli.devloop が書く。status が 登録 より先なら structure ／ prediction ／ n_trials_planned ／ key_shape を直さない（直すなら新しい id）
+id = "20261121-persist-power-readers"
+date = "2026-11-21"
+title = "何十日も続く信号を、ほかの読み手（LightGBM・先 40 日ゲート）に通して検出力を測る"
+kind = "物差し"
+origin = { r_pct = 30, n_per_night = 5, prompt = "ideate_ref", contract = 4, model = "claude-opus-5-5", cost_usd = 1.277, turns = 7, source = "reference", refs = ["CLAUDE.md の開発ループ 2026-11-14 の節（何十日も続く信号の植え込み）", "docs/specs/experiments/horizon-roles-trader.md §9-3", "config/ideas/20261114-persist-signal-power.toml の題", "rules.md 25-1 の 2（fwd_columns）"] }
+question = "2026-11-14 の植え込みでは、own × Ridge ＋ 較正は続く局面を拾わず、局面をそのまま買い% にした場合だけ拾えた。その間にいる読み手（非線形の学習器 LightGBM ／ 先 40 日のラベルで学ぶ H4 先40日ゲート）は、同じ植え込みの強さ k のどこから保留以上を出すか。"
+structure = "`cli.inject_power --kind persist` に読み手を選ぶオプション `--reader`（ridge〔既定 ＝ 11/14 の出力と 1 ビットも同じ〕／ lgbm ／ h4-gate40）を足す。植え込みの形（全銘柄に共通 ／ 銘柄ごと × 期待滞在 20 ／ 60 営業日 × k 0.83 ／ 8.3 bp/日・シード 5）は 11/14 のものをそのまま使い、水準を足したり変えたりしない。測るのは 保留以上の割合・買い% と局面の列の相関・持つ日の割合。どれも偽の実行なので n_trials には数えない"
+n_trials_planned = 0
+key_shape = ["own.persist-inject.h4-gate40.ridge.shared"]
+failure_modes = ["LightGBM の列の抽出 0.8 の乱数が植えた列を落とす fold があり、拾えない理由が読み手なのか抽出なのか分けられない", "H4 は先 40 日のラベルで学ぶので、パージが 40 本になって訓練の端が縮み、植えた局面の最後の塊を学べない", "局面が全銘柄に共通の形は断面の情報にならず、買い% が日ごとの定数になって閾値の上下だけで決まる"]
+prediction = "H4 先40日ゲートは銘柄ごとの局面より全銘柄に共通の局面をよく拾い、k 8.3 なら保留以上が数割まで上がる。LightGBM は Ridge と大きくは違わない（相関 0.1 前後）。leak 対照の代わりに完全に読めた場合（oracle）が上の端になり、どの読み手もそれには届かない"
+effort = "小"
+measurable = "測れる: 植えた強さが分かっている偽の実行なので、検出限界とは無関係に保留以上の割合 ／ 相関を直接数えられる（11/14 と同じ道具）"
+touches = "新しいモジュールだけ（cli/inject_power.py に読み手のオプションを足す。既定は不変）"
+status = "共有コード変更"
+frame = "外"
+p_hold = 0.6
+learn_if_null = "3 つの読み手とも k 8.3 で保留 0 なら「続く局面を売買に写せないのは、Ridge だけでなく今の較正 ＋ θ の器を通る読み手全部」と分かる。次は較正の後の買い% をならす（何日かの平均をとる）など、読み手の後ろ側の作りを植え込みで確かめる"
+needed_effect = "単位は bp/日（植え込みの k）。11/14 の oracle の損益分岐 k ≈ 3.4〜5.1 bp/日 と同じ単位。保留以上には k が少なくとも損益分岐を越える必要があり、k 8.3 の水準なら oracle では 100% 届く ＝ 読み手しだいで届く見込みはある。k 0.83 は oracle でも届かない（何が出ても落とすが正しい対照になる）"
+registered_at = "2026-11-21 01:01 PST"
+reference_mode = "当てる"
+notes = "段 1 の出力の key_shape の原文: 数えない（inject_power の偽の実行）: own.persist-inject.lgbm.shared@θ ／ own.persist-inject.h4-gate40.ridge.shared@θ（θ ＝ 50 ／ 55 ／ 60） ／ 段 2: structure は「cli.inject_power --kind persist に読み手を選ぶオプション --reader（ridge〔既定〕／ lgbm ／ h4-gate40）を足す」と決めている。\nしかし cli/inject_power.py は config/devloop.toml の [allowlist] write に入っていない（write は config/ideas/・config/experiment/dev_・config/queue/dev_・ail/ideas/・tests/test_ideas_・dev-loop/・names.toml・catalog_notes.toml だけ）。\n書き換える場所:\n ① main() の argparse（281〜288 行）に --reader を足す\n ② curve_persist()（172 行〜）が受ける引数に reader を足す\n ③ 読み手は pp.one(tab, feats, exp, edges_dates, th)（136 行と、curve_persist の中の同じ呼び出し）の中で決まっている。exp の methods ／ model を読み手ごとに差し替えて渡すか、pp.one に読み手の引数を足す必要がある。\n    pp.one の側（cli/ の読み手のモジュール）も allowlist の外にある。\n迂回して ail/ideas/i20261121_persist_power_readers.py に CLI を置くと、ail.bootstrap が読むディレクトリに偽の実行のランナーが入る。そうすると structure（「cli.inject_power に足す」）と違う形になる。structure を直すのは新しい id でしかできない（31-1 の 4）。\nほかに、この案は n_trials に数えない偽の実行（n_trials_planned = 0）なので、ステージ 3 の cli.queue に並べる実験 config がそもそも無い。\n既定の ridge で 11/14 の出力と 1 ビットも同じこと（回帰テスト）を確かめたうえで、サンドボックス（ステージ 5・rules.md 31-7）か手動で作るのが筋。\n"
+build_attempts = 1

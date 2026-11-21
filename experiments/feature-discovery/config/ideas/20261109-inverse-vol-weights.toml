@@ -13,9 +13,12 @@ prediction = "対の差（逆ボラ − 等加重）は上げ相場の fold で�
 effort = "小"
 measurable = "測れる: 対の差は同じ合図・同じ日の比較なので日々の雑音が大きく相殺され、銘柄の偏りによる差は数百 bp/fold の大きさで出る（ただし合図の良し悪しとは分けて読む）"
 touches = "共有の経路: ail/validation の simulate（重みの任意の口）・ail/catalog.py と ail/names.py（変種の綴り ~ivw）"
-status = "共有コード変更"
+status = "回した"
 frame = "外"
 p_hold = 0.25
 p_positive = 0.45
 learn_if_null = "差なしなら、この合図の下では量の配り方は成績を左右しない＝上乗せは『どの日に持つか』だけで決まっていると分かる。次は重みを値動きではなく買い% の大きさ（確信度）に比例させる問いに替える。"
+registered_at = "2026-11-21 01:04 PST"
 notes = "段 1 の出力の key_shape の原文: own.ret.ridge.shared~ivw@θ（θ ∈ 50 ／ 55 ／ 60）"
+ran_in = "sandbox"
+sandbox = { branch = "sandbox/20261109-inverse-vol-weights", commit = "a3f3ade", pushed = true, started_at = "2026-11-21 01:04 PST", recorded_at = "2026-11-21 01:10 PST", n_trials = 3, verdicts = "落とす 3", held = false, invalid = false, leak_rows = 3, leak_ok = 3, result = "docs/specs/experiments/dev-loop/sandbox/20261109-inverse-vol-weights.md" }

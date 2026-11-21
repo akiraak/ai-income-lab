@@ -1,0 +1,23 @@
+# ⚠ 開発ループの登録簿（rules.md 31-1）。cli.devloop が書く。status が 登録 より先なら structure ／ prediction ／ n_trials_planned ／ key_shape を直さない（直すなら新しい id）
+id = "20261121-slow-cols-slow-label"
+date = "2026-11-21"
+title = "遅い列だけで遅いラベルを学ぶ（観測期間 60 日以上の列 × 先 40 日ゲート）"
+kind = "モデル"
+origin = { r_pct = 30, n_per_night = 5, prompt = "ideate_ref", contract = 4, model = "claude-opus-5-5", cost_usd = 1.277, turns = 7, source = "reference", refs = ["docs/specs/experiments/horizon-roles-trader.md §6（H5・期間を選ぶゲート）・§8（土台差）・§9-3（基準線の答え合わせ）", "rules.md 25-1 の 2（fwd_columns = own）", "rules.md 25 章の H4 先40日ゲートの登録", "CLAUDE.md の開発ループ 2026-11-14 の節（拾えないのは読み手）"] }
+question = "先 40 日ゲート（H4）に観測期間 1〜20 日の速い列まで見せると、出力スコアが毎日揺れて持つ／休むが細かく入れ替わる。観測期間が 60 日以上の列だけに絞ると、続く局面に沿って長く持つ形になるか。そのとき上乗せと fold の符号はどう変わるか。"
+structure = "列を絞るオプション `[model_args] fwd_columns` に新しい値 `\"slow\"` を足す（観測期間が 60 日以上の own_ 列と own_trend60 ／ own_trend200 だけ。どれを入れるかは列の名前の窓で機械的に決め、結果を見て選ばない。無い config と既存の値 own は 1 ビットも変わらない）。検知器は既存の H4 先40日ゲート（全列・学習）と、ベースレートを引いた版 H4（土台差）の 2 本 × θ 50 ／ 55 ／ 60。表は trade_own_fwdmulti_a を features_from で借りる。対の相手は同じ表・同じ切れ目の fwd_columns = own の H4 の行（すでにある）。leak 対照を並べる"
+n_trials_planned = 6
+key_shape = ["own-slow.h4-gate40.ridge.shared", "own-slow.h4c-gate40.ridge.shared"]
+failure_modes = ["遅い列は fold の中でほとんど動かず、買い% が fold ごとの定数になる（ゲート未通過・買い% の幅 < 20 点）＝ H5 と土台差でも見た型", "持つ日が多くなりすぎて B&H との差が 0 の周りに寄り、上乗せは決着なしになる", "fold 3（2022 年の下げ）だけで降りて平均が正になり、1 fold が作る保留になる"]
+prediction = "取引回数は own の行より大きく減り、保有の中央値は伸びる。上乗せの向きは own の行との対の差で正負半々、|t| < 2。fold は下げの時期の 1 つで差が出て、ほかは 0 の周り。leak は跳ねる（先 40 日のラベルの leak）"
+effort = "小"
+measurable = "測れる: 持つ／休むが長い塊になる形なので、効くなら数百 bp/fold の上乗せか fold の符号のそろいで出る。ただし 11/14 の oracle の損益分岐（k ≈ 3.4〜5.1 bp/日）未満の局面なら届かない"
+touches = "共有の経路: ail/detectors/fwd.py（fwd_columns の値を 1 つ足す。13500t の毎日の予測も通るので、フィンガープリント tests/fixtures/fwd_fingerprint.json で不変を確かめる）"
+status = "共有コード変更"
+frame = "内"
+p_hold = 0.25
+p_positive = 0.45
+learn_if_null = "対の差がなくて持つ日の塊だけ長くなったなら「速い列を外しても、局面に沿った持ち方は上乗せにならない」と分かり、遅い読み手の検出力は植え込み（persist-power-readers の h4 の読み手に slow の列を当てる）のほうで測る。ゲート未通過なら、遅い列は fold の中でほとんど動かず、この表の日足では局面の情報になっていないと分かる"
+needed_effect = "単位は bp/fold。保留以上には対 B&H の上乗せの平均が正であることが要り、素の own の行は B&H に 270〜940 bp/fold 負けているので、それを埋める数百 bp/fold の改善が要る。日に直すと持つ局面と休む局面の差が 7〜10 bp/日（11/14 の oracle の損益分岐）より大きい局面が要り、§2 の実測からは届くかどうか五分より低い見込み"
+reference_mode = "避ける"
+notes = "段 1 の出力の key_shape の原文: own-slow.h4-gate40.ridge.shared@θ ／ own-slow.h4c-gate40.ridge.shared@θ（θ ＝ 50 ／ 55 ／ 60。own.h4-gate40 との違いは入力データの列の絞りだけ）"

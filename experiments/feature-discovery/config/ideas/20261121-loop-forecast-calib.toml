@@ -1,0 +1,23 @@
+# ⚠ 開発ループの登録簿（rules.md 31-1）。cli.devloop が書く。status が 登録 より先なら structure ／ prediction ／ n_trials_planned ／ key_shape を直さない（直すなら新しい id）
+id = "20261121-loop-forecast-calib"
+date = "2026-11-21"
+title = "ループの予想（p_hold ／ p_positive）の較正を毎周数え、契約に戻す"
+kind = "ループ自身"
+origin = { r_pct = 30, n_per_night = 5, prompt = "ideate_free", contract = 4, model = "claude-opus-5-5", cost_usd = 0.699, turns = 1, source = "independent", refs = [] }
+question = "これまでのアイデアに付けた p_hold と p_positive は、実際の結果に対してどれだけ当たっているか（ブライアースコア・較正の図）。当たり方を契約に書き戻すと、次の周の確率の付け方や枠の内 ／ 外の割合が変わるか。"
+structure = "ループの道具に集計を 1 つ足す（cli/devloop の register.md の生成の後）。レジストリで『回した』案のうち p_hold ／ p_positive のあるものについて、結果（保留以上が出たか・対の差の平均が正か）と並べ、ブライアースコア・確率を 0.1 刻みの 5 区分に分けた当たり方・枠の内 ／ 外ごとの当たり方を出す。比較の相手は『いつも過去の保留以上の割合を言う』基準の予想（数えない）。結果は契約の §2 に 1 行で書き戻す（版を上げる）。検証は回さない（n_trials は増えない）。"
+n_trials_planned = 0
+key_shape = ["なし"]
+failure_modes = ["回した案の数が少なく（数十本）、区分ごとの当たり方が 1〜3 本で読めない", "p_hold がほとんど 0.1〜0.3 に集まり、較正の図が 1 点になる", "サンドボックスで回した案はレジストリの [sandbox] にしか結果が無く、集計から漏れる", "契約に書き戻した当たり方を見て、次の周の確率をその数字に合わせるだけになる"]
+prediction = "全体の p_hold は結果より高め（保留以上は実際には少ない）で、基準の予想とのブライアースコアの差は小さい。枠の外の案のほうが p_hold を高く付けがちで、外れも多い。"
+effort = "小"
+measurable = "測れる: 対象は売買のリターンではなくアイデアの数と結果の一致で、§2 の検出限界とは関係しない。ただし本数が少ないうちは区分ごとの数字が粗い"
+touches = "新しいモジュールだけ（ループの道具 cli/devloop の集計。共有の経路の予測・検証のコードは触らない）"
+status = "共有コード変更"
+frame = "内"
+p_hold = 0.0
+learn_if_null = "基準の予想と差が無いなら、確率は過去の割合を言い直しているだけで、案ごとの見立てになっていないと分かる。その場合は確率の項目を 1 つ（p_hold）に減らすか、要る効果の大きさ needed_effect と結果の一致を数える形に替える。"
+needed_effect = "検証を回さないので bp の効果は要らない。区分ごとの当たり方を読むには、回した案が 1 区分あたり 10 本以上（全体で約 50 本以上）要る。いまの本数で届くかはレジストリの数次第で、足りなければ全体のブライアースコアだけを出す。"
+registered_at = "2026-11-21 01:02 PST"
+notes = "段 1 の出力の key_shape の原文: なし（研究の DB の ledger_rows を作らない。ループのログの集計だけ） ／ 段 2: 書き込み先が config/devloop.toml の [allowlist] write の外にある。① 集計は register.md を作った後に足す（structure）＝ cli/devloop.py の register.md を作る関数の後ろに呼び出しを 1 つ足す必要がある。cli/devloop.py は forbid には無いが、write にも入っていない。② 当たり方を契約の §2 に 1 行書き戻して版を上げる ＝ devloop/prompts/contract.md と、版の数（origin.contract）を持つランナー側の書き換えが要る。どちらも write に無い。③ ail/ideas/i<id>.py に置いても、ail.bootstrap は registry に登録するだけ（検知器・層・学習器）なので、register.md を作る流れからは呼ばれない。呼ぶには ① と同じく cli/devloop.py を書き換える。④ 集計の材料には、研究の DB の ledger_rows に行が無いサンドボックスの案（レジストリの [sandbox]）も含める必要がある（failure_modes の 3 つ目）。読み手は cli/devloop.py と cli/sandbox.py の中にある。検証は回さない（n_trials 0）ので共有の予測の経路には触れない。手で作るなら回帰テストは不要で、cli/devloop のテストと契約の版のテストで足りる。"
+build_attempts = 1

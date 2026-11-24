@@ -1,0 +1,26 @@
+# ⚠ 開発ループの登録簿（rules.md 31-1）。cli.devloop が書く。status が 登録 より先なら structure ／ prediction ／ n_trials_planned ／ key_shape を直さない（直すなら新しい id）
+id = "20261124-seq-cluster-analog"
+date = "2026-11-24"
+title = "60 日の値動きの形をラベルなしで分類し、似た形の過去から買い% を作る"
+kind = "モデル"
+origin = { r_pct = 30, n_per_night = 5, prompt = "ideate_free", contract = 4, model = "claude-opus-5-5", cost_usd = 0.676, turns = 1, source = "independent", refs = [] }
+question = "ラベルを使わずに過去 60 日の価格の道筋をいくつかの型に分け、型ごとの訓練期間の翌日リターンの平均を買い% にすると、学習器がラベルに合わせて作る境界とは違う銘柄・日を選ぶか。"
+structure = "新しい検知器: seq_（60 日の道筋を始点で割って正規化）を訓練分割だけで k-means にかける。k は 8 の 1 種類に固定（結果を見て振らない）。型ごとの訓練期間の翌日 log リターンの平均と標準誤差から t 値を作り、訓練分割の中で順位を 0〜100 に写したものを買い%。評価期間の行は最も近い中心の型を引く。θ 50 ／ 55 ／ 60。"
+n_trials_planned = 3
+key_shape = ["seq.kmeans8-analog.none.shared"]
+failure_modes = ["型ごとの平均の差が小さく、買い% が少数の型に張りついて幅がゲートに届かない", "型が「値動きの大きさ」でしか分かれず、荒い銘柄への集中（上位 K の基準線で見た形）になる", "fold ごとに型の中心が入れ替わり、同じ型番号が別の形を指す（型番号で fold をまたいで比べてはいけない）", "評価期間の正規化に評価期間の情報を使う配線の誤り"]
+prediction = "上乗せの平均は B&H に対して負。own × Ridge の素の行との対の差は 0 の周り（|t| < 2）。持つ日の割合は型の平均の符号で決まり、多くの fold でほぼ全部持つか、ほぼ持たないかに偏る。leak は跳ねる。"
+effort = "中"
+measurable = "測れる: 対の差と fold の符号は既存の判定でそのまま出る。ただし日ごとに独立な信号として届くのは数 bp/日 以上のときだけ"
+touches = "新しいモジュールだけ"
+status = "回した"
+frame = "外"
+p_hold = 0.1
+p_positive = 0.35
+learn_if_null = "道筋の型に翌日の向きの情報が無いか、あっても費用と B&H の取り逃しを超えないことが分かる。次は型ごとの翌日の値動きの大きさ（|y|）の差を見て、当てる対象を方向から大きさへ移す。"
+needed_effect = "日ごとに入れ替わる信号として行の IC 約 0.1（s ≈ 20 bp/日）。§2 の本物のリターンでは 8.3 bp/日 でも保留 0% なので、届かない見込みが高い。"
+registered_at = "2026-11-24 01:02 PST"
+notes = "段 1 の出力の key_shape の原文: seq.kmeans8-analog.none.shared@θ"
+runs = ["2026-11-24T01-06-16_dev_seq_cluster_analog"]
+build_attempts = 1
+experiments = ["dev_seq_cluster_analog"]

@@ -1,0 +1,43 @@
+# ⚠ **開発ループのレジストリ `20261124-seq-cluster-analog`（参考なし・枠の外）**（rules.md 31 章・記録 dev-loop.md・事前固定はレジストリ）。
+#    dev_path_cluster（＝ trade_ownseq_ridge_a の写し・own ＋ seq の表・同じ分割点）の写し。違いは検知器だけ: 60 日の道筋を始点で割った比を
+#    訓練分割で k-means（8 個・ラベルを見ない）に分け、型ごとの訓練分割の翌日リターンの t 値を訓練分割の中の順位で 0〜100 にした規則 A1
+#    （較正なし・ail/ideas/i20261124_seq_cluster_analog.py）× θ 3 ＝ 3 検証。基準線の追加なし。
+#    ⚠ model の Ridge は識別項目の綴りのためだけ（A1 は呼ばない ＝ P1 と同じ都合）。レジストリの key_shape の学習器「none」と表の「seq.」は綴りが無いので、
+#    名前は own-seq.kmeans8-analog.ridge.shared@θ になる（P1 の own-seq.path-kmeans8.ridge.shared と同じ読み替え）。
+#    leak 対照は LEAK_ 列を塊の入力に足す（倍率は訓練分割の道筋のブロックと分散の合計が同じになるように）。
+# ⚠ **回すと決めたのは結果を見る前（登録 2026-11-24 01:02 PST）**。
+name = "dev_seq_cluster_analog"
+dataset = "daily"
+horizon = 1
+cost_bp = 5.0
+features_from = "trade_ownseq_ridge_a"   # ⚠ 表は作り直さず trade_ownseq_ridge_a のものを読む（13-8）
+start_date = "2018-01-31"
+
+feature_layers = ["own", "seq"]
+targets = "all"
+
+horizon_min = 1440.0
+bar_minutes = 1440.0
+
+detectors = ["A1 60日の道筋の型ごとの翌日平均のt値の順位（k-means・8個）"]
+k = 60
+
+model = "Ridge"
+baselines = ["常に上（ドリフト）", "直前リターンの符号"]
+[trading]
+style = "threshold"
+thresholds = [50, 55, 60]      # ⚠ 事前固定。結果を見て動かさない（rules.md 13-3）
+form = "shared"                # (A) 銘柄共通 1 本
+
+[validation]
+split = "walk_forward_dates"   # ⚠ fold の分割点は日付で決める（rules.md 13-6 の 1）
+folds = 5
+purge = true
+embargo_bars = 0
+seed = 0
+
+[features]
+ex_lag_days = 1
+ex_zero_fill = ["usgs"]
+ex_transforms = ["d1", "z20"]
+ex_max_stale_days = 7

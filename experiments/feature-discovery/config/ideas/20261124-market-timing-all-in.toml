@@ -1,0 +1,21 @@
+# ⚠ 開発ループの登録簿（rules.md 31-1）。cli.devloop が書く。status が 登録 より先なら structure ／ prediction ／ n_trials_planned ／ key_shape を直さない（直すなら新しい id）
+id = "20261124-market-timing-all-in"
+date = "2026-11-24"
+title = "銘柄を選ばず「全部持つか全部休むか」だけを当てる"
+kind = "モデル"
+origin = { r_pct = 30, n_per_night = 5, prompt = "ideate_free", contract = 4, model = "claude-opus-5-5", cost_usd = 0.676, turns = 1, source = "independent", refs = [] }
+question = "銘柄ごとの翌日の方向ではなく、63 本の等加重のバスケット全体を先 20 日で持つか休むかの 1 つの判断に問いを絞ると、断面の雑音を外したぶん局面の情報が売買に写るか。"
+structure = "新しいラベル: 等加重バスケットの先 20 日の累積 log リターンの符号（日ごとに 1 行・全銘柄で共通）。説明変数は断面の集計（cs_ の日ごとの平均・分散）・ex_・cal_ だけ（own_ は使わない）。学習器は Ridge（ロジスティック）1 種類に固定。出力の買い% を 63 本すべての買い% として既存の閾値売買のシミュレーターに渡す（銘柄間の差は 0）。θ 50 ／ 55 ／ 60。"
+n_trials_planned = 3
+key_shape = ["mkt-agg.basket-fwd20.ridge.shared"]
+failure_modes = ["日ごとに 1 行なので訓練の行が約 63 分の 1 になり、較正が fold ごとにほぼ定数に潰れる（買い% の幅がゲートの 20 点に届かない）", "持つ日の割合が下がり、上げ相場の fold で B&H の取り逃しがそのまま負けになる", "先 20 日のラベルのパージが長く、fold の境目の近くの行が大きく削れる", "leak 対照の未来の列を日ごとの集計に混ぜる配線を間違え、leak が跳ねない"]
+prediction = "上乗せの平均は負。持つ日が減る fold（下げを含む fold）だけ正で、5 fold の符号は割れる（2 正 3 負前後）。leak は大きく跳ねる。"
+effort = "中"
+measurable = "測れる: 全部持つ ／ 全部休むの切り替えは 1 回で数百 bp/fold 動くので、fold の符号と上乗せの大きさは検出限界の上にある"
+touches = "共有の経路: ail/features（日ごとの集計の層）・prep のラベル（新しいラベルのオプション。無い config は 1 ビットも変わらない形で足す）"
+status = "共有コード変更"
+frame = "外"
+p_hold = 0.2
+learn_if_null = "断面の集計と外生の列から先 20 日の相場全体の向きを当てられないなら、局面の情報は日足の集計には無いか、あっても 5 fold では見えない。次は局面を当てるのではなく、局面の長さ（滞在日数）だけを当てる形か、日中の足など別のデータに移る。"
+needed_effect = "持つ局面と休む局面の日次リターンの差で約 7〜10 bp/日（§2 の損益分岐 k ≈ 3.4〜5.1 bp/日）。§2 では完全に読めた場合にだけ届いており、学習器を通した読み手では届かない見込みが高い。"
+notes = "段 1 の出力の key_shape の原文: mkt-agg.basket-fwd20.ridge.shared@θ"

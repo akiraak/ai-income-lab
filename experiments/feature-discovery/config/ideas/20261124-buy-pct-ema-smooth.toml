@@ -1,0 +1,23 @@
+# ⚠ 開発ループの登録簿（rules.md 31-1）。cli.devloop が書く。status が 登録 より先なら structure ／ prediction ／ n_trials_planned ／ key_shape を直さない（直すなら新しい id）
+id = "20261124-buy-pct-ema-smooth"
+date = "2026-11-24"
+title = "買い% を銘柄ごとに指数平滑してから売買基準値に当てる"
+kind = "執行"
+origin = { r_pct = 30, n_per_night = 5, prompt = "ideate_ref", contract = 4, model = "claude-opus-5-5", cost_usd = 1.868, turns = 7, source = "reference", refs = ["docs/specs/experiments/horizon-roles-trader.md §5（往復が取引の約 6 割・取引の回数を良し悪しの指標にしない）", "docs/specs/experiments/horizon-roles-trader.md §9-3", "共通の契約 §2 の検出力の実測（何十日も続く信号・2026-11-14）"] }
+question = "毎日ばらつく買い% を銘柄ごとに時間方向でならしてから θ と比べると、往復の売買が減り、持つ日と休む日が何十日も続く形の合図になるか。そうなったとき、対 B&H の上乗せと fold の符号はどう変わるか。"
+structure = "閾値売買の器に新しいオプション `score_smooth = { kind = \"ema\", halflife = H }` を足す。評価期間の中で、較正した後の買い% を銘柄ごとに指数平滑し（評価期間の初日から始め、その日より前の値だけを使う）、平滑した値を θ と 100 − θ に当てる。学習器・較正・ラベルは変えない。水準の種類は半減期 2 つ（短い ＝ 5 営業日 ／ 長い ＝ 20 営業日。どちらも事前に固定し、結果を見て振らない）× θ 3 つ。当てる相手は素の own × Ridge（2018 年からの 63 本の表）。対の相手は、同じ分割点で平滑しない既存の行。既存の `decide-every-5d`（5 日に 1 回だけ判断する）と `score-trailing-rank`（直近の予測値の中の順位）とは、毎日判断したまま出力スコアを連続にならす点が違う。無い config は 1 ビットも変わらない。"
+n_trials_planned = 6
+key_shape = ["own.<既存の手法>.ridge.shared~ema5", "own.<既存の手法>.ridge.shared~ema20"]
+failure_modes = ["買い% の幅がもともと狭く、平滑すると θ を一度もまたがない（ずっと持つ ／ ずっと休む）＝ 持ち続けると同じ行になる", "平滑の遅れで、下げの初めに降りられず戻りの初めにも乗れない（両方の端で遅れる）", "上乗せが 1 つの fold（下げの時期）だけで決まる", "評価期間の初日に平滑の値が無い日の扱いが leak の配線に入り込む（leak の跳ねが平滑で鈍る）"]
+prediction = "取引の回数は大きく減る（20 日のほうがより減る）。対 B&H の上乗せは平滑なしの行より負けが小さくなる向き（主に費用のぶん）だが 0 を超えない。fold の符号は割れたまま。leak は平滑で鈍るが、それでも跳ねる。"
+effort = "小"
+measurable = "測れる: 平滑しない行との対の差は、費用（毎日入れ替える形で数百 bp/fold）のぶんだけ動きうる大きさで、fold ごとの符号と対の差の t で読める"
+touches = "共有の経路: 閾値売買の器（ail/validation のシミュレーター）と catalog の検証方式の変種・names.toml の [execution] 相当"
+status = "共有コード変更"
+frame = "内"
+p_hold = 0.2
+p_positive = 0.65
+learn_if_null = "取引が減っても上乗せが 0 の周りなら、素の行が負けているのは費用ではなく持つ日と休む日の選び方そのものだと分かる。そうなったら平滑の水準は振らず、読み手（own × Ridge）を替える方向（局面を直接読む列・先 40 日のゲート）に移す。"
+needed_effect = "保留以上には平滑しない行より約 +300〜900 bp/fold の改善が要る（素の行は B&H に 270〜940 bp/fold 負けている）。費用の削減だけで届くのは下の端まで。§2 の続く信号の実測では、この読み手と局面の相関は 0.03〜0.12 しかなく、完全に読めた場合の損益分岐は 3.4〜5.1 bp/日。平滑で上げられるのは読み手の出力の続き具合だけで、相関そのものは上がらないので、届く見込みは低い。"
+reference_mode = "避ける"
+notes = "段 1 の出力の key_shape の原文: own.<既存の手法>.ridge.shared~ema5@θ ／ own.<既存の手法>.ridge.shared~ema20@θ（θ ＝ 50 ／ 55 ／ 60。検証方式の変種 `閾値売買（平滑5日）` ／ `閾値売買（平滑20日）`）"

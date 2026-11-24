@@ -1,0 +1,23 @@
+# ⚠ 開発ループの登録簿（rules.md 31-1）。cli.devloop が書く。status が 登録 より先なら structure ／ prediction ／ n_trials_planned ／ key_shape を直さない（直すなら新しい id）
+id = "20261124-per-reader-power-probe"
+date = "2026-11-24"
+title = "新しい読み手ごとに検出限界を自動で測ってから回す"
+kind = "ループ自身"
+origin = { r_pct = 30, n_per_night = 5, prompt = "ideate_free", contract = 4, model = "claude-opus-5-5", cost_usd = 0.676, turns = 1, source = "independent", refs = [] }
+question = "夜のループで新しい学習器 ／ 検知器を回す前に、強さの分かった信号（日ごとに独立な信号と何十日も続く信号）を本物のリターンに植え込んでその読み手に通すと、その読み手が拾える最小の強さは素の own × Ridge と違うか。"
+structure = "ステージ 3 の前に診断のステップを足す: 新しい読み手（学習器 ／ 検知器の登録名）ごとに、既存の植え込みの仕組みで 2 種類の信号（iid ／ 期待滞在 60 日の局面）× 強さ 3 段（検出限界の 1 ／ 3 ／ 10 倍）× シード 5 を回し、保留以上の割合と買い% と信号の相関をログとレジストリの [power] に書く。結果で回すかどうかは決めない（回す順も変えない）。数えない・ledger_rows に入れない。"
+n_trials_planned = 0
+key_shape = ["数えない"]
+failure_modes = ["重い読み手（GPU・LightGBM の内側選抜）で 30 組 × 5 fold が 1 晩の 3 時間に収まらない", "植え込む列を説明変数に足す形だと、列を全部は読まない検知器（窓固定・配列）には届かず「拾えない」と誤読する", "強さ 3 段では拾える境目が段の間に落ち、素の own × Ridge と区別できない"]
+prediction = "非線形の学習器（LightGBM）は iid の信号では素の Ridge とほぼ同じ境目、続く局面の信号では相関が 0.1 前後から少し上がるが、10 倍でも保留以上は 5 割に届かない。配列の読み手は植え込みの列を読まないので 0%。"
+effort = "中"
+measurable = "測れる: 植え込みの強さは既知なので、保留以上の割合と相関はシードを増やせば確実に出る（検出限界そのものを測る診断）"
+touches = "新しいモジュールだけ（ランナーのステージの追加。共有の経路は読むだけ）"
+status = "共有コード変更"
+frame = "内"
+p_hold = 0.0
+learn_if_null = "どの読み手も素の Ridge と同じ境目なら、検出限界は読み手ではなく費用と B&H の取り逃し（シミュレーターと判定の側）で決まっていると分かり、次は読み手を足すのをやめて、持つ量 ／ 休む日を変える形の検出力を測る。"
+needed_effect = "診断なので判定の効果の大きさは要らない。読み手の違いを見分けるには、10 倍（8.3 bp/日）の植え込みで保留以上の割合が素の Ridge（20% 以下）から 40 ポイント以上動くことが要り、続く局面を完全に読めた場合の 100% との間に入るかで判断できる見込み。"
+registered_at = "2026-11-24 01:02 PST"
+notes = "段 1 の出力の key_shape の原文: 数えない（植え込みの診断・ledger_rows に行なし。レジストリの [power] に読み手の登録名ごとに 1 行） ／ 段 2: この案はランナーに新しいステージ（ステージ 3 の前の植え込みの診断）を足すもので、新しい読み手（検知器・学習器）を足すものではない。\n作るのに要る変更は 4 つあり、どれも allowlist の write（config/ideas/・config/experiment/dev_*・config/queue/dev_*・ail/ideas/・tests/test_ideas_*・dev-loop の記録・names.toml・catalog_notes.toml）の外にある。\n1. cli/devloop.py の night(): ステージ 3（cli.queue）の前に診断のステップを呼ぶ。その晩の queue に入っている新しい読み手の登録名を拾う処理と、1 晩 3 時間の時間の上限の配分も、ここに書かないと作れない。\n2. cli/devloop.py の register まわり: レジストリの TOML に [power] の項目（読み手の登録名ごとに保留以上の割合と相関を 1 行）を書き足す。ログ docs/specs/experiments/dev-loop/log/<日付>.md への出力も、ランナーのログを組むコードにある。\n3. 植え込みの本体 cli/inject_power.py: --experiment で実験 config を替えれば読み手は替えられる。ただし、強さを検出限界の 1 ／ 3 ／ 10 倍の 3 段に絞る引数がない。買い% と植え込んだ信号の相関を返す出力もない。この 2 つを足すには cli/ の既存ファイルを直す必要がある（新しいモジュールを cli/ に置くのも allowlist の外）。\n4. config/devloop.toml: 診断を入れる／入れないのフラグ（例 [power] enabled）と、1 晩あたりの時間の上限を足す。\nail/ideas/ の仕組み（ail.bootstrap が読む ＝ registry に登録するだけ）ではランナーのステージを差し込めない。\n失敗の型の 2 つ目（窓固定・配列の読み手に植え込みの列が届かない）を『拾えない』と読み違えないための判定も、ランナーの側に要る。届くかどうかは rules.md 24-1 の表で決まる。\n"
+build_attempts = 1

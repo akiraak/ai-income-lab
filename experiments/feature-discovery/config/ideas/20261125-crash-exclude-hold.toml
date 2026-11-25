@@ -1,0 +1,22 @@
+# ⚠ 開発ループの登録簿（rules.md 31-1）。cli.devloop が書く。status が 登録 より先なら structure ／ prediction ／ n_trials_planned ／ key_shape を直さない（直すなら新しい id）
+id = "20261125-crash-exclude-hold"
+date = "2026-11-25"
+title = "急落の確率が高い銘柄だけ外し、ほかは持ち続ける"
+kind = "モデル"
+origin = { r_pct = 30, n_per_night = 5, prompt = "ideate_free", contract = 4, model = "claude-opus-5-5", cost_usd = 0.667, turns = 1, source = "independent", refs = [] }
+question = "「翌日に上がるか」ではなく「先 5 日で −5% 以下に落ちるか」を当て、確率が上位の銘柄だけをその日の保有から外す形にすると、持ち続ける形（B&H）との差はどちらの向きに出るか。"
+structure = "ラベルのオプション label = \"crash5\"（y_fwd_5 ≤ log(0.95) を 1）を追加する。シミュレーターのオプション mode = \"exclude\" も追加する。既定は全銘柄を持ち、急落の確率（較正済み）が売買基準値を超えた銘柄だけを売る。戻すのは確率が 100 − 売買基準値を下回ったとき。学習器は own 35 列 × Ridge（ロジスティック）。θ は 50 ／ 55 ／ 60 の 3 水準で、結果を見て足さない。leak 対照は y_fwd_5 を 1 列混ぜた同じ実行。"
+n_trials_planned = 3
+key_shape = ["own.crash5-exclude.logit.shared"]
+failure_modes = ["急落のベースレートが低く（数 %）、較正後の確率がほぼ定数になって誰も外さない（＝ B&H と同じ）", "急落の日は相場全体で同時に来るため、銘柄ごとの順位が付かず、全銘柄を同時に外す日だけになる", "外した翌日の戻りを取り逃し、費用と合わせて B&H を下回る"]
+prediction = "上乗せの平均は 0 の近く（±100bp/fold 以内）。fold の符号は割れる（2〜3 fold が正）。下げの大きい時期を含む fold だけが正になる。leak は大きく跳ねる。"
+effort = "中"
+measurable = "測れる: 持つ日が多い形なので、B&H との差は外した日の分だけになり、数百 bp/fold 級の差なら fold の符号に出る"
+touches = "共有の経路: ail/validation（ラベル）・シミュレーター（exclude のモード）"
+status = "共有コード変更"
+frame = "外"
+p_hold = 0.25
+p_positive = 0.4
+learn_if_null = "差なしなら、own 列からは急落の銘柄の順位が見えないか、外す日の取り逃しが打ち消すかのどちらかになる。外した日の数と、その日の外した銘柄の翌日リターンを分けて記録し、前者なら列（出来高・ボラの急変）を変え、後者なら戻す条件を変える。"
+needed_effect = "外した銘柄の翌 5 日の平均が、外さなかった銘柄より約 −30bp/日（外す日の割合 1 割で約 +300bp/fold）以上低いこと。§2 の続く信号の実測（読み手 own × Ridge は局面を写さない）からは届かない見込みが強い。ただし持つ日を減らさない形の検出力は測っていない。"
+notes = "段 1 の出力の key_shape の原文: own.crash5-exclude.logit.shared@θ"

@@ -1,0 +1,44 @@
+# ⚠ **開発ループのレジストリ `20261125-unsup-regime-cluster`（参考なし・枠の外）**（rules.md 31 章・記録 dev-loop.md・事前固定はレジストリ）。
+#    dev_regime_ridge（＝ trade_own_ridge_a と同じ own_2018 の表・同じ分割点）の写し。違いは検知器だけ: 日ごとの断面の指標 6 本を
+#    訓練分割の日だけで k-means（3 ／ 6 個・ラベルを見ない）に分け、クラスタごとの訓練分割の「先 20 日リターンが正だった割合」× 100 を
+#    そのまま買い% にする規則 RG1（較正なし・学習器なし・全銘柄で同じ値。ail/ideas/i20261125_unsup_regime_cluster.py）× θ 3 ＝ 6 検証。
+#    ⚠ model の Ridge は識別項目の綴りのためだけ（RG1 は呼ばない ＝ A1 ／ P1 と同じ都合）。レジストリの key_shape の入力データ「regime」・学習器「none」は
+#    綴りが無いので、名前は own.kmeans3-fwd20.ridge.shared@θ ／ own.kmeans6-fwd20.ridge.shared@θ になる。
+#    ⚠ structure の「同じ保有日率の乱択（数えない）」は、この経路では基準線の登録が無い ＝ 検証結果一覧の既存の乱択ゲートの列（checks.json の random_gate）で読む。
+#    leak 対照は queue の leak = true（LEAK_ 列の断面平均を 7 本目の指標に足す。⚠ 表の LEAK_ は翌日の値 ＝ structure の y_fwd_20 ではない）。
+# ⚠ **回すと決めたのは結果を見る前（登録 2026-11-25 01:02 PST）**。
+name = "dev_unsup_regime_cluster"
+dataset = "daily"
+horizon = 1
+cost_bp = 5.0
+features_from = "own_2018"     # ⚠ 表は作り直さず own_2018 のものを読む（13-8。trade_own_ridge_a と同じ表）
+
+feature_layers = ["own"]
+targets = "all"
+
+horizon_min = 1440.0
+bar_minutes = 1440.0
+
+detectors = ["RG1 断面の局面のクラスタごとの先20日の上がる割合（k-means・3個）", "RG1 断面の局面のクラスタごとの先20日の上がる割合（k-means・6個）"]
+k = 16
+
+model = "Ridge"
+baselines = ["常に上（ドリフト）", "直前リターンの符号"]
+
+[trading]
+style = "threshold"
+thresholds = [50, 55, 60]      # ⚠ 事前固定。結果を見て動かさない（rules.md 13-3）
+form = "shared"                # (A) 銘柄共通 1 本
+
+[validation]
+split = "walk_forward_dates"   # ⚠ fold の分割点は日付で決める（rules.md 13-6 の 1）
+folds = 5
+purge = true
+embargo_bars = 0
+seed = 0
+
+[features]
+ex_lag_days = 1
+ex_zero_fill = ["usgs"]
+ex_transforms = ["d1", "z20"]
+ex_max_stale_days = 7

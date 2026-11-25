@@ -1,0 +1,25 @@
+# ⚠ 開発ループの登録簿（rules.md 31-1）。cli.devloop が書く。status が 登録 より先なら structure ／ prediction ／ n_trials_planned ／ key_shape を直さない（直すなら新しい id）
+id = "20261125-ernf-fwd20-gate"
+date = "2026-11-25"
+title = "決算の層（銘柄を落とさない版）を先 20 日ゲートで読む"
+kind = "モデル"
+origin = { r_pct = 30, n_per_night = 5, prompt = "ideate_ref", contract = 4, model = "claude-opus-5-5", cost_usd = 1.904, turns = 8, source = "reference", refs = ["docs/specs/experiments/earnings-layer.md §1・§2-3・§3（決算の列は翌日ラベル × Ridge では買い% を動かさない・発表直後のフラグか非線形が次の候補）", "docs/specs/experiments/horizon-roles-trader.md §9-2（先 W 日ゲートとベースレート・保有日率の対照）", "CLAUDE.md の smallcap-stage2b の要約（層 ernf ＝ 銘柄を落とさない版）"] }
+question = "決算の 3 列は翌日 1 日のラベル × Ridge では買い% を動かさなかった。数週間かけて効くと言われる決算の情報を、先 20 日の上がる確率を出すゲートで読んだら、買い% と保有日率は変わるか。"
+structure = "既存の部品を 2 つ組み合わせるだけで、新しいオプションは足さない: 表は own48 ＋ 層 ernf（rules.md 28 章。欠損をフラグにして値を埋める版 ＝ 銘柄も行も own48 と同じ）／ 検知器は H3 先20日ゲート（全列・学習。rules.md 25 章）。比べる相手は同じ表から ernf を抜いた own48 × H3（同じ分割点・同じ fold）。既存の行との違い: ern ／ ernf の行は全部『全部使う × Ridge・翌日ラベル』で、ゲート（先 W 日）の読み手に決算の列を渡した行はまだ無い。θ は 50 ／ 55 ／ 60 の 3 水準だけで、結果を見て足さない。"
+n_trials_planned = 6
+key_shape = ["own-ernf.h3-gate20.ridge.shared"]
+failure_modes = ["ゲートの買い% が先 20 日のベースレートを写すだけになり（H5 の記録と同じ）、fold ごとにほぼ定数になって ernf の有無で差が出ない", "四半期に 1 回しか変わらない列が、学習では会社ごとの水準として使われる（会社を見分けるだけで時期の情報にならない）", "fold 3（2022-05〜2023-10）を両方とも 1 日も持たず、5 fold のうち 1 つが差 0 で決まる", "ernf の埋める値（日数 400・前年同期比 0）が、欠損の多い会社に独自の水準を作る"]
+prediction = "ernf の有無の対の差は 3 対とも |t| < 2 で、向きはどちらとも言えない。保有日率は両方とも 0.9 以上の fold が多い（ゲートの買い% は 50 を超えやすい）。leak は跳ねる。"
+effort = "小"
+measurable = "測れる: 表・銘柄・分割点が同じで違うのは ernf の 3 列 ＋ フラグ 3 列だけなので、fold 対の差で比べられる。持つ日が数割変われば数百 bp/fold の差になり、検出限界に届く"
+touches = "新しいモジュールだけ（config と queue を足すだけ。層 ernf と H3 ゲートは既存の登録名で、共有コードは変えない）"
+status = "登録"
+frame = "内"
+p_hold = 0.3
+p_positive = 0.45
+learn_if_null = "差が無ければ『決算の 3 列には先 20 日の方向の情報も、このゲートが拾える形では入っていない』ところまで言え、決算の線で残るのは発表直後だけを切り出すフラグ（E3 の 3 つ目・未実装）だけになる。差が出たら、同じ組を中位 48 本の表に当てる追試を新しい id で登録する。"
+needed_effect = "保留以上には、ernf の有無の対の差で平均 +300 bp/fold 級（保有日率が 1〜2 割変わる大きさ）が要る。§2 の実測では own × Ridge の読み手は続く局面を拾わず、ゲートの読み手の検出力は測っていないので、届くかどうかは分からない。"
+registered_at = "2026-11-25 01:01 PST"
+reference_mode = "組み合わせる"
+notes = "段 1 の出力の key_shape の原文: own-ernf.h3-gate20.ridge.shared@θ ／ 比べる相手 own.h3-gate20.ridge.shared@θ（表 ern_own48） ／ 段 2 1 回目: テストが落ちた: 1 failed, 114 passed, 42 warnings in 83.55s (0:01:23)"
+build_attempts = 1

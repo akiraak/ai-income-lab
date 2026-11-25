@@ -1,0 +1,21 @@
+# ⚠ 開発ループの登録簿（rules.md 31-1）。cli.devloop が書く。status が 登録 より先なら structure ／ prediction ／ n_trials_planned ／ key_shape を直さない（直すなら新しい id）
+id = "20261125-matched-random-bench"
+date = "2026-11-25"
+title = "判定の横に「同じ保有日率の乱択」との差と分位を毎行に併記する"
+kind = "物差し"
+origin = { r_pct = 30, n_per_night = 5, prompt = "ideate_free", contract = 4, model = "claude-opus-5-5", cost_usd = 0.667, turns = 1, source = "independent", refs = [] }
+question = "対 B&H の上乗せが「選び方」から来ているのか、「持つ日の割合」から来ているのかを、全行で同じ方法で分けて見られるようにする。"
+structure = "検証結果一覧の生成に列を追加する。行ごとに、評価期間の各 fold で保有日率と銘柄ごとの持つ日数を合わせた乱択（シード 50 本・ブロックの長さは平均保有日数）を作り、その行の上乗せの分位と差の平均を出す。判定の式と n_trials は変えず、列を追加するだけ。既存の行には後から当てる（新しい検証は増えない）。"
+n_trials_planned = 0
+key_shape = []
+failure_modes = ["保有日数の並び（ブロック）を合わせると、乱択の分布が狭くなりすぎて分位が 0 ／ 1 に張り付く", "持つ日が 9 割以上の行は乱択との差が費用の差だけになり、列が情報を持たない", "全行に当てる計算時間が 1 晩の予算を超える"]
+prediction = "保留の行のほとんどは、乱択との分位が 0.5〜0.9 に散らばる。「採る」の 1 行は乱択との差が 0 の近く。leak の行は分位 1.0。"
+effort = "中"
+measurable = "測れる: 新しい検証ではなく既存の行の分解なので、検出限界の制約は判定と同じで、列の値はそのまま読める"
+touches = "共有の経路: ail/catalog.py（一覧の列）"
+status = "共有コード変更"
+frame = "内"
+p_hold = 0.0
+learn_if_null = "全行で乱択との差が 0 の近くなら、これまでの保留はほぼ保有日率で説明できることが分かる。その場合は、次の案の needed_effect を対 B&H ではなく対 乱択で書くように契約を変える案を出す。"
+needed_effect = "検証を増やさないので該当しない。列が意味を持つには、乱択の分布の幅（fold あたり数百 bp）より大きい差が要る。§2 の実測の大きさ（数百 bp/fold）と同じ桁なので、上位の行では読める見込み。"
+notes = "段 1 の出力の key_shape の原文: （新しい識別項目なし。既存の行の列 matched_random_q ／ matched_random_diff）"

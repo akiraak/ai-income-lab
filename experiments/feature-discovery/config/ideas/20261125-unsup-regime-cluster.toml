@@ -1,0 +1,25 @@
+# ⚠ 開発ループの登録簿（rules.md 31-1）。cli.devloop が書く。status が 登録 より先なら structure ／ prediction ／ n_trials_planned ／ key_shape を直さない（直すなら新しい id）
+id = "20261125-unsup-regime-cluster"
+date = "2026-11-25"
+title = "ラベルを使わずに局面をクラスタに分け、クラスタごとに持つか休むかを決める"
+kind = "データ"
+origin = { r_pct = 30, n_per_night = 5, prompt = "ideate_free", contract = 4, model = "claude-opus-5-5", cost_usd = 0.667, turns = 1, source = "independent", refs = [] }
+question = "断面の指標（平均相関・断面の分散・ボラの水準など）だけで日をクラスタに分け、訓練分割の各クラスタの先 20 日の平均リターンで持つ ／ 休むを決めると、続く局面の信号を学習器を通さずに売買へ写せるか。"
+structure = "新しい層 regime_ を ail/ideas/ に追加する（日ごとの断面の指標 6 本 → 訓練分割だけで fit した k-means）。クラスタ数は種類として 3 ／ 6 の 2 水準とし、結果を見て選ばない。買い% ＝ そのクラスタの訓練分割での先 20 日リターンが正だった割合 × 100 とし、全銘柄で同じ値になる。θ は 50 ／ 55 ／ 60 で、検証は 2 × 3。基準線は同じ保有日率の乱択（数えない）。leak 対照は y_fwd_20 を指標に 1 本混ぜる。"
+n_trials_planned = 6
+key_shape = ["regime.kmeans<k>-fwd20.none.shared"]
+failure_modes = ["上げ相場の期間が長く、どのクラスタも訓練では先 20 日が正の割合 > 0.5 になり、全期間で持つ（＝ B&H と同じ）", "クラスタが時期そのもの（2020 年・2022 年）を写し、評価期間には訓練に無いクラスタの中心に近い日しか来ない", "休む日が多くなり、取り逃しが 585〜878bp/fold を超えて B&H を下回る"]
+prediction = "k 3 はほぼ毎日持ち、B&H との差は 0 の近く。k 6 は休む日ができ、上乗せの平均は負に寄る。fold の符号は下げの時期を含む 1〜2 fold だけが正。leak は跳ねる。"
+effort = "中"
+measurable = "測れる: 学習器を通さずに局面をそのまま買い% にする形なので、§2 の「局面を完全に読めた場合」と同じ器の性質で、数百 bp/fold の差なら測れる"
+touches = "新しいモジュールだけ"
+status = "回した"
+frame = "外"
+p_hold = 0.2
+learn_if_null = "差なしなら、断面の指標によるクラスタは損益分岐（k ≈ 3.4〜5.1bp/日）に届く局面の差を作らないことが分かる。クラスタごとの評価期間での日次リターンの差を併記し、差が出ているのに売買で負けるなら持つ ／ 休むの規則を、差が無いなら指標を変える。"
+needed_effect = "持つクラスタと休むクラスタの日次リターンの差が約 7〜10bp/日（§2 の損益分岐）以上。完全に読めた場合の実測では k 8.3bp/日 で保留以上 100% なので、クラスタが局面をその精度で写せれば届く。写せる見込みは低い。"
+registered_at = "2026-11-25 01:02 PST"
+notes = "段 1 の出力の key_shape の原文: regime.kmeans<k>-fwd20.none.shared@θ"
+runs = ["2026-11-25T01-10-54_dev_unsup_regime_cluster"]
+build_attempts = 1
+experiments = ["dev_unsup_regime_cluster"]

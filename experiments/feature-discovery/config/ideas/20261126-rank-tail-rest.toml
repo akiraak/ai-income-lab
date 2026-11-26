@@ -1,0 +1,26 @@
+# ⚠ 開発ループの登録簿（rules.md 31-1）。cli.devloop が書く。status が 登録 より先なら structure ／ prediction ／ n_trials_planned ／ key_shape を直さない（直すなら新しい id）
+id = "20261126-rank-tail-rest"
+date = "2026-11-26"
+title = "自分の直近 252 日の予測値の下の端に入ったときだけ休む（休む日の割合を先に固定する読み手）"
+kind = "モデル"
+origin = { r_pct = 30, n_per_night = 5, prompt = "ideate_ref", contract = 4, model = "claude-fable-5-2", cost_usd = 4.403, turns = 10, source = "reference", refs = ["dev-loop.md §13（20261113-score-trailing-rank の結果の表）", "dev-loop.md §15-3・§15-4（半分の日を休む形の損益分岐）", "config/names.toml の [method]（ts-rank252・h3-gate20）"] }
+question = "予測値の時間方向の並びは、真ん中で 2 つに割る形（TR1）では乱択と見分けがつかなかった。下の端（1 割 ／ 2 割）だけを休み、あとは持ち続ける形にすると、休んだ日のリターンは同じ保有日率の乱択の休みより低くなるか。"
+structure = "ail/ideas に検知器を 1 つ足す。元の予測値の種類は 2 つ（素の own × Ridge の翌日の予測値 ／ 先 20 日ゲート H3 の較正前の確率）。銘柄ごとに直近 252 個の中の順位を取り（TR1 と同じ作り方 ＝ 末尾を外して学んだ 1 本で訓練の末尾を当てる）、順位が下から q を割ったら買い% 0、順位が 0.5 を超えるまで 0 のまま、ほかは買い% 100。q の種類は 2 つ（0.1 ／ 0.2）。買い% が 0 か 100 だけなので θ は 50 の 1 水準だけ回す。TR1（ts-rank252）との違い ＝ 休む日の割合を q で先に固定し、戻る線を別に置くこと（TR1 は順位そのものを買い% にして θ で割る ＝ 保有日率 0.5・保有の中央値 1〜2 日）。対照 ＝ 既存の checks の同じ保有日率の乱択ゲート。leak 対照は未来の列を 1 本混ぜた同じ実行。"
+n_trials_planned = 4
+key_shape = ["own.ts-rank252-rest10.ridge.shared", "own.ts-rank252-rest20.ridge.shared", "own.h3-gate20-rank252-rest10.ridge.shared", "own.h3-gate20-rank252-rest20.ridge.shared"]
+failure_modes = ["順位が q の線の近くを行き来し、戻る線 0.5 を置いても往復が増えて費用で消える", "休む日が特定の下げの時期に固まり、1 つの fold だけが平均を作る（切れ目に依る）", "先 20 日ゲートの確率が fold ごとにほぼ定数で、順位が同点だらけになり休む日の割合が q からずれる", "訓練の末尾を当てる 1 本と評価の 1 本で予測値の目盛りが違い、評価期間の頭の順位が歪む"]
+prediction = "保有日率は 0.85〜0.95・取引は TR1 の 1 割以下。上乗せは 4 行とも −50〜−300 bp/fold の負寄りで、fold の符号は割れる。同じ保有日率の乱択ゲートとの差は 4 行とも |t| < 2。leak は跳ねる。"
+effort = "小"
+measurable = "測れる: 休む日が 1〜2 割なら B&H との差は休んだ日のリターンと往復の費用だけで決まり、乱択ゲートとの差を同じ fold で読める。ただし差の大きさは数十〜百数十 bp/fold の級で、検出限界（数百 bp/fold）の下の端にかかる。"
+touches = "新しいモジュールだけ"
+status = "回した"
+frame = "内"
+p_hold = 0.22
+learn_if_null = "乱択ゲートとの差が 4 行とも |t| < 2 なら、予測値の並びは真ん中でも下の端でも情報が見えないと分かり、順位の線を変える案は閉じて、元の予測値を作る側（列 ／ ラベル）を変える案だけを出す。保有日率を 0.9 に上げても上乗せが負のままなら、負けの主因は休む日の多さではなく休む日の選び方だと分かる。"
+needed_effect = "休んだ日の平均リターンが、持った日より約 6〜8 bp/日 低いことが要る（休む日 1 割 ＝ 1 fold 約 36 日ぶんで、乱択の休みが失う約 120〜175 bp/fold と往復の費用 50〜100 bp/fold を埋める大きさ）。§2 の実測では、完全に読めた場合の損益分岐が日次の差で約 7〜10 bp/日、TR1 は乱択との差が t ±0.2 だったので、届かない見込みが大きい。"
+registered_at = "2026-11-26 01:02 PST"
+reference_mode = "避ける"
+notes = "段 1 の出力の key_shape の原文: own.ts-rank252-rest10.ridge.shared@50 ／ own.ts-rank252-rest20.ridge.shared@50 ／ own.h3-gate20-rank252-rest10.ridge.shared@50 ／ own.h3-gate20-rank252-rest20.ridge.shared@50"
+runs = ["2026-11-26T01-16-12_dev_rank_tail_rest"]
+build_attempts = 1
+experiments = ["dev_rank_tail_rest"]

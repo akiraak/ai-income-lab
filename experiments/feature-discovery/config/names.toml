@@ -75,6 +75,10 @@
 "M1 一段目の合図の当たりを当てる二段目（own・学習・土台差）" = "meta-t1"   # 登録簿 20261111-meta-label-filter（2026-11-13・ail/ideas）
 "PR1 同じセクターの相手との開きが縮むかを当てて出遅れを買う（先5日）" = "spread-revert5"   # 登録簿 20261111-sector-pair-revert（2026-11-13・ail/ideas）
 "TR1 自分の直近252日の予測値の中の順位（own・学習）" = "ts-rank252"   # 登録簿 20261113-score-trailing-rank（2026-11-13・ail/ideas）
+"TR2 自分の直近252日の予測値の順位が下の1割で休む（own・学習）" = "ts-rank252-rest10"   # 登録簿 20261126-rank-tail-rest（2026-11-26・ail/ideas）
+"TR2 自分の直近252日の予測値の順位が下の2割で休む（own・学習）" = "ts-rank252-rest20"
+"TR3 先20日の予測値の直近252日の順位が下の1割で休む（own・学習）" = "h3-gate20-rank252-rest10"
+"TR3 先20日の予測値の直近252日の順位が下の2割で休む（own・学習）" = "h3-gate20-rank252-rest20"
 "A1 60日の道筋の型ごとの翌日平均のt値の順位（k-means・8個）" = "kmeans8-analog"   # 登録簿 20261124-seq-cluster-analog（2026-11-24・ail/ideas）
 "RG1 断面の局面のクラスタごとの先20日の上がる割合（k-means・3個）" = "kmeans3-fwd20"   # 登録簿 20261125-unsup-regime-cluster（2026-11-25・ail/ideas）
 "RG1 断面の局面のクラスタごとの先20日の上がる割合（k-means・6個）" = "kmeans6-fwd20"

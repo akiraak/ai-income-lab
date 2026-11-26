@@ -1,0 +1,48 @@
+# ⚠ **開発ループのレジストリ `20261126-rank-tail-rest`（参考あり・枠の内）**（rules.md 31 章・記録 dev-loop.md・事前固定はレジストリ）。
+#    dev_score_trailing_rank（＝ trade_own_ridge_a のコピー・own_2018 の表・同じ分割点）のコピー。違いは検知器と θ だけ:
+#    順位そのものを買い% にする TR1 の代わりに、順位が下の端（1 割 ／ 2 割）に入ったら休み 0.5 を超えるまで休んだままにする
+#    TR2（元 ＝ 翌日の予測値）／ TR3（元 ＝ 先 20 日の較正前の予測値）の 4 本（ail/ideas/i20261126_rank_tail_rest.py）× θ 50 ＝ 4 検証。
+#    買い% が 0 か 100 だけなので θ は 50 の 1 水準（レジストリの structure）。
+#    対照 ＝ 既存の checks の同じ保有日率の乱択ゲート（数えない）。leak 対照は LEAK_ 列を学習器の入力に足す。
+# ⚠ TR3 の先 20 日の対象は、検知器が訓練分割の中の y から作る（表に y_fwd_20 は要らない ＝ own_2018 をそのまま借りる）。
+# ⚠ **回すと決めたのは結果を見る前（登録 2026-11-26 01:02 PST）**。
+name = "dev_rank_tail_rest"
+dataset = "daily"
+horizon = 1
+cost_bp = 5.0
+features_from = "own_2018"     # ⚠ 表は作り直さず own_2018 のものを読む（13-8）
+
+feature_layers = ["own"]
+targets = "all"
+
+horizon_min = 1440.0
+bar_minutes = 1440.0
+
+detectors = [
+  "TR2 自分の直近252日の予測値の順位が下の1割で休む（own・学習）",
+  "TR2 自分の直近252日の予測値の順位が下の2割で休む（own・学習）",
+  "TR3 先20日の予測値の直近252日の順位が下の1割で休む（own・学習）",
+  "TR3 先20日の予測値の直近252日の順位が下の2割で休む（own・学習）",
+]
+k = 16
+
+model = "Ridge"
+baselines = ["常に上（ドリフト）", "直前リターンの符号"]
+
+[trading]
+style = "threshold"
+thresholds = [50]              # ⚠ 事前固定（買い% が 0 か 100 だけ ＝ 1 水準）。結果を見て動かさない（rules.md 13-3）
+form = "shared"                # (A) 銘柄共通 1 本
+
+[validation]
+split = "walk_forward_dates"   # ⚠ fold の分割点は日付で決める（rules.md 13-6 の 1）
+folds = 5
+purge = true
+embargo_bars = 0
+seed = 0
+
+[features]
+ex_lag_days = 1
+ex_zero_fill = ["usgs"]
+ex_transforms = ["d1", "z20"]
+ex_max_stale_days = 7

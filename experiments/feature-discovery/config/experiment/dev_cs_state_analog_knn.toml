@@ -1,0 +1,47 @@
+# ⚠ **開発ループのレジストリ `20261127-cs-state-analog-knn`（参考なし・枠の外）**（rules.md 31 章・記録 dev-loop.md・事前固定はレジストリ）。
+#    dev_unsup_regime_cluster（＝ trade_own_ridge_a と同じ own_2018 の表・同じ分割点）の写し。違いは検知器と基準線 1 本だけ: 日ごとの市場の状態 5 成分
+#    （200 日線より上の割合・20 日リターンの断面のばらつき・60 日ボラの断面平均・60 日リターンの断面平均・60 日高値から 5% 以内の割合）が近い
+#    訓練分割の K 日（K ＝ round(√訓練の日数)・先 20 日が訓練の中で確定している日だけ ＝ パージ 20 本）の「その銘柄の先 20 日が正だった割合」× 100 を
+#    そのまま買い% にする規則 KN1（較正なし・学習器なし。ail/ideas/i20261127_cs_state_analog_knn.py）× θ 3 ＝ 3 検証。
+#    基準線「乱数で取った過去の日の先20日の上がる割合（近傍法の対照）」は数えない（状態を見ずに同じ候補から乱数で K 日・fold ごとに 1 度。
+#    買い% 0 ／ 100 ＝ θ 50 の行と比べる。θ 55 ／ 60 の行の対照は検証結果一覧の乱択ゲートの列 ＝ checks.json の random_gate で読む）。
+#    ⚠ model の Ridge は識別項目の綴りのためだけ（KN1 は呼ばない ＝ RG1 ／ A1 ／ P1 と同じ都合）。レジストリの key_shape の入力データ「cs-state」・学習器「knn」は
+#    綴りが無いので、名前は own.analog-knn-fwd20.ridge.shared@θ になる。
+#    ⚠ 状態は表の own_ret_1 だけから検知器の中で作る（own_2018 に cs_ 列・y_fwd_20 は無い ＝ 先 20 日は訓練分割の y の 20 本の和。表は作り直さない）。
+#    leak 対照は queue の leak = true（LEAK_ 列の断面平均を状態の成分に足す。⚠ 表の LEAK_ は翌日の値 ＝ 先 20 日の値ではないので、跳ね方は小さいかもしれない）。
+# ⚠ **回すと決めたのは結果を見る前（登録 2026-11-27 01:04 PST）**。
+name = "dev_cs_state_analog_knn"
+dataset = "daily"
+horizon = 1
+cost_bp = 5.0
+features_from = "own_2018"     # ⚠ 表は作り直さず own_2018 のものを読む（13-8。trade_own_ridge_a と同じ表）
+
+feature_layers = ["own"]
+targets = "all"
+
+horizon_min = 1440.0
+bar_minutes = 1440.0
+
+detectors = ["KN1 断面の状態が似た過去の日の先20日の上がる割合（近傍法）"]
+k = 16
+
+model = "Ridge"
+baselines = ["常に上（ドリフト）", "直前リターンの符号", "乱数で取った過去の日の先20日の上がる割合（近傍法の対照）"]
+
+[trading]
+style = "threshold"
+thresholds = [50, 55, 60]      # ⚠ 事前固定。結果を見て動かさない（rules.md 13-3）
+form = "shared"                # (A) 銘柄共通 1 本
+
+[validation]
+split = "walk_forward_dates"   # ⚠ fold の分割点は日付で決める（rules.md 13-6 の 1）
+folds = 5
+purge = true
+embargo_bars = 0
+seed = 0
+
+[features]
+ex_lag_days = 1
+ex_zero_fill = ["usgs"]
+ex_transforms = ["d1", "z20"]
+ex_max_stale_days = 7

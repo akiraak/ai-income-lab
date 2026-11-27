@@ -1,0 +1,25 @@
+# ⚠ 開発ループの登録簿（rules.md 31-1）。cli.devloop が書く。status が 登録 より先なら structure ／ prediction ／ n_trials_planned ／ key_shape を直さない（直すなら新しい id）
+id = "20261127-top-rows-midcap-long"
+date = "2026-11-27"
+title = "上位の 2 行（F1-7 ／ F2-2 × 1995 年からの形）を、中位株の 2000 年からの長い表にそのまま当てる"
+kind = "データ"
+origin = { r_pct = 30, n_per_night = 5, prompt = "ideate_ref", contract = 4, model = "claude-fable-5-2", cost_usd = 3.764, turns = 7, source = "reference", refs = ["docs/specs/experiments/dev-loop/register.md（登録済みの題の一覧）", "docs/specs/experiments/feature-discovery/ledger.md §0・§1（識別項目の列）", "docs/specs/experiments/symbol-selection-widen.md（CLAUDE.md の要約経由・本文は未読）", "docs/specs/experiments/fold-cut-shift.md（CLAUDE.md の要約経由・本文は未読）", "experiments/feature-discovery/config/names.toml（[dataset]・[defaults]）"] }
+question = "選ぶステージの上位に居続ける「長い表で学んだ選別 × Ridge」の形は、銘柄の集合を替えても同じ fold の割れ方で出るか（us74 の表に固有の行か）。"
+structure = "新しいオプションは足さない。30 章の追試で作った「中位株 × 2000 年からの長い表」（data-widen・46 本）の own の列に、F1-7 ／ F2-2 × Ridge × shared を θ 50 ／ 55 ／ 60 で当て、同じ表の「全部使う × Ridge」を対の相手に並べる（この表でまだ無ければ新しい識別項目として数える）。fold は 5 つ・費用は既定。既存との違いは識別項目の「集合」と「期間」だけ（30 章が当てたのは銘柄の選抜の規則で、選別 × Ridge の行ではない）。切れ目ずらし・トレーダーの形はこの id では当てない。"
+n_trials_planned = 9
+key_shape = ["own.f1-7.ridge.shared~<中位株の長い表の集合の綴り>", "own.f2-2.ridge.shared~<同>", "own.all.ridge.shared~<同>"]
+failure_modes = ["2000 年より前から在る 46 本だけの表なので生存バイアスで B&H が強く、休む形はどの手法もそろって負ける（手法の差ではなく集合の差を読んでしまう）", "F1-7 ／ F2-2 が選ぶ列が us74 の表と違い、同じ形の追試と言えない（選ばれた列を記録して比べる）", "5 つの fold の分割点が 2008 年の底の近くに来て、切れ目に依る型を再現するだけになる", "表が own の列を持たず cli.build が要る（ランナーのステージ 2 では作れない ＝ 手動）"]
+prediction = "対 B&H の上乗せは fold で割れる（2008 年を含む fold で大きく正・上げが続く fold で負）。平均の符号はどちらもありうる。「全部使う」との対の差は 0 の周り。leak は跳ねる。"
+effort = "中"
+measurable = "測れる: 元の行は fold ごとに数百 bp 級の正負が出る形で、同じ器・同じ判定を別の集合に当てるだけなので、平均の符号と fold の符号の並びが元の行と同じかどうかをそのまま読める。"
+touches = "新しいモジュールだけ（config だけ。⚠ 表に own の列が無ければ cli.build が要る ＝ ランナーのステージ 2 では作れず手動）"
+status = "登録"
+frame = "内"
+p_hold = 0.45
+p_positive = 0.5
+learn_if_null = "保留も出なければ、上位の行は us74 × 1995 年からの表に固有と分かり（切れ目ずらしの「切れ目に依る」と合わせて根拠が 2 つになる）、次は長い表をほかの集合に広げるのをやめて問いを変える側に回す。fold の符号の並びまで元の行と同じなら「長い表で学ぶ遅い出口」は集合を越える形と分かり、次はこの表に切れ目ずらしを新しい id で当てる。"
+needed_effect = "単位は bp/fold。保留以上には対 B&H の上乗せの平均が正 ＝ 下げを避けた fold のぶんが、ほかの fold で休んだ日に取り逃すぶんを上回ることが要る（§2 の 585〜878 bp/fold は us63 × 2018 年からの数字で、この表では別の値になる）。us74 の元の行はこの形で保留に届いているので、2000〜02 年か 2008 年の下げが評価期間に入る fold があれば届く見込みがある。入らない分割なら届かない見込み。"
+registered_at = "2026-11-27 01:01 PST"
+reference_mode = "当てる"
+notes = "段 1 の出力の key_shape の原文: own.f1-7.ridge.shared~<中位株の長い表の集合の綴り>@θ ／ own.f2-2.ridge.shared~<同>@θ ／ own.all.ridge.shared~<同>@θ（集合の綴りは names.toml の [dataset]。無ければ 1 行足す） ／ 段 2 1 回目: 出力に experiments が無い"
+build_attempts = 1

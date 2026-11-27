@@ -1,0 +1,8 @@
+# ⚠ 開発ループ（2026-11-27 ステージ 2）。レジストリ 20261127-cs-state-analog-knn。
+#    回すと決めたのは結果を見る前（registered_at 2026-11-27 01:04 PST）。数: KN1 × θ 50 ／ 55 ／ 60 ＝ 3。基準線 1 本（乱数の K 日）は数えない。表は作り直さない（features_from = own_2018）。
+experiments = ["dev_cs_state_analog_knn"]
+
+leak = true
+ledger = true
+max_failures = 1
+time_budget_s = 1800     # 見積り 約 1 分【推測。学習器なし・近傍法（評価の日 × 候補の日の距離）× 5 fold × 本番 ＋ leak ＝ RG1（dev_20261125）と同じ規模】

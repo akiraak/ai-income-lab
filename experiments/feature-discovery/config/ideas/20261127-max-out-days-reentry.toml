@@ -1,0 +1,23 @@
+# ⚠ 開発ループの登録簿（rules.md 31-1）。cli.devloop が書く。status が 登録 より先なら structure ／ prediction ／ n_trials_planned ／ key_shape を直さない（直すなら新しい id）
+id = "20261127-max-out-days-reentry"
+date = "2026-11-27"
+title = "降りてから d 営業日たったら、合図を待たずに買い戻す（最長不在日数）"
+kind = "検証方式"
+origin = { r_pct = 30, n_per_night = 5, prompt = "ideate_ref", contract = 4, model = "claude-fable-5-2", cost_usd = 3.764, turns = 7, source = "reference", refs = ["docs/specs/experiments/dev-loop/register.md（登録済みの題の一覧）", "docs/specs/experiments/feature-discovery/ledger.md §0", "docs/specs/experiments/downtrend-detection.md §4・§7（見出しだけ読んだ）", "docs/specs/experiments/fold-cut-shift.md（CLAUDE.md の要約経由・本文は未読）", "experiments/feature-discovery/config/names.toml（[execution]・[cut] の変種の綴り）"] }
+question = "上位の行の上乗せを作っている「下げで降りる」を保ったまま、戻りの間も降りたままになる型を、合図ではなく時計で戻る規則で避けられるか。"
+structure = "simulate の任意引数 max_out_days = d を足す（売ってから d 営業日 現金のままなら、買い% を読まずに終値で買い戻す。買い戻した後は、買い% が一度 100 − θ 以上に戻るまで売りの合図を読まない ＝ 翌日に売り直さない）。水準の種類は d ＝ 20 ／ 60 の 2 つに事前固定。当てる行は選ぶステージの上位の F1-7 ／ F2-2 × 1995 年からの表の 2 行で、θ は元の行の 1 水準。対の相手は同じ分割点の元の行。既存との違いは、最短保有 min_hold_days の裏返し（不在の側の上限）で、再進入を学習する係（trough-entry）や待機資産（park-in-basket）とは別のオプション。無い config は 1 ビットも変わらない。"
+n_trials_planned = 4
+key_shape = ["~maxout60"]
+failure_modes = ["強制の買い戻しが下げの途中に当たり、避けていた下げを取り込む（上乗せの源を自分で消す）", "元の行の不在が d より短い回ばかりで、強制の買い戻しが fold に 0〜1 回しか起きず、元の行と同じ数字になる", "再び売れるようになる条件（買い% が 100 − θ 以上に戻る）が下げの間ずっと満たされず、持ち続けるだけになる"]
+prediction = "元の行との対の差は fold で割れる（下げが長く続いた fold で負・V 字で戻った fold で正）。平均は 0 の周りで、d 20 のほうが元の行から大きく動く。対 B&H の上乗せの平均は正のまま残る行がある。leak は跳ねる。"
+effort = "中"
+measurable = "測れる: 元の行は下げを避けた fold が数百 bp/fold 級の上乗せを作っている形なので、不在の長さを頭打ちにした差も同じ級で fold ごとに出る。対の相手が同じ分割点・同じ買い% なので、差は器の規則だけから来る。"
+touches = "共有の経路: ail/validation（simulate の任意引数）・ail/catalog.py（検証方式の変種）・config/names.toml"
+status = "共有コード変更"
+frame = "内"
+p_hold = 0.55
+p_positive = 0.4
+learn_if_null = "対の差が 0 の周りなら、上位の行の不在はもともと d より短く、戻りの取り逃しは「長く降りすぎ」ではなく「降りる日の選び方」から来ると分かる ＝ 次は不在の長さではなく再進入の合図の側に絞る。負にそろえば「長く降りていること自体が上乗せの源」と分かり、時計で戻る形は閉じる。"
+needed_effect = "単位は bp/fold。保留以上には対 B&H の上乗せの平均が正で残ればよく、元の行が保留なら「強制の買い戻しで取り込む下げ」が元の上乗せ（数百 bp/fold 級）を食い切らないことが条件。§2 の「半分の日を休む形は取り逃すぶんを超える必要がある」に対しては、休む日を d で頭打ちにするので要る大きさは下がる向き ＝ 届く見込みはある。「採る」（5 fold とも正）には、割れている fold の負を消すぶん（その fold の負の大きさ ＝ 数百 bp/fold）が要り、こちらは届くか分からない。"
+reference_mode = "避ける"
+notes = "段 1 の出力の key_shape の原文: <1995 年からの表の入力データ>.f1-7.ridge.shared~maxout20@θ ／ ~maxout60@θ ／ 同じ形で f2-2（検証方式の変種 閾値売買（最長不在N日）・綴りは ~trainN と同じく機械的に作る）"

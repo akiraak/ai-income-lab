@@ -13,7 +13,7 @@ prediction = "対 B&H の上乗せは fold で割れる（2008 年を含む fold
 effort = "中"
 measurable = "測れる: 元の行は fold ごとに数百 bp 級の正負が出る形で、同じ器・同じ判定を別の集合に当てるだけなので、平均の符号と fold の符号の並びが元の行と同じかどうかをそのまま読める。"
 touches = "新しいモジュールだけ（config だけ。⚠ 表に own の列が無ければ cli.build が要る ＝ ランナーのステージ 2 では作れず手動）"
-status = "登録"
+status = "失敗"
 frame = "内"
 p_hold = 0.45
 p_positive = 0.5
@@ -21,5 +21,5 @@ learn_if_null = "保留も出なければ、上位の行は us74 × 1995 年か�
 needed_effect = "単位は bp/fold。保留以上には対 B&H の上乗せの平均が正 ＝ 下げを避けた fold のぶんが、ほかの fold で休んだ日に取り逃すぶんを上回ることが要る（§2 の 585〜878 bp/fold は us63 × 2018 年からの数字で、この表では別の値になる）。us74 の元の行はこの形で保留に届いているので、2000〜02 年か 2008 年の下げが評価期間に入る fold があれば届く見込みがある。入らない分割なら届かない見込み。"
 registered_at = "2026-11-27 01:01 PST"
 reference_mode = "当てる"
-notes = "段 1 の出力の key_shape の原文: own.f1-7.ridge.shared~<中位株の長い表の集合の綴り>@θ ／ own.f2-2.ridge.shared~<同>@θ ／ own.all.ridge.shared~<同>@θ（集合の綴りは names.toml の [dataset]。無ければ 1 行足す） ／ 段 2 1 回目: 出力に experiments が無い"
-build_attempts = 1
+notes = "段 1 の出力の key_shape の原文: own.f1-7.ridge.shared~<中位株の長い表の集合の綴り>@θ ／ own.f2-2.ridge.shared~<同>@θ ／ own.all.ridge.shared~<同>@θ（集合の綴りは names.toml の [dataset]。無ければ 1 行足す） ／ 段 2 1 回目: 出力に experiments が無い ／ 段 2 2 回目: 出力に experiments が無い（. Switch to another model, or manage usage credits at https://claude.ai/settings/usage?from=cc_cli_limit_message, to continue.\",\"type\":\"result\",\"duration_ms\":31）"
+build_attempts = 2

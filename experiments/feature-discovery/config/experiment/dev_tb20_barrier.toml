@@ -1,0 +1,52 @@
+# ⚠ 開発ループ（2026-11-28 ステージ 2）レジストリ `20261128-triple-barrier-gate20`（参考あり・枠の内。rules.md 31 章・事前固定は `config/ideas/20261128-triple-barrier-gate20.toml`）。
+#    回すと決めたのは結果を見る前（registered_at 2026-11-28 01:02 PST）。
+#    元 ＝ `trade_own_fwdmulti_a` のコピー。違いは 1 つ: 検知器を「B1 先20日の上下の線に先に当たる側（own・学習）」1 本だけにした
+#    （`ail/ideas/i20261128_triple_barrier_gate20.py`。ラベルが「先 20 日の符号」でなく「パスが先に当たる側」・出口% も同じ検知器が出す）。
+# ⚠ **テーブルは `trade_own_fwdmulti_a` を `features_from` で借りる**（13-8。作り直さない）＝ 対の相手「H3 先20日ゲート（全列・学習）」
+#    （`fwd_columns = "own"`）と同じテーブル・同じ分割点・同じパージ。見る列も同じ own 35 列（`y_fwd_*`・`own_trend*` は見ない）。
+# ⚠ 数（事前固定）: B1 × θ 50 ／ 55 ／ 60 ＝ **3 検証**。線の幅の倍率 a ＝ 1.0・先の期間 20 日は検知器の定数（結果を見て振らない）。
+# ⚠ ゲートは測って記録するが、ゲート未通過でも回す（既定 ＝ 診断。14-10 規約 2）。判定の相手は B&H（13-7）。
+#
+# ⚠ **TOML の平の key はテーブル見出しより上に書く**（rules.md 10 章 規約 1）
+name = "dev_tb20_barrier"
+dataset = "daily"
+horizon = 1                    # ⚠ 損益のラベルは 1 日のまま
+cost_bp = 5.0
+features_from = "trade_own_fwdmulti_a"   # ⚠ テーブルは作り直さない（13-8）
+start_date = "2018-01-31"
+
+feature_layers = ["own", "trend"]   # ⚠ 元のテーブルと同じ（trend は元の実験の損切り係のため。B1 は見ない）
+label_scales = [5, 10, 20, 40]      # ⚠ 元のテーブルと同じ（B1 は y_fwd_* を使わない ＝ ラベルは訓練分割の y から作る）
+targets = "all"
+
+horizon_min = 86400.0          # ⚠ 元のテーブルと同じパージ（60 日 × 1440 分 ＝ 対の相手 H3 と同じ訓練の行。先 20 営業日のラベルも覆う）
+bar_minutes = 1440.0
+
+detectors = [
+  "B1 先20日の上下の線に先に当たる側（own・学習）",   # レジストリ 20261128-triple-barrier-gate20（ail/ideas）
+]
+
+model = "Ridge"
+baselines = ["常に上（ドリフト）", "直前リターンの符号"]
+
+[model_args]
+fwd_columns = "own"            # ⚠ 元の実験と同じ（B1 は自分で同じ絞りをする ＝ own 35 列）
+
+[trading]
+style = "threshold"
+thresholds = [50, 55, 60]      # ⚠ 事前固定。結果を見て動かさない（rules.md 13-3）
+form = "shared"                # (A) 銘柄共通 1 本
+
+[validation]
+split = "walk_forward_dates"   # ⚠ fold の分割点は日付で決める（rules.md 13-6 の 1）
+folds = 5
+purge = true
+embargo_bars = 0
+seed = 0
+
+[features]
+trend_windows = [20]
+ex_lag_days = 1
+ex_zero_fill = ["usgs"]
+ex_transforms = ["d1", "z20"]
+ex_max_stale_days = 7

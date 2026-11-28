@@ -84,6 +84,7 @@
 "RG1 断面の局面のクラスタごとの先20日の上がる割合（k-means・6個）" = "kmeans6-fwd20"
 "KN1 断面の状態が似た過去の日の先20日の上がる割合（近傍法）" = "analog-knn-fwd20"   # レジストリ 20261127-cs-state-analog-knn（2026-11-27・ail/ideas）
 "乱数で取った過去の日の先20日の上がる割合（近傍法の対照）" = "rand-days-fwd20"   # 基準線（数えない）。レジストリ 20261127-cs-state-analog-knn
+"B1 先20日の上下の線に先に当たる側（own・学習）" = "tb20-barrier"   # レジストリ 20261128-triple-barrier-gate20（2026-11-28・ail/ideas）
 "形の塊を乱数で割り当てた割合（8個）" = "rand-path-kmeans8"   # 基準線（数えない）。登録簿 20261107-path-cluster-baserate
 "出来高の集まりを乱数で割り当てた遅れの買い（8個）" = "rand-volspike-cluster8-lag1"   # 基準線（数えない）。登録簿 20261107-volspike-cluster-lag
 "X2 出口だけ 高値20日からσの2倍で降りる" = "x2-exit-ddvol20-2"

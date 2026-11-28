@@ -1,0 +1,24 @@
+# ⚠ 開発ループの登録簿（rules.md 31-1）。cli.devloop が書く。status が 登録 より先なら structure ／ prediction ／ n_trials_planned ／ key_shape を直さない（直すなら新しい id）
+id = "20261128-sec-ftd-layer"
+date = "2026-11-28"
+title = "SEC の受渡し不履行（fails-to-deliver）の層 `ftd_`"
+kind = "データ"
+origin = { r_pct = 30, n_per_night = 5, prompt = "ideate_free", contract = 4, model = "claude-fable-5-2", cost_usd = 1.842, turns = 1, source = "independent", refs = [] }
+question = "銘柄ごとの受渡し不履行の株数（SEC が半月ごとに公開）を出来高で割った列を足すと、own だけの行との対の差は動くか。売りの圧力を表す公開の銘柄別の系列として、翌日の方向の読み手に写るか。"
+structure = "新しい取得元 `sec_ftd`（SEC.gov の公開ファイル・半月ごと・銘柄別・研究用の日足とは別の新しいディレクトリに置く）と層 `ftd`。⚠ SEC の自動アクセスの決まり（User-Agent に連絡先・毎秒 10 回まで）に触れるので、取得は利用者の了承と実行が先。列は 3 種類: 直近の不履行株数 ÷ 20 日平均出来高 ／ その 60 日 z スコア ／ 不履行が続いた日数。as-of はファイルの公開日の翌営業日（決済日ではない）。欠損はフラグの列に変換して埋め、銘柄を落とさない。表は 63 本（ETF にも値がある）。own ＋ ftd × Ridge × θ 3 水準を、同じ分割点の own だけの行と対にする。"
+n_trials_planned = 3
+key_shape = ["own-ftd.all.ridge.shared"]
+failure_modes = ["公開日でなく決済日で結合して先読みになる（leak 対照とは別の漏れ）", "公開の遅れ（2〜4 週間）で列が古く、fold の中でほぼ定数になる", "ETF の不履行は設定・解約のしくみ由来で会社と意味が違い、列が ETF かどうかのフラグになるだけ", "株式分割の前後で株数の目盛りが変わり、段差が信号に見える"]
+prediction = "own だけの行との対の差は 3 対とも |t| < 2 で符号は割れる。買い% の順位相関は own だけの行と 0.95 以上。leak は跳ねる。"
+effort = "中"
+measurable = "測れる: 同じ分割点の対の差と leak の跳ねは読める。ただし列の効果が行ごとに 1 bp/日 級なら、§2 の実測（採る 0%・保留 5% 以下）では差なしと区別できない"
+touches = "新しいモジュールだけ（取得元と層は ail/ideas・データは新しいディレクトリ。取得の実行は利用者）"
+status = "登録"
+frame = "外"
+p_hold = 0.07
+p_positive = 0.45
+learn_if_null = "公開が 2 週間以上遅れる銘柄別の需給の系列は、翌日の方向の読み手には写らないと分かる。次は列を足すのをやめ、同じ系列を「不履行が急増した銘柄を先 20 日は買わない」というモデルなしの規則として当て、売買しない日を選ぶ問いに変える。"
+needed_effect = "単位は bp/日（行ごとの信号）。合成のリターンの実測では 20 bp/日 級（行の IC 約 0.11）で採る 40%・保留 50%、本物のリターンでは 8.3 bp/日 でも保留 0% だった。半月ごと・遅れつきの列がこの大きさに届く見込みは小さい ＝ 届かない見込み。"
+registered_at = "2026-11-28 01:05 PST"
+notes = "段 1 の出力の key_shape の原文: own-ftd.all.ridge.shared@θ ／ 段 2 1 回目: 出力に experiments が無い（s). Switch to another model, or manage usage credits at https://claude.ai/settings/usage?from=cc_cli_limit_message, to continue.\",\"type\":\"result\",\"duration_ms\":）"
+build_attempts = 1

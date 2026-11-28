@@ -1,0 +1,23 @@
+# ⚠ 開発ループの登録簿（rules.md 31-1）。cli.devloop が書く。status が 登録 より先なら structure ／ prediction ／ n_trials_planned ／ key_shape を直さない（直すなら新しい id）
+id = "20261128-timing-vs-exposure"
+date = "2026-11-28"
+title = "上乗せを「持ち高の成分」と「タイミングの成分」に分けて併記する"
+kind = "物差し"
+origin = { r_pct = 30, n_per_night = 5, prompt = "ideate_free", contract = 4, model = "claude-fable-5-2", cost_usd = 1.842, turns = 1, source = "independent", refs = [] }
+question = "対 B&H の上乗せのうち、どれだけが「平均してどれだけ持っていたか」で決まり、どれだけが「いつ持っていたか」で決まっているか。持つ日が少ない形が上げ相場で構造的に負けるぶんを外すと、行の並びと fold の符号は変わるか。"
+structure = "読むだけの後処理の CLI（実行を作らない・判定と `n_trials` は変えない）。fold ごとに平均の持ち高 h（0〜1）を出し、相手を「期初に h の割合だけ買って持ち続ける」に替えた上乗せをタイミングの成分、(h − 1) × B&H を持ち高の成分とする。費用は全部タイミングの成分に入れる。式は回す前に固定。当てる先は 2 種類: ① 検証結果一覧の上位の行と保留の行（本数は先に決める）② 続く局面の植え込み（完全に読めた場合 ／ own × Ridge の読み手）を同じ指標で測り直し、タイミングの成分で見た損益分岐の k を出す。列は診断で、順位・採否・候補の条件には使わない。"
+n_trials_planned = 0
+key_shape = ["新しい識別項目なし"]
+failure_modes = ["行ごとの買い% を残していない古い実行では持ち高を再現できない", "h は評価期間の結果から出るので相手が事後に決まる ＝ 判定に使うと循環になる", "費用の置き方（どちらの成分に入れるか）で符号が変わる"]
+prediction = "素の own × Ridge の行は、負け（−270〜−940 bp/fold）の 6 割以上が持ち高の成分で、タイミングの成分は 0 の周り（|t| < 2）。上位の行のタイミングの成分は上乗せより小さく、正の fold は下げを含む fold のまま。植え込みの損益分岐 k は 3.4〜5.1 bp/日 から 1〜2 bp/日 に下がる。"
+effort = "小"
+measurable = "測れる: 新しい検証はせず、同じ実行の同じ損益を 2 つに分けるだけなので雑音は増えない。植え込みの損益分岐 k が下がるかどうかは数字で読める"
+touches = "新しいモジュールだけ（読むだけの後処理の CLI。シミュレーターは呼ぶだけで書き換えない）"
+status = "共有コード変更"
+frame = "内"
+p_hold = 0.0
+learn_if_null = "タイミングの成分で見ても行の並びと fold の符号が変わらなければ、負けの理由は持つ日の少なさではなく選び方そのものと分かり、持つ量を増やす方向の案を優先する理由が無くなる。変わるなら、ステージ 1 の契約の検出力の節にタイミングの成分での損益分岐を足す。"
+needed_effect = "単位は bp/fold。数える検証が 0 本なので保留以上の行は出ない（p_hold 0）。分解が読めるには持ち高の成分が ±100 bp/fold 以上あることが要り、§2 の「休んだ日に取り逃す 585〜878 bp/fold」から見て届く見込み。"
+registered_at = "2026-11-28 01:05 PST"
+notes = "段 1 の出力の key_shape の原文: 新しい識別項目なし（既存の行に併記の列 timing_bp ／ exposure_bp を足すだけ。予測モデル名は増えない） ／ 段 2: このビルドの allowlist の中では作れません。① 案の本体は読むだけの後処理の CLI（cli/ の新しいモジュール。上乗せを持ち高の成分 (h − 1) × B&H とタイミングの成分に分ける）で、cli/ は [allowlist] write に入っていません。同じ種類の診断（cli/inject_power.py・cli/null_rows.py・cli/perm_split.py）は手動かサンドボックスで cli/ に置いてきました（20261125-signal-lag-curve と同じ扱い）。② ail/ideas/ に置くのも合いません。ail/ideas/i*.py は ail.bootstrap が load_all() で全部 import する場所（bootstrap.py:64）で、毎日の予測を含む全部の実行の起動時に読まれます。この案は検知器・層・学習器ではなく、runs.read_parquet（buy_pct.parquet）とシミュレーターを呼ぶだけの CLI です。③ 当てる先 ② の植え込み（完全に読めた場合 ／ own × Ridge の読み手）を同じ指標で測り直すには、cli/inject_power.py が fold ごとの平均の持ち高 h と B&H を出すように書き足す必要があります（いまは seed 平均の hold_ratio だけ）。これも allowlist の外です。④ ステージ 3（cli.queue）に並べる実験がありません（n_trials_planned = 0・新しい識別項目なし）。診断を流すのはステージ 3 の役目ではなく、ステージ 2 の決まり（回さない・結果を見ない）にも反します。⑤ 検証結果一覧に併記の列 timing_bp ／ exposure_bp を足すなら ail/catalog.py（forbid）に触れます。DB の outputs の diag/ に置くだけなら不要です。⑥ 人が先に決めることが 2 つあります。当てる行の本数（structure の「本数は先に決める」）と、buy_pct.parquet の無い古い実行（2026-11-01 より前）を回し直すかどうかです（回し直すと同じ識別項目の実行が増える）。→ ステージ 5（サンドボックス）か手動で、cli/ の新しいモジュールとそのテストを作ってください。規約上は cli.inject_power ／ cli.null_rows と同じ扱いです（数えない・判定と n_trials は変えない・列は診断）。"
+build_attempts = 1
